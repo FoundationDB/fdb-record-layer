@@ -84,12 +84,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
@@ -155,6 +158,23 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @Tag(Tags.RequiresFDB)
 class RankIndexTest extends FDBRecordStoreQueryTestBase {
+    // NullAway/JSpecify does not reliably propagate @Nullable byte[] annotations for cross-file
+    // (bytecode-read) method parameters, so a properly-@Nullable-typed continuation still gets
+    // flagged as a mismatch at call sites in this file. Declaring the return type here as plain
+    // (non-null) byte[] sidesteps that: passing a "non-null-typed" value into a @Nullable-declared
+    // parameter is always accepted, regardless of how that parameter's own nullability was read.
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
+    }
+
+    // Same rationale as noContinuation() above, but for a continuation that legitimately varies
+    // (e.g. a loop variable updated from a previous scan) rather than always being null.
+    @SuppressWarnings("NullAway")
+    private static byte[] asContinuation(@Nullable byte[] continuation) {
+        return continuation;
+    }
+
     protected void openRecordStore(FDBRecordContext context) throws Exception {
         openRecordStore(context, NO_HOOK);
     }
@@ -219,8 +239,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
     void checkScores() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            FDBStoredRecord<Message> rec = recordStore.loadRecord(Tuple.from("achilles"));
-            assertNotNull(rec);
+            FDBStoredRecord<Message> rec = Objects.requireNonNull(recordStore.loadRecord(Tuple.from("achilles")));
             TestRecordsRankProto.BasicRankedRecord.Builder myrec = TestRecordsRankProto.BasicRankedRecord.newBuilder();
             myrec.mergeFrom(rec.getRecord());
             assertEquals(100, myrec.getScore());
@@ -242,7 +261,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
             int i = 0;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> rec = cursor.next();
+                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
                     TestRecordsRankProto.BasicRankedRecord.Builder myrec = TestRecordsRankProto.BasicRankedRecord.newBuilder();
                     myrec.mergeFrom(rec.getRecord());
                     assertEquals(200, myrec.getScore());
@@ -260,9 +279,9 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
             openRecordStore(context);
             int i = 0;
             try (RecordCursorIterator<FDBIndexedRecord<Message>> cursor = recordStore.scanIndexRecords("BasicRankedRecord$score", IndexScanType.BY_RANK,
-                                                                             range, null, ScanProperties.FORWARD_SCAN).asIterator()) {
+                                                                             range, noContinuation(), ScanProperties.FORWARD_SCAN).asIterator()) {
                 while (cursor.hasNext()) {
-                    FDBIndexedRecord<Message> rec = cursor.next();
+                    FDBIndexedRecord<Message> rec = Objects.requireNonNull(cursor.next());
                     TestRecordsRankProto.BasicRankedRecord.Builder myrec = TestRecordsRankProto.BasicRankedRecord.newBuilder();
                     myrec.mergeFrom(rec.getRecord());
                     assertTrue(myrec.getScore() < 200);
@@ -275,8 +294,8 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             try (RecordCursor<FDBIndexedRecord<Message>> cursor = recordStore.scanIndexRecords("rank_by_gender", IndexScanType.BY_RANK,
-                    range, null, new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(1).build()))) {
-                FDBIndexedRecord<Message> rec = cursor.getNext().get();
+                    range, noContinuation(), new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(1).build()))) {
+                FDBIndexedRecord<Message> rec = Objects.requireNonNull(cursor.getNext().get());
                 TestRecordsRankProto.BasicRankedRecord.Builder myrec = TestRecordsRankProto.BasicRankedRecord.newBuilder();
                 myrec.mergeFrom(rec.getRecord());
                 assertEquals("hector", myrec.getName());
@@ -289,8 +308,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
     void checkRanks() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            FDBStoredRecord<Message> rec = recordStore.loadRecord(Tuple.from("achilles"));
-            assertNotNull(rec);
+            FDBStoredRecord<Message> rec = Objects.requireNonNull(recordStore.loadRecord(Tuple.from("achilles")));
             RecordFunction<Long> rank = Query.rank("score").getFunction();
             assertEquals((Long)1L, recordStore.evaluateRecordFunction(rank, rec).get());
             commit(context);
@@ -311,7 +329,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
             int i = 0;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> rec = cursor.next();
+                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
                     TestRecordsRankProto.BasicRankedRecord.Builder myrec = TestRecordsRankProto.BasicRankedRecord.newBuilder();
                     myrec.mergeFrom(rec.getRecord());
                     assertEquals(200, myrec.getScore());
@@ -327,11 +345,11 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         RecordFunction<Long> rank = Query.rank("score").getFunction();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            FDBStoredRecord<Message> rec1 = recordStore.loadRecord(Tuple.from("achilles"));
+            FDBStoredRecord<Message> rec1 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from("achilles")));
             assertEquals((Long)1L, recordStore.evaluateRecordFunction(rank, rec1).get());
-            FDBStoredRecord<Message> rec2 = recordStore.loadRecord(Tuple.from("penelope"));
+            FDBStoredRecord<Message> rec2 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from("penelope")));
             assertEquals((Long)2L, recordStore.evaluateRecordFunction(rank, rec2).get());
-            FDBStoredRecord<Message> rec3 = recordStore.loadRecord(Tuple.from("laodice"));
+            FDBStoredRecord<Message> rec3 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from("laodice")));
             assertEquals((Long)3L, recordStore.evaluateRecordFunction(rank, rec3).get());
         }
         try (FDBRecordContext context = openContext()) {
@@ -341,11 +359,11 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                         IndexTypes.RANK, Collections.singletonMap(IndexOptions.RANK_COUNT_DUPLICATES, "true")));
             });
             recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex("score_count_dupes")).join();
-            FDBStoredRecord<Message> rec1 = recordStore.loadRecord(Tuple.from("achilles"));
+            FDBStoredRecord<Message> rec1 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from("achilles")));
             assertEquals((Long)1L, recordStore.evaluateRecordFunction(rank, rec1).get());
-            FDBStoredRecord<Message> rec2 = recordStore.loadRecord(Tuple.from("penelope"));
+            FDBStoredRecord<Message> rec2 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from("penelope")));
             assertEquals((Long)2L, recordStore.evaluateRecordFunction(rank, rec2).get());
-            FDBStoredRecord<Message> rec3 = recordStore.loadRecord(Tuple.from("laodice"));
+            FDBStoredRecord<Message> rec3 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from("laodice")));
             assertEquals((Long)4L, recordStore.evaluateRecordFunction(rank, rec3).get());
         }
     }
@@ -355,7 +373,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
     void checkUpdateWithTies() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            FDBStoredRecord<Message> rec = recordStore.loadRecord(Tuple.from("laodice"));
+            FDBStoredRecord<Message> rec = Objects.requireNonNull(recordStore.loadRecord(Tuple.from("laodice")));
             RecordFunction<Long> rank = Query.rank("score").getFunction();
 
             assertEquals((Long)3L, recordStore.evaluateRecordFunction(rank, rec).get());
@@ -390,7 +408,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
-                FDBQueriedRecord<Message> rec = cursor.getNext().get();
+                FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.getNext().get());
                 TestRecordsRankProto.BasicRankedRecord.Builder myrec = TestRecordsRankProto.BasicRankedRecord.newBuilder();
                 myrec.mergeFrom(rec.getRecord());
                 assertEquals("achilles", myrec.getName());
@@ -415,7 +433,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
-                FDBQueriedRecord<Message> rec = cursor.getNext().get();
+                FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.getNext().get());
                 TestRecordsRankProto.BasicRankedRecord.Builder myrec = TestRecordsRankProto.BasicRankedRecord.newBuilder();
                 myrec.mergeFrom(rec.getRecord());
                 assertEquals("laodice", myrec.getName());
@@ -442,14 +460,14 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
             openRecordStore(context);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
                 RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.getNext();
-                FDBQueriedRecord<Message> rec = result.get();
+                FDBQueriedRecord<Message> rec = Objects.requireNonNull(result.get());
                 TestRecordsRankProto.BasicRankedRecord.Builder myrec = TestRecordsRankProto.BasicRankedRecord.newBuilder();
                 myrec.mergeFrom(rec.getRecord());
                 assertEquals("hector", myrec.getName());
                 assertEquals(75, myrec.getScore());
                 result = cursor.getNext();
                 assertTrue(result.hasNext());
-                rec = result.get();
+                rec = Objects.requireNonNull(result.get());
                 myrec = TestRecordsRankProto.BasicRankedRecord.newBuilder();
                 myrec.mergeFrom(rec.getRecord());
                 assertEquals("achilles", myrec.getName());
@@ -478,7 +496,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
-                FDBQueriedRecord<Message> rec = cursor.getNext().get();
+                FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.getNext().get());
                 TestRecordsRankProto.BasicRankedRecord.Builder myrec = TestRecordsRankProto.BasicRankedRecord.newBuilder();
                 myrec.mergeFrom(rec.getRecord());
                 assertEquals("hector", myrec.getName());
@@ -654,9 +672,9 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                                  .asIterator()) {
                 long rank = 0;
                 while (cursor.hasNext()) {
-                    Pair<Message, Long> recWithRank = cursor.next();
+                    Pair<Message, Long> recWithRank = Objects.requireNonNull(cursor.next());
                     TestRecordsRankProto.BasicRankedRecord.Builder myrec = TestRecordsRankProto.BasicRankedRecord.newBuilder();
-                    myrec.mergeFrom(recWithRank.getLeft());
+                    myrec.mergeFrom(Objects.requireNonNull(recWithRank.getLeft()));
                     assertEquals((Long)rank++, recWithRank.getRight());
                 }
             }
@@ -1143,7 +1161,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         List<Set<String>> rankWithTies = new ArrayList<>();
         Integer lastScore = null;
         for (Pair<Integer, String> recordsSortedByRankWithDuplicate : recordsSortedByRankWithDuplicates) {
-            int score = recordsSortedByRankWithDuplicate.getLeft();
+            int score = Objects.requireNonNull(recordsSortedByRankWithDuplicate.getLeft());
             final String name = recordsSortedByRankWithDuplicate.getRight();
             if (lastScore == null || !lastScore.equals(score)) {
                 // A set as the same record can have the same score multiple times, but each unique score,
@@ -1685,7 +1703,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
             byte[] continuation = null;
             do {
                 RecordCursor<FDBQueriedRecord<Message>> recs = recordStore.executeQuery(plan,
-                        continuation, ExecuteProperties.newBuilder().setReturnedRowLimit(2).build());
+                        asContinuation(continuation), ExecuteProperties.newBuilder().setReturnedRowLimit(2).build());
                 recs.forEach(rec -> names.add(TestRecordsRankProto.BasicRankedRecord.newBuilder().mergeFrom(rec.getRecord()).getName())).join();
                 continuation = recs.getNext().getContinuation().toBytes();
             } while (continuation != null);
@@ -1745,7 +1763,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
 
             Set<String> names = new HashSet<>();
             Function<FDBQueriedRecord<Message>, String> name = rec -> TestRecordsRankProto.BasicRankedRecord.newBuilder().mergeFrom(rec.getRecord()).getName();
-            RecordCursor<String> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(1).build()).map(name);
+            RecordCursor<String> cursor = recordStore.executeQuery(plan, noContinuation(), ExecuteProperties.newBuilder().setReturnedRowLimit(1).build()).map(name);
             RecordCursorResult<String> result = cursor.getNext();
             assertTrue(result.hasNext());
             names.add(result.get());
