@@ -47,6 +47,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -63,6 +64,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 @API(API.Status.EXPERIMENTAL)
 public class SyntheticRecordPlannerIndexUpdatesTest extends AbstractSyntheticRecordPlannerTest {
+    // NullAway/JSpecify does not reliably propagate @Nullable byte[] annotations for cross-file
+    // (bytecode-read) method parameters, so a properly-@Nullable-typed continuation still gets
+    // flagged as a mismatch at call sites in this file. Declaring the return type here as plain
+    // (non-null) byte[] sidesteps that: passing a "non-null-typed" value into a @Nullable-declared
+    // parameter is always accepted, regardless of how that parameter's own nullability was read.
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
+    }
+
     private String addJoinedIndexToMetaData() {
         metaDataBuilder.getRecordType("CustomerWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("int_rec_id")));
         metaDataBuilder.getRecordType("OrderWithHeader").setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
@@ -153,7 +164,7 @@ public class SyntheticRecordPlannerIndexUpdatesTest extends AbstractSyntheticRec
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
 
             final Index index1 = recordStore.getRecordMetaData().getIndex(index1Name);
-            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index1, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index1, IndexScanType.BY_VALUE, TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN)) {
                 List<IndexEntry> index2Entries = cursor.asList().join();
                 assertThat(index2Entries, hasSize(2));
 
@@ -169,7 +180,7 @@ public class SyntheticRecordPlannerIndexUpdatesTest extends AbstractSyntheticRec
             }
 
             final Index index2 = recordStore.getRecordMetaData().getIndex(index2Name);
-            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index2, IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index2, IndexScanType.BY_GROUP, TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN)) {
                 List<IndexEntry> index2Entries = cursor.asList().join();
                 assertThat(index2Entries, hasSize(1));
                 IndexEntry entry = index2Entries.get(0);
@@ -231,7 +242,7 @@ public class SyntheticRecordPlannerIndexUpdatesTest extends AbstractSyntheticRec
 
             //now verify that no records exist in that index
             Index joinIndex = recordStore.getRecordMetaData().getIndex("joinNestedConcat");
-            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN)) {
                 Assertions.assertEquals(0, cursor.getCount().get(), "Wrote records to a disabled index!");
             }
         }
@@ -284,10 +295,10 @@ public class SyntheticRecordPlannerIndexUpdatesTest extends AbstractSyntheticRec
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
 
-            try (RecordCursor<IndexEntry> joined1Cursor = recordStore.scanIndex(joined1Index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> joined1Cursor = recordStore.scanIndex(joined1Index, IndexScanType.BY_VALUE, TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN)) {
                 RecordCursorResult<IndexEntry> firstResult = joined1Cursor.getNext();
                 assertTrue(firstResult.hasNext());
-                IndexEntry entry = firstResult.get();
+                IndexEntry entry = Objects.requireNonNull(firstResult.get());
                 assertEquals(joined1Index, entry.getIndex());
                 assertEquals(Tuple.from("foo", 42L, -1L, Tuple.from(1066L), Tuple.from(1415L)), entry.getKey());
                 assertEquals(Tuple.from(), entry.getValue());
@@ -298,7 +309,7 @@ public class SyntheticRecordPlannerIndexUpdatesTest extends AbstractSyntheticRec
             }
 
             recordStore.uncheckedMarkIndexReadable(joined2Index.getName()).join();
-            try (RecordCursor<IndexEntry> joined2Cursor = recordStore.scanIndex(joined2Index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> joined2Cursor = recordStore.scanIndex(joined2Index, IndexScanType.BY_VALUE, TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN)) {
                 RecordCursorResult<IndexEntry> firstResult = joined2Cursor.getNext();
                 assertFalse(firstResult.hasNext());
                 assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, firstResult.getNoNextReason());
@@ -371,7 +382,7 @@ public class SyntheticRecordPlannerIndexUpdatesTest extends AbstractSyntheticRec
             recordStore.uncheckedMarkIndexReadable(indexName).get();
 
             Index joinIndex = recordStore.getRecordMetaData().getIndex(indexName);
-            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN)) {
                 final RecordCursorResult<IndexEntry> result = cursor.getNext();
                 Assertions.assertFalse(result.hasNext(), "Did not return element from index");
             }
@@ -442,7 +453,7 @@ public class SyntheticRecordPlannerIndexUpdatesTest extends AbstractSyntheticRec
             recordStore.uncheckedMarkIndexReadable(indexName).get();
 
             Index joinIndex = recordStore.getRecordMetaData().getIndex(indexName);
-            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN)) {
                 final RecordCursorResult<IndexEntry> result = cursor.getNext();
                 Assertions.assertFalse(result.hasNext(), "Did not return element from index");
             }
@@ -513,10 +524,10 @@ public class SyntheticRecordPlannerIndexUpdatesTest extends AbstractSyntheticRec
             recordStore.markIndexReadable(indexName).get();
 
             Index joinIndex = recordStore.getRecordMetaData().getIndex(indexName);
-            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN)) {
                 final RecordCursorResult<IndexEntry> result = cursor.getNext();
                 Assertions.assertTrue(result.hasNext());
-                Assertions.assertEquals("Bob", result.get().getKey().getString(0));
+                Assertions.assertEquals("Bob", Objects.requireNonNull(result.get()).getKey().getString(0));
             }
         }
     }
@@ -588,7 +599,7 @@ public class SyntheticRecordPlannerIndexUpdatesTest extends AbstractSyntheticRec
             recordStore.markIndexReadable(indexName).get();
 
             Index joinIndex = recordStore.getRecordMetaData().getIndex(indexName);
-            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN)) {
                 Assertions.assertEquals(2, cursor.getCount().get(), "Did not update a writable index");
             }
         }
@@ -633,7 +644,7 @@ public class SyntheticRecordPlannerIndexUpdatesTest extends AbstractSyntheticRec
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
 
             Tuple pk;
-            try (RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<FDBStoredRecord<Message>> cursor = recordStore.scanRecords(TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN)) {
                 final RecordCursorResult<FDBStoredRecord<Message>> next = cursor.getNext();
                 Assertions.assertTrue(next.hasNext(), "Did not find a record in the store!");
                 final FDBStoredRecord<Message> messageFDBStoredRecord = next.get();
@@ -656,7 +667,7 @@ public class SyntheticRecordPlannerIndexUpdatesTest extends AbstractSyntheticRec
             recordStore.markIndexReadable(indexName).get();
 
             Index joinIndex = recordStore.getRecordMetaData().getIndex(indexName);
-            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(joinIndex, IndexScanType.BY_VALUE, TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN)) {
                 Assertions.assertEquals(0, cursor.getCount().get(), "Did not update a writable index");
             }
         }
