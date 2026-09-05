@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DereferenceConstantObjectValueRuleSet;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -63,7 +64,7 @@ public class ValuePredicateSimplificationRule extends QueryPredicateSimplificati
                     if (comparison instanceof Comparisons.ValueComparison) {
                         final var comparisonType = comparison.getType();
                         if (!comparisonType.isUnary()) {
-                            final var simplifiedOperand = ((Comparisons.ValueComparison)comparison).getValue().simplify(call.getEvaluationContext(),
+                            final var simplifiedOperand = Objects.requireNonNull(((Comparisons.ValueComparison)comparison).getValue()).simplify(call.getEvaluationContext(),
                                     call.getEquivalenceMap(), call.getConstantAliases(), DereferenceConstantObjectValueRuleSet.instance());
                             return Optional.of(comparison.withValue(simplifiedOperand));
                         }

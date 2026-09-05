@@ -61,7 +61,7 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
                             final var comparisons = ((PredicateWithComparisons)p).getComparisons();
                             for (final var comparison : comparisons) {
                                 if (comparison instanceof Comparisons.ValueComparison) {
-                                    typesBuilder.addAll(((Comparisons.ValueComparison)comparison).getValue().getDynamicTypes());
+                                    typesBuilder.addAll(Objects.requireNonNull(((Comparisons.ValueComparison)comparison).getValue()).getDynamicTypes());
                                 }
                             }
                         }
