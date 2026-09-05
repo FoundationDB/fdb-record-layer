@@ -111,7 +111,10 @@ class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator()) {
+            // FDBRecordStoreBase#executeQuery's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            try (@SuppressWarnings("NullAway") RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -150,7 +153,10 @@ class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator()) {
+            // FDBRecordStoreBase#executeQuery's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            try (@SuppressWarnings("NullAway") RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -182,7 +188,10 @@ class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator()) {
+            // FDBRecordStoreBase#executeQuery's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            try (@SuppressWarnings("NullAway") RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -220,7 +229,10 @@ class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator()) {
+            // FDBRecordStoreBase#executeQuery's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            try (@SuppressWarnings("NullAway") RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator()) {
                 while (cursor.hasNext()) {
                     cursor.next();
                     i += 1;
@@ -253,7 +265,10 @@ class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator()) {
+            // FDBRecordStoreBase#executeQuery's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            try (@SuppressWarnings("NullAway") RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
