@@ -2141,13 +2141,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             assertTrue(cursor.hasNext());
             RecordIndexUniquenessViolation first = Objects.requireNonNull(cursor.next());
-            assertEquals(Tuple.from(42L), first.getIndexEntry().getKey());
+            assertEquals(Tuple.from(42L), Objects.requireNonNull(first.getIndexEntry()).getKey());
             assertEquals(Tuple.from(1066L), first.getPrimaryKey());
             assertEquals(Tuple.from(1793L), first.getExistingKey());
 
             assertTrue(cursor.hasNext());
             RecordIndexUniquenessViolation second = Objects.requireNonNull(cursor.next());
-            assertEquals(Tuple.from(42L), second.getIndexEntry().getKey());
+            assertEquals(Tuple.from(42L), Objects.requireNonNull(second.getIndexEntry()).getKey());
             assertEquals(Tuple.from(1793L), second.getPrimaryKey());
             assertEquals(Tuple.from(1066L), second.getExistingKey());
 
@@ -2162,13 +2162,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             assertTrue(cursor.hasNext());
             RecordIndexUniquenessViolation first = Objects.requireNonNull(cursor.next());
-            assertEquals(Tuple.from(42L), first.getIndexEntry().getKey());
+            assertEquals(Tuple.from(42L), Objects.requireNonNull(first.getIndexEntry()).getKey());
             assertEquals(Tuple.from(1066L), first.getPrimaryKey());
             assertEquals(Tuple.from(1793L), first.getExistingKey());
 
             assertTrue(cursor.hasNext());
             RecordIndexUniquenessViolation second = Objects.requireNonNull(cursor.next());
-            assertEquals(Tuple.from(42L), second.getIndexEntry().getKey());
+            assertEquals(Tuple.from(42L), Objects.requireNonNull(second.getIndexEntry()).getKey());
             assertEquals(Tuple.from(1793L), second.getPrimaryKey());
             assertEquals(Tuple.from(1066L), second.getExistingKey());
 
@@ -2255,19 +2255,19 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             assertTrue(cursor.hasNext());
             RecordIndexUniquenessViolation next = Objects.requireNonNull(cursor.next());
-            assertEquals(Tuple.from(3L), next.getIndexEntry().getKey());
+            assertEquals(Tuple.from(3L), Objects.requireNonNull(next.getIndexEntry()).getKey());
             assertEquals(Tuple.from(1066L), next.getPrimaryKey());
             assertThat(next.getExistingKey(), is(oneOf(Tuple.from(1793L), Tuple.from(1849L))));
 
             assertTrue(cursor.hasNext());
             next = Objects.requireNonNull(cursor.next());
-            assertEquals(Tuple.from(3L), next.getIndexEntry().getKey());
+            assertEquals(Tuple.from(3L), Objects.requireNonNull(next.getIndexEntry()).getKey());
             assertEquals(Tuple.from(1793L), next.getPrimaryKey());
             assertThat(next.getExistingKey(), is(oneOf(Tuple.from(1066L), Tuple.from(1849L))));
 
             assertTrue(cursor.hasNext());
             next = Objects.requireNonNull(cursor.next());
-            assertEquals(Tuple.from(3L), next.getIndexEntry().getKey());
+            assertEquals(Tuple.from(3L), Objects.requireNonNull(next.getIndexEntry()).getKey());
             assertEquals(Tuple.from(1849L), next.getPrimaryKey());
             assertThat(next.getExistingKey(), is(oneOf(Tuple.from(1066L), Tuple.from(1793L))));
 
@@ -2277,13 +2277,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             assertTrue(cursor.hasNext());
             next = Objects.requireNonNull(cursor.next());
-            assertEquals(Tuple.from(2L), next.getIndexEntry().getKey());
+            assertEquals(Tuple.from(2L), Objects.requireNonNull(next.getIndexEntry()).getKey());
             assertEquals(Tuple.from(1066L), next.getPrimaryKey());
             assertEquals(Tuple.from(1793L), next.getExistingKey());
 
             assertTrue(cursor.hasNext());
             next = Objects.requireNonNull(cursor.next());
-            assertEquals(Tuple.from(2L), next.getIndexEntry().getKey());
+            assertEquals(Tuple.from(2L), Objects.requireNonNull(next.getIndexEntry()).getKey());
             assertEquals(Tuple.from(1793L), next.getPrimaryKey());
             assertEquals(Tuple.from(1066L), next.getExistingKey());
 
@@ -2576,6 +2576,9 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call site below.
+    @SuppressWarnings("NullAway")
     public void testChangeIndexDefinitionNotReadable() throws Exception {
         try (FDBRecordContext context = openContext()) {
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
