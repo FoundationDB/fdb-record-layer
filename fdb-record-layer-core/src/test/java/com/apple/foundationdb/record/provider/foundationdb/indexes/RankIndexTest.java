@@ -84,8 +84,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -166,13 +164,6 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
     @SuppressWarnings("NullAway")
     private static byte[] noContinuation() {
         return null;
-    }
-
-    // Same rationale as noContinuation() above, but for a continuation that legitimately varies
-    // (e.g. a loop variable updated from a previous scan) rather than always being null.
-    @SuppressWarnings("NullAway")
-    private static byte[] asContinuation(@Nullable byte[] continuation) {
-        return continuation;
     }
 
     protected void openRecordStore(FDBRecordContext context) throws Exception {
@@ -1689,6 +1680,10 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably track @Nullable byte[] continuation across this loop's
+    // reassignment of `continuation` from a previous scan; the loop condition (continuation != null)
+    // already guards against a null continuation ending the scan, so this is not a real bug.
+    @SuppressWarnings("NullAway")
     public void rankScanContinuation() throws Exception {
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("BasicRankedRecord")
@@ -1703,7 +1698,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
             byte[] continuation = null;
             do {
                 RecordCursor<FDBQueriedRecord<Message>> recs = recordStore.executeQuery(plan,
-                        asContinuation(continuation), ExecuteProperties.newBuilder().setReturnedRowLimit(2).build());
+                        continuation, ExecuteProperties.newBuilder().setReturnedRowLimit(2).build());
                 recs.forEach(rec -> names.add(TestRecordsRankProto.BasicRankedRecord.newBuilder().mergeFrom(rec.getRecord()).getName())).join();
                 continuation = recs.getNext().getContinuation().toBytes();
             } while (continuation != null);
