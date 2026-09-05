@@ -39,6 +39,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class DedupCursorTest {
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     void uniqueItemsTest() throws ExecutionException, InterruptedException {
         List<Long> items = List.of(1L, 2L, 3L, 4L, 5L, 6L);
         Function<byte[], RecordCursor<Long>> innerFunction = cont -> new ListCursor<>(items, cont);
@@ -48,6 +51,9 @@ public class DedupCursorTest {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     void duplicateItemsTest() throws ExecutionException, InterruptedException {
         List<Long> items = List.of(1L, 1L, 2L, 3L, 4L, 5L, 5L, 5L, 5L, 6L, 8L, 8L, 10L, 10L);
         Function<byte[], RecordCursor<Long>> innerFunction = cont -> new ListCursor<>(items, cont);
@@ -57,6 +63,9 @@ public class DedupCursorTest {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     void outOfOrderItemsTest() throws ExecutionException, InterruptedException {
         List<Long> items = List.of(1L, 1L, 2L, 3L, 4L, 5L, 5L, 7L, 7L, 5L, 5L, 6L, 8L, 8L, 10L, 10L);
         Function<byte[], RecordCursor<Long>> innerFunction = cont -> new ListCursor<>(items, cont);
@@ -68,6 +77,9 @@ public class DedupCursorTest {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     void uniqueContinuationTest() throws ExecutionException, InterruptedException {
         List<Long> items = List.of(1L, 2L, 3L, 4L, 5L, 6L);
         Function<byte[], RecordCursor<Long>> innerFunction = cont -> new ListCursor<>(items, cont).limitRowsTo(4);
@@ -91,6 +103,9 @@ public class DedupCursorTest {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     void duplicateContinuationTest() throws ExecutionException, InterruptedException {
         List<Long> items = List.of(1L, 1L, 2L, 3L, 4L, 5L, 5L, 5L, 5L, 6L, 8L, 8L, 10L, 10L);
         Function<byte[], RecordCursor<Long>> innerFunction = cont -> new ListCursor<>(items, cont).limitRowsTo(4);
@@ -126,6 +141,9 @@ public class DedupCursorTest {
      * Simulate out-of-bounds mid-way using a FakeOutOfBoundCursor.
      */
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     void continuationsWithOutOfBandTest() throws Exception {
         List<Long> items = List.of(1L, 1L, 1L, 1L, 2L, 3L, 4L, 5L, 5L, 5L, 5L, 6L, 8L, 8L, 10L);
         Function<byte[], RecordCursor<Long>> innerFunction = cont ->
