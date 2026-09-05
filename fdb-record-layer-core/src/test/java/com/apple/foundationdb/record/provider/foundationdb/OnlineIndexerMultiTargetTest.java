@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -257,7 +258,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer).build()) {
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("A target index state doesn't match the primary index state"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("A target index state doesn't match the primary index state"));
         }
 
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
@@ -328,7 +329,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 .build()) {
 
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("This index was partly built by another method"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built by another method"));
             assertInstanceOf(IndexingBase.PartlyBuiltException.class, e);
             final IndexBuildProto.IndexBuildIndexingStamp savedStamp = ((IndexingBase.PartlyBuiltException)e).getSavedStamp();
             assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS, savedStamp.getMethod());
@@ -370,7 +371,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 .build()) {
 
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("This index was partly built by another method"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built by another method"));
             assertInstanceOf(IndexingBase.PartlyBuiltException.class, e);
             final IndexBuildProto.IndexBuildIndexingStamp savedStamp = ((IndexingBase.PartlyBuiltException)e).getSavedStamp();
             assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS, savedStamp.getMethod());
@@ -763,7 +764,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                     })
                     .build()) {
                 RecordCoreException ex = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-                assertTrue(ex.getMessage().contains(throwMsg));
+                assertTrue(Objects.requireNonNull(ex.getMessage()).contains(throwMsg));
             }
             assertEquals((i + 1) * 3, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
             assertEquals((i + 1) * 3, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
@@ -860,7 +861,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {
-                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = Objects.requireNonNull(stampMap.get(indexName));
                 assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
                 assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS, stamp.getMethod());
                 assertTrue(stamp.getBlock());
@@ -875,7 +876,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {
-                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = Objects.requireNonNull(stampMap.get(indexName));
                 assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
                 assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS, stamp.getMethod());
                 assertTrue(stamp.getBlock());
@@ -890,7 +891,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 .setLimit(chunkSize)
                 .build()) {
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built, and blocked"));
         }
 
         // 5. continue with unblock
@@ -943,7 +944,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
                 .setLimit(chunkSize)
                 .build()) {
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built, and blocked"));
         }
 
         // 4. sleep
