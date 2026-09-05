@@ -258,8 +258,9 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
 
 
     @Override
-    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even
-                                   // for a null literal passed to a constructor that declares the same array @Nullable.
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even
+    // for a null literal passed to a constructor that declares the same array @Nullable.
+    @SuppressWarnings("NullAway")
     public ResolverResult deserializeValue(byte[] value) {
         Tuple unpacked = contentSubspace.unpack(value);
         return unpacked.size() == 1 ?

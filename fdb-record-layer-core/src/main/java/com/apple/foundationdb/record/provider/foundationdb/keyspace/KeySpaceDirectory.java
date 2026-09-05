@@ -164,8 +164,9 @@ public class KeySpaceDirectory {
      * directory.
      * @param value constant value to validate
      */
-    @SuppressWarnings("NullAway") // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
-                                   // even though log values are commonly null (e.g. this directory's own null constant value).
+    // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
+    // even though log values are commonly null (e.g. this directory's own null constant value).
+    @SuppressWarnings("NullAway")
     protected void validateConstant(@Nullable Object value) {
         if (!keyType.isMatch(value)) {
             throw new RecordCoreArgumentException("Illegal constant value provided for directory",
@@ -186,8 +187,9 @@ public class KeySpaceDirectory {
      * @throws RecordCoreArgumentException if the value is not valid
      */
     @API(API.Status.EXPERIMENTAL)
-    @SuppressWarnings("NullAway") // RecordCoreArgumentException's addLogInfo/varargs are not annotated @Nullable even though
-                                   // log values are commonly null (e.g. an invalid null value provided by a caller).
+    // RecordCoreArgumentException's addLogInfo/varargs are not annotated @Nullable even though
+    // log values are commonly null (e.g. an invalid null value provided by a caller).
+    @SuppressWarnings("NullAway")
     public void validateValue(@Nullable Object value) {
         // Validate that the value is valid for this directory
         if (!isValueValid(value)) {
@@ -340,8 +342,9 @@ public class KeySpaceDirectory {
      * @throws RecordCoreArgumentException if a subdirectory of the same name already exists, or a subdirectory of the
      *   same type already exists with the same constant value
      */
-    @SuppressWarnings("NullAway") // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
-                                   // even though existingSubdir.getValue() can genuinely be null (an unconstrained directory).
+    // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
+    // even though existingSubdir.getValue() can genuinely be null (an unconstrained directory).
+    @SuppressWarnings("NullAway")
     public KeySpaceDirectory addSubdirectory(KeySpaceDirectory subdirectory) {
         for (KeySpaceDirectory existingSubdir : subdirsByName.values()) {
             if (existingSubdir.getName().equals(subdirectory.getName())) {
@@ -590,9 +593,10 @@ public class KeySpaceDirectory {
                 LogMessageKeys.RANGE, range);
     }
 
-    @SuppressWarnings({"PMD.CloseResource", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array (byte[])
-                                                          // parameters of KeyValueCursorBase.Builder#setContinuation (out of
-                                                          // scope to fix here); null intentionally means "start from the beginning".
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+    // parameters of KeyValueCursorBase.Builder#setContinuation (out of
+    // scope to fix here); null intentionally means "start from the beginning".
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"})
     private CompletableFuture<Optional<Tuple>> nextTuple(FDBRecordContext context,
                                                          Subspace subspace,
                                                          KeyRange range,
@@ -672,8 +676,9 @@ public class KeySpaceDirectory {
      * @throws RecordCoreArgumentException if the value provided for this directory is incompatible with the
      *   definition of this directory
      */
-    @SuppressWarnings("NullAway") // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
-                                   // even though value can genuinely be null.
+    // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
+    // even though value can genuinely be null.
+    @SuppressWarnings("NullAway")
     protected CompletableFuture<PathValue> toTupleValueAsyncImpl(FDBRecordContext context, @Nullable Object value) {
         if (this.isConstant() && !areEqual(this.value, value)) {
             throw new RecordCoreArgumentException("Illegal value provided",
@@ -691,8 +696,9 @@ public class KeySpaceDirectory {
      * @throws RecordCoreArgumentException if the value is not suitable for storing in this directory
      */
     @Nullable
-    @SuppressWarnings("NullAway") // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
-                                   // even though value can genuinely be null.
+    // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
+    // even though value can genuinely be null.
+    @SuppressWarnings("NullAway")
     protected Object validateResolvedValue(@Nullable Object value) {
         if (!keyType.isMatch(value)) {
             throw new RecordCoreArgumentException("Illegal value type provided for directory",
@@ -965,9 +971,10 @@ public class KeySpaceDirectory {
             return typeHighBounds;
         }
 
-        @SuppressWarnings("NullAway") // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable;
-                                       // value is guaranteed non-null here because the NULL type's matcher (v -> v == null)
-                                       // would already have matched and returned above if value were null.
+        // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable;
+        // value is guaranteed non-null here because the NULL type's matcher (v -> v == null)
+        // would already have matched and returned above if value were null.
+        @SuppressWarnings("NullAway")
         public static KeyType typeOf(@Nullable Object value) {
             for (KeyType type : values()) {
                 if (type.matcher.apply(value)) {

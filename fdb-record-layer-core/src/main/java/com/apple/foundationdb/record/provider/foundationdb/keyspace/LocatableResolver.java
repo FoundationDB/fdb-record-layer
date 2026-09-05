@@ -581,11 +581,12 @@ public abstract class LocatableResolver {
                         .orElseGet(() -> createIfNotLocked(context, name, hooks)));
     }
 
-    @SuppressWarnings({"squid:S1066", "NullAway"}) // do not collapse if statements with LOGGER statements;
-                                                     // NullAway/JSpecify does not currently track @Nullable on array
-                                                     // (byte[]) parameters reliably across this local variable and the
-                                                     // lambda that captures it, even though create(FDBRecordContext,
-                                                     // String, byte[])'s metadata parameter is @Nullable.
+    // do not collapse if statements with LOGGER statements;
+    // NullAway/JSpecify does not currently track @Nullable on array
+    // (byte[]) parameters reliably across this local variable and the
+    // lambda that captures it, even though create(FDBRecordContext,
+    // String, byte[])'s metadata parameter is @Nullable.
+    @SuppressWarnings({"squid:S1066", "NullAway"})
     private CompletableFuture<ResolverResult> createIfNotLocked(FDBRecordContext context,
                                                                 String key,
                                                                 final ResolverCreateHooks hooks) {
@@ -843,8 +844,9 @@ public abstract class LocatableResolver {
                                                                 String key,
                                                                 @Nullable byte[] metadata);
 
-    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even
-                                   // across a call to another overload that declares the same array @Nullable.
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even
+    // across a call to another overload that declares the same array @Nullable.
+    @SuppressWarnings("NullAway")
     protected final CompletableFuture<ResolverResult> create(FDBRecordContext context,
                                                        String key) {
         return create(context, key, null);
@@ -861,10 +863,11 @@ public abstract class LocatableResolver {
      * @see #reverseLookup(FDBStoreTimer, Long)
      * @see #reverseLookup(FDBRecordContext, Long)
      */
-    @SuppressWarnings({"squid:S1874", "NullAway"}) // old deprecated code used as default implementation until removed;
-                                                    // context.getTimer() is genuinely nullable but readReverse(FDBStoreTimer,
-                                                    // Long)'s timer parameter is not annotated @Nullable (a null timer simply
-                                                    // means "don't instrument", the common convention elsewhere in this codebase).
+    // old deprecated code used as default implementation until removed;
+    // context.getTimer() is genuinely nullable but readReverse(FDBStoreTimer,
+    // Long)'s timer parameter is not annotated @Nullable (a null timer simply
+    // means "don't instrument", the common convention elsewhere in this codebase).
+    @SuppressWarnings({"squid:S1874", "NullAway"})
     protected CompletableFuture<Optional<String>> readReverse(FDBRecordContext context, Long value) {
         return readReverse(context.getTimer(), value);
     }
