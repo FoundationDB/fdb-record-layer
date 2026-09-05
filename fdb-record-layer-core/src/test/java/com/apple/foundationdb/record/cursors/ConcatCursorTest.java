@@ -43,6 +43,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -56,6 +58,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Tests for {@link ConcatCursor}.
  */
 @Tag(Tags.RequiresFDB)
+// NullAway.Init is suppressed here because the "ep" field does not follow the standard JUnit
+// test-fixture lifecycle: it is left unset by setUp() and is instead populated by individual
+// test methods before they use it.
+@SuppressWarnings("NullAway.Init")
 public class ConcatCursorTest {
 
     @RegisterExtension
@@ -123,6 +129,10 @@ public class ConcatCursorTest {
         }
     }
 
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters, whether passed
+    // as a null literal or as the third type argument of TriFunction<..., byte[], ...>.apply();
+    // see ConcatCursor's own constructor-level suppression for the same underlying limitation.
+    @SuppressWarnings("NullAway")
     public void concatListCursorTests(ScanProperties scanProperties) {
 
         //create some list cursors
@@ -221,6 +231,10 @@ public class ConcatCursorTest {
         }
     }
 
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters, whether passed
+    // as a null literal or as the third type argument of TriFunction<..., byte[], ...>.apply();
+    // see ConcatCursor's own constructor-level suppression for the same underlying limitation.
+    @SuppressWarnings("NullAway")
     public void concatRowLimitTest(ScanProperties scanProperties) {
 
         RecordCursor<KeyValue> cc;
@@ -260,6 +274,10 @@ public class ConcatCursorTest {
         }
     }
 
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters, whether passed
+    // as a null literal or as the third type argument of TriFunction<..., byte[], ...>.apply();
+    // see ConcatCursor's own constructor-level suppression for the same underlying limitation.
+    @SuppressWarnings("NullAway")
     public void concatTimeLimitTest(ScanProperties scanProperties, long delay) {
 
         RecordCursor<KeyValue> cc;
@@ -302,9 +320,9 @@ public class ConcatCursorTest {
         Assertions.assertEquals(recordCount, concatCursorSize);
     }
 
-    private TestResult iterateAndCompare(List<?> result, RecordCursor<?> cc, Integer limit) {
+    private TestResult iterateAndCompare(@Nullable List<?> result, RecordCursor<?> cc, Integer limit) {
         Integer i = 0;
-        byte[] next = null;
+        @Nullable byte[] next = null;
         RecordCursorResult<?> nr;
         Boolean hasNext = true;
         Integer count = 0;
@@ -330,14 +348,16 @@ public class ConcatCursorTest {
     }
 
     private class TestResult {
+        @Nullable
         private final byte[] continuation;
         private final Integer count;
 
-        public TestResult(byte[] continuation, Integer count) {
+        public TestResult(@Nullable byte[] continuation, Integer count) {
             this.continuation = continuation;
             this.count = count;
         }
 
+        @Nullable
         private byte[] getContinuation() {
             return this.continuation;
         }
