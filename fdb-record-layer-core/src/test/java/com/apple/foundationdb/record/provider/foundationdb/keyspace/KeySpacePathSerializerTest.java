@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -282,6 +283,10 @@ class KeySpacePathSerializerTest {
         assertNull(deserialized.getPath().getValue());
     }
 
+    // Named.of(String, T) is an unannotated JUnit generic factory; passing null here (paired with the
+    // errorType param below) deliberately represents "no exception expected, success case" and is
+    // never dereferenced.
+    @SuppressWarnings("NullAway")
     static Stream<Arguments> testSerializeDeserializeDifferentRoot() {
         return Stream.of(
                 Arguments.of(Named.of("Same", new KeySpaceDirectory("tenant", KeyType.STRING)
@@ -348,7 +353,7 @@ class KeySpacePathSerializerTest {
         if (errorType == null) {
             DataInKeySpacePath deserializedData = destSerializer.deserialize(serialized);
 
-            assertEquals("dest_app", deserializedData.getPath().getParent().getParent().getDirectoryName());
+            assertEquals("dest_app", Objects.requireNonNull(Objects.requireNonNull(deserializedData.getPath().getParent()).getParent()).getDirectoryName());
             assertEquals("tenant1", deserializedData.getPath().getParent().getValue());
             assertEquals(42L, deserializedData.getPath().getValue());
             assertEquals(ByteString.copyFrom(new byte[] {10, 20, 30}), deserializedData.getValue());
@@ -386,7 +391,7 @@ class KeySpacePathSerializerTest {
         DataInKeySpacePath deserializedData = destSerializer.deserialize(serialized);
 
         // Verify the root value changed but path structure and data preserved
-        assertEquals("staging", deserializedData.getPath().getParent().getParent().getDirectoryName());
+        assertEquals("staging", Objects.requireNonNull(Objects.requireNonNull(deserializedData.getPath().getParent()).getParent()).getDirectoryName());
         assertEquals("stage", deserializedData.getPath().getParent().getParent().getValue());
 
         // The logical path values should be preserved
@@ -414,7 +419,7 @@ class KeySpacePathSerializerTest {
         DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
 
         // Verify the String value was preserved
-        assertEquals("my_tenant", deserialized.getPath().getParent().getValue());
+        assertEquals("my_tenant", Objects.requireNonNull(deserialized.getPath().getParent()).getValue());
         assertEquals("mydata", deserialized.getPath().getValue());
         assertEquals(ByteString.copyFrom(value), deserialized.getValue());
     }
@@ -435,7 +440,7 @@ class KeySpacePathSerializerTest {
         DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
 
         // Verify the constant String value was preserved
-        assertEquals("my_tenant", deserialized.getPath().getParent().getValue());
+        assertEquals("my_tenant", Objects.requireNonNull(deserialized.getPath().getParent()).getValue());
         assertEquals("mydata", deserialized.getPath().getValue());
         assertEquals(ByteString.copyFrom(value), deserialized.getValue());
     }
@@ -460,7 +465,7 @@ class KeySpacePathSerializerTest {
         DataInKeySpacePath data = new DataInKeySpacePath(fullPath, null, value);
         DataInKeySpacePath deserialized = serializeAndDeserialize(rootPath, data);
 
-        assertEquals("my_app", deserialized.getPath().getParent().getParent().getValue());
+        assertEquals("my_app", Objects.requireNonNull(Objects.requireNonNull(deserialized.getPath().getParent()).getParent()).getValue());
         assertEquals("my_tenant", deserialized.getPath().getParent().getValue());
         assertEquals(12345L, deserialized.getPath().getValue());
         assertEquals(ByteString.copyFrom(value), deserialized.getValue());
@@ -493,7 +498,7 @@ class KeySpacePathSerializerTest {
         DataInKeySpacePath deserializedData = destSerializer.deserialize(serialized);
 
         // Verify structure is preserved
-        assertEquals("dest_app", deserializedData.getPath().getParent().getParent().getDirectoryName());
+        assertEquals("dest_app", Objects.requireNonNull(Objects.requireNonNull(deserializedData.getPath().getParent()).getParent()).getDirectoryName());
         assertEquals("tenant1", deserializedData.getPath().getParent().getValue());
         assertEquals(123L, deserializedData.getPath().getValue());
         assertEquals(ByteString.copyFrom(value), deserializedData.getValue());
