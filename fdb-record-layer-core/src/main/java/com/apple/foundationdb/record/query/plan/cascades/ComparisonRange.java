@@ -305,9 +305,10 @@ public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange
     }
 
     @Override
-    @SuppressWarnings("NullAway") // objectsPlanHash's vararg elements safely tolerate null (see PlanHashable#objectPlanHash,
-                                   // which explicitly hashes a null element as 0); equalityComparison/inequalityComparisons
-                                   // are mutually exclusive and one of them is always null for any given range.
+    // objectsPlanHash's vararg elements safely tolerate null (see PlanHashable#objectPlanHash,
+    // which explicitly hashes a null element as 0); equalityComparison/inequalityComparisons
+    // are mutually exclusive and one of them is always null for any given range.
+    @SuppressWarnings("NullAway")
     public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, equalityComparison, inequalityComparisons);
     }

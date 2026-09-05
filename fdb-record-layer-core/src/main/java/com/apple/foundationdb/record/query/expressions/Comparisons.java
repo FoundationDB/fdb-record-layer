@@ -2099,8 +2099,9 @@ public class Comparisons {
         }
 
         @Override
-        @SuppressWarnings("NullAway") // PlanHashable.objectsPlanHash's varargs aren't annotated @Nullable, but each
-                                       // element is hashed via objectPlanHash, which is explicitly null-safe.
+        // PlanHashable.objectsPlanHash's varargs aren't annotated @Nullable, but each
+        // element is hashed via objectPlanHash, which is explicitly null-safe.
+        @SuppressWarnings("NullAway")
         public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
@@ -2584,8 +2585,9 @@ public class Comparisons {
         }
 
         @Override
-        @SuppressWarnings("NullAway") // PlanHashable.objectsPlanHash's varargs aren't annotated @Nullable, but each
-                                       // element is hashed via objectPlanHash, which is explicitly null-safe.
+        // PlanHashable.objectsPlanHash's varargs aren't annotated @Nullable, but each
+        // element is hashed via objectPlanHash, which is explicitly null-safe.
+        @SuppressWarnings("NullAway")
         public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:

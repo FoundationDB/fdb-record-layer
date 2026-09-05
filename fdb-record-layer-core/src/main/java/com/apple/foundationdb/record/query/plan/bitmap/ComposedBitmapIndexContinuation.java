@@ -113,10 +113,11 @@ class ComposedBitmapIndexContinuation extends MergeCursorContinuation<RecordCurs
         return getContinuations().get(i);
     }
 
-    @SuppressWarnings({"PMD.PreserveStackTrace", "NullAway"}) // NullAway doesn't reliably narrow @Nullable byte[]
-                                                               // via the enclosing `bytes == null` check below;
-                                                               // parseFrom/loggable's parameters are genuinely
-                                                               // non-null here.
+    // NullAway doesn't reliably narrow @Nullable byte[]
+    // via the enclosing `bytes == null` check below;
+    // parseFrom/loggable's parameters are genuinely
+    // non-null here.
+    @SuppressWarnings({"PMD.PreserveStackTrace", "NullAway"})
     static ComposedBitmapIndexContinuation from(@Nullable byte[] bytes, int numberOfChildren) {
         if (bytes == null) {
             return new ComposedBitmapIndexContinuation(Collections.nCopies(numberOfChildren, RecordCursorStartContinuation.START), null);
