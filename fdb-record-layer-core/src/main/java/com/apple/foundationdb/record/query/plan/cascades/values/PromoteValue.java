@@ -155,7 +155,7 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             try {
                 return UUID.fromString(value);
             } catch (IllegalArgumentException ex) {
-                throw SemanticException.newException(SemanticException.ErrorCode.INVALID_UUID_VALUE, value);
+                throw new SemanticException(SemanticException.ErrorCode.INVALID_UUID_VALUE, value, ex);
             }
         }
 

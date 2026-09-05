@@ -471,6 +471,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     public CompletableFuture<Void> commitAsync() {
         final long startTimeNanos = System.nanoTime();
+        // tr aliases this context's own transaction (owned/closed elsewhere), not a newly-created resource.
+        @SuppressWarnings("PMD.CloseResource")
         final Transaction tr = ensureActive();
         CompletableFuture<Void> checks = runCommitChecks();
         versionMutationCache.forEach((key, valuePair) ->
