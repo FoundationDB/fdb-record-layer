@@ -291,9 +291,10 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         };
     }
 
-    @SuppressWarnings({"resource", "PMD.CloseResource", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array (byte[])
-                                                                      // parameters of KeyValueCursorBase.Builder#setContinuation (out of scope
-                                                                      // to fix here); passing null intentionally means "start from the beginning".
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+    // parameters of KeyValueCursorBase.Builder#setContinuation (out of scope
+    // to fix here); passing null intentionally means "start from the beginning".
+    @SuppressWarnings({"resource", "PMD.CloseResource", "NullAway"})
     private CompletableFuture<Optional<Tuple>> nextPrefixTuple(final TupleRange prefixRange,
                                                                final int prefixSize,
                                                                @Nullable final Tuple lastPrefixTuple,
