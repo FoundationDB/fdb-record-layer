@@ -79,8 +79,9 @@ public class DedupCursor<T> implements RecordCursor<T> {
      * @param continuation the cursor continuation (null if none)
      */
     @API(API.Status.EXPERIMENTAL)
-    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters/locals, even across explicit null checks;
-                                   // passing a null continuation to innerCursorFactory intentionally means "start from the beginning".
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters/locals, even across explicit null checks;
+    // passing a null continuation to innerCursorFactory intentionally means "start from the beginning".
+    @SuppressWarnings("NullAway")
     public DedupCursor(Function<byte[], RecordCursor<T>> innerCursorFactory,
                        Function<byte[], T> unpackValue,
                        Function<T, byte[]> packValue,

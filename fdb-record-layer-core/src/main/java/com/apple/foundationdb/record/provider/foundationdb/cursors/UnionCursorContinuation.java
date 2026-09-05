@@ -112,8 +112,9 @@ class UnionCursorContinuation extends MergeCursorContinuation<UnionContinuation.
         return new UnionCursorContinuation(cursor.getChildContinuations());
     }
 
-    @SuppressWarnings({"PMD.PreserveStackTrace", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array (byte[])
-                                                               // parameters, even across explicit null checks.
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+    // parameters, even across explicit null checks.
+    @SuppressWarnings({"PMD.PreserveStackTrace", "NullAway"})
     static UnionCursorContinuation from(@Nullable byte[] bytes, int numberOfChildren) {
         if (bytes == null) {
             return new UnionCursorContinuation(Collections.nCopies(numberOfChildren, RecordCursorStartContinuation.START));

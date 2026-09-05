@@ -145,8 +145,9 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
     }
 
     @Override
-    @SuppressWarnings("NullAway") // FDBDatabaseRunner#asyncToSync is declared with a plain <T> (not <T extends @Nullable Object>), so NullAway
-                                   // treats its return as possibly-null even though onNext() guarantees a non-null result here.
+    // FDBDatabaseRunner#asyncToSync is declared with a plain <T> (not <T extends @Nullable Object>), so NullAway
+    // treats its return as possibly-null even though onNext() guarantees a non-null result here.
+    @SuppressWarnings("NullAway")
     public RecordCursorResult<T> getNext() {
         return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onNext());
     }

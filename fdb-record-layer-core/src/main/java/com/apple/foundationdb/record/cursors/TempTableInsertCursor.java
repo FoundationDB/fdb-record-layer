@@ -108,9 +108,10 @@ public class TempTableInsertCursor implements RecordCursor<QueryResult> {
      * @return a new {@link TempTableInsertCursor} that either resumes the execution according to the given continuation,
      *         or starts from the beginning.
      */
-    @SuppressWarnings({"PMD.CloseResource", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters,
-                                                          // even across explicit null checks; a null child continuation intentionally means
-                                                          // "start from the beginning".
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters,
+    // even across explicit null checks; a null child continuation intentionally means
+    // "start from the beginning".
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"})
     public static TempTableInsertCursor from(@Nullable byte[] unparsed,
                                              Function<@Nullable PTempTable, TempTable> tempTableDeserializer,
                                              Function<byte[], RecordCursor<QueryResult>> childCursorCreator) {
