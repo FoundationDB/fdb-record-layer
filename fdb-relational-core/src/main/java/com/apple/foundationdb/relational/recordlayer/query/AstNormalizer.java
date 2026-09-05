@@ -243,14 +243,11 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                     .addLiteral(Type.any(), literal, null, varName, tokenIndex);
         }
         if (allowTokenAddition) {
-            // Fold the variable's CURRENT resolved type into the canonical text, not just its name.
-            // getCanonicalSqlString() is what QueryCacheKey is built from -- if only the name were
-            // hashed here, re-SETting the same variable to an incompatible type between two runs of
-            // identical query text would produce the same cache key and reuse a plan compiled for the
-            // old type. Type.fromObject is the same inference already used for prepared-statement
-            // parameters (see MutablePlanGenerationContext#getObjectType), so this can't diverge from
-            // the type actually bound at planning time; it also naturally distinguishes NULL (no
-            // prior type) from any concretely-typed value.
+            // Fold the variable's CURRENT type into the canonical text, not just its name.
+            // getCanonicalSqlString() is what QueryCacheKey is built from, so hashing only the name
+            // would let re-SETting the variable to an incompatible type between two runs of
+            // identical query text reuse a plan compiled for the old type. This also naturally
+            // distinguishes NULL (no prior type) from any concretely-typed value.
             final var typeTag = Type.fromObject(literal).getTypeCode();
             final String canonicalName = "GET_VARIABLE(" + varName + ":" + typeTag + ")";
             sqlCanonicalizer.append(canonicalName).append(" ");

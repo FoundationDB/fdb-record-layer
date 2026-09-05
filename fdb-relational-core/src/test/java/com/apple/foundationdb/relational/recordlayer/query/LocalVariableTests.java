@@ -40,7 +40,7 @@ import java.util.Base64;
 
 /**
  * Tests for transaction-scoped local variables (SET TRANSACTION VARIABLE / GET_VARIABLE(name)).
- * Interaction with table-valued functions is covered separately, in the stacked PR that adds it.
+ * Interaction with table-valued functions is covered separately, in {@code LocalVariableTemporaryFunctionTests}.
  */
 public class LocalVariableTests {
 
@@ -97,13 +97,11 @@ public class LocalVariableTests {
             final var conn = ddl.setSchemaAndGetConnection();
             conn.setAutoCommit(false);
 
-            // Set variable in first transaction
             try (var stmt = conn.createStatement()) {
                 stmt.execute("set transaction variable x = 42");
             }
             conn.commit();
 
-            // New transaction — variable must not be visible
             conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
@@ -139,7 +137,6 @@ public class LocalVariableTests {
             }
             final var conn = ddl.getConnection();
 
-            // First value
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
                 stmt.execute("set transaction variable v = 100");
@@ -149,7 +146,6 @@ public class LocalVariableTests {
             }
             conn.commit();
 
-            // Second value in a new transaction — same plan should be reused
             conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
@@ -219,14 +215,12 @@ public class LocalVariableTests {
             final var conn = ddl.getConnection();
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
-                // Quoted variable name "myVar" stores the key with case preserved
+                // Quoted variable name preserves case
                 stmt.execute("set transaction variable \"myVar\" = 10");
-                // GET_VARIABLE("myVar") resolves to 'myVar' — same key → found
                 try (var rs = stmt.executeQuery("select pk from t8 where val = GET_VARIABLE(\"myVar\")")) {
                     ResultSetAssert.assertThat(rs).hasNextRow().isRowExactly(1L).hasNoNextRow();
                 }
-                // GET_VARIABLE(myvar) is an unquoted identifier; with caseSensitive=true, it preserves
-                // the literal case from the input ('myvar' != 'myVar') → undefined
+                // Unquoted "myvar" is a different, case-preserved key from quoted "myVar" -> undefined
                 RelationalAssertions.assertThrowsSqlException(
                         () -> stmt.executeQuery("select pk from t8 where val = GET_VARIABLE(myvar)"))
                         .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
@@ -266,7 +260,7 @@ public class LocalVariableTests {
             try (var stmt = conn.createStatement()) {
                 stmt.execute("set transaction variable valfilter = 100");
             }
-            // Mix a local variable (GET_VARIABLE(valfilter)) with a positional prepared parameter (?)
+            // Mix a local variable with a positional prepared parameter
             try (var ps = conn.prepareStatement("select pk from t10 where val = GET_VARIABLE(valfilter) and pk = ?")) {
                 ps.setLong(1, 1L);
                 try (var rs = ps.executeQuery()) {
@@ -308,7 +302,6 @@ public class LocalVariableTests {
             }
             final var conn = ddl.getConnection();
             try (var logAppender = LogAppenderRule.of("LocalVariableTests", PlanGenerator.class, Level.INFO)) {
-                // First execution — cache miss expected
                 conn.setAutoCommit(false);
                 try (var stmt = conn.createStatement()) {
                     stmt.execute("set transaction variable v = 10");
@@ -319,7 +312,6 @@ public class LocalVariableTests {
                 conn.commit();
                 Assertions.assertTrue(logAppender.lastMessageIsCacheMiss(), "first execution should be a cache miss");
 
-                // Second execution with a different value — same plan structure, cache hit expected
                 conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
                 conn.setAutoCommit(false);
                 try (var stmt = conn.createStatement()) {
@@ -347,10 +339,9 @@ public class LocalVariableTests {
             final var conn = ddl.getConnection();
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
-                // Filter: pk >= GET_VARIABLE(min_pk)  (= 2 → rows 2,3,4,5)
+                // Rows with pk >= 2: rows 2,3,4,5
                 stmt.execute("set transaction variable min_pk = 2");
                 stmt.setMaxRows(2);
-                // First page: rows 2 and 3
                 final byte[] continuationBytes;
                 try (var rs = stmt.executeQuery("select pk, name from conttbl where pk >= GET_VARIABLE(min_pk)")) {
                     ResultSetAssert.assertThat(rs)
@@ -359,10 +350,9 @@ public class LocalVariableTests {
                             .hasNoNextRow();
                     continuationBytes = rs.getContinuation().serialize();
                 }
-                // Change GET_VARIABLE(min_pk) to a different value — the continuation must ignore this
+                // Changing the variable must not affect the already-captured continuation
                 stmt.execute("set transaction variable min_pk = 99");
                 stmt.setMaxRows(10);
-                // Resume via continuation: should still see rows 4 and 5 (original binding min_pk=2)
                 final String encoded = Base64.getEncoder().encodeToString(continuationBytes);
                 try (var rs = stmt.executeQuery("EXECUTE CONTINUATION B64'" + encoded + "'")) {
                     ResultSetAssert.assertThat(rs)
@@ -390,7 +380,6 @@ public class LocalVariableTests {
             try (var stmt = conn.createStatement()) {
                 stmt.execute("set transaction variable x = 1");
             }
-            // GET_VARIABLE(x) = 1 (from SET TRANSACTION VARIABLE), ?x = 2 (from named prepared param) — both resolve independently
             try (var ps = conn.prepareStatement("select pk from tns where pk = GET_VARIABLE(x) or pk = ?x")) {
                 ps.setLong("x", 2L);
                 try (var rs = ps.executeQuery()) {
@@ -420,8 +409,6 @@ public class LocalVariableTests {
             conn.setAutoCommit(false);
             try (var stmt = conn.createStatement()) {
                 stmt.execute("set transaction variable x = 1");
-                // ?x is an unbound named prepared parameter on a plain Statement; it must not
-                // resolve to the local variable GET_VARIABLE(x) (= 1).
                 RelationalAssertions.assertThrowsSqlException(
                         () -> stmt.executeQuery("select pk from tleak where pk = ?x"))
                         .hasErrorCode(ErrorCode.UNDEFINED_PARAMETER);
@@ -442,7 +429,6 @@ public class LocalVariableTests {
             }
             final var conn = ddl.getConnection();
             try (var logAppender = LogAppenderRule.of("LocalVariableTests_typechange", PlanGenerator.class, Level.INFO)) {
-                // First execution: x is BIGINT.
                 conn.setAutoCommit(false);
                 try (var stmt = conn.createStatement()) {
                     stmt.execute("set transaction variable x = 10");
@@ -453,9 +439,6 @@ public class LocalVariableTests {
                 conn.commit();
                 Assertions.assertTrue(logAppender.lastMessageIsCacheMiss(), "first execution (BIGINT) should be a cache miss");
 
-                // Second execution: identical query text, but x is now STRING. Must be a cache
-                // miss (a fresh compile), not a hit against the BIGINT-shaped plan, and must
-                // return the STRING value correctly.
                 conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
                 conn.setAutoCommit(false);
                 try (var stmt = conn.createStatement()) {
@@ -483,7 +466,7 @@ public class LocalVariableTests {
             }
             final var conn = ddl.getConnection();
             try (var logAppender = LogAppenderRule.of("LocalVariableTests_nulltotyped", PlanGenerator.class, Level.INFO)) {
-                // First execution: x is NULL. val = NULL is never true, so no rows match.
+                // x is NULL; val = NULL is never true, so no rows match.
                 conn.setAutoCommit(false);
                 try (var stmt = conn.createStatement()) {
                     stmt.execute("set transaction variable x = null");
@@ -494,8 +477,6 @@ public class LocalVariableTests {
                 conn.commit();
                 Assertions.assertTrue(logAppender.lastMessageIsCacheMiss(), "first execution (NULL) should be a cache miss");
 
-                // Second execution: identical query text, x is now BIGINT and matches val. Must
-                // be a cache miss, not a stale hit against the NULL-typed plan.
                 conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
                 conn.setAutoCommit(false);
                 try (var stmt = conn.createStatement()) {
