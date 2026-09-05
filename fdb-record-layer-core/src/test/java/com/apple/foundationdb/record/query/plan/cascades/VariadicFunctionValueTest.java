@@ -45,6 +45,7 @@ import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.support.ParameterDeclarations;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -140,7 +141,8 @@ class VariadicFunctionValueTest {
 
     private static DynamicMessage getMessageForRecord1() {
         final var values = ImmutableList.of("a", 1, 1.0f);
-        final var messageBuilder = typeRepository.newMessageBuilder(recordTypeUnnamed);
+        // recordTypeUnnamed was defined into typeRepository above, so a builder is always returned
+        final var messageBuilder = Objects.requireNonNull(typeRepository.newMessageBuilder(recordTypeUnnamed));
         for (int i = 0; i < recordTypeUnnamed.getFields().size(); i++) {
             messageBuilder.setField(messageBuilder.getDescriptorForType().getFields().get(i), values.get(i));
         }
@@ -149,7 +151,8 @@ class VariadicFunctionValueTest {
 
     private static DynamicMessage getMessageForRecordNamed() {
         final var values = ImmutableList.of("sz", 100, 100.0f);
-        final var messageBuilder = typeRepository.newMessageBuilder(recordTypeNamed);
+        // recordTypeNamed was defined into typeRepository above, so a builder is always returned
+        final var messageBuilder = Objects.requireNonNull(typeRepository.newMessageBuilder(recordTypeNamed));
         for (int i = 0; i < recordTypeNamed.getFields().size(); i++) {
             messageBuilder.setField(messageBuilder.getDescriptorForType().getFields().get(i), values.get(i));
         }
