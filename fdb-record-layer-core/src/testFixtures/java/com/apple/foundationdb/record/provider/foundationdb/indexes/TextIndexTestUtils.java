@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.google.protobuf.Message;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -65,7 +66,7 @@ public class TextIndexTestUtils {
     public static void addRecordTypePrefix(RecordMetaDataBuilder metaDataBuilder) {
         for (String type : ALL_DOC_TYPES) {
             final RecordTypeBuilder typeBuilder = metaDataBuilder.getRecordType(type);
-            typeBuilder.setPrimaryKey(concat(recordType(), typeBuilder.getPrimaryKey()));
+            typeBuilder.setPrimaryKey(concat(recordType(), Objects.requireNonNull(typeBuilder.getPrimaryKey(), "record type must already have a primary key")));
         }
     }
 
