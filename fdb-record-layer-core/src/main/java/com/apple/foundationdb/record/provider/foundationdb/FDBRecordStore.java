@@ -6074,6 +6074,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
             // Since another instance may still have a cached version of the store header, we need to make
             // sure that the cache is invalidated
+            // nonNullContext aliases this store's own context (owned/closed elsewhere), not a newly-created resource.
+            @SuppressWarnings("PMD.CloseResource")
             final FDBRecordContext nonNullContext = requireContext();
             final CompletableFuture<Void> bumpMetaDataVersionStamp = updateRecordCountState.thenCompose(vignore ->
                     nonNullContext.getMetaDataVersionStampAsync(IsolationLevel.SNAPSHOT)

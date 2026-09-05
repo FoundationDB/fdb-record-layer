@@ -101,6 +101,8 @@ public abstract class RecordRepair implements AutoCloseable {
         this.database = config.database;
         this.storeBuilder = config.getStoreBuilder();
         this.validationKind = config.getValidationKind();
+        // context aliases storeBuilder's own context (owned/closed elsewhere), not a newly-created resource.
+        @SuppressWarnings("PMD.CloseResource")
         final FDBRecordContext context = Objects.requireNonNull(storeBuilder.getContext(),
                 "storeBuilder must have a context set before being used to build a RecordRepair runner");
         ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =

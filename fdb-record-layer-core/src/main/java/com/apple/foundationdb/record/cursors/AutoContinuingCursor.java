@@ -133,6 +133,8 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
         if (currentCursor == null) {
             openContextAndGenerateCursor(null);
         }
+        // cursor aliases the currentCursor field (owned/closed elsewhere in this class), not a newly-created resource.
+        @SuppressWarnings("PMD.CloseResource")
         final RecordCursor<T> cursor = Objects.requireNonNull(currentCursor, "currentCursor should have been initialized above");
 
         return MoreAsyncUtil.handleOnException(() -> cursor.onNext(), exception -> {

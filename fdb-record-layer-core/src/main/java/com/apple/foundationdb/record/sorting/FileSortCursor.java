@@ -143,6 +143,8 @@ public class FileSortCursor<K, V> implements RecordCursor<V> {
     private RecordCursorResult<V> nextFromReader() {
         final RecordCursorContinuation currentInputContinuation =
                 Objects.requireNonNull(inputContinuation, "inputContinuation must be set before nextFromReader is called");
+        // reader aliases the fileReader field (owned/closed elsewhere in this class), not a newly-created resource.
+        @SuppressWarnings("PMD.CloseResource")
         final SortedFileReader<V> reader =
                 Objects.requireNonNull(fileReader, "fileReader must be set before nextFromReader is called");
         @Nullable V record;

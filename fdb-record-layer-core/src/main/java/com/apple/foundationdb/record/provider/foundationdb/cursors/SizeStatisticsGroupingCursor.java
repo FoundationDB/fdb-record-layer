@@ -274,6 +274,8 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
         }
         // iterate until next result can be returned or the cursor is done
         // innerCursor was just initialized above (alongside subspaceFuture), so it is guaranteed non-null here.
+        // cursor aliases the innerCursor field (owned/closed elsewhere in this class), not a newly-created resource.
+        @SuppressWarnings("PMD.CloseResource")
         final RecordCursor<KeyValue> cursor = Objects.requireNonNull(innerCursor);
         return subspaceFuture.thenCompose(subspace ->
                 AsyncUtil.whileTrue(
