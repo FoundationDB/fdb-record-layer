@@ -251,8 +251,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         final var varName = Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(ctx.varName.getText(), caseSensitive));
         final var tokenIndex = ctx.varName.getStart().getTokenIndex();
         if (insideTempFunctionBody && deferMissingVarsInFunctionBodies && !localVariables.containsKey(varName)) {
-            // Variable not yet set; emit a placeholder so the canonical form is deterministic. The
-            // actual value is injected via withExecutionContext at call time.
+            // Variable not yet set; emit a placeholder so the canonical form is deterministic.
+            // The real value is resolved later, at invocation time, by normalizeFunctionBody.
             if (allowTokenAddition) {
                 final var placeholder = "GET_VARIABLE(" + varName + ")";
                 sqlCanonicalizer.append(placeholder).append(" ");

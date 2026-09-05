@@ -78,18 +78,10 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         this.serializableFunction = serializableFunction;
     }
 
-    // Memoizes by (isCaseSensitive, snapshot of localVars) so that:
-    // - the same function instance is reused when local variables haven't changed (preserving the
-    //   assertSame guarantee that plan-sharing relies on), and
-    // - a new compilation is triggered when local variable values change (fixing the stale-value
-    //   bug that existed when the old memoization keyed only on isCaseSensitive).
-    // The cache is bounded by the transaction lifetime: RecordLayerInvokedRoutine is created by
-    // CREATE TEMPORARY FUNCTION (per-transaction) and discarded when the transaction ends, so at
-    // most one entry per distinct localVars snapshot seen within a single transaction is retained.
-    // The snapshot is an unmodifiable LinkedHashMap copy rather than a Guava ImmutableMap because
-    // local-variable values are legitimately nullable (e.g. SET TRANSACTION VARIABLE x = NULL) and
-    // ImmutableMap forbids null values; a LinkedHashMap tolerates nulls while still providing
-    // value-based equals()/hashCode() for correct cache-key lookups.
+    // Keyed on (isCaseSensitive, snapshot of localVars): reuses the same instance when variables
+    // haven't changed, recompiles when they have. Bounded by the transaction's lifetime, since this
+    // routine is discarded when the transaction ends. Uses a LinkedHashMap snapshot rather than an
+    // ImmutableMap because local-variable values may legitimately be null.
     @Nonnull
     private static BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> memoize(
             @Nonnull final BiFunction<Boolean, Map<String, Object>, UserDefinedFunction> fn) {

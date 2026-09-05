@@ -649,10 +649,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             // delay the compilation of table-valued temporary functions for later
             return builder
                     .withUserDefinedFunctionProvider((ignore, localVarsMap) -> {
-                        // Merge SELECT-time local variable bindings into the CREATE-time PreparedParams so that
-                        // GET_VARIABLE refs inside the body resolve to their current values. We add (not
-                        // replace) so that ?param bindings already present from the CREATE-time context are
-                        // preserved.
+                        // Temporarily swap in the SELECT-time local variables so GET_VARIABLE refs in
+                        // the body resolve to their current values, then restore the CREATE-time state.
                         if (localVarsMap != null && !localVarsMap.isEmpty()) {
                             final var prev = getDelegate().getPlanGenerationContext().getLocalVariables();
                             getDelegate().getPlanGenerationContext().setLocalVariables(localVarsMap);
