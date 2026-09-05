@@ -169,7 +169,21 @@ public class VersionIndexTest {
     private KeySpacePath path;
     private KeySpacePath path2;
 
+    // NullAway/JSpecify does not reliably propagate @Nullable byte[] annotations for cross-file
+    // (bytecode-read) method parameters, so a properly-@Nullable-typed continuation still gets
+    // flagged as a mismatch at call sites in this file. Declaring the return type here as plain
+    // (non-null) byte[] sidesteps that: passing a "non-null-typed" value into a @Nullable-declared
+    // parameter is always accepted, regardless of how that parameter's own nullability was read.
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
+    }
+
     @BeforeEach
+    // NullAway.Init is suppressed here because metaData, planner, and recordStore are not
+    // populated by setUp() itself, but by openContext(), which every test method calls before
+    // touching those fields.
+    @SuppressWarnings("NullAway.Init")
     public void setUp() {
         fdb = dbExtension.getDatabase();
         path = pathManager.createPath(TestKeySpace.RECORD_STORE);
@@ -444,7 +458,7 @@ public class VersionIndexTest {
         metaDataBuilder.addIndex("MySimpleRecord", maxEverVersionIndex);
     };
 
-    private FDBRecordContext openContext(@Nullable RecordMetaDataHook hook) {
+    private FDBRecordContext openContext(RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         hook.apply(metaDataBuilder);
 
@@ -488,7 +502,7 @@ public class VersionIndexTest {
         FDBRecordVersion version2;
 
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
-            FDBStoredRecord<Message> stored1 = recordStore.loadRecord(Tuple.from(1066L));
+            FDBStoredRecord<Message> stored1 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1066L)));
             assertTrue(stored1.hasVersion());
             version1 = stored1.getVersion();
             assertNotNull(version1);
@@ -496,7 +510,7 @@ public class VersionIndexTest {
             assertArrayEquals(versionstamp, version1.getGlobalVersion());
             assertEquals(0, version1.getLocalVersion());
 
-            FDBStoredRecord<Message> stored2 = recordStore.loadRecord(Tuple.from(1776L));
+            FDBStoredRecord<Message> stored2 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1776L)));
             assertTrue(stored2.hasVersion());
             version2 = stored2.getVersion();
             assertNotNull(version2);
@@ -516,7 +530,7 @@ public class VersionIndexTest {
         }
 
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
-            FDBStoredRecord<Message> stored1 = recordStore.loadRecord(Tuple.from(1066L));
+            FDBStoredRecord<Message> stored1 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1066L)));
             assertTrue(stored1.hasVersion());
             FDBRecordVersion version1Prime = stored1.getVersion();
             assertNotNull(version1Prime);
@@ -526,7 +540,7 @@ public class VersionIndexTest {
             assertFalse(Arrays.equals(version1.getGlobalVersion(), version1Prime.getGlobalVersion()));
             assertNotEquals(version1, version1Prime);
 
-            FDBStoredRecord<Message> stored2 = recordStore.loadRecord(Tuple.from(1776L));
+            FDBStoredRecord<Message> stored2 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1776L)));
             assertTrue(stored1.hasVersion());
             FDBRecordVersion version2Prime = stored2.getVersion();
             assertNotNull(version2Prime);
@@ -548,7 +562,7 @@ public class VersionIndexTest {
         }
 
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
-            FDBStoredRecord<Message> stored1 = recordStore.loadRecord(Tuple.from(1066L));
+            FDBStoredRecord<Message> stored1 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1066L)));
             assertTrue(stored1.hasVersion());
             FDBRecordVersion version1Prime = stored1.getVersion();
             assertNotNull(version1Prime);
@@ -559,7 +573,7 @@ public class VersionIndexTest {
             assertArrayEquals(version1.getGlobalVersion(), version1Prime.getGlobalVersion());
             assertEquals(version1, version1Prime);
 
-            FDBStoredRecord<Message> stored2 = recordStore.loadRecord(Tuple.from(1776L));
+            FDBStoredRecord<Message> stored2 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1776L)));
             assertTrue(stored2.hasVersion());
             FDBRecordVersion version2Prime = stored2.getVersion();
             assertNotNull(version2Prime);
@@ -589,10 +603,10 @@ public class VersionIndexTest {
         }
 
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
-            FDBStoredRecord<Message> stored3 = recordStore.loadRecord(Tuple.from(3066L));
+            FDBStoredRecord<Message> stored3 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(3066L)));
             assertFalse(stored3.hasVersion());
 
-            FDBStoredRecord<Message> stored4 = recordStore.loadRecord(Tuple.from(4776L));
+            FDBStoredRecord<Message> stored4 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(4776L)));
             assertFalse(stored4.hasVersion());
         }
 
@@ -608,7 +622,7 @@ public class VersionIndexTest {
         }
 
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
-            FDBStoredRecord<Message> stored3 = recordStore.loadRecord(Tuple.from(3066L));
+            FDBStoredRecord<Message> stored3 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(3066L)));
             assertTrue(stored3.hasVersion());
             FDBRecordVersion version3Prime = stored3.getVersion();
             assertNotNull(version3Prime);
@@ -616,7 +630,7 @@ public class VersionIndexTest {
             assertEquals(0, version3Prime.getLocalVersion());
             assertArrayEquals(versionstamp, version3Prime.getGlobalVersion());
 
-            FDBStoredRecord<Message> stored4 = recordStore.loadRecord(Tuple.from(4776L));
+            FDBStoredRecord<Message> stored4 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(4776L)));
             assertTrue(stored4.hasVersion());
             FDBRecordVersion version4Prime = stored4.getVersion();
             assertNotNull(version4Prime);
@@ -804,11 +818,11 @@ public class VersionIndexTest {
             assertTrue(storedRecord3.hasVersion());
 
             RecordCursor<IndexEntry> cursor =  recordStore.scanIndex(metaData.getIndex("MySimpleRecord$maybeVersion"), IndexScanType.BY_VALUE,
-                    TupleRange.ALL, null, ScanProperties.FORWARD_SCAN);
+                    TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN);
             assertEquals(Arrays.asList(
                     Tuple.from(null, 1415L),
                     Tuple.from(FDBRecordVersion.MIN_VERSION.toVersionstamp(), 871L),
-                    Tuple.from(storedRecord3.getVersion().toVersionstamp(), 3415L)),
+                    Tuple.from(Objects.requireNonNull(storedRecord3.getVersion()).toVersionstamp(), 3415L)),
                     cursor.map(IndexEntry::getKey).asList().get());
         }
     }
@@ -859,6 +873,7 @@ public class VersionIndexTest {
             MySimpleRecord record2 = record.toBuilder().setRecNo(1415L).build();
             FDBStoredRecord<Message> storedRecord2 = recordStore.saveRecord(record2);
             assertTrue(storedRecord2.hasVersion());
+            assertNotNull(storedRecord2.getVersion());
             assertFalse(storedRecord2.getVersion().isComplete());
             version = recordStore.evaluateRecordFunction(function, storedRecord2).join();
             assertNotNull(version);
@@ -901,10 +916,10 @@ public class VersionIndexTest {
             FDBStoredRecord<Message> storedRecord1 = recordStore.saveRecord(record1);
             FDBStoredRecord<Message> storedRecord2 = recordStore.saveRecord(record2);
 
-            List<FDBStoredRecord<Message>> scannedRecords = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().join();
+            List<FDBStoredRecord<Message>> scannedRecords = recordStore.scanRecords(noContinuation(), ScanProperties.FORWARD_SCAN).asList().join();
             assertEquals(Arrays.asList(storedRecord1, storedRecord2), scannedRecords);
 
-            scannedRecords = recordStore.scanRecords(null, ScanProperties.REVERSE_SCAN).asList().join();
+            scannedRecords = recordStore.scanRecords(noContinuation(), ScanProperties.REVERSE_SCAN).asList().join();
             assertEquals(Arrays.asList(storedRecord2, storedRecord1), scannedRecords);
 
             context.commit();
@@ -920,15 +935,15 @@ public class VersionIndexTest {
             );
         }
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
-            List<FDBStoredRecord<Message>> scannedRecords = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().join();
+            List<FDBStoredRecord<Message>> scannedRecords = recordStore.scanRecords(noContinuation(), ScanProperties.FORWARD_SCAN).asList().join();
             assertEquals(savedRecords, scannedRecords);
 
-            scannedRecords = recordStore.scanRecords(null, ScanProperties.REVERSE_SCAN).asList().join();
+            scannedRecords = recordStore.scanRecords(noContinuation(), ScanProperties.REVERSE_SCAN).asList().join();
             assertEquals(Lists.reverse(savedRecords), scannedRecords);
 
             List<Tuple> expectedKeys = Arrays.asList(
-                    Tuple.from(null, savedRecords.get(0).getVersion().toVersionstamp(), 1066L),
-                    Tuple.from(null, savedRecords.get(1).getVersion().toVersionstamp(), 1415L)
+                    Tuple.from(null, Objects.requireNonNull(savedRecords.get(0).getVersion()).toVersionstamp(), 1066L),
+                    Tuple.from(null, Objects.requireNonNull(savedRecords.get(1).getVersion()).toVersionstamp(), 1415L)
             );
             List<Tuple> keys = scanIndexToKeys(fetchMethod, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN);
             assertEquals(expectedKeys, keys);
@@ -961,21 +976,21 @@ public class VersionIndexTest {
         }
 
         try (FDBRecordContext context = openContext(repeatedVersionHook)) {
-            FDBStoredRecord<Message> stored1 = recordStore.loadRecord(Tuple.from(1066L));
+            FDBStoredRecord<Message> stored1 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1066L)));
             assertTrue(stored1.hasVersion());
             FDBRecordVersion version1 = stored1.getVersion();
             assertNotNull(version1);
             assertArrayEquals(versionstamp, version1.getGlobalVersion());
             assertEquals(0, version1.getLocalVersion());
 
-            FDBStoredRecord<Message> stored2 = recordStore.loadRecord(Tuple.from(1729L));
+            FDBStoredRecord<Message> stored2 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1729L)));
             assertTrue(stored2.hasVersion());
             FDBRecordVersion version2 = stored2.getVersion();
             assertNotNull(version2);
             assertArrayEquals(versionstamp, version2.getGlobalVersion());
             assertEquals(1, version2.getLocalVersion());
 
-            FDBStoredRecord<Message> stored3 = recordStore.loadRecord(Tuple.from(1776L));
+            FDBStoredRecord<Message> stored3 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1776L)));
             assertTrue(stored3.hasVersion());
             FDBRecordVersion version3 = stored3.getVersion();
             assertNotNull(version3);
@@ -1008,21 +1023,21 @@ public class VersionIndexTest {
         }
 
         try (FDBRecordContext context = openContext(repeatedAndCompoundVersionHook)) {
-            FDBStoredRecord<Message> stored1 = recordStore.loadRecord(Tuple.from(1066L));
+            FDBStoredRecord<Message> stored1 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1066L)));
             assertTrue(stored1.hasVersion());
             FDBRecordVersion version1 = stored1.getVersion();
             assertNotNull(version1);
             assertArrayEquals(versionstamp, version1.getGlobalVersion());
             assertEquals(0, version1.getLocalVersion());
 
-            FDBStoredRecord<Message> stored2 = recordStore.loadRecord(Tuple.from(1729L));
+            FDBStoredRecord<Message> stored2 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1729L)));
             assertTrue(stored2.hasVersion());
             FDBRecordVersion version2 = stored2.getVersion();
             assertNotNull(version2);
             assertArrayEquals(versionstamp, version2.getGlobalVersion());
             assertEquals(1, version2.getLocalVersion());
 
-            FDBStoredRecord<Message> stored3 = recordStore.loadRecord(Tuple.from(1776L));
+            FDBStoredRecord<Message> stored3 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1776L)));
             assertTrue(stored3.hasVersion());
             FDBRecordVersion version3 = stored3.getVersion();
             assertNotNull(version3);
@@ -1050,17 +1065,20 @@ public class VersionIndexTest {
             FDBRecordVersion version = FDBRecordVersion.incomplete(context.claimLocalVersion());
             FDBStoredRecord<?> stored1 = recordStore.saveRecord(record1, version);
             assertTrue(stored1.hasVersion());
+            assertNotNull(stored1.getVersion());
             assertEquals(0, stored1.getVersion().getLocalVersion());
             assertFalse(stored1.getVersion().isComplete());
 
             FDBStoredRecord<?> stored1a = recordStore.saveRecord(record1, version); // Save same again. Should be idempotent.
             assertTrue(stored1a.hasVersion());
+            assertNotNull(stored1a.getVersion());
             assertEquals(0, stored1a.getVersion().getLocalVersion());
             assertFalse(stored1a.getVersion().isComplete());
             assertEquals(stored1, stored1a);
 
             FDBStoredRecord<?> stored2 = recordStore.saveRecord(record2, version); // Save record. Shouldn't update version information.
             assertTrue(stored1.hasVersion());
+            assertNotNull(stored2.getVersion());
             assertEquals(0, stored2.getVersion().getLocalVersion());
             assertFalse(stored2.getVersion().isComplete());
             assertEquals(stored1.getPrimaryKey(), stored2.getPrimaryKey());
@@ -1068,6 +1086,7 @@ public class VersionIndexTest {
 
             FDBStoredRecord<?> stored3 = recordStore.saveRecord(record3, version); // Save record. Shouldn't update version information
             assertTrue(stored3.hasVersion());
+            assertNotNull(stored3.getVersion());
             assertEquals(0, stored3.getVersion().getLocalVersion());
             assertFalse(stored3.getVersion().isComplete());
             assertEquals(stored1.getPrimaryKey(), stored3.getPrimaryKey());
@@ -1075,11 +1094,13 @@ public class VersionIndexTest {
 
             FDBStoredRecord<?> stored4 = recordStore.saveRecord(record4); // New record.
             assertTrue(stored4.hasVersion());
+            assertNotNull(stored4.getVersion());
             assertEquals(1, stored4.getVersion().getLocalVersion());
             assertFalse(stored4.getVersion().isComplete());
 
             FDBStoredRecord<?> stored4a = recordStore.saveRecord(record4); // Same record. New version.
             assertTrue(stored4a.hasVersion());
+            assertNotNull(stored4a.getVersion());
             assertEquals(2, stored4a.getVersion().getLocalVersion());
             assertFalse(stored4a.getVersion().isComplete());
 
@@ -1147,7 +1168,7 @@ public class VersionIndexTest {
         FDBRecordVersion version;
         boolean inLegacyVersionSpace;
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
-            version = recordStore.loadRecord(Tuple.from(1066L)).getVersion();
+            version = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1066L))).getVersion();
             assertNotNull(version);
             inLegacyVersionSpace = context.ensureActive().getRange(recordStore.getLegacyVersionSubspace().range()).iterator().hasNext();
             boolean shouldHaveVersionInOldSpace = (!secondFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD))
@@ -1159,7 +1180,7 @@ public class VersionIndexTest {
         formatVersion = thirdFormatVersion;
 
         try (FDBRecordContext context = openContext(noVersionHook)) {
-            FDBRecordVersion newVersion = recordStore.loadRecord(Tuple.from(1066L)).getVersion();
+            FDBRecordVersion newVersion = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1066L))).getVersion();
             if (inLegacyVersionSpace) {
                 // We clear out the legacy version space if versions are removed, so this should be null
                 assertNull(newVersion);
@@ -1174,7 +1195,7 @@ public class VersionIndexTest {
 
             // There should be 4 range deletes per former index, plus 1 for the version space, if required.
             // This assert may need to change if additional indexes subspaces are created
-            long rangeDeletes = context.getTimer().getCount(FDBStoreTimer.Counts.RANGE_DELETES);
+            long rangeDeletes = Objects.requireNonNull(context.getTimer()).getCount(FDBStoreTimer.Counts.RANGE_DELETES);
             if (inLegacyVersionSpace) {
                 assertEquals(11L, rangeDeletes);
             } else {
@@ -1417,7 +1438,7 @@ public class VersionIndexTest {
     }
 
     private void assertMaxVersionEntries(Index index, List<IndexEntry> expectedEntries) {
-        List<IndexEntry> actualEntries = recordStore.scanIndex(index, IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+        List<IndexEntry> actualEntries = recordStore.scanIndex(index, IndexScanType.BY_GROUP, TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN)
                 .asList()
                 .join();
         assertEquals(expectedEntries, actualEntries);
@@ -1872,11 +1893,11 @@ public class VersionIndexTest {
                     assertEquals("ISCAN(globalVersion ([" + last.toVersionstamp() + "],>)", plan.toString());
                 }
 
-                RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator();
+                RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, noContinuation(), ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator();
                 boolean hasAny = false;
                 while (cursor.hasNext()) {
                     hasAny = true;
-                    FDBQueriedRecord<Message> record = cursor.next();
+                    FDBQueriedRecord<Message> record = Objects.requireNonNull(cursor.next());
                     assertTrue(record.hasVersion());
                     if (last != null) {
                         assertThat(last, lessThan(record.getVersion()));
@@ -1915,7 +1936,7 @@ public class VersionIndexTest {
                             .build();
                     RecordQueryPlan plan = plan(query, fetchMethod);
                     assertEquals("ISCAN(MySimpleRecord$num2-version [[0],[0]])", plan.toString());
-                    cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(3).build())
+                    cursor = recordStore.executeQuery(plan, noContinuation(), ExecuteProperties.newBuilder().setReturnedRowLimit(3).build())
                             .asIterator();
                 } else {
                     RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord")
@@ -1924,14 +1945,14 @@ public class VersionIndexTest {
                             .build();
                     RecordQueryPlan plan = plan(query, fetchMethod);
                     assertEquals("ISCAN(MySimpleRecord$num2-version ([0, " + last.toVersionstamp() + "],[0]])", plan.toString());
-                    cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(3).build())
+                    cursor = recordStore.executeQuery(plan, noContinuation(), ExecuteProperties.newBuilder().setReturnedRowLimit(3).build())
                             .asIterator();
                 }
 
                 boolean hasAny = false;
                 while (cursor.hasNext()) {
                     hasAny = true;
-                    FDBRecord<Message> record = cursor.next();
+                    FDBRecord<Message> record = Objects.requireNonNull(cursor.next());
                     MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().mergeFrom(record.getRecord()).build();
                     assertEquals(0, simpleRecord.getNumValue2());
                     assertTrue(record.hasVersion());
@@ -1972,7 +1993,7 @@ public class VersionIndexTest {
                             .build();
                     RecordQueryPlan plan = plan(query, fetchMethod);
                     assertEquals("ISCAN(MySimpleRecord$num2-version [[0],[0]]) | QCFILTER num_value_3_indexed EQUALS 0", plan.toString());
-                    cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(2).build())
+                    cursor = recordStore.executeQuery(plan, noContinuation(), ExecuteProperties.newBuilder().setReturnedRowLimit(2).build())
                             .asIterator();
                 } else {
                     RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord")
@@ -1985,14 +2006,14 @@ public class VersionIndexTest {
                             .build();
                     RecordQueryPlan plan = plan(query, fetchMethod);
                     assertEquals("ISCAN(MySimpleRecord$num2-version ([0, " + last.toVersionstamp() + "],[0]]) | QCFILTER num_value_3_indexed EQUALS 0", plan.toString());
-                    cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(2).build())
+                    cursor = recordStore.executeQuery(plan, noContinuation(), ExecuteProperties.newBuilder().setReturnedRowLimit(2).build())
                             .asIterator();
                 }
 
                 boolean hasAny = false;
                 while (cursor.hasNext()) {
                     hasAny = true;
-                    FDBRecord<Message> record = cursor.next();
+                    FDBRecord<Message> record = Objects.requireNonNull(cursor.next());
                     MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().mergeFrom(record.getRecord()).build();
                     assertEquals(0, simpleRecord.getNumValue2());
                     assertTrue(record.hasVersion());
@@ -2021,7 +2042,7 @@ public class VersionIndexTest {
                     .setSort(VersionKeyExpression.VERSION)
                     .build();
             RecordQueryPlan prelimPlan = planner.plan(prelimQuery);
-            FDBRecordVersion chosenVersion = recordStore.executeQuery(prelimPlan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asList().thenApply(list -> list.get(list.size() - 1).getVersion()).join();
+            FDBRecordVersion chosenVersion = recordStore.executeQuery(prelimPlan, noContinuation(), ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asList().thenApply(list -> list.get(list.size() - 1).getVersion()).join();
 
             RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord")
                     .setFilter(Query.version().greaterThan(chosenVersion))
@@ -2105,12 +2126,12 @@ public class VersionIndexTest {
                 }
 
                 RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore
-                        .executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(4).build())
+                        .executeQuery(plan, noContinuation(), ExecuteProperties.newBuilder().setReturnedRowLimit(4).build())
                         .asIterator();
                 boolean hasAny = false;
                 while (cursor.hasNext()) {
                     hasAny = true;
-                    FDBQueriedRecord<Message> record = cursor.next();
+                    FDBQueriedRecord<Message> record = Objects.requireNonNull(cursor.next());
                     assertTrue(record.hasVersion());
                     if (last != null) {
                         assertThat(last, lessThan(record.getVersion()));
@@ -2170,6 +2191,7 @@ public class VersionIndexTest {
             FDBStoredRecord<?> storedRecord = recordStore.saveRecord(record1);
             assertTrue(storedRecord.hasVersion());
             context.commit();
+            assertNotNull(storedRecord.getVersion());
             version1 = FDBRecordVersion.complete(context.getVersionStamp(), storedRecord.getVersion().getLocalVersion());
         }
         try (FDBRecordContext context = openContext(firstHook)) {
@@ -2213,14 +2235,18 @@ public class VersionIndexTest {
             FDBStoredRecord<?> storedRecord = recordStore.saveRecord(record3);
             assertTrue(storedRecord.hasVersion());
             context.commit();
+            assertNotNull(storedRecord.getVersion());
             version3 = FDBRecordVersion.complete(context.getVersionStamp(), storedRecord.getVersion().getLocalVersion());
         }
         try (FDBRecordContext context = openContext(thirdHook)) {
             FDBStoredRecord<?> loadedRecord1 = recordStore.loadRecord(Tuple.from(1066L));
+            assertNotNull(loadedRecord1);
             assertEquals(testFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD), loadedRecord1.hasVersion());
             FDBStoredRecord<?> loadedRecord2 = recordStore.loadRecord(Tuple.from(1776L));
+            assertNotNull(loadedRecord2);
             assertFalse(loadedRecord2.hasVersion());
             FDBStoredRecord<?> loadedRecord3 = recordStore.loadRecord(Tuple.from(1955L));
+            assertNotNull(loadedRecord3);
             assertTrue(loadedRecord3.hasVersion());
             assertEquals(version3, loadedRecord3.getVersion());
 
@@ -2346,6 +2372,7 @@ public class VersionIndexTest {
             for (FDBStoredRecord<Message> storedRecord : storedRecords) {
                 Optional<FDBRecordVersion> loadedVersion = recordStore.loadRecordVersion(storedRecord.getPrimaryKey());
                 assertTrue(loadedVersion.isPresent());
+                assertNotNull(storedRecord.getVersion());
                 assertEquals(storedRecord.getVersion(), loadedVersion.get());
 
                 RecordQuery query = RecordQuery.newBuilder()
@@ -2354,7 +2381,7 @@ public class VersionIndexTest {
                 RecordQueryPlan plan = plan(query, fetchMethod);
                 final String endpointString = "[" + storedRecord.getVersion().toVersionstamp(false).toString() + "]";
                 assertThat(plan, indexScan(allOf(indexName("globalVersion"), bounds(hasTupleString("[" + endpointString + "," + endpointString + "]")))));
-                List<FDBStoredRecord<Message>> queriedRecords = recordStore.executeQuery(plan).map(FDBQueriedRecord::getStoredRecord).asList().join();
+                List<FDBStoredRecord<Message>> queriedRecords = recordStore.executeQuery(plan).map(qr -> Objects.requireNonNull(qr.getStoredRecord())).asList().join();
                 assertEquals(Collections.singletonList(storedRecord), queriedRecords);
             }
 
@@ -2393,11 +2420,11 @@ public class VersionIndexTest {
 
             if (recordStore.getRecordStoreState().isReadable(newVersionIndex)) {
                 // Validate versions are the same for all records in index and in primary store
-                List<Pair<Tuple, FDBRecordVersion>> recordScannedValues = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
+                List<Pair<Tuple, FDBRecordVersion>> recordScannedValues = recordStore.scanRecords(noContinuation(), ScanProperties.FORWARD_SCAN)
                         .map(record -> Pair.of(record.getPrimaryKey(), record.getVersion()))
                         .asList()
                         .join();
-                List<Pair<Tuple, FDBRecordVersion>> indexedScannedValues = recordStore.scanIndex(newVersionIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                List<Pair<Tuple, FDBRecordVersion>> indexedScannedValues = recordStore.scanIndex(newVersionIndex, IndexScanType.BY_VALUE, TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN)
                         .map(indexEntry ->  Pair.of(TupleHelpers.subTuple(indexEntry.getKey(), 2, indexEntry.getKey().size()), FDBRecordVersion.fromVersionstamp(indexEntry.getKey().getVersionstamp(0), false)))
                         .asList()
                         .join();
@@ -2521,7 +2548,7 @@ public class VersionIndexTest {
             recs.add(rec);
         }
         for (TestRecords1Proto.MyOtherRecord rec : otherRecords) {
-            List<Message> recs = recordsByNumValue2.get(rec.getNumValue2());
+            List<Message> recs = Objects.requireNonNull(recordsByNumValue2.get(rec.getNumValue2()));
             recs.add(rec);
         }
 
@@ -2538,7 +2565,7 @@ public class VersionIndexTest {
             ).asList().join();
             assertThat(before, hasSize(expectedCount));
             assertThat(before.stream().map(FDBRecord::getRecord).collect(Collectors.toList()),
-                    containsInAnyOrder(recordsByNumValue2.get(1).toArray()));
+                    containsInAnyOrder(Objects.requireNonNull(recordsByNumValue2.get(1)).toArray()));
 
             assertThat(recordsByNumValue2, hasKey(1));
             recordStore.deleteRecordsWhere(Query.field("num_value_2").equalsValue(1L));
@@ -2552,12 +2579,12 @@ public class VersionIndexTest {
             for (Map.Entry<Integer, List<Message>> entry : recordsByNumValue2.entrySet()) {
                 int numValue2 = entry.getKey();
                 List<Message> expectedData = entry.getValue();
-                assertThat(recordStore.scanRecords(TupleRange.allOf(Tuple.from(numValue2)), null, ScanProperties.FORWARD_SCAN)
+                assertThat(recordStore.scanRecords(TupleRange.allOf(Tuple.from(numValue2)), noContinuation(), ScanProperties.FORWARD_SCAN)
                             .map(FDBRecord::getRecord)
                             .asList()
                             .join(),
                         containsInAnyOrder(expectedData.toArray()));
-                assertThat(recordStore.scanIndexRecords(versionByNumValue2.getName(), IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(numValue2)), null, ScanProperties.FORWARD_SCAN)
+                assertThat(recordStore.scanIndexRecords(versionByNumValue2.getName(), IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(numValue2)), noContinuation(), ScanProperties.FORWARD_SCAN)
                             .map(FDBRecord::getRecord)
                             .asList()
                             .join(),
@@ -2585,7 +2612,7 @@ public class VersionIndexTest {
                             .setRecNo(100 + j)
                             .build();
                     recordStore.saveRecord(simple);
-                    recordsByNumValue2.get(i).add(simple);
+                    Objects.requireNonNull(recordsByNumValue2.get(i)).add(simple);
                     addedPrimaryKeys.add(Tuple.from(i, 100 + j));
 
                     TestRecords1Proto.MyOtherRecord other = TestRecords1Proto.MyOtherRecord.newBuilder()
@@ -2600,19 +2627,19 @@ public class VersionIndexTest {
 
             assertThat(recordsByNumValue2, hasKey(3));
             recordStore.deleteRecordsWhere(Query.field("num_value_2").equalsValue(3L));
-            recordsByNumValue2.get(3).clear();
+            Objects.requireNonNull(recordsByNumValue2.get(3)).clear();
 
             for (Map.Entry<Integer, List<Message>> entry : recordsByNumValue2.entrySet()) {
                 int numValue2 = entry.getKey();
                 List<Message> expectedData = entry.getValue();
-                assertThat(recordStore.scanRecords(TupleRange.allOf(Tuple.from(numValue2)), null, ScanProperties.FORWARD_SCAN)
+                assertThat(recordStore.scanRecords(TupleRange.allOf(Tuple.from(numValue2)), noContinuation(), ScanProperties.FORWARD_SCAN)
                                 .map(FDBRecord::getRecord)
                                 .asList()
                                 .join(),
                         containsInAnyOrder(expectedData.toArray()));
                 // Version indexes currently do not return uncommitted versions, so we only get records that were already complete
                 // See: https://github.com/FoundationDB/fdb-record-layer/issues/2875
-                assertThat(recordStore.scanIndexRecords(versionByNumValue2.getName(), IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(numValue2)), null, ScanProperties.FORWARD_SCAN)
+                assertThat(recordStore.scanIndexRecords(versionByNumValue2.getName(), IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(numValue2)), noContinuation(), ScanProperties.FORWARD_SCAN)
                                 .map(FDBRecord::getRecord)
                                 .asList()
                                 .join(),
@@ -2644,12 +2671,12 @@ public class VersionIndexTest {
             for (Map.Entry<Integer, List<Message>> entry : recordsByNumValue2.entrySet()) {
                 int numValue2 = entry.getKey();
                 List<Message> expectedData = entry.getValue();
-                assertThat(recordStore.scanRecords(TupleRange.allOf(Tuple.from(numValue2)), null, ScanProperties.FORWARD_SCAN)
+                assertThat(recordStore.scanRecords(TupleRange.allOf(Tuple.from(numValue2)), noContinuation(), ScanProperties.FORWARD_SCAN)
                                 .map(FDBStoredRecord::getRecord)
                                 .asList()
                                 .join(),
                         containsInAnyOrder(expectedData.toArray()));
-                assertThat(recordStore.scanIndexRecords(versionByNumValue2.getName(), IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(numValue2)), null, ScanProperties.FORWARD_SCAN)
+                assertThat(recordStore.scanIndexRecords(versionByNumValue2.getName(), IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(numValue2)), noContinuation(), ScanProperties.FORWARD_SCAN)
                                 .map(FDBRecord::getRecord)
                                 .asList()
                                 .join(),
@@ -2713,7 +2740,7 @@ public class VersionIndexTest {
 
         try (FDBRecordContext context = openContext(hook)) {
             final Index index = recordStore.getRecordMetaData().getIndex(maxEverVersionName);
-            assertEquals(maxVersionByNumValue2, recordStore.scanIndex(index, IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+            assertEquals(maxVersionByNumValue2, recordStore.scanIndex(index, IndexScanType.BY_GROUP, TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN)
                     .asStream()
                     .collect(Collectors.toMap(entry -> (int) entry.getKey().getLong(0), entry -> FDBRecordVersion.fromVersionstamp(entry.getValue().getVersionstamp(0)))));
 
@@ -2748,7 +2775,7 @@ public class VersionIndexTest {
         try (FDBRecordContext context = openContext(hook)) {
             // Modification for 3 should now be present in the index, but mutations for groups 1 and 2 are not
             final Index index = recordStore.getRecordMetaData().getIndex(maxEverVersionName);
-            assertEquals(maxVersionByNumValue2, recordStore.scanIndex(index, IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+            assertEquals(maxVersionByNumValue2, recordStore.scanIndex(index, IndexScanType.BY_GROUP, TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN)
                     .asStream()
                     .collect(Collectors.toMap(entry -> (int) entry.getKey().getLong(0), entry -> FDBRecordVersion.fromVersionstamp(entry.getValue().getVersionstamp(0)))));
             context.commit();
@@ -3000,7 +3027,7 @@ public class VersionIndexTest {
 
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
             // Record data should still all be empty
-            assertEquals(List.of(), recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().get());
+            assertEquals(List.of(), recordStore.scanRecords(noContinuation(), ScanProperties.FORWARD_SCAN).asList().get());
             assertEquals(Optional.empty(), recordStore.loadRecordVersion(primaryKey0));
             assertEquals(Optional.empty(), recordStore.loadRecordVersion(primaryKey1));
             assertEquals(List.of(), scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN));
@@ -3066,7 +3093,7 @@ public class VersionIndexTest {
                 FDBRecordStore pathStore = recordStore.asBuilder()
                         .setKeySpacePath(path)
                         .open();
-                assertEquals(Optional.of(version1ByStore.get(path)), pathStore.loadRecordVersion(primaryKey1));
+                assertEquals(Optional.of(Objects.requireNonNull(version1ByStore.get(path))), pathStore.loadRecordVersion(primaryKey1));
 
                 pathStore.saveRecord(MySimpleRecord.newBuilder()
                         .setRecNo(2L)
@@ -3103,7 +3130,7 @@ public class VersionIndexTest {
                     FDBRecordStore pathStore = recordStore.asBuilder()
                             .setKeySpacePath(path)
                             .open();
-                    assertEquals(Optional.of(version1ByStore.get(path)), pathStore.loadRecordVersion(primaryKey1));
+                    assertEquals(Optional.of(Objects.requireNonNull(version1ByStore.get(path))), pathStore.loadRecordVersion(primaryKey1));
                     assertEquals(Optional.of(FDBRecordVersion.incomplete(i)), pathStore.loadRecordVersion(primaryKey2));
                 }
                 i++;
@@ -3122,8 +3149,8 @@ public class VersionIndexTest {
         try (FDBRecordContext context = openContext(simpleVersionHook)) {
             for (KeySpacePath path : multiPaths) {
                 final FDBRecordStore oldStore = recordStore;
-                final FDBRecordVersion version1 = version1ByStore.get(path);
-                final FDBRecordVersion version2 = version2ByStore.get(path);
+                final FDBRecordVersion version1 = Objects.requireNonNull(version1ByStore.get(path));
+                final FDBRecordVersion version2 = Objects.requireNonNull(version2ByStore.get(path));
                 if (path.equals(path1)) {
                     assertFalse(context.ensureActive().getRange(path.toSubspace(context).range()).iterator().hasNext(),
                             "Deleted store should be empty even after commit");
@@ -3167,7 +3194,7 @@ public class VersionIndexTest {
                 .asIterator();
         for (FDBStoredRecord<M> storedRecord : storedRecords) {
             assertTrue(versionKeyPairs.hasNext());
-            Pair<Tuple, FDBRecordVersion> versionPair = versionKeyPairs.next();
+            Pair<Tuple, FDBRecordVersion> versionPair = Objects.requireNonNull(versionKeyPairs.next());
             assertEquals(storedRecord.getPrimaryKey(), versionPair.getLeft());
             assertEquals(storedRecord.getVersion(), versionPair.getRight());
         }
@@ -3199,12 +3226,15 @@ public class VersionIndexTest {
                 .setScanProperties(ScanProperties.FORWARD_SCAN)
                 .build()
                 .map(kv -> Pair.of(recordsSubspace.unpack(kv.getKey()), kv.getValue()))
-                .filter(tupleBytesPair -> tupleBytesPair.getLeft().getLong(tupleBytesPair.getLeft().size() - 1) == -1)
-                .map(tupleBytesPair -> Pair.of(tupleBytesPair.getLeft().popBack(), FDBRecordVersion.fromVersionstamp(Tuple.fromBytes(tupleBytesPair.getRight()).getVersionstamp(0))))
+                .filter(tupleBytesPair -> {
+                    final Tuple left = Objects.requireNonNull(tupleBytesPair.getLeft());
+                    return left.getLong(left.size() - 1) == -1;
+                })
+                .map(tupleBytesPair -> Pair.of(Objects.requireNonNull(tupleBytesPair.getLeft()).popBack(), FDBRecordVersion.fromVersionstamp(Tuple.fromBytes(tupleBytesPair.getRight()).getVersionstamp(0))))
                 .asIterator();
         for (FDBStoredRecord<M> storedRecord : storedRecords) {
             assertTrue(versionKeyPairs.hasNext());
-            Pair<Tuple, FDBRecordVersion> versionPair = versionKeyPairs.next();
+            Pair<Tuple, FDBRecordVersion> versionPair = Objects.requireNonNull(versionKeyPairs.next());
             assertEquals(storedRecord.getPrimaryKey(), versionPair.getLeft());
             assertEquals(storedRecord.getVersion(), versionPair.getRight());
         }
@@ -3213,7 +3243,7 @@ public class VersionIndexTest {
 
     private List<Tuple> scanIndexToKeys(final IndexFetchMethod fetchMethod, final String indexName, final ScanProperties direction) throws Exception {
         if (fetchMethod == IndexFetchMethod.SCAN_AND_FETCH) {
-            return recordStore.scanIndex(metaData.getIndex(indexName), IndexScanType.BY_VALUE, TupleRange.ALL, null, direction)
+            return recordStore.scanIndex(metaData.getIndex(indexName), IndexScanType.BY_VALUE, TupleRange.ALL, noContinuation(), direction)
                     .map(IndexEntry::getKey)
                     .asList().get();
         } else {
@@ -3221,7 +3251,7 @@ public class VersionIndexTest {
 
             IndexScanBounds scanBounds = new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
             // Use the remote fetch / fallback and then get the keys
-            return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, null, IndexOrphanBehavior.ERROR, direction)
+            return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, noContinuation(), IndexOrphanBehavior.ERROR, direction)
                     .map(FDBIndexedRecord::getIndexEntry)
                     .map(IndexEntry::getKey)
                     .asList().get();
@@ -3236,7 +3266,7 @@ public class VersionIndexTest {
         }
 
         IndexScanBounds scanBounds = new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
-        return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, null, IndexOrphanBehavior.ERROR, direction).asList().get();
+        return recordStore.scanIndexRecords(indexName, fetchMethod, scanBounds, noContinuation(), IndexOrphanBehavior.ERROR, direction).asList().get();
     }
 
     protected RecordQueryPlan plan(final RecordQuery query, final IndexFetchMethod useIndexPrefetch) {
