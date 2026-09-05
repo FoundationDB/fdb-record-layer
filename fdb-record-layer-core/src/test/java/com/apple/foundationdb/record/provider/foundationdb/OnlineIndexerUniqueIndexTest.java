@@ -43,6 +43,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -63,6 +64,15 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for building unique indexes with {@link OnlineIndexer}.
  */
 public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
+    // NullAway/JSpecify does not reliably resolve the @Nullable annotation on FDBRecordStoreBase's inherited
+    // scanIndex(..., byte[], ScanProperties) default method when it is called (with no continuation) from
+    // outside FDBRecordStore itself; wrapping the call here, rather than suppressing at each call site,
+    // centralizes the (well-understood) suppression.
+    @SuppressWarnings("NullAway")
+    private List<IndexEntry> scanIndexNoContinuationList(Index index, TupleRange range, ScanProperties scanProperties) {
+        return recordStore.scanIndex(index, IndexScanType.BY_VALUE, range, null, scanProperties).asList().join();
+    }
+
     @Tag(Tags.Slow)
     @Test
     void uniquenessViolations() {
@@ -104,10 +114,10 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
 
         // Case 3: Some in write-only mode.
-        fdb.run(context -> {
+        try (FDBRecordContext context = openContext()) {
             FDBRecordStore.deleteStoreAsync(context, path).join();
-            return null;
-        });
+            context.commit();
+        }
         openSimpleMetaData();
         try (FDBRecordContext context = openContext()) {
             for (int i = 0; i < 5; i++) {
@@ -128,10 +138,10 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
 
         // Case 4: Some in write-only mode with an initial range build that shouldn't affect anything.
-        fdb.run(context -> {
+        try (FDBRecordContext context = openContext()) {
             FDBRecordStore.deleteStoreAsync(context, path).join();
-            return null;
-        });
+            context.commit();
+        }
         openSimpleMetaData();
         try (FDBRecordContext context = openContext()) {
             for (int i = 5; i < records.size(); i++) {
@@ -152,10 +162,10 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
 
         // Case 5: Should be caught by write-only writes after build.
-        fdb.run(context -> {
+        try (FDBRecordContext context = openContext()) {
             FDBRecordStore.deleteStoreAsync(context, path).join();
-            return null;
-        });
+            context.commit();
+        }
         openSimpleMetaData();
         try (FDBRecordContext context = openContext()) {
             for (int i = 0; i < 5; i++) {
@@ -182,10 +192,10 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         }
 
         // Case 6: Should be caught by write-only writes after partial build.
-        fdb.run(context -> {
+        try (FDBRecordContext context = openContext()) {
             FDBRecordStore.deleteStoreAsync(context, path).join();
-            return null;
-        });
+            context.commit();
+        }
         openSimpleMetaData();
         try (FDBRecordContext context = openContext()) {
             for (int i = 0; i < 5; i++) {
@@ -214,10 +224,10 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
         // Case 7: The second of these two transactions should fail on not_committed, and then
         // there should be a uniqueness violation.
-        fdb.run(context -> {
+        try (FDBRecordContext context = openContext()) {
             FDBRecordStore.deleteStoreAsync(context, path).join();
-            return null;
-        });
+            context.commit();
+        }
         openSimpleMetaData();
         try (FDBRecordContext context = openContext()) {
             for (int i = 0; i < 5; i++) {
@@ -301,11 +311,11 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
 
         try (FDBRecordContext context = openContext()) {
             Set<Tuple> indexEntries = new HashSet<>(recordStore.scanUniquenessViolations(index)
-                    .map( v -> v.getIndexEntry().getKey() )
+                    .map( v -> Objects.requireNonNull(v.getIndexEntry()).getKey() )
                     .asList().join());
 
             for (Tuple indexKey : indexEntries) {
-                List<Tuple> primaryKeys = recordStore.scanUniquenessViolations(index, indexKey).map(RecordIndexUniquenessViolation::getPrimaryKey).asList().join();
+                List<Tuple> primaryKeys = recordStore.scanUniquenessViolations(index, indexKey).map(v -> Objects.requireNonNull(v.getPrimaryKey())).asList().join();
                 assertEquals(2, primaryKeys.size());
                 recordStore.resolveUniquenessViolation(index, indexKey, primaryKeys.get(0)).join();
                 assertEquals(0, (int)recordStore.scanUniquenessViolations(index, indexKey).getCount().join());
@@ -359,11 +369,11 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         // now try resolving it, and marking readable with another build
         try (FDBRecordContext context = openContext()) {
             Set<Tuple> indexEntries = new HashSet<>(recordStore.scanUniquenessViolations(index)
-                    .map( v -> v.getIndexEntry().getKey() )
+                    .map( v -> Objects.requireNonNull(v.getIndexEntry()).getKey() )
                     .asList().join());
 
             for (Tuple indexKey : indexEntries) {
-                List<Tuple> primaryKeys = recordStore.scanUniquenessViolations(index, indexKey).map(RecordIndexUniquenessViolation::getPrimaryKey).asList().join();
+                List<Tuple> primaryKeys = recordStore.scanUniquenessViolations(index, indexKey).map(v -> Objects.requireNonNull(v.getPrimaryKey())).asList().join();
                 assertEquals(2, primaryKeys.size());
                 recordStore.resolveUniquenessViolation(index, indexKey, primaryKeys.get(0)).join();
                 assertEquals(0, (int)recordStore.scanUniquenessViolations(index, indexKey).getCount().join());
@@ -429,7 +439,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
                 .build()) {
 
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains(throwMsg));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains(throwMsg));
             // The index should be partially built
         }
 
@@ -452,8 +462,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             assertEquals(10, (int)recordStore.scanUniquenessViolations(indexes.get(0)).getCount().join());
             if (allowUniquePending) {
                 assertTrue(recordStore.getIndexState(indexes.get(0)).isReadableUniquePending());
-                final List<IndexEntry> scanned = recordStore.scanIndex(indexes.get(0), IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
-                        .asList().join();
+                final List<IndexEntry> scanned = scanIndexNoContinuationList(indexes.get(0), TupleRange.ALL, ScanProperties.FORWARD_SCAN);
                 assertEquals(scanned.size(), records.size());
                 List<Long> numValues = records.stream().map(TestRecords1Proto.MySimpleRecord::getNumValue2).map(Integer::longValue).collect(Collectors.toList());
                 List<Long> scannedValues = scanned.stream().map(IndexEntry::getKey).map(tuple -> tuple.getLong(0)).collect(Collectors.toList());
@@ -462,8 +471,8 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             } else {
                 assertTrue(recordStore.getIndexState(indexes.get(0)).isWriteOnly());
                 RecordCoreException e = assertThrows(ScanNonReadableIndexException.class,
-                        () -> recordStore.scanIndex(indexes.get(0), IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN));
-                assertTrue(e.getMessage().contains("Cannot scan non-readable index"));
+                        () -> scanIndexNoContinuationList(indexes.get(0), TupleRange.ALL, ScanProperties.FORWARD_SCAN));
+                assertTrue(Objects.requireNonNull(e.getMessage()).contains("Cannot scan non-readable index"));
             }
             // non-unique index:
             assertTrue(recordStore.getIndexState(indexes.get(1)).isReadable());
@@ -476,11 +485,11 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
         final Index index = indexes.get(0);
         try (FDBRecordContext context = openContext()) {
             Set<Tuple> indexEntries = new HashSet<>(recordStore.scanUniquenessViolations(index)
-                    .map( v -> v.getIndexEntry().getKey() )
+                    .map( v -> Objects.requireNonNull(v.getIndexEntry()).getKey() )
                     .asList().join());
 
             for (Tuple indexKey : indexEntries) {
-                List<Tuple> primaryKeys = recordStore.scanUniquenessViolations(index, indexKey).map(RecordIndexUniquenessViolation::getPrimaryKey).asList().join();
+                List<Tuple> primaryKeys = recordStore.scanUniquenessViolations(index, indexKey).map(v -> Objects.requireNonNull(v.getPrimaryKey())).asList().join();
                 assertEquals(2, primaryKeys.size());
                 recordStore.resolveUniquenessViolation(index, indexKey, primaryKeys.get(0)).join();
                 assertEquals(0, (int)recordStore.scanUniquenessViolations(index, indexKey).getCount().join());
