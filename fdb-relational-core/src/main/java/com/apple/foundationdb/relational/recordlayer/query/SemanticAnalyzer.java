@@ -1058,7 +1058,7 @@ public class SemanticAnalyzer {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format(Locale.ROOT, "Unsupported operator %s", functionName));
 
-        final var catalogedFunction = functionCatalog.lookupFunction(functionName, arguments);
+        final var catalogedFunction = functionCatalog.lookupFunction(functionName, arguments, Map.of());
         processFunctionSideEffects(catalogedFunction);
 
         final var argumentList = ImmutableList.<Value>builderWithExpectedSize(arguments.size() + 1)
@@ -1150,12 +1150,12 @@ public class SemanticAnalyzer {
      */
     @Nonnull
     public LogicalOperator resolveTableFunction(@Nonnull final Identifier functionName, @Nonnull final Expressions arguments,
-                                                boolean flattenSingleItemRecords) {
+                                                boolean flattenSingleItemRecords, @Nonnull final Map<String, Object> localVariables) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName.getName()), ErrorCode.UNDEFINED_FUNCTION,
                 () -> String.format(Locale.ROOT, "Unknown function %s", functionName));
         final var callSiteArguments = arguments.toCallSiteArguments(flattenSingleItemRecords);
 
-        final var tableFunction = functionCatalog.lookupFunction(functionName.getName(), callSiteArguments);
+        final var tableFunction = functionCatalog.lookupFunction(functionName.getName(), callSiteArguments, localVariables);
         if (tableFunction instanceof BuiltInFunction) {
             Assert.thatUnchecked(tableFunction instanceof BuiltInTableFunction, functionName + " is not a table-valued function");
         }
