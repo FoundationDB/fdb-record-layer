@@ -48,6 +48,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -530,7 +531,7 @@ class KeySpacePathDataExportTest {
                 final AtomicReference<RecordCursorResult<Tuple>> tupleResult = new AtomicReference<>();
                 final List<Tuple> batch = cursor.map(dataInPath -> Tuple.fromBytes(dataInPath.getValue().toByteArray())).asList(tupleResult).join();
                 actual.add(batch);
-                continuation = tupleResult.get().getContinuation();
+                continuation = Objects.requireNonNull(tupleResult.get()).getContinuation();
             }
             assertEquals(expectedBatches, actual);
         }
@@ -580,6 +581,9 @@ class KeySpacePathDataExportTest {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the exportAllData call site below.
+    @SuppressWarnings("NullAway")
     void exportAllDataThroughKeySpacePathWrapperRemainders() {
         final FDBDatabase database = dbExtension.getDatabase();
         final EnvironmentKeySpace keySpace = EnvironmentKeySpace.setupSampleData(database);
@@ -622,6 +626,9 @@ class KeySpacePathDataExportTest {
      * @param context the context in which to export
      * @return a list of {@code DataInKeySpacePath}s being exported
      */
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the exportAllData call sites below.
+    @SuppressWarnings("NullAway")
     private static List<DataInKeySpacePath> exportAllData(final KeySpacePath pathToExport, final FDBRecordContext context) {
         final List<DataInKeySpacePath> asSingleExport = pathToExport.exportAllData(context, null, ScanProperties.FORWARD_SCAN)
                 .asList().join();
@@ -649,7 +656,7 @@ class KeySpacePathDataExportTest {
             final AtomicReference<RecordCursorResult<DataInKeySpacePath>> dataInPathResult = new AtomicReference<>();
             final List<DataInKeySpacePath> batch = cursor.asList(dataInPathResult).join();
             asContinuations.addAll(batch);
-            continuation = dataInPathResult.get().getContinuation();
+            continuation = Objects.requireNonNull(dataInPathResult.get()).getContinuation();
             if (dataInPathResult.get().hasNext()) {
                 assertEquals(1, batch.size());
             } else {

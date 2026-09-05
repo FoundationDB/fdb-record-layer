@@ -52,6 +52,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -74,11 +75,17 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 public class QueryExpressionTest {
 
-    private Boolean evaluate(QueryComponent component, @Nullable Message record) {
+    @Nullable
+    private Boolean evaluate(QueryComponent component, Message record) {
         return evaluate(component, Bindings.EMPTY_BINDINGS, record);
     }
 
-    private Boolean evaluate(QueryComponent component, Bindings bindings, @Nullable Message record) {
+    @Nullable
+    // NullAway/JSpecify does not track that QueryComponent.eval() genuinely accepts a null store
+    // when the component being evaluated never needs one (e.g. plain in-memory message
+    // comparisons, which is all that is exercised in this test class).
+    @SuppressWarnings("NullAway")
+    private Boolean evaluate(QueryComponent component, Bindings bindings, Message record) {
         return component.eval(null, EvaluationContext.forBindings(bindings), new UnstoredRecord<>(record));
     }
 
@@ -354,7 +361,7 @@ public class QueryExpressionTest {
                             return;
                         } catch (IllegalArgumentException e) {
                             // When run inside IntelliJ
-                            if (e.getMessage().contains("") && val2 == null) {
+                            if (Objects.requireNonNull(e.getMessage()).contains("") && val2 == null) {
                                 return;
                             } else {
                                 throw e;
@@ -393,7 +400,7 @@ public class QueryExpressionTest {
             final QueryComponent qc = new FieldWithComparison(field, comparison);
             assertEquals(expected, evaluate(qc, rec.build()), name);
         } catch (Exception e) {
-            if (type == Comparisons.Type.IN && !(val2 instanceof List) && e instanceof RecordCoreException && e.getMessage().contains("non-list")) {
+            if (type == Comparisons.Type.IN && !(val2 instanceof List) && e instanceof RecordCoreException && Objects.requireNonNull(e.getMessage()).contains("non-list")) {
                 return;
             }
             throw new AssertionError(name + " Threw: " + e.getMessage(), e);
