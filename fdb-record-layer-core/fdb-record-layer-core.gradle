@@ -94,8 +94,11 @@ sourceSets {
 // 1:1 to record_metadata.proto, record_cursor.proto, index_build.proto,
 // record_metadata_options.proto, record_planner_config.proto, pending_writes_queue.proto,
 // time_window_leaderboard.proto, resolver_state.proto, record_sorting.proto,
-// string_interning_data.proto, tuple_fields.proto, and keyspace.proto -- revisit if those
-// java_outer_classname values change).
+// string_interning_data.proto, tuple_fields.proto, keyspace.proto, and the 14 testFixtures-only
+// test_records_*.proto files (each declares its own protobuf wire-namespace package, e.g.
+// com.apple.foundationdb.record.test1, but overrides `option java_package` back to the bare
+// com.apple.foundationdb.record package, so they land alongside the hand-written classes above
+// -- revisit if those java_outer_classname/java_package values change).
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += ['-Xmaxerrs', '100000']
     options.errorprone {
@@ -103,7 +106,7 @@ tasks.withType(JavaCompile).configureEach {
         error("NullAway")
         option("NullAway:AnnotatedPackages", "com.apple.foundationdb.record")
         option("NullAway:UnannotatedSubPackages", "com.apple.foundationdb.record.planprotos,com.apple.foundationdb.record.expressions,com.apple.foundationdb.record.query.plan.cascades.events.eventprotos")
-        option("NullAway:ExcludedClasses", "com.apple.foundationdb.record.RecordMetaDataProto,com.apple.foundationdb.record.RecordCursorProto,com.apple.foundationdb.record.IndexBuildProto,com.apple.foundationdb.record.RecordMetaDataOptionsProto,com.apple.foundationdb.record.RecordPlannerConfigurationProto,com.apple.foundationdb.record.PendingWritesQueueProto,com.apple.foundationdb.record.TimeWindowLeaderboardProto,com.apple.foundationdb.record.ResolverStateProto,com.apple.foundationdb.record.RecordSortingProto,com.apple.foundationdb.record.StringInterningProto,com.apple.foundationdb.record.TupleFieldsProto,com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceProto")
+        option("NullAway:ExcludedClasses", "com.apple.foundationdb.record.RecordMetaDataProto,com.apple.foundationdb.record.RecordCursorProto,com.apple.foundationdb.record.IndexBuildProto,com.apple.foundationdb.record.RecordMetaDataOptionsProto,com.apple.foundationdb.record.RecordPlannerConfigurationProto,com.apple.foundationdb.record.PendingWritesQueueProto,com.apple.foundationdb.record.TimeWindowLeaderboardProto,com.apple.foundationdb.record.ResolverStateProto,com.apple.foundationdb.record.RecordSortingProto,com.apple.foundationdb.record.StringInterningProto,com.apple.foundationdb.record.TupleFieldsProto,com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceProto,com.apple.foundationdb.record.TestRecords1Proto,com.apple.foundationdb.record.TestRecords3Proto,com.apple.foundationdb.record.TestRecords4Proto,com.apple.foundationdb.record.TestRecords4WrapperProto,com.apple.foundationdb.record.TestRecords5Proto,com.apple.foundationdb.record.TestRecordsBytesProto,com.apple.foundationdb.record.TestRecordsEnumProto,com.apple.foundationdb.record.TestRecordsGroupedParentChildProto,com.apple.foundationdb.record.TestRecordsJoinIndexProto,com.apple.foundationdb.record.TestRecordsMultiProto,com.apple.foundationdb.record.TestRecordsTextProto,com.apple.foundationdb.record.TestRecordsTupleFieldsProto,com.apple.foundationdb.record.TestRecordsWithHeaderProto,com.apple.foundationdb.record.TestRecordsWithUnionProto")
         option("NullAway:JSpecifyMode", "true")
         option("NullAway:AcknowledgeRestrictiveAnnotations", "true")
     }
