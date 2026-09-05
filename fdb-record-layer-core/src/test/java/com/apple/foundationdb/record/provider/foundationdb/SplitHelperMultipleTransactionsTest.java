@@ -57,6 +57,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.LongStream;
@@ -248,7 +249,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         byte[] versionBytes = null;
         byte[] valueBytes = null;
         while (kvCursor.hasNext()) {
-            KeyValue kv = kvCursor.next();
+            KeyValue kv = Objects.requireNonNull(kvCursor.next());
             Tuple suffix = keySubspace.unpack(kv.getKey());
             if (testConfig.omitUnsplitSuffix) {
                 assertThat(suffix.isEmpty(), is(true));
@@ -642,6 +643,9 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
 
     @FunctionalInterface
     private interface LoadRecordFunction {
+        // @Nullable: implementations (e.g. loadWithSplit) legitimately return null for the "no
+        // record found" case, which several call sites below exercise on purpose.
+        @Nullable
         FDBRawRecord load(FDBRecordContext context, Tuple key, @Nullable FDBStoredSizes sizes, @Nullable byte[] expectedContents, @Nullable FDBRecordVersion version);
     }
 
@@ -757,9 +761,13 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
                 toCompleteKey(key9, keyGlobalVersion, localVersion9, testConfig.useVersionInKey));
         // transaction 3 - verify
         verifyRecords(testConfig, loadRecordFunction, completedKeys,
-                sizes2, sizes3, sizes5, version3, version4, version9);
+                sizes2, Objects.requireNonNull(sizes3), Objects.requireNonNull(sizes5),
+                Objects.requireNonNull(version3), Objects.requireNonNull(version4), Objects.requireNonNull(version9));
     }
 
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // expectedContents parameter of LoadRecordFunction.load() at the call sites below.
+    @SuppressWarnings("NullAway")
     private void verifyRecords(final SplitHelperTestConfig testConfig, final LoadRecordFunction loadRecordFunction, final List<Tuple> completeKeys, final FDBStoredSizes sizes2, final FDBStoredSizes sizes3, final FDBStoredSizes sizes5, final FDBRecordVersion version3, final FDBRecordVersion version4, final FDBRecordVersion version9) {
         try (FDBRecordContext context = openContext()) {
             // No record
@@ -807,6 +815,10 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
     }
 
     @Nullable
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters across the
+    // assertArrayEquals(byte[], byte[]) call below, even though expectedContents is narrowed
+    // to non-null by the surrounding if/else.
+    @SuppressWarnings("NullAway")
     private FDBRawRecord loadWithSplit(FDBRecordContext context, Tuple key, SplitHelperTestConfig testConfig,
                                        @Nullable FDBStoredSizes expectedSizes, @Nullable byte[] expectedContents, @Nullable FDBRecordVersion expectedVersion, boolean useVersionInKey) {
         final ReadTransaction tr = context.ensureActive();
@@ -876,6 +888,9 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
 
     @MethodSource("testConfigsNoDryRun")
     @ParameterizedTest(name = "loadWithSplit[{0}]")
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // expectedContents parameter at the loadWithSplit() call site below.
+    @SuppressWarnings("NullAway")
     public void loadWithSplit(SplitHelperTestConfig testConfig) {
         this.testConfig = testConfig;
         loadSingleRecords(testConfig,
@@ -905,6 +920,11 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         }
     }
 
+    @Nullable
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters across the
+    // assertArrayEquals(byte[], byte[]) call below, even though expectedContents is narrowed
+    // to non-null by the surrounding if/else.
+    @SuppressWarnings("NullAway")
     private FDBRawRecord scanSingleRecord(FDBRecordContext context, boolean reverse,
                                           Tuple key, @Nullable FDBStoredSizes expectedSizes,
                                           @Nullable byte[] expectedContents, @Nullable FDBRecordVersion version,
@@ -946,7 +966,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
     @ParameterizedTest(name = "scan[reverse = {0}, useVersionInKey = {1}]")
     @BooleanSource({"reverse", "useVersionInKey"})
     public void scanSingleRecords(boolean reverse, boolean useVersionInKey) {
-        loadSingleRecords(new SplitHelperTestConfig(true, false, FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue(), false, false, useVersionInKey),
+        loadSingleRecords(new SplitHelperTestConfig(true, false, Objects.requireNonNull(FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue()), false, false, useVersionInKey),
                 (context, key, expectedSizes, expectedContents, version) ->
                         scanSingleRecord(context, reverse, key, expectedSizes, expectedContents, version, useVersionInKey));
     }
@@ -960,7 +980,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
         final int numRecords = 50;
         final Tuple[] keys = new Tuple[numRecords];
         final byte[][] rawBytesArr = new byte[numRecords][];
-        final FDBRecordVersion[] versions = new FDBRecordVersion[numRecords];
+        final @Nullable FDBRecordVersion[] versions = new FDBRecordVersion[numRecords];
         final int[] localVersions = new int[numRecords];
         final FDBStoredSizes[] sizes = new FDBStoredSizes[numRecords];
 
@@ -1042,6 +1062,10 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
 
     @MethodSource("limitsReverseVersionArgs")
     @ParameterizedTest
+    // NullAway/JSpecify does not reliably recognize a null literal, nor a byte[] local variable
+    // that is only ever assigned from a @Nullable-returning call, as matching the @Nullable byte[]
+    // continuation parameter of setContinuation() below.
+    @SuppressWarnings("NullAway")
     void scanContinuations(final int returnLimit, final int readLimit, final boolean reverse, boolean useVersionInKey) {
         List<FDBRawRecord> rawRecords = writeDummyRecords(useVersionInKey);
         if (reverse) {
@@ -1143,7 +1167,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
                     SplitHelper.saveWithSplit(context, subspace, key, LONG_STRING, null,
                     true, false,
                     false, null, null));
-            assertTrue(ex.getMessage().contains("Key with version overwritten"));
+            assertTrue(Objects.requireNonNull(ex.getMessage()).contains("Key with version overwritten"));
         }
     }
 
@@ -1179,7 +1203,7 @@ public class SplitHelperMultipleTransactionsTest extends FDBRecordStoreTestBase 
             final Tuple completeKey = toCompleteKey(key, globalVersion, localVersion, true);
             Exception ex = assertThrows(CompletionException.class, () ->
                     SplitHelper.loadWithSplit(context.ensureActive(), context, subspace, completeKey, true, false, null).join());
-            assertTrue(ex.getMessage().contains("Unsplit value followed by split"));
+            assertTrue(Objects.requireNonNull(ex.getMessage()).contains("Unsplit value followed by split"));
         }
     }
 }

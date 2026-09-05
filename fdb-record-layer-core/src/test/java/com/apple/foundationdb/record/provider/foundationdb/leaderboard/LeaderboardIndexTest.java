@@ -85,6 +85,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -135,6 +136,10 @@ public class LeaderboardIndexTest {
     public static final int TEN_UNITS = 2;
     public static final int FIVE_UNITS = 3;
 
+    // NullAway.Init is suppressed here because metaData/planner/recordStore follow the standard
+    // test-fixture lifecycle: they are left unset by the constructor and are always populated by
+    // buildMetaData()/openRecordStore() before any test method that uses them runs.
+    @SuppressWarnings("NullAway.Init")
     abstract class Leaderboards {
 
         RecordMetaData metaData;
@@ -212,22 +217,29 @@ public class LeaderboardIndexTest {
                     recordStore.performIndexOperation(INDEX_NAME, operation);
         }
 
+        // NullAway/JSpecify does not reliably recognize a null literal (or a helper returning
+        // @Nullable byte[]) as matching a @Nullable byte[] continuation parameter across this
+        // interface's default methods; suppressing per-method is the most reliable fix.
+        @SuppressWarnings("NullAway")
         public RecordCursor<Message> scanIndexByRank(TupleRange range) {
             return recordStore.scanIndexRecords(INDEX_NAME, IndexScanType.BY_RANK, range, null, ScanProperties.FORWARD_SCAN).map(FDBIndexedRecord::getRecord);
         }
 
+        @SuppressWarnings("NullAway")
         public RecordCursor<Message> scanIndexByScore(TupleRange range, boolean reverse) {
             return recordStore.scanIndexRecords(INDEX_NAME, IndexScanType.BY_VALUE, range, null,
                             new ScanProperties(ExecuteProperties.SERIAL_EXECUTE, reverse))
                     .map(FDBIndexedRecord::getRecord);
         }
 
+        @SuppressWarnings("NullAway")
         public RecordCursor<Message> scanIndexByTimeWindow(TimeWindowScanRange range) {
             return recordStore.fetchIndexRecords(recordStore.scanIndex(metaData.getIndex(INDEX_NAME), range, null, ScanProperties.FORWARD_SCAN),
                             IndexOrphanBehavior.ERROR)
                     .map(FDBIndexedRecord::getRecord);
         }
 
+        @SuppressWarnings("NullAway")
         public RecordCursor<Message> scanIndexByTimeWindowWithLimit(TimeWindowScanRange range, int limit) {
             return recordStore.fetchIndexRecords(recordStore.scanIndex(metaData.getIndex(INDEX_NAME), range, null,
                                     new ScanProperties(ExecuteProperties.newBuilder()
@@ -237,6 +249,7 @@ public class LeaderboardIndexTest {
                             IndexOrphanBehavior.ERROR)
                     .map(FDBIndexedRecord::getRecord);
         }
+
 
         public abstract GroupingKeyExpression getKeyExpression();
 
@@ -496,7 +509,7 @@ public class LeaderboardIndexTest {
                     leaderboards.scanIndexByTimeWindow(five_units_2)
                             .map(leaderboards::getName).asList().join());
 
-            final FDBStoredRecord<Message> rec = leaderboards.findByName("helen");
+            final FDBStoredRecord<Message> rec = Objects.requireNonNull(leaderboards.findByName("helen"));
             assertEquals((Long)2L, leaderboards.evaluateQueryFunction(leaderboards.queryRank(), rec));
             assertEquals(null, leaderboards.evaluateQueryFunction(leaderboards.queryTimeWindowRank(TEN_UNITS, 10102), rec));
         }
@@ -543,7 +556,7 @@ public class LeaderboardIndexTest {
                     leaderboards.scanIndexByTimeWindow(five_units_2)
                             .map(leaderboards::getName).asList().join());
 
-            final FDBStoredRecord<Message> rec = leaderboards.findByName("helen");
+            final FDBStoredRecord<Message> rec = Objects.requireNonNull(leaderboards.findByName("helen"));
             assertEquals((Long)1L, leaderboards.evaluateQueryFunction(leaderboards.queryRank(), rec));
             assertEquals(null, leaderboards.evaluateQueryFunction(leaderboards.queryTimeWindowRank(TEN_UNITS, 10102), rec));
         }
@@ -558,7 +571,7 @@ public class LeaderboardIndexTest {
             leaderboards.openRecordStore(context, false);
 
             // Save a record for evaluating record functions later
-            final FDBStoredRecord<Message> rec = leaderboards.findByName("helen");
+            final FDBStoredRecord<Message> rec = Objects.requireNonNull(leaderboards.findByName("helen"));
             leaderboards.recordStore.deleteAllRecords();
 
             assertEquals(Collections.emptyList(),
@@ -586,7 +599,7 @@ public class LeaderboardIndexTest {
             leaderboards.openRecordStore(context, false);
 
             // Delete one record
-            final FDBStoredRecord<Message> rec = leaderboards.findByName("achilles");
+            final FDBStoredRecord<Message> rec = Objects.requireNonNull(leaderboards.findByName("achilles"));
             leaderboards.recordStore.deleteRecord(rec.getPrimaryKey());
 
             assertNull(leaderboards.evaluateQueryFunction(leaderboards.queryRank(), rec));
@@ -643,9 +656,9 @@ public class LeaderboardIndexTest {
                     leaderboards.scanIndexByTimeWindow(top_2_five_units)
                             .map(leaderboards::getName).asList().join());
 
-            final FDBStoredRecord<Message> rec1 = leaderboards.findByName("patroclus");
-            final FDBStoredRecord<Message> rec2 = leaderboards.findByName("achilles");
-            final FDBStoredRecord<Message> rec3 = leaderboards.findByName("hecuba");
+            final FDBStoredRecord<Message> rec1 = Objects.requireNonNull(leaderboards.findByName("patroclus"));
+            final FDBStoredRecord<Message> rec2 = Objects.requireNonNull(leaderboards.findByName("achilles"));
+            final FDBStoredRecord<Message> rec3 = Objects.requireNonNull(leaderboards.findByName("hecuba"));
 
             final QueryRecordFunction<Long> rank1 = leaderboards.queryRank();
             assertEquals((Long)0L, leaderboards.evaluateQueryFunction(rank1, rec1));
@@ -720,7 +733,7 @@ public class LeaderboardIndexTest {
         try (FDBRecordContext context = openContext()) {
             leaderboards.openRecordStore(context, false);
 
-            FDBStoredRecord<Message> rec = leaderboards.findByName("achilles");
+            FDBStoredRecord<Message> rec = Objects.requireNonNull(leaderboards.findByName("achilles"));
             leaderboards.recordStore.deleteRecord(rec.getPrimaryKey());
 
             // Set up functions and assert that they are all associated with a null rank.
@@ -917,8 +930,8 @@ public class LeaderboardIndexTest {
                     leaderboards.scanIndexByRank(TupleRange.ALL)
                             .map(leaderboards::getName).asList().join());
 
-            final FDBStoredRecord<Message> rec1 = leaderboards.findByName("helen");
-            final FDBStoredRecord<Message> rec2 = leaderboards.findByName("achilles");
+            final FDBStoredRecord<Message> rec1 = Objects.requireNonNull(leaderboards.findByName("helen"));
+            final FDBStoredRecord<Message> rec2 = Objects.requireNonNull(leaderboards.findByName("achilles"));
 
             assertEquals((Long)1L, leaderboards.evaluateQueryFunction(leaderboards.queryRank(), rec1));
             assertEquals(null, leaderboards.evaluateQueryFunction(leaderboards.queryTimeWindowRank(TEN_UNITS, 10102), rec1));
@@ -930,7 +943,7 @@ public class LeaderboardIndexTest {
 
             TestRecordsLeaderboardProto.NestedLeaderboardRecord.Builder recordBuilder =
                     TestRecordsLeaderboardProto.NestedLeaderboardRecord.newBuilder();
-            recordBuilder.mergeFrom(leaderboards.findByName("achilles").getRecord());
+            recordBuilder.mergeFrom(Objects.requireNonNull(leaderboards.findByName("achilles")).getRecord());
             recordBuilder.removeScores(3);
             recordBuilder.removeScores(2);
             leaderboards.recordStore.saveRecord(recordBuilder.build());
@@ -939,8 +952,8 @@ public class LeaderboardIndexTest {
                     leaderboards.scanIndexByRank(TupleRange.ALL)
                             .map(leaderboards::getName).asList().join());
 
-            final FDBStoredRecord<Message> rec1 = leaderboards.findByName("helen");
-            final FDBStoredRecord<Message> rec2 = leaderboards.findByName("achilles");
+            final FDBStoredRecord<Message> rec1 = Objects.requireNonNull(leaderboards.findByName("helen"));
+            final FDBStoredRecord<Message> rec2 = Objects.requireNonNull(leaderboards.findByName("achilles"));
 
             assertEquals((Long)1L, leaderboards.evaluateQueryFunction(leaderboards.queryRank(), rec1));
             assertEquals(null, leaderboards.evaluateQueryFunction(leaderboards.queryTimeWindowRank(TEN_UNITS, 10102), rec1));
@@ -957,8 +970,8 @@ public class LeaderboardIndexTest {
                     leaderboards.scanIndexByRank(TupleRange.ALL)
                             .map(leaderboards::getName).asList().join());
 
-            final FDBStoredRecord<Message> rec1 = leaderboards.findByName("helen");
-            final FDBStoredRecord<Message> rec2 = leaderboards.findByName("achilles");
+            final FDBStoredRecord<Message> rec1 = Objects.requireNonNull(leaderboards.findByName("helen"));
+            final FDBStoredRecord<Message> rec2 = Objects.requireNonNull(leaderboards.findByName("achilles"));
 
             assertEquals((Long)1L, leaderboards.evaluateQueryFunction(leaderboards.queryRank(), rec1));
             assertEquals(null, leaderboards.evaluateQueryFunction(leaderboards.queryTimeWindowRank(TEN_UNITS, 10102), rec1));
@@ -975,8 +988,8 @@ public class LeaderboardIndexTest {
                     leaderboards.scanIndexByRank(TupleRange.ALL)
                             .map(leaderboards::getName).asList().join());
 
-            final FDBStoredRecord<Message> rec1 = leaderboards.findByName("helen");
-            final FDBStoredRecord<Message> rec2 = leaderboards.findByName("achilles");
+            final FDBStoredRecord<Message> rec1 = Objects.requireNonNull(leaderboards.findByName("helen"));
+            final FDBStoredRecord<Message> rec2 = Objects.requireNonNull(leaderboards.findByName("achilles"));
 
             assertEquals((Long)0L, leaderboards.evaluateQueryFunction(leaderboards.queryRank(), rec1));
             assertEquals(null, leaderboards.evaluateQueryFunction(leaderboards.queryTimeWindowRank(TEN_UNITS, 10102), rec1));
@@ -998,8 +1011,8 @@ public class LeaderboardIndexTest {
                     leaderboards.scanIndexByRank(game_1)
                             .map(leaderboards::getName).asList().join());
 
-            final FDBStoredRecord<Message> rec1 = leaderboards.findByName("hecuba");
-            final FDBStoredRecord<Message> rec2 = leaderboards.findByName("achilles");
+            final FDBStoredRecord<Message> rec1 = Objects.requireNonNull(leaderboards.findByName("hecuba"));
+            final FDBStoredRecord<Message> rec2 = Objects.requireNonNull(leaderboards.findByName("achilles"));
 
             assertEquals((Long)1L, leaderboards.evaluateQueryFunction(leaderboards.queryRank(), rec1));
             assertEquals(null, leaderboards.evaluateQueryFunction(leaderboards.queryTimeWindowRank(TEN_UNITS, 10102), rec1));
@@ -1011,7 +1024,7 @@ public class LeaderboardIndexTest {
 
             TestRecordsLeaderboardProto.NestedLeaderboardRecord.Builder recordBuilder =
                     TestRecordsLeaderboardProto.NestedLeaderboardRecord.newBuilder();
-            recordBuilder.mergeFrom(leaderboards.findByName("achilles").getRecord());
+            recordBuilder.mergeFrom(Objects.requireNonNull(leaderboards.findByName("achilles")).getRecord());
             recordBuilder.removeScores(3);
             recordBuilder.removeScores(2);
             leaderboards.recordStore.saveRecord(recordBuilder.build());
@@ -1020,8 +1033,8 @@ public class LeaderboardIndexTest {
                     leaderboards.scanIndexByRank(game_1)
                             .map(leaderboards::getName).asList().join());
 
-            final FDBStoredRecord<Message> rec1 = leaderboards.findByName("hecuba");
-            final FDBStoredRecord<Message> rec2 = leaderboards.findByName("achilles");
+            final FDBStoredRecord<Message> rec1 = Objects.requireNonNull(leaderboards.findByName("hecuba"));
+            final FDBStoredRecord<Message> rec2 = Objects.requireNonNull(leaderboards.findByName("achilles"));
 
             assertEquals((Long)1L, leaderboards.evaluateQueryFunction(leaderboards.queryRank(), rec1));
             assertEquals(null, leaderboards.evaluateQueryFunction(leaderboards.queryTimeWindowRank(TEN_UNITS, 10102), rec1));
@@ -1038,8 +1051,8 @@ public class LeaderboardIndexTest {
                     leaderboards.scanIndexByRank(game_1)
                             .map(leaderboards::getName).asList().join());
 
-            final FDBStoredRecord<Message> rec1 = leaderboards.findByName("hecuba");
-            final FDBStoredRecord<Message> rec2 = leaderboards.findByName("achilles");
+            final FDBStoredRecord<Message> rec1 = Objects.requireNonNull(leaderboards.findByName("hecuba"));
+            final FDBStoredRecord<Message> rec2 = Objects.requireNonNull(leaderboards.findByName("achilles"));
 
             assertEquals((Long)1L, leaderboards.evaluateQueryFunction(leaderboards.queryRank(), rec1));
             assertEquals(null, leaderboards.evaluateQueryFunction(leaderboards.queryTimeWindowRank(TEN_UNITS, 10102), rec1));
@@ -1056,8 +1069,8 @@ public class LeaderboardIndexTest {
                     leaderboards.scanIndexByRank(game_1)
                             .map(leaderboards::getName).asList().join());
 
-            final FDBStoredRecord<Message> rec1 = leaderboards.findByName("hecuba");
-            final FDBStoredRecord<Message> rec2 = leaderboards.findByName("achilles");
+            final FDBStoredRecord<Message> rec1 = Objects.requireNonNull(leaderboards.findByName("hecuba"));
+            final FDBStoredRecord<Message> rec2 = Objects.requireNonNull(leaderboards.findByName("achilles"));
 
             assertEquals((Long)0L, leaderboards.evaluateQueryFunction(leaderboards.queryRank(), rec1));
             assertEquals(null, leaderboards.evaluateQueryFunction(leaderboards.queryTimeWindowRank(TEN_UNITS, 10102), rec1));
@@ -1095,7 +1108,7 @@ public class LeaderboardIndexTest {
                     leaderboards.scanIndexByTimeWindow(ten_units)
                             .map(leaderboards::getName).asList().join());
 
-            final FDBStoredRecord<Message> rec = leaderboards.findByName("achilles");
+            final FDBStoredRecord<Message> rec = Objects.requireNonNull(leaderboards.findByName("achilles"));
 
             final QueryRecordFunction<Long> rank1 = leaderboards.queryRank();
             assertEquals(null, leaderboards.evaluateQueryFunction(rank1, rec));
@@ -1256,7 +1269,7 @@ public class LeaderboardIndexTest {
         final Consumer<Integer> assertAllTimeWorks = expectedLeaderboardCount -> {
             try (FDBRecordContext context = openContext()) {
                 leaderboards.openRecordStore(context, false);
-                final FDBStoredRecord<Message> rec = leaderboards.findByName("hector");
+                final FDBStoredRecord<Message> rec = Objects.requireNonNull(leaderboards.findByName("hector"));
                 assertEquals(3L, leaderboards.evaluateQueryFunction(leaderboards.queryRank(), rec));
                 final TimeWindowLeaderboardDirectory directory = leaderboards.getDirectory();
                 assertNotNull(directory.getLeaderboards().get(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE));
@@ -1339,7 +1352,7 @@ public class LeaderboardIndexTest {
         try (FDBRecordContext context = openContext()) {
             leaderboards.openRecordStore(context, false);
 
-            List<Key.Evaluated> untrimmed = leaderboards.getScores(leaderboards.findByName("achilles"));
+            List<Key.Evaluated> untrimmed = leaderboards.getScores(Objects.requireNonNull(leaderboards.findByName("achilles")));
             assertEquals(Arrays.asList(
                     Key.Evaluated.concatenate("game-1", 100L, 10101L, 666L),
                     Key.Evaluated.concatenate("game-1", 99L, 10102L, 665L),
@@ -1368,7 +1381,7 @@ public class LeaderboardIndexTest {
         }
         try (FDBRecordContext context = openContext()) {
             leaderboards.openRecordStore(context, false);
-            leaderboards.recordStore.deleteRecord(leaderboards.findByName("helen").getPrimaryKey());
+            leaderboards.recordStore.deleteRecord(Objects.requireNonNull(leaderboards.findByName("helen")).getPrimaryKey());
             leaderboards.addScores("helen", "game-1", Long.MIN_VALUE, 10101, 888);
 
             TupleRange game_1 = TupleRange.allOf(Tuple.from("game-1"));
@@ -1562,7 +1575,7 @@ public class LeaderboardIndexTest {
                     context.ensureActive().options().setLogTransaction();
                     privateLeaderboards.recordStore = builder.setContext(context).build();
                     privateLeaderboards.addScores(player, "game-1", score, 10100, 0);
-                    return null;
+                    return context;
                 });
             }
         };
@@ -1570,7 +1583,7 @@ public class LeaderboardIndexTest {
 
     private static void assertTimestamps(final Leaderboards leaderboards, final int type,
                                          final List<Long> startTimestamps, final List<Long> endTimestamps) {
-        final Collection<TimeWindowLeaderboard> leaderboard = leaderboards.getDirectory().getLeaderboards().get(type);
+        final Collection<TimeWindowLeaderboard> leaderboard = Objects.requireNonNull(leaderboards.getDirectory().getLeaderboards().get(type));
         assertEquals(startTimestamps,
                 leaderboard.stream().map(TimeWindowLeaderboard::getStartTimestamp).collect(Collectors.toList()));
         assertEquals(endTimestamps,
