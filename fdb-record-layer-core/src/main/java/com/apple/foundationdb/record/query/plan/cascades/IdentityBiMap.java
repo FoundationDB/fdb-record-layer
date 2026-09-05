@@ -260,9 +260,10 @@ public class IdentityBiMap<K, V> implements BiMap<Wrapper<K>, Wrapper<V>> {
         return new IdentityBiMap<>(delegate);
     }
 
-    @SuppressWarnings("NullAway") // Equivalence.wrap() is annotated (via Guava's ParametricNullness) to accept a
-                                   // null reference; NullAway cannot propagate that through our own <T extends
-                                   // @Nullable Object> type variable across this generic-method boundary.
+    // Equivalence.wrap() is annotated (via Guava's ParametricNullness) to accept a
+    // null reference; NullAway cannot propagate that through our own <T extends
+    // @Nullable Object> type variable across this generic-method boundary.
+    @SuppressWarnings("NullAway")
     public static <T extends @Nullable Object> Wrapper<T> wrap(@Nullable final T reference) {
         return identity.wrap(reference);
     }

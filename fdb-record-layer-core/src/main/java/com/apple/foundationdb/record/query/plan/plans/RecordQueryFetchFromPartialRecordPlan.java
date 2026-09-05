@@ -115,9 +115,10 @@ public class RecordQueryFetchFromPartialRecordPlan extends AbstractRelationalExp
     }
 
     @Override
-    @SuppressWarnings({"resource", "NullAway"}) // QueryResult.getIndexEntry() is legitimately @Nullable, but the target type of
-                                                 // this method reference is the JDK's non-nullness-aware java.util.function.Function,
-                                                 // whose R is inferred @NonNull here from RecordCursor.map's declared signature.
+    // QueryResult.getIndexEntry() is legitimately @Nullable, but the target type of
+    // this method reference is the JDK's non-nullness-aware java.util.function.Function,
+    // whose R is inferred @NonNull here from RecordCursor.map's declared signature.
+    @SuppressWarnings({"resource", "NullAway"})
     public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
                                                                      final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,

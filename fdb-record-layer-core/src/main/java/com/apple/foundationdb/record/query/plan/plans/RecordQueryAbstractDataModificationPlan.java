@@ -312,8 +312,9 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
         }
     }
 
-    @SuppressWarnings("NullAway") // PlanHashable.objectsPlanHash's varargs aren't annotated @Nullable, but each
-                                   // element is hashed via objectPlanHash, which is explicitly null-safe.
+    // PlanHashable.objectsPlanHash's varargs aren't annotated @Nullable, but each
+    // element is hashed via objectPlanHash, which is explicitly null-safe.
+    @SuppressWarnings("NullAway")
     private int computePlanHashForContinuation() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, getInnerPlan(),
                 targetRecordType, transformationsTrie, coercionTrie);

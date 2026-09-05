@@ -422,8 +422,9 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
 
         @Nullable
         @Override
-        @SuppressWarnings("NullAway") // NullAway doesn't reliably track @Nullable on byte[] return types; this
-                                       // method is correctly annotated @Nullable above.
+        // NullAway doesn't reliably track @Nullable on byte[] return types; this
+        // method is correctly annotated @Nullable above.
+        @SuppressWarnings("NullAway")
         byte[] operate(List<byte[]> operands, byte[] result) {
             boolean first = true;
             boolean empty = true;
@@ -461,8 +462,9 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
 
         @Nullable
         @Override
-        @SuppressWarnings("NullAway") // NullAway doesn't reliably track @Nullable on byte[] return types; this
-                                       // method is correctly annotated @Nullable above.
+        // NullAway doesn't reliably track @Nullable on byte[] return types; this
+        // method is correctly annotated @Nullable above.
+        @SuppressWarnings("NullAway")
         byte[] operate(List<byte[]> operands, byte[] result) {
             boolean first = true;
             boolean empty = true;
@@ -500,8 +502,9 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
 
         @Nullable
         @Override
-        @SuppressWarnings("NullAway") // NullAway doesn't reliably track @Nullable on byte[] return types; this
-                                       // method is correctly annotated @Nullable above.
+        // NullAway doesn't reliably track @Nullable on byte[] return types; this
+        // method is correctly annotated @Nullable above.
+        @SuppressWarnings("NullAway")
         byte[] operate(List<byte[]> operands, byte[] result) {
             boolean first = true;
             boolean empty = true;
