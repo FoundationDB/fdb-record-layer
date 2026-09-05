@@ -43,6 +43,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -138,8 +139,8 @@ public class SyntheticRecordPlannerJoinsTest extends AbstractSyntheticRecordPlan
             Multiset<Tuple> results1 = HashMultiset.create(plan1.execute(recordStore).map(FDBSyntheticRecord::getPrimaryKey).asList().join());
             assertEquals(expected1, results1);
 
-            FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(1002));
-            SyntheticRecordFromStoredRecordPlan plan2 = planner.fromStoredType(record.getRecordType(), false);
+            FDBStoredRecord<Message> record = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1002)));
+            SyntheticRecordFromStoredRecordPlan plan2 = Objects.requireNonNull(planner.fromStoredType(record.getRecordType(), false));
             assertThat(plan2, SyntheticPlanMatchers.joinedRecord(List.of(
                     PlanMatchers.indexScan(Matchers.allOf(
                             PlanMatchers.indexName("MySimpleRecord$other_rec_no"),
@@ -245,8 +246,8 @@ public class SyntheticRecordPlannerJoinsTest extends AbstractSyntheticRecordPlan
             Multiset<Tuple> results1 = HashMultiset.create(plan1.execute(recordStore).map(FDBSyntheticRecord::getPrimaryKey).asList().join());
             assertEquals(expected1, results1);
 
-            FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(1));
-            SyntheticRecordFromStoredRecordPlan plan2 = planner.fromStoredType(record.getRecordType(), false);
+            FDBStoredRecord<Message> record = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1)));
+            SyntheticRecordFromStoredRecordPlan plan2 = Objects.requireNonNull(planner.fromStoredType(record.getRecordType(), false));
             assertThat(plan2, SyntheticPlanMatchers.syntheticRecordConcat(List.of(
                     SyntheticPlanMatchers.joinedRecord(List.of(
                             PlanMatchers.typeFilter(Matchers.contains("MySimpleRecord"),
