@@ -120,7 +120,7 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
                         recordStore.loadRecord(savedRecords.get(l).getPrimaryKey());
 
                 assertThat(loadedRecord).isNotNull();
-                assertThat(loadedRecord.getRecord()).isEqualTo(savedRecords.get(l).getRecord());
+                assertThat(Objects.requireNonNull(loadedRecord).getRecord()).isEqualTo(savedRecords.get(l).getRecord());
             }
             commit(context);
         }
@@ -162,7 +162,11 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
 
             byte[] continuation = null;
             do {
-                try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
+                // FDBRecordStoreQueryTestBase#executeQuery's continuation parameter is declared
+                // @Nullable byte[] (a position NullAway does not reliably recognize as nullable, even
+                // though the method itself is already locally suppressed for the same reason), so the
+                // genuinely-nullable continuation local below still trips the checker here at the call site.
+                try (@SuppressWarnings("NullAway") RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
                              executeQuery(indexPlan, continuation, Bindings.EMPTY_BINDINGS, limit)) {
                     int numRecords = 0;
                     while (cursor.hasNext()) {
@@ -223,7 +227,7 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
             final int[] recallCounters = new int[2];
             byte[] continuation = null;
             do {
-                try (final RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
+                try (final @SuppressWarnings("NullAway") RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
                              executeQuery(indexPlan, continuation, Bindings.EMPTY_BINDINGS, limit)) {
                     int numRecords = 0;
                     while (cursor.hasNext()) {
@@ -234,7 +238,9 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
                                         .build();
                         numRecords++;
                         allCounters[record.getGroupId()]++;
-                        if (expectedResults.get(record.getGroupId()).contains(record.getRecNo())) {
+                        // every group present in the scanned records is also a key in expectedResults,
+                        // since both are derived from the same saved records
+                        if (Objects.requireNonNull(expectedResults.get(record.getGroupId())).contains(record.getRecNo())) {
                             recallCounters[record.getGroupId()]++;
                         }
                     }
@@ -380,7 +386,9 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
         checkResultsGrouped(indexPlan, Integer.MAX_VALUE, expectedResults);
     }
 
-    @SuppressWarnings("resource")
+    // IndexMaintainer#scan's continuation parameter is declared @Nullable byte[] (a position NullAway
+    // does not reliably recognize as nullable), so the null literal below still trips the checker.
+    @SuppressWarnings({"resource", "NullAway"})
     @Test
     void directIndexMaintainerTest() throws Exception {
         try (FDBRecordContext context = openContext()) {
@@ -428,7 +436,10 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
                     .setState(ExecuteState.NO_LIMITS)
                     .setReturnedRowLimit(Integer.MAX_VALUE).build().asScanProperties(false);
 
-            try (final RecordCursor<IndexEntry> cursor =
+            // IndexMaintainer#scan's continuation parameter is declared @Nullable byte[] (a position
+            // NullAway does not reliably recognize as nullable), so the null literal below still trips
+            // the checker.
+            try (final @SuppressWarnings("NullAway") RecordCursor<IndexEntry> cursor =
                          indexMaintainer.scan(vectorIndexScanComparisons.bind(recordStore, index,
                                  EvaluationContext.empty()), null, scanProperties)) {
                 final RecordCursorIterator<IndexEntry> cursorIterator = cursor.asIterator();
@@ -439,7 +450,9 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
                     final int groupId = Math.toIntExact(indexEntry.getPrimaryKey().getLong(0));
                     final long recNo = Math.toIntExact(indexEntry.getPrimaryKey().getLong(1));
                     allCounters[groupId]++;
-                    if (expectedResults.get(groupId).contains(recNo)) {
+                    // every group present in the scanned index entries is also a key in expectedResults,
+                    // since both are derived from the same saved records
+                    if (Objects.requireNonNull(expectedResults.get(groupId)).contains(recNo)) {
                         recallCounters[groupId]++;
                     }
                     assertThat(indexEntry.getValue().get(0) != null).isEqualTo(returnVectors);
@@ -692,7 +705,10 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
                 .setIsolationLevel(IsolationLevel.SERIALIZABLE)
                 .setState(ExecuteState.NO_LIMITS)
                 .setReturnedRowLimit(Integer.MAX_VALUE).build().asScanProperties(false);
-        try (RecordCursor<IndexEntry> cursor = maintainer.scan(scanBounds, null, scanProperties)) {
+        // IndexMaintainer#scan's continuation parameter is declared @Nullable byte[] (a position
+        // NullAway does not reliably recognize as nullable), so the null literal below still trips the
+        // checker.
+        try (@SuppressWarnings("NullAway") RecordCursor<IndexEntry> cursor = maintainer.scan(scanBounds, null, scanProperties)) {
             return cursor.map(entry -> entry.getKey().getLong(1)).asList().join();
         }
     }
