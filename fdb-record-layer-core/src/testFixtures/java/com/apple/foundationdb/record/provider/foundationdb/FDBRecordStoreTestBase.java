@@ -48,6 +48,7 @@ import org.junit.jupiter.params.provider.Arguments;
 
 import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -116,8 +117,8 @@ public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTes
     protected Pair<FDBRecordStore, QueryPlanner> createOrOpenRecordStore(FDBRecordContext context,
                                                                          RecordMetaDataProvider metaData) {
         Pair<FDBRecordStore, QueryPlanner> recordStoreQueryPlannerPair = createOrOpenRecordStore(context, metaData, path);
-        recordStore = recordStoreQueryPlannerPair.getLeft();
-        planner = recordStoreQueryPlannerPair.getRight();
+        recordStore = Objects.requireNonNull(recordStoreQueryPlannerPair.getLeft());
+        planner = Objects.requireNonNull(recordStoreQueryPlannerPair.getRight());
         return recordStoreQueryPlannerPair;
     }
 

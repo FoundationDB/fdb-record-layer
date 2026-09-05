@@ -96,6 +96,9 @@ public class TestKeySpacePathManager implements AutoCloseable {
      * Delete all the data in any of the paths created by this path manager.
      */
     @Override
+    @SuppressWarnings("NullAway") // FDBDatabaseRunner#run's Function<? super FDBRecordContext, ? extends T>
+    // wildcard bound means an explicit .<Void>run(...) type witness doesn't propagate Void's usual
+    // null-return leniency into the lambda body's own return-type check.
     public void close() {
         if (!closed) {
             if (!paths.isEmpty()) {

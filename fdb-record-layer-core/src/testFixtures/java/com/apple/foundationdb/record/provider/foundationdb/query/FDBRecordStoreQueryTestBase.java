@@ -201,6 +201,9 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
      * @return the last result from the cursor
      * @throws Throwable any thrown exception, or its cause if the exception is a {@link ExecutionException}
      */
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably recognize a @Nullable byte[]
+    // continuation (whether a variable or null literal) as matching RecordQueryPlan#execute's
+    // already-@Nullable byte[] continuation parameter - a known array-type tracking gap.
     protected RecordCursorResult<FDBQueriedRecord<Message>> querySimpleRecordStoreWithContinuation(RecordMetaDataHook recordMetaDataHook,
                                                                                                    RecordQueryPlan plan,
                                                                                                    Supplier<EvaluationContext> contextSupplier,
@@ -252,6 +255,9 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         }
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably recognize a null literal as matching
+    // RecordQueryPlan#executePlan's already-@Nullable byte[] continuation parameter - a known array-type
+    // tracking gap.
     protected List<Map<String, Object>> queryAsMaps(RecordQueryPlan plan, Bindings bindings) {
         final TypeRepository types = TypeRepository.newBuilder()
                 .addAllTypes(usedTypes().evaluate(plan))
@@ -430,6 +436,9 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         return fetchResultValues(context, plan, rowHandler, EvaluationContext.empty(), checkDiscarded, executeProperties);
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably recognize a null literal as matching
+    // RecordQueryPlan#executePlan's already-@Nullable byte[] continuation parameter - a known array-type
+    // tracking gap.
     protected <T> List<T> fetchResultValues(FDBRecordContext context, RecordQueryPlan plan, Function<Message, T> rowHandler,
                                             EvaluationContext extraEvaluationContext,
                                             TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded, ExecuteProperties executeProperties) throws Exception {
@@ -736,12 +745,17 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         return executeQuery(plan, Bindings.EMPTY_BINDINGS);
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably recognize a null literal as matching
+    // the 4-arg executeQuery overload's already-@Nullable byte[] continuation parameter - a known
+    // array-type tracking gap.
     protected RecordCursorIterator<FDBQueriedRecord<Message>> executeQuery(final RecordQueryPlan plan,
                                                                            final Bindings bindings) {
         return executeQuery(plan, null, bindings, Integer.MAX_VALUE);
     }
 
-    @SuppressWarnings("resource")
+    @SuppressWarnings({"resource", "NullAway"}) // NullAway/JSpecify does not reliably recognize this
+    // already-@Nullable byte[] continuation parameter as matching RecordQueryPlan#execute's own
+    // @Nullable byte[] parameter - a known array-type tracking gap.
     protected RecordCursorIterator<FDBQueriedRecord<Message>> executeQuery(final RecordQueryPlan plan,
                                                                            @Nullable byte[] continuation,
                                                                            final Bindings bindings,
