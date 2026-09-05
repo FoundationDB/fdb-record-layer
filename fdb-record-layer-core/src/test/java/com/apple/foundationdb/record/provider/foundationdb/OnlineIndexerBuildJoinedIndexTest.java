@@ -203,7 +203,10 @@ class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndexTest {
         return indexEntries;
     }
 
-    void singleValueIndexRebuild(List<Message> records, List<Message> recordsWhileBuilding, List<Tuple> deleteWhileBuilding, int agents, boolean overlap) {
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call site below.
+    @SuppressWarnings("NullAway")
+    void singleValueIndexRebuild(List<Message> records, @Nullable List<Message> recordsWhileBuilding, @Nullable List<Tuple> deleteWhileBuilding, int agents, boolean overlap) {
         final OnlineIndexerJoinedRecordHandler recordHandler = OnlineIndexerJoinedRecordHandler.instance();
 
         final Index joinIndex = new Index("joinIndex", concat(field("simple").nest("num_value"), field("other").nest("num_value_3"), field("simple").nest("num_value_2")));
@@ -395,6 +398,9 @@ class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndexTest {
 
     @ParameterizedTest
     @MethodSource("randomSeeds")
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call site below.
+    @SuppressWarnings("NullAway")
     void simpleJoinIsEmpty(long seed) {
         final Random r = new Random(seed);
         final List<Message> records = new ArrayList<>();
@@ -469,6 +475,9 @@ class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndexTest {
 
     @ParameterizedTest
     @MethodSource("randomSeeds")
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call site below.
+    @SuppressWarnings("NullAway")
     void simpleJoinCountIsEmpty(long seed) {
         final Random r = new Random(seed);
         final List<Message> records = new ArrayList<>();
