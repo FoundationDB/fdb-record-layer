@@ -392,7 +392,7 @@ class KeySpacePathSerializerTest {
 
         // Verify the root value changed but path structure and data preserved
         assertEquals("staging", Objects.requireNonNull(Objects.requireNonNull(deserializedData.getPath().getParent()).getParent()).getDirectoryName());
-        assertEquals("stage", deserializedData.getPath().getParent().getParent().getValue());
+        assertEquals("stage", Objects.requireNonNull(Objects.requireNonNull(deserializedData.getPath().getParent()).getParent()).getValue());
 
         // The logical path values should be preserved
         assertEquals("db1", deserializedData.getPath().getParent().getValue());
