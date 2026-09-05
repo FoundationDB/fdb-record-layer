@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -40,6 +41,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link RecursiveCursor}.
  */
 class RecursiveCursorTest {
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters, even when passed
+    // through to another parameter that is already annotated @Nullable.
+    @SuppressWarnings("NullAway")
     private static RecordCursor<String> numberStrings(int n, @Nullable byte[] continuation) {
         return new RangeCursor(TestExecutors.defaultThreadPool(), n, continuation).map(i -> Integer.toString(i));
     }
@@ -75,12 +79,15 @@ class RecursiveCursorTest {
      * @param continuation optional continuation token for resuming traversal
      * @return a cursor over string paths at the specified depth
      */
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters, even when passed
+    // through to another parameter that is already annotated @Nullable.
+    @SuppressWarnings("NullAway")
     private static RecordCursor<String> stringPathsCursor(int nroot, int nchildren, int depth,
                                                           @Nullable byte[] continuation) {
         return RecursiveCursor.create(c -> numberStrings(nroot, c), stringPaths(nchildren, depth - 1),
                         null, continuation, true)
                 .filter(v -> v.getDepth() == depth)
-                .map(RecursiveCursor.RecursiveValue::getValue);
+                .map(v -> Objects.requireNonNull(v.getValue()));
     }
 
     private static String integerStringPath(int n, int size, int radix) {
@@ -96,6 +103,9 @@ class RecursiveCursorTest {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     void testStringPaths() {
         final List<String> expected = IntStream.range(0, 2 * 3 * 3 * 3)
                 .mapToObj(n -> integerStringPath(n, 4, 3))
@@ -105,6 +115,9 @@ class RecursiveCursorTest {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     void testStringPathContinued() {
         final List<String> expected = IntStream.range(0, 2 * 3 * 3 * 3)
                 .mapToObj(n -> integerStringPath(n, 4, 3))
@@ -115,7 +128,7 @@ class RecursiveCursorTest {
         final AtomicReference<RecordCursorResult<String>> terminatingResultRef = new AtomicReference<>();
         do {
             actual.addAll(stringPathsCursor(2, 3, 4, continuation).limitRowsTo(4).asList(terminatingResultRef).join());
-            continuation = terminatingResultRef.get().getContinuation().toBytes();
+            continuation = Objects.requireNonNull(terminatingResultRef.get()).getContinuation().toBytes();
             nsteps++;
         } while (continuation != null);
         assertEquals(expected, actual);
@@ -123,6 +136,9 @@ class RecursiveCursorTest {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     void testVisitorAcceptance() {
         final var cursorCountPerDepth = new ArrayList<Integer>(101);
         cursorCountPerDepth.add(-1);
