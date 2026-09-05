@@ -40,6 +40,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -135,24 +136,24 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder)) {
             openSimpleRecordStore(context);
-            assertCacheHit(context.getTimer());
+            assertCacheHit(Objects.requireNonNull(context.getTimer()));
 
-            context.getTimer().reset();
+            Objects.requireNonNull(context.getTimer()).reset();
             deleteStoreMode.deleteStore(context, recordStore.getSubspace());
             recordStore.asBuilder().create();
-            assertCacheMiss(context.getTimer());
+            assertCacheMiss(Objects.requireNonNull(context.getTimer()));
 
             commit(context);
         }
 
         try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder)) {
             openSimpleRecordStore(context);
-            assertCacheHit(context.getTimer());
+            assertCacheHit(Objects.requireNonNull(context.getTimer()));
             path.deleteAllData(context);
 
-            context.getTimer().reset();
+            Objects.requireNonNull(context.getTimer()).reset();
             recordStore.asBuilder().create();
-            assertCacheMiss(context.getTimer());
+            assertCacheMiss(Objects.requireNonNull(context.getTimer()));
         }
 
         // Deleting all records should not disable the index, so the result should still be cacheable.
@@ -160,20 +161,20 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
         final String disabledIndex = "MySimpleRecord$str_value_indexed";
         try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
             openSimpleRecordStore(context);
-            assertCacheHit(context.getTimer());
+            assertCacheHit(Objects.requireNonNull(context.getTimer()));
             recordStore.markIndexDisabled(disabledIndex).get();
             commit(context);
         }
 
         try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
             openSimpleRecordStore(context);
-            assertCacheHit(context.getTimer());
+            assertCacheHit(Objects.requireNonNull(context.getTimer()));
             assertTrue(recordStore.getIndexState(disabledIndex).isDisabled());
             recordStore.deleteAllRecords();
 
-            context.getTimer().reset();
+            Objects.requireNonNull(context.getTimer()).reset();
             recordStore = recordStore.asBuilder().open();
-            assertCacheHit(context.getTimer());
+            assertCacheHit(Objects.requireNonNull(context.getTimer()));
             assertTrue(recordStore.getIndexState(disabledIndex).isDisabled());
             commit(context);
         }
@@ -199,7 +200,7 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
         // Delete by calling deleteStore.
         try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
             openSimpleRecordStore(context);
-            assertCacheHit(context.getTimer());
+            assertCacheHit(Objects.requireNonNull(context.getTimer()));
             deleteStoreMode.deleteStore(context, recordStore.getSubspace());
             commit(context);
         }
@@ -207,7 +208,7 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
         // After deleting it, when opening the same store again, it shouldn't be cached.
         try (FDBRecordContext context = fdb.openContext(null, new FDBStoreTimer())) {
             FDBRecordStore store = storeBuilder.setContext(context).create();
-            assertCacheMiss(context.getTimer());
+            assertCacheMiss(Objects.requireNonNull(context.getTimer()));
             assertTrue(store.setStateCacheability(true));
             commit(context);
         }
@@ -215,7 +216,7 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
         // Delete by calling path.deleteAllData
         try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
             openSimpleRecordStore(context);
-            assertCacheHit(context.getTimer());
+            assertCacheHit(Objects.requireNonNull(context.getTimer()));
             path.deleteAllData(context);
             commit(context);
         }
@@ -223,7 +224,7 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = fdb.openContext(null, new FDBStoreTimer())) {
             FDBRecordStore store = storeBuilder.setContext(context).create();
             store.setStateCacheabilityAsync(true).get();
-            assertCacheMiss(context.getTimer());
+            assertCacheMiss(Objects.requireNonNull(context.getTimer()));
             commit(context);
         }
 
@@ -299,12 +300,12 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
      */
     private void assertMetaDataVersionStampBehaviorOnNonCacheableOrMissingStore(final Subspace subspace,
                                                                                 DeleteStoreMode deleteStoreMode) {
-        final byte[] beforeStamp = getMetaDataVersionStamp();
+        final byte[] beforeStamp = Objects.requireNonNull(getMetaDataVersionStamp());
         assertNotNull(beforeStamp);
 
         deleteStore(subspace, deleteStoreMode);
 
-        final byte[] afterStamp = getMetaDataVersionStamp();
+        final byte[] afterStamp = Objects.requireNonNull(getMetaDataVersionStamp());
         assertNotNull(afterStamp);
         if (deleteStoreMode == DeleteStoreMode.SYNC) {
             assertFalse(Arrays.equals(beforeStamp, afterStamp),
@@ -330,12 +331,12 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
 
         final Subspace subspace = createStore(true).subspace();
         // Commit above already bumped the stamp (transition to cacheable). Snapshot after that.
-        final byte[] beforeStamp = getMetaDataVersionStamp();
+        final byte[] beforeStamp = Objects.requireNonNull(getMetaDataVersionStamp());
         assertNotNull(beforeStamp);
 
         deleteStore(subspace, deleteStoreMode);
 
-        final byte[] afterStamp = getMetaDataVersionStamp();
+        final byte[] afterStamp = Objects.requireNonNull(getMetaDataVersionStamp());
         assertNotNull(afterStamp);
         assertFalse(Arrays.equals(beforeStamp, afterStamp),
                 "deleting a cacheable store should have bumped the meta-data version stamp");
