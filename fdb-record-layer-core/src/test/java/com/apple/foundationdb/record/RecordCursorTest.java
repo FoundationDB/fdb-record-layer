@@ -57,6 +57,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Timer;
@@ -206,6 +207,9 @@ public class RecordCursorTest {
     }
 
     @Test
+    // NullAway does not reliably track @Nullable on byte[] parameters/type arguments passed through
+    // RecordCursor.orElse's continuation parameter, even though it is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void orElseTest() {
         List<Integer> ints = Arrays.asList(1, 2, 3);
         BiFunction<Executor, byte[], RecordCursor<Integer>> elseZero = (executor, cont) -> RecordCursor.fromFuture(executor, CompletableFuture.completedFuture(0), cont);
@@ -218,6 +222,9 @@ public class RecordCursorTest {
 
     //@Test @Slow
     // Will get either NPE or NoSuchElementException after a while.
+    // NullAway does not reliably track @Nullable on byte[] parameters/type arguments passed through
+    // RecordCursor.orElse's continuation parameter, even though it is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void orElseTimingErrorTest() {
         BiFunction<Executor, byte[], RecordCursor<Integer>> elseZero = (executor, cont) -> RecordCursor.fromFuture(executor, CompletableFuture.completedFuture(0), cont);
         for (int i = 0; i < 100000; i++) {
@@ -243,13 +250,17 @@ public class RecordCursorTest {
         byte[] continuation = null;
         do {
             ++iterations;
+            // NullAway does not reliably track @Nullable on byte[] parameters; fromList's continuation
+            // parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
             List<Integer> values = RecordCursor.fromList(ints, continuation).limitRowsTo(10).asList(finalResult).get();
             if (values.size() > 0) {
                 assertEquals(values.size(), 10);
                 assertEquals(values.get(0), (iterations - 1) * 10);
-                assertTrue(finalResult.get().getNoNextReason().isLimitReached());
+                // finalResult is populated as a side effect of the asList(finalResult) call above.
+                assertTrue(Objects.requireNonNull(finalResult.get()).getNoNextReason().isLimitReached());
             }
-            continuation = finalResult.get().getContinuation().toBytes();
+            continuation = Objects.requireNonNull(finalResult.get()).getContinuation().toBytes();
         } while (continuation != null);
 
         assertEquals(finalResult.get().getNoNextReason(), RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
@@ -291,6 +302,10 @@ public class RecordCursorTest {
     }
 
     @Test
+    // The null-returning branch below intentionally exercises FilterCursor's documented handling of a
+    // null predicate result (treated as "exclude", via Boolean.TRUE.equals(...) in FilterCursor#onNext),
+    // even though Function<T, Boolean>'s declared return type is not annotated @Nullable.
+    @SuppressWarnings("NullAway")
     void filterTest() {
         List<Integer> ints = Arrays.asList(1, 2, 3, 4, 5, 6, 7);
         RecordCursor<Integer> cursor = RecordCursor.fromList(ints).filter(i -> i % 2 == 0);
@@ -337,6 +352,9 @@ public class RecordCursorTest {
 
         @Nullable
         @Override
+        // NullAway does not reliably track @Nullable on byte[] return types, even on this correctly-annotated
+        // override of ContinuationConvertor#unwrapContinuation (which is itself declared to return @Nullable byte[]).
+        @SuppressWarnings("NullAway")
         public byte[] unwrapContinuation(@Nullable final byte[] continuation) {
             if (continuation == null) {
                 return null;
@@ -359,6 +377,9 @@ public class RecordCursorTest {
 
                 @Nullable
                 @Override
+                // NullAway does not reliably track @Nullable on byte[] return types, even on this correctly-annotated
+                // override of RecordCursorContinuation#toBytes (which is itself declared to return @Nullable byte[]).
+                @SuppressWarnings("NullAway")
                 public byte[] toBytes() {
                     return toByteString().toByteArray();
                 }
@@ -377,6 +398,9 @@ public class RecordCursorTest {
         final ByteString prefix = ByteString.copyFromUtf8("prefix+");
         final PrefixAddingContinuationConvertor continuationConvertor = new PrefixAddingContinuationConvertor(prefix);
 
+        // NullAway does not reliably track @Nullable on byte[] parameters; mapContinuation's continuation
+        // parameter is declared @Nullable byte[].
+        @SuppressWarnings("NullAway")
         RecordCursor<Integer> cursor = RecordCursor.mapContinuation(continuation -> RecordCursor.fromList(ints, continuation), continuationConvertor, null);
 
         List<Integer> soFar = new ArrayList<>();
@@ -415,6 +439,9 @@ public class RecordCursorTest {
     }
 
     @Test
+    // NullAway does not reliably track @Nullable on byte[] parameters/type arguments passed through
+    // RecordCursor.flatMapPipelined's continuation parameter, even though it is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void pipelineContinuationTest() throws Exception {
         List<Integer> ints = Lists.newArrayList(1, 2, 3, 4, 5);
         List<Integer> expected = ints.stream().flatMap(o -> ints.stream().map(i -> o * 100 + i)).collect(Collectors.toList());
@@ -490,18 +517,21 @@ public class RecordCursorTest {
         boolean done = false;
         byte[] continuation = null;
         while (!done) {
+            // NullAway does not reliably track @Nullable on byte[] type arguments; cursorFunction is a
+            // Function<byte[], ...> invoked here with a possibly-null continuation.
+            @SuppressWarnings("NullAway")
             RecordCursorIterator<Pair<Integer, Integer>> cursor = cursorFunction.apply(continuation).asIterator();
             while (cursor.hasNext()) {
                 Pair<Integer, Integer> value = cursor.next();
                 assertNotNull(value);
                 assertThat(value.getLeft(), greaterThan(value.getRight()));
                 assertThat(value.getLeft(), greaterThanOrEqualTo(leftSoFar));
-                if (value.getLeft() == leftSoFar) {
+                if (Objects.requireNonNull(value.getLeft()) == leftSoFar) {
                     assertThat(value.getRight(), greaterThan(rightSoFar));
-                    rightSoFar = value.getRight();
+                    rightSoFar = Objects.requireNonNull(value.getRight());
                 } else {
                     leftSoFar = value.getLeft();
-                    rightSoFar = value.getRight();
+                    rightSoFar = Objects.requireNonNull(value.getRight());
                 }
                 results++;
             }
@@ -621,9 +651,13 @@ public class RecordCursorTest {
         };
 
         // Outer cursor = 0, 1, 2, all filtered
+        // NullAway does not reliably track @Nullable on byte[] parameters/type arguments passed through
+        // RecordCursor.flatMapPipelined's continuation parameter, even though it is declared @Nullable byte[].
+        @SuppressWarnings("NullAway")
         RecordCursorIterator<Pair<Integer, Integer>> cursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc, null, 5).asIterator();
         assertThat(cursor.onHasNext().isDone(), is(false));
-        outerCursorRef.get().fire();
+        // outerCursorRef is populated as a side effect of outerFunc, which was already invoked above.
+        Objects.requireNonNull(outerCursorRef.get()).fire();
         assertThat(cursor.hasNext(), is(false));
         assertEquals(limitReason, cursor.getNoNextReason());
         assertNotNull(cursor.getContinuation());
@@ -642,9 +676,9 @@ public class RecordCursorTest {
         cursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc, continuation, 5).asIterator();
         outerCursorRef.get().fire();
         for (int i = 0; i < ints.size(); i++) {
-            Pair<Integer, Integer> nextValue = cursor.next();
-            assertEquals(8, (int)nextValue.getLeft());
-            assertEquals(i, (int)nextValue.getRight());
+            Pair<Integer, Integer> nextValue = Objects.requireNonNull(cursor.next());
+            assertEquals(8, (int)Objects.requireNonNull(nextValue.getLeft()));
+            assertEquals(i, (int)Objects.requireNonNull(nextValue.getRight()));
         }
         assertThat(cursor.onHasNext().isDone(), is(false));
         outerCursorRef.get().fire();
@@ -657,9 +691,9 @@ public class RecordCursorTest {
         cursor = RecordCursor.flatMapPipelined(outerFunc, innerFunc, continuation, 5).asIterator();
         outerCursorRef.get().fire();
         for (int i = 0; i < ints.size(); i++) {
-            Pair<Integer, Integer> nextValue = cursor.next();
-            assertEquals(9, (int)nextValue.getLeft());
-            assertEquals(i, (int)nextValue.getRight());
+            Pair<Integer, Integer> nextValue = Objects.requireNonNull(cursor.next());
+            assertEquals(9, (int)Objects.requireNonNull(nextValue.getLeft()));
+            assertEquals(i, (int)Objects.requireNonNull(nextValue.getRight()));
         }
         assertThat(cursor.onHasNext().isDone(), is(false));
         outerCursorRef.get().fire();
@@ -669,6 +703,9 @@ public class RecordCursorTest {
     }
 
     @Test
+    // NullAway does not reliably track @Nullable on byte[] parameters/type arguments passed through
+    // RecordCursor.flatMapPipelined's continuation parameter, even though it is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void flatMapPipelineErrorPropagation() throws ExecutionException, InterruptedException {
         FirableCursor<String> firableCursor1 = new FirableCursor<>(RecordCursor.fromList(Collections.singletonList("hello")));
         FirableCursor<String> firableCursor2 = new FirableCursor<>(new BrokenCursor());
@@ -720,7 +757,7 @@ public class RecordCursorTest {
         futures.get(0).complete(1066);
         RecordCursorResult<Integer> result = resultFuture.get();
         assertTrue(result.hasNext());
-        assertEquals(1066, (int)result.get());
+        assertEquals(1066, (int)Objects.requireNonNull(result.get()));
 
         // The (non-exceptional) firable cursor completes at "the same time" as the exceptional inner result.
         CompletableFuture<RecordCursorResult<Integer>> secondResultFuture = cursor.onNext();
@@ -757,7 +794,7 @@ public class RecordCursorTest {
         futures.get(0).complete(1066);
         RecordCursorResult<Integer> result = resultFuture.get();
         assertTrue(result.hasNext());
-        assertEquals(1066, (int)result.get());
+        assertEquals(1066, (int)Objects.requireNonNull(result.get()));
 
         CompletableFuture<RecordCursorResult<Integer>> secondResultFuture = cursor.onNext();
         ExecutionException executionEx = assertThrows(ExecutionException.class, secondResultFuture::get);
@@ -787,7 +824,7 @@ public class RecordCursorTest {
         futures.get(0).complete(1066);
         RecordCursorResult<Integer> result = resultFuture.get();
         assertTrue(result.hasNext());
-        assertEquals(1066, (int)result.get());
+        assertEquals(1066, (int)Objects.requireNonNull(result.get()));
         final RecordCursorContinuation lastContinuation = result.getContinuation();
 
         // When the time limit is reached, we are still waiting on futures[1], so we don't get any more results.
@@ -798,7 +835,7 @@ public class RecordCursorTest {
         assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, result.getNoNextReason());
         assertEquals(lastContinuation, result.getContinuation());
 
-        assertEquals(1, (int)RecordCursor.fromList(Arrays.asList(0, 1, 2, 3), lastContinuation.toBytes()).onNext().get().get());
+        assertEquals(1, (int)Objects.requireNonNull(RecordCursor.fromList(Arrays.asList(0, 1, 2, 3), lastContinuation.toBytes()).onNext().get().get()));
     }
 
     /**
@@ -822,7 +859,7 @@ public class RecordCursorTest {
         futures.get(0).complete(1066);
         RecordCursorResult<Integer> result = resultFuture.get();
         assertTrue(result.hasNext());
-        assertEquals(1066, (int)result.get());
+        assertEquals(1066, (int)Objects.requireNonNull(result.get()));
 
         // The time limit should be reached now by the pipelined cursor. As the second future has already completed,
         // it will be returned. However, the fourth future, despite also being completed, should *not* be returned
@@ -830,7 +867,7 @@ public class RecordCursorTest {
         resultFuture = cursor.onNext();
         assertTrue(resultFuture.isDone());
         result = resultFuture.get();
-        assertEquals(1415, (int)result.get());
+        assertEquals(1415, (int)Objects.requireNonNull(result.get()));
         final RecordCursorContinuation lastContinuation = result.getContinuation();
 
         resultFuture = cursor.onNext();
@@ -840,7 +877,7 @@ public class RecordCursorTest {
         assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, result.getNoNextReason());
         assertEquals(lastContinuation, result.getContinuation());
 
-        assertEquals(2, (int)RecordCursor.fromList(Arrays.asList(0, 1, 2, 3, 4), lastContinuation.toBytes()).onNext().get().get());
+        assertEquals(2, (int)Objects.requireNonNull(RecordCursor.fromList(Arrays.asList(0, 1, 2, 3, 4), lastContinuation.toBytes()).onNext().get().get()));
     }
 
 
@@ -863,14 +900,14 @@ public class RecordCursorTest {
         futures.get(0).complete(1066);
         RecordCursorResult<Integer> result = resultFuture.get();
         assertTrue(result.hasNext());
-        assertEquals(1066, (int)result.get());
+        assertEquals(1066, (int)Objects.requireNonNull(result.get()));
 
         // The time limit has been reached, but futures[1] should already be in the pipeline so is returned
         resultFuture = cursor.onNext();
         assertTrue(resultFuture.isDone());
         result = resultFuture.get();
         assertTrue(result.hasNext());
-        assertEquals(1415, (int)result.get());
+        assertEquals(1415, (int)Objects.requireNonNull(result.get()));
         final RecordCursorContinuation lastContinuation = result.getContinuation();
 
         // This should be the time limit being reached
@@ -881,7 +918,7 @@ public class RecordCursorTest {
         assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, result.getNoNextReason());
         assertEquals(lastContinuation, result.getContinuation());
 
-        assertEquals(2, (int)RecordCursor.fromList(Arrays.asList(0, 1, 2), lastContinuation.toBytes()).onNext().get().get());
+        assertEquals(2, (int)Objects.requireNonNull(RecordCursor.fromList(Arrays.asList(0, 1, 2), lastContinuation.toBytes()).onNext().get().get()));
     }
 
     @Test
@@ -890,7 +927,7 @@ public class RecordCursorTest {
                 CompletableFuture.completedFuture(RecordCursor.fromList(Lists.newArrayList(1, 2, 3, 4, 5)))).asIterator();
         int i = 1;
         while (i <= 5 && cursor.hasNext()) {
-            assertEquals(i, (int)cursor.next());
+            assertEquals(i, (int)Objects.requireNonNull(cursor.next()));
             ++i;
         }
         assertEquals(6, i);
@@ -1069,6 +1106,9 @@ public class RecordCursorTest {
     }
 
     @Test
+    // NullAway does not reliably track @Nullable on byte[] parameters/type arguments passed through
+    // RecordCursor.flatMapPipelined's continuation parameter, even though it is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void testFlatMapReasons() {
         // If the inside stops prematurely, the whole pipeline shuts down.
         final List<Integer> list = Arrays.asList(1, 2, 3, 4, 5);
@@ -1103,6 +1143,9 @@ public class RecordCursorTest {
     }
 
     @Test
+    // NullAway does not reliably track @Nullable on byte[] parameters/type arguments passed through
+    // RecordCursor.orElse's continuation parameter, even though it is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void testOrElseReasons() {
         // Don't take else path if inside stops prematurely.
         final List<Integer> list = Arrays.asList(1, 2, 3, 4, 5);
@@ -1121,6 +1164,9 @@ public class RecordCursorTest {
     }
 
     @Test
+    // NullAway does not reliably track @Nullable on byte[] parameters passed through
+    // getOrElseOfFilteredFakeOutOfBandCursor's continuation parameter, even though it is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void orElseWithEventuallyNonEmptyInner() {
         final List<Integer> list = Arrays.asList(1, 2, 3, 4, 5);
         RecordCursor<Integer> cursor = getOrElseOfFilteredFakeOutOfBandCursor(list, 3, 4, null);
@@ -1136,6 +1182,9 @@ public class RecordCursorTest {
     }
 
     @Test
+    // NullAway does not reliably track @Nullable on byte[] parameters passed through
+    // getOrElseOfFilteredFakeOutOfBandCursor's continuation parameter, even though it is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void orElseContinueWithInnerBranchAfterDecision() {
         final List<Integer> longList = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
         RecordCursor<Integer> cursor = getOrElseOfFilteredFakeOutOfBandCursor(longList, 3, 10, null);
@@ -1167,6 +1216,9 @@ public class RecordCursorTest {
     }
 
     @Test
+    // NullAway does not reliably track @Nullable on byte[] parameters/type arguments passed through
+    // RecordCursor.orElse's continuation parameter, even though it is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void orElseContinueWithElseBranchAfterDecision() {
         final List<Integer> innerList = Arrays.asList(1, 2, 3, 4, 5);
         final List<Integer> elseList = Arrays.asList(-1, -2, -3, -4, -5);
@@ -1195,6 +1247,9 @@ public class RecordCursorTest {
         assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, nextResult.getNoNextReason());
     }
 
+    // NullAway does not reliably track @Nullable on byte[] parameters/type arguments passed through
+    // RecordCursor.orElse's continuation parameter, even though it is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     private static RecordCursor<Integer> getOrElseOfFilteredFakeOutOfBandCursor(List<Integer> list, int limit, int threshold,
                                                                                 @Nullable byte[] continuation) {
         final BiFunction<Executor, byte[], RecordCursor<Integer>> orElse = (x, cont) -> RecordCursor.fromList(Collections.singletonList(0), cont);
@@ -1235,6 +1290,10 @@ public class RecordCursorTest {
     }
 
     @Test
+    // The null default value passed to Iterators.getLast below is never actually returned: erring always
+    // throws before exhausting, so the default is only there to satisfy the API. Guava's getLast(Iterator,
+    // T) isn't annotated for NullAway to recognize the default as intentionally unused-when-null.
+    @SuppressWarnings("NullAway")
     void hasNextErrorStack() {
         final Iterator<String> erring = new BrokenCursor().asIterator();
         try {
@@ -1304,6 +1363,9 @@ public class RecordCursorTest {
                 .mapPipelined(val -> signal.thenApplyAsync(ignore -> val + 349, EXECUTOR), iteration % 19 + 2);
     }
 
+    // NullAway does not reliably track @Nullable on byte[] parameters/type arguments passed through
+    // RecordCursor.flatMapPipelined's continuation parameter, even though it is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     private static RecordCursor<String> singletonFlatMapPipelinedCursorToClose(int iteration, CompletableFuture<Void> signal) {
         return RecordCursor.flatMapPipelined(
                 outerContinuation -> RecordCursor.fromList(EXECUTOR, IntStream.range(0, iteration % 199).boxed().collect(Collectors.toList()), outerContinuation),
@@ -1314,6 +1376,9 @@ public class RecordCursorTest {
         );
     }
 
+    // NullAway does not reliably track @Nullable on byte[] parameters/type arguments passed through
+    // RecordCursor.flatMapPipelined's continuation parameter, even though it is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     private static RecordCursor<String> flatMapPipelinedCursorToClose(int iteration, CompletableFuture<Void> signal) {
         return RecordCursor.flatMapPipelined(
                 outerContinuation -> RecordCursor.fromList(EXECUTOR, IntStream.range(0, iteration % 199).boxed().collect(Collectors.toList()), outerContinuation),
@@ -1388,6 +1453,9 @@ public class RecordCursorTest {
     }
 
     @Test
+    // NullAway does not reliably track @Nullable on byte[] parameters/type arguments passed through
+    // RecordCursor.flatMapPipelined's continuation parameter, even though it is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void closePipelineClosesAllInnerCursors() {
         for (int i = 0; i < 200_000; i++) {
             final int iteration = i;
@@ -1427,6 +1495,9 @@ public class RecordCursorTest {
 
     @ParameterizedTest
     @RandomSeedSource
+    // NullAway does not reliably track @Nullable on byte[] parameters/type arguments passed through
+    // RecordCursor.flatMapPipelined's continuation parameter, even though it is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void closePipelineCancelsInnerFutureRace(long seed) {
         final Random random = new Random(seed);
         Map<Class<? extends Throwable>, Integer> exceptionCount = new HashMap<>();
@@ -1479,6 +1550,9 @@ public class RecordCursorTest {
     }
 
     @Test
+    // NullAway does not reliably track @Nullable on byte[] parameters; fromFuture's continuation
+    // parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void futureCursorTest() {
         CompletableFuture<Integer> future = new CompletableFuture<>();
         final RecordCursorContinuation continuation;
@@ -1509,6 +1583,9 @@ public class RecordCursorTest {
     }
 
     @Test
+    // NullAway does not reliably track @Nullable on byte[] parameters; fromFuture's continuation
+    // parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void futureCursorFromSupplierTest() {
         CompletableFuture<Integer> future = new CompletableFuture<>();
         final RecordCursorContinuation continuation;
@@ -1538,6 +1615,9 @@ public class RecordCursorTest {
     }
 
     @Test
+    // NullAway does not reliably track @Nullable on byte[] parameters; fromFuture's continuation
+    // parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void futureCursorCompletesWhenUnderlyingCompletes() throws Exception {
         final CompletableFuture<Integer> future = new CompletableFuture<>();
         final RecordCursorContinuation continuation;
@@ -1573,6 +1653,9 @@ public class RecordCursorTest {
     }
 
     @Test
+    // NullAway does not reliably track @Nullable on byte[] parameters; fromFuture's continuation
+    // parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void futureCursorPropagatesError() {
         final CompletableFuture<Integer> future = new CompletableFuture<>();
         try (RecordCursor<Integer> fromFuture = RecordCursor.fromFuture(EXECUTOR, future, null)) {
