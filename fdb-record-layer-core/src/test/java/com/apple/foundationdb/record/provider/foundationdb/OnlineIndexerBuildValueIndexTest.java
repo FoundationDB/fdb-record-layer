@@ -39,6 +39,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -78,7 +79,7 @@ class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuildIndexTest {
                 })
                 .collect(Collectors.toList());
 
-        Function<TestRecords1Proto.MySimpleRecord, Integer> indexValue = msg -> msg.hasNumValue2() ? msg.getNumValue2() : null;
+        Function<TestRecords1Proto.MySimpleRecord, @Nullable Integer> indexValue = msg -> msg.hasNumValue2() ? msg.getNumValue2() : null;
         Map<Integer, List<Message>> valueMap = group(records, indexValue);
 
         Runnable beforeBuild = () -> {
@@ -86,7 +87,7 @@ class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuildIndexTest {
                 for (int i = 0; i < queries.size(); i++) {
                     Integer value2 = (records.get(i).hasNumValue2()) ? records.get(i).getNumValue2() : null;
                     String planString = "SCAN(<,>) | TFILTER MySimpleRecord | QCFILTER " + ((value2 == null) ?  "num_value_2 IS_NULL" : "num_value_2 EQUALS " + value2);
-                    executeQuery(queries.get(i), planString, valueMap.get(value2));
+                    executeQuery(queries.get(i), planString, Objects.requireNonNull(valueMap.get(value2)));
                 }
                 context.commit();
             }
@@ -124,7 +125,7 @@ class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuildIndexTest {
                     for (int i = 0; i < updatedQueries.size(); i++) {
                         Integer value2 = (updatedRecords.get(i).hasNumValue2()) ? updatedRecords.get(i).getNumValue2() : null;
                         String planString = "SCAN(<,>) | TFILTER MySimpleRecord | QCFILTER " + ((value2 == null) ? "num_value_2 IS_NULL" : "num_value_2 EQUALS " + value2);
-                        executeQuery(updatedQueries.get(i), planString, updatedValueMap.get(value2));
+                        executeQuery(updatedQueries.get(i), planString, Objects.requireNonNull(updatedValueMap.get(value2)));
                     }
                 }
             }
@@ -134,7 +135,7 @@ class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuildIndexTest {
             try (FDBRecordContext context = openContext()) {
                 for (int i = 0; i < updatedQueries.size(); i++) {
                     Integer value2 = (updatedRecords.get(i).hasNumValue2()) ? updatedRecords.get(i).getNumValue2() : null;
-                    executeQuery(updatedQueries.get(i), "ISCAN(newIndex [[" + value2 + "],[" + value2 + "]])", updatedValueMap.get(value2));
+                    executeQuery(updatedQueries.get(i), "ISCAN(newIndex [[" + value2 + "],[" + value2 + "]])", Objects.requireNonNull(updatedValueMap.get(value2)));
                 }
                 RecordQuery sortQuery = RecordQuery.newBuilder()
                         .setRecordType("MySimpleRecord")

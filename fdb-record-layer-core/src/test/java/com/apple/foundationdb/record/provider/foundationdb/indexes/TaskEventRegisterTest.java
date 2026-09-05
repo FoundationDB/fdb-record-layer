@@ -54,6 +54,9 @@ class TaskEventRegisterTest {
     }
 
     @Test
+    // null transaction is intentional here (see class javadoc): the composed register only forwards
+    // whatever it is given, so this test never touches the transaction itself.
+    @SuppressWarnings("NullAway")
     void varargsComposeForwardsToFirstThenAdditionalInOrder() {
         final List<String> log = new ArrayList<>();
         final TaskEventRegister a = new RecordingRegister("a", log);
@@ -70,6 +73,9 @@ class TaskEventRegisterTest {
     }
 
     @Test
+    // null transaction is intentional here (see class javadoc): the composed register only forwards
+    // whatever it is given, so this test never touches the transaction itself.
+    @SuppressWarnings("NullAway")
     void listComposeForwardsToEveryRegisterInOrder() {
         final List<String> log = new ArrayList<>();
         final TaskEventRegister composed = TaskEventRegister.compose(
