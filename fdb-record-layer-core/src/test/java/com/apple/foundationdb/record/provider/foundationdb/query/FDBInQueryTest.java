@@ -86,6 +86,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -712,7 +713,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertThat(results, hasSize(60));
             int lastNumValue3 = reverse ? Integer.MAX_VALUE : Integer.MIN_VALUE;
             for (Map<String, Object> result : results) {
-                int numValue3 = (Integer) result.get("num_value_3_indexed");
+                int numValue3 = (Integer) Objects.requireNonNull(result.get("num_value_3_indexed"));
                 assertThat(numValue3, in(List.of(1, 3, 4)));
                 assertThat(numValue3, reverse ? lessThanOrEqualTo(lastNumValue3) : greaterThanOrEqualTo(lastNumValue3));
             }
@@ -1174,7 +1175,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             int lastNumUnique = reverse ? Integer.MAX_VALUE : Integer.MIN_VALUE;
             for (Map<String, Object> res : results) {
                 assertThat(res.get("num_value_3_indexed"), in(new Integer[]{1, 2, 4}));
-                int numUnique = (Integer) res.get("num_value_unique");
+                int numUnique = (Integer) Objects.requireNonNull(res.get("num_value_unique"));
                 assertThat(numUnique, reverse ? lessThanOrEqualTo(lastNumUnique) : greaterThanOrEqualTo(lastNumUnique));
                 lastNumUnique = numUnique;
             }
@@ -1806,6 +1807,9 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "testInWithLimit[normalizeNestedFields={0}]")
     @DualPlannerTest
     @BooleanSource
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     void testInWithLimit(boolean normalizeNestedFields) throws Exception {
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")
@@ -1866,6 +1870,9 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "testInWithContinuation[normalizeNestedFields={0}]")
     @DualPlannerTest
     @BooleanSource
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     void testInWithContinuation(boolean normalizeNestedFields) throws Exception {
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")
@@ -2876,7 +2883,8 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      * Mutable single-value container used to capture continuations across lambda boundaries
      * in the tests above.
      */
-    private static class Holder<T> {
+    private static class Holder<T extends @Nullable Object> {
+        @Nullable
         public T value;
     }
 }
