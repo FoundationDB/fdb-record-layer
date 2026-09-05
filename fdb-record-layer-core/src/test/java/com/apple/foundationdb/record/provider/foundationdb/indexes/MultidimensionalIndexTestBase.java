@@ -355,7 +355,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         return numRecordsCommitted;
     }
 
-    private static void logRecord(final String calendarName, final Long startEpoch, final Long endEpoch, final Long expirationEpoch) {
+    private static void logRecord(final String calendarName, @Nullable final Long startEpoch, @Nullable final Long endEpoch, @Nullable final Long expirationEpoch) {
         if (logger.isTraceEnabled()) {
             final Long duration = (startEpoch == null || endEpoch  == null) ? null : (endEpoch - startEpoch);
             Verify.verify(duration == null || duration > 0L);
@@ -945,7 +945,9 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         Assertions.assertTrue(plan2.hasRecordScan());
     }
 
-    @SuppressWarnings({"resource", "SameParameterValue"})
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings({"resource", "SameParameterValue", "NullAway"})
     private Set<Message> getResultsWithContinuations(final RecordMetaDataHook additionalIndexes,
                                                      final RecordQueryPlan plan, final int batchSize) throws Exception {
         final Set<Message> results = Sets.newHashSet();
@@ -1163,8 +1165,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                                 IndexTypes.MULTIDIMENSIONAL, ImmutableMap.of(IndexOptions.RTREE_STORAGE, BY_NODE.toString(),
                                 IndexOptions.RTREE_STORE_HILBERT_VALUES, "true")));
 
-        final var cause = Assertions.assertThrows(AssertionFailedError.class, () ->
-                loadRecords(useAsync, true, additionalIndex, 0, ImmutableList.of("business"), 10)).getCause();
+        final var cause = Objects.requireNonNull(Assertions.assertThrows(AssertionFailedError.class, () ->
+                loadRecords(useAsync, true, additionalIndex, 0, ImmutableList.of("business"), 10)).getCause());
         Assertions.assertEquals(KeyExpression.InvalidExpressionException.class, cause.getClass());
     }
 
@@ -1460,7 +1462,9 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         return getResults(additionalIndexes, queryPlan, fdbStoreTimer -> { });
     }
 
-    @SuppressWarnings("resource")
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings({"resource", "NullAway"})
     private Set<Message> getResults(final RecordMetaDataHook additionalIndexes,
                                     final RecordQueryPlan queryPlan,
                                     final Consumer<FDBStoreTimer> timersConsumer) throws Exception {
@@ -1488,13 +1492,13 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         private final Long[] maxsInclusive;
 
         public HypercubeScanParameters(@Nullable final String calendarName,
-                                       final Long... minMaxLimits) {
+                                       @Nullable final Long... minMaxLimits) {
             this(calendarName, calendarName, minMaxLimits);
         }
 
         public HypercubeScanParameters(@Nullable final String minCalendarName,
                                        @Nullable final String maxCalendarName,
-                                       final Long... minMaxLimits) {
+                                       @Nullable final Long... minMaxLimits) {
             Preconditions.checkArgument(minMaxLimits.length % 2 == 0);
             this.minCalendarName = minCalendarName;
             this.maxCalendarName = maxCalendarName;
