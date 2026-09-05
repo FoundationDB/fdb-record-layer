@@ -62,6 +62,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -196,7 +197,7 @@ public class KeySpaceDirectoryTest {
     @ParameterizedTest
     @EnumSource(KeyType.class)
     void isConstant(KeyType keyType) {
-        assertTrue(new KeySpaceDirectory("dir", keyType, SAMPLE_VALUES.get(keyType).get()).isConstant());
+        assertTrue(new KeySpaceDirectory("dir", keyType, Objects.requireNonNull(SAMPLE_VALUES.get(keyType)).get()).isConstant());
         if (keyType == KeyType.NULL) { // NULL is always the constant NULL
             assertTrue(new KeySpaceDirectory("dir", keyType).isConstant());
         } else {
@@ -206,7 +207,7 @@ public class KeySpaceDirectoryTest {
 
     @Test
     void directoryLayerIsConstant() {
-        assertTrue(new DirectoryLayerDirectory("dir", SAMPLE_VALUES.get(KeyType.STRING).get()).isConstant());
+        assertTrue(new DirectoryLayerDirectory("dir", Objects.requireNonNull(SAMPLE_VALUES.get(KeyType.STRING)).get()).isConstant());
         assertFalse(new DirectoryLayerDirectory("dir").isConstant());
     }
 
@@ -385,7 +386,7 @@ public class KeySpaceDirectoryTest {
         }
     }
 
-    private ResolvedKeySpacePath assertResolvesFromKey(FDBRecordContext context, Tuple t, KeySpace keySpace, Object... dirPath) {
+    private ResolvedKeySpacePath assertResolvesFromKey(FDBRecordContext context, Tuple t, KeySpace keySpace, @Nullable Object... dirPath) {
         List<Pair<String, Object>> dirPathList = new ArrayList<>(dirPath.length / 2);
         for (int i = 0; i < dirPath.length; i += 2) {
             assertThat(dirPath[i], instanceOf(String.class));
@@ -633,6 +634,9 @@ public class KeySpaceDirectoryTest {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     public void testListObeysTimeLimits() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("root", KeyType.STRING, "root-" + random.nextInt(Integer.MAX_VALUE))
@@ -722,6 +726,9 @@ public class KeySpaceDirectoryTest {
         doLimitedScan(database, root, Integer.MAX_VALUE, 5, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
     }
 
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     private void doLimitedScan(FDBDatabase database, KeySpace root, int returnedRowLimit, int scannedRecordLimit,
                                RecordCursor.NoNextReason noNextReason) {
         try (FDBRecordContext context = database.openContext()) {
@@ -747,6 +754,9 @@ public class KeySpaceDirectoryTest {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     public void testListReverse() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("root", KeyType.STRING, "root-" + random.nextInt(Integer.MAX_VALUE))
@@ -927,14 +937,14 @@ public class KeySpaceDirectoryTest {
             paths = root.listDirectory(context, "a");
             assertThat("Number of paths in 'a'", paths.size(), is(1));
             assertThat("Value of subdirectory 'a'", paths.get(0).getLogicalValue(), is(root.getDirectory("a").getValue()));
-            assertThat("Remainder size of 'a'", paths.get(0).getRemainder().size(), is(3));
+            assertThat("Remainder size of 'a'", Objects.requireNonNull(paths.get(0).getRemainder()).size(), is(3));
 
             // List from "b"
             paths = root.path("a").listSubdirectory(context, "b");
             assertThat("Number of paths in 'b'", paths.size(), is(5));
             for (ResolvedKeySpacePath path : paths) {
                 assertThat("Listing of 'b' directory", path.getDirectoryName(), is("b"));
-                Tuple remainder = path.getRemainder();
+                Tuple remainder = Objects.requireNonNull(path.getRemainder());
                 assertThat("Remainder of 'b'", remainder.size(), is(2));
                 assertThat("Remainder of 'b', first tuple value", remainder.getString(0), startsWith("hi_"));
                 assertThat("Remainder of 'b', second tuple value", remainder.getBytes(1), instanceOf(byte[].class));
@@ -945,7 +955,7 @@ public class KeySpaceDirectoryTest {
             assertThat("Number of paths in 'c'", paths.size(), is(1));
             for (ResolvedKeySpacePath path  : paths) {
                 assertThat("Listing of 'c' directory", path.getDirectoryName(), is("c"));
-                final Tuple remainder = path.getRemainder();
+                final Tuple remainder = Objects.requireNonNull(path.getRemainder());
                 assertThat("Remainder of 'c'", remainder.size(), is(1));
                 assertThat("Remainder of 'c', first tuple value", remainder.getBytes(0), instanceOf(byte[].class));
             }
@@ -1041,9 +1051,10 @@ public class KeySpaceDirectoryTest {
         try (FDBRecordContext context = database.openContext()) {
             for (KeyTypeValue kv : valueOfEveryType) {
                 if (kv.keyType != KeyType.NULL) {
-                    List<Tuple> values = valuesForType.get(kv.keyType);
+                    // valuesForType was populated for every kv.keyType above, so the lookup always succeeds.
+                    List<Tuple> values = Objects.requireNonNull(valuesForType.get(kv.keyType));
                     for (Pair<ValueRange<Object>, List<Tuple>> testCase : listRangeTestCases(values)) {
-                        testListRange(testCase.getLeft(), testCase.getRight(), context, root, kv.keyType);
+                        testListRange(testCase.getLeft(), Objects.requireNonNull(testCase.getRight()), context, root, kv.keyType);
                     }
                 }
             }
@@ -1134,7 +1145,10 @@ public class KeySpaceDirectoryTest {
         return testCases;
     }
 
-    private void testListRange(ValueRange<Object> range,
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
+    private void testListRange(@Nullable ValueRange<Object> range,
                                List<Tuple> expectedValues,
                                FDBRecordContext context,
                                KeySpace root,
@@ -1159,6 +1173,9 @@ public class KeySpaceDirectoryTest {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     public void testInvalidListRange() throws Exception {
         final String rootDir = "root_dir";
         final String stringDir = "string_dir";
@@ -1211,6 +1228,10 @@ public class KeySpaceDirectoryTest {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters, so the
+    // continuation variable (legitimately null at the start, and possibly null again once the
+    // scan is exhausted) trips a false positive when passed to listSubdirectoryAsync().
+    @SuppressWarnings("NullAway")
     public void testListAcrossTransactions() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("a", KeyType.LONG, random.nextLong())
@@ -1328,11 +1349,11 @@ public class KeySpaceDirectoryTest {
             assertEquals(10, paths.size());
 
             for (ResolvedKeySpacePath path : paths) {
-                final long index = path.getRemainder().getLong(0); // The first part of the remainder was the index
+                final long index = Objects.requireNonNull(path.getRemainder()).getLong(0); // The first part of the remainder was the index
                 // We should always get the "first" key for the value in the directory
                 assertEquals(0, path.getRemainder().getLong(1));
                 assertTrue(index >= 0 && index < 10);
-                assertEquals("a", path.getParent().getDirectoryName());
+                assertEquals("a", Objects.requireNonNull(path.getParent()).getDirectoryName());
                 assertEquals(root.getDirectory("a").getValue(), path.getParent().getLogicalValue());
                 assertEquals("value_" + index, path.getLogicalValue());
             }
@@ -1341,9 +1362,9 @@ public class KeySpaceDirectoryTest {
                 paths = root.path("a").add("c").listSubdirectory(context, subdir);
                 assertEquals(1, paths.size());
                 assertEquals(subdir, paths.get(0).getLogicalValue());
-                assertEquals(0L, paths.get(0).getRemainder().getLong(0));
-                assertEquals("c", paths.get(0).getParent().getDirectoryName());
-                assertEquals("a", paths.get(0).getParent().getParent().getDirectoryName());
+                assertEquals(0L, Objects.requireNonNull(paths.get(0).getRemainder()).getLong(0));
+                assertEquals("c", Objects.requireNonNull(paths.get(0).getParent()).getDirectoryName());
+                assertEquals("a", Objects.requireNonNull(Objects.requireNonNull(paths.get(0).getParent()).getParent()).getDirectoryName());
             }
         }
     }
@@ -1773,8 +1794,10 @@ public class KeySpaceDirectoryTest {
         }
 
         @Override
-        protected CompletableFuture<PathValue> toTupleValueAsyncImpl(FDBRecordContext context, Object value) {
-            return CompletableFuture.completedFuture(new PathValue(resolver.apply(value)));
+        protected CompletableFuture<PathValue> toTupleValueAsyncImpl(FDBRecordContext context, @Nullable Object value) {
+            // The overridden supertype method declares `value` as @Nullable, but this directory is only ever
+            // exercised in these tests with ANY_VALUE (non-constant, non-null) directories.
+            return CompletableFuture.completedFuture(new PathValue(resolver.apply(Objects.requireNonNull(value))));
         }
 
         @Override
