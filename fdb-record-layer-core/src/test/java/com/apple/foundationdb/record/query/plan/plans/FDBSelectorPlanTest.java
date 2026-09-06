@@ -136,6 +136,11 @@ public class FDBSelectorPlanTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan planUnderTest = RecordQuerySelectorPlan.from(plan(query1, query2), mockSelector());
 
         // Iteration 1, start with empty continuation
+        // FDBRecordStoreQueryTestBase#querySimpleRecordStoreWithContinuation's continuation parameter
+        // is declared @Nullable byte[] (a position NullAway does not reliably recognize as nullable,
+        // even though the method itself is already locally suppressed for the same reason), so the
+        // null literal below still trips the checker here at the call site.
+        @SuppressWarnings("NullAway")
         RecordCursorResult<FDBQueriedRecord<Message>> result = querySimpleRecordStoreWithContinuation(NO_HOOK, planUnderTest, EvaluationContext::empty,
                 null, ExecuteProperties.newBuilder().setReturnedRowLimit(15).build(),
                 count -> assertThat(count, is(15)),
