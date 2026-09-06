@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -65,6 +66,15 @@ public class ExplainTests {
 
     public ExplainTests() {
         Utils.enableCascadesDebugger();
+    }
+
+    // Debugger#setDebugger(Debugger) is documented to accept null (it removes the current debugger; see its
+    // Javadoc and body in fdb-record-layer-core), but its parameter is not annotated @Nullable there. That's
+    // an upstream annotation gap in a module outside this fix's scope, not a real bug at these call sites, so
+    // isolate the one necessary suppression here rather than at each call site below.
+    @SuppressWarnings("NullAway")
+    private static void setDebugger(@Nullable Debugger debugger) {
+        Debugger.setDebugger(debugger);
     }
 
     @Test
@@ -168,7 +178,7 @@ public class ExplainTests {
     void explainContainsEventStats() throws Exception {
         final var defaultDebugger = Debugger.getDebugger();
         try {
-            Debugger.setDebugger(null);
+            setDebugger(null);
             org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
 
             try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
@@ -191,7 +201,7 @@ public class ExplainTests {
                 }
             }
         } finally {
-            Debugger.setDebugger(defaultDebugger);
+            setDebugger(defaultDebugger);
         }
     }
 
@@ -200,7 +210,7 @@ public class ExplainTests {
         final var defaultDebugger = Debugger.getDebugger();
         final var defaultStatsCollector = PlannerEventStatsCollector.getCollector();
         try {
-            Debugger.setDebugger(null);
+            setDebugger(null);
             PlannerEventStatsCollector.setCollector(new PlannerEventStatsCollector() {
                 @Override
                 public void onQuery(final String queryAsString, final com.apple.foundationdb.record.query.plan.cascades.PlanContext planContext) {
@@ -240,7 +250,7 @@ public class ExplainTests {
                 org.junit.jupiter.api.Assertions.assertNotNull(PlannerEventStatsCollector.getCollector());
             }
         } finally {
-            Debugger.setDebugger(defaultDebugger);
+            setDebugger(defaultDebugger);
             PlannerEventStatsCollector.setCollector(defaultStatsCollector);
         }
     }
@@ -250,7 +260,7 @@ public class ExplainTests {
         final var defaultDebugger = Debugger.getDebugger();
         final var defaultStatsCollector = PlannerEventStatsCollector.getCollector();
         try {
-            Debugger.setDebugger(null);
+            setDebugger(null);
             PlannerEventStatsCollector.setCollector(null);
             org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
             org.junit.jupiter.api.Assertions.assertNull(PlannerEventStatsCollector.getCollector());
@@ -284,7 +294,7 @@ public class ExplainTests {
                 org.junit.jupiter.api.Assertions.assertNull(PlannerEventStatsCollector.getCollector());
             }
         } finally {
-            Debugger.setDebugger(defaultDebugger);
+            setDebugger(defaultDebugger);
             PlannerEventStatsCollector.setCollector(defaultStatsCollector);
         }
     }
@@ -294,7 +304,7 @@ public class ExplainTests {
         final var defaultDebugger = Debugger.getDebugger();
         final var defaultStatsCollector = PlannerEventStatsCollector.getCollector();
         try {
-            Debugger.setDebugger(null);
+            setDebugger(null);
             PlannerEventStatsCollector.setCollector(null);
             org.junit.jupiter.api.Assertions.assertNull(Debugger.getDebugger());
             org.junit.jupiter.api.Assertions.assertNull(PlannerEventStatsCollector.getCollector());
@@ -307,7 +317,7 @@ public class ExplainTests {
                 org.junit.jupiter.api.Assertions.assertNull(PlannerEventStatsCollector.getCollector());
             }
         } finally {
-            Debugger.setDebugger(defaultDebugger);
+            setDebugger(defaultDebugger);
             PlannerEventStatsCollector.setCollector(defaultStatsCollector);
         }
     }
