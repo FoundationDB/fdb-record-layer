@@ -60,6 +60,7 @@ import org.junit.jupiter.params.support.ParameterDeclarations;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -958,7 +959,7 @@ class BooleanValueTest {
             Assertions.fail("expected an exception to be thrown");
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof VerifyException);
-            Assertions.assertTrue(e.getMessage().contains("unexpected negative parameter index"));
+            Assertions.assertTrue(Objects.requireNonNull(e.getMessage()).contains("unexpected negative parameter index"));
         }
     }
 
