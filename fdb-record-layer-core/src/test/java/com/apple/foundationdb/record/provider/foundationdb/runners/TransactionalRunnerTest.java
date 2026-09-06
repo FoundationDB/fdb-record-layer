@@ -150,6 +150,10 @@ class TransactionalRunnerTest {
      * exception should be forwarded up wrapped as a {@link CompletionException}.
      */
     @Test
+    // value = null below is intentional: it asserts the key has no value. NullAway/JSpecify does not
+    // reliably track @Nullable on byte[] parameters, even though assertValue()'s value parameter is
+    // already correctly annotated @Nullable.
+    @SuppressWarnings("NullAway")
     void abortsAsyncInChainedFuture() {
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
             final Exception cause = new Exception("ABORT");
@@ -180,6 +184,9 @@ class TransactionalRunnerTest {
      * @see #abortsAsyncInChainedFuture()
      */
     @Test
+    // value = null below is intentional: it asserts the key has no value. See the comment on
+    // abortsAsyncInChainedFuture() above for why NullAway still flags this.
+    @SuppressWarnings("NullAway")
     void abortsAsyncDuringRunnable() {
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
             final RuntimeException cause = new RuntimeException("ABORT");
@@ -203,6 +210,9 @@ class TransactionalRunnerTest {
      * The exception should be forwarded, and the transaction should not be committed.
      */
     @Test
+    // value = null below is intentional: it asserts the key has no value. See the comment on
+    // abortsAsyncInChainedFuture() above for why NullAway still flags this.
+    @SuppressWarnings("NullAway")
     void abortsSynchronous() {
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
             final RuntimeException cause = new RuntimeException("ABORT");
@@ -221,6 +231,10 @@ class TransactionalRunnerTest {
     }
 
     @Test
+    // expectedForKey = null below is intentional: it asserts the key has no value. NullAway/JSpecify
+    // does not reliably track @Nullable on byte[] parameters, even though
+    // Conflicter.expectValues()'s parameters are already correctly annotated @Nullable.
+    @SuppressWarnings("NullAway")
     void conflicts() {
         final Conflicter conflicter = new Conflicter();
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
@@ -233,6 +247,9 @@ class TransactionalRunnerTest {
     }
 
     @Test
+    // expectedForKey = null below is intentional: it asserts the key has no value. See the comment
+    // on conflicts() above for why NullAway still flags this.
+    @SuppressWarnings("NullAway")
     void conflictsSynchronous() {
         final Conflicter conflicter = new Conflicter();
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
@@ -521,6 +538,10 @@ class TransactionalRunnerTest {
 
     @ParameterizedTest
     @BooleanSource("successful")
+    // value = null below is intentional: it asserts the key has no value. NullAway/JSpecify does not
+    // reliably track @Nullable on byte[] parameters, even though assertValue()'s value parameter is
+    // already correctly annotated @Nullable.
+    @SuppressWarnings("NullAway")
     void closesAfterCompletion(boolean success) {
         AtomicReference<FDBRecordContext> contextRef = new AtomicReference<>();
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
@@ -556,6 +577,9 @@ class TransactionalRunnerTest {
 
     @ParameterizedTest
     @BooleanSource("successful")
+    // value = null below is intentional: it asserts the key has no value. See the comment on
+    // closesAfterCompletion() above for why NullAway still flags this.
+    @SuppressWarnings("NullAway")
     void closesAfterCompletionSynchronous(boolean success) throws Exception {
         AtomicReference<FDBRecordContext> contextRef = new AtomicReference<>();
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
@@ -655,6 +679,9 @@ class TransactionalRunnerTest {
                     });
         }
 
+        // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters, even when passed
+        // through to another parameter that is already annotated @Nullable.
+        @SuppressWarnings("NullAway")
         public void expectValues(TransactionalRunner runner,
                                  @Nullable byte[] expectedForKey, @Nullable byte[] expectedForOtherKey) {
             assertValue(runner, key, expectedForKey);
