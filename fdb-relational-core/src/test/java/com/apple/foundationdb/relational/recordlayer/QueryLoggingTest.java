@@ -135,7 +135,7 @@ public class QueryLoggingTest {
     @Test
     void testRelationalConnectionOptionPreparedStatement() throws Exception {
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_QUERY, true).build())) {
+        try (RelationalConnection conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_QUERY, true).build()))) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT name from restaurant where rest_no = ?")) {
                 ps.setLong(1, 0);
@@ -156,7 +156,7 @@ public class QueryLoggingTest {
     @Test
     void testRelationalConnectionOptionExplicitlyDisabled() throws Exception {
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_QUERY, false).build())) {
+        try (RelationalConnection conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_QUERY, false).build()))) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT name from restaurant where rest_no = ?")) {
                 ps.setLong(1, 0);
@@ -177,7 +177,7 @@ public class QueryLoggingTest {
     @Test
     void testRelationalConnectionSetLogOnThenOff() throws Exception {
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.NONE))) {
             conn.setSchema(database.getSchemaName());
             try (Statement stmt = conn.createStatement()) {
                 try (ResultSet rs = stmt.executeQuery("select name from restaurant")) {
@@ -210,7 +210,7 @@ public class QueryLoggingTest {
     @Test
     void testRelationalConnectionSetLogIsOverriddenByQueryOption() throws Exception {
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.NONE))) {
             conn.setSchema(database.getSchemaName());
             conn.setOption(Options.Name.LOG_QUERY, false);
             try (PreparedStatement ps = conn.prepareStatement("SELECT name from restaurant where rest_no = ? OPTIONS(LOG QUERY)")) {
@@ -228,7 +228,7 @@ public class QueryLoggingTest {
     void testRelationalConnectionSetLogIsOverriddenByExecuteContinuationQueryOption() throws Exception {
         insertRows();
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.NONE))) {
             Continuation continuation;
             conn.setSchema(database.getSchemaName());
             try (RelationalPreparedStatement ps = conn.prepareStatement("SELECT name from restaurant")) {
@@ -256,7 +256,7 @@ public class QueryLoggingTest {
     void testRelationalConnectionSetLogWithExecuteContinuation(boolean setLogging) throws Exception {
         insertRows();
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.NONE))) {
             Continuation continuation;
             conn.setSchema(database.getSchemaName());
             try (RelationalPreparedStatement ps = conn.prepareStatement("SELECT name from restaurant")) {
@@ -300,7 +300,7 @@ public class QueryLoggingTest {
         }
         Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build())) {
+        try (RelationalConnection conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build()))) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT NAME FROM RESTAURANT")) {
                 try (ResultSet rs = ps.executeQuery()) {
@@ -318,7 +318,7 @@ public class QueryLoggingTest {
         }
         Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build())) {
+        try (RelationalConnection conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build()))) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT * FROM RESTAURANT WHERE \"NAME\" = 'restaurant 1'")) {
                 try (ResultSet rs = ps.executeQuery()) {

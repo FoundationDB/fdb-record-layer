@@ -46,6 +46,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
@@ -198,7 +199,7 @@ public class DdlRecordLayerSchemaTemplateTest {
             statement.executeUpdate(template.toString());
             try (RelationalResultSet resultSet = statement.executeQuery("DESCRIBE SCHEMA TEMPLATE many_structs")) {
                 ResultSetAssert.assertThat(resultSet).hasNextRow();
-                final var type = resultSet.getArray("TABLES").getResultSet();
+                final var type = Objects.requireNonNull(resultSet.getArray("TABLES")).getResultSet();
                 Assert.that(type.next());
                 Assert.that(!type.next());
             }

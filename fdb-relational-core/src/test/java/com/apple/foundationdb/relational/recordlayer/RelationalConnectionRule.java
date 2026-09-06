@@ -33,11 +33,13 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.sql.Array;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Struct;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCallback, RelationalConnection {
@@ -86,7 +88,10 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     public void beforeEach(ExtensionContext context) throws RelationalException, SQLException {
         Options opt = options == null ? Options.NONE : options;
         final RelationalDriver driver = driverSupplier.get();
-        connection = driver.connect(dbPathSupplier.get(), opt);
+        // RelationalDriver#connect() is genuinely @Nullable (a driver may decline a URL it doesn't handle);
+        // for this test rule, a null connection here means the rule is fundamentally misconfigured, so fail
+        // fast with a clear message rather than propagating null into the @NonNull connection field.
+        connection = Objects.requireNonNull(driver.connect(dbPathSupplier.get(), opt), "driver.connect() returned null connection");
         if (schema != null) {
             connection.setSchema(schema);
         }
@@ -179,6 +184,7 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     }
 
     @Override
+    @Nullable
     public URI getPath() {
         return connection.getPath();
     }

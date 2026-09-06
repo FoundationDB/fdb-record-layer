@@ -62,6 +62,9 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
     private final Options options;
     private StoreCatalog storeCatalog;
     private FDBDatabase database;
+    // null means "use FDB's default cluster file" (see FDBDatabaseFactory#getDatabase(String)); this mirrors
+    // FDBTestEnvironment#randomClusterFile()'s real, genuinely-nullable contract.
+    @Nullable
     private final String clusterFile;
     private final boolean register;
 
@@ -76,7 +79,7 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
     // storeCatalog and database are initialized by setup() (called from beforeEach()), which JUnit guarantees
     // to run before any other method on this extension is used.
     @SuppressWarnings("NullAway.Init")
-    public EmbeddedRelationalExtension(final String clusterFile, final boolean register, final Options options) {
+    public EmbeddedRelationalExtension(@Nullable final String clusterFile, final boolean register, final Options options) {
         final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
         keyspaceProvider.registerDomainIfNotExists("TEST");
         this.keySpace = keyspaceProvider.getKeySpace();
@@ -123,7 +126,7 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
         return new EmbeddedRelationalDriver(makeEngine(database, formatVersion));
     }
 
-    private void makeDatabase(String clusterFile) throws RelationalException {
+    private void makeDatabase(@Nullable String clusterFile) throws RelationalException {
         database = FDBDatabaseFactory.instance().getDatabase(clusterFile);
         try (var connection = new DirectFdbConnection(database);
                  Transaction txn = connection.getTransactionManager().createTransaction(Options.NONE)) {

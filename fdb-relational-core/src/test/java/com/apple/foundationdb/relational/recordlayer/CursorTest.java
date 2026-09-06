@@ -203,7 +203,7 @@ public class CursorTest {
         int numRowsReturned = 0;
         // 1. Iterate over and count the rows returned before the scan rows limit is hit
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (final var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 3).build())) {
+        try (final var conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 3).build()))) {
             conn.setSchema(database.getSchemaName());
             try (final var resultSet = conn.createStatement().executeQuery("select * from RESTAURANT")) {
                 Assertions.assertThrows(SQLException.class, resultSet::getContinuation);
