@@ -32,6 +32,10 @@ import java.util.concurrent.CompletableFuture;
 /**
  * A mocked implementation of the {@link FDBLocalityProvider} interface.
  */
+// NullAway.Init is suppressed here because keyRanges/ranges are left unset by the constructor and
+// are always populated by the static init(List, int) method before any other method on this
+// singleton is used, per its own Javadoc.
+@SuppressWarnings("NullAway.Init")
 public class MockedLocalityUtil implements FDBLocalityProvider {
 
     private static class KeyRange {
