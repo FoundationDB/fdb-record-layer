@@ -133,11 +133,19 @@ public final class FDBDirectoryLockFactory extends LockFactory {
             return Tuple.from(selfStampUuid, timeStampMillis).pack();
         }
 
+        // NullAway/JSpecify does not reliably track @Nullable on array (byte[]) types; value is
+        // narrowed to non-null by the preceding null check before being passed to the unannotated
+        // Tuple.fromBytes.
+        @SuppressWarnings("NullAway")
         private static long fileLockValueToTimestamp(@Nullable byte[] value) {
             return value == null ? 0 :
                    Tuple.fromBytes(value).getLong(1);
         }
 
+        // NullAway/JSpecify does not reliably track @Nullable on array (byte[]) types; value is
+        // narrowed to non-null by the preceding null check before being passed to the unannotated
+        // Tuple.fromBytes.
+        @SuppressWarnings("NullAway")
         @Nullable
         private static UUID fileLockValueToUuid(@Nullable byte[] value) {
             return value == null ? null :

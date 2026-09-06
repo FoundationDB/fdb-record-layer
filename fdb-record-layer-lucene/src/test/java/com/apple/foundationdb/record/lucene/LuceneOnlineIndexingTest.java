@@ -122,8 +122,10 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
         Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), document, index, isUseCascadesPlanner());
-        this.recordStore = pair.getLeft();
-        this.planner = pair.getRight();
+        // Pair#getLeft/getRight are @Nullable in general (a Pair may hold nulls), but
+        // rebuildIndexMetaData always constructs its result from the non-null store/planner it builds.
+        this.recordStore = Objects.requireNonNull(pair.getLeft());
+        this.planner = Objects.requireNonNull(pair.getRight());
     }
 
     private void disableIndex(Index index, String document) {
@@ -170,8 +172,10 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         assertTrue(allFiles.length < 12);
     }
 
-    @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings({"checkstyle:VariableDeclarationUsageDistance", "NullAway"})
     void luceneOnlineIndexingTestWithRecordUpdates() throws IOException {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
@@ -325,6 +329,9 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             3416978384487730594L, // this one failed reliably when most seeds passed
             6096618498708109618L // this one failed too
     })
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void luceneOnlineIndexingTestWithAllRecordUpdates(long seed) {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",

@@ -54,7 +54,10 @@ public class LuceneExceptions {
                 transactionIsTooOldException.addSuppressed(ex);
                 return transactionIsTooOldException;
             } else {
-                // This should not happen - LuceneTransactionTooOldException should have FDBStoreTransactionIsTooOldException as cause
+                // This should not happen - LuceneTransactionTooOldException should have FDBStoreTransactionIsTooOldException as cause.
+                // FDBStoreTransactionIsTooOldException(String, FDBException) requires a non-null FDBException cause, but none is
+                // available in this defensive fallback; the original exception is preserved below via addSuppressed instead.
+                @SuppressWarnings("NullAway")
                 RecordCoreException result = new FDBExceptions.FDBStoreTransactionIsTooOldException(message + ": " + ex.getMessage(), null)
                         .addLogInfo(additionalLogInfo);
                 result.addSuppressed(ex);

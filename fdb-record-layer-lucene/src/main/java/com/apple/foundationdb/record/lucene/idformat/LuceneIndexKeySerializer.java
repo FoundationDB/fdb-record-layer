@@ -216,7 +216,10 @@ public class LuceneIndexKeySerializer {
         return result;
     }
 
-    @SuppressWarnings("java:S3776")
+    // Tuple.from below (case NULL) intentionally accepts a null element here (an unannotated,
+    // external API conservatively treated by NullAway as requiring non-null); a null tuple item
+    // is the deliberate encoding for this format element.
+    @SuppressWarnings({"java:S3776", "NullAway"})
     private byte @Nullable [] applyFormat(final RecordIdFormat.FormatElementType formatElement, final Object tupleElement) {
         byte[] value;
         switch (formatElement) {

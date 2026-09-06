@@ -263,6 +263,10 @@ public class FDBDirectory extends Directory {
         agilityContext.increment(LuceneEvents.Counts.LUCENE_BLOCK_CACHE_REMOVE);
     }
 
+    // NullAway/JSpecify does not reliably track @Nullable on array (byte[]) types; value is
+    // narrowed to non-null by the preceding null check before being passed to the unannotated
+    // Tuple.fromBytes.
+    @SuppressWarnings("NullAway")
     private long deserializeFileSequenceCounter(@Nullable byte[] value) {
         return value == null ? 0L : Tuple.fromBytes(value).getLong(0);
     }

@@ -143,7 +143,10 @@ public class FDBDirectoryManager implements AutoCloseable {
         return analyzerSelector;
     }
 
-    @SuppressWarnings("PMD.CloseResource")
+    // NullAway/JSpecify does not currently track @Nullable on the array (byte[]) continuation
+    // parameter of ChainedCursor's constructor (out of scope to fix here); null intentionally
+    // means "start from the beginning".
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"})
     public CompletableFuture<Void> mergeIndex(LucenePartitioner partitioner) {
         // This function will iterate the grouping keys and explicitly merge each
 
@@ -322,7 +325,10 @@ public class FDBDirectoryManager implements AutoCloseable {
                 }));
     }
 
-    @SuppressWarnings("PMD.CloseResource")
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+    // parameters of KeyValueCursorBase.Builder#setContinuation (out of
+    // scope to fix here); null intentionally means "start from the beginning".
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"})
     public static CompletableFuture<Optional<Tuple>> nextTuple(FDBRecordContext context,
                                                                Subspace subspace,
                                                                KeyRange range,

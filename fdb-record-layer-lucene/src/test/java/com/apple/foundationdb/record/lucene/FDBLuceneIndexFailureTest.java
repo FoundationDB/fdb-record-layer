@@ -94,6 +94,9 @@ public class FDBLuceneIndexFailureTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @BooleanSource
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void basicGroupedPartitionedTest(boolean useLegacyAsyncToSync) {
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_USE_LEGACY_ASYNC_TO_SYNC, useLegacyAsyncToSync)
@@ -121,6 +124,9 @@ public class FDBLuceneIndexFailureTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @BooleanSource
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void basicNonGroupedPartitionedTest(boolean useLegacyAsyncToSync) {
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_USE_LEGACY_ASYNC_TO_SYNC, useLegacyAsyncToSync)
@@ -553,8 +559,10 @@ public class FDBLuceneIndexFailureTest extends FDBLuceneTestBase {
      */
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
         Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), document, index, isUseCascadesPlanner(), registry);
-        this.recordStore = pair.getLeft();
-        this.planner = pair.getRight();
+        // Pair#getLeft/getRight are @Nullable in general (a Pair may hold nulls), but
+        // rebuildIndexMetaData always constructs its result from the non-null store/planner it builds.
+        this.recordStore = Objects.requireNonNull(pair.getLeft());
+        this.planner = Objects.requireNonNull(pair.getRight());
         this.recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(true);
     }
 

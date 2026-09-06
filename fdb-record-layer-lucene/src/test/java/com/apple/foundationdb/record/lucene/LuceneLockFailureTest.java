@@ -320,8 +320,10 @@ class LuceneLockFailureTest extends FDBRecordStoreTestBase {
     // Open the store with the type and index
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
         Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), document, index, useCascadesPlanner);
-        this.recordStore = pair.getLeft();
-        this.planner = pair.getRight();
+        // Pair#getLeft/getRight are @Nullable in general (a Pair may hold nulls), but
+        // rebuildIndexMetaData always constructs its result from the non-null store/planner it builds.
+        this.recordStore = Objects.requireNonNull(pair.getLeft());
+        this.planner = Objects.requireNonNull(pair.getRight());
     }
 
     // Open the store for the type and index, and set the prefixes for the type such that deleteWhere can be run

@@ -44,6 +44,7 @@ import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -144,18 +145,18 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
                     final long segid = segdoc.getLong(0);
                     final String segmentName = directory.primaryKeySegmentName(segid);
                     if (segmentName == null) {
-                        return null;
+                        return Optional.<DocumentIndexEntry>empty();
                     }
                     for (int i = 0; i < segmentInfos.size(); i++) {
                         SegmentInfo segmentInfo = segmentInfos.info(i).info;
                         if (segmentInfo.name.equals(segmentName)) {
                             final int docid = (int)segdoc.getLong(1);
-                            return new DocumentIndexEntry(primaryKey, kv.getKey(),
-                                    directoryReader.leaves().get(i).reader(), segmentName, docid);
+                            return Optional.of(new DocumentIndexEntry(primaryKey, kv.getKey(),
+                                    directoryReader.leaves().get(i).reader(), segmentName, docid));
                         }
                     }
-                    return null;
-                }).filter(Objects::nonNull)) {
+                    return Optional.<DocumentIndexEntry>empty();
+                }).filter(Optional::isPresent).map(Optional::get)) {
             doc.set(Objects.requireNonNull(directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
                     documents.first())).orElse(null));
         }

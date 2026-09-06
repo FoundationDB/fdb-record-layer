@@ -61,8 +61,10 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
 
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
         Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), document, index, isUseCascadesPlanner());
-        this.recordStore = pair.getLeft();
-        this.planner = pair.getRight();
+        // Pair#getLeft/getRight are @Nullable in general (a Pair may hold nulls), but
+        // rebuildIndexMetaData always constructs its result from the non-null store/planner it builds.
+        this.recordStore = Objects.requireNonNull(pair.getLeft());
+        this.planner = Objects.requireNonNull(pair.getRight());
     }
 
     private static Stream<Arguments> threeBooleanArgs() {
@@ -248,8 +250,10 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
         try (final FDBRecordContext context = openContext()) {
             // Overwrite + add records without updating the index
             Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), SIMPLE_DOC, index, isUseCascadesPlanner(), registry);
-            this.recordStore = pair.getLeft();
-            this.planner = pair.getRight();
+            // Pair#getLeft/getRight are @Nullable in general (a Pair may hold nulls), but
+            // rebuildIndexMetaData always constructs its result from the non-null store/planner it builds.
+            this.recordStore = Objects.requireNonNull(pair.getLeft());
+            this.planner = Objects.requireNonNull(pair.getRight());
             injectedFailures.setFlag(LUCENE_MAINTAINER_SKIP_INDEX_UPDATE);
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(7771547L, WAYLON, 1));

@@ -85,6 +85,9 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
 
     @ParameterizedTest(name = "indexScanTest({argumentsWithNames})")
     @MethodSource("scanArguments")
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     public void indexScanTest(boolean isSynthetic, boolean matchAllDocs, boolean isGrouped, boolean includeEmptyDoc) throws Exception {
         final long seed = 5363275763521L;
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
@@ -150,6 +153,9 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
 
     @ParameterizedTest
     @BooleanSource
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     public void scanLargeIndexTest(boolean isGrouped) throws Exception {
         final long seed = 6437286L;
         final boolean isSynthetic = false;

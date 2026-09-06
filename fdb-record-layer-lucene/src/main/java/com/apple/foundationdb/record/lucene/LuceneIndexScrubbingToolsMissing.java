@@ -95,8 +95,12 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
     }
 
     @Override
-    @Nullable
-    public CompletableFuture<Issue> handleOneItem(final FDBRecordStore store, final RecordCursorResult<FDBStoredRecord<Message>> result) {
+    // NullAway does not correctly resolve the nested generic nullability of the overridden
+    // ValueIndexScrubbingToolsMissing#handleOneItem (fdb-record-layer-core) across this module
+    // boundary; it reports that method as returning a bare CompletableFuture<Issue>, even though
+    // its actual, correct declaration (like this override) is CompletableFuture<@Nullable Issue>.
+    @SuppressWarnings("NullAway")
+    public CompletableFuture<@Nullable Issue> handleOneItem(final FDBRecordStore store, final RecordCursorResult<FDBStoredRecord<Message>> result) {
         if (recordTypes == null || index == null) {
             throw new IllegalStateException("presetParams was not called appropriately for this scrubbing tool");
         }
@@ -119,8 +123,17 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
                                     LogMessageKeys.GROUPING_KEY, missingIndexesKeys.getValue(),
                                     LogMessageKeys.REASON, missingIndexesKeys.getKey()),
                             FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES,
-                            null);
+                            noRecordToIndex());
                 });
+    }
+
+    // Issue#recordToIndex is documented as nullable ("if non-null, let the indexer index this record"),
+    // but its constructor parameter is not itself annotated @Nullable. The Lucene missing-index scrubber
+    // does not support single-record repair, so this is always null; see the analogous
+    // ValueIndexScrubbingToolsMissing#allowRepairOrNull in fdb-record-layer-core.
+    @SuppressWarnings("NullAway")
+    private static FDBStoredRecord<Message> noRecordToIndex() {
+        return null;
     }
 
     private boolean shouldHandleItem(FDBStoredRecord<Message> rec) {

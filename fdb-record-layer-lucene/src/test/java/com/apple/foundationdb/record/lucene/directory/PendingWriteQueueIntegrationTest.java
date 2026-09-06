@@ -625,6 +625,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testQueryTransactionNotClosed() {
         // This test runs a query with queue elements replayed but does not commit the transaction
         // The DirectoryManager listens to close hooks to figure out that it needs to close all resources
@@ -1105,6 +1108,9 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
         verifyExpectedDocIds(schemaSetup, index, "*:*", null, expectedDocIds);
     }
 
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     private void verifyExpectedDocIds(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index,
                                       String query, @Nullable Object group, Set<Long> expectedDocIds) {
         // location of the doc_id within the Tuple returned from the cursor

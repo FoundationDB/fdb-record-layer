@@ -1380,6 +1380,9 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "continuations[sorted={0}]")
     @BooleanSource
+    // Passes a null/@Nullable continuation into FDBRecordStoreBase#executeQuery; NullAway does not
+    // reliably recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void continuations(boolean sorted) throws Exception {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
@@ -1394,7 +1397,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planQuery(query.build());
             ExecuteProperties executeProperties = ExecuteProperties.newBuilder().setReturnedRowLimit(2).build();
             List<Long> primaryKeys = new ArrayList<>();
-            byte[] continuation = null;
+            byte @Nullable [] continuation = null;
             AtomicReference<RecordCursorResult<Long>> holder = new AtomicReference<>();
             do {
                 try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan, continuation, executeProperties)) {

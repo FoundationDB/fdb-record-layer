@@ -112,8 +112,9 @@ public class LazyOpener<T> {
                 // Try to unwrap the cause for the IOException
                 throw LuceneExceptions.toRecordCoreException(cause.getMessage(), (IOException)cause);
             } else {
-                // Otherwise, wrap with generic RecordCoreException
-                throw new RecordCoreException(cause);
+                // Otherwise, wrap with generic RecordCoreException. cause may legitimately be null if the
+                // ExecutionException itself was constructed without one.
+                throw new RecordCoreException("Unexpected exception while lazily opening resource", cause);
             }
         }
     }

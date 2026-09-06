@@ -244,6 +244,10 @@ public class LucenePartitioner {
         }
 
 
+        // Tuple.from below intentionally accepts a null element here (an unannotated, external API
+        // conservatively treated by NullAway as requiring non-null); getComparand() may legitimately
+        // be null (e.g. for a null-comparison predicate), and Tuple supports a null tuple item.
+        @SuppressWarnings("NullAway")
         Tuple partitionField = Tuple.from(Objects.requireNonNull(partitionFieldPredicate).getComparand());
         // <
         byte[] lowEnd = state.indexSubspace.subspace(groupKey.add(PARTITION_META_SUBSPACE)).pack();
