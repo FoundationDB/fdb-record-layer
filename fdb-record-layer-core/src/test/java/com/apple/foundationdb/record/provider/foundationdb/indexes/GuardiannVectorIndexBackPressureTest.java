@@ -33,6 +33,7 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -161,7 +162,7 @@ class GuardiannVectorIndexBackPressureTest extends VectorIndexTestBase {
         // The very record that was refused now inserts and persists — the merge relieved the cap.
         final FDBStoredRecord<Message> stored;
         try (FDBRecordContext context = openContext()) {
-            stored = openStore(context, metaData).saveRecord(refused);
+            stored = openStore(context, metaData).saveRecord(Objects.requireNonNull(refused));
             context.commit();
         }
         try (FDBRecordContext context = openContext()) {
