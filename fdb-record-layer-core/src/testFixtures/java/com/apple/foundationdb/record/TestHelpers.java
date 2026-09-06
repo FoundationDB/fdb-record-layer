@@ -327,32 +327,37 @@ public class TestHelpers {
     }
 
     public static void assertDiscardedAtMost(int expected, FDBRecordContext context) {
-        assertNotNull(context.getTimer());
-        int discarded = context.getTimer().getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
+        final FDBStoreTimer timer = context.getTimer();
+        assertNotNull(timer);
+        int discarded = timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
         assertTrue(discarded <= expected, "discarded too many records\nExpected maximum: " + expected + "\nActual discarded: " + discarded);
     }
 
     public static void assertLoadRecord(int expected, FDBRecordContext context) {
-        assertNotNull(context.getTimer());
-        int loads = context.getTimer().getCount(FDBStoreTimer.Events.LOAD_RECORD);
+        final FDBStoreTimer timer = context.getTimer();
+        assertNotNull(timer);
+        int loads = timer.getCount(FDBStoreTimer.Events.LOAD_RECORD);
         assertTrue(loads <= expected, "loaded too many records\nExpected maximum: " + expected + "\nActual loaded: " + loads);
     }
 
     public static void assertDiscardedAtLeast(int expected, FDBRecordContext context) {
-        assertNotNull(context.getTimer());
-        int discarded = context.getTimer().getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
+        final FDBStoreTimer timer = context.getTimer();
+        assertNotNull(timer);
+        int discarded = timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
         assertTrue(discarded >= expected, "discarded too few records\nExpected minimum: " + expected + "\nActual discarded: " + discarded);
     }
 
     public static void assertDiscardedExactly(int expected, FDBRecordContext context) {
-        assertNotNull(context.getTimer());
-        int discarded = context.getTimer().getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
+        final FDBStoreTimer timer = context.getTimer();
+        assertNotNull(timer);
+        int discarded = timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
         assertTrue(discarded == expected, "discarded wrong number of records\nExpected: " + expected + "\nActual: " + discarded);
     }
 
     public static void assertDiscardedNone(FDBRecordContext context) {
-        assertNotNull(context.getTimer());
-        int discarded = context.getTimer().getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
+        final FDBStoreTimer timer = context.getTimer();
+        assertNotNull(timer);
+        int discarded = timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
         assertTrue(discarded == 0, "discarded records unnecessarily\nExpected: 0\nActual: " + discarded);
     }
 
