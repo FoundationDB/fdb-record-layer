@@ -699,7 +699,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
     public static void assertThrowsAggregateFunctionNotSupported(Executable executable, String aggregateFunction) {
         final AggregateFunctionNotSupportedException e = assertThrows(AggregateFunctionNotSupportedException.class, executable);
         assertEquals("Aggregate function requires appropriate index", e.getMessage());
-        assertEquals(aggregateFunction, e.getLogInfo().get(LogMessageKeys.FUNCTION.toString()).toString());
+        assertEquals(aggregateFunction, Objects.requireNonNull(e.getLogInfo().get(LogMessageKeys.FUNCTION.toString())).toString());
     }
 
     private void assertFilteredCount(final int expected,

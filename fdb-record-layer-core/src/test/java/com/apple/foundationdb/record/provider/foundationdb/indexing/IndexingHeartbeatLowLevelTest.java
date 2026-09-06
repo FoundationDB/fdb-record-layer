@@ -60,6 +60,10 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
+// NullAway.Init is suppressed here because recordStore/metaData follow the standard JUnit
+// test-fixture lifecycle: they are left unset by setUp() and are always populated by individual
+// test methods (via openRecordStore/buildMetaData-style helpers) before they are used.
+@SuppressWarnings("NullAway.Init")
 class IndexingHeartbeatLowLevelTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();

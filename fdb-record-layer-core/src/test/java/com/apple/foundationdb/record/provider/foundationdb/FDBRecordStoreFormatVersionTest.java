@@ -31,6 +31,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -116,7 +117,7 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
                     .setContext(context).open();
             assertEquals(FormatVersion.HEADER_USER_FIELDS, recordStore.getFormatVersionEnum());
             recordStore.setHeaderUserField("foo", "bar".getBytes(StandardCharsets.UTF_8));
-            String val = recordStore.getHeaderUserField("foo").toStringUtf8();
+            String val = Objects.requireNonNull(recordStore.getHeaderUserField("foo")).toStringUtf8();
             assertEquals("bar", val);
             recordStore.clearHeaderUserField("foo");
             assertNull(recordStore.getHeaderUserField("foo"));

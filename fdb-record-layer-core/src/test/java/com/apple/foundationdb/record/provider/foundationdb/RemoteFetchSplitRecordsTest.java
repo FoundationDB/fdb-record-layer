@@ -86,6 +86,10 @@ class RemoteFetchSplitRecordsTest extends RemoteFetchTestBase {
     @Tag(Tags.Slow)
     @ParameterizedTest(name = "indexPrefetchManySplitRecordTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @MethodSource("fetchMethodAndStreamMode")
+    // NullAway/JSpecify does not track that RemoteFetchTestBase.executeAndVerifyData()'s
+    // continuation parameter is always used defensively even without a @Nullable annotation
+    // (RemoteFetchTestBase itself passes null the same way for a fresh scan).
+    @SuppressWarnings("NullAway")
     void indexPrefetchManySplitRecordTest(IndexFetchMethod useIndexPrefetch, CursorStreamingMode streamingMode) throws Exception {
         // TODO: This test actually runs the API in a way that returns results that are too large: Over 50MB
         // FDB will fix the issue to limit the bytes returned and then this test would need to adjust accordingly.
