@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -92,6 +93,10 @@ class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBuildIndexTest {
                 })
                 .collect(Collectors.toList());
 
+        // group()'s Function<V, K> parameter (declared in the shared OnlineIndexerBuildIndexTest base
+        // class, out of scope here) has an unannotated K, defaulting to non-null, but this lambda
+        // intentionally returns null for records without num_value_2 set, matching the isNull() filter used below.
+        @SuppressWarnings("NullAway")
         Function<TestRecords1Proto.MySimpleRecord, Integer> indexValue = msg -> msg.hasNumValue2() ? msg.getNumValue2() : null;
         Map<Integer, List<Message>> valueMap = group(records, indexValue);
         Map<Long, FDBRecordVersion> versionMap = new HashMap<>(records.size() + (recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size()));
@@ -102,7 +107,7 @@ class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBuildIndexTest {
                 for (int i = 0; i < queries.size(); i++) {
                     Integer value2 = (records.get(i).hasNumValue2()) ? records.get(i).getNumValue2() : null;
                     try {
-                        executeQuery(queries.get(i), "Index(newVersionIndex [[" + value2 + "],[" + value2 + "])", valueMap.get(value2));
+                        executeQuery(queries.get(i), "Index(newVersionIndex [[" + value2 + "],[" + value2 + "])", Objects.requireNonNull(valueMap.get(value2)));
                         fail("somehow executed query with new index before build");
                     } catch (RecordCoreException e) {
                         assertEquals("Cannot sort without appropriate index: Version", e.getMessage());
@@ -156,7 +161,7 @@ class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBuildIndexTest {
                 for (int i = 0; i < updatedQueries.size(); i++) {
                     Integer value2 = (updatedRecords.get(i).hasNumValue2()) ? updatedRecords.get(i).getNumValue2() : null;
                     try {
-                        executeQuery(updatedQueries.get(i), "Index(newVersionIndex [[" + value2 + "],[" + value2 + "])", updatedValueMap.get(value2));
+                        executeQuery(updatedQueries.get(i), "Index(newVersionIndex [[" + value2 + "],[" + value2 + "])", Objects.requireNonNull(updatedValueMap.get(value2)));
                         fail("somehow executed query with new index before readable");
                     } catch (RecordCoreException e) {
                         assertEquals("Cannot sort without appropriate index: Version", e.getMessage());
@@ -188,7 +193,7 @@ class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBuildIndexTest {
             try (FDBRecordContext context = openContext()) {
                 for (int i = 0; i < updatedQueries.size(); i++) {
                     Integer value2 = (updatedRecords.get(i).hasNumValue2()) ? updatedRecords.get(i).getNumValue2() : null;
-                    List<Tuple> sortedValues = updatedValueMap.get(value2).stream()
+                    List<Tuple> sortedValues = Objects.requireNonNull(updatedValueMap.get(value2)).stream()
                             .map(msg -> {
                                 FDBRecordVersion version = updatedVersionMap.get(((Number)msg.getField(recNoFieldDescriptor)).longValue());
                                 return Tuple.from(value2, version == null ? null : version.toVersionstamp());
