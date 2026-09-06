@@ -119,6 +119,9 @@ public class IndexingRangeSet {
      *
      * @see RangeSet#missingRanges(ReadTransaction, byte[], byte[])
      */
+    // NullAway does not reliably track @Nullable on byte[] parameters, so it flags these
+    // (legitimate) null begin/end arguments even though rangeSet.missingRanges declares them @Nullable.
+    @SuppressWarnings("NullAway")
     public CompletableFuture<Range> firstMissingRangeAsync(@Nullable byte[] begin, @Nullable byte[] end) {
         final long startTime = System.nanoTime();
         final AsyncIterator<Range> ranges = rangeSet.missingRanges(context.ensureActive(), begin, end, 1).iterator();
@@ -156,6 +159,9 @@ public class IndexingRangeSet {
      *
      * @see RangeSet#missingRanges(ReadTransaction, byte[], byte[])
      */
+    // NullAway does not reliably track @Nullable on byte[] parameters, so it flags these
+    // (legitimate) null begin/end arguments even though rangeSet.missingRanges declares them @Nullable.
+    @SuppressWarnings("NullAway")
     public CompletableFuture<List<Range>> listMissingRangesAsync(@Nullable byte[] begin, @Nullable byte[] end) {
         final long startTime = System.nanoTime();
         CompletableFuture<List<Range>> future = rangeSet.missingRanges(context.ensureActive(), begin, end)
@@ -190,6 +196,9 @@ public class IndexingRangeSet {
      *
      * @see RangeSet#insertRange(TransactionContext, byte[], byte[], boolean)
      */
+    // NullAway does not reliably track @Nullable on byte[] parameters, so it flags these
+    // (legitimate) null begin/end arguments even though rangeSet.insertRange declares them @Nullable.
+    @SuppressWarnings("NullAway")
     public CompletableFuture<Boolean> insertRangeAsync(@Nullable byte[] begin, @Nullable byte[] end, boolean requireEmpty) {
         final long startTime = System.nanoTime();
         return context.instrument(FDBStoreTimer.Events.RANGE_SET_INSERT,

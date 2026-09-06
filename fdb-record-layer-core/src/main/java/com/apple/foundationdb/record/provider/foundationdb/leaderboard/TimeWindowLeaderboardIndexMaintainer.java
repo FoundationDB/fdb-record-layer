@@ -91,6 +91,10 @@ import java.util.stream.Collectors;
 public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOGGER = LoggerFactory.getLogger(TimeWindowLeaderboardIndexMaintainer.class);
 
+    // Tuple.from intentionally accepts a null element here (an unannotated, external API conservatively
+    // treated by NullAway as requiring non-null); this sentinel prefix is deliberately built from a single
+    // null tuple item so it cannot collide with any real leaderboard subspace key.
+    @SuppressWarnings("NullAway")
     private static final Tuple SUB_DIRECTORY_PREFIX = Tuple.from((Object)null); // Must not conflict with leaderboard subspace keys.
 
     private final RankedSet.Config config;
@@ -237,7 +241,7 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
                                                TupleHelpers.subTuple(scoreRange.getLow(), 0, groupPrefixSize) : null;
                         final Tuple highGroup = scoreRange.getHigh() != null && scoreRange.getHigh().size() > groupPrefixSize ?
                                                 TupleHelpers.subTuple(scoreRange.getHigh(), 0, groupPrefixSize) : null;
-                        if (lowGroup != null && lowGroup.equals(highGroup)) {
+                        if (lowGroup != null && Objects.equals(lowGroup, highGroup)) {
                             highStoreFirstFuture = isHighScoreFirst(leaderboard.getDirectory(), lowGroup);
                         } else {
                             highStoreFirstFuture = CompletableFuture.completedFuture(leaderboard.getDirectory().isHighScoreFirst());
@@ -434,7 +438,10 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     }
 
     @Override
-    @SuppressWarnings({"unchecked", "PMD.UnnecessaryLocalBeforeReturn"})
+    // Tuple.from below intentionally accepts a null rank (an unannotated, external API conservatively
+    // treated by NullAway as requiring non-null); the rank lookup above uses nullIfMissing=true, so a
+    // genuinely-missing rank is expected and produces a tuple with a null leading element.
+    @SuppressWarnings({"unchecked", "PMD.UnnecessaryLocalBeforeReturn", "NullAway"})
     @SpotBugsSuppressWarnings("BC_UNCONFIRMED_CAST")
     public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(EvaluationContext context,
                                                                               IndexRecordFunction<T> function,
