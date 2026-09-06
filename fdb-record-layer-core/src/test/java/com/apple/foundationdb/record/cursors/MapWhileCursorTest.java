@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import org.junit.jupiter.api.Test;
 
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -82,7 +83,11 @@ public class MapWhileCursorTest {
         validateNoNextReason(cursor, RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
     }
 
-    private RecordCursor<Integer> newCursor(Predicate<Integer> stopCondition, byte[] continuation, MapWhileCursor.StopContinuation stopContinuation, RecordCursor.NoNextReason noNextReason) {
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even when passing
+    // this method's own @Nullable byte[] continuation through to RecordCursor.fromList's identically
+    // declared @Nullable byte[] continuation parameter.
+    @SuppressWarnings("NullAway")
+    private RecordCursor<Integer> newCursor(Predicate<Integer> stopCondition, @Nullable byte[] continuation, MapWhileCursor.StopContinuation stopContinuation, RecordCursor.NoNextReason noNextReason) {
         return new MapWhileCursor<>(
                 RecordCursor.fromList(ints, continuation),
                 i -> stopCondition.test(i) ? Optional.empty() : Optional.of(i + 1),

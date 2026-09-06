@@ -37,6 +37,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -470,14 +471,14 @@ class CastValueTest {
         Object result = emptyIntToStringArray.evalWithoutStore(evalContext);
         Assertions.assertTrue(result instanceof java.util.List);
         @SuppressWarnings("unchecked")
-        java.util.List<String> emptyStringList = (java.util.List<String>) result;
+        java.util.List<String> emptyStringList = (java.util.List<String>) Objects.requireNonNull(result);
         Assertions.assertTrue(emptyStringList.isEmpty());
 
         // Empty array of one type to another type should work
         Value emptyIntToDoubleArray = CastValue.inject(INT_ARRAY_EMPTY, DOUBLE_ARRAY_TYPE);
         result = emptyIntToDoubleArray.evalWithoutStore(evalContext);
         @SuppressWarnings("unchecked")
-        java.util.List<Double> emptyDoubleList = (java.util.List<Double>) result;
+        java.util.List<Double> emptyDoubleList = (java.util.List<Double>) Objects.requireNonNull(result);
         Assertions.assertTrue(emptyDoubleList.isEmpty());
     }
 
@@ -490,7 +491,7 @@ class CastValueTest {
         Assertions.assertEquals(STRING_ARRAY_TYPE, intArrayWithNullToString.getResultType());
         Object result = intArrayWithNullToString.evalWithoutStore(evalContext);
         @SuppressWarnings("unchecked")
-        java.util.List<String> resultList = (java.util.List<String>) result;
+        java.util.List<String> resultList = (java.util.List<String>) Objects.requireNonNull(result);
         Assertions.assertEquals(3, resultList.size());
         Assertions.assertEquals("1", resultList.get(0));
         Assertions.assertNull(resultList.get(1));
@@ -557,7 +558,7 @@ class CastValueTest {
         Object result = nestedCast.evalWithoutStore(evalContext);
 
         @SuppressWarnings("unchecked")
-        java.util.List<java.util.List<String>> nestedResult = (java.util.List<java.util.List<String>>) result;
+        java.util.List<java.util.List<String>> nestedResult = (java.util.List<java.util.List<String>>) Objects.requireNonNull(result);
         Assertions.assertEquals(2, nestedResult.size());
         Assertions.assertEquals(java.util.List.of("1", "2"), nestedResult.get(0));
         Assertions.assertEquals(java.util.List.of("3", "4"), nestedResult.get(1));

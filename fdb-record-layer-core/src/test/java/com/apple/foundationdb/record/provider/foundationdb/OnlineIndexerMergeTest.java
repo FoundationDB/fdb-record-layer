@@ -65,6 +65,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
@@ -401,7 +402,7 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         assertThat(callbackPresent).isTrue();
         // The write-only index of this ongoing build has exactly one heartbeat: this indexer's
         assertThat(heartbeatsSeen.get()).hasSize(1);
-        final IndexBuildProto.IndexBuildHeartbeat heartbeat = heartbeatsSeen.get().values().iterator().next();
+        final IndexBuildProto.IndexBuildHeartbeat heartbeat = Objects.requireNonNull(heartbeatsSeen.get()).values().iterator().next();
         assertThat(heartbeat.getInfo()).isEqualTo(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS.toString());
         assertThat(heartbeat.getHeartbeatTimeMilliseconds()).isPositive();
         // And it is cleared once the index becomes readable
@@ -455,7 +456,7 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         final KeySpacePath path = pathManager.createPath();
         FDBRecordStore.Builder storeBuilder;
         try (FDBRecordContext context = openContext(RecordLayerPropertyStorage.getEmptyInstance())) {
-            storeBuilder = createOrOpenRecordStore(context, metadata, path).getLeft().asBuilder();
+            storeBuilder = Objects.requireNonNull(createOrOpenRecordStore(context, metadata, path).getLeft()).asBuilder();
             context.commit();
         }
         return storeBuilder;
@@ -635,7 +636,7 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
 
         @Override
         public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
-            return maintainers.get(state.index.getType()).apply(state);
+            return Objects.requireNonNull(maintainers.get(state.index.getType())).apply(state);
         }
     }
 
