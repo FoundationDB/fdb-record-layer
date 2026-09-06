@@ -34,8 +34,11 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -46,6 +49,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 public class ChainedCursorTest {
+    // NullAway/JSpecify does not reliably propagate @Nullable byte[] annotations for cross-file
+    // (bytecode-read) method parameters, so a properly-@Nullable-typed continuation still gets
+    // flagged as a mismatch at call sites in this file. Declaring the return type here as plain
+    // (non-null) byte[] sidesteps that: passing a "non-null-typed" value into a @Nullable-declared
+    // parameter is always accepted, regardless of how that parameter's own nullability was read.
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
+    }
+
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
 
@@ -104,7 +117,7 @@ public class ChainedCursorTest {
                     ChainedCursorTest::nextKey,
                     (key) -> Tuple.from(key).pack(),
                     (prevContinuation) -> Tuple.fromBytes(prevContinuation).getLong(0),
-                    null,
+                    noContinuation(),
                     props)
                     .asIterator();
 
@@ -136,7 +149,7 @@ public class ChainedCursorTest {
                     }),
                     (key) -> Tuple.from(key).pack(),
                     (prevContinuation) -> Tuple.fromBytes(prevContinuation).getLong(0),
-                    null,
+                    noContinuation(),
                     props).asIterator();
 
             int count = 0;
@@ -161,19 +174,19 @@ public class ChainedCursorTest {
                         (lastKey) -> CompletableFuture.completedFuture(Optional.of(10L)),
                         (key) -> new byte[0],
                         (prevContinuation) -> 10L,
-                        null,
+                        noContinuation(),
                         props);
             }
         });
     }
 
-    private RecordCursor<Long> newCursor(byte[] continuation) {
+    private RecordCursor<Long> newCursor(@Nullable byte[] continuation) {
         return new ChainedCursor<>(
                 (lastKey) -> nextKey(lastKey),
                 (key) -> Tuple.from(key).pack(),
                 (prevContinuation) -> Tuple.fromBytes(prevContinuation).getLong(0),
                 continuation,
-                null
+                ForkJoinPool.commonPool()
         );
     }
 
