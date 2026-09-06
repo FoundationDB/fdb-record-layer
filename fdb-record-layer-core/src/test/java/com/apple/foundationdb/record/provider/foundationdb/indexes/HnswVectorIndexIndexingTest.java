@@ -256,7 +256,11 @@ class HnswVectorIndexIndexingTest extends VectorIndexTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, this::addUngroupedVectorIndex);
 
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
+            // FDBRecordStoreQueryTestBase#executeQuery's continuation parameter is declared @Nullable byte[]
+            // (a position NullAway does not reliably recognize as nullable, even though the method itself is
+            // already locally suppressed for the same reason), so the null literal below still trips the
+            // checker here at the call site.
+            try (@SuppressWarnings("NullAway") RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
                          executeQuery(indexPlan, null, Bindings.EMPTY_BINDINGS, Integer.MAX_VALUE)) {
                 while (cursor.hasNext()) {
                     final FDBQueriedRecord<Message> rec = cursor.next();
@@ -293,7 +297,11 @@ class HnswVectorIndexIndexingTest extends VectorIndexTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, this::addGroupedVectorIndex);
 
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
+            // FDBRecordStoreQueryTestBase#executeQuery's continuation parameter is declared @Nullable byte[]
+            // (a position NullAway does not reliably recognize as nullable, even though the method itself is
+            // already locally suppressed for the same reason), so the null literal below still trips the
+            // checker here at the call site.
+            try (@SuppressWarnings("NullAway") RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
                          executeQuery(indexPlan, null, Bindings.EMPTY_BINDINGS, Integer.MAX_VALUE)) {
                 while (cursor.hasNext()) {
                     final FDBQueriedRecord<Message> rec = cursor.next();
