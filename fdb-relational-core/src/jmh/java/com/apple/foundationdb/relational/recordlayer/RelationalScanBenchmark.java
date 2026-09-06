@@ -70,6 +70,10 @@ import java.util.concurrent.TimeUnit;
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @State(Scope.Benchmark)
 @API(API.Status.EXPERIMENTAL)
+// NullAway.Init is suppressed here because accessor follows the standard JMH benchmark lifecycle:
+// it is left unset by the constructor and is always populated by trialUp() (a @Setup method)
+// before any benchmark method that uses it runs.
+@SuppressWarnings("NullAway.Init")
 public class RelationalScanBenchmark extends EmbeddedRelationalBenchmark {
 
     static final String schema = "putAndScan";
@@ -182,6 +186,10 @@ public class RelationalScanBenchmark extends EmbeddedRelationalBenchmark {
     }
 
     @State(Scope.Thread)
+    // NullAway.Init is suppressed here because connection follows the standard JMH benchmark
+    // lifecycle: it is left unset by the constructor and is always populated by init() (a @Setup
+    // method) before any benchmark method that uses it runs.
+    @SuppressWarnings("NullAway.Init")
     public static class RelationalConnHolder {
         private Connection connection;
 

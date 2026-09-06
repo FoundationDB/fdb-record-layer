@@ -67,6 +67,9 @@ import java.util.concurrent.TimeUnit;
 @API(API.Status.EXPERIMENTAL)
 public class RecordLayerScanBenchmark extends RelationalScanBenchmark {
 
+    // NullAway does not reliably track @Nullable on byte[] parameters, so it flags the (legitimate)
+    // null continuation argument to scanRecords below even though that method declares it @Nullable.
+    @SuppressWarnings("NullAway")
     @Override
     public void scan(Blackhole bh, RelationalConnHolder ignored) throws RelationalException {
         FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();

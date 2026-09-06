@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
+import org.jspecify.annotations.Nullable;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
@@ -68,6 +69,10 @@ public abstract class EmbeddedRelationalBenchmark {
 
     static final String schemaTemplateName = "RestaurantTemplate";
 
+    // NullAway.Init is suppressed here because driver/keySpace/fdbDatabase/catalog follow the
+    // standard JMH benchmark lifecycle: they are left unset by the constructor and are always
+    // populated by up() before any benchmark method that uses them runs.
+    @SuppressWarnings("NullAway.Init")
     public static class Driver {
         RelationalDriver driver;
         KeySpace keySpace;
@@ -76,7 +81,7 @@ public abstract class EmbeddedRelationalBenchmark {
         private final String templateName;
         private final String templateDef;
 
-        private final RelationalPlanCache planCache;
+        private final @Nullable RelationalPlanCache planCache;
         public StoreCatalog catalog;
 
 
@@ -84,7 +89,7 @@ public abstract class EmbeddedRelationalBenchmark {
             this(schemaTemplateName, templateDefinition);
         }
 
-        public Driver(RelationalPlanCache planCache) {
+        public Driver(@Nullable RelationalPlanCache planCache) {
             this(schemaTemplateName, templateDefinition, planCache);
         }
 
@@ -94,7 +99,7 @@ public abstract class EmbeddedRelationalBenchmark {
             this.planCache = null;
         }
 
-        public Driver(String templateName, String templateDef, RelationalPlanCache planCache) {
+        public Driver(String templateName, String templateDef, @Nullable RelationalPlanCache planCache) {
             this.templateName = templateName;
             this.templateDef = templateDef;
             this.planCache = planCache;

@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+import org.jspecify.annotations.Nullable;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -74,6 +75,10 @@ import java.util.stream.IntStream;
 @Threads(Threads.MAX)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @API(API.Status.EXPERIMENTAL)
+// NullAway.Init is suppressed here because cacheType/driver follow the standard JMH benchmark
+// lifecycle: cacheType is populated by JMH via @Param reflection and driver is populated by
+// trialUp() (a @Setup method), not by the constructor.
+@SuppressWarnings("NullAway.Init")
 public class SimplePlanCachingBenchmark extends EmbeddedRelationalBenchmark {
     static final String dbName = "/BENCHMARKS/SimplePlanCaching";
 
@@ -124,7 +129,7 @@ public class SimplePlanCachingBenchmark extends EmbeddedRelationalBenchmark {
         }
     }
 
-    private RelationalPlanCache getPlanCache() {
+    private @Nullable RelationalPlanCache getPlanCache() {
         switch (cacheType) {
             case "NONE":
                 return null;
