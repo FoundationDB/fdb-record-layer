@@ -174,6 +174,9 @@ class ConditionalCascadesRuleTest {
     }
 
     @Test
+    // Deliberately passing null to verify onMatch's defensive check throws RecordCoreException
+    // rather than an NPE when called directly instead of through the rule engine.
+    @SuppressWarnings("NullAway")
     void onMatchThrows() {
         final ConditionalCascadesRule<RelationalExpression, StubRule> rule =
                 conditionalRuleOf(stubRule(SelectExpression.class));
@@ -183,6 +186,9 @@ class ConditionalCascadesRuleTest {
     }
 
     @Test
+    // Deliberately passing null to verify onMatch's defensive check throws RecordCoreException
+    // rather than an NPE when called directly instead of through the rule engine.
+    @SuppressWarnings("NullAway")
     void explorationVariantOnMatchThrows() {
         final ConditionalExplorationCascadesRule<RelationalExpression> rule =
                 new ConditionalExplorationCascadesRule<>(ImmutableList.of(stubExplorationRule(SelectExpression.class)));
@@ -206,6 +212,9 @@ class ConditionalCascadesRuleTest {
     }
 
     @Test
+    // Deliberately passing null to verify onMatch's defensive check throws RecordCoreException
+    // rather than an NPE when called directly instead of through the rule engine.
+    @SuppressWarnings("NullAway")
     void implementationVariantListConstructorAndOnMatchThrows() {
         final ConditionalImplementationCascadesRule<RelationalExpression> rule =
                 new ConditionalImplementationCascadesRule<>(ImmutableList.of(stubImplementationRule(SelectExpression.class)));

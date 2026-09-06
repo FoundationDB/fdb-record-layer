@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -151,6 +152,10 @@ class HighContentionAllocatorTest {
 
     @Test
     @Tag(Tags.WipesFDB)
+    // database.run's generic Function<? super FDBRecordContext, ? extends T> return type is inferred as
+    // Void here; "return null;" is the idiomatic way to complete a Void-returning lambda, but the
+    // unbounded generic type parameter isn't annotated to express that Void's only value is null.
+    @SuppressWarnings("NullAway")
     void testCheckForRootConflicts() {
         Range everything = new Range(new byte[]{(byte)0x00}, new byte[]{(byte)0xFF});
         database.run(context -> {
@@ -174,7 +179,7 @@ class HighContentionAllocatorTest {
                 hca.allocate("some-string").join();
                 fail("allocate should fail in the same transaction");
             } catch (Exception e) {
-                assertThat("a", e.getCause().getMessage(), is("database already has keys in allocation range"));
+                assertThat("a", Objects.requireNonNull(e.getCause()).getMessage(), is("database already has keys in allocation range"));
             }
 
             // check that the hca marks these keys as invalid
@@ -198,7 +203,7 @@ class HighContentionAllocatorTest {
                 hca.allocate("some-string").join();
                 fail("allocate should fail in new transaction");
             } catch (Exception e) {
-                assertThat("a", e.getCause().getMessage(), is("database already has keys in allocation range"));
+                assertThat("a", Objects.requireNonNull(e.getCause()).getMessage(), is("database already has keys in allocation range"));
             }
         }
 
