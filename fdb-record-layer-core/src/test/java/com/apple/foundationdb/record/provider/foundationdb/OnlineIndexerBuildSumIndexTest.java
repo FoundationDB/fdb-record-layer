@@ -48,6 +48,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.function.Function;
@@ -173,7 +174,7 @@ class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildIndexTest {
         filteredIndexes.add("newSumIndex");
         if (filterSource) {
             Assumptions.assumeTrue(sourceIndex != null);
-            filteredIndexes.add(sourceIndex.getName());
+            filteredIndexes.add(Objects.requireNonNull(sourceIndex).getName());
         }
         IndexMaintenanceFilter filter = filterOddsForIndexes(filteredIndexes);
         sumRebuild(records, recordsWhileBuilding, deletedIds, filter, ODD_NUM_VALUE_3_RECORDS_SUM, sourceIndex, 1, false);

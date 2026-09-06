@@ -45,6 +45,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
@@ -97,7 +98,7 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
             int i = 0;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> rec = cursor.next();
+                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
                     myrec.mergeFrom(rec.getRecord());
                     assertThat(myrec.getNumValue3Indexed(), allOf(greaterThanOrEqualTo(0), lessThanOrEqualTo(1)));
@@ -145,7 +146,7 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 int i = 0;
                 while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> rec = cursor.next();
+                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
                     FDBRecordVersion version = rec.getVersion();
                     assertNotNull(version);
                     assertThat(version, allOf(lessThan(highBoundary), greaterThan(lowBoundary)));
@@ -196,7 +197,7 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
             int i = 0;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> rec = cursor.next();
+                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
                     myrec.mergeFrom(rec.getRecord());
                     assertEquals("even", myrec.getStrValueIndexed());
@@ -246,7 +247,7 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
             int i = 0;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = plan.execute(recordStore, boundContext).asIterator()) {
                 while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> rec = cursor.next();
+                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
                     myrec.mergeFrom(rec.getRecord());
                     assertEquals("even", myrec.getStrValueIndexed());

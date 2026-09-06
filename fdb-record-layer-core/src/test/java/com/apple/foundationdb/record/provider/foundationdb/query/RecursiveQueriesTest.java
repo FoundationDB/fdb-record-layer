@@ -464,7 +464,11 @@ class RecursiveQueriesTest extends TempTableTestBase {
                         .setScannedRecordsLimit(scanLimit)
                         .build();
 
-                try (RecordCursorIterator<QueryResult> cursor = plan.executePlan(
+                // continuation legitimately starts out null (first execution) and is reassigned to real bytes
+                // below; NullAway/JSpecify does not reliably track @Nullable on byte[] parameters, so this
+                // loop-carried variable, combined with RecordQueryPlan.executePlan's cross-file byte[]
+                // tracking gap, trips a known limitation.
+                try (@SuppressWarnings("NullAway") RecordCursorIterator<QueryResult> cursor = plan.executePlan(
                         recordStore, evaluationContext, continuation, executeProperties).asIterator()) {
                     while (cursor.hasNext()) {
                         Message message = Verify.verifyNotNull(cursor.next()).getMessage();
@@ -1129,7 +1133,10 @@ class RecursiveQueriesTest extends TempTableTestBase {
         int counter = 0;
         final var resultBuilder = ImmutableList.<Pair<Long, Long>>builder();
         final Stopwatch timer = Stopwatch.createStarted();
-        try (RecordCursorIterator<QueryResult> cursor = hierarchyPlan.executePlan(
+        // NullAway/JSpecify does not reliably resolve the @Nullable annotation on RecordQueryPlan.executePlan's
+        // byte[] continuation parameter across this generic interface method boundary; suppressing here
+        // (rather than at every call site) centralizes the (well-understood) suppression.
+        try (@SuppressWarnings("NullAway") RecordCursorIterator<QueryResult> cursor = hierarchyPlan.executePlan(
                 recordStore, evaluationContext, continuation,
                 ExecuteProperties.newBuilder().build()).asIterator()) {
             while (cursor.hasNext()) {
