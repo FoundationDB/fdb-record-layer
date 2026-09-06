@@ -311,7 +311,7 @@ class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .where(indexName(VERSION_INDEX.getName()))
                     .and(scanComparisons(range("([" + versionForQuery.toVersionstamp(false) + "],>"))));
             List<FDBStoredRecord<MySimpleRecord>> queried = typedStore.executeQuery(plan)
-                    .map(FDBQueriedRecord::getStoredRecord)
+                    .map(record -> Objects.requireNonNull(record.getStoredRecord()))
                     .asList()
                     .join();
 
@@ -354,7 +354,7 @@ class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                         .where(predicates(valuePredicate(fieldValueWithFieldNames(PseudoField.ROW_VERSION.getFieldName()), new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, versionForQuery)))));
             }
             List<FDBStoredRecord<MySimpleRecord>> queried = executeQuery(typedStore, plan)
-                    .map(FDBQueriedRecord::getStoredRecord)
+                    .map(record -> Objects.requireNonNull(record.getStoredRecord()))
                     .asList()
                     .join();
 
@@ -437,7 +437,7 @@ class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .and(scanComparisons(range("[[1],[1]]"))));
 
             List<FDBStoredRecord<MySimpleRecord>> queried = typedStore.executeQuery(plan)
-                    .map(FDBQueriedRecord::getStoredRecord)
+                    .map(record -> Objects.requireNonNull(record.getStoredRecord()))
                     .asList()
                     .join();
             assertInVersionOrder(queried);
@@ -481,14 +481,14 @@ class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                         .where(predicates(valuePredicate(fieldValueWithFieldNames(PseudoField.ROW_VERSION.getFieldName()), new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, excludedVersion)))));
             }
             List<FDBStoredRecord<MySimpleRecord>> queried = executeQuery(typedStore, plan)
-                    .map(FDBQueriedRecord::getStoredRecord)
+                    .map(record -> Objects.requireNonNull(record.getStoredRecord()))
                     .asList()
                     .join();
             assertInVersionOrder(queried);
 
             List<FDBStoredRecord<MySimpleRecord>> expected = records.stream()
                     .filter(rec -> rec.getRecord().getNumValue2() == 1)
-                    .filter(rec -> rec.hasVersion() && !rec.getVersion().equals(excludedVersion))
+                    .filter(rec -> rec.hasVersion() && !Objects.requireNonNull(rec.getVersion()).equals(excludedVersion))
                     .collect(Collectors.toList());
             assertEquals(expected, queried);
         }
@@ -515,7 +515,7 @@ class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                     .and(scanComparisons(range("[[even],[even]]")))
             );
             List<FDBStoredRecord<MySimpleRecord>> queried = typedStore.executeQuery(plan)
-                    .map(FDBQueriedRecord::getStoredRecord)
+                    .map(record -> Objects.requireNonNull(record.getStoredRecord()))
                     .asList()
                     .join();
             assertTrue(queried.stream().allMatch(FDBRecord::hasVersion), "records should all have non-null versions");
@@ -799,6 +799,9 @@ class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // plan.execute's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     private <M extends Message> RecordCursor<FDBQueriedRecord<M>> executeQuery(@Nonnull FDBRecordStoreBase<M> typedStore, @Nonnull RecordQueryPlan plan) {
         final TypeRepository typeRepository = TypeRepository.newBuilder()
                 .addAllTypes(UsedTypesProperty.usedTypes().evaluate(plan))
