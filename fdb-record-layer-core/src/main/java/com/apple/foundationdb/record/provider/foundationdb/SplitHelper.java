@@ -346,7 +346,7 @@ public class SplitHelper {
     @Nullable
     static FDBRecordVersion unpackVersion(@Nullable byte[] packedVersion) {
         if (packedVersion != null) {
-            return FDBRecordVersion.fromVersionstamp(Tuple.fromBytes(packedVersion).getVersionstamp(0), true);
+            return FDBRecordVersion.fromVersionstamp(Objects.requireNonNull(Tuple.fromBytes(packedVersion).getVersionstamp(0)), true);
         } else {
             return null;
         }
@@ -796,6 +796,10 @@ public class SplitHelper {
                 });
         }
 
+        // NullAway/JSpecify does not reliably track @Nullable on the byte[] result field across the call
+        // into ByteArrayUtil.join below (a known array-type tracking gap); result is only joined onto
+        // once it has already been set non-null by the START_SPLIT_RECORD branch above.
+        @SuppressWarnings("NullAway")
         protected void append(final KeyValue kv) {
             final Tuple subkey = unpackKey(keySplitSubspace, kv);
             if (subkey.size() != 1) {
@@ -1019,7 +1023,10 @@ public class SplitHelper {
         }
 
         // Process all elements from the scan until we get a new primary key
-        @SuppressWarnings("PMD.UnnecessaryLocalBeforeReturn") // Name and negation make it much clearer as is
+        // NullAway/JSpecify does not reliably track @Nullable on the byte[] continuation.toBytes() /
+        // subspace.getKey() results across the calls into ByteArrayUtil2.loggable below (a known
+        // array-type tracking gap); both are already null-checked or non-null by construction.
+        @SuppressWarnings({"PMD.UnnecessaryLocalBeforeReturn", "NullAway"}) // Name and negation make it much clearer as is
         private CompletableFuture<Void> appendUntilNewKey() {
             return AsyncUtil.whileTrue(() -> {
                 if (pending != null) {
@@ -1062,6 +1069,10 @@ public class SplitHelper {
         }
 
         // Process the next key-value pair from the inner cursor; return whether unsplit complete.
+        // NullAway/JSpecify does not reliably track @Nullable on the byte[] nextPrefix field across the
+        // call into ByteArrayUtil.startsWith below (a known array-type tracking gap); nextPrefix has
+        // already been null-checked immediately above.
+        @SuppressWarnings("NullAway")
         protected boolean append(RecordCursorResult<KeyValue> resultWithKv) {
             // KeyValue is non-null since we only pass in a result that has one.
             KeyValue kv = Objects.requireNonNull(resultWithKv.get());
@@ -1086,6 +1097,10 @@ public class SplitHelper {
         }
 
         // Process the first key-value pair for a given record; return whether the record is complete
+        // NullAway/JSpecify does not reliably track @Nullable on the byte[] nextPrefix field for the
+        // "new KeyValue(nextPrefix, ...)" call below (a known array-type tracking gap); nextPrefix was
+        // just assigned non-null two lines above.
+        @SuppressWarnings("NullAway")
         private boolean appendFirst(KeyValue kv) {
             final Tuple keyTuple = subspace.unpack(kv.getKey());
             nextKey = keyTuple.popBack(); // Remove index item
@@ -1131,6 +1146,11 @@ public class SplitHelper {
         }
 
         // Process the a key-value pair (other than the first one) for a given record; return whether the record is complete
+        // NullAway/JSpecify does not reliably track @Nullable on the byte[] nextPrefix field, nor on the byte[]
+        // results of ByteArrayUtil.join below (a known array-type tracking gap); nextPrefix is non-null by the
+        // same invariant documented on Objects.requireNonNull(nextSubspace) above, and next is non-null by the
+        // comments at each call below.
+        @SuppressWarnings("NullAway")
         private boolean appendNext(KeyValue kv) {
             // appendNext is only ever called (from append()) when nextPrefix != null, and nextSubspace/nextPrefix
             // are always set and cleared together (see appendFirst/onNext), so nextSubspace is non-null here.

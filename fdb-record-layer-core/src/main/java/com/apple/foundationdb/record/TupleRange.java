@@ -84,10 +84,10 @@ public class TupleRange {
 
         TupleRange that = (TupleRange) o;
 
-        if (low != null ? !low.equals(that.low) : that.low != null) {
+        if (!Objects.equals(low, that.low)) {
             return false;
         }
-        if (high != null ? !high.equals(that.high) : that.high != null) {
+        if (!Objects.equals(high, that.high)) {
             return false;
         }
         if (lowEndpoint != that.lowEndpoint) {
@@ -456,6 +456,10 @@ public class TupleRange {
      * @param highEndpoint the type (inclusive, exclusive, etc.) of the high endpoint
      * @return a FoundationDB {@link Range} over the same keys as the provided parameters
      */
+    // NullAway does not reliably track @Nullable on byte[] locals/parameters across calls into
+    // ByteArrayUtil.strinc/join below, even where lowBytes/highBytes are non-null by construction
+    // (either checked explicitly or non-null by contract of the calling endpoint type).
+    @SuppressWarnings("NullAway")
     public static Range toRange(@Nullable byte[] lowBytes, @Nullable byte[] highBytes,
                                 EndpointType lowEndpoint, EndpointType highEndpoint) {
         // Ensure that PREFIX_STRING semantics are honored
@@ -516,12 +520,14 @@ public class TupleRange {
             default:
                 throw new RecordCoreException("Incorrect high endpoint: " + highEndpoint);
         }
-        @SuppressWarnings("NullAway") // NullAway does not reliably track nullability through byte[] ternaries;
         // lowBytes/highBytes are non-null by this point on every reachable path (the null-yielding branches above throw).
-        final Range range = new Range(lowBytes == null ? new byte[0] : lowBytes, highBytes == null ? new byte[]{(byte)0xff} : highBytes);
-        return range;
+        return new Range(lowBytes == null ? new byte[0] : lowBytes, highBytes == null ? new byte[]{(byte)0xff} : highBytes);
     }
 
+    // NullAway does not reliably track @Nullable on byte[] locals/parameters across calls into
+    // ByteArrayUtil2.hasCommonPrefix/loggable below, even though lowBytes/highBytes are narrowed
+    // to non-null by the explicit null check that throws at the top of this method.
+    @SuppressWarnings("NullAway")
     private static void verifyPrefixStringSemantics(@Nullable byte[] lowBytes, @Nullable byte[] highBytes,
                                 EndpointType lowEndpoint, EndpointType highEndpoint) {
         if (lowBytes == null || highBytes == null) {
@@ -571,6 +577,9 @@ public class TupleRange {
      */
     @SuppressWarnings("serial")
     public static class ByteStringBoundException extends RecordCoreException {
+        // NullAway does not reliably track @Nullable on the byte[] parameter across this call into
+        // ByteArrayUtil2.loggable, even though loggable's own parameter is declared @Nullable byte[].
+        @SuppressWarnings("NullAway")
         public ByteStringBoundException(@Nullable byte[] rangeBytes) {
             super("Expected a [byte] string bound", LogMessageKeys.RANGE_BYTES, ByteArrayUtil2.loggable(rangeBytes));
         }
