@@ -36,6 +36,7 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -89,7 +90,7 @@ class ArrayAggValueTest {
         private Message record(final Type.Record recordType, final long a, final long b) {
             final Descriptors.Descriptor descriptor = typeRepository.getMessageDescriptor(recordType);
             assertThat(descriptor).isNotNull();
-            return DynamicMessage.newBuilder(descriptor)
+            return DynamicMessage.newBuilder(Objects.requireNonNull(descriptor))
                     .setField(descriptor.findFieldByName("a"), a)
                     .setField(descriptor.findFieldByName("b"), b)
                     .build();
@@ -101,7 +102,7 @@ class ArrayAggValueTest {
      */
     @SuppressWarnings("unchecked")
     private static List<Object> finish(final Accumulator accumulator) {
-        return (List<Object>)accumulator.finish();
+        return (List<Object>) Objects.requireNonNull(accumulator.finish());
     }
 
     /**
