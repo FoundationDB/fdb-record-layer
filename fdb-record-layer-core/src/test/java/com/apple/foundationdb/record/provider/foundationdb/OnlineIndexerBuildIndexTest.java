@@ -232,13 +232,13 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 int i = 0;
                 while (i < recordsWhileBuilding.size()) {
                     List<M> thisBatch = recordsWhileBuilding.subList(i, Math.min(i + 30, recordsWhileBuilding.size()));
-                    fdb.run(context -> {
+                    try (FDBRecordContext context = openContext()) {
                         FDBRecordStore store = recordStore.asBuilder().setContext(context).build();
                         LOGGER.info(KeyValueLogMessage.of("inserting record batch",
                                 LogMessageKeys.PRIMARY_KEY, thisBatch.stream().map(recordHandler::getPrimaryKey).collect(Collectors.toList())));
                         thisBatch.forEach(store::saveRecord);
-                        return null;
-                    });
+                        context.commit();
+                    }
                     i += 30;
                 }
             }
@@ -247,13 +247,13 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                 int i = 0;
                 while (i < deleteWhileBuilding.size()) {
                     List<Tuple> thisBatch = deleteWhileBuilding.subList(i, Math.min(i + 10, deleteWhileBuilding.size()));
-                    fdb.run(context -> {
+                    try (FDBRecordContext context = openContext()) {
                         FDBRecordStore store = recordStore.asBuilder().setContext(context).build();
                         LOGGER.info(KeyValueLogMessage.of("deleting record batch",
                                 LogMessageKeys.PRIMARY_KEY, thisBatch));
                         thisBatch.forEach(store::deleteRecord);
-                        return null;
-                    });
+                        context.commit();
+                    }
                     i += 10;
                 }
             }

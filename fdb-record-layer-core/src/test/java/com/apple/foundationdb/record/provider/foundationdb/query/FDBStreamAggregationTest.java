@@ -75,6 +75,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -620,8 +621,12 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    // NullAway/JSpecify does not reliably resolve the @Nullable annotation on RecordQueryPlan.executePlan's
+    // byte[] continuation parameter across this generic interface method boundary; suppressing here (rather
+    // than at every call site) centralizes the (well-understood) suppression.
     @Nonnull
-    private RecordCursor<QueryResult> executePlan(final RecordQueryPlan originalPlan, final int rowLimit, final int recordScanLimit, final byte[] continuation) {
+    @SuppressWarnings("NullAway")
+    private RecordCursor<QueryResult> executePlan(final RecordQueryPlan originalPlan, final int rowLimit, final int recordScanLimit, @Nullable final byte[] continuation) {
         final RecordQueryPlan plan = verifySerialization(originalPlan);
         final var types = plan.getDynamicTypes();
         final var typeRepository = TypeRepository.newBuilder().addAllTypes(types).build();
@@ -636,11 +641,11 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         return plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), continuation, executeProperties);
     }
 
-    private RecordCursorContinuation executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, byte[] continuation, @Nullable List<?>... expectedResult) {
+    private RecordCursorContinuation executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, @Nullable byte[] continuation, @Nullable List<?>... expectedResult) {
         return executePlanWithRecordScanLimit(plan, recordScanLimit, continuation, this::assertResultFlattened, expectedResult);
     }
 
-    private RecordCursorContinuation executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, byte[] continuation,
+    private RecordCursorContinuation executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, @Nullable byte[] continuation,
                                                                     @Nonnull final BiConsumer<QueryResult, List<?>> checkConsumer,
                                                                     @Nullable List<?>... expectedResult) {
         List<QueryResult> queryResults = new LinkedList<>();
@@ -653,7 +658,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                 if (!currentCursorResult.hasNext()) {
                     break;
                 } else {
-                    final var cur = currentCursorResult.get();
+                    final var cur = Objects.requireNonNull(currentCursorResult.get());
                     if (cur.getDatum() != null) {
                         queryResults.add(cur);
                     }

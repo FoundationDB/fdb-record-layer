@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.mockito.Mockito;
 
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
@@ -132,7 +134,7 @@ class KeySpacePathTest {
             // Attempting to resolve a key that is not under branchPath should error
             ExecutionException ex = assertThrows(ExecutionException.class,
                     () -> branchPath.toResolvedPathAsync(context, shorterKeyBytes).get());
-            assertEquals(RecordCoreArgumentException.class, ex.getCause().getClass());
+            assertEquals(RecordCoreArgumentException.class, Objects.requireNonNull(ex.getCause()).getClass());
         }
     }
 
@@ -167,7 +169,16 @@ class KeySpacePathTest {
             // thenCallReadMethod throws an error if there is not a default implementation
             Mockito.when(mock.exportAllData(Mockito.any(), Mockito.any(), Mockito.any())).thenCallRealMethod();
             assertThrows(UnsupportedOperationException.class,
-                    () -> mock.exportAllData(context, null, ScanProperties.FORWARD_SCAN));
+                    () -> exportAllDataNoContinuation(mock, context));
         }
+    }
+
+    // NullAway/JSpecify does not reliably resolve the @Nullable annotation on KeySpacePath's default
+    // exportAllData(FDBRecordContext, byte[], ScanProperties) method when called (with no continuation) from
+    // outside its declaring interface; wrapping the call here, rather than suppressing at the call site,
+    // centralizes the (well-understood) suppression.
+    @SuppressWarnings("NullAway")
+    private RecordCursor<DataInKeySpacePath> exportAllDataNoContinuation(KeySpacePath path, FDBRecordContext context) {
+        return path.exportAllData(context, null, ScanProperties.FORWARD_SCAN);
     }
 }
