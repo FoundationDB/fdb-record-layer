@@ -330,6 +330,10 @@ class GuardiannVectorIndexConcurrentMergeTest extends VectorIndexTestBase {
     }
 
     /** Executes the vector index kNN plan and returns the primary keys (rec_no) of the top-k hits. */
+    // NullAway/JSpecify does not reliably track @Nullable byte[] continuation across this loop's
+    // reassignment of `continuation` from a previous scan; the loop condition (continuation != null)
+    // already guards against a null continuation ending the scan, so this is not a real bug.
+    @SuppressWarnings("NullAway")
     private Set<Long> queryTopK(final HalfRealVector queryVector, final int k) throws Exception {
         final RecordQueryIndexPlan plan = createIndexPlan(queryVector, k, INDEX_NAME);
         final Set<Long> recNos = new HashSet<>();
