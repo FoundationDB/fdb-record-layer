@@ -227,7 +227,7 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
             final int[] recallCounters = new int[2];
             byte[] continuation = null;
             do {
-                try (final @SuppressWarnings("NullAway") RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
+                try (@SuppressWarnings("NullAway") final RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
                              executeQuery(indexPlan, continuation, Bindings.EMPTY_BINDINGS, limit)) {
                     int numRecords = 0;
                     while (cursor.hasNext()) {
@@ -439,7 +439,7 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
             // IndexMaintainer#scan's continuation parameter is declared @Nullable byte[] (a position
             // NullAway does not reliably recognize as nullable), so the null literal below still trips
             // the checker.
-            try (final @SuppressWarnings("NullAway") RecordCursor<IndexEntry> cursor =
+            try (@SuppressWarnings("NullAway") final RecordCursor<IndexEntry> cursor =
                          indexMaintainer.scan(vectorIndexScanComparisons.bind(recordStore, index,
                                  EvaluationContext.empty()), null, scanProperties)) {
                 final RecordCursorIterator<IndexEntry> cursorIterator = cursor.asIterator();
