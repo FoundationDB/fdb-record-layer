@@ -39,6 +39,15 @@ import java.util.List;
  */
 @Tag(Tags.RequiresFDB)
 class PendingWritesQueueSizeTest extends FDBRecordStoreTestBase {
+    // NullAway/JSpecify does not reliably propagate @Nullable byte[] annotations for cross-file
+    // (bytecode-read) method parameters, so a properly-@Nullable-typed continuation still gets
+    // flagged as a mismatch at call sites in this file. Declaring the return type here as plain
+    // (non-null) byte[] sidesteps that: passing a "non-null-typed" value into a @Nullable-declared
+    // parameter is always accepted, regardless of how that parameter's own nullability was read.
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
+    }
 
     /**
      * On a brand-new queue, the counter key has never been written, so {@code getQueueSize}
@@ -97,7 +106,7 @@ class PendingWritesQueueSizeTest extends FDBRecordStoreTestBase {
 
         List<PendingWritesQueueEntry<TestQueuePayload>> entries;
         try (FDBRecordContext context = openContext()) {
-            entries = queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
+            entries = queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, noContinuation()).asList().join();
             Assertions.assertThat(entries.size()).isEqualTo(3);
         }
 
@@ -215,7 +224,7 @@ class PendingWritesQueueSizeTest extends FDBRecordStoreTestBase {
         Assertions.assertThat((long) size).isEqualTo(expected);
         // The exact-count from the cursor should match the counter.
         List<PendingWritesQueueEntry<TestQueuePayload>> entries =
-                queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
+                queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, noContinuation()).asList().join();
         Assertions.assertThat((long) entries.size()).isEqualTo((long) size);
     }
 
