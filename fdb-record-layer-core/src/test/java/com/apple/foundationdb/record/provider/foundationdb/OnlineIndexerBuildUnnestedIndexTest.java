@@ -59,6 +59,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.TreeMap;
 import java.util.function.Function;
@@ -278,7 +279,10 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
 
                 final List<Message> updatedRecords = updated(recordHandler, records, recordsWhileBuilding, deleteWhileBuilding);
                 final List<IndexEntry> expectedEntries = unnestedEntriesForOuterRecords(index, updatedRecords);
-                try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                // FDBRecordStoreBase#scanIndex's continuation parameter is declared @Nullable byte[] (a
+                // position NullAway does not reliably recognize as nullable), so the null literal below
+                // still trips the checker.
+                try (@SuppressWarnings("NullAway") RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
                     final List<IndexEntry> scannedEntries = cursor.asList().join();
                     assertEquals(expectedEntries, scannedEntries);
                 }
@@ -289,7 +293,8 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
                             .collect(Collectors.toList());
                     final EvaluationContext evaluationContext = EvaluationContext.forBinding(KEY_PARAM, key);
                     try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(recordStore, evaluationContext)) {
-                        final List<IndexEntry> queriedEntries = cursor.map(FDBQueriedRecord::getIndexEntry).asList().join();
+                        // this is a direct index scan, so every queried record has an index entry
+                        final List<IndexEntry> queriedEntries = cursor.map(rec -> Objects.requireNonNull(rec.getIndexEntry())).asList().join();
                         assertEquals(expectedEntriesForKey, queriedEntries);
                     }
                 }
@@ -342,7 +347,10 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
             try (FDBRecordContext context = openContext()) {
                 final List<Message> updatedRecords = updated(recordHandler, records, recordsWhileBuilding, deleteWhileBuilding);
                 final List<IndexEntry> expectedEntries = sumEntriesByGroup(index, updatedRecords);
-                try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                // FDBRecordStoreBase#scanIndex's continuation parameter is declared @Nullable byte[] (a
+                // position NullAway does not reliably recognize as nullable), so the null literal below
+                // still trips the checker.
+                try (@SuppressWarnings("NullAway") RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
                     final List<IndexEntry> scannedEntries = cursor.asList().join();
                     assertEquals(expectedEntries, scannedEntries);
                 }
