@@ -142,6 +142,9 @@ public final class SlidingWindowTestHelpers {
      * Scans the HNSW index with a broad query to find all indexed records,
      * optionally restricted to a single group.
      */
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     public static Set<Long> scanIndexRecNos(final FDBRecordStore recordStore,
                                             final String indexName,
                                             @Nullable final Tuple groupingKey) {

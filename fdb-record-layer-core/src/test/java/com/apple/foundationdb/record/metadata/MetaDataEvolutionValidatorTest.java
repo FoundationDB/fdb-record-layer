@@ -2191,6 +2191,10 @@ class MetaDataEvolutionValidatorTest {
     }
 
     @Test
+    // null below is intentional: it clears the primary key component positions. NullAway/JSpecify
+    // does not reliably track @Nullable on array parameters, even though this int[] parameter is
+    // already correctly annotated @Nullable.
+    @SuppressWarnings("NullAway")
     void indexPrimaryKeyComponentsChanged() {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.addIndex("MySimpleRecord", "rec_no", "rec_no");

@@ -60,6 +60,9 @@ class DebuggerWithSymbolTablesTest {
     }
 
     @AfterAll
+    // null below is intentional: it clears the thread-local debugger between test classes.
+    // Debugger.setDebugger()'s parameter isn't annotated @Nullable, so this can't be fixed here.
+    @SuppressWarnings("NullAway")
     static void tearDown() {
         Debugger.setDebugger(null);
     }
