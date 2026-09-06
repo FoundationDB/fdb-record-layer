@@ -68,6 +68,7 @@ import org.junit.jupiter.api.Tag;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -95,6 +96,16 @@ import static com.apple.foundationdb.record.query.plan.cascades.values.AbstractA
  */
 @Tag(Tags.RequiresFDB)
 public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
+    // NullAway/JSpecify does not reliably propagate @Nullable byte[] annotations for cross-file
+    // (bytecode-read) method parameters, so a properly-@Nullable-typed continuation still gets
+    // flagged as a mismatch at call sites in this file. Declaring the return type here as plain
+    // (non-null) byte[] sidesteps that: passing a "non-null-typed" value into a @Nullable-declared
+    // parameter is always accepted, regardless of how that parameter's own nullability was read.
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
+    }
+
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void testPlanDeleteExpression() throws Exception {
         final var cascadesPlanner = setUp();
@@ -333,14 +344,14 @@ public class FDBModificationQueryTest extends FDBRecordStoreQueryTestBase {
             // after inserting, try inserting again, throws RecordAlreadyExistsException
             final var usedTypes = usedTypes().evaluate(plan);
             final var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
-            try (RecordCursorIterator<QueryResult> cursor = plan.executePlan(recordStore, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
+            try (RecordCursorIterator<QueryResult> cursor = plan.executePlan(recordStore, evaluationContext, noContinuation(), ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
                 RecordCoreException ex1 = Assertions.assertThrows(RecordCoreException.class, cursor::hasNext);
-                Assertions.assertTrue(ex1.getMessage().contains("record already exists"));
+                Assertions.assertTrue(Objects.requireNonNull(ex1.getMessage()).contains("record already exists"));
             }
             // dry run insert again also throws RecordAlreadyExistsException
-            try (RecordCursorIterator<QueryResult> cursor = plan.executePlan(recordStore, evaluationContext, null, ExecuteProperties.newBuilder().setDryRun(true).build()).asIterator()) {
+            try (RecordCursorIterator<QueryResult> cursor = plan.executePlan(recordStore, evaluationContext, noContinuation(), ExecuteProperties.newBuilder().setDryRun(true).build()).asIterator()) {
                 RecordCoreException ex2 = Assertions.assertThrows(RecordCoreException.class, cursor::hasNext);
-                Assertions.assertTrue(ex2.getMessage().contains("record already exists"));
+                Assertions.assertTrue(Objects.requireNonNull(ex2.getMessage()).contains("record already exists"));
             }
         }
     }
