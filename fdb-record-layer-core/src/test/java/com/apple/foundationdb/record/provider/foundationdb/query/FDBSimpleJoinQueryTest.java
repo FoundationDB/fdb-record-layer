@@ -47,6 +47,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBSimpleJoinQueryTest extends FDBRecordStoreQueryTestBase {
+    // NullAway/JSpecify does not reliably propagate @Nullable byte[] annotations for cross-file
+    // (bytecode-read) method parameters, so a properly-@Nullable-typed continuation still gets
+    // flagged as a mismatch at call sites in this file. Declaring the return type here as plain
+    // (non-null) byte[] sidesteps that: passing a "non-null-typed" value into a @Nullable-declared
+    // parameter is always accepted, regardless of how that parameter's own nullability was read.
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
+    }
+
     private void openJoinRecordStore(FDBRecordContext context) throws Exception {
         createOrOpenRecordStore(context, RecordMetaData.build(TestRecordsParentChildRelationshipProto.getDescriptor()));
     }
@@ -79,7 +89,7 @@ public class FDBSimpleJoinQueryTest extends FDBRecordStoreQueryTestBase {
                         parentRec.mergeFrom(rec.getRecord());
                         EvaluationContext childContext = EvaluationContext.forBinding("parent", parentRec.getRecNo());
                         return childPlan.execute(recordStore, childContext);
-                    }, null, 10);
+                    }, noContinuation(), 10);
             RecordCursor<String> resultsCursor = childCursor.map(rec -> {
                 TestRecordsParentChildRelationshipProto.MyChildRecord.Builder childRec = TestRecordsParentChildRelationshipProto.MyChildRecord.newBuilder();
                 childRec.mergeFrom(rec.getRecord());
@@ -117,7 +127,7 @@ public class FDBSimpleJoinQueryTest extends FDBRecordStoreQueryTestBase {
                                 .map(Tuple::from)
                                 .collect(Collectors.toList()));
                         return childPlan.execute(recordStore, childContext);
-                    }, null, 10);
+                    }, noContinuation(), 10);
             RecordCursor<String> resultsCursor = childCursor.map(rec -> {
                 TestRecordsParentChildRelationshipProto.MyChildRecord.Builder childRec = TestRecordsParentChildRelationshipProto.MyChildRecord.newBuilder();
                 childRec.mergeFrom(rec.getRecord());
