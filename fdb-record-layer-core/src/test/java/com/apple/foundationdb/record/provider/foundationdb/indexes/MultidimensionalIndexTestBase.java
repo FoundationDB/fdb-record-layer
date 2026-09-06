@@ -1488,8 +1488,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         private final String minCalendarName;
         @Nullable
         private final String maxCalendarName;
-        private final Long[] minsInclusive;
-        private final Long[] maxsInclusive;
+        private final @Nullable Long[] minsInclusive;
+        private final @Nullable Long[] maxsInclusive;
 
         public HypercubeScanParameters(@Nullable final String calendarName,
                                        @Nullable final Long... minMaxLimits) {
