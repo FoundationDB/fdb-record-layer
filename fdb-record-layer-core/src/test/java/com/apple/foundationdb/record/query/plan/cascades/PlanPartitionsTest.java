@@ -203,6 +203,10 @@ class PlanPartitionsTest {
             }
 
             @Override
+            // RelationalExpressionVisitorWithDefaults is annotation-processor-generated (out of scope to
+            // annotate) with an unbounded, non-null-by-default type parameter, but this test's newProperty()
+            // deliberately allows a null propertyValue to represent "no value" for the zero-arg overload.
+            @SuppressWarnings("NullAway")
             public RelationalExpressionVisitor<T> createVisitor() {
                 return (RelationalExpressionVisitorWithDefaults<T>)element -> propertyValue;
             }
