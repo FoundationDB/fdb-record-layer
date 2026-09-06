@@ -654,6 +654,9 @@ public class FDBStoreTimerTest {
         }
     }
 
+    // "return null;" below is the standard idiom for a Transaction -> Void lambda passed to
+    // Database.run; NullAway infers the lambda's type argument as non-null Void rather than @Nullable Void.
+    @SuppressWarnings("NullAway")
     private void setupBaseData() {
         subspace = fdb.run(path::toSubspace);
 

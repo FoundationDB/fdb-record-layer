@@ -458,6 +458,10 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         }
     }
 
+    // Tuple.from/TupleRange.betweenInclusive below intentionally accept a null element as test data
+    // (an unannotated, external API conservatively treated by NullAway as requiring non-null);
+    // Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
     void basicReadTest(final boolean useAsync, final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndex = metaDataBuilder -> addMultidimensionalIndex(metaDataBuilder, storage,
                 storeHilbertValues, useNodeSlotIndex);
@@ -474,6 +478,10 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         }
     }
 
+    // Tuple.from/TupleRange.betweenInclusive below intentionally accept a null element as test data
+    // (an unannotated, external API conservatively treated by NullAway as requiring non-null);
+    // Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
     void basicReadWithNullsTest(final boolean useAsync, final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndex = metaDataBuilder -> addMultidimensionalIndex(metaDataBuilder, storage,
                 storeHilbertValues, useNodeSlotIndex);
@@ -1170,6 +1178,10 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         Assertions.assertEquals(KeyExpression.InvalidExpressionException.class, cause.getClass());
     }
 
+    // Tuple.from/TupleRange.betweenInclusive below intentionally accept a null element as test data
+    // (an unannotated, external API conservatively treated by NullAway as requiring non-null);
+    // Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
     void deleteWhereTest(final boolean useAsync, final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {

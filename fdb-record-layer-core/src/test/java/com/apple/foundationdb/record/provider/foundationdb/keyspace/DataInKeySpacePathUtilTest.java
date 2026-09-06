@@ -32,6 +32,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -126,7 +127,7 @@ class DataInKeySpacePathUtilTest {
 
         final DataInKeySpacePath result = DataInKeySpacePathUtil.bumpIncarnationIfStoreInfo(entry);
 
-        if (STORE_INFO_REMAINDER.equals(remainder)) {
+        if (Objects.equals(STORE_INFO_REMAINDER, remainder)) {
             assertNotSame(entry, result);
             final RecordMetaDataProto.DataStoreInfo resultInfo =
                     RecordMetaDataProto.DataStoreInfo.parseFrom(result.getValue());

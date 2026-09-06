@@ -75,6 +75,9 @@ public class TextIndexBunchedSerializerTest {
     }
 
     @Test
+    // Tuple.from below intentionally accepts null elements as test data (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
     public void serializeEntryList() {
         final List<Map.Entry<Tuple, List<Integer>>> entries = Arrays.asList(
                 entryOf(Tuple.from(0L), Collections.emptyList()),

@@ -69,6 +69,9 @@ public class TupleTypeUtilTest {
         dbExtension.getDatabase();
     }
 
+    // Tuple.from below intentionally accepts a null element as test data (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
     private static final List<Object> VALUES = Arrays.asList(
             null,
             Key.Evaluated.NullStandin.NULL,
@@ -105,6 +108,10 @@ public class TupleTypeUtilTest {
             Versionstamp.incomplete(1415)
     );
 
+    // Tuple.from below intentionally accepts a null tupleValue as test data (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); toTupleAppropriateValue's result is
+    // genuinely nullable for this test's null-testing values, and Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
     private byte[] toBytes(@Nullable Object value) {
         Object tupleValue = TupleTypeUtil.toTupleAppropriateValue(value);
         if (tupleValue instanceof Versionstamp && !((Versionstamp)tupleValue).isComplete()) {

@@ -69,6 +69,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @API(API.Status.EXPERIMENTAL)
 public class SyntheticRecordPlannerOuterJoinsTest extends AbstractSyntheticRecordPlannerTest {
     @Test
+    // Tuple.from below intentionally accepts null elements as test data (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
     void outerJoins() {
         metaDataBuilder.addIndex("MySimpleRecord", "other_rec_no");
         final JoinedRecordTypeBuilder innerJoined = metaDataBuilder.addJoinedRecordType("InnerJoined");
