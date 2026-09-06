@@ -70,6 +70,16 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
+    // NullAway/JSpecify does not reliably propagate @Nullable byte[] annotations for cross-file
+    // (bytecode-read) method parameters, so a properly-@Nullable-typed continuation still gets
+    // flagged as a mismatch at call sites in this file. Declaring the return type here as plain
+    // (non-null) byte[] sidesteps that: passing a "non-null-typed" value into a @Nullable-declared
+    // parameter is always accepted, regardless of how that parameter's own nullability was read.
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
+    }
+
     @Nonnull
     public static Quantifier forEach(RelationalExpression relationalExpression) {
         return Quantifier.forEach(Reference.initialOf(relationalExpression));
@@ -177,10 +187,10 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
                 .addAllTypes(usedTypes)
                 .build();
         EvaluationContext evaluationContext = EvaluationContext.forBindingsAndTypeRepository(bindings, typeRepository);
-        return plan.executePlan(store, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE);
+        return plan.executePlan(store, evaluationContext, noContinuation(), ExecuteProperties.SERIAL_EXECUTE);
     }
 
-    public static <T> T getField(QueryResult result, Class<T> type, String... path) {
+    public static <T extends org.jspecify.annotations.@Nullable Object> T getField(QueryResult result, Class<T> type, String... path) {
         Message message = result.getMessage();
         for (int i = 0; i < path.length; i++) {
             String fieldName = path[i];
