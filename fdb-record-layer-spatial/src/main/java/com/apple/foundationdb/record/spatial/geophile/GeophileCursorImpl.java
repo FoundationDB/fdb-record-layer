@@ -87,6 +87,9 @@ class GeophileCursorImpl extends Cursor<GeophileRecordImpl> {
     }
 
     @Override
+    // Passes a null continuation into IndexMaintainer#scan; NullAway does not reliably recognize
+    // @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     public void goTo(GeophileRecordImpl key) {
         // TODO: For many kinds of spatial joins, it should be possible to pick an max Z value as well.
         //  This does not affect correctness, but without it the underlying key-value store does extra work.
