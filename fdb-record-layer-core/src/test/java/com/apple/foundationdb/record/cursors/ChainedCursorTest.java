@@ -34,8 +34,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
@@ -64,7 +62,7 @@ public class ChainedCursorTest {
 
     @Test
     public void testChainedCursor() {
-        RecordCursorIterator<Long> cursor = newCursor(null).asIterator();
+        RecordCursorIterator<Long> cursor = newCursor(noContinuation()).asIterator();
 
         long i = 0L;
         while (cursor.hasNext()) {
@@ -76,7 +74,7 @@ public class ChainedCursorTest {
 
     @Test
     public void testChainedCursorContinuation() {
-        RecordCursorIterator<Long> cursor = newCursor(null).asIterator();
+        RecordCursorIterator<Long> cursor = newCursor(noContinuation()).asIterator();
 
         long i = 0L;
         while (cursor.hasNext()) {
@@ -180,7 +178,7 @@ public class ChainedCursorTest {
         });
     }
 
-    private RecordCursor<Long> newCursor(@Nullable byte[] continuation) {
+    private RecordCursor<Long> newCursor(byte[] continuation) {
         return new ChainedCursor<>(
                 (lastKey) -> nextKey(lastKey),
                 (key) -> Tuple.from(key).pack(),
