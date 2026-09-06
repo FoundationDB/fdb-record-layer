@@ -43,6 +43,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,6 +56,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests for {@link FDBTypedRecordStore}.
  */
 @Tag(Tags.RequiresFDB)
+// NullAway.Init is suppressed here because recordStore follows the standard JUnit test-fixture
+// lifecycle: it is left unset by setUp() and is always populated by openTypedRecordStore() before any
+// test method that uses it runs.
+@SuppressWarnings("NullAway.Init")
 public class FDBTypedRecordStoreTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
@@ -109,7 +114,7 @@ public class FDBTypedRecordStoreTest {
         }
         try (FDBRecordContext context = fdb.openContext()) {
             openTypedRecordStore(context);
-            TestRecords1Proto.MySimpleRecord myrec1 = recordStore.loadRecord(Tuple.from(1L)).getRecord();
+            TestRecords1Proto.MySimpleRecord myrec1 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1L))).getRecord();
             assertNotNull(myrec1);
             assertEquals("abc", myrec1.getStrValueIndexed());
             assertEquals(123, myrec1.getNumValueUnique());
@@ -167,7 +172,7 @@ public class FDBTypedRecordStoreTest {
             final List<TestRecords1Proto.MySimpleRecord> queried = new ArrayList<>();
             try (RecordCursorIterator<FDBQueriedRecord<TestRecords1Proto.MySimpleRecord>> cursor = recordStore.executeQuery(query).asIterator()) {
                 while (cursor.hasNext()) {
-                    TestRecords1Proto.MySimpleRecord myrec = cursor.next().getRecord();
+                    TestRecords1Proto.MySimpleRecord myrec = Objects.requireNonNull(cursor.next()).getRecord();
                     assertThat(myrec.getNumValueUnique() % 2)
                             .isZero();
                     queried.add(myrec);
@@ -196,7 +201,7 @@ public class FDBTypedRecordStoreTest {
             final List<TestRecords1Proto.MySimpleRecord> queried = new ArrayList<>();
             try (RecordCursorIterator<FDBQueriedRecord<TestRecords1Proto.MySimpleRecord>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
-                    TestRecords1Proto.MySimpleRecord myrec = cursor.next().getRecord();
+                    TestRecords1Proto.MySimpleRecord myrec = Objects.requireNonNull(cursor.next()).getRecord();
                     assertThat(myrec.getNumValueUnique() % 2)
                             .isOne();
                     queried.add(myrec);
@@ -229,18 +234,18 @@ public class FDBTypedRecordStoreTest {
         try (FDBRecordContext context = fdb.openContext()) {
             openTypedRecordStore(context);
 
-            TestRecords1Proto.MySimpleRecord myrec2 = recordStore.loadRecord(Tuple.from(2L)).getRecord();
+            TestRecords1Proto.MySimpleRecord myrec2 = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(2L))).getRecord();
             assertNotNull(myrec2);
             assertEquals(456, myrec2.getNumValue3Indexed());
 
             FDBTypedRecordStore<TestRecords1Proto.MyOtherRecord> otherStore = recordStore.getTypedRecordStore(OTHER_SERIALIZER);
-            TestRecords1Proto.MyOtherRecord otherrec3 = otherStore.loadRecord(Tuple.from(3L)).getRecord();
+            TestRecords1Proto.MyOtherRecord otherrec3 = Objects.requireNonNull(otherStore.loadRecord(Tuple.from(3L))).getRecord();
             assertEquals(789, otherrec3.getNumValue3Indexed());
 
             FDBRecordStore untypedStore = recordStore.getUntypedRecordStore();
 
-            assertEquals(myrec2, untypedStore.loadRecord(Tuple.from(2L)).getRecord());
-            assertEquals(otherrec3, untypedStore.loadRecord(Tuple.from(3L)).getRecord());
+            assertEquals(myrec2, Objects.requireNonNull(untypedStore.loadRecord(Tuple.from(2L))).getRecord());
+            assertEquals(otherrec3, Objects.requireNonNull(untypedStore.loadRecord(Tuple.from(3L))).getRecord());
 
             context.commit();
         }
