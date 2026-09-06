@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.net.URI;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -162,7 +163,10 @@ public class RelationalKeyspaceProvider {
         public String getSchemaName() {
             String directoryName = getDirectoryName();
             if (SCHEMA_DIR.equals(directoryName)) {
-                return (String) getValue();
+                // A path whose directory is SCHEMA_DIR was constructed via add(SCHEMA_DIR, schemaName) with a
+                // non-null String schemaName (see RelationalDatabasePath#schemaPath above), so getValue() is
+                // guaranteed non-null here even though its general contract is @Nullable.
+                return (String) Objects.requireNonNull(getValue(), "schema path value must not be null for the \"" + SCHEMA_DIR + "\" directory");
             } else {
                 return directoryName;
             }

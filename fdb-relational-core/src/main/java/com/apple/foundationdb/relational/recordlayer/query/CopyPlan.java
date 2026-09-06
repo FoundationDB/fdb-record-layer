@@ -225,8 +225,13 @@ public final class CopyPlan extends QueryPlan {
                 scanProperties = scanProperties.with(executeProperties -> executeProperties.setReturnedRowLimit(limit));
             }
             // Export all data from the path (up to the requested limit)
+            // continuation is already correctly declared @Nullable byte[] above; NullAway/JSpecify does not
+            // reliably track @Nullable on array-typed fields across this call into exportAllData's
+            // continuation parameter (also @Nullable byte[]), known limitation.
+            @SuppressWarnings("NullAway")
+            final byte[] exportContinuation = continuation;
             RecordCursor<DataInKeySpacePath> cursor =
-                    keySpacePath.exportAllData(fdbContext, continuation, scanProperties);
+                    keySpacePath.exportAllData(fdbContext, exportContinuation, scanProperties);
 
             // Track which paths we've already checked for schemas
             // Maps path -> SchemaTemplateInfo (or null if path has no schema)

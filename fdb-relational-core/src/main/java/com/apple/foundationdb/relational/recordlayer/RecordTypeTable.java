@@ -258,7 +258,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                                     builder.addRepeatedField(fd, arrayItem);
                                 }
                             }
-                        } else {
+                        } else if (array != null) {
                             Assert.that(fd.getType() == Descriptors.FieldDescriptor.Type.MESSAGE, ErrorCode.CANNOT_CONVERT_TYPE,
                                     "Field Type expected to be of Type ARRAY but is actually " + fd.getType());
                             Assert.that(NullableArrayUtils.isWrappedArrayDescriptor(fd.getMessageType()));

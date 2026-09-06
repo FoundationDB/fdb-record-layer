@@ -28,6 +28,8 @@ import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 import java.util.UUID;
 
@@ -216,6 +218,7 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
     }
 
     @Override
+    @Nullable
     public RelationalArray getArray(int columnIndex) throws SQLException {
         try {
             return delegate.getArray(columnIndex);
@@ -225,6 +228,7 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
     }
 
     @Override
+    @Nullable
     public RelationalArray getArray(String columnLabel) throws SQLException {
         try {
             return delegate.getArray(columnLabel);
@@ -234,6 +238,7 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
     }
 
     @Override
+    @Nullable
     public UUID getUUID(final int oneBasedPosition) throws SQLException {
         try {
             return delegate.getUUID(oneBasedPosition);
@@ -243,6 +248,7 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
     }
 
     @Override
+    @Nullable
     public UUID getUUID(final String fieldName) throws SQLException {
         try {
             return delegate.getUUID(fieldName);
@@ -266,6 +272,7 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
     }
 
     @Override
+    @Nullable
     public RelationalStruct getStruct(String columnLabel) throws SQLException {
         try {
             return delegate.getStruct(columnLabel);
@@ -275,6 +282,7 @@ public class ErrorCapturingResultSet implements RelationalResultSet {
     }
 
     @Override
+    @Nullable
     public RelationalStruct getStruct(int oneBasedColumn) throws SQLException {
         try {
             return delegate.getStruct(oneBasedColumn);

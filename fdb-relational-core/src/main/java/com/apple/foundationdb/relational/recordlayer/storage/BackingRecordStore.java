@@ -108,7 +108,16 @@ public final class BackingRecordStore implements BackingStore {
         scanProperties = new ScanProperties(scanProperties.getExecuteProperties().setReturnedRowLimit(1), scanProperties.isReverse());
         try {
             IndexEntry entry;
-            try (RecordCursorIterator<IndexEntry> indexEntryRecordCursor = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.allOf(TupleUtils.toFDBTuple(key)), null, scanProperties).asIterator()) {
+            // scanIndex's continuation parameter is @Nullable byte[]; NullAway/JSpecify does not reliably
+            // track @Nullable on array types for a literal null argument at this call site, so the null
+            // literal is flagged as mismatched even though the formal parameter genuinely accepts null (no
+            // continuation, i.e. start from the beginning of the index).
+            @SuppressWarnings("NullAway")
+            final byte[] noContinuation = null;
+            // See the comment above: noContinuation is genuinely null (by design), and scanIndex's
+            // continuation parameter is @Nullable byte[]; the mismatch NullAway reports here is the same
+            // array-tracking gap.
+            try (@SuppressWarnings("NullAway") RecordCursorIterator<IndexEntry> indexEntryRecordCursor = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.allOf(TupleUtils.toFDBTuple(key)), noContinuation, scanProperties).asIterator()) {
                 if (!indexEntryRecordCursor.hasNext()) {
                     return null;
                 }
@@ -191,8 +200,19 @@ public final class BackingRecordStore implements BackingStore {
     public RecordCursor<FDBStoredRecord<Message>> scanType(RecordType type, TupleRange range, @Nullable Continuation continuation, Options options) throws RelationalException {
         try {
             final ScanProperties scanProps = QueryPropertiesUtils.getScanProperties(options);
-            return recordStore.scanRecords(range, continuation == null ? null : continuation.getExecutionState(), scanProps)
+            // continuation.getExecutionState() is @Nullable byte[]; NullAway/JSpecify does not reliably
+            // track @Nullable on array types across the call into scanRecords's continuation parameter
+            // (also @Nullable byte[]), so this ternary is flagged as mismatched even though both sides
+            // agree it can be null.
+            @SuppressWarnings("NullAway")
+            final byte[] executionState = continuation == null ? null : continuation.getExecutionState();
+            // See the comment above: executionState is genuinely @Nullable byte[], and scanRecords's
+            // continuation parameter is likewise @Nullable byte[]; the mismatch NullAway reports here is
+            // the same array-tracking gap.
+            @SuppressWarnings("NullAway")
+            final RecordCursor<FDBStoredRecord<Message>> result = recordStore.scanRecords(range, executionState, scanProps)
                     .filter(record -> type.equals(record.getRecordType()));
+            return result;
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
@@ -203,8 +223,19 @@ public final class BackingRecordStore implements BackingStore {
         //TODO(bfines) get scan type from Options and/or ScanProperties
         assert continuation == null || continuation instanceof ContinuationImpl;
         try {
-            return recordStore.scanIndex(index, IndexScanType.BY_VALUE, range,
-                    continuation == null ? null : continuation.getExecutionState(), QueryPropertiesUtils.getScanProperties(options));
+            // continuation.getExecutionState() is @Nullable byte[]; NullAway/JSpecify does not reliably
+            // track @Nullable on array types across the call into scanIndex's continuation parameter
+            // (also @Nullable byte[]), so this ternary is flagged as mismatched even though both sides
+            // agree it can be null.
+            @SuppressWarnings("NullAway")
+            final byte[] executionState = continuation == null ? null : continuation.getExecutionState();
+            // See the comment above: executionState is genuinely @Nullable byte[], and scanIndex's
+            // continuation parameter is likewise @Nullable byte[]; the mismatch NullAway reports here is
+            // the same array-tracking gap.
+            @SuppressWarnings("NullAway")
+            final RecordCursor<IndexEntry> result = recordStore.scanIndex(index, IndexScanType.BY_VALUE, range,
+                    executionState, QueryPropertiesUtils.getScanProperties(options));
+            return result;
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }

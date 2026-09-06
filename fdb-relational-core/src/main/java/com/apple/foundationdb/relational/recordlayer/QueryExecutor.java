@@ -57,9 +57,18 @@ public class QueryExecutor {
     public ResumableIterator<Row> execute(@Nullable final Continuation continuation,
                                           final ExecuteProperties executeProperties) throws RelationalException {
         final FDBRecordStoreBase<?> fdbRecordStore = Assert.notNull(schema.loadStore()).unwrap(FDBRecordStoreBase.class);
+        // continuation.getExecutionState() is @Nullable byte[]; NullAway/JSpecify does not reliably track
+        // @Nullable on array types across the call into executePlan's continuation parameter (also
+        // @Nullable byte[]), so this ternary is flagged as mismatched even though both sides agree it can be null.
+        @SuppressWarnings("NullAway")
+        final byte[] executionState = continuation == null ? null : continuation.getExecutionState();
+        // See the comment above: executionState is genuinely @Nullable byte[], and executePlan's
+        // continuation parameter is likewise @Nullable byte[]; the mismatch NullAway reports here is the
+        // same array-tracking gap.
+        @SuppressWarnings("NullAway")
         final RecordCursor<QueryResult> cursor = plan.executePlan(fdbRecordStore,
                 evaluationContext,
-                continuation == null ? null : continuation.getExecutionState(), executeProperties);
+                executionState, executeProperties);
 
         return RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
     }
