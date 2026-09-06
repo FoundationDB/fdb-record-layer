@@ -162,7 +162,7 @@ public class StandardQueryTests {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
                             .isRowPartly(insertedRecord);
                     // explicitly test when nullable array is set to empty list, the RelationalArray object holds an empty iterable
-                    Assertions.assertEquals("[]", resultSet.getArray("REVIEWS").toString());
+                    Assertions.assertEquals("[]", Objects.requireNonNull(resultSet.getArray("REVIEWS")).toString());
                     // explicitly test unset Nullable array is NULL
                     Assertions.assertNull(resultSet.getArray("TAGS"));
                     Assertions.assertNull(resultSet.getArray("CUSTOMER"));
@@ -182,9 +182,9 @@ public class StandardQueryTests {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
                             .isRowPartly(insertedRecord);
                     // explicitly test when a Non-nullable array is unset, the RelationalArray object holds an empty iterable
-                    Assertions.assertEquals("[]", resultSet.getArray("REVIEWS").toString());
-                    Assertions.assertEquals("[]", resultSet.getArray("TAGS").toString());
-                    Assertions.assertEquals("[]", resultSet.getArray("CUSTOMER").toString());
+                    Assertions.assertEquals("[]", Objects.requireNonNull(resultSet.getArray("REVIEWS")).toString());
+                    Assertions.assertEquals("[]", Objects.requireNonNull(resultSet.getArray("TAGS")).toString());
+                    Assertions.assertEquals("[]", Objects.requireNonNull(resultSet.getArray("CUSTOMER")).toString());
                     Assertions.assertFalse(resultSet.next());
                 }
             }
@@ -1161,7 +1161,7 @@ public class StandardQueryTests {
                 Assertions.assertTrue(statement.execute("select (*) from t1"));
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     Assertions.assertTrue(resultSet.next());
-                    final var struct = resultSet.getStruct(1);
+                    final var struct = Objects.requireNonNull(resultSet.getStruct(1));
                     Assertions.assertEquals(42, struct.getInt(1));
                     Assertions.assertEquals(100, struct.getInt(2));
                     Assertions.assertEquals(101, struct.getInt(3));
@@ -1170,8 +1170,8 @@ public class StandardQueryTests {
                 Assertions.assertTrue(statement.execute("select ((*)) from t1"));
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     Assertions.assertTrue(resultSet.next());
-                    final var struct = resultSet.getStruct(1);
-                    final var nestedStruct = struct.getStruct(1);
+                    final var struct = Objects.requireNonNull(resultSet.getStruct(1));
+                    final var nestedStruct = Objects.requireNonNull(struct.getStruct(1));
                     Assertions.assertEquals(42, nestedStruct.getInt(1));
                     Assertions.assertEquals(100, nestedStruct.getInt(2));
                     Assertions.assertEquals(101, nestedStruct.getInt(3));
@@ -1190,9 +1190,9 @@ public class StandardQueryTests {
                 Assertions.assertTrue(statement.execute("select struct asd (a, 42, struct def (b, c)) as X from t1"));
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     Assertions.assertTrue(resultSet.next());
-                    Assertions.assertEquals("ASD", resultSet.getStruct(1).getMetaData().getTypeName());
-                    final var thirdCol = resultSet.getStruct(1).getStruct(3);
-                    Assertions.assertEquals("DEF", thirdCol.getMetaData().getTypeName());
+                    Assertions.assertEquals("ASD", Objects.requireNonNull(resultSet.getStruct(1)).getMetaData().getTypeName());
+                    final var thirdCol = Objects.requireNonNull(resultSet.getStruct(1)).getStruct(3);
+                    Assertions.assertEquals("DEF", Objects.requireNonNull(thirdCol).getMetaData().getTypeName());
                     Assertions.assertFalse(resultSet.next());
                 }
             }
@@ -1208,12 +1208,12 @@ public class StandardQueryTests {
                 Assertions.assertTrue(statement.execute("select struct asd (a, 42, struct def (b, c), struct def(b, c)) as X from t1"));
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     Assertions.assertTrue(resultSet.next());
-                    Assertions.assertEquals("ASD", resultSet.getStruct(1).getMetaData().getTypeName());
+                    Assertions.assertEquals("ASD", Objects.requireNonNull(resultSet.getStruct(1)).getMetaData().getTypeName());
                     Assertions.assertEquals("X", resultSet.getMetaData().getColumnLabel(1));
-                    final var thirdCol = resultSet.getStruct(1).getStruct(3);
-                    Assertions.assertEquals("DEF", thirdCol.getMetaData().getTypeName());
-                    final var fourthCol = resultSet.getStruct(1).getStruct(4);
-                    Assertions.assertEquals("DEF", fourthCol.getMetaData().getTypeName());
+                    final var thirdCol = Objects.requireNonNull(resultSet.getStruct(1)).getStruct(3);
+                    Assertions.assertEquals("DEF", Objects.requireNonNull(thirdCol).getMetaData().getTypeName());
+                    final var fourthCol = Objects.requireNonNull(resultSet.getStruct(1)).getStruct(4);
+                    Assertions.assertEquals("DEF", Objects.requireNonNull(fourthCol).getMetaData().getTypeName());
                     Assertions.assertFalse(resultSet.next());
                 }
             }
@@ -1243,10 +1243,10 @@ public class StandardQueryTests {
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     Assertions.assertTrue(resultSet.next());
                     final var col3 = resultSet.getStruct(3);
-                    Assertions.assertEquals("DEF", col3.getMetaData().getTypeName());
-                    final var col44 = resultSet.getStruct(4).getStruct(4);
+                    Assertions.assertEquals("DEF", Objects.requireNonNull(col3).getMetaData().getTypeName());
+                    final var col44 = Objects.requireNonNull(resultSet.getStruct(4)).getStruct(4);
                     Assertions.assertEquals("X", resultSet.getMetaData().getColumnLabel(4));
-                    Assertions.assertEquals("DEF", col44.getMetaData().getTypeName());
+                    Assertions.assertEquals("DEF", Objects.requireNonNull(col44).getMetaData().getTypeName());
                     Assertions.assertFalse(resultSet.next());
                 }
             }
@@ -1671,7 +1671,7 @@ public class StandardQueryTests {
                         "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow();
-                    try (RelationalResultSet arrResultSet = resultSet.getArray(1).getResultSet()) {
+                    try (RelationalResultSet arrResultSet = Objects.requireNonNull(resultSet.getArray(1)).getResultSet()) {
                         ResultSetAssert.assertThat(arrResultSet).hasNextRow();
                         Assertions.assertEquals("testName", arrResultSet.getString(2));
                         Assertions.assertEquals(DatabaseMetaData.columnNoNulls, arrResultSet.getMetaData().isNullable(2));
@@ -1692,11 +1692,12 @@ public class StandardQueryTests {
                         "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow();
-                    try (RelationalResultSet arrResultSet = resultSet.getArray(1).getResultSet()) {
+                    try (RelationalResultSet arrResultSet = Objects.requireNonNull(resultSet.getArray(1)).getResultSet()) {
                         ResultSetAssert.assertThat(arrResultSet).hasNextRow();
-                        Assertions.assertEquals("address", arrResultSet.getStruct(2).getString("ADDRESS"));
-                        Assertions.assertEquals("1", arrResultSet.getStruct(2).getString("LATITUDE"));
-                        Assertions.assertEquals("1", arrResultSet.getStruct(2).getString("LONGITUDE"));
+                        final var struct2 = Objects.requireNonNull(arrResultSet.getStruct(2));
+                        Assertions.assertEquals("address", struct2.getString("ADDRESS"));
+                        Assertions.assertEquals("1", struct2.getString("LATITUDE"));
+                        Assertions.assertEquals("1", struct2.getString("LONGITUDE"));
                         Assertions.assertEquals(DatabaseMetaData.columnNoNulls, arrResultSet.getMetaData().isNullable(2));
                     }
                     Assertions.assertFalse(resultSet.next());

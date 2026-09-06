@@ -57,6 +57,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
@@ -812,13 +813,13 @@ public class PreparedStatementTests {
     }
 
     private void assertTags(RelationalResultSet resultSet, Object[][] restaurantTagAttributes) throws SQLException {
-        RelationalArray array = resultSet.getArray("tags");
+        RelationalArray array = Objects.requireNonNull(resultSet.getArray("tags"));
         int i = 0;
         try (RelationalResultSet arrResultSet = array.getResultSet()) {
             while (arrResultSet.next()) {
                 Assertions.assertThat(arrResultSet.getInt("INDEX"))
                         .isEqualTo(i + 1);
-                var struct = arrResultSet.getStruct("VALUE");
+                var struct = Objects.requireNonNull(arrResultSet.getStruct("VALUE"));
                 try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
                     softly.assertThat(struct.getString("TAG"))
                             .isEqualTo(restaurantTagAttributes[i][0]);
