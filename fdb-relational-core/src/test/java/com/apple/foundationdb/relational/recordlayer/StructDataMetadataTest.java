@@ -250,7 +250,7 @@ public class StructDataMetadataTest {
     @Test
     void canReadProjectedStructTypeNameInNestedStar() throws Throwable {
         canReadStructTypeName("SELECT (*) FROM T", resultSet -> {
-            RelationalStruct struct = resultSet.getStruct(1).getStruct("ST1");
+            RelationalStruct struct = Objects.requireNonNull(Objects.requireNonNull(resultSet.getStruct(1)).getStruct("ST1"));
             Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName());
         });
     }
@@ -258,9 +258,9 @@ public class StructDataMetadataTest {
     @Test
     void canReadProjectedNestedStructTypeNameInNestedStar() throws Throwable {
         canReadStructTypeName("SELECT (*) FROM NT", resultSet -> {
-            RelationalStruct struct = resultSet.getStruct(1).getStruct("ST1");
+            RelationalStruct struct = Objects.requireNonNull(Objects.requireNonNull(resultSet.getStruct(1)).getStruct("ST1"));
             Assertions.assertEquals("STRUCT_2", struct.getMetaData().getTypeName());
-            RelationalStruct nestedStruct = struct.getStruct("D");
+            RelationalStruct nestedStruct = Objects.requireNonNull(struct.getStruct("D"));
             Assertions.assertEquals("STRUCT_1", nestedStruct.getMetaData().getTypeName());
         });
     }
@@ -268,7 +268,7 @@ public class StructDataMetadataTest {
     @Test
     void canReadProjectedStructInArrayTypeNameInNestedStar() throws Throwable {
         canReadStructTypeName("SELECT (*) FROM AT", resultSet -> {
-            RelationalArray array = resultSet.getStruct(1).getArray("ST2");
+            RelationalArray array = Objects.requireNonNull(Objects.requireNonNull(resultSet.getStruct(1)).getArray("ST2"));
             Assertions.assertEquals("STRUCT", array.getMetaData().getElementTypeName());
             Assertions.assertEquals("STRUCT_3", array.getMetaData().getElementStructMetaData().getTypeName());
         });
@@ -277,7 +277,7 @@ public class StructDataMetadataTest {
     @Test
     void canReadProjectedStructTypeNameInUnnestedStar() throws Throwable {
         canReadStructTypeName("SELECT * FROM T", resultSet -> {
-            RelationalStruct struct = resultSet.getStruct("ST1");
+            RelationalStruct struct = Objects.requireNonNull(resultSet.getStruct("ST1"));
             Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName());
         });
     }
@@ -285,9 +285,9 @@ public class StructDataMetadataTest {
     @Test
     void canReadProjectedNestedStructTypeNameInUnnestedStar() throws Throwable {
         canReadStructTypeName("SELECT * FROM NT", resultSet -> {
-            RelationalStruct struct = resultSet.getStruct("ST1");
+            RelationalStruct struct = Objects.requireNonNull(resultSet.getStruct("ST1"));
             Assertions.assertEquals("STRUCT_2", struct.getMetaData().getTypeName());
-            RelationalStruct nestedStruct = struct.getStruct("D");
+            RelationalStruct nestedStruct = Objects.requireNonNull(struct.getStruct("D"));
             Assertions.assertEquals("STRUCT_1", nestedStruct.getMetaData().getTypeName());
         });
     }
@@ -295,7 +295,7 @@ public class StructDataMetadataTest {
     @Test
     void canReadProjectedStructInArrayTypeNameInUnnestedStar() throws Throwable {
         canReadStructTypeName("SELECT * FROM AT", resultSet -> {
-            RelationalArray array = resultSet.getArray("ST2");
+            RelationalArray array = Objects.requireNonNull(resultSet.getArray("ST2"));
             Assertions.assertEquals("STRUCT", array.getMetaData().getElementTypeName());
             Assertions.assertEquals("STRUCT_3", array.getMetaData().getElementStructMetaData().getTypeName());
         });
@@ -304,7 +304,7 @@ public class StructDataMetadataTest {
     @Test
     void canReadProjectedStructTypeNameDirectlyProjected() throws Throwable {
         canReadStructTypeName("SELECT ST1 FROM T", resultSet -> {
-            RelationalStruct struct = resultSet.getStruct("ST1");
+            RelationalStruct struct = Objects.requireNonNull(resultSet.getStruct("ST1"));
             Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName());
         });
     }
@@ -312,7 +312,7 @@ public class StructDataMetadataTest {
     @Test
     void canReadProjectedNestedStructTypeNameDirectlyProjected() throws Throwable {
         canReadStructTypeName("SELECT ST1 FROM NT", resultSet -> {
-            RelationalStruct struct = resultSet.getStruct("ST1").getStruct("D");
+            RelationalStruct struct = Objects.requireNonNull(Objects.requireNonNull(resultSet.getStruct("ST1")).getStruct("D"));
             Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName());
         });
     }
@@ -320,7 +320,7 @@ public class StructDataMetadataTest {
     @Test
     void canReadProjectedStructInArrayTypeNameDirectlyProjected() throws Throwable {
         canReadStructTypeName("SELECT * FROM AT", resultSet -> {
-            RelationalArray array = resultSet.getArray("ST2");
+            RelationalArray array = Objects.requireNonNull(resultSet.getArray("ST2"));
             Assertions.assertEquals("STRUCT", array.getMetaData().getElementTypeName());
             Assertions.assertEquals("STRUCT_3", array.getMetaData().getElementStructMetaData().getTypeName());
         });
@@ -329,35 +329,35 @@ public class StructDataMetadataTest {
     @Test
     void canReadProjectedDynamicStruct() throws Throwable {
         canReadStructTypeName("SELECT STRUCT STRUCT_6(name, st1.a, st1) FROM T", resultSet -> {
-            RelationalStruct struct = resultSet.getStruct(1);
+            RelationalStruct struct = Objects.requireNonNull(resultSet.getStruct(1));
             Assertions.assertEquals("STRUCT_6", struct.getMetaData().getTypeName());
-            Assertions.assertEquals("STRUCT_1", struct.getStruct(3).getMetaData().getTypeName());
+            Assertions.assertEquals("STRUCT_1", Objects.requireNonNull(struct.getStruct(3)).getMetaData().getTypeName());
         });
     }
 
     @Test
     void canReadProjectedStructWithDynamicStructInside() throws Throwable {
         canReadStructTypeName("SELECT STRUCT STRUCT_6(name, STRUCT STRUCT_7(name, st1.a)) FROM T", resultSet -> {
-            RelationalStruct struct = resultSet.getStruct(1);
+            RelationalStruct struct = Objects.requireNonNull(resultSet.getStruct(1));
             Assertions.assertEquals("STRUCT_6", struct.getMetaData().getTypeName());
-            Assertions.assertEquals("STRUCT_7", struct.getStruct(2).getMetaData().getTypeName());
+            Assertions.assertEquals("STRUCT_7", Objects.requireNonNull(struct.getStruct(2)).getMetaData().getTypeName());
         });
     }
 
     @Test
     void canReadAnonymousStructWithDynamicStructInside() throws Throwable {
         canReadStructTypeName("SELECT (name, STRUCT STRUCT_7(name, st1.a)) FROM T", resultSet -> {
-            RelationalStruct struct = resultSet.getStruct(1);
-            Assertions.assertEquals("STRUCT_7", struct.getStruct(2).getMetaData().getTypeName());
+            RelationalStruct struct = Objects.requireNonNull(resultSet.getStruct(1));
+            Assertions.assertEquals("STRUCT_7", Objects.requireNonNull(struct.getStruct(2)).getMetaData().getTypeName());
         });
     }
 
     @Disabled // https://github.com/FoundationDB/fdb-record-layer/issues/3794
     void canDistinguishFieldsOfStructurallyEqualTypes() throws Throwable {
         canReadStructTypeName("SELECT * FROM T4", resultSet -> {
-            RelationalStruct struct1 = resultSet.getStruct("N1");
+            RelationalStruct struct1 = Objects.requireNonNull(resultSet.getStruct("N1"));
             Assertions.assertEquals("N1", struct1.getMetaData().getTypeName());
-            RelationalStruct struct2 = resultSet.getStruct("N2");
+            RelationalStruct struct2 = Objects.requireNonNull(resultSet.getStruct("N2"));
             Assertions.assertEquals("N2", struct2.getMetaData().getTypeName());
         });
     }
@@ -365,11 +365,11 @@ public class StructDataMetadataTest {
     @Disabled // https://github.com/FoundationDB/fdb-record-layer/issues/3794
     void canDistinguishNestedFieldsOfStructurallyEqualTypes() throws Throwable {
         canReadStructTypeName("SELECT * FROM T3", resultSet -> {
-            RelationalStruct struct = resultSet.getStruct("M");
+            RelationalStruct struct = Objects.requireNonNull(resultSet.getStruct("M"));
             Assertions.assertEquals("M", struct.getMetaData().getTypeName());
-            RelationalStruct struct1 = struct.getStruct("X");
+            RelationalStruct struct1 = Objects.requireNonNull(struct.getStruct("X"));
             Assertions.assertEquals("N1", struct1.getMetaData().getTypeName());
-            RelationalStruct struct2 = struct.getStruct("Y");
+            RelationalStruct struct2 = Objects.requireNonNull(struct.getStruct("Y"));
             Assertions.assertEquals("N2", struct2.getMetaData().getTypeName());
         });
     }
@@ -407,6 +407,7 @@ public class StructDataMetadataTest {
             Assertions.assertEquals("Goodbye", nestedStruct.getString("A"), "Incorrect doubly-nested struct");
             //use get object to make sure it returns the correct type
             nestedStruct = (RelationalStruct) struct.getObject(2);
+            Assertions.assertNotNull(nestedStruct);
             Assertions.assertEquals("Goodbye", nestedStruct.getString(1), "Incorrect doubly-nested struct");
             Assertions.assertEquals("Goodbye", nestedStruct.getString("A"), "Incorrect doubly-nested struct");
         }
@@ -426,6 +427,7 @@ public class StructDataMetadataTest {
             try (var arrayRs = st2.getResultSet()) {
                 Assertions.assertTrue(arrayRs.next(), "No array records returned!");
                 var struct = arrayRs.getStruct(2);
+                Assertions.assertNotNull(struct, "Struct is missing!");
                 Assertions.assertArrayEquals("Hello".getBytes(StandardCharsets.UTF_8), struct.getBytes(1), "Incorrect bytes column!");
                 Assertions.assertArrayEquals("Hello".getBytes(StandardCharsets.UTF_8), struct.getBytes("C"), "Incorrect bytes column!");
 
@@ -434,6 +436,7 @@ public class StructDataMetadataTest {
 
                 Assertions.assertTrue(arrayRs.next(), "too few array records returned!");
                 struct = arrayRs.getStruct(2);
+                Assertions.assertNotNull(struct, "Struct is missing!");
                 Assertions.assertArrayEquals("Bonjour".getBytes(StandardCharsets.UTF_8), struct.getBytes(1), "Incorrect bytes column!");
                 Assertions.assertArrayEquals("Bonjour".getBytes(StandardCharsets.UTF_8), struct.getBytes("C"), "Incorrect bytes column!");
 
@@ -477,7 +480,7 @@ public class StructDataMetadataTest {
     @Test
     void structTypeMetadataPreservedAcrossPlanCache() throws Throwable {
         canReadStructTypeName("SELECT * FROM T WHERE NAME = 'test_record_1'", resultSet -> {
-            RelationalStruct struct = resultSet.getStruct("ST1");
+            RelationalStruct struct = Objects.requireNonNull(resultSet.getStruct("ST1"));
             Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName(),
                     "Struct type name should be preserved across plan cache");
         }, 2, 0);
@@ -486,8 +489,8 @@ public class StructDataMetadataTest {
     @Test
     void nestedStructTypeMetadataPreservedAcrossPlanCache() throws Throwable {
         canReadStructTypeName("SELECT * FROM NT WHERE T_NAME = 'nt_record'", resultSet -> {
-            RelationalStruct struct = resultSet.getStruct("ST1");
-            RelationalStruct nestedStruct = struct.getStruct("D");
+            RelationalStruct struct = Objects.requireNonNull(resultSet.getStruct("ST1"));
+            RelationalStruct nestedStruct = Objects.requireNonNull(struct.getStruct("D"));
             Assertions.assertEquals("STRUCT_1", nestedStruct.getMetaData().getTypeName(),
                     "Nested struct type name should be preserved across plan cache");
         }, 2, 0);
@@ -496,7 +499,7 @@ public class StructDataMetadataTest {
     @Test
     void arrayStructTypeMetadataPreservedAcrossPlanCache() throws Throwable {
         canReadStructTypeName("SELECT * FROM AT WHERE A_NAME = 'a_test_rec'", resultSet -> {
-            RelationalArray array = resultSet.getArray("ST2");
+            RelationalArray array = Objects.requireNonNull(resultSet.getArray("ST2"));
             Assertions.assertEquals("STRUCT_3", array.getMetaData().getElementStructMetaData().getTypeName(),
                     "Array element struct type name should be preserved across plan cache");
         }, 2, 0);
@@ -505,7 +508,7 @@ public class StructDataMetadataTest {
     @Test
     void structTypeMetadataPreservedInContinuationAcrossPlanCache() throws Throwable {
         canReadStructTypeName("SELECT * FROM T", resultSet -> {
-            RelationalStruct struct = resultSet.getStruct("ST1");
+            RelationalStruct struct = Objects.requireNonNull(resultSet.getStruct("ST1"));
             Assertions.assertEquals("STRUCT_1", struct.getMetaData().getTypeName(),
                     "Struct type name should be preserved in continuation across plan cache");
         }, 1, 2);
@@ -514,9 +517,9 @@ public class StructDataMetadataTest {
     @Test
     void nestedStructTypeMetadataPreservedInContinuationAcrossPlanCache() throws Throwable {
         canReadStructTypeName("SELECT * FROM NT", resultSet -> {
-            RelationalStruct struct = resultSet.getStruct("ST1");
+            RelationalStruct struct = Objects.requireNonNull(resultSet.getStruct("ST1"));
             Assertions.assertEquals("STRUCT_2", struct.getMetaData().getTypeName());
-            RelationalStruct nestedStruct = struct.getStruct("D");
+            RelationalStruct nestedStruct = Objects.requireNonNull(struct.getStruct("D"));
             Assertions.assertEquals("STRUCT_1", nestedStruct.getMetaData().getTypeName(),
                     "Nested struct type name should be preserved in continuation across plan cache");
         }, 1, 2);
