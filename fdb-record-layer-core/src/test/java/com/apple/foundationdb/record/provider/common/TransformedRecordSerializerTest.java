@@ -57,6 +57,7 @@ import java.security.Key;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.stream.Stream;
 import java.util.zip.DataFormatException;
@@ -290,7 +291,7 @@ public class TransformedRecordSerializerTest {
         RecordSerializationValidationException validationException = assertThrows(RecordSerializationValidationException.class,
                 () -> validateSerialization(serializer, simpleRecord, serialized));
         assertThat(validationException.getMessage(), containsString("cannot deserialize record"));
-        assertThat(validationException.getCause().getMessage(), containsString("unknown compression version"));
+        assertThat(Objects.requireNonNull(validationException.getCause()).getMessage(), containsString("unknown compression version"));
     }
 
     @Test
@@ -307,7 +308,7 @@ public class TransformedRecordSerializerTest {
         RecordSerializationValidationException validationException = assertThrows(RecordSerializationValidationException.class,
                 () -> validateSerialization(serializer, simpleRecord, serialized));
         assertThat(validationException.getMessage(), containsString("cannot deserialize record"));
-        assertThat(validationException.getCause().getMessage(), containsString("decompression error"));
+        assertThat(Objects.requireNonNull(validationException.getCause()).getMessage(), containsString("decompression error"));
     }
 
     @Test
@@ -656,7 +657,7 @@ public class TransformedRecordSerializerTest {
                     () -> serialize(serializer, simpleRecord));
             assertThat(e.getMessage(), containsString("encryption error"));
             assertThat(e.getCause(), instanceOf(InvalidKeyException.class));
-            assertThat(e.getCause().getMessage(), containsString("Wrong algorithm"));
+            assertThat(Objects.requireNonNull(e.getCause()).getMessage(), containsString("Wrong algorithm"));
         } finally {
             // We have put something inconsistent in.
             CipherPool.invalidateAll();

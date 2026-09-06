@@ -59,7 +59,12 @@ public class ValueIndexMaintainerWithQueue extends StandardIndexMaintainerWithQu
         if (!scanType.equals(IndexScanType.BY_VALUE)) {
             throw new RecordCoreException("Can only scan standard index by value.");
         }
-        return scan(range, continuation, scanProperties);
+        // NullAway/JSpecify does not reliably resolve the @Nullable annotation on StandardIndexMaintainer's
+        // protected scan(TupleRange, byte[], ScanProperties) method across this inherited-method boundary;
+        // suppressing here (rather than a parallel workaround) centralizes the (well-understood) suppression.
+        @SuppressWarnings("NullAway")
+        final RecordCursor<IndexEntry> result = scan(range, continuation, scanProperties);
+        return result;
     }
 
     /**
