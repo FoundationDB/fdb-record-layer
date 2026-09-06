@@ -85,6 +85,10 @@ import java.util.concurrent.TimeUnit;
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @State(Scope.Benchmark)
 @API(API.Status.EXPERIMENTAL)
+// NullAway.Init is suppressed here because indexHintLabel/indexHintCategory follow the standard
+// JMH benchmark lifecycle: they are left unset by the constructor and are always populated by
+// trialUp() (a @Setup method) before any benchmark method that uses them runs.
+@SuppressWarnings("NullAway.Init")
 public class IndexScanVsQueryBenchmark extends EmbeddedRelationalBenchmark {
 
     static final String schema = "bench";
