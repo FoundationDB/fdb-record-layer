@@ -166,6 +166,10 @@ public class TimeWindowLeaderboardIndexMaintainer extends StandardIndexMaintaine
     }
 
     @Override
+    // Objects.equals below is intentional even though lowGroup is already null-checked: NullAway
+    // conservatively treats Tuple.equals(Object)'s argument as requiring non-null, but highGroup may
+    // genuinely be null here (see PMD.UnusedNullCheckInEquals suppression below).
+    @SuppressWarnings("PMD.UnusedNullCheckInEquals")
     public RecordCursor<IndexEntry> scan(IndexScanBounds scanBounds,
                                          @Nullable byte[] continuation,
                                          ScanProperties scanProperties) {
