@@ -219,13 +219,21 @@ public final class BackingLocatableResolverStore implements BackingStore {
             throw new InternalErrorException("unsupported range");
         }
 
+        // continuation.getExecutionState() is @Nullable byte[]; NullAway/JSpecify does not reliably track
+        // @Nullable on array types across the calls below (fromFuture / locatableResolver.scan), so this
+        // ternary and its later uses are flagged as mismatched even though both sides agree it can be null.
+        @SuppressWarnings("NullAway")
         final byte[] continuationBytes = continuation == null ? null : continuation.getExecutionState();
         final ScanProperties scanProperties = QueryPropertiesUtils.getScanProperties(options);
         if (type.getName().equals(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME)) {
             // todo: this does not use the scanProperties to track runtime information like rows scanned
             // see: https://github.com/FoundationDB/fdb-record-layer/issues/3226
             final ExecuteProperties executeProperties = scanProperties.getExecuteProperties();
-            return RecordCursor.fromFuture(context.getExecutor(),
+            // See the comment above: continuationBytes is genuinely @Nullable byte[], and fromFuture's
+            // continuation parameter is likewise @Nullable byte[]; the mismatch NullAway reports here is
+            // the same array-tracking gap.
+            @SuppressWarnings("NullAway")
+            final RecordCursor<FDBStoredRecord<Message>> result = RecordCursor.fromFuture(context.getExecutor(),
                     () -> locatableResolver.loadResolverState(context).thenApply(state -> {
                         Message msg = metaDataProvider.wrapResolverState(state);
                         return FDBStoredRecord.newBuilder(msg)
@@ -235,8 +243,13 @@ public final class BackingLocatableResolverStore implements BackingStore {
                     }),
                     continuationBytes
             ).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+            return result;
         } else if (type.getName().equals(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME)) {
-            return locatableResolver.scan(context, continuationBytes, scanProperties)
+            // See the comment above: continuationBytes is genuinely @Nullable byte[], and
+            // locatableResolver.scan's continuation parameter is likewise @Nullable byte[]; the mismatch
+            // NullAway reports here is the same array-tracking gap.
+            @SuppressWarnings("NullAway")
+            final RecordCursor<FDBStoredRecord<Message>> result = locatableResolver.scan(context, continuationBytes, scanProperties)
                     .map(resolverKeyValue -> {
                         // resolverKeyValue.getValue() is @Nonnull, so wrapResolverResult (which
                         // only returns null when its result argument is null) always returns
@@ -248,6 +261,7 @@ public final class BackingLocatableResolverStore implements BackingStore {
                                 .setPrimaryKey(Tuple.from(resolverKeyValue.getKey()))
                                 .build();
                     });
+            return result;
         } else {
             throw new TypeNotPresentException(type.getName(), null);
         }

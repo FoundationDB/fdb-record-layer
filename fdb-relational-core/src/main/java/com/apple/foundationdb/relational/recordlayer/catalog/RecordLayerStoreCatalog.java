@@ -410,9 +410,15 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
     // throws exception otherwise.
     private boolean deleteSchemas(FDBRecordStoreBase<Message> recordStore, URI dbUri) throws RelationalException {
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, dbUri.getPath());
+        // ContinuationImpl.BEGIN.getExecutionState() is @Nullable byte[]; NullAway/JSpecify does not
+        // reliably track @Nullable on array types across the call into scanRecords's continuation
+        // parameter (also @Nullable byte[]), so this is flagged as mismatched even though both sides
+        // agree it can be null.
+        @SuppressWarnings("NullAway")
+        final byte[] beginExecutionState = ContinuationImpl.BEGIN.getExecutionState();
         try (RecordCursor<FDBStoredRecord<Message>> cursor =
                 recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE,
-                                EndpointType.RANGE_INCLUSIVE), ContinuationImpl.BEGIN.getExecutionState(),
+                                EndpointType.RANGE_INCLUSIVE), beginExecutionState,
                         ScanProperties.FORWARD_SCAN);) {
             RecordCursorResult<FDBStoredRecord<Message>> cursorResult;
             do {

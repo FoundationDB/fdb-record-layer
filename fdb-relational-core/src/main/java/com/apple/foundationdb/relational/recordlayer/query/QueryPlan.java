@@ -434,9 +434,14 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     .setReturnedRowLimit(options.getOption(Options.Name.MAX_ROWS))
                     .setDryRun(options.getOption(Options.Name.DRY_RUN))
                     .build();
+            // parsedContinuation.getExecutionState() is @Nullable byte[]; NullAway/JSpecify does not reliably
+            // track @Nullable on array types across the call into executePlan's continuation parameter (also
+            // @Nullable byte[]), so this is flagged as mismatched even though both sides agree it can be null.
+            @SuppressWarnings("NullAway")
+            final byte[] executionState = parsedContinuation.getExecutionState();
             cursor = executionContext.metricCollector.clock(
                     RelationalMetric.RelationalEvent.EXECUTE_RECORD_QUERY_PLAN, () -> recordQueryPlan.executePlan(fdbRecordStore, evaluationContext,
-                            parsedContinuation.getExecutionState(),
+                            executionState,
                             executeProperties));
             final var currentPlanHashMode = OptionsUtils.getCurrentPlanHashMode(options);
 

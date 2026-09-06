@@ -112,10 +112,16 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         try {
+            // ContinuationImpl.BEGIN.getExecutionState() is @Nullable byte[]; NullAway/JSpecify does not
+            // reliably track @Nullable on array types across the call into scanRecords's continuation
+            // parameter (also @Nullable byte[]), so this is flagged as mismatched even though both sides
+            // agree it can be null.
+            @SuppressWarnings("NullAway")
+            final byte[] beginExecutionState = ContinuationImpl.BEGIN.getExecutionState();
             try (RecordCursor<FDBStoredRecord<Message>> cursor =
                     recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE,
                                     EndpointType.RANGE_INCLUSIVE),
-                            ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.REVERSE_SCAN)) {
+                            beginExecutionState, ScanProperties.REVERSE_SCAN)) {
                 RecordCursorResult<FDBStoredRecord<Message>> cursorResult = cursor.getNext();
                 return cursorResult != null && !cursorResult.getContinuation().isEnd() && cursorResult.get() != null;
             }
@@ -173,7 +179,13 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
         final var key = getSchemaTemplatePrimaryKey(templateName);
         final var recordStore = RecordLayerStoreUtils.openRecordStore(txn, catalogSchemaPath, catalogRecordMetaDataProvider);
         final var tupleRange = new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
-        try (var cursor = recordStore.scanRecords(tupleRange, ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.REVERSE_SCAN)) {
+        // ContinuationImpl.BEGIN.getExecutionState() is @Nullable byte[]; NullAway/JSpecify does not
+        // reliably track @Nullable on array types across the call into scanRecords's continuation
+        // parameter (also @Nullable byte[]), so this is flagged as mismatched even though both sides
+        // agree it can be null.
+        @SuppressWarnings("NullAway")
+        final byte[] beginExecutionState = ContinuationImpl.BEGIN.getExecutionState();
+        try (var cursor = recordStore.scanRecords(tupleRange, beginExecutionState, ScanProperties.REVERSE_SCAN)) {
             final var cursorResult = cursor.getNext();
             final var schemaExists = !cursorResult.getContinuation().isEnd() && cursorResult.get() != null;
             Assert.thatUnchecked(schemaExists, ErrorCode.UNKNOWN_SCHEMA_TEMPLATE,
@@ -250,10 +262,16 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
         try {
             var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                     this.catalogRecordMetaDataProvider);
+            // ContinuationImpl.BEGIN.getExecutionState() is @Nullable byte[]; NullAway/JSpecify does not
+            // reliably track @Nullable on array types across the call into scanRecords's continuation
+            // parameter (also @Nullable byte[]), so this is flagged as mismatched even though both sides
+            // agree it can be null.
+            @SuppressWarnings("NullAway")
+            final byte[] beginExecutionState = ContinuationImpl.BEGIN.getExecutionState();
             RecordCursor<FDBStoredRecord<Message>> cursor =
                     recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE,
                                     EndpointType.RANGE_INCLUSIVE),
-                            ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.FORWARD_SCAN);
+                            beginExecutionState, ScanProperties.FORWARD_SCAN);
             Descriptors.Descriptor d = recordStore.getRecordMetaData().getRecordMetaData()
                     .getRecordType(SchemaTemplateSystemTable.TABLE_NAME).getDescriptor();
             final var structMetaData = RelationalStructMetaData.of((DataType.StructType) DataTypeUtils.toRelationalType(ProtobufDdlUtil.recordFromDescriptor(d)));
@@ -290,10 +308,16 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
         try {
             var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                     this.catalogRecordMetaDataProvider);
+            // ContinuationImpl.BEGIN.getExecutionState() is @Nullable byte[]; NullAway/JSpecify does not
+            // reliably track @Nullable on array types across the call into scanRecords's continuation
+            // parameter (also @Nullable byte[]), so this is flagged as mismatched even though both sides
+            // agree it can be null.
+            @SuppressWarnings("NullAway")
+            final byte[] beginExecutionState = ContinuationImpl.BEGIN.getExecutionState();
             try (RecordCursor<FDBStoredRecord<Message>> cursor =
                     recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE,
                                     EndpointType.RANGE_INCLUSIVE),
-                            ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.FORWARD_SCAN);) {
+                            beginExecutionState, ScanProperties.FORWARD_SCAN);) {
                 RecordCursorResult<FDBStoredRecord<Message>> cursorResult;
                 boolean deletedSomething = false;
                 do {
