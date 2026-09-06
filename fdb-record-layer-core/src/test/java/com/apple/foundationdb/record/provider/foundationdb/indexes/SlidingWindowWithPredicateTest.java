@@ -129,6 +129,9 @@ class SlidingWindowWithPredicateTest extends FDBRecordStoreTestBase {
         recordStore.deleteRecord(Tuple.from(recNo));
     }
 
+    // IndexMaintainer#scan's continuation parameter is declared @Nullable byte[] (a position NullAway
+    // does not reliably recognize as nullable), so the null literal below still trips the checker.
+    @SuppressWarnings("NullAway")
     private Set<Long> scanIndexRecNos() {
         final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
         final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
