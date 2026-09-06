@@ -611,6 +611,10 @@ class TransactionalRunnerTest {
         }
     }
 
+    // value is legitimately null when asserting the key has no value. JUnit's assertArrayEquals() isn't
+    // annotated with JSpecify nullability, and NullAway/JSpecify does not reliably track @Nullable on
+    // byte[] parameters/return types in general.
+    @SuppressWarnings("NullAway")
     private static void assertValue(final TransactionalRunner runner, final byte[] key, @Nullable final byte[] value) {
         assertArrayEquals(value, runner.runAsync(false, context -> context.ensureActive().get(key)).join());
     }
