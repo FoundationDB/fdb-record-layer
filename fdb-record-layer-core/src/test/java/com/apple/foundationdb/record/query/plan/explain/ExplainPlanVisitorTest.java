@@ -210,7 +210,7 @@ public class ExplainPlanVisitorTest {
     }
 
     private static NonnullPair<RecordQueryPlan, String> randomScanPlan(Random r) {
-        Pair<ScanComparisons, String> comparisons = randomScanComparisons(r);
+        NonnullPair<ScanComparisons, String> comparisons = randomScanComparisons(r);
         boolean reverse = r.nextBoolean();
         return NonnullPair.of(new RecordQueryScanPlan(comparisons.getLeft(), reverse), "SCAN(" + comparisons.getRight() + ")");
     }
@@ -221,7 +221,7 @@ public class ExplainPlanVisitorTest {
     }
 
     private static NonnullPair<RecordQueryPlan, String> randomIndexDetails(Random r) {
-        Pair<ScanComparisons, String> comparisons = randomScanComparisons(r);
+        NonnullPair<ScanComparisons, String> comparisons = randomScanComparisons(r);
         IndexScanType scanType = randomChoice(r, List.of(IndexScanType.BY_VALUE, IndexScanType.BY_RANK, IndexScanType.BY_GROUP, IndexScanType.BY_VALUE_OVER_SCAN));
         IndexScanParameters scanParameters = IndexScanComparisons.byValue(comparisons.getLeft(), scanType);
         String indexName = randomIndexName(r);
@@ -328,7 +328,7 @@ public class ExplainPlanVisitorTest {
     }
 
     private static NonnullPair<RecordQueryPlan, String> randomFilterPlan(Random r, double decay) {
-        Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
+        NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         List<QueryComponent> filters = new ArrayList<>();
         int filterCount = 1 + r.nextInt(4);
         for (int i = 0; i < filterCount; i++) {
@@ -352,7 +352,7 @@ public class ExplainPlanVisitorTest {
     }
 
     public static NonnullPair<RecordQueryPlan, String> randomInJoinPlan(Random r, double decay) {
-        Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
+        NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         double choice = r.nextDouble();
         boolean sortValues = r.nextBoolean();
         boolean sortReverse = r.nextBoolean();
@@ -398,7 +398,7 @@ public class ExplainPlanVisitorTest {
     }
 
     private static NonnullPair<RecordQueryPlan, String> randomUnorderedDistinctPlan(Random r, double decay) {
-        Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
+        NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         KeyExpression expression = Key.Expressions.field(randomAlphabetic(r, 5, 10));
         return NonnullPair.of(new RecordQueryUnorderedDistinctPlan(childPlan.getLeft(), expression), childPlan.getRight() + " | DISTINCT BY " + expression);
     }
@@ -541,7 +541,7 @@ public class ExplainPlanVisitorTest {
     void shrinkPlansToFit(long seed) {
         Random r = new Random(seed);
         logger.info("shrinkPlansToFit seed {}", seed);
-        Pair<RecordQueryPlan, String> planAndString = randomPlanAndString(r);
+        NonnullPair<RecordQueryPlan, String> planAndString = randomPlanAndString(r);
         RecordQueryPlan plan = planAndString.getLeft();
         String planString = planAndString.getRight();
         for (int i = 0; i < Math.min(planString.length() + 10, 1000); i++) {
