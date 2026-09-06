@@ -70,6 +70,10 @@ class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBuildIndexTest {
                                 int agents, boolean overlap) {
         final OnlineIndexerTestRecordHandler<TestRecords1Proto.MySimpleRecord> recordHandler = OnlineIndexerTestSimpleRecordHandler.instance();
         final Index index = new Index("newVersionIndex", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION);
+        // Tuple.from below intentionally accepts a null numValue2/versionstamp as test data (an unannotated,
+        // external API conservatively treated by NullAway as requiring non-null); Tuple encodes a null
+        // element just fine.
+        @SuppressWarnings("NullAway")
         final Function<FDBQueriedRecord<Message>, Tuple> projection = rec -> {
             TestRecords1Proto.MySimpleRecord simple = TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build();
             Integer numValue2 = (simple.hasNumValue2()) ? simple.getNumValue2() : null;
@@ -188,6 +192,10 @@ class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBuildIndexTest {
             }
         };
 
+        // Tuple.from below intentionally accepts a null value2/versionstamp as test data (an unannotated,
+        // external API conservatively treated by NullAway as requiring non-null); Tuple encodes a null
+        // element just fine.
+        @SuppressWarnings("NullAway")
         Runnable afterReadable = () -> {
             Descriptors.FieldDescriptor recNoFieldDescriptor = TestRecords1Proto.MySimpleRecord.getDescriptor().findFieldByName("rec_no");
             try (FDBRecordContext context = openContext()) {

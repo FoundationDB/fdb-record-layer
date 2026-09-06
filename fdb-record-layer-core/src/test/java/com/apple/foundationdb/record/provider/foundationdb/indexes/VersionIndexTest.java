@@ -768,7 +768,9 @@ public class VersionIndexTest {
 
     @ParameterizedTest(name = "enableRecordVersionsAfterTheFact [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
-    @SuppressWarnings("try")
+    // Tuple.from below intentionally accepts a null element as test data (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); Tuple encodes a null element just fine.
+    @SuppressWarnings({"try", "NullAway"})
     public void enableRecordVersionsAfterTheFact(FormatVersion testFormatVersion, boolean testSplitLongRecords) throws ExecutionException, InterruptedException {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
@@ -902,7 +904,9 @@ public class VersionIndexTest {
 
     @ParameterizedTest(name = "saveLoadWithRepeatedVersion [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
-    @SuppressWarnings("try")
+    // Tuple.from below intentionally accepts a null element as test data (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); Tuple encodes a null element just fine.
+    @SuppressWarnings({"try", "NullAway"})
     public void scanWithIncompleteVersion(FormatVersion testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
@@ -3230,7 +3234,7 @@ public class VersionIndexTest {
                     final Tuple left = Objects.requireNonNull(tupleBytesPair.getLeft());
                     return left.getLong(left.size() - 1) == -1;
                 })
-                .map(tupleBytesPair -> Pair.of(Objects.requireNonNull(tupleBytesPair.getLeft()).popBack(), FDBRecordVersion.fromVersionstamp(Tuple.fromBytes(tupleBytesPair.getRight()).getVersionstamp(0))))
+                .map(tupleBytesPair -> Pair.of(Objects.requireNonNull(tupleBytesPair.getLeft()).popBack(), FDBRecordVersion.fromVersionstamp(Tuple.fromBytes(Objects.requireNonNull(tupleBytesPair.getRight())).getVersionstamp(0))))
                 .asIterator();
         for (FDBStoredRecord<M> storedRecord : storedRecords) {
             assertTrue(versionKeyPairs.hasNext());

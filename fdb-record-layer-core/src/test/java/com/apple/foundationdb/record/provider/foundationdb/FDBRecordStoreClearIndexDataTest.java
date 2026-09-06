@@ -34,6 +34,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -276,7 +277,7 @@ class FDBRecordStoreClearIndexDataTest extends FDBRecordStoreTestBase {
 
     private byte[] sentinelKey(Index index, FDBRecordStoreKeyspace keyspace, Tuple suffix) {
         return recordStore.getSubspace()
-                .subspace(Tuple.from(keyspace.key(), index.getSubspaceTupleKey()))
+                .subspace(Tuple.from(keyspace.key(), Objects.requireNonNull(index.getSubspaceTupleKey())))
                 .pack(suffix);
     }
 

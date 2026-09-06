@@ -728,6 +728,9 @@ public class LeaderboardIndexTest {
         missingFromGroup(new FlatLeaderboards());
     }
 
+    // Tuple.from below intentionally accepts a null element as test data (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
     private void missingFromGroup(Leaderboards leaderboards) {
         basicSetup(leaderboards, true);
         try (FDBRecordContext context = openContext()) {

@@ -716,6 +716,9 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
+    // Tuple.from below intentionally accepts a null element as test data (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
     public void testOnlineIndexMultiTargetBuilder() throws Exception {
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context, BASIC_HOOK);

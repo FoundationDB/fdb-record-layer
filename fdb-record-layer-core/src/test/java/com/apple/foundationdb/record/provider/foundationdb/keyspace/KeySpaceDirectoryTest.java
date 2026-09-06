@@ -303,6 +303,9 @@ public class KeySpaceDirectoryTest {
 
     @ParameterizedTest(name = "testPathToAndFromTuple[clearCaches={0}]")
     @BooleanSource
+    // Tuple.from below intentionally accepts a null element as test data (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
     public void testPathToAndFromTuple(boolean clearCaches) {
         KeySpace root = new KeySpace(
                 new DirectoryLayerDirectory("production", "production")
@@ -469,6 +472,10 @@ public class KeySpaceDirectoryTest {
     }
 
     @Test
+    // Tuple.from below intentionally accepts a null element for KeyType.NULL test values (an unannotated,
+    // external API conservatively treated by NullAway as requiring non-null); Tuple encodes a null element
+    // just fine.
+    @SuppressWarnings("NullAway")
     public void testAllTypesConstValues() throws Exception {
         KeySpaceDirectory rootDir = new KeySpaceDirectory("root", KeyType.LONG, 1L);
         for (KeyTypeValue kv : valueOfEveryType) {
@@ -1278,6 +1285,10 @@ public class KeySpaceDirectoryTest {
     }
 
     @Test
+    // Tuple.from below intentionally accepts a null element for KeyType.NULL directories (an unannotated,
+    // external API conservatively treated by NullAway as requiring non-null); Tuple encodes a null element
+    // just fine.
+    @SuppressWarnings("NullAway")
     public void testListConstantValue() {
         // Create a root directory called "a" with subdirs of every type and a constant value
         Long rootValue = random.nextLong();

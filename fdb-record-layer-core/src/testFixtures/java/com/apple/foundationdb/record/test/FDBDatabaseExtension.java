@@ -76,6 +76,7 @@ public class FDBDatabaseExtension implements AfterEachCallback {
     private FDBDatabaseFactory databaseFactory;
     @Nonnull
     private final Map<String, FDBDatabase> databases = new HashMap<>();
+    @Nullable
     private String defaultClusterFile = FDBTestEnvironment.randomClusterFile();
 
 
