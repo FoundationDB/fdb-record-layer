@@ -49,6 +49,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 public class UpdateTest {
@@ -229,7 +230,7 @@ public class UpdateTest {
         var continuation = continuationAndNumUpdated.getLeft();
         var updatedUpTill = continuationAndNumUpdated.getRight();
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (final var con = (EmbeddedRelationalConnection) driver.connect(database.getConnectionUri(), options)) {
+        try (final var con = (EmbeddedRelationalConnection) Objects.requireNonNull(driver.connect(database.getConnectionUri(), options))) {
             con.setSchema(database.getSchemaName());
             final var statement = prepareUpdate(con, fieldToUpdate, updateValue.apply(con), continuation);
             try (final var resultSet = statement.executeQuery()) {

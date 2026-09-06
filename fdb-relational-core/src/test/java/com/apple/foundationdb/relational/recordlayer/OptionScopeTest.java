@@ -38,6 +38,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Objects;
 
 public class OptionScopeTest {
 
@@ -56,7 +57,7 @@ public class OptionScopeTest {
     @Test
     public void optionTakenFromConnection() throws SQLException, RelationalException {
         final var driver = (RelationalDriver) DriverManager.getDriver(db.getConnectionUri().toString());
-        try (Connection conn = driver.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.DRY_RUN, true).build())) {
+        try (Connection conn = Objects.requireNonNull(driver.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.DRY_RUN, true).build()))) {
             conn.setSchema(db.getSchemaName());
             try (Statement statement = conn.createStatement()) {
                 Assertions.assertThat(statement.executeUpdate(INSERT_QUERY)).isOne();
@@ -83,7 +84,7 @@ public class OptionScopeTest {
     @Test
     public void optionSetInConnectionButOverriddenInQuery() throws SQLException, RelationalException {
         final var driver = (RelationalDriver) DriverManager.getDriver(db.getConnectionUri().toString());
-        try (Connection conn = driver.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.DRY_RUN, false).build())) {
+        try (Connection conn = Objects.requireNonNull(driver.connect(db.getConnectionUri(), Options.builder().withOption(Options.Name.DRY_RUN, false).build()))) {
             conn.setSchema(db.getSchemaName());
             try (Statement statement = conn.createStatement()) {
                 Assertions.assertThat(statement.executeUpdate(INSERT_QUERY_DRY_RUN)).isOne();
