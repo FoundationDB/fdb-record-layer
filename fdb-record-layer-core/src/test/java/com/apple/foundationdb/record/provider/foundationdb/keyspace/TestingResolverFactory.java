@@ -41,6 +41,10 @@ import java.util.Set;
  * each test, any resolver created through the factory automatically has integrity validation
  * performed.
  */
+// NullAway.Init is suppressed here because database follows the standard JUnit test-fixture
+// lifecycle: it is left unset by the constructor and is always populated by beforeEach() before
+// any test method that uses it runs.
+@SuppressWarnings("NullAway.Init")
 public class TestingResolverFactory implements BeforeEachCallback, AfterEachCallback {
     /**
      * The type of resolver.
@@ -179,6 +183,9 @@ public class TestingResolverFactory implements BeforeEachCallback, AfterEachCall
         return locatableResolver;
     }
 
+    // FDBDatabase#run's unbounded <T> type parameter is treated as @NonNull, so the implicit Void
+    // "return null" trips NullAway even though there is no real value to return.
+    @SuppressWarnings("NullAway")
     public void wipeFDB() {
         database.run((context -> {
             context.clear(new Range(new byte[] {(byte)0x00}, new byte[] {(byte)0xFF}));
