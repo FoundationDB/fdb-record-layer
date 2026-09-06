@@ -285,6 +285,9 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     public void testCoveringIndexFunction() throws Exception {
         // This index parses each entry of str_array_field of the form "X:Y:Z" and produces a keyWithValue
         // index of the form X -> (Y, Z).
