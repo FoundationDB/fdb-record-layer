@@ -454,14 +454,14 @@ public class QueryExpressionTest {
         final ExpressionTestsProto.NestedField.Builder rec = ExpressionTestsProto.NestedField.newBuilder();
         final QueryComponent isEmpty = new EmptyComparison("repeated_field", true);
         final QueryComponent notEmpty = new EmptyComparison("repeated_field", false);
-        assertTrue(evaluate(isEmpty, rec.build()));
-        assertFalse(evaluate(notEmpty, rec.build()));
+        assertTrue(Objects.requireNonNull(evaluate(isEmpty, rec.build())));
+        assertFalse(Objects.requireNonNull(evaluate(notEmpty, rec.build())));
 
         rec.addRepeatedField("one");
         rec.addRepeatedField("two");
 
-        assertFalse(evaluate(isEmpty, rec.build()));
-        assertTrue(evaluate(notEmpty, rec.build()));
+        assertFalse(Objects.requireNonNull(evaluate(isEmpty, rec.build())));
+        assertTrue(Objects.requireNonNull(evaluate(notEmpty, rec.build())));
     }
 
     @Test
@@ -481,14 +481,14 @@ public class QueryExpressionTest {
                 .set("p1", "abc")
                 .set("p2", "xyz")
                 .build();
-        assertTrue(evaluate(equalsP1, b1, rec));
-        assertTrue(evaluate(notEqualsP2, b1, rec));
+        assertTrue(Objects.requireNonNull(evaluate(equalsP1, b1, rec)));
+        assertTrue(Objects.requireNonNull(evaluate(notEqualsP2, b1, rec)));
         final Bindings b2 = Bindings.newBuilder()
                 .set("p1", "foo")
                 .set("p2", "bar")
                 .build();
-        assertFalse(evaluate(equalsP1, b2, rec));
-        assertTrue(evaluate(notEqualsP2, b2, rec));
+        assertFalse(Objects.requireNonNull(evaluate(equalsP1, b2, rec)));
+        assertTrue(Objects.requireNonNull(evaluate(notEqualsP2, b2, rec)));
     }
 
     @Test
