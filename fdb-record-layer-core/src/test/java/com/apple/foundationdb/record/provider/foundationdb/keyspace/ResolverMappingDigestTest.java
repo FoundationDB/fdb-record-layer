@@ -54,6 +54,17 @@ import static org.hamcrest.Matchers.not;
  */
 @Tag(Tags.RequiresFDB)
 public class ResolverMappingDigestTest {
+    // NullAway/JSpecify does not reliably propagate @Nullable byte[] annotations for cross-file
+    // (bytecode-read) method parameters, so a properly-@Nullable-typed metadata argument still
+    // gets flagged as a mismatch at call sites in this file. Declaring the return type here as
+    // plain (non-null) byte[] sidesteps that: passing a "non-null-typed" value into a
+    // @Nullable-declared parameter is always accepted, regardless of how that parameter's own
+    // nullability was read.
+    @SuppressWarnings("NullAway")
+    private static byte[] noMetadata() {
+        return null;
+    }
+
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
     @RegisterExtension
@@ -140,6 +151,10 @@ public class ResolverMappingDigestTest {
             // if we allow metadata, set the metadata ~1/2 the time
             boolean metadataForThisKey = allowMetadata && random.nextBoolean();
             byte[] metadata = metadataForThisKey ? Tuple.from("some metadata for key: " + key).pack() : null;
+            // NullAway/JSpecify does not reliably read the @Nullable array return type of
+            // MetadataHook (a Function<String, byte @Nullable []>) across this lambda, and flags
+            // returning `metadata` (which is legitimately null about half the time) as a mismatch.
+            @SuppressWarnings("NullAway")
             MetadataHook hook = ignore -> metadata;
             result = primary.resolveWithMetadata(key, new ResolverCreateHooks(DEFAULT_CHECK, hook)).join();
 
@@ -210,7 +225,7 @@ public class ResolverMappingDigestTest {
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         SortedMap<String, ResolverResult> wrongMappings = ImmutableSortedMap.<String, ResolverResult>naturalOrder()
                 .putAll(mappings)
-                .put("an-extra-key", new ResolverResult(1, null))
+                .put("an-extra-key", new ResolverResult(1, noMetadata()))
                 .build();
         for (Map.Entry<String, ResolverResult> entry : wrongMappings.entrySet()) {
             md.update(Tuple.from(entry.getKey(), entry.getValue().getValue(), entry.getValue().getMetadata()).pack());
