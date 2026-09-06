@@ -37,6 +37,9 @@ class IndexWithOptions extends Index {
      * @param newOptions the set of new options to use
      * @param merge whether to merge (true) or replace (false) the original options
      */
+    // NullAway/JSpecify does not currently track @Nullable on array (int[]) parameters, even though
+    // setPrimaryKeyComponentPositions's parameter is declared @Nullable int[].
+    @SuppressWarnings("NullAway")
     public IndexWithOptions(final Index orig, final Map<String, String> newOptions, boolean merge) {
         super(orig.getName(), orig.getRootExpression(), orig.getType(), merge(orig.getOptions(), newOptions, merge), orig.getPredicate());
         if (orig.getPrimaryKeyComponentPositions() != null) {
@@ -55,6 +58,9 @@ class IndexWithOptions extends Index {
      * @param optionName the name of the option to add
      * @param optionValue the value of the option to add
      */
+    // NullAway/JSpecify does not currently track @Nullable on array (int[]) parameters, even though
+    // setPrimaryKeyComponentPositions's parameter is declared @Nullable int[].
+    @SuppressWarnings("NullAway")
     public IndexWithOptions(final Index orig, String optionName, String optionValue) {
         super(orig.getName(), orig.getRootExpression(), orig.getType(), merge(orig.getOptions(), Map.of(optionName, optionValue), true), orig.getPredicate());
         if (orig.getPrimaryKeyComponentPositions() != null) {

@@ -172,6 +172,9 @@ public class ScopedDirectoryLayerTest extends LocatableResolverTest {
 
     @Test
     @Override
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // ResolverResult's metadata parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     public void testSetMapping() {
         // not supported
         assertThrows(UnsupportedOperationException.class, () -> {
@@ -183,6 +186,9 @@ public class ScopedDirectoryLayerTest extends LocatableResolverTest {
 
     @Test
     @Override
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // updateMetadata's metadata parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     public void testUpdateMetadata() {
         // not supported
         assertThrows(UnsupportedOperationException.class, () -> {

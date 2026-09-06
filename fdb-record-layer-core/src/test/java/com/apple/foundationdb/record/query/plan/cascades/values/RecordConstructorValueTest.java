@@ -95,11 +95,11 @@ public class RecordConstructorValueTest {
         final var typeRepoSrc = repo.build();
         final var typeRepoTarget = repo.build();
 
-        final var enumValueSrc = typeRepoSrc.getEnumValue("enumType", "SPADES");
+        final var enumValueSrc = Objects.requireNonNull(typeRepoSrc.getEnumValue("enumType", "SPADES"));
 
         final var copied = RecordConstructorValue.deepCopyIfNeeded(typeRepoTarget, enumType, enumValueSrc);
         assertTrue(copied instanceof Descriptors.EnumValueDescriptor);
-        assertEquals(enumValueSrc.getName(), ((Descriptors.EnumValueDescriptor) copied).getName());
+        assertEquals(enumValueSrc.getName(), ((Descriptors.EnumValueDescriptor) Objects.requireNonNull(copied)).getName());
         assertNotSame(enumValueSrc, copied);
     }
 
