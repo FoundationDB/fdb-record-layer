@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -236,7 +237,7 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
                         })
                         .build()) {
                     RecordCoreException e = assertThrows(RecordCoreException.class, indexer::buildIndex);
-                    assertTrue(e.getMessage().contains(testThrowMsg));
+                    assertTrue(Objects.requireNonNull(e.getMessage()).contains(testThrowMsg));
                 }
             });
         } else {
@@ -253,7 +254,7 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
                     })
                     .build()) {
                 RecordCoreException e = assertThrows(RecordCoreException.class, indexer::buildIndex);
-                assertTrue(e.getMessage().contains(testThrowMsg));
+                assertTrue(Objects.requireNonNull(e.getMessage()).contains(testThrowMsg));
             }
         }
 
