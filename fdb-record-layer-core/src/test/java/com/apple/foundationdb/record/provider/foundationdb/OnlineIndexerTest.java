@@ -74,7 +74,7 @@ public abstract class OnlineIndexerTest {
     RecordMetaData metaData;
     RecordQueryPlanner planner;
     FDBRecordStore recordStore;
-    private IndexMaintenanceFilter indexMaintenanceFilter;
+    private @Nullable IndexMaintenanceFilter indexMaintenanceFilter;
     FormatVersion formatVersion = FormatVersion.getMaximumSupportedVersion();
 
     public void setIndexMaintenanceFilter(@Nullable IndexMaintenanceFilter indexMaintenanceFilter) {
@@ -86,6 +86,10 @@ public abstract class OnlineIndexerTest {
     }
 
     @BeforeEach
+    // NullAway.Init is suppressed here because metaData, planner, and recordStore are not
+    // populated by setUp() itself, but by openMetaData() (and its overloads), which every test
+    // method calls before touching those fields.
+    @SuppressWarnings("NullAway.Init")
     public void setUp() {
         final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setInitialDelayMillis(2L);

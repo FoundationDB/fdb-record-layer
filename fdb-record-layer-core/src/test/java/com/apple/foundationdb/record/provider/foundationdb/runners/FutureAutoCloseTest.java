@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -132,7 +133,7 @@ public class FutureAutoCloseTest {
 
         assertCompletedNormally(f1);
         assertCompletedNormally(f2);
-        assertCompletedExceptionally(f3.get());
+        assertCompletedExceptionally(Objects.requireNonNull(f3.get()));
     }
 
     @Test

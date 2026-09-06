@@ -57,6 +57,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -509,7 +510,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
             assertThat(recordStore.getRecordStoreState().getStoreHeader().getRecordCountState())
                     .isEqualTo(RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED);
             assertThat(recordStore.getRecordStoreState().getStoreHeader().getRecordCountKey())
-                    .isEqualTo(recordMetaData.getRecordCountKey().toKeyExpression());
+                    .isEqualTo(Objects.requireNonNull(recordMetaData.getRecordCountKey()).toKeyExpression());
         });
     }
 
@@ -808,7 +809,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreConcurrentTest
 
     private void validateRecords(final List<FDBStoredRecord<Message>> records, final FDBRecordStoreBase<Message> recordStore) {
         for (final FDBStoredRecord<Message> record : records) {
-            final FDBStoredRecord<Message> reloaded = recordStore.loadRecord(record.getPrimaryKey());
+            final FDBStoredRecord<Message> reloaded = Objects.requireNonNull(recordStore.loadRecord(record.getPrimaryKey()));
             assertEquals(record.getRecord(), reloaded.getRecord());
             assertEquals(record.getVersion(), reloaded.getVersion());
         }

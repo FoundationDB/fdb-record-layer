@@ -33,6 +33,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectVa
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Objects;
+
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldPredicate;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullTypeScan;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.selectWithPredicates;
@@ -88,7 +90,7 @@ class PlannerGraphTest {
                 .isEqualTo("SELECT " + select.getResultValue());
         assertThat(root.getDetails())
                 .hasSize(1);
-        final String predicateDetail = root.getDetails().get(0);
+        final String predicateDetail = Objects.requireNonNull(root.getDetails()).get(0);
         assertThat(predicateDetail)
                 .as("large where clauses should be converted into a hex representation of their hash")
                 .contains("WHERE");
