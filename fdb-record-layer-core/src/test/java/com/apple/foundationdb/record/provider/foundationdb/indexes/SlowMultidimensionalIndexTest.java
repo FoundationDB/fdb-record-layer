@@ -294,6 +294,10 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
     void concurrentReadsAndWrites(final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndex = metaDataBuilder -> addMultidimensionalIndex(metaDataBuilder, storage,
                 storeHilbertValues, useNodeSlotIndex);
+        // HypercubeScanParameters's varargs Long... minMaxLimits is not annotated @Nullable (it's declared in
+        // MultidimensionalIndexTestBase, shared with other tests), but null min/max limits are an intentional,
+        // supported way to express an unbounded dimension.
+        @SuppressWarnings("NullAway")
         final RecordQueryIndexPlan indexPlan =
                 new RecordQueryIndexPlan("EventIntervals",
                         new HypercubeScanParameters("business",
@@ -314,7 +318,7 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
                 } else {
                     // read all records inserted.
                     readFutures.add(CompletableFuture.runAsync(() -> {
-                        try (var cursor = indexPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE)) {
+                        try (@SuppressWarnings("NullAway") var cursor = indexPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE)) {
                             while (true) {
                                 var result = cursor.onNext().get();
                                 if (!result.hasNext()) {
@@ -339,7 +343,7 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
         final var actualMessages = new HashSet<Message>();
         try (final var context = openContext()) {
             openRecordStore(context, additionalIndex);
-            try (var cursor = indexPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE)) {
+            try (@SuppressWarnings("NullAway") var cursor = indexPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE)) {
                 cursor.asStream().forEach(result -> actualMessages.add(result.getMessage()));
             }
         }
