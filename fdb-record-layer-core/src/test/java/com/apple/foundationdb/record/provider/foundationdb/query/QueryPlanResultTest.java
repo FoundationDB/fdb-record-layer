@@ -32,6 +32,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -59,7 +61,7 @@ public class QueryPlanResultTest extends FDBRecordStoreQueryTestBase {
         Assertions.assertTrue(maxQueueSize > 0);
     }
 
-    private QueryPlanResult createPlan(List<String> recordTypes, QueryComponent filter, KeyExpression sort, List<KeyExpression> requiredResults) {
+    private QueryPlanResult createPlan(List<String> recordTypes, QueryComponent filter, @Nullable KeyExpression sort, @Nullable List<KeyExpression> requiredResults) {
         RecordQuery.Builder builder = RecordQuery.newBuilder()
                 .setRecordTypes(recordTypes)
                 .setFilter(filter);
