@@ -271,6 +271,10 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         return toTupleRange(null, null);
     }
 
+    // NullAway does not reliably track @Nullable through the call chain into Tuple.addObject below (an
+    // unannotated, external method conservatively treated as requiring non-null); Tuple happily stores a
+    // null element (as it does elsewhere in this codebase), so a genuinely-null comparand here is fine.
+    @SuppressWarnings("NullAway")
     public TupleRange toTupleRange(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
         if (isEmpty()) {
             return TupleRange.ALL;
@@ -637,6 +641,10 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         }
 
         @Nullable
+        // NullAway does not reliably track @Nullable through the calls into Tuple.addObject/addAll below
+        // (unannotated, external methods conservatively treated as requiring non-null); item is the
+        // recorded lowItem/highItem value, which addComparison() only ever leaves null when hasItem is NONE.
+        @SuppressWarnings("NullAway")
         private Tuple buildEndpointTuple(EndpointComparison hasItem, @Nullable Object item) {
             switch (hasItem) {
                 case VALUE:

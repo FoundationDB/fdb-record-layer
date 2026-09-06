@@ -63,6 +63,10 @@ public class MetaDataVersionStampStoreStateCache implements FDBRecordStoreStateC
         this.cache = cache;
     }
 
+    // NullAway does not reliably track @Nullable on byte[] locals across this call into
+    // ByteArrayUtil.compareUnsigned below (a known array-type tracking gap); both getMetaDataVersionStamp()
+    // results are non-null by this point (the null-yielding branches above already returned).
+    @SuppressWarnings("NullAway")
     private FDBRecordStoreStateCacheEntry getNewerEntry(FDBRecordStoreStateCacheEntry entry1, FDBRecordStoreStateCacheEntry entry2) {
         if (entry1.getMetaDataVersionStamp() == null) {
             return entry2;
@@ -84,6 +88,10 @@ public class MetaDataVersionStampStoreStateCache implements FDBRecordStoreStateC
         });
     }
 
+    // NullAway does not reliably track @Nullable on byte[] locals across this call into
+    // ByteArrayUtil.compareUnsigned below (a known array-type tracking gap); existingEntry's version stamp
+    // is non-null by this point (the null check short-circuits the || before it is reached).
+    @SuppressWarnings("NullAway")
     private void invalidateOlderEntry(SubspaceProvider subspaceProvider, byte[] metaDataVersionStamp) {
         cache.asMap().computeIfPresent(subspaceProvider, (ignore, existingEntry) -> {
             // Invalidate the key unless the cached meta-data is newer than or matches this meta-data version stamp
@@ -96,7 +104,10 @@ public class MetaDataVersionStampStoreStateCache implements FDBRecordStoreStateC
     }
 
     @Override
-    @SuppressWarnings("PMD.CloseResource")
+    // NullAway does not reliably track @Nullable on byte[] locals across the call into
+    // ByteArrayUtil.compareUnsigned below (a known array-type tracking gap); both version stamps are
+    // non-null by this point (the null checks short-circuit the || before it is reached).
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"})
     public CompletableFuture<FDBRecordStoreStateCacheEntry> get(FDBRecordStore recordStore, FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         final FDBRecordContext context = recordStore.getContext();
         validateContext(context);
