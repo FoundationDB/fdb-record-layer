@@ -47,12 +47,14 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -460,7 +462,7 @@ class FDBDatabaseTest {
         }
     }
 
-    private long getReadVersion(FDBDatabase database, Long minVersion, Long stalenessBoundMillis) {
+    private long getReadVersion(FDBDatabase database, @Nullable Long minVersion, @Nullable Long stalenessBoundMillis) {
         FDBDatabase.WeakReadSemantics weakReadSemantics = minVersion == null ? null : new FDBDatabase.WeakReadSemantics(minVersion, stalenessBoundMillis, false);
         final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
                 .setWeakReadSemantics(weakReadSemantics)
@@ -488,7 +490,7 @@ class FDBDatabaseTest {
                 .addRepeater(5)
                 .build();
 
-        database.run(null, MDC.getCopyOfContextMap(), context -> {
+        try (FDBRecordContext context = database.openContext(MDC.getCopyOfContextMap(), null)) {
             FDBRecordStore store = FDBRecordStore.newBuilder()
                     .setMetaDataProvider(metaData)
                     .setContext(context)
@@ -496,23 +498,25 @@ class FDBDatabaseTest {
                     .createOrOpen();
             store.deleteAllRecords();
             store.saveRecord(simpleRecord);
-            return null;
-        });
+            context.commit();
+        }
         return simpleRecord;
     }
 
     private static TestRecords1Proto.MySimpleRecord retrieveSimpleRecord(FDBDatabase database, RecordMetaData metaData, KeySpacePath path, long recordNumber) {
         // Tests to make sure the database operations are run and committed.
-        return database.run(null, MDC.getCopyOfContextMap(), context -> {
+        try (FDBRecordContext context = database.openContext(MDC.getCopyOfContextMap(), null)) {
             FDBRecordStore store = FDBRecordStore.newBuilder()
                     .setMetaDataProvider(metaData)
                     .setContext(context)
                     .setKeySpacePath(path)
                     .build();
             TestRecords1Proto.MySimpleRecord.Builder builder = TestRecords1Proto.MySimpleRecord.newBuilder();
-            FDBStoredRecord<Message> rec = store.loadRecord(Tuple.from(recordNumber));
-            return builder.mergeFrom(rec.getRecord()).build();
-        });
+            FDBStoredRecord<Message> rec = Objects.requireNonNull(store.loadRecord(Tuple.from(recordNumber)));
+            TestRecords1Proto.MySimpleRecord result = builder.mergeFrom(rec.getRecord()).build();
+            context.commit();
+            return result;
+        }
     }
 
     @Test

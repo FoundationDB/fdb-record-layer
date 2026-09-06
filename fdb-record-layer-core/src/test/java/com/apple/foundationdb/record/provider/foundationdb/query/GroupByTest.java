@@ -388,10 +388,10 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 case REGULAR_GROUPING: {
                     // construct a result set that makes sense.
                     numValue2FieldValue =
-                            FieldValue.ofOrdinalNumberAndFuseIfPossible(groupingReference, 0);
+                            FieldValue.ofOrdinalNumberAndFuseIfPossible(Objects.requireNonNull(groupingReference), 0);
                     final var numValue2Reference = Column.of(Optional.of("num_value_2"), numValue2FieldValue);
                     final var strValueIndexedFieldValue =
-                            FieldValue.ofOrdinalNumberAndFuseIfPossible(groupingReference, 1);
+                            FieldValue.ofOrdinalNumberAndFuseIfPossible(Objects.requireNonNull(groupingReference), 1);
                     final var strValueIndexedReference = Column.of(Optional.of("str_value_indexed"), strValueIndexedFieldValue);
                     graphBuilder.addAllResultColumns(ImmutableList.of(numValue2Reference, strValueIndexedReference, aggregateReference));
                     break;
@@ -399,10 +399,10 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 case REVERSED_GROUPING: {
                     // construct a result set that makes sense.
                     numValue2FieldValue =
-                            FieldValue.ofOrdinalNumberAndFuseIfPossible(groupingReference, 1);
+                            FieldValue.ofOrdinalNumberAndFuseIfPossible(Objects.requireNonNull(groupingReference), 1);
                     final var numValue2Reference = Column.of(Optional.of("num_value_2"), numValue2FieldValue);
                     final var strValueIndexedFieldValue =
-                            FieldValue.ofOrdinalNumberAndFuseIfPossible(groupingReference, 0);
+                            FieldValue.ofOrdinalNumberAndFuseIfPossible(Objects.requireNonNull(groupingReference), 0);
                     final var strValueIndexedReference = Column.of(Optional.of("str_value_indexed"), strValueIndexedFieldValue);
                     graphBuilder.addAllResultColumns(ImmutableList.of(numValue2Reference, strValueIndexedReference, aggregateReference));
                     break;
@@ -410,7 +410,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 case EXPLICIT_AND_IMPLICIT_GROUPING: {
                     numValue2FieldValue = null;
                     final var strValueIndexedFieldValue =
-                            FieldValue.ofOrdinalNumberAndFuseIfPossible(groupingReference, 0);
+                            FieldValue.ofOrdinalNumberAndFuseIfPossible(Objects.requireNonNull(groupingReference), 0);
                     final var strValueIndexedReference = Column.of(Optional.of("str_value_indexed"), strValueIndexedFieldValue);
                     graphBuilder.addAllResultColumns(ImmutableList.of(strValueIndexedReference, aggregateReference));
                     break;

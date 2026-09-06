@@ -77,6 +77,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -101,6 +102,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link FDBMetaDataStore}.
  */
 @Tag(Tags.RequiresFDB)
+// NullAway.Init is suppressed here because metaDataStore follows the standard JUnit test-fixture
+// lifecycle: it is left unset by setUp() and is always populated by openMetaDataStore() before any
+// test method that uses it runs.
+@SuppressWarnings("NullAway.Init")
 public class FDBMetaDataStoreTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
@@ -884,7 +889,7 @@ public class FDBMetaDataStoreTest {
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
             assertEquals(version + 1, metaDataStore.getRecordMetaData().getVersion());
-            assertEquals(version + 1, metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion().intValue());
+            assertEquals(version + 1, Objects.requireNonNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion()).intValue());
             context.commit();
         }
 
@@ -916,7 +921,7 @@ public class FDBMetaDataStoreTest {
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecordWithIndex"));
             assertNotNull(metaDataStore.getRecordMetaData().getIndex("MyNewRecordWithIndex$index"));
-            assertEquals(version + 2, metaDataStore.getRecordMetaData().getRecordType("MyNewRecordWithIndex").getSinceVersion().intValue());
+            assertEquals(version + 2, Objects.requireNonNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecordWithIndex").getSinceVersion()).intValue());
             assertEquals(version + 3, metaDataStore.getRecordMetaData().getVersion()); // +1 because of the index.
             context.commit();
         }
@@ -1175,7 +1180,7 @@ public class FDBMetaDataStoreTest {
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyHierarchicalRecord"));
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
             assertEquals(version + 1 , metaDataStore.getRecordMetaData().getVersion());
-            assertEquals(version + 1 , metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion().intValue());
+            assertEquals(version + 1 , Objects.requireNonNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion()).intValue());
             context.commit();
         }
 
@@ -1574,7 +1579,7 @@ public class FDBMetaDataStoreTest {
             addRecordType(newRecordType, Key.Expressions.field("rec_no"));
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
             assertEquals(version + 1, metaDataStore.getRecordMetaData().getVersion());
-            assertEquals(version + 1, metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion().intValue());
+            assertEquals(version + 1, Objects.requireNonNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion()).intValue());
             context.commit();
         }
     }
