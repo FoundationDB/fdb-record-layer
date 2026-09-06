@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -87,7 +88,7 @@ public class MessageHelperTests {
                 RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
                         transformMap);
 
-        return PromoteValue.computePromotionsTrie(coercedType, inValue.getResultType(), transformationsTrie);
+        return Objects.requireNonNull(PromoteValue.computePromotionsTrie(coercedType, inValue.getResultType(), transformationsTrie));
     }
 
     private static MessageHelpers.CoercionTrieNode someOtherCoercionTrieNode() {
@@ -102,7 +103,7 @@ public class MessageHelperTests {
                 RecordQueryUpdatePlan.computeTrieForFieldPaths(RecordQueryUpdatePlan.checkAndPrepareOrderedFieldPaths(transformMap),
                         transformMap);
 
-        return PromoteValue.computePromotionsTrie(coercedType, inValue.getResultType(), transformationsTrie);
+        return Objects.requireNonNull(PromoteValue.computePromotionsTrie(coercedType, inValue.getResultType(), transformationsTrie));
     }
 
     private static MessageHelpers.TransformationTrieNode someTransformationTrieNode() {

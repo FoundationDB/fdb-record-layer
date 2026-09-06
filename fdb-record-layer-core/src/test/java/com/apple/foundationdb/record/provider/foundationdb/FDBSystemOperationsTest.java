@@ -65,6 +65,10 @@ public class FDBSystemOperationsTest {
     }
 
     @Test
+    // getPrimaryDatacenter() is genuinely @Nullable (no primary datacenter set case). NullAway can't
+    // infer a @Nullable T for run()'s generic Function<FDBDatabaseRunner, T> from a method reference
+    // target-type context, even though run() itself is declared <T extends @Nullable Object>.
+    @SuppressWarnings("NullAway")
     void primaryDatacenter() {
         // Because we don't know what the data-center was set to run the test, the best this test
         // can do is validate that this doesn't throw an error.
@@ -72,6 +76,9 @@ public class FDBSystemOperationsTest {
     }
 
     @Test
+    // getClusterFilePath() is genuinely @Nullable. See the comment on primaryDatacenter() above for why
+    // NullAway still flags this despite run()'s bounded type parameter.
+    @SuppressWarnings("NullAway")
     void clusterFilePath() {
         String clusterFilePath = run(FDBSystemOperations::getClusterFilePath);
         assertNotNull(clusterFilePath);
@@ -95,6 +102,9 @@ public class FDBSystemOperationsTest {
     }
 
     @Test
+    // getConnectionString() is genuinely @Nullable. See the comment on primaryDatacenter() above for
+    // why NullAway still flags this despite run()'s bounded type parameter.
+    @SuppressWarnings("NullAway")
     void clusterConnectionString() {
         String connectionString = run(FDBSystemOperations::getConnectionString);
         assertNotNull(connectionString);
