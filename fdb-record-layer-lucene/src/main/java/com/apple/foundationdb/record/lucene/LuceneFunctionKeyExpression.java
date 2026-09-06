@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -313,8 +314,11 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
         @Override
         public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable final FDBRecord<M> rec, @Nullable final Message message, final Key.Evaluated argvals) {
             Key.Evaluated result;
-            if (rec instanceof FDBQueriedRecord && ((FDBQueriedRecord<M>)rec).getIndexEntry() instanceof LuceneRecordCursor.ScoreDocIndexEntry) {
-                final ScoreDoc scoreDoc = ((LuceneRecordCursor.ScoreDocIndexEntry)((FDBQueriedRecord<M>)rec).getIndexEntry()).getScoreDoc();
+            // Capture getIndexEntry() once rather than calling it twice (it is @Nullable in general); SpotBugs
+            // (NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE) cannot tell that two separate calls would agree.
+            final IndexEntry indexEntry = rec instanceof FDBQueriedRecord ? ((FDBQueriedRecord<M>) rec).getIndexEntry() : null;
+            if (indexEntry instanceof LuceneRecordCursor.ScoreDocIndexEntry) {
+                final ScoreDoc scoreDoc = ((LuceneRecordCursor.ScoreDocIndexEntry) indexEntry).getScoreDoc();
                 final Object value;
                 if (isRelevance()) {
                     value = scoreDoc.score;
