@@ -38,6 +38,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -290,12 +291,12 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
             RepairStatsResults repairStats = statsRunner.run().join();
             RepairValidationResults repairResults = repairRunner.run().join();
             // Iteration stopped short of the full scan
-            Assertions.assertThat(repairStats.getExceptionCaught().getCause()).isInstanceOf(UnknownValidationException.class);
+            Assertions.assertThat(Objects.requireNonNull(repairStats.getExceptionCaught()).getCause()).isInstanceOf(UnknownValidationException.class);
             Assertions.assertThat(repairStats.getStats())
                     .hasSize(1)
                     .containsEntry(RecordRepairResult.CODE_VALID, ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS);
             Assertions.assertThat(repairResults.isComplete()).isFalse();
-            Assertions.assertThat(repairResults.getCaughtException().getCause()).isInstanceOf(UnknownValidationException.class);
+            Assertions.assertThat(Objects.requireNonNull(repairResults.getCaughtException()).getCause()).isInstanceOf(UnknownValidationException.class);
             Assertions.assertThat(repairResults.getValidResultCount()).isEqualTo(ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS);
             Assertions.assertThat(repairResults.getInvalidResults()).isEmpty();
         }
