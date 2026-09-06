@@ -28,6 +28,7 @@ def coreProject = ":${ext.coreProjectName}"
 dependencies {
     api project(coreProject)
     compileOnly(libs.jsr305)
+    compileOnly(libs.jspecify)
 
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
