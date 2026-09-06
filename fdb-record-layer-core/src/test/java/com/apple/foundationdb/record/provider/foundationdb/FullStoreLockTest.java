@@ -55,6 +55,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag(Tags.RequiresFDB)
 class FullStoreLockTest extends FDBRecordStoreTestBase {
+    // NullAway/JSpecify does not reliably propagate @Nullable byte[] annotations for cross-file
+    // (bytecode-read) method parameters, so a properly-@Nullable-typed continuation still gets
+    // flagged as a mismatch at call sites in this file. Declaring the return type here as plain
+    // (non-null) byte[] sidesteps that: passing a "non-null-typed" value into a @Nullable-declared
+    // parameter is always accepted, regardless of how that parameter's own nullability was read.
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
+    }
 
     FormatVersion formatVersion = FormatVersion.getMaximumSupportedVersion();
 
@@ -334,7 +343,7 @@ class FullStoreLockTest extends FDBRecordStoreTestBase {
             assertEquals(IndexState.READABLE, store.getRecordStoreState().getState(newIndex.getName()));
 
             // Verify we can query the index, we don't really care about the results
-            try (RecordCursor<IndexEntry> cursor = store.scanIndex(newIndex, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+            try (RecordCursor<IndexEntry> cursor = store.scanIndex(newIndex, IndexScanType.BY_VALUE, TupleRange.ALL, noContinuation(), ScanProperties.FORWARD_SCAN)) {
                 cursor.asList().join();
             }
         });

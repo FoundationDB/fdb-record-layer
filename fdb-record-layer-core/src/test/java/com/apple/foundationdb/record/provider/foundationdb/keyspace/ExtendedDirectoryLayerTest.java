@@ -51,6 +51,17 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 
 class ExtendedDirectoryLayerTest extends LocatableResolverTest {
+    // NullAway/JSpecify does not reliably propagate @Nullable byte[] annotations for cross-file
+    // (bytecode-read) method parameters, so a properly-@Nullable-typed metadata argument still
+    // gets flagged as a mismatch at call sites in this file. Declaring the return type here as
+    // plain (non-null) byte[] sidesteps that: passing a "non-null-typed" value into a
+    // @Nullable-declared parameter is always accepted, regardless of how that parameter's own
+    // nullability was read.
+    @SuppressWarnings("NullAway")
+    private static byte[] noMetadata() {
+        return null;
+    }
+
     private KeySpace keySpace = new KeySpace(
             new KeySpaceDirectory("path", STRING, "path")
                     .addSubdirectory(new KeySpaceDirectory("to", STRING, "to")
@@ -324,7 +335,7 @@ class ExtendedDirectoryLayerTest extends LocatableResolverTest {
     public void testUpdateMetadata() {
         assertThrows(UnsupportedOperationException.class, () -> {
             try (FDBRecordContext context = database.openContext()) {
-                globalScope.updateMetadata(context, "foo", null).join();
+                globalScope.updateMetadata(context, "foo", noMetadata()).join();
             }
         });
     }

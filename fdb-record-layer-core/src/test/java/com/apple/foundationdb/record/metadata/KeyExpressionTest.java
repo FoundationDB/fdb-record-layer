@@ -96,8 +96,17 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 public class KeyExpressionTest {
 
+    // UnstoredRecord (a shared test fixture outside this file's scope) declares its constructor
+    // parameter as non-null, but many tests here intentionally evaluate a KeyExpression against
+    // an absent record to exercise null-handling; wrapping keeps that behavior without fighting
+    // the fixture's declared (and here, overly strict) signature.
+    @SuppressWarnings("NullAway")
+    private static Message asMessage(@Nullable Message record) {
+        return record;
+    }
+
     public static List<Key.Evaluated> evaluate(KeyExpression expression, @Nullable Message record) {
-        return expression.evaluate(new UnstoredRecord<>(record));
+        return expression.evaluate(new UnstoredRecord<>(asMessage(record)));
     }
 
     private static final TestScalarFieldAccess plantsBoxesAndBowls = TestScalarFieldAccess.newBuilder()
