@@ -37,11 +37,10 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -90,7 +89,8 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
                         .build();
                 recordStore.saveRecord(simpleRecord);
             }
-            keyBytes = recordStore.getTimer().getCount(FDBStoreTimer.Counts.SAVE_RECORD_KEY_BYTES);
+            // context always has a timer configured by the test infrastructure
+            keyBytes = Objects.requireNonNull(recordStore.getTimer()).getCount(FDBStoreTimer.Counts.SAVE_RECORD_KEY_BYTES);
             valueBytes = recordStore.getTimer().getCount(FDBStoreTimer.Counts.SAVE_RECORD_VALUE_BYTES);
             commit(context);
         }
@@ -257,7 +257,6 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
     private class SizeStatisticsCollector {
         private SubspaceProvider subspaceProvider;
         private Optional<SizeStatisticsCollectorCursor.SizeStatisticsResults> sizeStatsResults;
-        @Nullable
         private RecordCursorContinuation continuation;
 
         private SizeStatisticsCollector(SubspaceProvider subspaceProvider) {
@@ -341,7 +340,8 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
                 final SizeStatisticsCollectorCursor statsCursor = SizeStatisticsCollectorCursor.ofSubspace(subspace, context, scanProperties, continuation.toBytes());
 
                 return statsCursor.forEachResult(nextResult -> {
-                    sizeStatsResults = Optional.of(nextResult.get()); //wholesale replacement of initialized version with fully aggregated results
+                    // forEachResult only invokes the consumer for results that are guaranteed to have a value
+                    sizeStatsResults = Optional.of(Objects.requireNonNull(nextResult.get())); //wholesale replacement of initialized version with fully aggregated results
                     continuation = nextResult.getContinuation();
                 }).handle((result, err) -> {
                     if (err == null) {
