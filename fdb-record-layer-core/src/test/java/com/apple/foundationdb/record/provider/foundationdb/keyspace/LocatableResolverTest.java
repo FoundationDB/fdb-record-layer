@@ -1339,6 +1339,10 @@ public abstract class LocatableResolverTest {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably track the byte @Nullable [] return type declared by
+    // ResolverCreateHooks.MetadataHook, so returning null from the lambda below is flagged even
+    // though it is exactly what the interface allows.
+    @SuppressWarnings("NullAway")
     void testSetMappingWithUpdatedValue() {
         final String key = "key_with_meta_data";
         final String metaData1 = "meta_data_1";
@@ -1419,6 +1423,9 @@ public abstract class LocatableResolverTest {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the ResolverValidator.validate call site below.
+    @SuppressWarnings("NullAway")
     void testValidateMissingReverseEntries() {
         final List<ResolverKeyValue> entries = new ArrayList<>();
         for (int i = 0; i < 10; i++) {

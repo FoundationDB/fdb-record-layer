@@ -49,6 +49,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import org.jspecify.annotations.Nullable;
+
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -56,6 +58,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -158,13 +161,16 @@ public class FDBJoinIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = open(addJoinIndex::build)) {
             assertThrows(MetaDataException.class,
                     () -> {
-                        recordStore.deleteRecordsWhere(addJoinIndex.deleteByType,
+                        recordStore.deleteRecordsWhere(Objects.requireNonNull(addJoinIndex.deleteByType),
                                 Query.field("group").equalsValue(2));
                     });
         }
     }
 
     @Nonnull
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call site below.
+    @SuppressWarnings("NullAway")
     private List<Tuple> scanAndSort(final String indexName) {
         return recordStore.scanIndex(recordStore.getRecordMetaData().getIndex(indexName),
                         IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
@@ -236,6 +242,7 @@ public class FDBJoinIndexTest extends FDBRecordStoreTestBase {
          * An easy means to allow the Arguments to tell the test to delete by the type instead; only currently
          * used by {@link #cannotDeleteWhereValue}.
          */
+        @Nullable
         private String deleteByType = null;
         private boolean onlyDeleteByType;
 

@@ -132,6 +132,9 @@ public class TempTableTest extends TempTableTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the executePlan call site below.
+    @SuppressWarnings("NullAway")
     void insertIntoTempTableWorksCorrectlyAcrossContinuations() {
         // insert into <tempTable> values ((1, 'first'), stop, resume, then insert (2, 'second'))
         byte[] continuation = null;
@@ -179,6 +182,9 @@ public class TempTableTest extends TempTableTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the executePlan call site below.
+    @SuppressWarnings("NullAway")
     void scanTempTableWithPredicateWorksCorrectlyAcrossContinuations() {
         // select id, value from <tempTable> where id < 44L.
         byte[] continuation = null;
