@@ -527,6 +527,9 @@ class KeySpacePathImportDataTest {
                 "Clearing should remove all the data");
     }
 
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     private List<DataInKeySpacePath> getExportedData(FDBDatabase targetDatabase, final KeySpacePath path) {
         try (FDBRecordContext context = targetDatabase.openContext()) {
             return path.exportAllData(context, null, ScanProperties.FORWARD_SCAN)

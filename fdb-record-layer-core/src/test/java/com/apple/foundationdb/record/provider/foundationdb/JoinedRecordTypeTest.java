@@ -34,6 +34,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -141,9 +142,9 @@ public class JoinedRecordTypeTest extends FDBRecordStoreQueryTestBase {
             createOrOpenRecordStore(context, baseMetaData(addJoinedType()));
             // Default policy (ERROR) should fail
             ExecutionException exception = assertThrows(ExecutionException.class, () -> recordStore.loadSyntheticRecord(joinedPrimaryKey).get());
-            assertEquals(RecordDoesNotExistException.class, exception.getCause().getClass());
+            assertEquals(RecordDoesNotExistException.class, Objects.requireNonNull(exception.getCause()).getClass());
             exception = assertThrows(ExecutionException.class, () -> recordStore.loadSyntheticRecord(joinedPrimaryKey, IndexOrphanBehavior.ERROR).get());
-            assertEquals(RecordDoesNotExistException.class, exception.getCause().getClass());
+            assertEquals(RecordDoesNotExistException.class, Objects.requireNonNull(exception.getCause()).getClass());
             // RETURN policy returns the shell of the synthetic record with no constituents
             final FDBSyntheticRecord syntheticRecord = recordStore.loadSyntheticRecord(joinedPrimaryKey, IndexOrphanBehavior.RETURN).get();
             assertEquals(0, syntheticRecord.getConstituents().size());
