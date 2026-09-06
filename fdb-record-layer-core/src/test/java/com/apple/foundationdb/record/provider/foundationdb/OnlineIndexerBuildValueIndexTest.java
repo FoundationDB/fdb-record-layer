@@ -54,6 +54,11 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
  */
 class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuildIndexTest {
 
+    // indexValue's lambda genuinely returns null when num_value_2 is absent, but it is passed to
+    // group() (declared in OnlineIndexerBuildIndexTest, outside this fix's scope) whose keyFunction
+    // parameter isn't annotated @Nullable; changing indexValue's declared type would mismatch that
+    // signature instead.
+    @SuppressWarnings("NullAway")
     private void valueRebuild(List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                               int agents, boolean overlap, boolean splitLongRecords) {
         final OnlineIndexerTestRecordHandler<TestRecords1Proto.MySimpleRecord> recordHandler = OnlineIndexerTestSimpleRecordHandler.instance();
@@ -79,7 +84,7 @@ class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuildIndexTest {
                 })
                 .collect(Collectors.toList());
 
-        Function<TestRecords1Proto.MySimpleRecord, @Nullable Integer> indexValue = msg -> msg.hasNumValue2() ? msg.getNumValue2() : null;
+        Function<TestRecords1Proto.MySimpleRecord, Integer> indexValue = msg -> msg.hasNumValue2() ? msg.getNumValue2() : null;
         Map<Integer, List<Message>> valueMap = group(records, indexValue);
 
         Runnable beforeBuild = () -> {
