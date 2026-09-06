@@ -190,7 +190,8 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
         return plan.executePlan(store, evaluationContext, noContinuation(), ExecuteProperties.SERIAL_EXECUTE);
     }
 
-    public static <T extends org.jspecify.annotations.@Nullable Object> T getField(QueryResult result, Class<T> type, String... path) {
+    @Nullable
+    public static <T extends @org.jspecify.annotations.Nullable Object> T getField(QueryResult result, Class<T> type, String... path) {
         Message message = result.getMessage();
         for (int i = 0; i < path.length; i++) {
             String fieldName = path[i];
