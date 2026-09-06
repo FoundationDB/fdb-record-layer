@@ -653,7 +653,7 @@ class TypeTest {
         assertThat(enumDescriptor)
                 .isNotNull()
                 .isSameAs(repository.getEnumDescriptor(enumTypeName));
-        assertThat(enumDescriptor.getName())
+        assertThat(Objects.requireNonNull(enumDescriptor).getName())
                 .isEqualTo(enumTypeName);
 
         final Type.Enum fromProto = Type.Enum.fromDescriptor(enumType.isNullable(), enumDescriptor);
@@ -739,7 +739,7 @@ class TypeTest {
         assertThat(messageDescriptor)
                 .isNotNull()
                 .isSameAs(repository.getMessageDescriptor(recordTypeName));
-        assertThat(messageDescriptor.getName())
+        assertThat(Objects.requireNonNull(messageDescriptor).getName())
                 .isEqualTo(recordTypeName);
 
         final Type.Record fromDescriptor = Type.Record.fromDescriptor(messageDescriptor).withNullability(recordType.isNullable());
@@ -759,7 +759,7 @@ class TypeTest {
             Type fieldType = field.getFieldType();
             if (fieldType instanceof Type.Array) {
                 // Array types retain their nullability as there are separate. However, they make their own element types not nullable
-                Type elementType = ((Type.Array)fieldType).getElementType();
+                Type elementType = Objects.requireNonNull(((Type.Array)fieldType).getElementType());
                 if (elementType instanceof Type.Record) {
                     elementType = adjustFieldsForDescriptorParsing((Type.Record) elementType);
                 }
