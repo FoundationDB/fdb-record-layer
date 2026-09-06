@@ -320,6 +320,9 @@ public class ConcatCursorTest {
         Assertions.assertEquals(recordCount, concatCursorSize);
     }
 
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] locals/parameters, even when
+    // both the local variable and the TestResult constructor parameter are declared @Nullable.
+    @SuppressWarnings("NullAway")
     private TestResult iterateAndCompare(@Nullable List<?> result, RecordCursor<?> cc, Integer limit) {
         Integer i = 0;
         @Nullable byte[] next = null;
