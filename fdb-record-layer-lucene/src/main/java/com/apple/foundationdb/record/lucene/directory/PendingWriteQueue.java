@@ -195,7 +195,10 @@ public class PendingWriteQueue {
      *
      * @return a record cursor that iterates through the elements of the queue, in order
      */
-    @SuppressWarnings("PMD.CloseResource")
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+    // parameters of KeyValueCursorBase.Builder#setContinuation (out of
+    // scope to fix here); null intentionally means "start from the beginning".
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"})
     public RecordCursor<QueueEntry> getQueueCursor(
             FDBRecordContext context,
             ScanProperties scanProperties,

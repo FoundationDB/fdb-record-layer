@@ -90,6 +90,9 @@ public class LuceneLocaleTest extends FDBRecordStoreTestBase {
         }
     }
 
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     private void assertSearchMatches(String search) {
         Assertions.assertEquals(List.of(1623L),
                 recordStore.fetchIndexRecords(
@@ -99,6 +102,9 @@ public class LuceneLocaleTest extends FDBRecordStoreTestBase {
                         .asList().join());
     }
 
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     private void assertHighlightMatches(final String search) {
         assertRecordHighlights(List.of("Hello {record} layer"),
                 recordStore.fetchIndexRecords(
@@ -112,8 +118,10 @@ public class LuceneLocaleTest extends FDBRecordStoreTestBase {
     @SuppressWarnings("SameParameterValue") //deliberately placed here to make it easier to add new tests
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
         Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), document, index, isUseCascadesPlanner());
-        this.recordStore = pair.getLeft();
-        this.planner = pair.getRight();
+        // Pair#getLeft/getRight are @Nullable in general (a Pair may hold nulls), but
+        // rebuildIndexMetaData always constructs its result from the non-null store/planner it builds.
+        this.recordStore = Objects.requireNonNull(pair.getLeft());
+        this.planner = Objects.requireNonNull(pair.getRight());
     }
 
     private void assertRecordHighlights(List<String> texts, RecordCursor<FDBIndexedRecord<Message>> cursor) {

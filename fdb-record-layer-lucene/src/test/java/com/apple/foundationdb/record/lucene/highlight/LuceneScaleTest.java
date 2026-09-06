@@ -240,6 +240,10 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
     }
 
     @BeforeEach
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though there
+    // is no real value to return.
+    @SuppressWarnings("NullAway")
     protected void clear() {
         if (Config.CLEAR_BEFORE_RUN) {
             fdb.run(context -> {
@@ -511,6 +515,9 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             }
         }
 
+        // Passes a null continuation into FDBRecordStoreBase#scanRecords; NullAway does not reliably
+        // recognize @Nullable on that array (byte[]) parameter.
+        @SuppressWarnings("NullAway")
         private void disableIndex() {
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context);
@@ -523,6 +530,9 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             }
         }
 
+        // Passes a null continuation into FDBRecordStoreBase#scanRecords; NullAway does not reliably
+        // recognize @Nullable on that array (byte[]) parameter.
+        @SuppressWarnings("NullAway")
         private void buildIndex() {
             OnlineIndexer.Builder indexBuilder = null;
             try (FDBRecordContext context = openContext()) {
@@ -588,8 +598,10 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
 
         private FDBRecordStore openStore(final FDBRecordContext context) {
             final Pair<FDBRecordStore, QueryPlanner> res = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), TextIndexTestUtils.COMPLEX_DOC, INDEX, false);
-            recordStore = res.getLeft();
-            planner = res.getRight();
+            // Pair#getLeft/getRight are @Nullable in general (a Pair may hold nulls), but
+            // rebuildIndexMetaData always constructs its result from the non-null store/planner it builds.
+            recordStore = Objects.requireNonNull(res.getLeft());
+            planner = Objects.requireNonNull(res.getRight());
             return recordStore;
         }
 
@@ -618,7 +630,10 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                     }
                 }
                 context.commit();
-                return store.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
+                // getMergeRequiredIndexes() is declared to return a non-null Set<Index> (see
+                // IndexDeferredMaintenanceControl, fdb-record-layer-core); it is only seen as @Nullable
+                // here because it is unannotated from this module's NullAway perspective.
+                return Objects.requireNonNull(store.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes());
             }
         }
 
@@ -633,7 +648,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                     store.saveRecord(builder.build());
                 }
                 context.commit();
-                return store.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
+                return Objects.requireNonNull(store.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes());
             }
         }
 

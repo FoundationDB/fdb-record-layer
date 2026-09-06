@@ -165,6 +165,9 @@ class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         assertComplexRecordsIdenticalExceptIds(schemaSetup);
     }
 
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     private void assertComplexRecordsIdenticalExceptIds(Function<FDBRecordContext, FDBRecordStore> schemaSetup) {
         try (FDBRecordContext context = openContext()) {
             FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
@@ -227,6 +230,9 @@ class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         }
     }
 
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     private void assertRecordsIdenticalExceptIds(Function<FDBRecordContext, FDBRecordStore> schemaSetup,
                                                  Index index) {
         try (FDBRecordContext context = openContext()) {
@@ -256,6 +262,9 @@ class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         }
     }
 
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     private void assertQueryFindsRecords(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index,
                                          List<String> searchTerms, List<Long> expectedDocIds, boolean isComplex) {
         for (String searchTerm: searchTerms) {

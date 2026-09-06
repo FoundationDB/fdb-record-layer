@@ -130,6 +130,10 @@ public class LuceneIndexKeySerializerTest {
     }
 
     @Test
+    // Tuple.from below intentionally accepts null elements here (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); this test specifically exercises
+    // the *_OR_NULL format elements.
+    @SuppressWarnings("NullAway")
     void testNullableInteger() {
         Tuple key = Tuple.from(null, 45L, null);
         LuceneIndexKeySerializer classUnderTest = LuceneIndexKeySerializer.fromStringFormat("[INT64_OR_NULL, INT64, INT32_OR_NULL]");

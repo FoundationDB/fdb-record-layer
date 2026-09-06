@@ -236,7 +236,7 @@ class LuceneSerializerTest {
                                            boolean encrypt, @Nullable Random randomIfEncrypting) {
         final SerializationKeyManager keyManager;
         if (encrypt) {
-            SecretKey key = RandomSecretUtil.randomSecretKey(randomIfEncrypting);
+            SecretKey key = RandomSecretUtil.randomSecretKey(Objects.requireNonNull(randomIfEncrypting, "random must be provided when encrypting"));
             keyManager = new FixedZeroKeyManager(key, null, randomIfEncrypting);
         } else {
             keyManager = null;

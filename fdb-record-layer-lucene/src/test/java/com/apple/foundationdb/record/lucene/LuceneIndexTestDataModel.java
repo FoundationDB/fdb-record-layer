@@ -428,6 +428,9 @@ public class LuceneIndexTestDataModel {
         }
     }
 
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     public List<IndexEntry> findAllRecordsByQuery(final FDBRecordContext context, int group) {
         LuceneQueryClause search = LuceneQuerySearchClause.MATCH_ALL_DOCS_QUERY;
 

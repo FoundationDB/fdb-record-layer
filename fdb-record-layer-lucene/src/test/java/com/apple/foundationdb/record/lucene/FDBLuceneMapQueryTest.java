@@ -302,8 +302,14 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             RecordQueryPlan plan = planQuery(query);
             assertTrue(plan.getUsedIndexes().contains(expectedIndex));
-            try (RecordCursor<QueryResult> recordCursor = recordStore.executeQuery(plan, null, EvaluationContext.forBinding("$param", value), ExecuteProperties.SERIAL_EXECUTE)) {
-                List<Long> primaryKeys = recordCursor.map(QueryResult::getQueriedRecord).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+            // Passes a null continuation into FDBRecordStoreBase#executeQuery; NullAway does not
+            // reliably recognize @Nullable on that array (byte[]) parameter.
+            @SuppressWarnings("NullAway")
+            RecordCursor<QueryResult> recordCursor = recordStore.executeQuery(plan, null, EvaluationContext.forBinding("$param", value), ExecuteProperties.SERIAL_EXECUTE);
+            try (recordCursor) {
+                // getQueriedRecord() is @Nullable in general, but this query always returns real
+                // documents, so the queried record is always present here.
+                List<Long> primaryKeys = recordCursor.map(qr -> Objects.requireNonNull(qr.getQueriedRecord())).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
                 final Set<Long> expected = found ? Set.of(0L, 1L, 2L) : Set.of();
                 assertEquals(expected, Set.copyOf(primaryKeys));
             }

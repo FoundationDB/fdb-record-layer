@@ -84,10 +84,13 @@ public class LucenePlanner extends RecordQueryPlanner {
     @Override
     @Nullable
     protected ScoredPlan planOther(CandidateScan candidateScan,
-                                   Index index, QueryComponent filter,
+                                   Index index, @Nullable QueryComponent filter,
                                    @Nullable KeyExpression sort, boolean sortReverse,
                                    @Nullable KeyExpression commonPrimaryKey) {
-        if (index.getType().equals(LuceneIndexTypes.LUCENE)) {
+        // planLucene (below) is not designed to handle a null filter, so only take the Lucene-specific
+        // path when there is an actual filter to plan against; otherwise defer to the superclass, which
+        // already handles a null filter correctly.
+        if (filter != null && index.getType().equals(LuceneIndexTypes.LUCENE)) {
             return planLucene(candidateScan, index, filter, sort, sortReverse, commonPrimaryKey);
         } else {
             return super.planOther(candidateScan, index, filter, sort, sortReverse, commonPrimaryKey);

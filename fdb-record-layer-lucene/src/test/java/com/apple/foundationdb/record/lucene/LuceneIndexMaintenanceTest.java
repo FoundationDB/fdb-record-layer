@@ -534,6 +534,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
     // Lock a directory, and commit, then try to update a record, or save a record, or do a search, and assert that nothing
     // is corrupted (or that the user request fails)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     @Test
     void lockCommitThenValidateTest() throws IOException {
         final Map<String, String> options = Map.of(
@@ -608,6 +611,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
     // A chaos test of two threads, one constantly trying to merge, and one trying to update a record, or save a new record or do a search.
     // At the end the index should be validated for consistency.
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     @Test
     void chaosMergeAndUpdateTest() throws InterruptedException, IOException {
         final Map<String, String> options = Map.of(
