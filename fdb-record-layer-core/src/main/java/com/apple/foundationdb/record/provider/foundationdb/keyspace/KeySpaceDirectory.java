@@ -526,11 +526,10 @@ public class KeySpaceDirectory {
         );
     }
 
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     // Tuple.from below intentionally accepts a null resolved value (an unannotated, external API
     // conservatively treated by NullAway as requiring non-null); PathValue.getResolvedValue() is
     // genuinely nullable, and Tuple encodes a null element just fine.
-    @SuppressWarnings("NullAway")
+    @SuppressWarnings({"PMD.CompareObjectsWithEquals", "NullAway"})
     private CompletableFuture<KeyRange> getValueRange(FDBRecordContext context,
                                                       @Nullable ValueRange<?> valueRange,
                                                       Subspace subspace) {
