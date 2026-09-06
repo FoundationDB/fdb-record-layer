@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -189,11 +190,11 @@ class PlanPartitionsTest {
                 RuleTestHelper.TYPE_S, QueryPlanConstraint.noConstraint());
     }
 
-    private static <T> ExpressionProperty<T> newProperty() {
+    private static <T extends @Nullable Object> ExpressionProperty<T> newProperty() {
         return newProperty(null);
     }
 
-    private static <T> ExpressionProperty<T> newProperty(T propertyValue) {
+    private static <T extends @Nullable Object> ExpressionProperty<T> newProperty(@Nullable T propertyValue) {
         return new ExpressionProperty<>() {
             @Override
             @SuppressWarnings("unchecked")

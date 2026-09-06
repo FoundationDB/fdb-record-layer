@@ -145,6 +145,9 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         };
     }
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanIndex's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     private List<IndexEntry> scanIndex(Index index) {
         return recordStore.getRecordContext().asyncToSync(FDBStoreTimer.Waits.WAIT_SCAN_INDEX_RECORDS, recordStore.scanIndex(
                 recordStore.getRecordMetaData().getIndex(index.getName()),

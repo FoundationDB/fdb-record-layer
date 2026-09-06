@@ -110,6 +110,9 @@ class DataInKeySpacePathTest {
      * does not support a {@code null} key or value.
      */
     @Test
+    // Deliberately passing a null value to verify the constructor's defensive check throws
+    // RecordCoreArgumentException, since FDB itself does not support a null key or value.
+    @SuppressWarnings("NullAway")
     void nullValue() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("test", KeyType.STRING, UUID.randomUUID().toString()));

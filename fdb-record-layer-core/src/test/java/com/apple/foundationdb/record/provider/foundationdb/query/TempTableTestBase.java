@@ -575,7 +575,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
 
             do {
                 result.add(current);
-                current = edges.get(current);
+                current = Objects.requireNonNull(edges.get(current));
             } while (current != SENTINEL);
 
             return result.build();
