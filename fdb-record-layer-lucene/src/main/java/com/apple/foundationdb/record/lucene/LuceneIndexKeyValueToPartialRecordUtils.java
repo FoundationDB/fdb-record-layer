@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -98,6 +99,11 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
                 }, null);
     }
 
+    // pair is a NonnullPair, whose getLeft()/getRight() are guaranteed non-null by construction
+    // (NonnullPair.of() enforces this via Objects.requireNonNull()); SpotBugs's
+    // NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE analysis falls back to the wider @Nullable contract declared by
+    // Pair.getLeft()/getRight() rather than the narrowed override in NonnullPair.
+    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     private static void buildIfFieldNameMatch(PartialRecordBuildSource source, String concatenatedFieldPath, String givenFieldName,
                                                  List<Integer> overriddenKeyRanges, String suggestion, String protoFieldName) {
         // If field is not overridden, the names have to match exactly

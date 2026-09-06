@@ -84,6 +84,11 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
     }
 
     @Override
+    // defaultAnalyzerChooserPair is a NonnullPair, whose getLeft()/getRight() are guaranteed non-null by
+    // construction (NonnullPair.of() enforces this via Objects.requireNonNull()); SpotBugs's
+    // NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE analysis falls back to the wider @Nullable contract declared by
+    // Pair.getLeft()/getRight() rather than the narrowed override in NonnullPair.
+    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     public LuceneAnalyzerCombinationProvider getLuceneAnalyzerCombinationProvider(final Index index,
                                                                                   final LuceneAnalyzerType type,
                                                                                   final Map<String, LuceneIndexExpressions.DocumentFieldDerivation> auxiliaryFieldInfo) {
