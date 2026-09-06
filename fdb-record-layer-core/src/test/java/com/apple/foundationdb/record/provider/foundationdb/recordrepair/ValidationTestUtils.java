@@ -216,11 +216,11 @@ public class ValidationTestUtils {
         assertRepairStats(stats, numValidResults, 0, null, 0, null);
     }
 
-    public static void assertRepairStats(RepairStatsResults stats, int numValidResults, int numResults1, String codeResults1) {
+    public static void assertRepairStats(RepairStatsResults stats, int numValidResults, int numResults1, @Nullable String codeResults1) {
         assertRepairStats(stats, numValidResults, numResults1, codeResults1, 0, null);
     }
 
-    public static void assertRepairStats(RepairStatsResults stats, int numValidResults, int numResults1, String codeResults1, int numResults2, String codeResults2) {
+    public static void assertRepairStats(RepairStatsResults stats, int numValidResults, int numResults1, @Nullable String codeResults1, int numResults2, @Nullable String codeResults2) {
         int numEntries = 0;
         if (numValidResults > 0) {
             Assertions.assertThat(stats.getStats()).containsEntry(RecordRepairResult.CODE_VALID, numValidResults);
