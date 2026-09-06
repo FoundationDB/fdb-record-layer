@@ -58,6 +58,10 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for {@link ResolverMappingReplicator}.
  */
 @Tag(Tags.RequiresFDB)
+// NullAway.Init is suppressed here because primary/replica follow the standard JUnit test-fixture
+// lifecycle: they are left unset by this abstract base class and are always populated by a
+// subclass's own @BeforeEach before any test method that uses them runs.
+@SuppressWarnings("NullAway.Init")
 public abstract class ResolverMappingReplicatorTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
@@ -261,6 +265,10 @@ public abstract class ResolverMappingReplicatorTest {
     }
 
 
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] return types, even though
+    // MetadataHook's own declaration (extends Function<String, byte @Nullable []>) already allows the
+    // `ignore -> null` branch below.
+    @SuppressWarnings("NullAway")
     protected Map<String, ResolverResult> seedDirectoryLayer(FDBRecordContext context, LocatableResolver scope, int entries) {
         Map<String, ResolverResult> mappings = new HashMap<>();
         for (int i = 0; i < entries; i++) {
