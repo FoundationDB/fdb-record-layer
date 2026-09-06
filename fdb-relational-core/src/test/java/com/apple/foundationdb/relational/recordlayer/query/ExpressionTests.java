@@ -71,6 +71,10 @@ class ExpressionTests {
     }
 
     @AfterAll
+    // Debugger#setDebugger(Debugger) is documented to accept null (it removes the current debugger; see its
+    // Javadoc and body in fdb-record-layer-core), but its parameter is not annotated @Nullable there. That's
+    // an upstream annotation gap in a module outside this fix's scope, not a real bug at this call site.
+    @SuppressWarnings("NullAway")
     static void tearDownDebugger() {
         // Clear out the debugger
         Debugger.setDebugger(null);

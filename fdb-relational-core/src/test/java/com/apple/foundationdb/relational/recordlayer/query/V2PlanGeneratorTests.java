@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
+import java.util.Objects;
 
 public class V2PlanGeneratorTests {
     @RegisterExtension
@@ -952,9 +953,11 @@ public class V2PlanGeneratorTests {
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     Assertions.assertTrue(resultSet.next());
                     Assertions.assertEquals(42, resultSet.getInt(1));
-                    Assertions.assertEquals(30, resultSet.getStruct("i").getLong("ratings"));
-                    Assertions.assertEquals(8888, resultSet.getStruct("i").getStruct("loc").getLong("longitude"));
-                    Assertions.assertEquals(5500, resultSet.getStruct("i").getStruct("loc").getLong("latitude"));
+                    final var i = Objects.requireNonNull(resultSet.getStruct("i"));
+                    final var loc = Objects.requireNonNull(i.getStruct("loc"));
+                    Assertions.assertEquals(30, i.getLong("ratings"));
+                    Assertions.assertEquals(8888, loc.getLong("longitude"));
+                    Assertions.assertEquals(5500, loc.getLong("latitude"));
                     Assertions.assertEquals(500, resultSet.getInt(3));
                     Assertions.assertEquals(101, resultSet.getInt(4));
                     Assertions.assertFalse(resultSet.next());
@@ -1006,9 +1009,11 @@ public class V2PlanGeneratorTests {
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     Assertions.assertTrue(resultSet.next());
                     Assertions.assertEquals(42, resultSet.getInt(1));
-                    Assertions.assertEquals(30, resultSet.getStruct("i").getLong("ratings"));
-                    Assertions.assertEquals(5000, resultSet.getStruct("i").getStruct("loc").getLong("longitude"));
-                    Assertions.assertEquals(5500, resultSet.getStruct("i").getStruct("loc").getLong("latitude"));
+                    final var i = Objects.requireNonNull(resultSet.getStruct("i"));
+                    final var loc = Objects.requireNonNull(i.getStruct("loc"));
+                    Assertions.assertEquals(30, i.getLong("ratings"));
+                    Assertions.assertEquals(5000, loc.getLong("longitude"));
+                    Assertions.assertEquals(5500, loc.getLong("latitude"));
                     Assertions.assertEquals(500, resultSet.getInt(3));
                     Assertions.assertEquals(101, resultSet.getInt(4));
                     Assertions.assertFalse(resultSet.next());

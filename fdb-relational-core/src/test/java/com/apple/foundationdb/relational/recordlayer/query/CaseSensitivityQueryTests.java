@@ -33,6 +33,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Objects;
 
 public class CaseSensitivityQueryTests {
 
@@ -144,7 +145,7 @@ public class CaseSensitivityQueryTests {
         Assertions.assertTrue(resultSet.next());
         Assertions.assertEquals(1, resultSet.getLong(1));
         Assertions.assertEquals("bla", resultSet.getString(2));
-        final var struct = resultSet.getStruct(3);
+        final var struct = Objects.requireNonNull(resultSet.getStruct(3));
         Assertions.assertEquals("addr", struct.getString(1));
         Assertions.assertEquals("a", struct.getString(2));
         Assertions.assertEquals("b", struct.getString(3));
