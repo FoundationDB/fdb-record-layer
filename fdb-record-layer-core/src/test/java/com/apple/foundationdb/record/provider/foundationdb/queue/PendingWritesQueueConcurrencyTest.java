@@ -113,6 +113,10 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
         // the cleared payloads into the same result set. The workers have stopped, so there is
         // no concurrency here: the leftover scan reflects one consistent ordering.
         try (FDBRecordContext context = openContext()) {
+            // PendingWritesQueue#getQueueCursor's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            @SuppressWarnings("NullAway")
             List<PendingWritesQueueEntry<TestQueuePayload>> leftover =
                     queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
             for (PendingWritesQueueEntry<TestQueuePayload> entry : leftover) {
@@ -177,6 +181,10 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
             } else {
                 // 10% cursor scan
                 try (FDBRecordContext context = openContext()) {
+                    // PendingWritesQueue#getQueueCursor's continuation parameter is declared @Nullable byte[] (a
+                    // position NullAway does not reliably recognize as nullable), so the null literal below
+                    // still trips the checker.
+                    @SuppressWarnings("NullAway")
                     List<PendingWritesQueueEntry<TestQueuePayload>> entries =
                             queue.getQueueCursor(context, ScanProperties.FORWARD_SCAN, null).asList().join();
                     Long size = queue.getQueueSizeNoConflict(context).join();
@@ -209,6 +217,10 @@ class PendingWritesQueueConcurrencyTest extends FDBRecordStoreTestBase {
                 .asScanProperties(false);
         List<TestQueuePayload> clearedThisTx = new ArrayList<>();
         try (FDBRecordContext context = openContext()) {
+            // PendingWritesQueue#getQueueCursor's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            @SuppressWarnings("NullAway")
             List<PendingWritesQueueEntry<TestQueuePayload>> entries =
                     queue.getQueueCursor(context, limitedScan, null).asList().join();
             for (PendingWritesQueueEntry<TestQueuePayload> entry : entries) {
