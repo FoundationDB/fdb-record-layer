@@ -53,6 +53,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 @Tag(Tags.RequiresFDB)
 public abstract class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
+    // NullAway/JSpecify does not reliably propagate @Nullable byte[] annotations for cross-file
+    // (bytecode-read) method parameters, so a properly-@Nullable-typed continuation still gets
+    // flagged as a mismatch at call sites in this file. Declaring the return type here as plain
+    // (non-null) byte[] sidesteps that: passing a "non-null-typed" value into a @Nullable-declared
+    // parameter is always accepted, regardless of how that parameter's own nullability was read.
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
+    }
 
     private boolean abortOnComparisonFailure;
 
@@ -191,7 +200,7 @@ public abstract class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase 
         RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0, abortOnComparisonFailure);
 
         // Iteration 1, start with empty continuation
-        RecordCursorResult<FDBQueriedRecord<Message>> result = assertSamePlansWithContinuation(planUnderTest, null, 15, 0, 15, 1, 60, false, RecordCursor.NoNextReason.RETURN_LIMIT_REACHED);
+        RecordCursorResult<FDBQueriedRecord<Message>> result = assertSamePlansWithContinuation(planUnderTest, noContinuation(), 15, 0, 15, 1, 60, false, RecordCursor.NoNextReason.RETURN_LIMIT_REACHED);
 
         // Iteration 2, start with previous continuation
         byte[] continuation = result.getContinuation().toBytes();
@@ -225,7 +234,7 @@ public abstract class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase 
 
         // Iteration 1, start with empty continuation.
         // The plans are the "same" here since we haven't reached the point at which the second scan ends (yet)
-        RecordCursorResult<FDBQueriedRecord<Message>> result = assertSamePlansWithContinuation(planUnderTest, null, 15, 0, 15, 1, 60, false, RecordCursor.NoNextReason.RETURN_LIMIT_REACHED);
+        RecordCursorResult<FDBQueriedRecord<Message>> result = assertSamePlansWithContinuation(planUnderTest, noContinuation(), 15, 0, 15, 1, 60, false, RecordCursor.NoNextReason.RETURN_LIMIT_REACHED);
 
         // Iteration 2, start with previous continuation
         // For this iteration, the second plan ends sooner, so the comparison fails
@@ -258,7 +267,7 @@ public abstract class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase 
         RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0, abortOnComparisonFailure);
 
         // Iteration 1, start with empty continuation
-        RecordCursorResult<FDBQueriedRecord<Message>> result = assertSamePlansWithContinuation(planUnderTest, null, 0, 200, 17, 1, 68, false, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
+        RecordCursorResult<FDBQueriedRecord<Message>> result = assertSamePlansWithContinuation(planUnderTest, noContinuation(), 0, 200, 17, 1, 68, false, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
 
         // Iteration 2, start with previous continuation, reach end (before limit)
         byte[] continuation = result.getContinuation().toBytes();
@@ -289,7 +298,7 @@ public abstract class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase 
 
         // Iteration 1, start with empty continuation
         // The plans are the "same" here since we haven't reached the point at which the second scan ends (yet)
-        RecordCursorResult<FDBQueriedRecord<Message>> result = assertSamePlansWithContinuation(planUnderTest, null, 0, 200, 17, 1, 68, false, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
+        RecordCursorResult<FDBQueriedRecord<Message>> result = assertSamePlansWithContinuation(planUnderTest, noContinuation(), 0, 200, 17, 1, 68, false, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
 
         // Iteration 2, start with previous continuation, reach end (before limit)
         byte[] continuation = result.getContinuation().toBytes();
