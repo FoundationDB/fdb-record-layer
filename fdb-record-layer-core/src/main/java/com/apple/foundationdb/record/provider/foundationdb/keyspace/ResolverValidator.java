@@ -147,6 +147,9 @@ public class ResolverValidator {
      * @param scanProperties scan properties that control the nature of the scan
      * @return a cursor returning the disposition of all scanned entries in the resolvers mapping table
      */
+    // NullAway does not reliably track @Nullable on the byte[] metadata across the call into
+    // ByteArrayUtil2.loggable below, even though loggable's own parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     public static RecordCursor<ValidatedEntry> validate(final LocatableResolver resolver,
                                                         final FDBRecordContext context,
                                                         @Nullable final byte[] continuation,

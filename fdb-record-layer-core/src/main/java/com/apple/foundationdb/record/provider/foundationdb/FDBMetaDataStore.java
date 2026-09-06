@@ -79,6 +79,10 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     // All keys in subspace are taken by SplitHelper.
     // Normally meta-data fits into UNSPLIT_RECORD (0).
+    // Tuple.from below intentionally accepts a null element here (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); this sentinel key is deliberately built
+    // from a single null tuple item.
+    @SuppressWarnings("NullAway")
     public static final Tuple CURRENT_KEY = Tuple.from((Object)null);
     public static final Tuple HISTORY_KEY_PREFIX = Tuple.from("H");
 

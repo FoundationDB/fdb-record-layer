@@ -304,6 +304,10 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         /**
          * Called by subclasses to perform chacks and initialize all the required properties needed to construct cursors.
          */
+        // NullAway does not reliably track @Nullable on the byte[] lowBytes/highBytes fields across the calls
+        // into KeySelector.firstGreaterOrEqual below (a known array-type tracking gap); both are non-null by
+        // this point, having just been reassigned from TupleRange.toRange()'s non-null Range.begin/end.
+        @SuppressWarnings("NullAway")
         protected void prepare() {
             if (subspace == null) {
                 throw new RecordCoreException("record subspace must be supplied");

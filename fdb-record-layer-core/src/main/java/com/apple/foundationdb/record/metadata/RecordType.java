@@ -189,7 +189,11 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
      */
     public Tuple getRecordTypeKeyTuple() {
         if (recordTypeKeyTuple == null) {
-            recordTypeKeyTuple = Tuple.from(TupleTypeUtil.toTupleAppropriateValue(getRecordTypeKey()));
+            // toTupleAppropriateValue only returns null for a NullStandin input; any NullStandin value passed
+            // to the constructor or computed here would already have collapsed to a null recordTypeKey via
+            // toTupleEquivalentValue (see getRecordTypeKey() above), so a non-null return here can never itself
+            // be a NullStandin, and this is guaranteed non-null.
+            recordTypeKeyTuple = Tuple.from(Objects.requireNonNull(TupleTypeUtil.toTupleAppropriateValue(getRecordTypeKey())));
         }
         return recordTypeKeyTuple;
     }

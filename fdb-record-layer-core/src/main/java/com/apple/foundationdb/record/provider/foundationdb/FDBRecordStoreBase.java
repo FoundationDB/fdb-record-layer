@@ -1322,6 +1322,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param high the high value for the first indexed field
      * @return a cursor that return records pointed to by the index
      */
+    // Tuple.from below intentionally accepts a null low/high value here (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); a null bound is a meaningful, supported
+    // tuple element (e.g. to scan from/to the absence of a value for the first indexed field).
+    @SuppressWarnings("NullAway")
     default RecordCursor<FDBIndexedRecord<M>> scanIndexRecordsBetween(final String indexName,
                                                                       @Nullable final Object low, @Nullable final Object high) {
         final Tuple lowTuple = Tuple.from(low);

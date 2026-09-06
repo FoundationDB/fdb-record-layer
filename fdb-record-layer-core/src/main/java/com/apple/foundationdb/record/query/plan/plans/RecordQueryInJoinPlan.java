@@ -101,7 +101,10 @@ public abstract class RecordQueryInJoinPlan extends AbstractRelationalExpression
     }
 
     @Override
-    @SuppressWarnings("resource")
+    // Tuple.from below intentionally accepts a null tuple item here (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); an IN-list value can genuinely be null
+    // (e.g. IN (1, NULL, 3)), and Tuple encodes a null element just fine.
+    @SuppressWarnings({"resource", "NullAway"})
     public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
                                                                      final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,

@@ -301,6 +301,10 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     }
 
     @Override
+    // fdb.open below intentionally accepts a null clusterFile (an unannotated, external fdb-java API
+    // conservatively treated by NullAway as requiring non-null); a null clusterFile is documented FDB
+    // client behavior meaning "use the default cluster file".
+    @SuppressWarnings("NullAway")
     public Database open(@Nullable final String clusterFile) {
         FDB fdb = initFDB();
         return fdb.open(clusterFile);

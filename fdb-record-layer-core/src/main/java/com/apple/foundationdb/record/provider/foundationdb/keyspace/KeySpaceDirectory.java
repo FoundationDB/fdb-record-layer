@@ -284,6 +284,10 @@ public class KeySpaceDirectory {
      * @return a future that completes with the matching keyspace path
      * @throws RecordCoreArgumentException if no compatible child can be found
      */
+    // Tuple.from below intentionally accepts a null value here (an unannotated, external API conservatively
+    // treated by NullAway as requiring non-null); a null value is a meaningful, supported keyspace path
+    // value, and Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
     public CompletableFuture<ResolvedKeySpacePath> findChildForValue(FDBRecordContext context,
                                                                      @Nullable ResolvedKeySpacePath parent,
                                                                      @Nullable Object value) {
@@ -523,6 +527,10 @@ public class KeySpaceDirectory {
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    // Tuple.from below intentionally accepts a null resolved value (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); PathValue.getResolvedValue() is
+    // genuinely nullable, and Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
     private CompletableFuture<KeyRange> getValueRange(FDBRecordContext context,
                                                       @Nullable ValueRange<?> valueRange,
                                                       Subspace subspace) {
