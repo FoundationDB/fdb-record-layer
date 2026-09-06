@@ -58,6 +58,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -93,6 +94,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 @Tag(Tags.RequiresFDB)
 class OutsideValueLikeIndexQueryTest extends FDBRecordStoreQueryTestBase {
+    // NullAway/JSpecify does not reliably propagate @Nullable byte[] annotations for cross-file
+    // (bytecode-read) method parameters, so a properly-@Nullable-typed continuation still gets
+    // flagged as a mismatch at call sites in this file. Declaring the return type here as plain
+    // (non-null) byte[] sidesteps that: passing a "non-null-typed" value into a @Nullable-declared
+    // parameter is always accepted, regardless of how that parameter's own nullability was read.
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
+    }
+
     private static final String OUTSIDE_INDEX_NAME = "outside_index";
 
     private static final PlannableIndexTypes WITH_OUTSIDE_INDEX_TYPES = new PlannableIndexTypes(
@@ -185,7 +196,7 @@ class OutsideValueLikeIndexQueryTest extends FDBRecordStoreQueryTestBase {
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(plan)) {
                 while (cursor.hasNext()) {
                     TestRecords1Proto.MySimpleRecord simpleRecord = TestRecords1Proto.MySimpleRecord.newBuilder()
-                            .mergeFrom(cursor.next().getRecord())
+                            .mergeFrom(Objects.requireNonNull(cursor.next()).getRecord())
                             .build();
                     assertThat(simpleRecord.getNumValue2())
                             .as("num_value_2 field should be increasing")
@@ -230,7 +241,7 @@ class OutsideValueLikeIndexQueryTest extends FDBRecordStoreQueryTestBase {
                     final List<TestRecords1Proto.MySimpleRecord> queried = new ArrayList<>();
                     while (cursor.hasNext()) {
                         TestRecords1Proto.MySimpleRecord simpleRecord = TestRecords1Proto.MySimpleRecord.newBuilder()
-                                .mergeFrom(cursor.next().getRecord())
+                                .mergeFrom(Objects.requireNonNull(cursor.next()).getRecord())
                                 .build();
                         assertThat(simpleRecord.getNumValue2())
                                 .isEqualTo(numValue2);
@@ -301,9 +312,9 @@ class OutsideValueLikeIndexQueryTest extends FDBRecordStoreQueryTestBase {
             // Validate the query results
             final Map<Integer, Set<NonnullPair<Long, Long>>> queriedResults = new HashMap<>();
             final TypeRepository typeRepository = TypeRepository.newBuilder().addAllTypes(usedTypes().evaluate(plan)).build();
-            try (RecordCursor<QueryResult> cursor = plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), null, ExecuteProperties.SERIAL_EXECUTE)) {
+            try (RecordCursor<QueryResult> cursor = plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), noContinuation(), ExecuteProperties.SERIAL_EXECUTE)) {
                 for (RecordCursorResult<QueryResult> result = cursor.getNext(); result.hasNext(); result = cursor.getNext()) {
-                    Message msg = result.get().getMessage();
+                    Message msg = Objects.requireNonNull(result.get()).getMessage();
                     Descriptors.Descriptor descriptor = msg.getDescriptorForType();
                     int numValue2 = (int) msg.getField(descriptor.findFieldByName("num_value_2"));
                     long simpleRecNo = (long) msg.getField(descriptor.findFieldByName("simple_rec_no"));
