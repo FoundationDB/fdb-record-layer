@@ -25,6 +25,7 @@ import com.apple.foundationdb.test.FDBTestEnvironment;
 import io.prometheus.client.CollectorRegistry;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 import java.net.BindException;
@@ -59,10 +60,11 @@ public final class ServerTestUtil {
     /**
      * Create and start a RelationalServer with a specific cluster file.
      * @param preferredPort The preferred port to start on
-     * @param clusterFile The cluster file to use for FDB connection
+     * @param clusterFile The cluster file to use for FDB connection, or {@code null} to use the default
+     *     cluster file
      * @return Return a started {@link RelationalServer}
      */
-    public static RelationalServer createAndStartRelationalServer(int preferredPort, String clusterFile) throws IOException {
+    public static RelationalServer createAndStartRelationalServer(int preferredPort, @Nullable String clusterFile) throws IOException {
         RelationalServer relationalServer = null;
         for (int port = preferredPort; port <= (preferredPort + PORT_RETRY_MAX); port += 2) {
             // Create a CollectorRegistry when a test fixture else "java.lang.IllegalArgumentException:
