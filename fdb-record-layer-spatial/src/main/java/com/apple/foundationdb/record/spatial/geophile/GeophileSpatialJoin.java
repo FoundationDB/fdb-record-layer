@@ -39,6 +39,7 @@ import com.geophile.z.SpatialObject;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.function.BiFunction;
 
 /**
@@ -101,7 +102,11 @@ class GeophileSpatialJoin {
             throw new RecordCoreException(ex);
         }
         final RecordCursor<GeophileRecordImpl> recordCursor = RecordCursor.fromIterator(store.getExecutor(), iterator);
-        return recordCursor.map(GeophileRecordImpl::getIndexEntry);
+        // getIndexEntry() is @Nullable in general (GeophileIndexImpl#newRecord() constructs a
+        // GeophileRecordImpl with a null entry as an internal Geophile scratch/comparison object), but
+        // records yielded by this iterator are always built from a real index entry (see
+        // GeophileCursorImpl#next()).
+        return recordCursor.map(record -> Objects.requireNonNull(record.getIndexEntry()));
     }
 
     @SuppressWarnings("PMD.CloseResource")

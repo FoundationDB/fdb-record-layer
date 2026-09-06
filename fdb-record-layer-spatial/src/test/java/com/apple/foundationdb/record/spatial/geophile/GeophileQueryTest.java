@@ -48,6 +48,7 @@ import com.apple.test.Tags;
 import com.google.common.base.Throwables;
 import com.google.protobuf.Message;
 import org.hamcrest.Matchers;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
@@ -261,6 +262,9 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     @Tag(Tags.Slow)
+    // Passes a null/@Nullable continuation into RecordQueryPlan#execute; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     public void testDistance() throws Exception {
         final RecordMetaDataHook hook = md -> {
             md.addIndex("City", CITY_LOCATION_COVERING_INDEX);
@@ -274,7 +278,7 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
 
         final RecordQueryPlan scanPlan = distanceFilterScan(distance);
         final Set<Integer> scanResults = new HashSet<>();
-        byte [] continuation = null;
+        byte @Nullable [] continuation = null;
         do {
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context, hook);
