@@ -915,7 +915,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     public Subspace indexSubspace(Index index) {
-        return getSubspace().subspace(Tuple.from(INDEX_KEY, index.getSubspaceTupleKey()));
+        return getSubspace().subspace(Tuple.from(INDEX_KEY, Objects.requireNonNull(index.getSubspaceTupleKey())));
     }
 
     public Subspace indexSubspaceFromMaintainer(Index index) {
@@ -927,7 +927,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     public Subspace indexSecondarySubspace(Index index) {
-        return getSubspace().subspace(Tuple.from(INDEX_SECONDARY_SPACE_KEY, index.getSubspaceTupleKey()));
+        return getSubspace().subspace(Tuple.from(INDEX_SECONDARY_SPACE_KEY, Objects.requireNonNull(index.getSubspaceTupleKey())));
     }
 
     /**
@@ -938,7 +938,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return the sliding window subspace for the given index
      */
     public Subspace indexSlidingWindowSubspace(Index index) {
-        return getSubspace().subspace(Tuple.from(INDEX_SLIDING_WINDOW_SPACE_KEY, index.getSubspaceTupleKey()));
+        return getSubspace().subspace(Tuple.from(INDEX_SLIDING_WINDOW_SPACE_KEY, Objects.requireNonNull(index.getSubspaceTupleKey())));
     }
 
     /**
@@ -949,7 +949,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return the subspace for the {@link com.apple.foundationdb.async.RangeSet RangeSet} for the given index
      */
     public Subspace indexRangeSubspace(Index index) {
-        return getSubspace().subspace(Tuple.from(INDEX_RANGE_SPACE_KEY, index.getSubspaceTupleKey()));
+        return getSubspace().subspace(Tuple.from(INDEX_RANGE_SPACE_KEY, Objects.requireNonNull(index.getSubspaceTupleKey())));
     }
 
     /**
@@ -960,7 +960,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return the subspace for the uniqueness violations for the given index
      */
     public Subspace indexUniquenessViolationsSubspace(Index index) {
-        return getSubspace().subspace(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, index.getSubspaceTupleKey()));
+        return getSubspace().subspace(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, Objects.requireNonNull(index.getSubspaceTupleKey())));
     }
 
     /**
@@ -969,7 +969,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return the subspace for the build information of the given index
      */
     Subspace indexBuildSubspace(Index index) {
-        return getSubspace().subspace(Tuple.from(INDEX_BUILD_SPACE_KEY, index.getSubspaceTupleKey()));
+        return getSubspace().subspace(Tuple.from(INDEX_BUILD_SPACE_KEY, Objects.requireNonNull(index.getSubspaceTupleKey())));
     }
 
     /**
@@ -1647,7 +1647,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Override
     public CompletableFuture<Void> resolveUniquenessViolation(Index index, Tuple valueKey, @Nullable Tuple remainPrimaryKey) {
         return scanUniquenessViolations(index, valueKey).forEachAsync(uniquenessViolation -> {
-            if (remainPrimaryKey == null || !remainPrimaryKey.equals(uniquenessViolation.getPrimaryKey())) {
+            if (remainPrimaryKey == null || !remainPrimaryKey.equals(Objects.requireNonNull(uniquenessViolation.getPrimaryKey()))) {
                 // scanUniquenessViolations always constructs these with a non-null primary key (see just above).
                 return deleteRecordAsync(Objects.requireNonNull(uniquenessViolation.getPrimaryKey())).thenApply(ignore -> null);
             } else {
@@ -5207,10 +5207,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final long startTime = System.nanoTime();
         // This won't clear an ungrouped aggregate index: https://github.com/FoundationDB/fdb-record-layer/issues/3337
         // It also won't clear some of the secondary state from TimeWindowLeaderboard indexes.
-        context.clear(getSubspace().range(Tuple.from(INDEX_KEY, formerIndex.getSubspaceTupleKey())));
-        context.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
-        context.clear(getSubspace().range(Tuple.from(INDEX_SLIDING_WINDOW_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
-        context.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
+        context.clear(getSubspace().range(Tuple.from(INDEX_KEY, Objects.requireNonNull(formerIndex.getSubspaceTupleKey()))));
+        context.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY, Objects.requireNonNull(formerIndex.getSubspaceTupleKey()))));
+        context.clear(getSubspace().range(Tuple.from(INDEX_SLIDING_WINDOW_SPACE_KEY, Objects.requireNonNull(formerIndex.getSubspaceTupleKey()))));
+        context.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY, Objects.requireNonNull(formerIndex.getSubspaceTupleKey()))));
         final String formerIndexName = formerIndex.getFormerName();
         if (formerIndexName != null) {
             // The index state space is currently keyed by the index name rather than the index subspace key.
@@ -5218,7 +5218,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // Note that we set it to "readable" to clear it out
             updateIndexState(formerIndexName, getSubspace().pack(Tuple.from(INDEX_STATE_SPACE_KEY, formerIndexName)), IndexState.READABLE);
         }
-        context.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, formerIndex.getSubspaceTupleKey())));
+        context.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, Objects.requireNonNull(formerIndex.getSubspaceTupleKey()))));
         if (getTimer() != null) {
             getTimer().recordSinceNanoTime(FDBStoreTimer.Events.REMOVE_FORMER_INDEX, startTime);
         }
@@ -5367,7 +5367,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         private Tuple previousKey = null;
 
         boolean pred(Tuple key) {
-            if (key.equals(previousKey)) {
+            if (Objects.equals(key, previousKey)) {
                 return false;
             } else {
                 previousKey = key;

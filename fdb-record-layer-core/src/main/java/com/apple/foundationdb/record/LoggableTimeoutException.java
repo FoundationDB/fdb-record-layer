@@ -61,7 +61,7 @@ public final class LoggableTimeoutException extends TimeoutException implements 
     }
 
     @Override
-    public LoggableTimeoutException addLogInfo(String description, Object object) {
+    public LoggableTimeoutException addLogInfo(String description, @Nullable Object object) {
         loggableKeysAndValuesImpl.addLogInfo(description, object);
         return this;
     }
