@@ -74,6 +74,9 @@ class PlannerEventSerializationTests {
     }
 
     @AfterAll
+    // Debugger.setDebugger's parameter is not annotated @Nullable, but its own javadoc documents that passing
+    // null removes the current debugger; this is a real annotation gap in main source (out of scope here).
+    @SuppressWarnings("NullAway")
     static void tearDown() {
         Debugger.setDebugger(null);
     }
@@ -131,7 +134,9 @@ class PlannerEventSerializationTests {
 
                     @Override
                     public PlannerEvent toTaskEvent(final Location location) {
-                        return null;
+                        // Not exercised by this test: the stub task is only used for its getPlannerPhase(), never
+                        // converted to an event, so fail fast instead of returning null from a @NonNull method.
+                        throw new UnsupportedOperationException("toTaskEvent is not exercised by this test");
                     }
                 }
         );

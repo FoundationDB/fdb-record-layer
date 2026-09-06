@@ -27,6 +27,7 @@ import org.hamcrest.TypeSafeMatcher;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Matchers for {@link SyntheticRecordPlanner} outputs,
@@ -172,7 +173,7 @@ public class SyntheticPlanMatchers {
                 return false;
             }
             for (Map.Entry<String, SyntheticRecordFromStoredRecordPlan> entry : subPlans.entrySet()) {
-                if (!subMatchers.get(entry.getKey()).matches(entry.getValue())) {
+                if (!Objects.requireNonNull(subMatchers.get(entry.getKey())).matches(entry.getValue())) {
                     return false;
                 }
             }

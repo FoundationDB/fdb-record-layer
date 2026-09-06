@@ -36,6 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -354,7 +355,7 @@ class BooleanNormalizerTest {
     protected static void assertExpectedNormalization(final BooleanNormalizer normalizer,
                                                       final QueryComponent expected, final QueryComponent given) {
         final QueryComponent normalized = normalizer.normalize(given);
-        assertFilterEquals(expected, normalized);
+        assertFilterEquals(expected, Objects.requireNonNull(normalized));
         if (!normalizer.isCheckForDuplicateConditions()) {
             assertEquals(numberOfTerms(expected), normalizer.getNormalizedSize(given));
         }
