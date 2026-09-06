@@ -463,7 +463,10 @@ class FDBDatabaseTest {
     }
 
     private long getReadVersion(FDBDatabase database, @Nullable Long minVersion, @Nullable Long stalenessBoundMillis) {
-        FDBDatabase.WeakReadSemantics weakReadSemantics = minVersion == null ? null : new FDBDatabase.WeakReadSemantics(minVersion, stalenessBoundMillis, false);
+        // Every call site passes minVersion and stalenessBoundMillis together (both present or both absent);
+        // guard on both here so the constructor call below is never reached with one null and the other not.
+        FDBDatabase.WeakReadSemantics weakReadSemantics = minVersion == null || stalenessBoundMillis == null
+                ? null : new FDBDatabase.WeakReadSemantics(minVersion, stalenessBoundMillis, false);
         final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
                 .setWeakReadSemantics(weakReadSemantics)
                 .setMdcContext(MDC.getCopyOfContextMap())
