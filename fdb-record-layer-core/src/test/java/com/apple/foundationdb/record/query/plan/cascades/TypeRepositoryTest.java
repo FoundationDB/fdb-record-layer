@@ -42,6 +42,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
@@ -91,9 +92,9 @@ class TypeRepositoryTest {
         }
         if (type instanceof Type.Array) {
             if (type.isNullable()) {
-                return 1 + countTypes(((Type.Array)type).getElementType());
+                return 1 + countTypes(Objects.requireNonNull(((Type.Array)type).getElementType()));
             } else {
-                return countTypes(((Type.Array)type).getElementType());
+                return countTypes(Objects.requireNonNull(((Type.Array)type).getElementType()));
             }
         }
         if (type instanceof Type.Record) {
@@ -250,9 +251,10 @@ class TypeRepositoryTest {
                 .addTypeIfNeeded(record2)
                 .build();
         for (var rec: List.of(record1, record2)) {
-            final Type.Record deserialized = Type.Record.fromDescriptor(typeRepository.getMessageDescriptor(rec));
-            Assertions.assertTrue(deserialized.getElementTypes().get(0) instanceof Type.Array);
-            final Type elementType = ((Type.Array) deserialized.getElementTypes().get(0)).getElementType();
+            final Type.Record deserialized = Type.Record.fromDescriptor(Objects.requireNonNull(typeRepository.getMessageDescriptor(rec)));
+            final List<Type> elementTypes = Objects.requireNonNull(deserialized.getElementTypes());
+            Assertions.assertTrue(elementTypes.get(0) instanceof Type.Array);
+            final Type elementType = Objects.requireNonNull(((Type.Array) elementTypes.get(0)).getElementType());
             Assertions.assertFalse(elementType.isNullable());
         }
     }
@@ -491,7 +493,7 @@ class TypeRepositoryTest {
         Assertions.assertEquals(new Type.Array(Type.primitiveType(Type.TypeCode.INT, false)), resultType);
         final Object result = arrayConstructorValue.evalWithoutStore(EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(arrayConstructorValue.getResultType()).build()));
         Assertions.assertTrue(result instanceof List);
-        final List<?> list = (List<?>)result;
+        final List<?> list = (List<?>) Objects.requireNonNull(result);
         Assertions.assertEquals(2, list.size());
         Assertions.assertEquals(1, list.get(0));
         Assertions.assertEquals(2, list.get(1));
@@ -511,7 +513,7 @@ class TypeRepositoryTest {
                 )), resultType);
         final Object result = recordConstructorValue.evalWithoutStore(EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addTypeIfNeeded(recordConstructorValue.getResultType()).build()));
         Assertions.assertInstanceOf(DynamicMessage.class, result);
-        final DynamicMessage resultMessage = (DynamicMessage)result;
+        final DynamicMessage resultMessage = (DynamicMessage) Objects.requireNonNull(result);
         Assertions.assertEquals(5, resultMessage.getAllFields().size());
         List<Object> fieldSorted = resultMessage.getAllFields().entrySet().stream()
                 .map(kv -> Pair.of(kv.getKey().getIndex(), kv.getValue()))
@@ -522,10 +524,10 @@ class TypeRepositoryTest {
         Assertions.assertEquals(2, fieldSorted.get(1));
         Assertions.assertEquals(1.0F, fieldSorted.get(2));
         Assertions.assertEquals(TupleFieldsProto.UUID.newBuilder()
-                .setMostSignificantBits(UUID_1.getLiteralValue().getMostSignificantBits())
-                .setLeastSignificantBits(UUID_1.getLiteralValue().getLeastSignificantBits())
+                .setMostSignificantBits(Objects.requireNonNull(UUID_1.getLiteralValue()).getMostSignificantBits())
+                .setLeastSignificantBits(Objects.requireNonNull(UUID_1.getLiteralValue()).getLeastSignificantBits())
                 .build(), fieldSorted.get(3));
-        Assertions.assertEquals(ByteString.copyFrom(HALF_VECTOR_1_2_3.getLiteralValue().getRawData()),
+        Assertions.assertEquals(ByteString.copyFrom(Objects.requireNonNull(HALF_VECTOR_1_2_3.getLiteralValue()).getRawData()),
                 fieldSorted.get(4));
     }
 }
