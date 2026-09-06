@@ -428,7 +428,6 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     }
 
     @Override
-    @Nonnull
     public URI getPath() {
         return getRecordLayerDatabase().getURI();
     }
