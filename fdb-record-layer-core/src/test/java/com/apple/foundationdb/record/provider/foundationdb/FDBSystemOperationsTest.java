@@ -30,6 +30,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
+import org.jspecify.annotations.Nullable;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -57,7 +58,7 @@ public class FDBSystemOperationsTest {
         timer = new FDBStoreTimer();
     }
 
-    private <T> T run(Function<FDBDatabaseRunner, T> operation) {
+    private <T extends @Nullable Object> T run(Function<FDBDatabaseRunner, T> operation) {
         try (FDBDatabaseRunner runner = fdb.newRunner(timer, null)) {
             return operation.apply(runner);
         }
