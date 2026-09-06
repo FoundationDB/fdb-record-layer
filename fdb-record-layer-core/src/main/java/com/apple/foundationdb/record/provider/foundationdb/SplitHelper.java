@@ -344,9 +344,13 @@ public class SplitHelper {
     }
 
     @Nullable
+    // NullAway does not reliably track @Nullable on the byte[] packedVersion parameter across this call
+    // into Tuple.fromBytes below (a known array-type tracking gap); packedVersion is non-null by the
+    // explicit check just above.
+    @SuppressWarnings("NullAway")
     static FDBRecordVersion unpackVersion(@Nullable byte[] packedVersion) {
         if (packedVersion != null) {
-            return FDBRecordVersion.fromVersionstamp(Objects.requireNonNull(Tuple.fromBytes(packedVersion).getVersionstamp(0)), true);
+            return FDBRecordVersion.fromVersionstamp(Tuple.fromBytes(packedVersion).getVersionstamp(0), true);
         } else {
             return null;
         }

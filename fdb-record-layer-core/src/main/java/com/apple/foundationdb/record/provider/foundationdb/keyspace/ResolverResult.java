@@ -77,6 +77,9 @@ public class ResolverResult {
     }
 
     @Override
+    // NullAway does not reliably track @Nullable on the byte[] metadata field across this call into
+    // ByteArrayUtil2.loggable, even though loggable's own parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     public String toString() {
         return "Value: " + value  + ", metadata: " + ByteArrayUtil2.loggable(metadata);
     }

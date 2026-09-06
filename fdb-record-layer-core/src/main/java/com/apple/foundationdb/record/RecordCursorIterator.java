@@ -97,6 +97,11 @@ public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable 
      */
     @Nullable
     @Override
+    // com.apple.foundationdb.async.AsyncIterator is an unannotated, external (fdb-java) interface; NullAway's
+    // default treatment of its unannotated next() as @NonNull for override-checking purposes is not a real,
+    // deliberate contract from that library. RecordCursorResult (and thus this iterator's next value, per
+    // T) is documented to allow a genuinely null value, so this override is intentionally wider.
+    @SuppressWarnings("NullAway")
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();

@@ -204,6 +204,9 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
             Preconditions.checkArgument(position.getNumDimensions() == dimensionRanges.size());
 
             for (int d = 0; d < position.getNumDimensions(); d++) {
+                // A Tuple's element (position.getCoordinate(d)) can genuinely be null; Tuple.from(Object...) is
+                // an external, unannotated varargs API that NullAway misflags as requiring non-null elements.
+                @SuppressWarnings("NullAway")
                 final Tuple coordinate = Tuple.from(position.getCoordinate(d));
                 final TupleRange dimensionRange = dimensionRanges.get(d);
                 if (!dimensionRange.contains(coordinate)) {

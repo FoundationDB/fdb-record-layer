@@ -510,7 +510,9 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
      * @see TextCursor
      */
     @Override
-    @SuppressWarnings({"squid:S2095", "PMD.CloseResource"}) // not closing the returned cursor
+    // NullAway does not reliably recognize @Nullable on the byte[] continuation parameter across the call
+    // into BunchedMap.scanMulti below, even though scanMulti's own parameter is declared @Nullable byte[].
+    @SuppressWarnings({"squid:S2095", "PMD.CloseResource", "NullAway"}) // not closing the returned cursor
     public RecordCursor<IndexEntry> scan(IndexScanType scanType,
                                          TupleRange range,
                                          @Nullable byte[] continuation,

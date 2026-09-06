@@ -333,7 +333,10 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         return executeEntriesWithOverScan(tupleScanRange, widenedScanRange, store, index, continuation, executeProperties);
     }
 
-    @SuppressWarnings("resource")
+    // NullAway does not reliably track @Nullable on the byte[] continuation parameter across the call into
+    // ByteArrayUtil2.loggable below (a known array-type tracking gap); continuation is narrowed non-null by
+    // the surrounding ternary.
+    @SuppressWarnings({"resource", "NullAway"})
     private <M extends Message> RecordCursor<IndexEntry> executeEntriesWithOverScan(TupleRange tupleScanRange, TupleRange widenedScanRange,
                                                                                     FDBRecordStoreBase<M> store, Index index,
                                                                                     @Nullable byte[] continuation, ExecuteProperties executeProperties) {
@@ -762,6 +765,10 @@ public class RecordQueryIndexPlan extends AbstractRelationalExpressionWithoutChi
         }
 
         @Override
+        // NullAway does not reliably track @Nullable on the byte[] continuationBytes local across the call
+        // into ByteArrayUtil.startsWith below (a known array-type tracking gap); continuationBytes is
+        // narrowed non-null by the short-circuiting null check just before it.
+        @SuppressWarnings("NullAway")
         public RecordCursorContinuation wrapContinuation(final RecordCursorContinuation continuation) {
             if (continuation.isEnd()) {
                 return continuation;
