@@ -39,6 +39,10 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 class ExpansionVisitorTest {
 
     @Test
+    // The supplier () -> null deliberately returns null: the default expand(Supplier, ...) overload under test
+    // throws UnsupportedOperationException before ever invoking the supplier, so the null return is never
+    // actually dereferenced; it just needs to type-check as a Supplier<Quantifier.ForEach>.
+    @SuppressWarnings("NullAway")
     void testDefaultExpandWithBaseQuantifierSupplierThrowsUnsupportedOperation() {
         final Index index = new Index("test_value_index", field("value"), IndexTypes.VALUE);
         final ValueIndexExpansionVisitor visitor = new ValueIndexExpansionVisitor(index, Collections.emptyList());

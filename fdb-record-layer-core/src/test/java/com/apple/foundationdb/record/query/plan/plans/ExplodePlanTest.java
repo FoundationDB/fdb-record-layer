@@ -88,7 +88,7 @@ public class ExplodePlanTest {
                     + skip.map(s -> "skip " + s).orElse("");
         }
 
-        @SuppressWarnings("DataFlowIssue") // explode transposes the underlying constant array Value, it does not strictly require a record store instance.
+        @SuppressWarnings({"DataFlowIssue", "NullAway"}) // explode transposes the underlying constant array Value, it does not strictly require a record store instance.
         RecordCursor<QueryResult> build() {
             final var executionPropertiesBuilder = ExecuteProperties.newBuilder();
             skip.ifPresent(executionPropertiesBuilder::setSkip);

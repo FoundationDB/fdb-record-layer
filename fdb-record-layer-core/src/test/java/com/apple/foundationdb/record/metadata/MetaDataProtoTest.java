@@ -121,7 +121,7 @@ public class MetaDataProtoTest {
         assertEquals(indexMap1.keySet(), indexMap2.keySet());
 
         for (String key : indexMap1.keySet()) {
-            verifyEquals(indexMap1.get(key), indexMap2.get(key));
+            verifyEquals(indexMap1.get(key), Objects.requireNonNull(indexMap2.get(key)));
         }
 
         // Make sure indexes are applied to the same records.
