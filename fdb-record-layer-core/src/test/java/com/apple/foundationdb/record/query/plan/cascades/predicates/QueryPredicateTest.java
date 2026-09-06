@@ -67,10 +67,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @SuppressWarnings("SimplifiableAssertion")
 public class QueryPredicateTest {
+    @Nullable
     private Boolean evaluate(QueryPredicate predicate) {
         return evaluate(predicate, Bindings.EMPTY_BINDINGS);
     }
 
+    @Nullable
     private Boolean evaluate(QueryPredicate predicate, Bindings bindings) {
         return predicate.eval(null, EvaluationContext.forBindings(bindings));
     }
