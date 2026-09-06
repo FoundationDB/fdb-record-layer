@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -86,7 +87,7 @@ class AsyncLoadingCacheTest {
                 fail("should throw RecordCoreException");
             } catch (RecordCoreException e) {
                 assertThat(e.getMessage(), containsString("failed getting value"));
-                assertThat(e.getCause().getMessage(), containsString("this is only a test"));
+                assertThat(Objects.requireNonNull(e.getCause()).getMessage(), containsString("this is only a test"));
             }
         }
 
@@ -112,7 +113,7 @@ class AsyncLoadingCacheTest {
             fail("should throw exception");
         } catch (CompletionException ex) {
             assertThat("we got the expected exception", ex.getCause(), is(instanceOf(RecordCoreException.class)));
-            assertThat("it's the test exception", ex.getCause().getMessage(), containsString("this is only a test"));
+            assertThat("it's the test exception", Objects.requireNonNull(ex.getCause()).getMessage(), containsString("this is only a test"));
         }
         assertThat("before future is ready we return the in progress cached future", callCount.get(), is(1));
 
@@ -141,7 +142,7 @@ class AsyncLoadingCacheTest {
             fail("should throw exception");
         } catch (CompletionException ex) {
             assertThat("we got the expected exception", ex.getCause(), is(instanceOf(RecordCoreException.class)));
-            assertThat("it's the test exception", ex.getCause().getMessage(), containsString("this is only a test"));
+            assertThat("it's the test exception", Objects.requireNonNull(ex.getCause()).getMessage(), containsString("this is only a test"));
         }
         assertThat("before future is ready we return the in progress cached future", callCount.get(), is(1));
 
