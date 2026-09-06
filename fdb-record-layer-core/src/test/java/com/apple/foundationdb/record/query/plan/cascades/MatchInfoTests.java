@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorder
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -47,7 +46,7 @@ public class MatchInfoTests {
         final var matchInfos =
                 fuseQuery.exactlySubsumedBy(fuseCandidate, AliasMap.emptyMap(), IdentityBiMap.create(), TranslationMap.empty());
         Assertions.assertThat(matchInfos).hasSizeGreaterThan(0);
-        final var matchInfo = Iterables.getFirst(matchInfos, null);
+        final var matchInfo = matchInfos.iterator().next();
         final var maxMatchMap = matchInfo.getMaxMatchMap();
         final var adjustedMaxMatchMapOptional =
                 maxMatchMap.adjustMaybe(aCandidate, selectOverFuseCandidate.getResultValue(), ImmutableSet.of(aCandidate));

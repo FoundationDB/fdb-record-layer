@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -195,6 +196,11 @@ class OuterJoinExpressionTest {
     }
 
     @Test
+    // OuterJoinExpression.equals(Object) is declared with a non-null parameter (matching this
+    // module's existing convention there, see the class itself), but we deliberately pass null
+    // here to verify the standard java.lang.Object equals-contract behavior (equals(null) must
+    // return false, not throw).
+    @SuppressWarnings("NullAway")
     void equalsReturnsFalseForOtherClass() {
         final Quantifier.ForEach preserved = baseQuantifier("T", TYPE_T);
         final Quantifier.ForEach nullSupplying = baseQuantifier("TAU", TYPE_TAU);
@@ -261,7 +267,7 @@ class OuterJoinExpressionTest {
         final PlannerGraph graph = expression.rewriteInternalPlannerGraph(ImmutableList.of());
         assertThat(graph.getRoot().getName()).isEqualTo("OUTER JOIN");
         assertThat(graph.getRoot().getDetails()).hasSize(1);
-        assertThat(graph.getRoot().getDetails().get(0)).startsWith("ON ");
+        assertThat(Objects.requireNonNull(graph.getRoot().getDetails()).get(0)).startsWith("ON ");
     }
 
     @Test
