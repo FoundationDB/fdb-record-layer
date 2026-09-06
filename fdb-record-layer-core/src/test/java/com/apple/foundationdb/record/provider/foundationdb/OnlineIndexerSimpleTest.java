@@ -261,7 +261,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                         } else {
                             int currentAttempt = attempts.getAndIncrement();
                             assertEquals(1, recordsScanned.incrementAndGet());
-                            assertEquals(behavior.getLeft().longValue(), indexBuilder.getTotalRecordsScanned(),
+                            assertEquals(Objects.requireNonNull(behavior.getLeft()).longValue(), indexBuilder.getTotalRecordsScanned(),
                                     "Attempt " + currentAttempt);
                             if (behavior.getRight() != null) {
                                 throw behavior.getRight().get();
@@ -607,7 +607,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                 })
                 .build()) {
             IndexingBase.TimeLimitException e = assertThrows(IndexingBase.TimeLimitException.class, indexer::buildIndex);
-            assertTrue(e.getMessage().contains("Time Limit Exceeded"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("Time Limit Exceeded"));
         }
     }
 

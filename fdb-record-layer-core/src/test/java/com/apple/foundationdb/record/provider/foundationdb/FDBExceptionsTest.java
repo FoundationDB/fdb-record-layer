@@ -42,6 +42,7 @@ import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -91,7 +92,7 @@ class FDBExceptionsTest {
         LoggableException ex = assertThrows(LoggableException.class, () -> database.asyncToSync(new FDBStoreTimer(), FDBStoreTimer.Waits.WAIT_COMMIT, delayed));
         Map<String, Object> logInfo = ex.getLogInfo();
         assertTrue(logInfo.containsKey(LogMessageKeys.TIME_LIMIT.toString()));
-        Assertions.assertEquals((long)(logInfo.get(LogMessageKeys.TIME_LIMIT.toString())), TimeUnit.MILLISECONDS.toNanos(1L));
+        Assertions.assertEquals((long)Objects.requireNonNull(logInfo.get(LogMessageKeys.TIME_LIMIT.toString())), TimeUnit.MILLISECONDS.toNanos(1L));
         assertTrue(logInfo.containsKey(LogMessageKeys.TIME_UNIT.toString()));
         Assertions.assertEquals(logInfo.get(LogMessageKeys.TIME_UNIT.toString()), TimeUnit.NANOSECONDS);
     }
