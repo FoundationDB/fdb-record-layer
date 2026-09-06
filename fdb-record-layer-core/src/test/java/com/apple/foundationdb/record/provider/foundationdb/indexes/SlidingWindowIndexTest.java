@@ -1746,6 +1746,10 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
      */
     private static class StubIndexMaintainer extends IndexMaintainer {
         private static final Tuple SENTINEL_TUPLE = Tuple.from(42L);
+        // The null Index is intentional: this sentinel is only used to verify that StubIndexMaintainer's
+        // delegate methods forward their return value unchanged (via equals()); the index field itself
+        // is never read by any test using this sentinel.
+        @SuppressWarnings("NullAway")
         private static final IndexEntry SENTINEL_ENTRY =
                 new IndexEntry(null, Tuple.from(1L), Tuple.from());
         private static final IndexOperationResult SENTINEL_OP_RESULT = new IndexOperationResult() { };
@@ -1902,6 +1906,9 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // these delegate methods' continuation parameters are declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void delegateMethodsWithMock() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC);
