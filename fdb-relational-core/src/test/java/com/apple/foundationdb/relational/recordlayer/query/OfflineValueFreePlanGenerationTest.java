@@ -57,8 +57,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class OfflineValueFreePlanGenerationTest {
 
-    private static final Type LONG_TYPE = Type.primitiveType(Type.TypeCode.LONG).notNullable();
-    private static final Type NULLABLE_LONG_TYPE = Type.primitiveType(Type.TypeCode.LONG).nullable();
 
     /**
      * A declared type is enough to plan a named parameter that has no value, and the resulting constraint cannot be
@@ -72,7 +70,7 @@ class OfflineValueFreePlanGenerationTest {
                         NoOpMetadataOperationsFactory.INSTANCE,
                         NoOpMetricCollector.INSTANCE,
                         Options.NONE,
-                        PreparedParams.empty().withDeclaredTypes(Map.of("param_a", LONG_TYPE)))
+                        PreparedParams.empty().withDeclarations(Map.of("param_a", "BIGINT")))
                 .getPlan("select title from books where id = ?param_a");
 
         final var constraint = plan.getConstraint();
@@ -97,7 +95,7 @@ class OfflineValueFreePlanGenerationTest {
                         new RecordStoreState(null, null),
                         NoOpMetricCollector.INSTANCE,
                         Options.NONE,
-                        PreparedParams.empty().withDeclaredTypes(Map.of("param_a", LONG_TYPE)))
+                        PreparedParams.empty().withDeclarations(Map.of("param_a", "BIGINT")))
                 .getPlan("select title from books where id = ?param_a");
 
         assertThat(plan.getConstraint().isConstrained()).isTrue();
@@ -107,62 +105,62 @@ class OfflineValueFreePlanGenerationTest {
     }
 
     /**
-     * The declared type's nullability is the whole of what says which bindings the plan serves. A {@code NOT NULL}
-     * declaration is warmed for the non-null case only, so a null binding does not match and the query is planned
-     * again.
+     * A value-free plan is warmed for the non-null case only, so a null binding does not match it and the query is
+     * planned again with the value in hand.
      */
     @Test
-    void nonNullableDeclaredTypeRejectsANullBinding() throws Exception {
-        final var constraint = valueFreePlanConstraint(LONG_TYPE);
+    void aDeclaredTypeRejectsANullBinding() throws Exception {
+        final var constraint = valueFreePlanConstraint("BIGINT");
 
         assertThat(constraint.compileTimeEval(bindingConstantsOf(constraint, 42L))).isTrue();
         assertThat(constraint.compileTimeEval(bindingConstantsOf(constraint, null))).isFalse();
     }
 
     /**
-     * A nullable declaration is warmed for every value the type admits — null included — and that is expressed by the
-     * type alone: no separate "is not null" predicate is emitted, so there is nothing to contradict the declaration.
+     * A declaration that says {@code NULL} is no different. A declaration is resolved to a non-nullable type whatever it
+     * says about nullability, because it is only ever resolved for a parameter left without a value — and no single plan
+     * is correct for both a null and a non-null binding. That makes the rule structural rather than something each
+     * caller has to remember.
      */
     @Test
-    void nullableDeclaredTypeAcceptsANullBinding() throws Exception {
-        final var constraint = valueFreePlanConstraint(NULLABLE_LONG_TYPE);
+    void aNullableDeclarationStillRejectsANullBinding() throws Exception {
+        final var constraint = valueFreePlanConstraint("BIGINT NULL");
 
         assertThat(constraint.compileTimeEval(bindingConstantsOf(constraint, 42L))).isTrue();
-        assertThat(constraint.compileTimeEval(bindingConstantsOf(constraint, null))).isTrue();
+        assertThat(constraint.compileTimeEval(bindingConstantsOf(constraint, null))).isFalse();
+        assertThat(constraint).isEqualTo(valueFreePlanConstraint("BIGINT NOT NULL"));
     }
 
     /**
-     * A non-nullable declaration produces the same constraint as planning the query with a concrete non-null value
-     * does. The constraint is the plan cache key, so equal constraints mean a warmed plan and a plan built later at
-     * runtime cannot become two competing entries for one binding.
+     * A declaration produces the same constraint as planning the query with a concrete non-null value does. The
+     * constraint is the plan cache key, so equal constraints mean a warmed plan and a plan built later at runtime cannot
+     * become two competing entries for one binding.
      */
     @Test
-    void nonNullableDeclaredTypeConstrainsAsABoundValueDoes() throws Exception {
-        final var warmed = valueFreePlanConstraint(LONG_TYPE);
+    void aDeclaredTypeConstrainsAsABoundValueDoes() throws Exception {
+        final var warmed = valueFreePlanConstraint("BIGINT");
         final var fromValue = planConstraint(PreparedParams.ofNamed(Map.of("param_a", 42L)));
 
         assertThat(warmed).isEqualTo(fromValue);
     }
 
     /**
-     * A nullable declaration deliberately does not match, since it admits a null the bound plan's constraint excludes.
-     * Stored-query warm-up therefore never leaves a parameter nullable and value-free at once.
+     * A declaration naming a schema template type cannot be resolved from a declaration alone, and is reported rather
+     * than guessed: a wrong type would warm a plan no binding could match.
      */
     @Test
-    void nullableDeclaredTypeConstrainsMoreLooselyThanABoundValue() throws Exception {
-        final var warmed = valueFreePlanConstraint(NULLABLE_LONG_TYPE);
-        final var fromValue = planConstraint(PreparedParams.ofNamed(Map.of("param_a", 42L)));
-
-        assertThat(warmed).isNotEqualTo(fromValue);
+    void aSchemaTemplateTypeCannotBeResolvedFromADeclaration() {
+        assertThatThrownBy(() -> valueFreePlanConstraint("TYPE some_struct"))
+                .hasMessageContaining("cannot resolve declared type");
     }
 
     /**
-     * Plans {@code where id = ?param_a} with {@code param_a} declared as {@code declaredType} and no value, and returns
+     * Plans {@code where id = ?param_a} with {@code param_a} declared as {@code declaration} and no value, and returns
      * the plan's constraint.
      */
     @Nonnull
-    private QueryPlanConstraint valueFreePlanConstraint(@Nonnull final Type declaredType) throws Exception {
-        return planConstraint(PreparedParams.empty().withDeclaredTypes(Map.of("param_a", declaredType)));
+    private QueryPlanConstraint valueFreePlanConstraint(@Nonnull final String declaration) throws Exception {
+        return planConstraint(PreparedParams.empty().withDeclarations(Map.of("param_a", declaration)));
     }
 
     /**
