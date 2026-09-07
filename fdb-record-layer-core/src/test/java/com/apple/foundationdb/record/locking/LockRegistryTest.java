@@ -32,7 +32,6 @@ import com.apple.test.RandomSeedSource;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -56,7 +55,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -500,8 +498,8 @@ public class LockRegistryTest {
     @ParameterizedTest(name = "lockRegistryStressTest[seed={0}]")
     @RandomSeedSource(value = {0x0fdb5eed, 0xba5eba11})
     void lockRegistryStressTest(long seed) throws Exception {
-        final Map<LockIdentifier, AtomicInteger> expectedValues = new HashMap<>();
-        final Map<LockIdentifier, AtomicInteger> currentValues = new ConcurrentHashMap<>();
+        final Map<LockIdentifier, Integer> expectedValues = new HashMap<>();
+        final Map<LockIdentifier, Integer> currentValues = new ConcurrentHashMap<>();
 
         final Deque<CompletableFuture<Void>> currentWork = new ArrayDeque<>();
         final RuntimeException errorThrownInTasks = new RuntimeException("thrown in task");
@@ -527,15 +525,7 @@ public class LockRegistryTest {
                 .isEmpty();
         // Make sure that after all operations have completed, the expected values and current values match
         assertThat(currentValues)
-                .hasSameSizeAs(expectedValues)
-                .allSatisfy((lockId, currentValue) ->
-                        assertThat(expectedValues)
-                                .hasEntrySatisfying(lockId, expectedValue ->
-                                        assertThat(expectedValue.get())
-                                                .as("current and expected values for lock ID %s should match after all tasks are run", lockId)
-                                                .isEqualTo(currentValue.get())
-                                )
-                );
+                .isEqualTo(expectedValues);
         assertThat(timer.getCount(FDBStoreTimer.DetailEvents.LOCKS_REGISTERED))
                 .isEqualTo(opCount);
         assertThat(timer.getCount(FDBStoreTimer.DetailEvents.LOCKS_ACQUIRED))
@@ -547,36 +537,34 @@ public class LockRegistryTest {
     }
 
     @Nonnull
-    private CompletableFuture<Void> createRandomTask(@Nonnull Random r, @Nonnull RuntimeException errorThrownInTask, @Nonnull Map<LockIdentifier, AtomicInteger> expectedValues, @Nonnull Map<LockIdentifier, AtomicInteger> currentValues) {
+    private CompletableFuture<Void> createRandomTask(@Nonnull Random r, @Nonnull RuntimeException errorThrownInTask, @Nonnull Map<LockIdentifier, Integer> expectedValues, @Nonnull Map<LockIdentifier, Integer> currentValues) {
         // Pick a random lock via a Gaussian distribution. This ensures that we have a mix of
         // locks with a contention (those with IDs near the median) as well as lock IDs which
         // are rarely hit
         final int idNum = (int) r.nextGaussian(0, 5);
         final LockIdentifier lockId = new LockIdentifier(new Subspace(Tuple.from(idNum)));
-        final AtomicInteger expected = expectedValues.computeIfAbsent(lockId, ignore -> new AtomicInteger());
+        final int expected = expectedValues.computeIfAbsent(lockId, ignore -> 0);
         // Fail a sample of tasks to validate that we aren't accidentally chaining a callback off of only a successful future
         final boolean fail = r.nextDouble() < 0.2;
         if (r.nextDouble() < 0.1) {
             // Write operation.
-            int newValue = expected.incrementAndGet();
+            expectedValues.put(lockId, expected + 1);
             return registry.doWithWriteLock(lockId, supplyWithRandomDelay(r, () -> {
-                final AtomicInteger currentValue = currentValues.computeIfAbsent(lockId, ignore -> new AtomicInteger());
-                int newCurrentValue = currentValue.incrementAndGet();
-                assertThat(newCurrentValue)
+                final int currentValue = currentValues.compute(lockId, (id, value) -> value == null ? 1 : value + 1);
+                assertThat(currentValue)
                         .as("new value for lock ID %s should match expected", lockId)
-                        .isEqualTo(newValue);
+                        .isEqualTo(expected + 1);
                 if (fail) {
                     throw errorThrownInTask;
                 }
             }));
         } else {
             // Read operation.
-            final int expectedInt = expected.intValue();
             return registry.doWithReadLock(lockId, supplyWithRandomDelay(r, () -> {
-                final AtomicInteger currentValue = currentValues.computeIfAbsent(lockId, ignore -> new AtomicInteger());
-                assertThat(currentValue.get())
+                final int currentValue = currentValues.computeIfAbsent(lockId, ignore -> 0);
+                assertThat(currentValue)
                         .as("value for lock ID %s should match expected", lockId)
-                        .isEqualTo(expectedInt);
+                        .isEqualTo(expected);
                 if (fail) {
                     throw errorThrownInTask;
                 }
