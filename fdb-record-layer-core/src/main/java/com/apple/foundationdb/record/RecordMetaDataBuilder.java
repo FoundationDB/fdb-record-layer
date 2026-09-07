@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegist
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.protobuf.DescriptorProtos;
@@ -250,8 +251,17 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             for (final RecordMetaDataProto.PStoredQuery.PStoredQueryParameter parameterProto : proto.getParametersList()) {
                 parameters.put(parameterProto.getName(), parameterProto.getDeclaredType());
             }
+            final ImmutableList.Builder<Map<String, String>> preparedCases = ImmutableList.builder();
+            for (final RecordMetaDataProto.PStoredQuery.PPreparedCase caseProto : proto.getPreparedCasesList()) {
+                final ImmutableMap.Builder<String, String> parameterStates = ImmutableMap.builder();
+                for (final RecordMetaDataProto.PStoredQuery.PPreparedCase.PParameterState stateProto
+                        : caseProto.getParameterStatesList()) {
+                    parameterStates.put(stateProto.getName(), stateProto.getState());
+                }
+                preparedCases.add(parameterStates.buildKeepingLast());
+            }
             storedQueries.put(proto.getName(), new RecordMetaData.StoredQuery(proto.getQuery(), tempFunctions,
-                    parameters.buildKeepingLast()));
+                    parameters.buildKeepingLast(), preparedCases.build()));
         }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();
@@ -1236,8 +1246,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     public void addStoredQuery(@Nonnull String name, @Nonnull String storedQuery, @Nonnull List<String> tempFunctions,
-                               @Nonnull Map<String, String> parameters) {
-        storedQueries.put(name, new RecordMetaData.StoredQuery(storedQuery, tempFunctions, parameters));
+                               @Nonnull Map<String, String> parameters,
+                               @Nonnull List<Map<String, String>> preparedCases) {
+        storedQueries.put(name, new RecordMetaData.StoredQuery(storedQuery, tempFunctions, parameters, preparedCases));
     }
 
     public boolean isSplitLongRecords() {
