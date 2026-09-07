@@ -38,7 +38,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Random;
@@ -49,7 +48,6 @@ import static com.apple.foundationdb.linear.RealVectorTest.createRandomDoubleVec
 public class RaBitQuantizerTest {
     private static final Logger logger = LoggerFactory.getLogger(RaBitQuantizerTest.class);
 
-    @Nonnull
     private static Stream<Arguments> randomSeedsWithNumDimensionsAndNumExBits() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L)
                 .flatMap(seed ->
@@ -59,7 +57,6 @@ public class RaBitQuantizerTest {
                                 .map(arguments -> Arguments.of(seed, arguments.get(0), arguments.get(1))));
     }
 
-    @Nonnull
     private static Stream<Arguments> randomSeedsWithMetricsNumDimensionsAndNumExBits() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L)
                 .flatMap(seed ->
@@ -264,7 +261,6 @@ public class RaBitQuantizerTest {
         Assertions.assertThat(estimatedDistance).isCloseTo(-1.0d, Offset.offset(0.01));
     }
 
-    @Nonnull
     private static Stream<Arguments> estimationArgs() {
         return Stream.of(
                 Arguments.of(new double[]{0.5d, 0.5d}, new double[]{1.0d, 1.0d}, new double[]{-1.0d, 1.0d}, 4.0d),
@@ -325,11 +321,12 @@ public class RaBitQuantizerTest {
                 if (sum == null) {
                     sum = v;
                 } else {
-                    sum.add(v);
+                    sum = sum.add(v);
                 }
             }
             Objects.requireNonNull(v);
             Objects.requireNonNull(q);
+            Objects.requireNonNull(sum);
 
             final RealVector centroid = sum.multiply(1.0d / numVectorsForCentroid);
 
@@ -388,7 +385,7 @@ public class RaBitQuantizerTest {
 
     @ParameterizedTest
     @MethodSource("randomSeedsWithMetricsNumDimensionsAndNumExBits")
-    void encodeManyWithEstimationsCosineDotProductMetricTest(final long seed, @Nonnull final Metric metric,
+    void encodeManyWithEstimationsCosineDotProductMetricTest(final long seed, final Metric metric,
                                                              final int numDimensions, final int numExBits) {
         final Random random = new Random(seed);
         final FhtKacRotator rotator = new FhtKacRotator(seed, numDimensions, 10);

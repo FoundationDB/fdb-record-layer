@@ -21,10 +21,10 @@
 package com.apple.foundationdb.async;
 
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An implementation of the {@link AsyncPeekIterator} interface that wraps a regular
@@ -36,7 +36,6 @@ import javax.annotation.Nullable;
  * @param <T> type of elements returned by this iterator
  */
 class WrappingAsyncPeekIterator<T> implements AsyncPeekCallbackIterator<T> {
-    @Nonnull
     private AsyncIterator<T> underlying;
     @Nullable
     private CompletableFuture<Boolean> hasNextFuture;
@@ -44,14 +43,13 @@ class WrappingAsyncPeekIterator<T> implements AsyncPeekCallbackIterator<T> {
     private boolean hasCurrent;
     @Nullable
     private T nextItem;
-    @Nonnull
     private Consumer<T> callback;
 
-    WrappingAsyncPeekIterator(@Nonnull AsyncIterator<T> underlying) {
+    WrappingAsyncPeekIterator(AsyncIterator<T> underlying) {
         this(underlying, t -> { });
     }
 
-    WrappingAsyncPeekIterator(@Nonnull AsyncIterator<T> underlying, @Nonnull Consumer<T> callback) {
+    WrappingAsyncPeekIterator(AsyncIterator<T> underlying, Consumer<T> callback) {
         this.underlying = underlying;
         this.callback = callback;
         this.done = false;
@@ -90,7 +88,8 @@ class WrappingAsyncPeekIterator<T> implements AsyncPeekCallbackIterator<T> {
         if (done) {
             throw new NoSuchElementException();
         } else if (hasCurrent || hasNext()) {
-            return nextItem;
+            // hasCurrent (or hasNext() having just made it so) guarantees nextItem was set below.
+            return Objects.requireNonNull(nextItem);
         } else {
             throw new NoSuchElementException();
         }
@@ -110,12 +109,11 @@ class WrappingAsyncPeekIterator<T> implements AsyncPeekCallbackIterator<T> {
     }
 
     @Override
-    public void setCallback(@Nonnull Consumer<T> callback) {
+    public void setCallback(Consumer<T> callback) {
         this.callback = callback;
     }
 
     @Override
-    @Nonnull
     public Consumer<T> getCallback() {
         return callback;
     }

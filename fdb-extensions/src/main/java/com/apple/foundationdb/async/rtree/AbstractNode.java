@@ -24,8 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -36,10 +35,8 @@ import java.util.stream.Stream;
  * @param <N> node type class. This is also called the self type.
  */
 abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> implements Node {
-    @Nonnull
     private final byte[] id;
 
-    @Nonnull
     private List<S> nodeSlots;
 
     @Nullable
@@ -49,7 +46,7 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
     @Nullable
     private AbstractChangeSet<S, N> changeSet;
 
-    protected AbstractNode(@Nonnull final byte[] id, @Nonnull final List<S> nodeSlots,
+    protected AbstractNode(final byte[] id, final List<S> nodeSlots,
                            @Nullable final IntermediateNode parentNode, final int slotIndexInParent) {
         this.id = id;
         this.nodeSlots = nodeSlots;
@@ -66,7 +63,6 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
      */
     protected abstract N getThis();
 
-    @Nonnull
     @Override
     public byte[] getId() {
         return id;
@@ -76,7 +72,6 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
      * Return the slots of this node as a list. Note that the result type is covariant.
      * @return a list of node slots
      */
-    @Nonnull
     @Override
     public List<S> getSlots() {
         return nodeSlots;
@@ -86,7 +81,6 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
      * Return a sub range of the slots of this node as a list. Note that the result type is covariant.
      * @return a list of node slots
      */
-    @Nonnull
     @Override
     public List<S> getSlots(final int startIndexInclusive, final int endIndexExclusive) {
         return nodeSlots.subList(startIndexInclusive, endIndexExclusive);
@@ -102,13 +96,11 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
         return nodeSlots.isEmpty();
     }
 
-    @Nonnull
     @Override
     public S getSlot(final int index) {
         return getSlots().get(index);
     }
 
-    @Nonnull
     @Override
     public Stream<? extends NodeSlot> slotsStream() {
         return nodeSlots.stream();
@@ -130,12 +122,10 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
      * @param slot a slot
      * @return the same slot that was passed in, but of type {@code S}
      */
-    @Nonnull
-    public abstract S narrowSlot(@Nonnull NodeSlot slot);
+    public abstract S narrowSlot(NodeSlot slot);
 
-    @Nonnull
     @Override
-    public N moveInSlots(@Nonnull final StorageAdapter storageAdapter, @Nonnull final Iterable<? extends NodeSlot> slots) {
+    public N moveInSlots(final StorageAdapter storageAdapter, final Iterable<? extends NodeSlot> slots) {
         final AbstractStorageAdapter abstractStorageAdapter = (AbstractStorageAdapter)storageAdapter;
         final N self = getThis();
         final List<S> narrowedSlots = Streams.stream(slots).map(this::narrowSlot).collect(ImmutableList.toImmutableList());
@@ -144,16 +134,14 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
         return self;
     }
 
-    @Nonnull
     @Override
-    public N moveOutAllSlots(@Nonnull final StorageAdapter storageAdapter) {
+    public N moveOutAllSlots(final StorageAdapter storageAdapter) {
         return deleteAllSlots(storageAdapter, -1);
     }
 
-    @Nonnull
     @Override
-    public N insertSlot(@Nonnull final StorageAdapter storageAdapter, final int level, final int slotIndex,
-                        @Nonnull final NodeSlot slot) {
+    public N insertSlot(final StorageAdapter storageAdapter, final int level, final int slotIndex,
+                        final NodeSlot slot) {
         final AbstractStorageAdapter abstractStorageAdapter = (AbstractStorageAdapter)storageAdapter;
         final N self = getThis();
         final S narrowedSlot = narrowSlot(slot);
@@ -162,10 +150,9 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
         return self;
     }
 
-    @Nonnull
     @Override
-    public Node updateSlot(@Nonnull final StorageAdapter storageAdapter, final int level, final int slotIndex,
-                           @Nonnull final NodeSlot updatedSlot) {
+    public Node updateSlot(final StorageAdapter storageAdapter, final int level, final int slotIndex,
+                           final NodeSlot updatedSlot) {
         final AbstractStorageAdapter abstractStorageAdapter = (AbstractStorageAdapter)storageAdapter;
         final N self = getThis();
         final S narrowedSlot = narrowSlot(updatedSlot);
@@ -174,9 +161,8 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
         return self;
     }
 
-    @Nonnull
     @Override
-    public Node deleteSlot(@Nonnull final StorageAdapter storageAdapter, final int level, final int slotIndex) {
+    public Node deleteSlot(final StorageAdapter storageAdapter, final int level, final int slotIndex) {
         final AbstractStorageAdapter abstractStorageAdapter = (AbstractStorageAdapter)storageAdapter;
         final N self = getThis();
         final S narrowedSlot = nodeSlots.get(slotIndex);
@@ -185,9 +171,8 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
         return self;
     }
 
-    @Nonnull
     @Override
-    public N deleteAllSlots(@Nonnull final StorageAdapter storageAdapter, final int level) {
+    public N deleteAllSlots(final StorageAdapter storageAdapter, final int level) {
         final AbstractStorageAdapter abstractStorageAdapter = (AbstractStorageAdapter)storageAdapter;
         final N self = getThis();
         this.changeSet = abstractStorageAdapter.newDeleteChangeSet(self, level, this.nodeSlots);
@@ -207,7 +192,7 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
     }
 
     @Override
-    public void linkToParent(@Nonnull final IntermediateNode parentNode, final int slotInParent) {
+    public void linkToParent(final IntermediateNode parentNode, final int slotInParent) {
         this.parentNode = parentNode;
         this.slotIndexInParent = slotInParent;
     }
@@ -218,15 +203,16 @@ abstract class AbstractNode<S extends NodeSlot, N extends AbstractNode<S, N>> im
      * @param nodeId node id for the new node
      * @return a new node of type {@code N}
      */
-    @Nonnull
     @Override
-    public abstract N newOfSameKind(@Nonnull byte[] nodeId);
+    public abstract N newOfSameKind(byte[] nodeId);
 
     @Override
-    @Nonnull
     public String toString() {
+        // Captured once rather than calling getParentNode() twice (once to check for null, once to dereference);
+        // SpotBugs (NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE) cannot tell that two separate calls would agree.
+        final IntermediateNode parent = getParentNode();
         return "[" + getKind().name() + ": id = " + NodeHelpers.bytesToHex(getId()) + "; parent = " +
-               (getParentNode() == null ? "null" : NodeHelpers.bytesToHex(getParentNode().getId())) + "; slotInParent = " +
+               (parent == null ? "null" : NodeHelpers.bytesToHex(parent.getId())) + "; slotInParent = " +
                getSlotInParent() + "]";
     }
 }

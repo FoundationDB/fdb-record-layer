@@ -22,8 +22,8 @@ package com.apple.foundationdb.util;
 
 import com.google.common.base.Preconditions;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
@@ -39,7 +39,7 @@ public class StringUtils {
      * @param s string to test for numeric characters
      * @return whether {@code s} contains only numeric characters
      */
-    public static boolean isNumeric(@Nonnull String s) {
+    public static boolean isNumeric(String s) {
         return isNumeric(s, 0);
     }
 
@@ -52,7 +52,7 @@ public class StringUtils {
      * @return whether the substring of {@code s} beginning at {@code beginIndex} is non-empty and contains only
      *     numeric characters
      */
-    public static boolean isNumeric(@Nonnull String s, int beginIndex) {
+    public static boolean isNumeric(String s, int beginIndex) {
         return isNumeric(s, beginIndex, s.length());
     }
 
@@ -66,7 +66,7 @@ public class StringUtils {
      * @return whether the substring of {@code s} beginning at {@code beginIndex} and ending at {@code endIndex}
      *     is non-empty and contains only numeric characters
      */
-    public static boolean isNumeric(@Nonnull String s, int beginIndex, int endIndex) {
+    public static boolean isNumeric(String s, int beginIndex, int endIndex) {
         Preconditions.checkArgument(beginIndex >= 0 && beginIndex <= s.length(),
                 "beginIndex should be within bounds");
         Preconditions.checkArgument(endIndex >= beginIndex && endIndex <= s.length(),
@@ -132,7 +132,7 @@ public class StringUtils {
         }
 
         @Nullable
-        public Replacement nextOccurrence(@Nonnull String source) {
+        public Replacement nextOccurrence(String source) {
             int nextIndex = source.indexOf(toReplace, index + 1);
             return nextIndex < 0 ? null : new Replacement(nextIndex, toReplace, replaceWith);
         }
@@ -183,8 +183,7 @@ public class StringUtils {
      * @return a string composed by replacing all occurrences of the {@code replaceMap} keys in {@code source}
      *     with their values
      */
-    @Nonnull
-    public static String replaceEach(@Nonnull String source, @Nonnull Map<String, String> replaceMap) {
+    public static String replaceEach(String source, Map<String, String> replaceMap) {
         if (source.isEmpty() || replaceMap.isEmpty()) {
             return source;
         }
@@ -241,7 +240,7 @@ public class StringUtils {
      * @param searchStr the string to search through
      * @return whether some substring of {@code source} is equal to {@code searchStr} ignoring case
      */
-    public static boolean containsIgnoreCase(@Nonnull String source, @Nonnull String searchStr) {
+    public static boolean containsIgnoreCase(String source, String searchStr) {
         if (source.length() < searchStr.length()) {
             return false;
         } else if (source.length() == searchStr.length()) {

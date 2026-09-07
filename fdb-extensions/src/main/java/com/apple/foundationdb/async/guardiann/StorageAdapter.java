@@ -32,7 +32,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
@@ -91,33 +90,20 @@ class StorageAdapter {
      */
     private static final long SUBSPACE_PREFIX_TASKS = 0x07;
 
-    @Nonnull
     private final Config config;
-    @Nonnull
     private final Subspace subspace;
-    @Nonnull
     private final OnWriteListener onWriteListener;
-    @Nonnull
     private final OnReadListener onReadListener;
 
-    @Nonnull
     private final Supplier<Subspace> accessInfoSubspaceSupplier;
-    @Nonnull
     private final Supplier<Subspace> clusterCentroidsSubspaceSupplier;
-    @Nonnull
     private final Supplier<Subspace> clusterMetadataSubspaceSupplier;
-    @Nonnull
     private final Supplier<Subspace> vectorReferencesSubspaceSupplier;
-    @Nonnull
     private final Supplier<Subspace> collapsedVectorIdsSubspaceSupplier;
-    @Nonnull
     private final Supplier<Subspace> vectorMetadataSubspaceSupplier;
-    @Nonnull
     private final Supplier<Subspace> samplesSubspaceSupplier;
-    @Nonnull
     private final Supplier<Subspace> tasksSubspaceSupplier;
 
-    @Nonnull
     private final Supplier<com.apple.foundationdb.async.hnsw.Config> clusterCentroidsHnswConfigSupplier;
 
     /**
@@ -131,10 +117,10 @@ class StorageAdapter {
      * @param onWriteListener the listener to be called on write operations
      * @param onReadListener the listener to be called on read operations
      */
-    StorageAdapter(@Nonnull final Config config,
-                   @Nonnull final Subspace subspace,
-                   @Nonnull final OnWriteListener onWriteListener,
-                   @Nonnull final OnReadListener onReadListener) {
+    StorageAdapter(final Config config,
+                   final Subspace subspace,
+                   final OnWriteListener onWriteListener,
+                   final OnReadListener onReadListener) {
         this.config = config;
         this.subspace = subspace;
         this.onWriteListener = onWriteListener;
@@ -159,72 +145,58 @@ class StorageAdapter {
         this.clusterCentroidsHnswConfigSupplier = Suppliers.memoize(this::computeClusterCentroidHnswConfig);
     }
 
-    @Nonnull
     Config getConfig() {
         return config;
     }
 
-    @Nonnull
     Subspace getSubspace() {
         return subspace;
     }
 
-    @Nonnull
     public Subspace getAccessInfoSubspace() {
         return accessInfoSubspaceSupplier.get();
     }
 
-    @Nonnull
     Subspace getClusterCentroidsSubspace() {
         return clusterCentroidsSubspaceSupplier.get();
     }
 
-    @Nonnull
     public Subspace getClusterMetadataSubspace() {
         return clusterMetadataSubspaceSupplier.get();
     }
 
-    @Nonnull
     public Subspace getVectorReferencesSubspace() {
         return vectorReferencesSubspaceSupplier.get();
     }
 
-    @Nonnull
     public Subspace getCollapsedVectorIdsSubspace() {
         return collapsedVectorIdsSubspaceSupplier.get();
     }
 
-    @Nonnull
     public Subspace getVectorMetadataSubspace() {
         return vectorMetadataSubspaceSupplier.get();
     }
 
-    @Nonnull
     public Subspace getSamplesSubspace() {
         return samplesSubspaceSupplier.get();
     }
 
-    @Nonnull
     public Subspace getTasksSubspace() {
         return tasksSubspaceSupplier.get();
     }
 
-    @Nonnull
     OnWriteListener getOnWriteListener() {
         return onWriteListener;
     }
 
-    @Nonnull
     OnReadListener getOnReadListener() {
         return onReadListener;
     }
 
-    @Nonnull
     com.apple.foundationdb.async.hnsw.Config getClusterCentroidsHnswConfig() {
         return clusterCentroidsHnswConfigSupplier.get();
     }
 
-    @Nonnull
     private com.apple.foundationdb.async.hnsw.Config computeClusterCentroidHnswConfig() {
         final Config config = getConfig();
         return HNSW.newConfigBuilder()
@@ -240,37 +212,41 @@ class StorageAdapter {
                 .build(config.numDimensions());
     }
 
-    @Nonnull
-    static AccessInfo accessInfoFromTuple(@Nonnull final Config config, @Nonnull final Tuple valueTuple) {
+    static AccessInfo accessInfoFromTuple(final Config config, final Tuple valueTuple) {
         final long rotatorSeed = valueTuple.getLong(0);
         final Tuple centroidVectorTuple = valueTuple.getNestedTuple(1);
         return new AccessInfo(rotatorSeed,
                 centroidVectorTuple == null ? null : StorageHelpers.vectorFromTuple(config, centroidVectorTuple));
     }
 
-    @Nonnull
-    static Tuple tupleFromAccessInfo(@Nonnull final AccessInfo accessInfo) {
-        return Tuple.from(accessInfo.rotatorSeed(),
+    static Tuple tupleFromAccessInfo(final AccessInfo accessInfo) {
+        // Tuple.from(Object...) is from the unannotated fdb-java client library and genuinely supports null
+        // elements (a null centroid tuple represents "RaBitQ not in use"), but its varargs parameter is
+        // treated as @NonNull by NullAway's defaults.
+        @SuppressWarnings("NullAway")
+        final Tuple result = Tuple.from(accessInfo.rotatorSeed(),
                 accessInfo.canUseRaBitQ() ? StorageHelpers.tupleFromVector(accessInfo.negatedCentroid()) : null);
+        return result;
     }
 
-    @Nonnull
-    static VectorMetadata vectorMetadataFromTuple(@Nonnull final Tuple primaryKey, @Nonnull final Tuple valueTuple) {
+    static VectorMetadata vectorMetadataFromTuple(final Tuple primaryKey, final Tuple valueTuple) {
         return new VectorMetadata(primaryKey, valueTuple.getUUID(0), valueTuple.getNestedTuple(1));
     }
 
-    @Nonnull
-    static Tuple valueTupleFromVectorMetadata(@Nonnull final VectorMetadata vectorMetadata) {
-        return Tuple.from(vectorMetadata.vectorId().uuid(), vectorMetadata.additionalValues());
+    static Tuple valueTupleFromVectorMetadata(final VectorMetadata vectorMetadata) {
+        // Tuple.from(Object...) is from the unannotated fdb-java client library and genuinely supports null
+        // elements, but its varargs parameter is treated as @NonNull by NullAway's defaults;
+        // additionalValues() may legitimately be absent.
+        @SuppressWarnings("NullAway")
+        final Tuple result = Tuple.from(vectorMetadata.vectorId().uuid(), vectorMetadata.additionalValues());
+        return result;
     }
 
-    @Nonnull
-    static UUID clusterIdFromTuple(@Nonnull final Tuple tuple) {
+    static UUID clusterIdFromTuple(final Tuple tuple) {
         return tuple.getUUID(0);
     }
 
-    @Nonnull
-    static Tuple tupleFromClusterId(@Nonnull final UUID clusterId) {
+    static Tuple tupleFromClusterId(final UUID clusterId) {
         return Tuple.from(clusterId);
     }
 
@@ -281,8 +257,7 @@ class StorageAdapter {
      *
      * @return a tuple encoding the cluster ids
      */
-    @Nonnull
-    public static Tuple tupleFromClusterIds(@Nonnull final Set<UUID> clusterIds) {
+    public static Tuple tupleFromClusterIds(final Set<UUID> clusterIds) {
         return tupleFromUuids(clusterIds);
     }
 
@@ -293,8 +268,7 @@ class StorageAdapter {
      *
      * @return the decoded set of cluster ids
      */
-    @Nonnull
-    public static Set<UUID> clusterIdsFromTuple(@Nonnull final Tuple clusterIdsAsTuple) {
+    public static Set<UUID> clusterIdsFromTuple(final Tuple clusterIdsAsTuple) {
         return uuidsFromTuple(clusterIdsAsTuple);
     }
 
@@ -305,8 +279,7 @@ class StorageAdapter {
      *
      * @return a tuple encoding the task ids
      */
-    @Nonnull
-    public static Tuple tupleFromTaskIds(@Nonnull final Set<UUID> taskIds) {
+    public static Tuple tupleFromTaskIds(final Set<UUID> taskIds) {
         return tupleFromUuids(taskIds);
     }
 
@@ -317,18 +290,15 @@ class StorageAdapter {
      *
      * @return the decoded set of task ids
      */
-    @Nonnull
-    public static Set<UUID> taskIdsFromTuple(@Nonnull final Tuple taskIdsAsTuple) {
+    public static Set<UUID> taskIdsFromTuple(final Tuple taskIdsAsTuple) {
         return uuidsFromTuple(taskIdsAsTuple);
     }
 
-    @Nonnull
-    private static Tuple tupleFromUuids(@Nonnull final Set<UUID> uuids) {
+    private static Tuple tupleFromUuids(final Set<UUID> uuids) {
         return Tuple.fromItems(uuids);
     }
 
-    @Nonnull
-    private static Set<UUID> uuidsFromTuple(@Nonnull final Tuple uuidsAsTuple) {
+    private static Set<UUID> uuidsFromTuple(final Tuple uuidsAsTuple) {
         final ImmutableSet.Builder<UUID> resultBuilder = ImmutableSet.builder();
         for (int i = 0; i < uuidsAsTuple.size(); i ++) {
             resultBuilder.add(uuidsAsTuple.getUUID(i));
@@ -336,8 +306,7 @@ class StorageAdapter {
         return resultBuilder.build();
     }
 
-    @Nonnull
-    static ClusterMetadata clusterMetadataFromTuple(@Nonnull final Tuple valueTuple) {
+    static ClusterMetadata clusterMetadataFromTuple(final Tuple valueTuple) {
         return new ClusterMetadata(valueTuple.getUUID(0),
                 Math.toIntExact(valueTuple.getLong(1)),
                 Math.toIntExact(valueTuple.getLong(2)),
@@ -345,47 +314,41 @@ class StorageAdapter {
                 Math.toIntExact(valueTuple.getLong(4)));
     }
 
-    @Nonnull
-    static Tuple valueTupleFromClusterMetadata(@Nonnull final ClusterMetadata clusterMetadata) {
+    static Tuple valueTupleFromClusterMetadata(final ClusterMetadata clusterMetadata) {
         return Tuple.from(clusterMetadata.id(),
                 clusterMetadata.numPrimaryUnderreplicatedVectors(), clusterMetadata.numReplicatedVectors(),
                 valueTupleFromRunningStats(clusterMetadata.runningStandardDeviation()),
                 clusterMetadata.getStatesCode());
     }
 
-    @Nonnull
-    static RunningStats runningStandardDeviationFromTuple(@Nonnull final Tuple valueTuple) {
+    static RunningStats runningStandardDeviationFromTuple(final Tuple valueTuple) {
         return new RunningStats(valueTuple.getLong(0), valueTuple.getDouble(1),
                 valueTuple.getDouble(2), valueTuple.getDouble(3));
     }
 
-    @Nonnull
-    static Tuple valueTupleFromRunningStats(@Nonnull final RunningStats runningStandardDeviation) {
+    static Tuple valueTupleFromRunningStats(final RunningStats runningStandardDeviation) {
         return Tuple.from(runningStandardDeviation.numElements(), runningStandardDeviation.runningMean(),
                 runningStandardDeviation.runningSumSquaredDeviations(),
                 runningStandardDeviation.runningMaxEver());
     }
 
-    @Nonnull
-    static ClusterReference clusterReferenceFromTuple(@Nonnull final Config config,
-                                                      @Nonnull final StorageTransform storageTransform,
-                                                      @Nonnull final Tuple valueTuple) {
+    static ClusterReference clusterReferenceFromTuple(final Config config,
+                                                      final StorageTransform storageTransform,
+                                                      final Tuple valueTuple) {
         return new ClusterReference(valueTuple.getUUID(0),
                 storageTransform.transform(StorageHelpers.vectorFromBytes(config, valueTuple.getBytes(1))));
     }
 
-    @Nonnull
-    static Tuple valueTupleFromClusterReference(@Nonnull final Quantizer quantizer,
-                                                @Nonnull final ClusterReference clusterReference) {
+    static Tuple valueTupleFromClusterReference(final Quantizer quantizer,
+                                                final ClusterReference clusterReference) {
         return Tuple.from(clusterReference.clusterId(),
                 StorageHelpers.bytesFromVector(quantizer.encode(clusterReference.centroid())));
     }
 
-    @Nonnull
-    static VectorReference vectorReferenceFromTuples(@Nonnull final Config config,
-                                                     @Nonnull final StorageTransform storageTransform,
-                                                     @Nonnull final Tuple primaryKey,
-                                                     @Nonnull final Tuple valueTuple) {
+    static VectorReference vectorReferenceFromTuples(final Config config,
+                                                     final StorageTransform storageTransform,
+                                                     final Tuple primaryKey,
+                                                     final Tuple valueTuple) {
         final VectorId vectorId = new VectorId(primaryKey, valueTuple.getUUID(0));
         final VectorReference.Role role = VectorReference.Role.ofCode((int)valueTuple.getLong(1));
         final boolean isCollapsed = valueTuple.getBoolean(2);
@@ -398,9 +361,8 @@ class StorageAdapter {
         };
     }
 
-    @Nonnull
-    static Tuple valueTupleFromVectorReference(@Nonnull final Quantizer quantizer,
-                                               @Nonnull final VectorReference vectorReference) {
+    static Tuple valueTupleFromVectorReference(final Quantizer quantizer,
+                                               final VectorReference vectorReference) {
         final UUID uuid = vectorReference.id().uuid();
         final byte[] rawData = quantizer.encode(vectorReference.vector()).getUnderlyingVector().getRawData();
         final boolean isCollapsed = vectorReference.isCollapsed();
@@ -416,14 +378,12 @@ class StorageAdapter {
         return Tuple.from(uuid, role.getCode(), isCollapsed, rawData);
     }
 
-    @Nonnull
-    static VectorId collapsedVectorIdFromValueTuple(@Nonnull final Tuple primaryKey,
-                                                    @Nonnull final Tuple valueTuple) {
+    static VectorId collapsedVectorIdFromValueTuple(final Tuple primaryKey,
+                                                    final Tuple valueTuple) {
         return new VectorId(primaryKey, valueTuple.getUUID(0));
     }
 
-    @Nonnull
-    static Tuple valueTupleFromCollapsedVectorId(@Nonnull final VectorId vectorId) {
+    static Tuple valueTupleFromCollapsedVectorId(final VectorId vectorId) {
         return Tuple.from(vectorId.uuid());
     }
 
@@ -471,7 +431,7 @@ class StorageAdapter {
      * @return the replication priority score; larger values argue more strongly for replicating the vector into the
      *         candidate cluster
      */
-    static double replicationPriority(@Nonnull final Config config,
+    static double replicationPriority(final Config config,
                                       final double distance, final double distanceToPrimaryCentroid,
                                       final int num, final double mean, final double standardDeviation) {
         final double zWeight = config.replicationZScoreWeight();
@@ -510,9 +470,9 @@ class StorageAdapter {
      * @return {@code true} if the candidate is occluded by an already-selected cluster (and should be skipped),
      *         {@code false} otherwise
      */
-    static boolean isOccluded(@Nonnull final DistanceEstimator estimator,
-                              @Nonnull final ClusterMetadataWithDistance replicationCandidate,
-                              @Nonnull final List<ClusterMetadataWithDistance> selectedReplicationClusters) {
+    static boolean isOccluded(final DistanceEstimator estimator,
+                              final ClusterMetadataWithDistance replicationCandidate,
+                              final List<ClusterMetadataWithDistance> selectedReplicationClusters) {
         final double vectorToCentroidDistance = replicationCandidate.distance();
         if (!selectedReplicationClusters.isEmpty()) {
             final Transformed<RealVector> replicationCandidateCentroid =
@@ -533,8 +493,7 @@ class StorageAdapter {
         return false;
     }
 
-    @Nonnull
-    static UUID signatureUuid(@Nonnull final Transformed<RealVector> vector) {
+    static UUID signatureUuid(final Transformed<RealVector> vector) {
         return uuidFromBytes(signatureOf(vector));
     }
 
@@ -550,8 +509,7 @@ class StorageAdapter {
      * @param keyAsBytes exactly 16 bytes of hash payload
      * @return the version-8 UUID carrying those bytes
      */
-    @Nonnull
-    private static UUID uuidFromBytes(@Nonnull final byte[] keyAsBytes) {
+    private static UUID uuidFromBytes(final byte[] keyAsBytes) {
         if (keyAsBytes.length != 16) {
             throw new IllegalArgumentException("Expected 16 bytes, got " + keyAsBytes.length);
         }
@@ -571,19 +529,16 @@ class StorageAdapter {
                 ((long) (b[off + 7] & 0xff));
     }
 
-    @Nonnull
-    static byte[] signatureOf(@Nonnull final Transformed<RealVector> vector) {
+    static byte[] signatureOf(final Transformed<RealVector> vector) {
         return signatureOf(vector.getUnderlyingVector());
     }
 
-    @Nonnull
-    static byte[] signatureOf(@Nonnull final RealVector vector) {
+    static byte[] signatureOf(final RealVector vector) {
         byte[] full = sha256(vector);
         return Arrays.copyOf(full, 16);
     }
 
-    @Nonnull
-    static byte[] sha256(@Nonnull final RealVector vector) {
+    static byte[] sha256(final RealVector vector) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             md.update(vector.getRawData());
@@ -593,8 +548,7 @@ class StorageAdapter {
         }
     }
 
-    @Nonnull
-    static <T> CompletableFuture<T> requireNonNull(@Nonnull final CompletableFuture<T> future) {
+    static <T> CompletableFuture<T> requireNonNull(final CompletableFuture<T> future) {
         return future.thenApply(Objects::requireNonNull);
     }
 }

@@ -25,27 +25,24 @@ import com.apple.foundationdb.linear.DistanceEstimator;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
 
-import javax.annotation.Nonnull;
 
 public class RaBitDistanceEstimator implements DistanceEstimator {
-    @Nonnull
     private final Metric metric;
     private final int numExBits;
 
-    public RaBitDistanceEstimator(@Nonnull final Metric metric,
+    public RaBitDistanceEstimator(final Metric metric,
                                   final int numExBits) {
         this.metric = metric;
         this.numExBits = numExBits;
     }
 
-    @Nonnull
     @Override
     public Metric getMetric() {
         return metric;
     }
 
     @Override
-    public boolean isOptimized(@Nonnull final RealVector vector1, @Nonnull final RealVector vector2) {
+    public boolean isOptimized(final RealVector vector1, final RealVector vector2) {
         return vector1 instanceof EncodedRealVector || vector2 instanceof EncodedRealVector;
     }
 
@@ -54,7 +51,7 @@ public class RaBitDistanceEstimator implements DistanceEstimator {
     }
 
     @Override
-    public double distance(@Nonnull final RealVector vector1, @Nonnull final RealVector vector2) {
+    public double distance(final RealVector vector1, final RealVector vector2) {
         final double distance;
         if (!(vector1 instanceof EncodedRealVector) && vector2 instanceof EncodedRealVector) {
             // use the estimator if the first vector is not encoded, but the second is
@@ -74,13 +71,12 @@ public class RaBitDistanceEstimator implements DistanceEstimator {
         return distance;
     }
 
-    private double distance(@Nonnull final RealVector query, @Nonnull final EncodedRealVector encodedVector) {
+    private double distance(final RealVector query, final EncodedRealVector encodedVector) {
         return estimateDistanceAndErrorBound(query, encodedVector).getDistance();
     }
 
-    @Nonnull
-    public Result estimateDistanceAndErrorBound(@Nonnull final RealVector query,
-                                                @Nonnull final EncodedRealVector encodedVector) {
+    public Result estimateDistanceAndErrorBound(final RealVector query,
+                                                final EncodedRealVector encodedVector) {
         final double qNormSqr = query.l2SquaredNorm();
 
         if (metric == Metric.COSINE_METRIC) {

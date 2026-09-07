@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.guardiann;
 
 import com.google.common.collect.ImmutableListMultimap;
 
-import javax.annotation.Nonnull;
 import java.util.UUID;
 
 /**
@@ -34,6 +33,6 @@ import java.util.UUID;
  * @param replicasByCluster the replicas to place, keyed by destination cluster id
  * @param stats this primary's contribution to the replication trace counters
  */
-record ReplicaSelection(@Nonnull ImmutableListMultimap<UUID, VectorReference> replicasByCluster,
-                        @Nonnull ReplicationStats stats) {
+record ReplicaSelection(ImmutableListMultimap<UUID, VectorReference> replicasByCluster,
+                        ReplicationStats stats) {
 }

@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -144,8 +143,7 @@ class TimedAsyncIterableTest {
                 .isGreaterThanOrEqualTo(expectedMinNanos);
     }
 
-    @Nonnull
-    private static List<Integer> drain(@Nonnull final AsyncIterator<Integer> iterator) {
+    private static List<Integer> drain(final AsyncIterator<Integer> iterator) {
         final List<Integer> collected = new ArrayList<>();
         while (Boolean.TRUE.equals(iterator.onHasNext().join())) {
             collected.add(iterator.next());
@@ -154,8 +152,7 @@ class TimedAsyncIterableTest {
     }
 
     /** A minimal synchronous {@link AsyncIterable} over a fixed list, with a no-op {@code cancel}. */
-    @Nonnull
-    private static AsyncIterable<Integer> asyncIterableOf(@Nonnull final List<Integer> items) {
+    private static AsyncIterable<Integer> asyncIterableOf(final List<Integer> items) {
         return delayedIterableOf(items, false);
     }
 
@@ -164,15 +161,12 @@ class TimedAsyncIterableTest {
      * element injects {@code 10 * value} ms of latency — modeling the batch-fetch wait that
      * {@link TimedAsyncIterable} measures (the latency lives in the awaited {@code onHasNext}, not in {@code next}).
      */
-    @Nonnull
-    private static AsyncIterable<Integer> delayedIterableOf(@Nonnull final List<Integer> items) {
+    private static AsyncIterable<Integer> delayedIterableOf(final List<Integer> items) {
         return delayedIterableOf(items, true);
     }
 
-    @Nonnull
-    private static AsyncIterable<Integer> delayedIterableOf(@Nonnull final List<Integer> items, final boolean delayed) {
+    private static AsyncIterable<Integer> delayedIterableOf(final List<Integer> items, final boolean delayed) {
         return new AsyncIterable<>() {
-            @Nonnull
             @Override
             public AsyncIterator<Integer> iterator() {
                 return new AsyncIterator<>() {
@@ -208,7 +202,6 @@ class TimedAsyncIterableTest {
                 };
             }
 
-            @Nonnull
             @Override
             public CompletableFuture<List<Integer>> asList() {
                 return CompletableFuture.completedFuture(ImmutableList.copyOf(items));

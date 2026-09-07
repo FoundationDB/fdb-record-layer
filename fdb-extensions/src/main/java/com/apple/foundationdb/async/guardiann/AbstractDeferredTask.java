@@ -35,8 +35,7 @@ import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.slf4j.Logger;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -63,13 +62,9 @@ import java.util.concurrent.CompletableFuture;
  * actual maintenance work.
  */
 abstract class AbstractDeferredTask {
-    @Nonnull
     private final Locator locator;
-    @Nonnull
     private final AccessInfo accessInfo;
-    @Nonnull
     private final UUID taskId;
-    @Nonnull
     private final Set<UUID> targetClusterIds;
 
     /**
@@ -83,10 +78,10 @@ abstract class AbstractDeferredTask {
      * @param taskId the id under which this task is stored in the queue; its high bit encodes scheduling priority
      * @param targetClusterId the cluster ids this task operates on (defensively copied)
      */
-    AbstractDeferredTask(@Nonnull final Locator locator,
-                         @Nonnull final AccessInfo accessInfo,
-                         @Nonnull final UUID taskId,
-                         @Nonnull final Set<UUID> targetClusterId) {
+    AbstractDeferredTask(final Locator locator,
+                         final AccessInfo accessInfo,
+                         final UUID taskId,
+                         final Set<UUID> targetClusterId) {
         this.locator = locator;
         this.accessInfo = accessInfo;
         this.taskId = taskId;
@@ -98,7 +93,6 @@ abstract class AbstractDeferredTask {
      *
      * @return the locator
      */
-    @Nonnull
     public Locator getLocator() {
         return locator;
     }
@@ -108,7 +102,6 @@ abstract class AbstractDeferredTask {
      *
      * @return the primitives for the underlying structure
      */
-    @Nonnull
     Primitives primitives() {
         return getLocator().primitives();
     }
@@ -118,7 +111,6 @@ abstract class AbstractDeferredTask {
      *
      * @return the on-write listener
      */
-    @Nonnull
     OnWriteListener getOnWriteListener() {
         return getLocator().getOnWriteListener();
     }
@@ -128,7 +120,6 @@ abstract class AbstractDeferredTask {
      *
      * @return the on-read listener
      */
-    @Nonnull
     OnReadListener getOnReadListener() {
         return getLocator().getOnReadListener();
     }
@@ -140,7 +131,6 @@ abstract class AbstractDeferredTask {
      *
      * @return the access context
      */
-    @Nonnull
     AccessInfo getAccessInfo() {
         return accessInfo;
     }
@@ -151,7 +141,6 @@ abstract class AbstractDeferredTask {
      *
      * @return the task id
      */
-    @Nonnull
     public UUID getTaskId() {
         return taskId;
     }
@@ -161,7 +150,6 @@ abstract class AbstractDeferredTask {
      *
      * @return the immutable set of target cluster ids
      */
-    @Nonnull
     public Set<UUID> getTargetClusterIds() {
         return targetClusterIds;
     }
@@ -171,7 +159,6 @@ abstract class AbstractDeferredTask {
      *
      * @return the configuration
      */
-    @Nonnull
     public Config getConfig() {
         return getLocator().getConfig();
     }
@@ -183,7 +170,6 @@ abstract class AbstractDeferredTask {
      *
      * @return the value tuple to persist for this task
      */
-    @Nonnull
     public abstract Tuple valueTuple();
 
     /**
@@ -193,8 +179,7 @@ abstract class AbstractDeferredTask {
      *
      * @return a future that completes when the task has finished
      */
-    @Nonnull
-    public abstract CompletableFuture<Void> runTask(@Nonnull Transaction transaction);
+    public abstract CompletableFuture<Void> runTask(Transaction transaction);
 
     /**
      * Emits a debug log line marking the start of this task's execution (kind, id, targets). A no-op unless debug
@@ -202,7 +187,7 @@ abstract class AbstractDeferredTask {
      *
      * @param logger the subclass logger to emit through
      */
-    protected void logStart(@Nonnull final Logger logger) {
+    protected void logStart(final Logger logger) {
         if (logger.isDebugEnabled()) {
             logger.debug("executing task kind={}, taskId={}, targetClusterIds={}", getKind(), taskIdToString(getTaskId()),
                     getTargetClusterIds());
@@ -214,7 +199,7 @@ abstract class AbstractDeferredTask {
      *
      * @param logger the subclass logger to emit through
      */
-    protected void logSuccessful(@Nonnull final Logger logger) {
+    protected void logSuccessful(final Logger logger) {
         if (logger.isDebugEnabled()) {
             logger.debug("successfully finished executing task kind={}, taskId={}", getKind(),
                     taskIdToString(getTaskId()));
@@ -226,7 +211,7 @@ abstract class AbstractDeferredTask {
      *
      * @param transaction the transaction to write the task within
      */
-    protected void writeDeferredTask(@Nonnull final Transaction transaction) {
+    protected void writeDeferredTask(final Transaction transaction) {
         primitives().writeDeferredTask(transaction, this.getTaskId(), valueTuple());
         getOnWriteListener().onTaskEnqueued(this.getKind(), this.getTaskId(), this.getTargetClusterIds());
     }
@@ -237,7 +222,6 @@ abstract class AbstractDeferredTask {
      *
      * @return this task's kind
      */
-    @Nonnull
     public abstract TaskKind getKind();
 
     /**
@@ -261,11 +245,11 @@ abstract class AbstractDeferredTask {
      * @param centroid the target cluster's centroid, carried to the collapse task
      * @return {@code true} if a collapse (and bounce) were enqueued, {@code false} if the cluster was below threshold
      */
-    boolean enqueueCollapseIfNecessary(@Nonnull final Transaction transaction,
-                                       @Nonnull final SplittableRandom random,
-                                       @Nonnull final List<VectorReference> primaryVectorReferences,
-                                       @Nonnull final UUID targetClusterId,
-                                       @Nonnull final Transformed<RealVector> centroid) {
+    boolean enqueueCollapseIfNecessary(final Transaction transaction,
+                                       final SplittableRandom random,
+                                       final List<VectorReference> primaryVectorReferences,
+                                       final UUID targetClusterId,
+                                       final Transformed<RealVector> centroid) {
         final Config config = getConfig();
         final Map<UUID, Integer> collapsibleVectorsCountersMap =
                 CollapseTask.collapsibleVectorsCountersMap(primaryVectorReferences);
@@ -301,10 +285,9 @@ abstract class AbstractDeferredTask {
      * @param valueTuple the task's stored value tuple (its kind plus payload)
      * @return the reconstructed task
      */
-    @Nonnull
-    static AbstractDeferredTask newFromTuples(@Nonnull final Locator locator,
-                                              @Nonnull final AccessInfo accessInfo,
-                                              @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
+    static AbstractDeferredTask newFromTuples(final Locator locator,
+                                              final AccessInfo accessInfo,
+                                              final Tuple keyTuple, final Tuple valueTuple) {
         final TaskKind kind = TaskKind.fromValueTuple(valueTuple);
         return kind.create(locator, accessInfo, keyTuple, valueTuple);
     }
@@ -318,8 +301,7 @@ abstract class AbstractDeferredTask {
      *
      * @return a high-priority task id
      */
-    @Nonnull
-    protected static UUID randomHighPriorityTaskId(@Nonnull final SplittableRandom random, final boolean isDeterministic) {
+    protected static UUID randomHighPriorityTaskId(final SplittableRandom random, final boolean isDeterministic) {
         return uuidToHighPriorityTaskId(isDeterministic ? RandomHelpers.randomUuid(random) : UUID.randomUUID());
     }
 
@@ -330,8 +312,7 @@ abstract class AbstractDeferredTask {
      * @param uuid the base uuid
      * @return the high-priority task id
      */
-    @Nonnull
-    private static UUID uuidToHighPriorityTaskId(@Nonnull final UUID uuid) {
+    private static UUID uuidToHighPriorityTaskId(final UUID uuid) {
         return new UUID(uuid.getMostSignificantBits() & 0x7fffffffffffffffL,
                 uuid.getLeastSignificantBits());
     }
@@ -345,8 +326,7 @@ abstract class AbstractDeferredTask {
      *
      * @return a normal-priority task id
      */
-    @Nonnull
-    protected static UUID randomNormalPriorityTaskId(@Nonnull final SplittableRandom random, final boolean isDeterministic) {
+    protected static UUID randomNormalPriorityTaskId(final SplittableRandom random, final boolean isDeterministic) {
         return uuidToNormalPriorityTaskId(isDeterministic ? RandomHelpers.randomUuid(random) : UUID.randomUUID());
     }
 
@@ -357,8 +337,7 @@ abstract class AbstractDeferredTask {
      * @param uuid the base uuid
      * @return the normal-priority task id
      */
-    @Nonnull
-    private static UUID uuidToNormalPriorityTaskId(@Nonnull final UUID uuid) {
+    private static UUID uuidToNormalPriorityTaskId(final UUID uuid) {
         return new UUID(uuid.getMostSignificantBits() | 0x8000000000000000L,
                 uuid.getLeastSignificantBits());
     }
@@ -370,8 +349,7 @@ abstract class AbstractDeferredTask {
      * @param taskId the task id
      * @return a human-readable, priority-prefixed rendering
      */
-    @Nonnull
-    static String taskIdToString(@Nonnull final UUID taskId) {
+    static String taskIdToString(final UUID taskId) {
         return (isNormalPriority(taskId) ? "NORMAL" : "HIGH") + ":" + taskId;
     }
 
@@ -382,7 +360,7 @@ abstract class AbstractDeferredTask {
      * @param taskId the task id to test
      * @return {@code true} if the id is normal priority, {@code false} if high priority
      */
-    static boolean isNormalPriority(@Nonnull final UUID taskId) {
+    static boolean isNormalPriority(final UUID taskId) {
         return (taskId.getMostSignificantBits() & 0x8000000000000000L) != 0;
     }
 
@@ -396,7 +374,7 @@ abstract class AbstractDeferredTask {
      * @return the incremented counter value
      */
     @CanIgnoreReturnValue
-    static <T> int incrementCounter(@Nonnull final Map<T, Integer> countersMap, @Nonnull final T key) {
+    static <T> int incrementCounter(final Map<T, Integer> countersMap, final T key) {
         return  countersMap.compute(key, (ignoredKey, oldCounter) -> {
             if (oldCounter == null) {
                 return 1;
@@ -417,8 +395,8 @@ abstract class AbstractDeferredTask {
      */
     @CanIgnoreReturnValue
     static <T> RunningStats
-               updateRunningStatsMap(@Nonnull final Map<T, RunningStats> map,
-                                     @Nonnull final T key, final double distance) {
+               updateRunningStatsMap(final Map<T, RunningStats> map,
+                                     final T key, final double distance) {
         return map.compute(key, (ignoredKey, old) -> {
             if (old == null) {
                 return RunningStats.of(distance);
@@ -437,9 +415,8 @@ abstract class AbstractDeferredTask {
      * @param newAssignments the new vector references that should be in the cluster
      * @return the delta of writes and deletes
      */
-    @Nonnull
-    static TargetClusterDelta computeTargetClusterDelta(@Nonnull final Cluster targetCluster,
-                                                        @Nonnull final List<VectorReference> newAssignments) {
+    static TargetClusterDelta computeTargetClusterDelta(final Cluster targetCluster,
+                                                        final List<VectorReference> newAssignments) {
         final ImmutableMap.Builder<Tuple, VectorReference> assignedByPrimaryKeyBuilder = ImmutableMap.builder();
         for (final VectorReference assignedVector : newAssignments) {
             assignedByPrimaryKeyBuilder.put(assignedVector.id().primaryKey(), assignedVector);
@@ -491,8 +468,8 @@ abstract class AbstractDeferredTask {
      * @param toWrite the vector references to write to the cluster
      * @param toDelete the primary keys of vectors to delete from the cluster
      */
-    record TargetClusterDelta(@Nonnull List<VectorReference> toWrite,
-                              @Nonnull List<Tuple> toDelete) {
+    record TargetClusterDelta(List<VectorReference> toWrite,
+                              List<Tuple> toDelete) {
     }
 
     /**
@@ -512,10 +489,9 @@ abstract class AbstractDeferredTask {
      * @param candidateClusters all clusters (new + outer) that vectors may be assigned to
      * @return the nearest cluster assignments and accumulated standard deviation updates
      */
-    @Nonnull
-    static NearestClustersResult computeNearestClusters(@Nonnull final DistanceEstimator estimator,
-                                                        @Nonnull final List<VectorReference> vectorReferences,
-                                                        @Nonnull final Collection<ClusterMetadataWithDistance> candidateClusters) {
+    static NearestClustersResult computeNearestClusters(final DistanceEstimator estimator,
+                                                        final List<VectorReference> vectorReferences,
+                                                        final Collection<ClusterMetadataWithDistance> candidateClusters) {
         final ImmutableListMultimap.Builder<VectorId, ClusterMetadataWithDistance> invertedAssignmentsMapBuilder =
                 ImmutableListMultimap.builder();
         final Map<UUID, RunningStats> standardDeviationUpdates = Maps.newHashMap();
@@ -556,8 +532,8 @@ abstract class AbstractDeferredTask {
      * @param target the mutable map to merge into
      * @param updates the updates to merge (as returned by {@link #computeNearestClusters})
      */
-    static void mergeStandardDeviationUpdates(@Nonnull final Map<UUID, RunningStats> target,
-                                              @Nonnull final Map<UUID, RunningStats> updates) {
+    static void mergeStandardDeviationUpdates(final Map<UUID, RunningStats> target,
+                                              final Map<UUID, RunningStats> updates) {
         for (final Map.Entry<UUID, RunningStats> entry : updates.entrySet()) {
             target.merge(entry.getKey(), entry.getValue(), RunningStats::combine);
         }
@@ -587,9 +563,9 @@ abstract class AbstractDeferredTask {
      *         target) never get {@code null} and should {@link java.util.Objects#requireNonNull(Object) requireNonNull}.
      */
     @Nullable
-    static ClusterClassification classifyClusters(@Nonnull final List<ClusterMetadataWithDistance> clusterMetadataWithDistances,
-                                                  @Nonnull final ClusterMetadata targetClusterMetadata,
-                                                  @Nonnull final Transformed<RealVector> targetClusterCentroid,
+    static ClusterClassification classifyClusters(final List<ClusterMetadataWithDistance> clusterMetadataWithDistances,
+                                                  final ClusterMetadata targetClusterMetadata,
+                                                  final Transformed<RealVector> targetClusterCentroid,
                                                   final int numCoreClusters,
                                                   final int numNeighboringClusters) {
         Verify.verify(numCoreClusters >= 1, "numCoreClusters must be >= 1, got %s", numCoreClusters);
@@ -643,8 +619,8 @@ abstract class AbstractDeferredTask {
      * @param invertedAssignments a multimap from vector id to its nearest clusters, in ascending distance order
      * @param standardDeviationUpdates a map from cluster id to the running statistics update for that cluster
      */
-    record NearestClustersResult(@Nonnull ImmutableListMultimap<VectorId, ClusterMetadataWithDistance> invertedAssignments,
-                                 @Nonnull Map<UUID, RunningStats> standardDeviationUpdates) {
+    record NearestClustersResult(ImmutableListMultimap<VectorId, ClusterMetadataWithDistance> invertedAssignments,
+                                 Map<UUID, RunningStats> standardDeviationUpdates) {
     }
 
     /**
@@ -655,7 +631,7 @@ abstract class AbstractDeferredTask {
      * @param coreClusters the closest clusters, to be dissolved or repartitioned
      * @param neighboringClusters the surrounding clusters that may receive overflow vectors
      */
-    record ClusterClassification(@Nonnull List<ClusterMetadataWithDistance> coreClusters,
-                                 @Nonnull List<ClusterMetadataWithDistance> neighboringClusters) {
+    record ClusterClassification(List<ClusterMetadataWithDistance> coreClusters,
+                                 List<ClusterMetadataWithDistance> neighboringClusters) {
     }
 }

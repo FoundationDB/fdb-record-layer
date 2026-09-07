@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.common;
 
 import com.apple.foundationdb.linear.Metric;
 
-import javax.annotation.Nonnull;
 
 /**
  * The minimal vector-encoding configuration shared by the HNSW and Guardiann configs: the metric, the number of
@@ -33,7 +32,6 @@ public interface VectorEncodingConfig {
     /**
      * The metric that is used to determine distances between vectors.
      */
-    @Nonnull
     Metric metric();
 
     /**

@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.rtree;
 
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 
 /**
  * Enum to capture the kind of node.
@@ -41,7 +40,6 @@ public enum NodeKind {
         return serialized;
     }
 
-    @Nonnull
     static NodeKind fromSerializedNodeKind(byte serializedNodeKind) {
         final NodeKind nodeKind;
         switch (serializedNodeKind) {

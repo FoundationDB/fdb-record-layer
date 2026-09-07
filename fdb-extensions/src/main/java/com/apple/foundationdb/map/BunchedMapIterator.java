@@ -28,8 +28,8 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -47,11 +47,11 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.EXPERIMENTAL)
 public class BunchedMapIterator<K, V> implements AsyncPeekIterator<Map.Entry<K, V>> {
-    @Nonnull private final AsyncPeekIterator<KeyValue> underlying;
-    @Nonnull private final Subspace subspace;
-    @Nonnull private final ReadTransaction tr;
-    @Nonnull private final byte[] subspaceKey;
-    @Nonnull private final BunchedMap<K, V> bunchedMap;
+    private final AsyncPeekIterator<KeyValue> underlying;
+    private final Subspace subspace;
+    private final ReadTransaction tr;
+    private final byte[] subspaceKey;
+    private final BunchedMap<K, V> bunchedMap;
     @Nullable private final K continuationKey;
     private final boolean reverse;
     private final int limit;
@@ -66,11 +66,11 @@ public class BunchedMapIterator<K, V> implements AsyncPeekIterator<Map.Entry<K, 
 
     // In general, this class should not be instantiated by code outside
     // this package. Instead, it should use the scan() method on BunchedMaps.
-    BunchedMapIterator(@Nonnull AsyncPeekIterator<KeyValue> underlying,
-                       @Nonnull ReadTransaction tr,
-                       @Nonnull Subspace subspace,
-                       @Nonnull byte[] subspaceKey,
-                       @Nonnull BunchedMap<K, V> bunchedMap,
+    BunchedMapIterator(AsyncPeekIterator<KeyValue> underlying,
+                       ReadTransaction tr,
+                       Subspace subspace,
+                       byte[] subspaceKey,
+                       BunchedMap<K, V> bunchedMap,
                        @Nullable K continuationKey,
                        int limit,
                        boolean reverse) {
@@ -163,7 +163,6 @@ public class BunchedMapIterator<K, V> implements AsyncPeekIterator<Map.Entry<K, 
     }
 
     @Override
-    @Nonnull
     public Map.Entry<K, V> peek() {
         if (hasNext()) {
             // The hasNext method should enforce that currEntryList is not null
@@ -178,7 +177,6 @@ public class BunchedMapIterator<K, V> implements AsyncPeekIterator<Map.Entry<K, 
     }
 
     @Override
-    @Nonnull
     public Map.Entry<K, V> next() {
         Map.Entry<K, V> nextEntry = peek();
         lastKey = nextEntry.getKey();
@@ -201,6 +199,9 @@ public class BunchedMapIterator<K, V> implements AsyncPeekIterator<Map.Entry<K, 
      * @return a continuation that can be used to resume iteration later
      */
     @Nullable
+    // NullAway does not reliably recognize @Nullable on array-typed return values, so the `return null;`
+    // below is misflagged as returning @Nullable from a @NonNull-returning method despite the annotation.
+    @SuppressWarnings("NullAway")
     public byte[] getContinuation() {
         if (lastKey == null || done && (limit == ReadTransaction.ROW_LIMIT_UNLIMITED || returned < limit)) {
             // We exhausted the scan.

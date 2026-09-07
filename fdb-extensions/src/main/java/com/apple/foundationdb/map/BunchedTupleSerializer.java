@@ -29,7 +29,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nonnull;
 
 /**
  * A {@link BunchedSerializer} that uses {@link Tuple}s as both the expected key
@@ -40,7 +39,6 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public class BunchedTupleSerializer implements BunchedSerializer<Tuple, Tuple> {
-    @Nonnull
     static final byte[] PREFIX = { 0x10 };
     private static final BunchedTupleSerializer INSTANCE = new BunchedTupleSerializer();
 
@@ -63,9 +61,8 @@ public class BunchedTupleSerializer implements BunchedSerializer<Tuple, Tuple> {
      * @param key key to serialize to bytes
      * @return the serialized key
      */
-    @Nonnull
     @Override
-    public byte[] serializeKey(@Nonnull Tuple key) {
+    public byte[] serializeKey(Tuple key) {
         try {
             return key.pack();
         } catch (IllegalArgumentException e) {
@@ -84,9 +81,8 @@ public class BunchedTupleSerializer implements BunchedSerializer<Tuple, Tuple> {
      * @param value the value of the map entry
      * @return the serialized entry
      */
-    @Nonnull
     @Override
-    public byte[] serializeEntry(@Nonnull Tuple key, @Nonnull Tuple value) {
+    public byte[] serializeEntry(Tuple key, Tuple value) {
         try {
             return Tuple.from(key, value).pack();
         } catch (IllegalArgumentException e) {
@@ -103,9 +99,8 @@ public class BunchedTupleSerializer implements BunchedSerializer<Tuple, Tuple> {
      * @param entries the list of entries to serialize
      * @return the serialized entry list
      */
-    @Nonnull
     @Override
-    public byte[] serializeEntries(@Nonnull List<Map.Entry<Tuple, Tuple>> entries) {
+    public byte[] serializeEntries(List<Map.Entry<Tuple, Tuple>> entries) {
         if (entries.isEmpty()) {
             throw new BunchedSerializationException("cannot serialize empty entry list");
         }
@@ -120,12 +115,16 @@ public class BunchedTupleSerializer implements BunchedSerializer<Tuple, Tuple> {
                 serializedEntries.add(serializeEntry(entry));
             }
         }
-        return ByteArrayUtil.join(null, serializedEntries);
+        // ByteArrayUtil.join is from the unannotated fdb-java client library; passing null for the separator is
+        // its documented way of requesting no separator between parts, but the parameter is treated as @NonNull
+        // by NullAway's defaults.
+        @SuppressWarnings("NullAway")
+        final byte[] result = ByteArrayUtil.join(null, serializedEntries);
+        return result;
     }
 
-    @Nonnull
     @Override
-    public Tuple deserializeKey(@Nonnull byte[] data, int offset, int length) {
+    public Tuple deserializeKey(byte[] data, int offset, int length) {
         // It seems that bounds checking should be done by the Tuple layer rather
         // than here, but it apparently is not.
         if (offset < 0 || offset > data.length || length < 0 || offset + length > data.length) {
@@ -139,9 +138,8 @@ public class BunchedTupleSerializer implements BunchedSerializer<Tuple, Tuple> {
         }
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked") // we catch the ClassCastException in the calling method
-    private static Tuple toTuple(@Nonnull Object o) {
+    private static Tuple toTuple(Object o) {
         if (o instanceof Tuple) {
             return (Tuple)o;
         } else {
@@ -149,9 +147,8 @@ public class BunchedTupleSerializer implements BunchedSerializer<Tuple, Tuple> {
         }
     }
 
-    @Nonnull
     @Override
-    public List<Map.Entry<Tuple, Tuple>> deserializeEntries(@Nonnull Tuple key, @Nonnull byte[] data) {
+    public List<Map.Entry<Tuple, Tuple>> deserializeEntries(Tuple key, byte[] data) {
         if (!ByteArrayUtil.startsWith(data, PREFIX)) {
             throw new BunchedSerializationException("data did not begin with expected prefix")
                     .setData(data);

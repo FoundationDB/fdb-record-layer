@@ -32,8 +32,8 @@ import com.apple.foundationdb.system.SystemKeyspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.google.common.primitives.Longs;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -42,6 +42,7 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.StringJoiner;
 import java.util.concurrent.CompletableFuture;
 
@@ -219,10 +220,9 @@ public class FDBClientLogEvents {
     public static class EventGet extends Event {
         private final double latency;
         private final int size;
-        @Nonnull
         private final byte[] key;
 
-        public EventGet(double startTimestamp, String dcId, String tenant, double latency, int size, @Nonnull byte[] key) {
+        public EventGet(double startTimestamp, String dcId, String tenant, double latency, int size, byte[] key) {
             super(startTimestamp, dcId, tenant);
             this.latency = latency;
             this.size = size;
@@ -242,7 +242,6 @@ public class FDBClientLogEvents {
             return size;
         }
 
-        @Nonnull
         public byte[] getKey() {
             return key;
         }
@@ -263,10 +262,9 @@ public class FDBClientLogEvents {
     public static class EventGetRange extends Event {
         private final double latency;
         private final int size;
-        @Nonnull
         private final Range range;
 
-        public EventGetRange(double startTimestamp, String dcId, String tenant, double latency, int size, @Nonnull Range range) {
+        public EventGetRange(double startTimestamp, String dcId, String tenant, double latency, int size, Range range) {
             super(startTimestamp, dcId, tenant);
             this.latency = latency;
             this.size = size;
@@ -286,7 +284,6 @@ public class FDBClientLogEvents {
             return size;
         }
 
-        @Nonnull
         public Range getRange() {
             return range;
         }
@@ -309,11 +306,10 @@ public class FDBClientLogEvents {
         private final int numMutations;
         private final int commitBytes;
         private final long commitVersion;
-        @Nonnull
         private final CommitRequest commitRequest;
 
         public EventCommit(double startTimestamp, String dcId, String tenant, double latency, int numMutations, int commitBytes, long commitVersion,
-                           @Nonnull CommitRequest commitRequest) {
+                           CommitRequest commitRequest) {
             super(startTimestamp, dcId, tenant);
             this.latency = latency;
             this.numMutations = numMutations;
@@ -339,7 +335,6 @@ public class FDBClientLogEvents {
             return commitBytes;
         }
 
-        @Nonnull
         public CommitRequest getCommitRequest() {
             return commitRequest;
         }
@@ -362,10 +357,9 @@ public class FDBClientLogEvents {
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
     public static class EventGetError extends Event {
         private final int errorCode;
-        @Nonnull
         private final byte[] key;
 
-        public EventGetError(double startTimestamp, String dcId, String tenant, int errorCode, @Nonnull byte[] key) {
+        public EventGetError(double startTimestamp, String dcId, String tenant, int errorCode, byte[] key) {
             super(startTimestamp, dcId, tenant);
             this.errorCode = errorCode;
             this.key = key;
@@ -380,7 +374,6 @@ public class FDBClientLogEvents {
             return errorCode;
         }
 
-        @Nonnull
         public byte[] getKey() {
             return key;
         }
@@ -399,10 +392,9 @@ public class FDBClientLogEvents {
      */
     public static class EventGetRangeError extends Event {
         private final int errorCode;
-        @Nonnull
         private final Range range;
 
-        public EventGetRangeError(double startTimestamp, String dcId, String tenant, int errorCode, @Nonnull Range range) {
+        public EventGetRangeError(double startTimestamp, String dcId, String tenant, int errorCode, Range range) {
             super(startTimestamp, dcId, tenant);
             this.errorCode = errorCode;
             this.range = range;
@@ -417,7 +409,6 @@ public class FDBClientLogEvents {
             return errorCode;
         }
 
-        @Nonnull
         public Range getRange() {
             return range;
         }
@@ -436,10 +427,9 @@ public class FDBClientLogEvents {
      */
     public static class EventCommitError extends Event {
         private final int errorCode;
-        @Nonnull
         private final CommitRequest commitRequest;
 
-        public EventCommitError(double startTimestamp, String dcId, String tenant, int errorCode, @Nonnull CommitRequest commitRequest) {
+        public EventCommitError(double startTimestamp, String dcId, String tenant, int errorCode, CommitRequest commitRequest) {
             super(startTimestamp, dcId, tenant);
             this.errorCode = errorCode;
             this.commitRequest = commitRequest;
@@ -454,7 +444,6 @@ public class FDBClientLogEvents {
             return errorCode;
         }
 
-        @Nonnull
         public CommitRequest getCommitRequest() {
             return commitRequest;
         }
@@ -480,12 +469,10 @@ public class FDBClientLogEvents {
         public static final int AND_V2 = 19;
 
         private final int type;
-        @Nonnull
         private final byte[] key;
-        @Nonnull
         private final byte[] param;
 
-        public Mutation(int type, @Nonnull byte[] key, @Nonnull byte[] param) {
+        public Mutation(int type, byte[] key, byte[] param) {
             this.type = type;
             this.key = key;
             this.param = param;
@@ -495,12 +482,10 @@ public class FDBClientLogEvents {
             return type;
         }
 
-        @Nonnull
         public byte[] getKey() {
             return key;
         }
 
-        @Nonnull
         public byte[] getParam() {
             return param;
         }
@@ -534,11 +519,8 @@ public class FDBClientLogEvents {
      */
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
     public static class CommitRequest {
-        @Nonnull
         private final Range[] readConflictRanges;
-        @Nonnull
         private final Range[] writeConflictRanges;
-        @Nonnull
         private final Mutation[] mutations;
         private final long snapshotVersion;
         private final boolean reportConflictingKeys;
@@ -546,9 +528,9 @@ public class FDBClientLogEvents {
         @Nullable
         private final SpanContext spanContext;
 
-        public CommitRequest(@Nonnull Range[] readConflictRanges,
-                             @Nonnull Range[] writeConflictRanges,
-                             @Nonnull Mutation[] mutations,
+        public CommitRequest(Range[] readConflictRanges,
+                             Range[] writeConflictRanges,
+                             Mutation[] mutations,
                              long snapshotVersion,
                              boolean reportConflictingKeys,
                              boolean lockAware,
@@ -562,17 +544,14 @@ public class FDBClientLogEvents {
             this.spanContext = spanContext;
         }
 
-        @Nonnull
         public Range[] getReadConflictRanges() {
             return readConflictRanges;
         }
 
-        @Nonnull
         public Range[] getWriteConflictRanges() {
             return writeConflictRanges;
         }
 
-        @Nonnull
         public Mutation[] getMutations() {
             return mutations;
         }
@@ -616,7 +595,7 @@ public class FDBClientLogEvents {
      * @param callback an asynchronous function to apply to each entry
      * @return a future that completes when all items have been processed
      */
-    public static CompletableFuture<Void> deserializeEvents(@Nonnull ByteBuffer buffer, @Nonnull AsyncConsumer<Event> callback) {
+    public static CompletableFuture<Void> deserializeEvents(ByteBuffer buffer, AsyncConsumer<Event> callback) {
         buffer.order(ByteOrder.LITTLE_ENDIAN);
         final long protocolVersion = buffer.getLong();
         if (Longs.indexOf(SUPPORTED_PROTOCOL_VERSIONS, protocolVersion) < 0) {
@@ -687,21 +666,18 @@ public class FDBClientLogEvents {
         });
     }
 
-    @Nonnull
-    protected static byte[] deserializeByteArray(@Nonnull ByteBuffer buffer) {
+    protected static byte[] deserializeByteArray(ByteBuffer buffer) {
         final int length = buffer.getInt();
         final byte[] result = new byte[length];
         buffer.get(result);
         return result;
     }
 
-    @Nonnull
-    protected static Range deserializeRange(@Nonnull ByteBuffer buffer) {
+    protected static Range deserializeRange(ByteBuffer buffer) {
         return new Range(deserializeByteArray(buffer), deserializeByteArray(buffer));
     }
 
-    @Nonnull
-    protected static Range[] deserializeRangeArray(@Nonnull ByteBuffer buffer) {
+    protected static Range[] deserializeRangeArray(ByteBuffer buffer) {
         final int length = buffer.getInt();
         final Range[] result = new Range[length];
         for (int i = 0; i < length; i++) {
@@ -710,13 +686,11 @@ public class FDBClientLogEvents {
         return result;
     }
 
-    @Nonnull
-    protected static Mutation deserializeMutation(@Nonnull ByteBuffer buffer) {
+    protected static Mutation deserializeMutation(ByteBuffer buffer) {
         return new Mutation(buffer.get(), deserializeByteArray(buffer), deserializeByteArray(buffer));
     }
 
-    @Nonnull
-    protected static Mutation[] deserializeMutationArray(@Nonnull ByteBuffer buffer) {
+    protected static Mutation[] deserializeMutationArray(ByteBuffer buffer) {
         final int length = buffer.getInt();
         final Mutation[] result = new Mutation[length];
         for (int i = 0; i < length; i++) {
@@ -725,8 +699,7 @@ public class FDBClientLogEvents {
         return result;
     }
 
-    @Nonnull
-    protected static CommitRequest deserializeCommit(long protocolVersion, @Nonnull ByteBuffer buffer) {
+    protected static CommitRequest deserializeCommit(long protocolVersion, ByteBuffer buffer) {
         final Range[] readConflictRanges = deserializeRangeArray(buffer);
         final Range[] writeConflictRanges = deserializeRangeArray(buffer);
         final Mutation[] mutations = deserializeMutationArray(buffer);
@@ -805,15 +778,20 @@ public class FDBClientLogEvents {
     }
 
     protected static class EventDeserializer implements AsyncConsumer<KeyValue> {
-        @Nonnull
         private final AsyncConsumer<Event> callback;
         @Nullable
         private ByteBuffer splitBuffer;
+        @Nullable
         private byte[] splitId;
         private int splitPosition;
+        @Nullable
         private byte[] lastProcessedKey;
 
-        public EventDeserializer(@Nonnull AsyncConsumer<Event> callback) {
+        // NullAway does not reliably recognize @Nullable on byte[]-typed fields, so it incorrectly insists that
+        // splitId and lastProcessedKey (both declared @Nullable byte[] above, and legitimately unset until the
+        // first chunked/whole key is processed) be assigned here.
+        @SuppressWarnings("NullAway")
+        public EventDeserializer(AsyncConsumer<Event> callback) {
             this.callback = callback;
         }
 
@@ -839,17 +817,22 @@ public class FDBClientLogEvents {
                     splitId = transactionId;
                     splitPosition = 1;
                 } else if (chunkNumber == splitPosition && Arrays.equals(transactionId, splitId)) {
-                    if (splitBuffer.remaining() < keyValue.getValue().length) {
-                        final ByteBuffer newBuffer = ByteBuffer.allocate(splitBuffer.position() + keyValue.getValue().length);
-                        splitBuffer.flip();
-                        newBuffer.put(splitBuffer);
+                    // splitPosition is only ever advanced to a value that can match chunkNumber here after the
+                    // chunkNumber == 1 branch above has run (on this or an earlier call to accept()), which is
+                    // exactly when splitBuffer is allocated; NullAway cannot verify an invariant across calls.
+                    ByteBuffer currentSplitBuffer = Objects.requireNonNull(splitBuffer);
+                    if (currentSplitBuffer.remaining() < keyValue.getValue().length) {
+                        final ByteBuffer newBuffer = ByteBuffer.allocate(currentSplitBuffer.position() + keyValue.getValue().length);
+                        currentSplitBuffer.flip();
+                        newBuffer.put(currentSplitBuffer);
                         splitBuffer = newBuffer;
+                        currentSplitBuffer = newBuffer;
                     }
-                    splitBuffer.put(keyValue.getValue());
+                    currentSplitBuffer.put(keyValue.getValue());
                     splitPosition++;
                     if (splitPosition == numChunks) {
-                        splitBuffer.flip();
-                        ByteBuffer buffer = splitBuffer;
+                        currentSplitBuffer.flip();
+                        ByteBuffer buffer = currentSplitBuffer;
                         splitBuffer = null;
                         lastProcessedKey = keyValue.getKey();
                         return deserializeEvents(buffer, callback);
@@ -883,8 +866,7 @@ public class FDBClientLogEvents {
      * @param callback the callback to invoke
      * @return a future which completes when all (whole) events in the range have been processed
      */
-    @Nonnull
-    public static CompletableFuture<byte[]> forEachEvent(@Nonnull AsyncIterable<KeyValue> range, @Nonnull EventConsumer callback) {
+    public static CompletableFuture<byte[]> forEachEvent(AsyncIterable<KeyValue> range, EventConsumer callback) {
         final EventDeserializer deserializer = new EventDeserializer(callback);
         final AsyncIterator<KeyValue> iterator = range.iterator();
         return AsyncUtil.whileTrue(() -> iterator.onHasNext()
@@ -897,7 +879,6 @@ public class FDBClientLogEvents {
      * @param version the version, in the same extent as, e.g., {@link com.apple.foundationdb.Transaction#getReadVersion()}
      * @return the encoded key
      */
-    @Nonnull
     public static byte[] eventKeyForVersion(long version) {
         // Do not include the two bytes for the transaction number at this version.
         final byte[] result = new byte[EVENT_KEY_VERSION_END_INDEX - 2];

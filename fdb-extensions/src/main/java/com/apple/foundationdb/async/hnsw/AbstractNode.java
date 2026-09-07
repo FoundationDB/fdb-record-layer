@@ -23,7 +23,6 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -37,10 +36,8 @@ import java.util.List;
  * @param <N> the type of the node reference used for neighbors, which must extend {@link NodeReference}
  */
 abstract class AbstractNode<N extends NodeReference> implements Node<N> {
-    @Nonnull
     private final Tuple primaryKey;
 
-    @Nonnull
     private final List<N> neighbors;
 
     /**
@@ -49,8 +46,8 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
      * @param primaryKey the unique identifier for this node; must not be {@code null}
      * @param neighbors the list of nodes connected to this node; must not be {@code null}
      */
-    protected AbstractNode(@Nonnull final Tuple primaryKey,
-                           @Nonnull final List<N> neighbors) {
+    protected AbstractNode(final Tuple primaryKey,
+                           final List<N> neighbors) {
         this.primaryKey = primaryKey;
         this.neighbors = ImmutableList.copyOf(neighbors);
     }
@@ -59,7 +56,6 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
      * Gets the primary key that uniquely identifies this object.
      * @return the primary key {@link Tuple}, which will never be {@code null}.
      */
-    @Nonnull
     @Override
     public Tuple getPrimaryKey() {
         return primaryKey;
@@ -72,7 +68,6 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
      * immutable.
      * @return a non-null, possibly empty, list of neighbors.
      */
-    @Nonnull
     @Override
     public List<N> getNeighbors() {
         return neighbors;
@@ -92,7 +87,6 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
      *
      * @return a non-null {@link CompactNode} representing the current node.
      */
-    @Nonnull
     public abstract CompactNode asCompactNode();
 
     /**
@@ -107,6 +101,5 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
      * @throws ClassCastException if this object is not actually an instance of
      * {@link InliningNode}.
      */
-    @Nonnull
     public abstract InliningNode asInliningNode();
 }

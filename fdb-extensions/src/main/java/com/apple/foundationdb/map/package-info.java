@@ -30,4 +30,7 @@
  * The other classes are used to support the {@code BunchedMap} class in various ways.
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.map;
+
+import org.jspecify.annotations.NullMarked;

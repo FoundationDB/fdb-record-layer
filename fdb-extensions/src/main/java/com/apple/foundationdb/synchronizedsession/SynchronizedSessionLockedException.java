@@ -23,8 +23,7 @@ package com.apple.foundationdb.synchronizedsession;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.util.LoggableException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * This exception means that the synchronized session is not valid anymore, probably because another synchronized session
@@ -34,7 +33,7 @@ import javax.annotation.Nullable;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("serial")
 public class SynchronizedSessionLockedException extends LoggableException {
-    public SynchronizedSessionLockedException(@Nonnull String msg, @Nullable Object... keyValues) {
+    public SynchronizedSessionLockedException(String msg, @Nullable Object... keyValues) {
         super(msg, keyValues);
     }
 }

@@ -105,7 +105,11 @@ public class RankedSetTest {
         for (int i = 0; i < 100; ++i) {
             keys[i] = Tuple.from(String.valueOf((char)i)).pack();
         }
-        db.run(tr -> {
+        // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call
+        // returns null from the lambda; NullAway does not accept an explicit @Nullable type witness on this
+        // external, unannotated method either, so the suppression is scoped to this one declaration instead.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             config = RankedSet.newConfigBuilder().setHashFunction(firstHashFunction).build();
             RankedSet rs = newRankedSet();
             for (byte[] k : keys) {
@@ -139,7 +143,9 @@ public class RankedSetTest {
             keys[i] = Tuple.from(i).pack();
         }
         config = RankedSet.newConfigBuilder().setCountDuplicates(true).build();
-        db.run(tr -> {
+        // See basicOperations() above for why this suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             RankedSet rs = newRankedSet();
             for (int i = 0; i < keys.length; ++i) {
                 for (int j = 1; j <= i + 1; j++) {
@@ -178,7 +184,9 @@ public class RankedSetTest {
     public void concurrentAdd() throws Exception {
         // 20 does go onto level 1, 30 and 40 do not. There should be no reason for them to conflict on level 0.
         RankedSet rs = newRankedSet();
-        db.run(tr -> {
+        // See basicOperations() above for why this suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             rs.add(tr, Tuple.from(20).pack()).join();
             return null;
         });
@@ -196,7 +204,9 @@ public class RankedSetTest {
         rs.add(tr2, Tuple.from(40).pack()).join();
         tr1.commit().join();
         tr2.commit().join();
-        db.read(tr -> {
+        // db.read(Function<ReadTransaction, T>) has the same no-void-overload limitation as db.run() above.
+        @SuppressWarnings("NullAway")
+        final Void ignored2 = db.read(tr -> {
             assertEquals(0L, rs.rank(tr, Tuple.from(20).pack()).join().longValue());
             assertEquals(1L, rs.rank(tr, Tuple.from(30).pack()).join().longValue());
             assertEquals(2L, rs.rank(tr, Tuple.from(40).pack()).join().longValue());
@@ -207,7 +217,9 @@ public class RankedSetTest {
     @Test
     public void concurrentRemove() throws Exception {
         RankedSet rs = newRankedSet();
-        db.run(tr -> {
+        // See basicOperations() above for why this suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             // Create a higher level entry.
             rs.add(tr, Tuple.from(20).pack()).join();
             return null;
@@ -228,11 +240,14 @@ public class RankedSetTest {
         rs.add(tr2, Tuple.from(30).pack()).join();
         tr1.commit().join();
         assertThrows(CompletionException.class, () -> tr2.commit().join());
-        db.run(tr -> {
+        @SuppressWarnings("NullAway")
+        final Void ignored2 = db.run(tr -> {
             rs.add(tr, Tuple.from(30).pack()).join();
             return null;
         });
-        db.read(tr -> {
+        // See concurrentAdd() above for why this suppression is needed for db.read() too.
+        @SuppressWarnings("NullAway")
+        final Void ignored3 = db.read(tr -> {
             // If the overlapping commit had succeeded, it would have incremented the 20 entry at level 1, so 20 would be returned here.
             assertEquals(30, Tuple.fromBytes(rs.getNth(tr, 0).join()).getLong(0));
             return null;
@@ -275,7 +290,9 @@ public class RankedSetTest {
     @Test
     public void rankAsThoughPresent() {
         RankedSet rs = newRankedSet();
-        db.run(tr -> {
+        // See basicOperations() above for why this suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             for (int i = 5; i < 100; i += 10) {
                 rs.add(tr, Tuple.from(i).pack()).join();
             }
@@ -300,7 +317,10 @@ public class RankedSetTest {
         int op = ThreadLocalRandom.current().nextInt(6);
         byte[] key = new byte[1];
         ThreadLocalRandom.current().nextBytes(key);
-        tc.run(tr -> {
+        // See basicOperations() above for why this suppression is needed (TransactionContext.run() has the
+        // same no-void-overload limitation as Database.run()).
+        @SuppressWarnings("NullAway")
+        final Void ignored = tc.run(tr -> {
             switch (op) {
                 case 0: {
                     rs.add(tr, key).join();

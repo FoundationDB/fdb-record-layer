@@ -38,8 +38,7 @@ import com.google.common.collect.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -66,10 +65,8 @@ import static com.apple.foundationdb.async.MoreAsyncUtil.forEach;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
 class Delete {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(Delete.class);
 
-    @Nonnull
     private final Locator locator;
 
     /**
@@ -79,11 +76,10 @@ class Delete {
      * @param locator the {@link Locator} where the graph data is stored, which config to use, which executor to use,
      *        etc.
      */
-    public Delete(@Nonnull final Locator locator) {
+    public Delete(final Locator locator) {
         this.locator = locator;
     }
 
-    @Nonnull
     public Locator getLocator() {
         return locator;
     }
@@ -93,7 +89,6 @@ class Delete {
      *
      * @return the non-null subspace
      */
-    @Nonnull
     public Subspace getSubspace() {
         return getLocator().getSubspace();
     }
@@ -102,7 +97,6 @@ class Delete {
      * Get the executor used by this hnsw.
      * @return executor used when running asynchronous tasks
      */
-    @Nonnull
     private Executor getExecutor() {
         return getLocator().getExecutor();
     }
@@ -111,7 +105,6 @@ class Delete {
      * Get the configuration of this hnsw.
      * @return hnsw configuration
      */
-    @Nonnull
     private Config getConfig() {
         return getLocator().getConfig();
     }
@@ -120,7 +113,6 @@ class Delete {
      * Get the on-write listener.
      * @return the on-write listener
      */
-    @Nonnull
     private OnWriteListener getOnWriteListener() {
         return getLocator().getOnWriteListener();
     }
@@ -129,12 +121,10 @@ class Delete {
      * Get the on-read listener.
      * @return the on-read listener
      */
-    @Nonnull
     private OnReadListener getOnReadListener() {
         return getLocator().getOnReadListener();
     }
 
-    @Nonnull
     private Primitives primitives() {
         return getLocator().primitives();
     }
@@ -181,8 +171,7 @@ class Delete {
      *         including all graph repairs and entry point updates. The future completes with {@code null}
      *         on successful deletion.
      */
-    @Nonnull
-    public CompletableFuture<Void> delete(@Nonnull final Transaction transaction, @Nonnull final Tuple primaryKey) {
+    public CompletableFuture<Void> delete(final Transaction transaction, final Tuple primaryKey) {
         final Primitives primitives = primitives();
         final SplittableRandom random = RandomHelpers.random(primaryKey);
         final int topLayer = primitives.topLayer(primaryKey);
@@ -214,7 +203,11 @@ class Delete {
 
                     return deleteFromLayers(transaction, storageTransform, quantizer, random, primaryKey, topLayer)
                             .thenCompose(potentialEntryNodeReferences -> {
-                                if (entryNodeReference != null && primaryKey.equals(entryNodeReference.getPrimaryKey())) {
+                                // entryNodeReference != null implies accessInfo != null (entryNodeReference is
+                                // derived from it just above), and accessInfo is used (not just entryNodeReference)
+                                // below, so it is checked explicitly; NullAway also does not carry a null check on
+                                // accessInfo across this lambda boundary even if it were checked outside.
+                                if (entryNodeReference != null && accessInfo != null && primaryKey.equals(entryNodeReference.getPrimaryKey())) {
                                     // find (and store) a new entry reference
                                     for (int i = potentialEntryNodeReferences.size() - 1; i >= 0; i --) {
                                         final EntryNodeReference potentialEntyNodeReference =
@@ -249,12 +242,11 @@ class Delete {
      * @return a {@link CompletableFuture} that completes when the new node has been successfully inserted into all
      *         its designated layers and contains an existing neighboring entry node reference on that layer.
      */
-    @Nonnull
-    private CompletableFuture<List<EntryNodeReference>> deleteFromLayers(@Nonnull final Transaction transaction,
-                                                                         @Nonnull final StorageTransform storageTransform,
-                                                                         @Nonnull final Quantizer quantizer,
-                                                                         @Nonnull final SplittableRandom random,
-                                                                         @Nonnull final Tuple primaryKey,
+    private CompletableFuture<List<EntryNodeReference>> deleteFromLayers(final Transaction transaction,
+                                                                         final StorageTransform storageTransform,
+                                                                         final Quantizer quantizer,
+                                                                         final SplittableRandom random,
+                                                                         final Tuple primaryKey,
                                                                          final int topLayer) {
         // delete the node from all layers in parallel (inside layer in [0, topLayer])
         return RandomHelpers.forEach(random, () -> IntStream.rangeClosed(0, topLayer).iterator(),
@@ -280,15 +272,14 @@ class Delete {
      *
      * @return a {@code CompletableFuture} that completes with a {@code null}
      */
-    @Nonnull
     private <N extends NodeReference> CompletableFuture<EntryNodeReference>
-            deleteFromLayer(@Nonnull final StorageAdapter<N> storageAdapter,
-                            @Nonnull final Transaction transaction,
-                            @Nonnull final StorageTransform storageTransform,
-                            @Nonnull final Quantizer quantizer,
-                            @Nonnull final SplittableRandom random,
+            deleteFromLayer(final StorageAdapter<N> storageAdapter,
+                            final Transaction transaction,
+                            final StorageTransform storageTransform,
+                            final Quantizer quantizer,
+                            final SplittableRandom random,
                             final int layer,
-                            @Nonnull final Tuple toBeDeletedPrimaryKey) {
+                            final Tuple toBeDeletedPrimaryKey) {
         if (logger.isTraceEnabled()) {
             logger.trace("begin delete key={} at layer={}", toBeDeletedPrimaryKey, layer);
         }
@@ -388,6 +379,10 @@ class Delete {
                                 // entry node reference in order to avoid a costly search for a new global entry point.
                                 // This reference is guaranteed to exist.
                                 //
+                                // Iterables.getFirst is from Guava, which is not jspecify-annotated, so its generic
+                                // default-value parameter is treated as @NonNull by NullAway's defaults; null is
+                                // the correct default here (there may be no candidates).
+                                @SuppressWarnings("NullAway")
                                 final Tuple firstPrimaryKey =
                                         Iterables.getFirst(candidateReferencesMap.keySet(), null);
                                 return firstPrimaryKey == null
@@ -404,10 +399,10 @@ class Delete {
                 });
     }
 
-    private <N extends NodeReference> void initializeCandidateChangeSetMap(@Nonnull final Tuple toBeDeletedPrimaryKey,
-                                                                           @Nonnull final AbstractNode<N> toBeDeletedNode,
-                                                                           @Nonnull final List<NodeReferenceAndNode<NodeReferenceWithVector, N>> candidates,
-                                                                           @Nonnull final Map<Tuple, NeighborsChangeSet<N>> candidateChangeSetMap) {
+    private <N extends NodeReference> void initializeCandidateChangeSetMap(final Tuple toBeDeletedPrimaryKey,
+                                                                           final AbstractNode<N> toBeDeletedNode,
+                                                                           final List<NodeReferenceAndNode<NodeReferenceWithVector, N>> candidates,
+                                                                           final Map<Tuple, NeighborsChangeSet<N>> candidateChangeSetMap) {
         for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : candidates) {
             final AbstractNode<N> candidateNode = candidate.getNode();
             boolean foundToBeDeleted = false;
@@ -450,12 +445,11 @@ class Delete {
      * @param nodeCache the node cache to avoid repeated fetches
      * @return a future that if successful completes with {@code null}
      */
-    @Nonnull
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithVector, N>>>
-             findDeletionRepairCandidates(final @Nonnull StorageAdapter<N> storageAdapter,
-                                          final @Nonnull Transaction transaction,
-                                          final @Nonnull StorageTransform storageTransform,
-                                          final @Nonnull SplittableRandom random,
+             findDeletionRepairCandidates(final StorageAdapter<N> storageAdapter,
+                                          final Transaction transaction,
+                                          final StorageTransform storageTransform,
+                                          final SplittableRandom random,
                                           final int layer,
                                           final NodeReferenceAndNode<NodeReference, N> toBeDeletedNodeReferenceAndNode,
                                           final Map<Tuple, AbstractNode<N>> nodeCache) {
@@ -503,16 +497,16 @@ class Delete {
      * @param nodeCache the node cache to avoid repeated fetches
      * @return a future that if successful completes with {@code null}
      */
-    private <N extends NodeReference> @Nonnull CompletableFuture<Void>
-            repairNeighbor(@Nonnull final StorageAdapter<N> storageAdapter,
-                           @Nonnull final Transaction transaction,
-                           @Nonnull final StorageTransform storageTransform,
-                           @Nonnull final DistanceEstimator distanceEstimator,
+    private <N extends NodeReference> CompletableFuture<Void>
+            repairNeighbor(final StorageAdapter<N> storageAdapter,
+                           final Transaction transaction,
+                           final StorageTransform storageTransform,
+                           final DistanceEstimator distanceEstimator,
                            final int layer,
-                           @Nonnull final N neighborReference,
-                           @Nonnull final Collection<NodeReferenceAndNode<NodeReferenceWithVector, N>> candidates,
-                           @Nonnull final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> neighborChangeSetMap,
-                           @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+                           final N neighborReference,
+                           final Collection<NodeReferenceAndNode<NodeReferenceWithVector, N>> candidates,
+                           final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> neighborChangeSetMap,
+                           final Map<Tuple, AbstractNode<N>> nodeCache) {
 
         return primitives().fetchNodeIfNotCached(storageAdapter, transaction,
                 storageTransform, layer, neighborReference, nodeCache)
@@ -559,14 +553,14 @@ class Delete {
      * @return a future that if successful completes with {@code null}
      */
     private <N extends NodeReference> CompletableFuture<Void>
-            repairInsForNeighborNode(@Nonnull final StorageAdapter<N> storageAdapter,
-                                     @Nonnull final Transaction transaction,
-                                     @Nonnull final StorageTransform storageTransform,
-                                     @Nonnull final DistanceEstimator distanceEstimator,
+            repairInsForNeighborNode(final StorageAdapter<N> storageAdapter,
+                                     final Transaction transaction,
+                                     final StorageTransform storageTransform,
+                                     final DistanceEstimator distanceEstimator,
                                      final int layer,
-                                     @Nonnull final N neighborReference,
-                                     @Nonnull final Iterable<NodeReferenceWithDistance> candidates,
-                                     @Nonnull final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> neighborChangeSetMap,
+                                     final N neighborReference,
+                                     final Iterable<NodeReferenceWithDistance> candidates,
+                                     final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> neighborChangeSetMap,
                                      final Map<Tuple, AbstractNode<N>> nodeCache) {
         return primitives().selectCandidates(storageAdapter, transaction, storageTransform, distanceEstimator, candidates,
                 layer, getConfig().m(), nodeCache)
@@ -604,8 +598,8 @@ class Delete {
      * @param toBeDeletedPrimaryKey the {@link Tuple} representing the node that is being deleted
      * @return {@code true} iff {@code candidateReference} is accepted as an actual candidate for repair.
      */
-    private boolean shouldUsePrimaryCandidateForRepair(@Nonnull final NodeReference candidateReference,
-                                                       @Nonnull final Tuple toBeDeletedPrimaryKey) {
+    private boolean shouldUsePrimaryCandidateForRepair(final NodeReference candidateReference,
+                                                       final Tuple toBeDeletedPrimaryKey) {
         final Tuple candidatePrimaryKey = candidateReference.getPrimaryKey();
 
         //
@@ -631,10 +625,10 @@ class Delete {
      * @return {@code true} iff {@code candidateReference} is accepted as an actual candidate for repair.
      */
     private boolean shouldUseSecondaryCandidateForRepair(@Nullable final SplittableRandom random,
-                                                         @Nonnull final Set<Tuple> initialNodeKeys,
+                                                         final Set<Tuple> initialNodeKeys,
                                                          final int numberOfCandidates,
-                                                         @Nonnull final NodeReference candidateReference,
-                                                         @Nonnull final Tuple toBeDeletedPrimaryKey) {
+                                                         final NodeReference candidateReference,
+                                                         final Tuple toBeDeletedPrimaryKey) {
         final Tuple candidatePrimaryKey = candidateReference.getPrimaryKey();
 
         //

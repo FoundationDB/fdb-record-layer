@@ -30,14 +30,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.Random;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class RealVectorTest {
-    @Nonnull
     private static Stream<Arguments> randomSeedsWithNumDimensions() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L)
                 .flatMap(seed -> ImmutableSet.of(3, 5, 10, 128, 768, 1000).stream()
@@ -508,13 +506,11 @@ public class RealVectorTest {
         Assertions.assertThat(mutableRandomDoubleRealVector.toMutable()).isSameAs(mutableRandomDoubleRealVector);
     }
 
-    @Nonnull
-    public static DoubleRealVector createRandomDoubleVector(@Nonnull final Random random, final int numDimensions) {
+    public static DoubleRealVector createRandomDoubleVector(final Random random, final int numDimensions) {
         return new DoubleRealVector(createRandomVectorData(random, numDimensions));
     }
 
-    @Nonnull
-    public static DoubleRealVector createRandomNonNormalDoubleVector(@Nonnull final Random random, final int numDimensions) {
+    public static DoubleRealVector createRandomNonNormalDoubleVector(final Random random, final int numDimensions) {
         DoubleRealVector randomVector;
         do {
             final double[] randomVectorData = createRandomVectorData(random, numDimensions);
@@ -523,18 +519,15 @@ public class RealVectorTest {
         return randomVector;
     }
 
-    @Nonnull
-    public static FloatRealVector createRandomFloatVector(@Nonnull final Random random, final int numDimensions) {
+    public static FloatRealVector createRandomFloatVector(final Random random, final int numDimensions) {
         return new FloatRealVector(createRandomVectorData(random, numDimensions));
     }
 
-    @Nonnull
-    public static HalfRealVector createRandomHalfVector(@Nonnull final Random random, final int numDimensions) {
+    public static HalfRealVector createRandomHalfVector(final Random random, final int numDimensions) {
         return new HalfRealVector(createRandomVectorData(random, numDimensions));
     }
 
-    @Nonnull
-    public static double[] createRandomVectorData(@Nonnull final Random random, final int numDimensions) {
+    public static double[] createRandomVectorData(final Random random, final int numDimensions) {
         final double[] components = new double[numDimensions];
         for (int d = 0; d < numDimensions; d ++) {
             components[d] = random.nextDouble() * (random.nextBoolean() ? -1 : 1);

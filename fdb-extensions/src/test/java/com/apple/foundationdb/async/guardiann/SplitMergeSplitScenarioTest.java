@@ -40,7 +40,6 @@ import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -79,25 +78,24 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
     static final TestClassSubspaceExtension subspaceExtension = new TestClassSubspaceExtension(dbExtension);
 
     @TempDir
+    // Injected by JUnit's TempDirectory extension before each test; NullAway cannot see framework injection.
+    @SuppressWarnings("NullAway")
     Path tempDir;
 
     private static Database db;
     private static Guardiann guardiann;
     private static TestHelpers.TestOnWriteListener onWriteListener;
 
-    @Nonnull
     @Override
     public Database getDb() {
         return Objects.requireNonNull(db);
     }
 
-    @Nonnull
     @Override
     public Subspace getSubspace() {
         return subspaceExtension.getSubspace();
     }
 
-    @Nonnull
     @Override
     public Path getTempDir() {
         return tempDir;
@@ -150,7 +148,12 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
             for (int i = 0; i < NUM_NEAR_DUPLICATES; i++) {
                 final DoubleRealVector perturbed = CommonTestHelpers.perturb(base, sampler, PERTURBATION_SIGMA);
                 final Tuple pk = CommonTestHelpers.createPrimaryKey(i);
-                db.run(tr -> {
+                // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call
+                // returns null from the lambda; NullAway does not accept an explicit @Nullable type witness on
+                // this external, unannotated method either, so the suppression is scoped to this one declaration
+                // instead.
+                @SuppressWarnings("NullAway")
+                final Void ignored = db.run(tr -> {
                     guardiann.insert(tr, pk, perturbed, null, true).join();
                     return null;
                 });
@@ -169,7 +172,7 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
 
             GuardiannStructureAsserts.assertGuardiannInvariants(db, guardiann);
 
-            final StructureSnapshot snap = GuardiannStructureAsserts.snapshotStructure(db, guardiann);
+            final StructureSnapshot snap = Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann));
             assertThat(snap)
                     .as("structure snapshot must be non-null after inserts")
                     .isNotNull();

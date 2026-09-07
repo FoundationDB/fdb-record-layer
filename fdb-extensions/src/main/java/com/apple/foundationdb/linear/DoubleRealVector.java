@@ -23,7 +23,6 @@ package com.apple.foundationdb.linear;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.function.Supplier;
@@ -36,10 +35,8 @@ import java.util.function.Supplier;
  * {@link MutableDoubleRealVector}.
  */
 public class DoubleRealVector extends AbstractRealVector {
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<HalfRealVector> toHalfVectorSupplier = Suppliers.memoize(this::computeHalfRealVector);
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<FloatRealVector> toFloatVectorSupplier = Suppliers.memoize(this::computeFloatRealVector);
 
@@ -50,7 +47,7 @@ public class DoubleRealVector extends AbstractRealVector {
      *
      * @param doubleData the components of the new vector
      */
-    public DoubleRealVector(@Nonnull final Double[] doubleData) {
+    public DoubleRealVector(final Double[] doubleData) {
         this(computeDoubleData(doubleData));
     }
 
@@ -62,7 +59,7 @@ public class DoubleRealVector extends AbstractRealVector {
      *
      * @param data the components of the new vector; ownership transfers to this vector
      */
-    public DoubleRealVector(@Nonnull final double[] data) {
+    public DoubleRealVector(final double[] data) {
         super(data);
     }
 
@@ -72,7 +69,7 @@ public class DoubleRealVector extends AbstractRealVector {
      *
      * @param intData the components of the new vector
      */
-    public DoubleRealVector(@Nonnull final int[] intData) {
+    public DoubleRealVector(final int[] intData) {
         this(fromInts(intData));
     }
 
@@ -83,14 +80,13 @@ public class DoubleRealVector extends AbstractRealVector {
      *
      * @param longData the components of the new vector
      */
-    public DoubleRealVector(@Nonnull final long[] longData) {
+    public DoubleRealVector(final long[] longData) {
         this(fromLongs(longData));
     }
 
     /**
      * Returns the memoized half-precision projection of this vector.
      */
-    @Nonnull
     @Override
     public HalfRealVector toHalfRealVector() {
         return toHalfVectorSupplier.get();
@@ -103,7 +99,6 @@ public class DoubleRealVector extends AbstractRealVector {
      *
      * @return a new {@link HalfRealVector} with this vector's components
      */
-    @Nonnull
     protected HalfRealVector computeHalfRealVector() {
         return new HalfRealVector(data);
     }
@@ -111,7 +106,6 @@ public class DoubleRealVector extends AbstractRealVector {
     /**
      * Returns the memoized single-precision projection of this vector.
      */
-    @Nonnull
     @Override
     public FloatRealVector toFloatRealVector() {
         return toFloatVectorSupplier.get();
@@ -124,7 +118,6 @@ public class DoubleRealVector extends AbstractRealVector {
      *
      * @return a new {@link FloatRealVector} with this vector's components
      */
-    @Nonnull
     protected FloatRealVector computeFloatRealVector() {
         return new FloatRealVector(data);
     }
@@ -132,7 +125,6 @@ public class DoubleRealVector extends AbstractRealVector {
     /**
      * Returns {@code this} — already a double-precision vector, so no conversion is needed.
      */
-    @Nonnull
     @Override
     public DoubleRealVector toDoubleRealVector() {
         return this;
@@ -146,16 +138,14 @@ public class DoubleRealVector extends AbstractRealVector {
      * @param data the components of the new vector
      * @return a fresh immutable double-precision vector
      */
-    @Nonnull
     @Override
-    public DoubleRealVector withData(@Nonnull final double[] data) {
+    public DoubleRealVector withData(final double[] data) {
         return new DoubleRealVector(data);
     }
 
     /**
      * Returns {@code this} — instances of this class are already immutable.
      */
-    @Nonnull
     @Override
     public DoubleRealVector toImmutable() {
         return this;
@@ -168,7 +158,6 @@ public class DoubleRealVector extends AbstractRealVector {
      *
      * @return a new byte array representing the serialized vector data; never {@code null}
      */
-    @Nonnull
     @Override
     protected byte[] computeRawData() {
         final byte[] vectorBytes = new byte[1 + 8 * getNumDimensions()];
@@ -185,7 +174,6 @@ public class DoubleRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link DoubleRealVector}.
      */
-    @Nonnull
     @Override
     public DoubleRealVector normalize() {
         return withData(RealVectorPrimitives.normalizeInto(this.getData(), new double[getNumDimensions()]));
@@ -196,9 +184,8 @@ public class DoubleRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link DoubleRealVector}.
      */
-    @Nonnull
     @Override
-    public DoubleRealVector add(@Nonnull final RealVector other) {
+    public DoubleRealVector add(final RealVector other) {
         return withData(RealVectorPrimitives.addInto(this.getData(), other.getData(), new double[getNumDimensions()]));
     }
 
@@ -207,7 +194,6 @@ public class DoubleRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link DoubleRealVector}.
      */
-    @Nonnull
     @Override
     public DoubleRealVector add(final double scalar) {
         return withData(RealVectorPrimitives.addInto(this.getData(), scalar, new double[getNumDimensions()]));
@@ -218,9 +204,8 @@ public class DoubleRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link DoubleRealVector}.
      */
-    @Nonnull
     @Override
-    public DoubleRealVector subtract(@Nonnull final RealVector other) {
+    public DoubleRealVector subtract(final RealVector other) {
         return withData(RealVectorPrimitives.subtractInto(this.getData(), other.getData(), new double[getNumDimensions()]));
     }
 
@@ -229,7 +214,6 @@ public class DoubleRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link DoubleRealVector}.
      */
-    @Nonnull
     @Override
     public DoubleRealVector subtract(final double scalar) {
         return withData(RealVectorPrimitives.subtractInto(this.getData(), scalar, new double[getNumDimensions()]));
@@ -240,7 +224,6 @@ public class DoubleRealVector extends AbstractRealVector {
      *
      * <p>Narrows the return type to {@link DoubleRealVector}.
      */
-    @Nonnull
     @Override
     public DoubleRealVector multiply(final double scalar) {
         return withData(RealVectorPrimitives.multiplyInto(this.getData(), scalar, new double[getNumDimensions()]));
@@ -251,7 +234,6 @@ public class DoubleRealVector extends AbstractRealVector {
      * @param numDimensions number of dimensions
      * @return a vector whose components are all zero
      */
-    @Nonnull
     public static DoubleRealVector zeroVector(final int numDimensions) {
         return new DoubleRealVector(new double[numDimensions]);
     }
@@ -264,8 +246,7 @@ public class DoubleRealVector extends AbstractRealVector {
      * @param doubleData the boxed components
      * @return a new primitive array of the same length and values
      */
-    @Nonnull
-    protected static double[] computeDoubleData(@Nonnull Double[] doubleData) {
+    protected static double[] computeDoubleData(Double[] doubleData) {
         double[] result = new double[doubleData.length];
         for (int i = 0; i < doubleData.length; i++) {
             result[i] = doubleData[i];
@@ -282,8 +263,7 @@ public class DoubleRealVector extends AbstractRealVector {
      * @param vectorBytes the non-null byte array to convert
      * @return a new {@link DoubleRealVector} instance created from the byte array
      */
-    @Nonnull
-    public static DoubleRealVector fromBytes(@Nonnull final byte[] vectorBytes) {
+    public static DoubleRealVector fromBytes(final byte[] vectorBytes) {
         return new DoubleRealVector(decodeDoubleBytes(vectorBytes));
     }
 
@@ -296,8 +276,7 @@ public class DoubleRealVector extends AbstractRealVector {
      * @param vectorBytes the non-null byte array to decode
      * @return a freshly allocated {@code double[]} with the decoded components
      */
-    @Nonnull
-    protected static double[] decodeDoubleBytes(@Nonnull final byte[] vectorBytes) {
+    protected static double[] decodeDoubleBytes(final byte[] vectorBytes) {
         final ByteBuffer buffer = ByteBuffer.wrap(vectorBytes).order(ByteOrder.BIG_ENDIAN);
         Verify.verify(buffer.get() == VectorType.DOUBLE.ordinal());
         final int numDimensions = vectorBytes.length >> 3;

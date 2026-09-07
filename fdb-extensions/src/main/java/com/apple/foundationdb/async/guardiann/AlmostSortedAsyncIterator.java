@@ -25,7 +25,8 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Comparator;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -51,22 +52,20 @@ import java.util.concurrent.Executor;
  * @param <T> the type of element produced
  */
 class AlmostSortedAsyncIterator<T> implements CloseableAsyncIterator<T> {
-    @Nonnull
     private final AsyncIterator<T> in;
     private final int maxQueueSize;
-    @Nonnull
     private final PriorityQueue<T> out;
 
-    @Nonnull
     private final Executor executor;
 
+    @Nullable
     private CompletableFuture<T> nextFuture;
     private boolean inDone;
 
-    public AlmostSortedAsyncIterator(@Nonnull final AsyncIterator<T> in,
-                                     @Nonnull Comparator<T> comparator,
+    public AlmostSortedAsyncIterator(final AsyncIterator<T> in,
+                                     Comparator<T> comparator,
                                      final int maxQueueSize,
-                                     @Nonnull final Executor executor) {
+                                     final Executor executor) {
         this.in = in;
         this.maxQueueSize = maxQueueSize;
         this.out = new PriorityQueue<>(comparator);
@@ -83,7 +82,6 @@ class AlmostSortedAsyncIterator<T> implements CloseableAsyncIterator<T> {
         return nextFuture.thenApply(Objects::nonNull);
     }
 
-    @Nonnull
     private CompletableFuture<T> computeNextRecord() {
         return AsyncUtil.whileTrue(() -> {
             if (inDone || out.size() >= maxQueueSize) {

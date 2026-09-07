@@ -22,8 +22,8 @@ package com.apple.foundationdb.util;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -35,7 +35,7 @@ import java.util.Map;
 @API(API.Status.UNSTABLE)
 public final class LoggableKeysAndValuesImpl implements LoggableKeysAndValues<LoggableKeysAndValuesImpl> {
     private static final Object[] EMPTY_LOG_INFO = new Object[0];
-    @Nullable private Map<String, Object> logInfo;
+    @Nullable private Map<String, @Nullable Object> logInfo;
 
     /**
      * Create an instance with the given message and a sequence of key-value pairs.
@@ -56,13 +56,12 @@ public final class LoggableKeysAndValuesImpl implements LoggableKeysAndValues<Lo
      *
      * @return a single map with all log information
      */
-    @Nonnull
     @Override
-    public Map<String, Object> getLogInfo() {
+    public Map<String, @Nullable Object> getLogInfo() {
         if (logInfo == null) {
-            return Collections.emptyMap();
+            return Collections.<String, @Nullable Object>emptyMap();
         }
-        return Collections.unmodifiableMap(logInfo);
+        return Collections.<String, @Nullable Object>unmodifiableMap(logInfo);
     }
 
     /**
@@ -70,12 +69,11 @@ public final class LoggableKeysAndValuesImpl implements LoggableKeysAndValues<Lo
      * given as the key and the object provided as the value.
      *
      * @param description description of the log info pair
-     * @param object value of the log info pair
+     * @param object value of the log info pair, which may be {@code null}
      * @return this <code>LoggableException</code>
      */
-    @Nonnull
     @Override
-    public LoggableKeysAndValuesImpl addLogInfo(@Nonnull String description, Object object) {
+    public LoggableKeysAndValuesImpl addLogInfo(String description, @Nullable Object object) {
         if (logInfo == null) {
             logInfo = new HashMap<>();
         }
@@ -96,9 +94,8 @@ public final class LoggableKeysAndValuesImpl implements LoggableKeysAndValues<Lo
      * @return this <code>LoggableException</code>
      * @throws IllegalArgumentException if <code>keyValue</code> has odd length
      */
-    @Nonnull
     @Override
-    public LoggableKeysAndValuesImpl addLogInfo(@Nonnull Object ... keyValue) {
+    public LoggableKeysAndValuesImpl addLogInfo(@Nullable Object ... keyValue) {
         if ((keyValue.length % 2) != 0) {
             throw new IllegalArgumentException("Unbalanced key/value logging info");
         }
@@ -118,7 +115,6 @@ public final class LoggableKeysAndValuesImpl implements LoggableKeysAndValues<Lo
      *
      * @return a flattened map of key-value pairs
      */
-    @Nonnull
     @Override
     public Object[] exportLogInfo() {
         if (logInfo == null) {
@@ -126,7 +122,7 @@ public final class LoggableKeysAndValuesImpl implements LoggableKeysAndValues<Lo
         }
         Object[] exportedInfo = new Object[2 * logInfo.size()];
         int i = 0;
-        for (Map.Entry<String, Object> entry : logInfo.entrySet()) {
+        for (Map.Entry<String, @Nullable Object> entry : logInfo.entrySet()) {
             exportedInfo[i] = entry.getKey();
             exportedInfo[i + 1] = entry.getValue();
             i += 2;

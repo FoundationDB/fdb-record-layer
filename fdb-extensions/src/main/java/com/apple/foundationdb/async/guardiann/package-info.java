@@ -23,4 +23,7 @@
  * Guided Updatable cluster Assignment and Routing via Distance-based Indexing for ANN searches.
  * See {@link com.apple.foundationdb.async.guardiann.Guardiann} for an introduction.
  */
+@NullMarked
 package com.apple.foundationdb.async.guardiann;
+
+import org.jspecify.annotations.NullMarked;

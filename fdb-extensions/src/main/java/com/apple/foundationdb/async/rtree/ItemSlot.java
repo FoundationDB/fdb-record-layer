@@ -24,7 +24,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 import java.math.BigInteger;
 import java.util.Comparator;
 import java.util.function.Function;
@@ -40,80 +39,70 @@ public class ItemSlot implements NodeSlot {
     public static final int SLOT_KEY_TUPLE_SIZE = 2;
     public static final int SLOT_VALUE_TUPLE_SIZE = 1;
 
-    @Nonnull
     private final BigInteger hilbertValue;
-    @Nonnull
     private final Tuple key;
 
-    @Nonnull
     private final Tuple value;
-    @Nonnull
     private final RTree.Point position;
 
-    public ItemSlot(@Nonnull final BigInteger hilbertValue, @Nonnull final RTree.Point position, @Nonnull final Tuple key,
-                    @Nonnull final Tuple value) {
+    public ItemSlot(final BigInteger hilbertValue, final RTree.Point position, final Tuple key,
+                    final Tuple value) {
         this.hilbertValue = hilbertValue;
         this.key = key;
         this.value = value;
         this.position = position;
     }
 
-    @Nonnull
     public BigInteger getHilbertValue() {
         return hilbertValue;
     }
 
-    @Nonnull
     public Tuple getKey() {
         return key;
     }
 
-    @Nonnull
     public Tuple getKeySuffix() {
         return key.getNestedTuple(1);
     }
 
-    @Nonnull
     public Tuple getValue() {
         return value;
     }
 
-    @Nonnull
     public RTree.Point getPosition() {
         return position;
     }
 
-    @Nonnull
     @Override
     public BigInteger getSmallestHilbertValue() {
         return hilbertValue;
     }
 
-    @Nonnull
     @Override
     public BigInteger getLargestHilbertValue() {
         return hilbertValue;
     }
 
-    @Nonnull
     @Override
     public Tuple getSmallestKey() {
         return key;
     }
 
-    @Nonnull
     @Override
     public Tuple getLargestKey() {
         return key;
     }
 
-    @Nonnull
     @Override
     public Tuple getSlotKey(final boolean storeHilbertValues) {
-        return Tuple.from(storeHilbertValues ? getHilbertValue() : null, getKey());
+        // Tuple.from(Object...) is from the unannotated fdb-java client library and genuinely supports null
+        // elements (omitting the Hilbert value when it is not stored), but its varargs parameter is treated
+        // as @NonNull by NullAway's defaults.
+        @SuppressWarnings("NullAway")
+        final Tuple result = Tuple.from(storeHilbertValues ? getHilbertValue() : null, getKey());
+        return result;
     }
 
-    @Nonnull
     @Override
     public Tuple getSlotValue() {
         return Tuple.from(getValue());
@@ -128,8 +117,8 @@ public class ItemSlot implements NodeSlot {
      *
      * @return {@code -1, 0, 1} if this node slot's pair is less/equal/greater than the pair passed in
      */
-    public int compareHilbertValueAndKey(@Nonnull final BigInteger hilbertValue,
-                                         @Nonnull final Tuple key) {
+    public int compareHilbertValueAndKey(final BigInteger hilbertValue,
+                                         final Tuple key) {
         final int hilbertValueCompare = getHilbertValue().compareTo(hilbertValue);
         if (hilbertValueCompare != 0) {
             return hilbertValueCompare;
@@ -142,9 +131,8 @@ public class ItemSlot implements NodeSlot {
         return "[" + getPosition() + ";" + getHilbertValue() + "; " + getKey() + "]";
     }
 
-    @Nonnull
-    static ItemSlot fromKeyAndValue(@Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple,
-                                    @Nonnull final Function<RTree.Point, BigInteger> hilbertValueFunction) {
+    static ItemSlot fromKeyAndValue(final Tuple keyTuple, final Tuple valueTuple,
+                                    final Function<RTree.Point, BigInteger> hilbertValueFunction) {
         Verify.verify(keyTuple.size() == SLOT_KEY_TUPLE_SIZE);
         Verify.verify(valueTuple.size() == SLOT_VALUE_TUPLE_SIZE);
         final Tuple itemKey = keyTuple.getNestedTuple(1);

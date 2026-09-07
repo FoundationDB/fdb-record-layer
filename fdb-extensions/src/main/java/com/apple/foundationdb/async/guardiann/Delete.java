@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.SplittableRandom;
 import java.util.UUID;
@@ -48,37 +47,30 @@ import static com.apple.foundationdb.async.MoreAsyncUtil.mapIterablePipelined;
  * if a cluster drops below its minimum size threshold.
  */
 class Delete {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(Delete.class);
 
-    @Nonnull
     private final Locator locator;
 
-    public Delete(@Nonnull final Locator locator) {
+    public Delete(final Locator locator) {
         this.locator = locator;
     }
 
-    @Nonnull
     public Locator getLocator() {
         return locator;
     }
 
-    @Nonnull
     public Subspace getSubspace() {
         return getLocator().getSubspace();
     }
 
-    @Nonnull
     public Executor getExecutor() {
         return getLocator().getExecutor();
     }
 
-    @Nonnull
     public Config getConfig() {
         return getLocator().getConfig();
     }
 
-    @Nonnull
     private Primitives primitives() {
         return getLocator().primitives();
     }
@@ -99,10 +91,9 @@ class Delete {
      * @return a {@link CompletableFuture} that completes when the deletion is finished, or completes
      *         immediately if the vector does not exist
      */
-    @Nonnull
-    public CompletableFuture<Void> delete(@Nonnull final Transaction transaction,
-                                          @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector,
+    public CompletableFuture<Void> delete(final Transaction transaction,
+                                          final Tuple primaryKey,
+                                          final RealVector vector,
                                           final boolean maintainInTransaction) {
         final SplittableRandom random = RandomHelpers.random(primaryKey);
         final Primitives primitives = primitives();
@@ -135,12 +126,11 @@ class Delete {
                 });
     }
 
-    @Nonnull
-    private CompletableFuture<Void> deleteFromClusters(@Nonnull final Transaction transaction,
-                                                       @Nonnull final SplittableRandom random,
-                                                       @Nonnull final AccessInfo accessInfo,
-                                                       @Nonnull final Tuple primaryKey,
-                                                       @Nonnull final RealVector vector) {
+    private CompletableFuture<Void> deleteFromClusters(final Transaction transaction,
+                                                       final SplittableRandom random,
+                                                       final AccessInfo accessInfo,
+                                                       final Tuple primaryKey,
+                                                       final RealVector vector) {
         final Config config = getConfig();
         final Primitives primitives = primitives();
         final StorageTransform storageTransform = primitives.storageTransform(accessInfo);

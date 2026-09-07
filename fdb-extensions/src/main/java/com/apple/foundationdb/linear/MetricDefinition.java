@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.linear;
 
-import javax.annotation.Nonnull;
 
 /**
  * Defines a metric for measuring the distance or similarity between n-dimensional vectors.
@@ -84,8 +83,7 @@ interface MetricDefinition {
                 satisfiesTriangleInequality();
     }
 
-    @Nonnull
-    static String toString(@Nonnull final MetricDefinition metricDefinition) {
+    static String toString(final MetricDefinition metricDefinition) {
         return metricDefinition.getClass().getSimpleName() + ";" + metricDefinition.isTrueMetric() + " metric";
     }
 
@@ -104,7 +102,7 @@ interface MetricDefinition {
      * @throws IllegalArgumentException if the vectors have different lengths.
      * @throws NullPointerException if either {@code vector1} or {@code vector2} is null.
      */
-    double distance(@Nonnull double[] vector1, @Nonnull double[] vector2);
+    double distance(double[] vector1, double[] vector2);
 
     /**
      * A helper method to validate that vectors can be compared.
@@ -134,14 +132,13 @@ interface MetricDefinition {
      */
     final class EuclideanMetric implements MetricDefinition {
         @Override
-        public double distance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
+        public double distance(final double[] vector1, final double[] vector2) {
             MetricDefinition.validate(vector1, vector2);
 
             return Math.sqrt(RealVectorPrimitives.euclideanSquared(vector1, vector2));
         }
 
         @Override
-        @Nonnull
         public String toString() {
             return MetricDefinition.toString(this);
         }
@@ -167,13 +164,12 @@ interface MetricDefinition {
         }
 
         @Override
-        public double distance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
+        public double distance(final double[] vector1, final double[] vector2) {
             MetricDefinition.validate(vector1, vector2);
             return RealVectorPrimitives.euclideanSquared(vector1, vector2);
         }
 
         @Override
-        @Nonnull
         public String toString() {
             return MetricDefinition.toString(this);
         }
@@ -200,7 +196,7 @@ interface MetricDefinition {
         }
 
         @Override
-        public double distance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
+        public double distance(final double[] vector1, final double[] vector2) {
             MetricDefinition.validate(vector1, vector2);
 
             final double normA = RealVectorPrimitives.l2SquaredNorm(vector1);
@@ -221,7 +217,6 @@ interface MetricDefinition {
         }
 
         @Override
-        @Nonnull
         public String toString() {
             return MetricDefinition.toString(this);
         }
@@ -259,17 +254,16 @@ interface MetricDefinition {
         }
 
         @Override
-        public double distance(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
+        public double distance(final double[] vector1, final double[] vector2) {
             return -dotProduct(vector1, vector2);
         }
 
-        public static double dotProduct(@Nonnull final double[] vector1, @Nonnull final double[] vector2) {
+        public static double dotProduct(final double[] vector1, final double[] vector2) {
             MetricDefinition.validate(vector1, vector2);
             return RealVectorPrimitives.dot(vector1, vector2);
         }
 
         @Override
-        @Nonnull
         public String toString() {
             return MetricDefinition.toString(this);
         }

@@ -32,8 +32,7 @@ import com.google.common.collect.ImmutableList;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
@@ -147,8 +146,8 @@ class DataRecordsTest {
     }
 
     private static <T> void assertToString(final long randomSeed,
-                                           @Nonnull final Function<Random, T> createFunction,
-                                           @Nonnull final BiFunction<Random, T, T> createDifferentFunction) {
+                                           final Function<Random, T> createFunction,
+                                           final BiFunction<Random, T, T> createDifferentFunction) {
         final Random random = new Random(randomSeed);
         final long dependentRandomSeed = random.nextLong();
         final T t1 = createFunction.apply(new Random(dependentRandomSeed));
@@ -160,8 +159,8 @@ class DataRecordsTest {
     }
 
     private static <T> void assertHashCodeEqualsToString(final long randomSeed,
-                                                         @Nonnull final Function<Random, T> createFunction,
-                                                         @Nonnull final BiFunction<Random, T, T> createDifferentFunction) {
+                                                         final Function<Random, T> createFunction,
+                                                         final BiFunction<Random, T, T> createDifferentFunction) {
         final Random random = new Random(randomSeed);
         final long dependentRandomSeed = random.nextLong();
         final T t1 = createFunction.apply(new Random(dependentRandomSeed));
@@ -175,43 +174,37 @@ class DataRecordsTest {
         Assertions.assertThat(t1).doesNotHaveToString(t2.toString());
     }
 
-    @Nonnull
     private static NodeReferenceAndNode<NodeReferenceWithDistance, NodeReferenceWithVector>
-                   nodeReferenceAndNode(@Nonnull final Random random) {
+                   nodeReferenceAndNode(final Random random) {
         return new NodeReferenceAndNode<>(nodeReferenceWithDistance(random), inliningNode(random));
     }
 
-    @Nonnull
     private static NodeReferenceAndNode<NodeReferenceWithDistance, NodeReferenceWithVector>
-                   nodeReferenceAndNode(@Nonnull final Random random,
-                                        @Nonnull final NodeReferenceAndNode<NodeReferenceWithDistance, NodeReferenceWithVector> original) {
+                   nodeReferenceAndNode(final Random random,
+                                        final NodeReferenceAndNode<NodeReferenceWithDistance, NodeReferenceWithVector> original) {
         return new NodeReferenceAndNode<>(nodeReferenceWithDistance(random, original.getNodeReference()),
                 inliningNode(random, original.getNode().asInliningNode()));
     }
 
-    @Nonnull
-    private static ResultEntry resultEntry(@Nonnull final Random random) {
+    private static ResultEntry resultEntry(final Random random) {
         return new ResultEntry(primaryKey(random), rawVector(random), null, random.nextDouble(),
                 random.nextInt(100));
     }
 
-    @Nonnull
-    private static ResultEntry resultEntry(@Nonnull final Random random, @Nonnull final ResultEntry original) {
+    private static ResultEntry resultEntry(final Random random, final ResultEntry original) {
         return new ResultEntry(primaryKey(random, original.primaryKey()),
                 rawVector(random, Objects.requireNonNull(original.vector())), null,
                 differentDouble(random, original.distance()),
                 differentInteger(random, original.rankOrRowNumber(), 100));
     }
 
-    @Nonnull
-    private static CompactNode compactNode(@Nonnull final Random random) {
+    private static CompactNode compactNode(final Random random) {
         return CompactNode.factory()
                 .create(primaryKey(random), vector(random), null, nodeReferences(random))
                 .asCompactNode();
     }
 
-    @Nonnull
-    private static CompactNode compactNode(@Nonnull final Random random, @Nonnull CompactNode original) {
+    private static CompactNode compactNode(final Random random, CompactNode original) {
         return CompactNode.factory()
                 .create(primaryKey(random, original.getPrimaryKey()), vector(random, original.getVector()),
                         null, nodeReferences(random, original.getNeighbors())
@@ -219,14 +212,13 @@ class DataRecordsTest {
                 .asCompactNode();
     }
 
-    @Nonnull
-    private static InliningNode inliningNode(@Nonnull final Random random) {
+    private static InliningNode inliningNode(final Random random) {
         return InliningNode.factory()
                 .create(primaryKey(random), null, null, nodeReferenceWithVectors(random))
                 .asInliningNode();
     }
 
-    private static InliningNode inliningNode(@Nonnull final Random random, @Nonnull final InliningNode original) {
+    private static InliningNode inliningNode(final Random random, final InliningNode original) {
         return InliningNode.factory()
                 .create(primaryKey(random, original.getPrimaryKey()),
                         null, null, nodeReferenceWithVectors(random, original.getNeighbors())
@@ -234,27 +226,23 @@ class DataRecordsTest {
                 .asInliningNode();
     }
 
-    @Nonnull
-    private static NodeReferenceWithDistance nodeReferenceWithDistance(@Nonnull final Random random) {
+    private static NodeReferenceWithDistance nodeReferenceWithDistance(final Random random) {
         return new NodeReferenceWithDistance(primaryKey(random), vector(random), random.nextDouble());
     }
 
-    @Nonnull
-    private static NodeReferenceWithDistance nodeReferenceWithDistance(@Nonnull final Random random,
-                                                                       @Nonnull final NodeReferenceWithDistance original) {
+    private static NodeReferenceWithDistance nodeReferenceWithDistance(final Random random,
+                                                                       final NodeReferenceWithDistance original) {
         return new NodeReferenceWithDistance(
                 primaryKey(random, original.getPrimaryKey()),
                 vector(random, original.getVector()),
                 differentDouble(random, original.getDistance()));
     }
 
-    @Nonnull
-    private static List<NodeReferenceWithVector> nodeReferenceWithVectors(@Nonnull final Random random) {
+    private static List<NodeReferenceWithVector> nodeReferenceWithVectors(final Random random) {
         return nodeReferenceWithVectors(random, null);
     }
 
-    @Nonnull
-    private static List<NodeReferenceWithVector> nodeReferenceWithVectors(@Nonnull final Random random,
+    private static List<NodeReferenceWithVector> nodeReferenceWithVectors(final Random random,
                                                                           @Nullable final List<NodeReferenceWithVector> original) {
         final int size = original == null
                          ? random.nextInt(20)
@@ -266,25 +254,21 @@ class DataRecordsTest {
         return resultBuilder.build();
     }
 
-    @Nonnull
-    private static NodeReferenceWithVector nodeReferenceWithVector(@Nonnull final Random random) {
+    private static NodeReferenceWithVector nodeReferenceWithVector(final Random random) {
         return new NodeReferenceWithVector(primaryKey(random), vector(random));
     }
 
-    @Nonnull
-    private static NodeReferenceWithVector nodeReferenceWithVector(@Nonnull final Random random,
-                                                                   @Nonnull final NodeReferenceWithVector original) {
+    private static NodeReferenceWithVector nodeReferenceWithVector(final Random random,
+                                                                   final NodeReferenceWithVector original) {
         return new NodeReferenceWithVector(primaryKey(random, original.getPrimaryKey()),
                 vector(random, original.getVector()));
     }
 
-    @Nonnull
-    private static List<NodeReference> nodeReferences(@Nonnull final Random random) {
+    private static List<NodeReference> nodeReferences(final Random random) {
         return nodeReferences(random, null);
     }
 
-    @Nonnull
-    private static List<NodeReference> nodeReferences(@Nonnull final Random random,
+    private static List<NodeReference> nodeReferences(final Random random,
                                                       @Nullable final List<NodeReference> original) {
         final int size = original == null
                          ? random.nextInt(20)
@@ -296,81 +280,67 @@ class DataRecordsTest {
         return resultBuilder.build();
     }
 
-    @Nonnull
-    private static NodeReference nodeReference(@Nonnull final Random random) {
+    private static NodeReference nodeReference(final Random random) {
         return new NodeReference(primaryKey(random));
     }
 
-    @Nonnull
-    private static NodeReference nodeReference(@Nonnull final Random random, @Nonnull NodeReference original) {
+    private static NodeReference nodeReference(final Random random, NodeReference original) {
         return new NodeReference(primaryKey(random, original.getPrimaryKey()));
     }
 
-    @Nonnull
-    private static AggregatedVector aggregatedVector(@Nonnull final Random random) {
+    private static AggregatedVector aggregatedVector(final Random random) {
         return new AggregatedVector(random.nextInt(100), vector(random));
     }
 
-    @Nonnull
-    private static AggregatedVector aggregatedVector(@Nonnull final Random random,
-                                                     @Nonnull final AggregatedVector original) {
+    private static AggregatedVector aggregatedVector(final Random random,
+                                                     final AggregatedVector original) {
         return new AggregatedVector(differentInteger(random, original.partialCount(), 100),
                 vector(random, original.partialVector()));
     }
 
-    @Nonnull
-    private static AccessInfo accessInfo(@Nonnull final Random random) {
+    private static AccessInfo accessInfo(final Random random) {
         return new AccessInfo(entryNodeReference(random), random.nextLong(), rawVector(random));
     }
 
-    @Nonnull
-    private static AccessInfo accessInfo(@Nonnull final Random random, @Nonnull final AccessInfo original) {
+    private static AccessInfo accessInfo(final Random random, final AccessInfo original) {
         return new AccessInfo(entryNodeReference(random, original.getEntryNodeReference()),
                 differentLong(random, original.getRotatorSeed()),
                 rawVector(random, Objects.requireNonNull(original.getNegatedCentroid())));
     }
 
-    @Nonnull
-    private static EntryNodeReference entryNodeReference(@Nonnull final Random random) {
+    private static EntryNodeReference entryNodeReference(final Random random) {
         return new EntryNodeReference(primaryKey(random), vector(random), random.nextInt(10));
     }
 
-    @Nonnull
-    private static EntryNodeReference entryNodeReference(@Nonnull final Random random,
-                                                         @Nonnull final EntryNodeReference original) {
+    private static EntryNodeReference entryNodeReference(final Random random,
+                                                         final EntryNodeReference original) {
         return new EntryNodeReference(primaryKey(random, original.getPrimaryKey()),
                 vector(random, original.getVector()),
                 differentInteger(random, original.getLayer(), 10));
     }
 
-    @Nonnull
-    private static Tuple primaryKey(@Nonnull final Random random) {
+    private static Tuple primaryKey(final Random random) {
         return Tuple.from(random.nextInt(100));
     }
 
-    @Nonnull
-    private static Tuple primaryKey(@Nonnull final Random random, @Nonnull final Tuple original) {
+    private static Tuple primaryKey(final Random random, final Tuple original) {
         return Tuple.from(differentInteger(random, Math.toIntExact(original.getLong(0)), 100));
     }
 
-    @Nonnull
-    private static Transformed<RealVector> vector(@Nonnull final Random random) {
+    private static Transformed<RealVector> vector(final Random random) {
         return AffineOperator.identity().transform(rawVector(random));
     }
 
-    @Nonnull
-    private static Transformed<RealVector> vector(@Nonnull final Random random,
-                                                  @Nonnull final Transformed<RealVector> original) {
+    private static Transformed<RealVector> vector(final Random random,
+                                                  final Transformed<RealVector> original) {
         return AffineOperator.identity().transform(rawVector(random, original.getUnderlyingVector()));
     }
 
-    @Nonnull
-    private static RealVector rawVector(@Nonnull final Random random) {
+    private static RealVector rawVector(final Random random) {
         return RealVectorTest.createRandomDoubleVector(random, 768);
     }
 
-    @Nonnull
-    private static RealVector rawVector(@Nonnull final Random random, @Nonnull final RealVector original) {
+    private static RealVector rawVector(final Random random, final RealVector original) {
         RealVector randomVector;
         do {
             randomVector = RealVectorTest.createRandomDoubleVector(random, 768);
@@ -378,7 +348,7 @@ class DataRecordsTest {
         return randomVector;
     }
 
-    private static int differentInteger(@Nonnull final Random random, final int original, final int bound) {
+    private static int differentInteger(final Random random, final int original, final int bound) {
         int randomInteger;
         do {
             randomInteger = random.nextInt(bound);
@@ -386,7 +356,7 @@ class DataRecordsTest {
         return randomInteger;
     }
 
-    private static long differentLong(@Nonnull final Random random, final long original) {
+    private static long differentLong(final Random random, final long original) {
         long randomLong;
         do {
             randomLong = random.nextLong();
@@ -394,7 +364,7 @@ class DataRecordsTest {
         return randomLong;
     }
 
-    private static double differentDouble(@Nonnull final Random random, final double original) {
+    private static double differentDouble(final Random random, final double original) {
         double randomDouble;
         do {
             randomDouble = random.nextDouble();

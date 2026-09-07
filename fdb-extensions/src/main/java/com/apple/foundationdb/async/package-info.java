@@ -35,4 +35,7 @@
  * {@link java.util.concurrent.CompletableFuture} class.
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.async;
+
+import org.jspecify.annotations.NullMarked;

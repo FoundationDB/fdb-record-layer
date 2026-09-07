@@ -24,23 +24,19 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 
 public class ColumnMajorRealMatrix implements RealMatrix {
-    @Nonnull
     private final double[][] data;
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::valueBasedHashCode);
 
-    public ColumnMajorRealMatrix(@Nonnull final double[][] data) {
+    public ColumnMajorRealMatrix(final double[][] data) {
         Preconditions.checkArgument(data.length > 0);
         Preconditions.checkArgument(data[0].length > 0);
         this.data = data;
     }
 
-    @Nonnull
     private double[][] getData() {
         return data;
     }
@@ -60,12 +56,10 @@ public class ColumnMajorRealMatrix implements RealMatrix {
         return data[column][row];
     }
 
-    @Nonnull
     public double[] getColumn(final int column) {
         return data[column];
     }
 
-    @Nonnull
     @Override
     public ColumnMajorRealMatrix transpose() {
         int n = getNumRowDimensions();
@@ -79,9 +73,8 @@ public class ColumnMajorRealMatrix implements RealMatrix {
         return new ColumnMajorRealMatrix(result);
     }
 
-    @Nonnull
     @Override
-    public DoubleRealVector apply(@Nonnull final RealVector vector) {
+    public DoubleRealVector apply(final RealVector vector) {
         Preconditions.checkArgument(getNumColumnDimensions() == vector.getNumDimensions());
         final int n = getNumRowDimensions();
         final int m = getNumColumnDimensions();
@@ -95,9 +88,8 @@ public class ColumnMajorRealMatrix implements RealMatrix {
         return new DoubleRealVector(result);
     }
 
-    @Nonnull
     @Override
-    public DoubleRealVector transposedApply(@Nonnull final RealVector vector) {
+    public DoubleRealVector transposedApply(final RealVector vector) {
         Preconditions.checkArgument(getNumRowDimensions() == vector.getNumDimensions());
         final int n = getNumRowDimensions();
         final int m = getNumColumnDimensions();
@@ -123,9 +115,8 @@ public class ColumnMajorRealMatrix implements RealMatrix {
      *        {@code otherMatrix.getNumRowDimensions() == this.getNumColumnDimensions()}
      * @return a new {@link ColumnMajorRealMatrix} containing the product
      */
-    @Nonnull
     @Override
-    public ColumnMajorRealMatrix multiply(@Nonnull final RealMatrix otherMatrix) {
+    public ColumnMajorRealMatrix multiply(final RealMatrix otherMatrix) {
         Preconditions.checkArgument(getNumColumnDimensions() == otherMatrix.getNumRowDimensions());
         final int n = getNumRowDimensions();
         final int m = otherMatrix.getNumColumnDimensions();
@@ -142,7 +133,6 @@ public class ColumnMajorRealMatrix implements RealMatrix {
         return new ColumnMajorRealMatrix(result);
     }
 
-    @Nonnull
     @Override
     public ColumnMajorRealMatrix subMatrix(final int startRow, final int lengthRow,
                                            final int startColumn, final int lengthColumn) {
@@ -155,37 +145,31 @@ public class ColumnMajorRealMatrix implements RealMatrix {
         return new ColumnMajorRealMatrix(subData);
     }
 
-    @Nonnull
     @Override
     public RowMajorRealMatrix toRowMajor() {
         return new RowMajorRealMatrix(getRowMajorData());
     }
 
-    @Nonnull
     @Override
     public double[][] getRowMajorData() {
         return transpose().getData();
     }
 
-    @Nonnull
     @Override
     public ColumnMajorRealMatrix toColumnMajor() {
         return this;
     }
 
-    @Nonnull
     @Override
     public double[][] getColumnMajorData() {
         return getData();
     }
 
-    @Nonnull
     @Override
     public RowMajorRealMatrix quickTranspose() {
         return new RowMajorRealMatrix(getColumnMajorData());
     }
 
-    @Nonnull
     @Override
     public RowMajorRealMatrix flipMajor() {
         return (RowMajorRealMatrix)RealMatrix.super.flipMajor();

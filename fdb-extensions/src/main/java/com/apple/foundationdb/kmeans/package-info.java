@@ -21,4 +21,7 @@
 /**
  * k-means++ algorithm.
  */
+@NullMarked
 package com.apple.foundationdb.kmeans;
+
+import org.jspecify.annotations.NullMarked;

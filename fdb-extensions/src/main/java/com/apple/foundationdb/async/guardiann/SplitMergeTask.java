@@ -48,8 +48,7 @@ import com.google.common.collect.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
@@ -77,35 +76,30 @@ import java.util.concurrent.Executor;
  * </p>
  */
 class SplitMergeTask extends AbstractDeferredTask {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(SplitMergeTask.class);
 
-    @Nonnull
     private final Transformed<RealVector> centroid;
-    @Nonnull
     private final List<ClusterReference> nearestClusters;
 
-    private SplitMergeTask(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                           @Nonnull final UUID taskId, @Nonnull final UUID targetClusterId,
-                           @Nonnull final Transformed<RealVector> centroid,
-                           @Nonnull final List<ClusterReference> nearestClusters) {
+    private SplitMergeTask(final Locator locator, final AccessInfo accessInfo,
+                           final UUID taskId, final UUID targetClusterId,
+                           final Transformed<RealVector> centroid,
+                           final List<ClusterReference> nearestClusters) {
         super(locator, accessInfo, taskId, ImmutableSet.of(targetClusterId));
         this.centroid = centroid;
         this.nearestClusters = ImmutableList.copyOf(nearestClusters);
     }
 
-    @Nonnull
     public Transformed<RealVector> getCentroid() {
         return centroid;
     }
 
-    @Nonnull
     private List<ClusterReference> getNearestClusters() {
         return nearestClusters;
     }
 
     @Override
-    protected void writeDeferredTask(@Nonnull final Transaction transaction) {
+    protected void writeDeferredTask(final Transaction transaction) {
         super.writeDeferredTask(transaction);
         if (logger.isDebugEnabled()) {
             logger.debug("enqueuing SPLIT_MERGE; taskId={}; clusterId={}",
@@ -113,13 +107,11 @@ class SplitMergeTask extends AbstractDeferredTask {
         }
     }
 
-    @Nonnull
     @Override
     public TaskKind getKind() {
         return TaskKind.SPLIT_MERGE;
     }
 
-    @Nonnull
     private UUID getTargetClusterId() {
         return Iterables.getOnlyElement(getTargetClusterIds());
     }
@@ -129,7 +121,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      * Encodes the centroid and the precomputed nearest clusters so the task can be resumed without
      * re-fetching from the HNSW index.
      */
-    @Nonnull
     @Override
     public Tuple valueTuple() {
         final Quantizer quantizer = primitives().quantizer(getAccessInfo());
@@ -155,9 +146,8 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param transaction the FDB transaction to operate within
      * @return a future that completes when the task has finished
      */
-    @Nonnull
     @Override
-    public CompletableFuture<Void> runTask(@Nonnull final Transaction transaction) {
+    public CompletableFuture<Void> runTask(final Transaction transaction) {
         logStart(logger);
 
         final Config config = getConfig();
@@ -212,10 +202,9 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param targetClusterCentroid untransformed centroid of the target cluster
      * @return a future that completes when the split is done
      */
-    @Nonnull
-    private CompletableFuture<Void> split(@Nonnull final Transaction transaction,
-                                          @Nonnull final ClusterMetadata targetClusterMetadata,
-                                          @Nonnull final RealVector targetClusterCentroid) {
+    private CompletableFuture<Void> split(final Transaction transaction,
+                                          final ClusterMetadata targetClusterMetadata,
+                                          final RealVector targetClusterCentroid) {
         final Config config = getConfig();
         final SplittableRandom random = RandomHelpers.random(getTaskId());
         final Primitives primitives = primitives();
@@ -249,11 +238,11 @@ class SplitMergeTask extends AbstractDeferredTask {
      * early-out. If precomputed nearest clusters are already present, returns {@code null} and the caller proceeds.
      */
     @Nullable
-    private CompletableFuture<Void> reenqueueWithFetchedNearestClustersIfEmpty(@Nonnull final Transaction transaction,
-                                                                               @Nonnull final ClusterMetadata targetClusterMetadata,
-                                                                               @Nonnull final RealVector targetClusterCentroid,
-                                                                               @Nonnull final SplittableRandom random,
-                                                                               @Nonnull final StorageTransform storageTransform,
+    private CompletableFuture<Void> reenqueueWithFetchedNearestClustersIfEmpty(final Transaction transaction,
+                                                                               final ClusterMetadata targetClusterMetadata,
+                                                                               final RealVector targetClusterCentroid,
+                                                                               final SplittableRandom random,
+                                                                               final StorageTransform storageTransform,
                                                                                final int numNearestClusters) {
         if (!getNearestClusters().isEmpty()) {
             if (logger.isTraceEnabled()) {
@@ -283,12 +272,11 @@ class SplitMergeTask extends AbstractDeferredTask {
      * centroids in the HNSW index, and persists the result. A {@code null} candidate (split chose to collapse, or
      * merge found no mergeable neighbor) is a no-op.
      */
-    @Nonnull
-    private CompletableFuture<Void> applyRepartitioning(@Nonnull final Transaction transaction,
-                                                        @Nonnull final SplittableRandom random,
-                                                        @Nonnull final StorageTransform storageTransform,
-                                                        @Nonnull final Quantizer quantizer,
-                                                        @Nonnull final DistanceEstimator estimator,
+    private CompletableFuture<Void> applyRepartitioning(final Transaction transaction,
+                                                        final SplittableRandom random,
+                                                        final StorageTransform storageTransform,
+                                                        final Quantizer quantizer,
+                                                        final DistanceEstimator estimator,
                                                         @Nullable final RepartitioningCandidate repartitioningCandidate) {
         if (repartitioningCandidate == null) {
             return AsyncUtil.DONE;
@@ -313,14 +301,13 @@ class SplitMergeTask extends AbstractDeferredTask {
      * scores them, and returns the best; returns a future of {@code null} (after enqueueing a collapse when
      * warranted) when neither candidate is viable.
      */
-    @Nonnull
-    private CompletableFuture<RepartitioningCandidate> selectSplitCandidate(@Nonnull final Transaction transaction,
-                                                                            @Nonnull final SplittableRandom random,
-                                                                            @Nonnull final StorageTransform storageTransform,
-                                                                            @Nonnull final DistanceEstimator estimator,
+    private CompletableFuture<RepartitioningCandidate> selectSplitCandidate(final Transaction transaction,
+                                                                            final SplittableRandom random,
+                                                                            final StorageTransform storageTransform,
+                                                                            final DistanceEstimator estimator,
                                                                             final int numNearestClusters,
-                                                                            @Nonnull final ClusterMetadata targetClusterMetadata,
-                                                                            @Nonnull final List<ClusterMetadataWithDistance> nearestClusterMetadataWithDistances) {
+                                                                            final ClusterMetadata targetClusterMetadata,
+                                                                            final List<ClusterMetadataWithDistance> nearestClusterMetadataWithDistances) {
         final Config config = getConfig();
         final Executor executor = getLocator().getExecutor();
         final Primitives primitives = primitives();
@@ -340,6 +327,10 @@ class SplitMergeTask extends AbstractDeferredTask {
                         targetClusterMetadata, getCentroid(),
                         2, numNearestClusters - 2);
 
+        // Lists.newArrayList(E...) is from Guava, which is not jspecify-annotated, so its varargs parameter is
+        // treated as @NonNull by NullAway's defaults; a null classification2To3 is intentional here (see above)
+        // and is explicitly handled by the null check below.
+        @SuppressWarnings("NullAway")
         final List<ClusterClassification> allClassifications =
                 Lists.newArrayList(classification1To2, classification2To3);
 
@@ -415,10 +406,9 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param targetClusterCentroid untransformed centroid of the target cluster
      * @return a future that completes when the merge is done
      */
-    @Nonnull
-    private CompletableFuture<Void> merge(@Nonnull final Transaction transaction,
-                                          @Nonnull final ClusterMetadata targetClusterMetadata,
-                                          @Nonnull final RealVector targetClusterCentroid) {
+    private CompletableFuture<Void> merge(final Transaction transaction,
+                                          final ClusterMetadata targetClusterMetadata,
+                                          final RealVector targetClusterCentroid) {
         final Config config = getConfig();
         final SplittableRandom random = RandomHelpers.random(getTaskId());
         final Primitives primitives = primitives();
@@ -451,14 +441,13 @@ class SplitMergeTask extends AbstractDeferredTask {
      * scores them, and returns the best (falling back to the 2&#8594;1 merge); returns a future of {@code null}
      * (after clearing {@code SPLIT_MERGE}) when there is no mergeable neighbor at all.
      */
-    @Nonnull
-    private CompletableFuture<RepartitioningCandidate> selectMergeCandidate(@Nonnull final Transaction transaction,
-                                                                            @Nonnull final SplittableRandom random,
-                                                                            @Nonnull final StorageTransform storageTransform,
-                                                                            @Nonnull final DistanceEstimator estimator,
+    private CompletableFuture<RepartitioningCandidate> selectMergeCandidate(final Transaction transaction,
+                                                                            final SplittableRandom random,
+                                                                            final StorageTransform storageTransform,
+                                                                            final DistanceEstimator estimator,
                                                                             final int numNearestClusters,
-                                                                            @Nonnull final ClusterMetadata targetClusterMetadata,
-                                                                            @Nonnull final List<ClusterMetadataWithDistance> nearestClusterMetadataWithDistances) {
+                                                                            final ClusterMetadata targetClusterMetadata,
+                                                                            final List<ClusterMetadataWithDistance> nearestClusterMetadataWithDistances) {
         final Config config = getConfig();
         final Executor executor = getLocator().getExecutor();
         final Primitives primitives = primitives();
@@ -496,6 +485,10 @@ class SplitMergeTask extends AbstractDeferredTask {
                         targetClusterMetadata, getCentroid(),
                         3, numNearestClusters - 3);
 
+        // Lists.newArrayList(E...) is from Guava, which is not jspecify-annotated, so its varargs parameter is
+        // treated as @NonNull by NullAway's defaults; a null classification3To2 is intentional (an unviable
+        // split drops out of the candidate set) and is explicitly handled downstream.
+        @SuppressWarnings("NullAway")
         final List<ClusterClassification> allClassifications =
                 Lists.newArrayList(classification2To1, classification3To2);
 
@@ -563,12 +556,11 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param targetNumPartitions number of new clusters being created
      * @return an assignment result containing the vector-to-cluster mapping and updated statistics
      */
-    @Nonnull
-    private Repartitioning assignPrimaryVectorReferences(@Nonnull final SplittableRandom random,
-                                                         @Nonnull final DistanceEstimator estimator,
-                                                         @Nonnull final List<ClusterMetadataWithDistance> neighboringClusters,
-                                                         @Nonnull final List<VectorReference> primaryVectorReferences,
-                                                         @Nonnull final KMeans.Result<Transformed<RealVector>> kMeansResult,
+    private Repartitioning assignPrimaryVectorReferences(final SplittableRandom random,
+                                                         final DistanceEstimator estimator,
+                                                         final List<ClusterMetadataWithDistance> neighboringClusters,
+                                                         final List<VectorReference> primaryVectorReferences,
+                                                         final KMeans.Result<Transformed<RealVector>> kMeansResult,
                                                          final int targetNumPartitions) {
         final Config config = getConfig();
 
@@ -688,12 +680,11 @@ class SplitMergeTask extends AbstractDeferredTask {
      * cluster that should hold a replica, records a replicated copy keyed by that cluster. Pure — returns the
      * replicas to place together with this primary's contribution to the replication trace counters.
      */
-    @Nonnull
-    private ReplicaSelection selectReplicationAssignments(@Nonnull final DistanceEstimator estimator,
-                                                          @Nonnull final VectorReference vectorReference,
+    private ReplicaSelection selectReplicationAssignments(final DistanceEstimator estimator,
+                                                          final VectorReference vectorReference,
                                                           final double distanceToPrimaryCentroid,
-                                                          @Nonnull final List<ClusterMetadataWithDistance> replicationCandidates,
-                                                          @Nonnull final Map<UUID, RunningStats> standardDeviationsMap) {
+                                                          final List<ClusterMetadataWithDistance> replicationCandidates,
+                                                          final Map<UUID, RunningStats> standardDeviationsMap) {
         final Config config = getConfig();
         final List<ClusterMetadataWithDistance> selectedReplicationClusters =
                 Lists.newArrayListWithExpectedSize(replicationCandidates.size());
@@ -747,11 +738,10 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param repartitioning the result containing the new cluster IDs and their centroids
      * @return a future completing with the assignment result (passed through for chaining)
      */
-    @Nonnull
-    private CompletableFuture<Repartitioning> replaceCentroidsInHnsw(@Nonnull final Transaction transaction,
-                                                                     @Nonnull final StorageTransform storageTransform,
-                                                                     @Nonnull final List<ClusterMetadataWithDistance> coreClusters,
-                                                                     @Nonnull final Repartitioning repartitioning) {
+    private CompletableFuture<Repartitioning> replaceCentroidsInHnsw(final Transaction transaction,
+                                                                     final StorageTransform storageTransform,
+                                                                     final List<ClusterMetadataWithDistance> coreClusters,
+                                                                     final Repartitioning repartitioning) {
         final Primitives primitives = primitives();
         final HNSW centroidsHnsw = primitives.getClusterCentroidsHnsw();
         final Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap = repartitioning.clusterIdMetadataMap();
@@ -807,11 +797,11 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param repartitioning the computed vector-to-cluster mapping
      * @param quantizer quantizer used to encode vectors for storage
      */
-    private void persistRepartitioning(@Nonnull final Transaction transaction,
-                                       @Nonnull final SplittableRandom random,
-                                       @Nonnull final List<ClusterMetadataWithDistance> coreClusters,
-                                       @Nonnull final Repartitioning repartitioning,
-                                       @Nonnull final Quantizer quantizer) {
+    private void persistRepartitioning(final Transaction transaction,
+                                       final SplittableRandom random,
+                                       final List<ClusterMetadataWithDistance> coreClusters,
+                                       final Repartitioning repartitioning,
+                                       final Quantizer quantizer) {
         deleteDissolvedClusters(transaction, coreClusters);
         final VectorWriteCounters counters = writeVectorReferences(transaction, quantizer, repartitioning);
         final Set<UUID> dependentTaskIds = writeClusterMetadataAndEnqueueTasks(transaction, random, repartitioning, counters);
@@ -825,8 +815,8 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param transaction the transaction to delete from
      * @param coreClusters the clusters being dissolved, whose vector references and metadata are removed
      */
-    private void deleteDissolvedClusters(@Nonnull final Transaction transaction,
-                                         @Nonnull final List<ClusterMetadataWithDistance> coreClusters) {
+    private void deleteDissolvedClusters(final Transaction transaction,
+                                         final List<ClusterMetadataWithDistance> coreClusters) {
         final Primitives primitives = primitives();
         for (final ClusterMetadataWithDistance clusterMetadata : coreClusters) {
             final UUID toBeDeleted = clusterMetadata.clusterMetadata().id();
@@ -844,10 +834,9 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param repartitioning the computed vector-to-cluster assignments
      * @return counters broken down by cluster ID and vector type
      */
-    @Nonnull
-    private VectorWriteCounters writeVectorReferences(@Nonnull final Transaction transaction,
-                                                      @Nonnull final Quantizer quantizer,
-                                                      @Nonnull final Repartitioning repartitioning) {
+    private VectorWriteCounters writeVectorReferences(final Transaction transaction,
+                                                      final Quantizer quantizer,
+                                                      final Repartitioning repartitioning) {
         final Primitives primitives = primitives();
         final ListMultimap<UUID, VectorReference> assignmentMultiMap = repartitioning.assignmentMultimap();
         final Map<UUID, Integer> clusterIdToNumPrimaryVectorsAdded = Maps.newHashMap();
@@ -881,11 +870,10 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param counters per-cluster write counts from the preceding vector write phase
      * @return the set of task IDs for any newly enqueued dependent tasks
      */
-    @Nonnull
-    private Set<UUID> writeClusterMetadataAndEnqueueTasks(@Nonnull final Transaction transaction,
-                                                          @Nonnull final SplittableRandom random,
-                                                          @Nonnull final Repartitioning repartitioning,
-                                                          @Nonnull final VectorWriteCounters counters) {
+    private Set<UUID> writeClusterMetadataAndEnqueueTasks(final Transaction transaction,
+                                                          final SplittableRandom random,
+                                                          final Repartitioning repartitioning,
+                                                          final VectorWriteCounters counters) {
         final Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap = repartitioning.clusterIdMetadataMap();
         final Set<UUID> newClusterIds = repartitioning.newClusterIds();
         final Map<UUID, RunningStats> updatedStandardDeviationsMap =
@@ -932,10 +920,10 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param newClusterIds the ids of the clusters created by this split/merge that the bounce will reassign
      * @param dependentTaskIds the ids of the tasks the bounce must wait for; no task is enqueued if this is empty
      */
-    private void enqueueBounceIfNeeded(@Nonnull final Transaction transaction,
-                                       @Nonnull final SplittableRandom random,
-                                       @Nonnull final Set<UUID> newClusterIds,
-                                       @Nonnull final Set<UUID> dependentTaskIds) {
+    private void enqueueBounceIfNeeded(final Transaction transaction,
+                                       final SplittableRandom random,
+                                       final Set<UUID> newClusterIds,
+                                       final Set<UUID> dependentTaskIds) {
         if (!dependentTaskIds.isEmpty()) {
             final Config config = getConfig();
             final BounceTask newBounceTask =
@@ -956,9 +944,8 @@ class SplitMergeTask extends AbstractDeferredTask {
      *
      * @return a high-priority copy of this task carrying the given nearest clusters
      */
-    @Nonnull
-    private SplitMergeTask withHighPriorityAndNearestClusters(@Nonnull final SplittableRandom random,
-                                                           @Nonnull final List<ClusterReference> nearestClusters) {
+    private SplitMergeTask withHighPriorityAndNearestClusters(final SplittableRandom random,
+                                                           final List<ClusterReference> nearestClusters) {
         return SplitMergeTask.of(getLocator(), getAccessInfo(),
                 randomHighPriorityTaskId(random, getConfig().deterministicRandomness()), getTargetClusterId(),
                 getCentroid(), nearestClusters);
@@ -974,9 +961,8 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param valueTuple the value tuple containing the serialized task data
      * @return the deserialized task
      */
-    @Nonnull
-    static SplitMergeTask fromTuples(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                                     @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
+    static SplitMergeTask fromTuples(final Locator locator, final AccessInfo accessInfo,
+                                     final Tuple keyTuple, final Tuple valueTuple) {
         Verify.verify(TaskKind.fromValueTuple(valueTuple) == TaskKind.SPLIT_MERGE);
         final StorageTransform storageTransform = locator.primitives().storageTransform(accessInfo);
         final Transformed<RealVector> centroid = storageTransform.transform(
@@ -1005,10 +991,9 @@ class SplitMergeTask extends AbstractDeferredTask {
      *
      * @return a new task without precomputed nearest clusters
      */
-    @Nonnull
-    static SplitMergeTask of(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                             @Nonnull final UUID taskId, @Nonnull final UUID clusterId,
-                             @Nonnull final Transformed<RealVector> centroid) {
+    static SplitMergeTask of(final Locator locator, final AccessInfo accessInfo,
+                             final UUID taskId, final UUID clusterId,
+                             final Transformed<RealVector> centroid) {
         return of(locator, accessInfo, taskId, clusterId, centroid, ImmutableList.of());
     }
 
@@ -1025,11 +1010,10 @@ class SplitMergeTask extends AbstractDeferredTask {
      *
      * @return a new task carrying the given precomputed nearest clusters
      */
-    @Nonnull
-    static SplitMergeTask of(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                             @Nonnull final UUID taskId, @Nonnull final UUID clusterId,
-                             @Nonnull final Transformed<RealVector> centroid,
-                             @Nonnull final List<ClusterReference> nearestClusters) {
+    static SplitMergeTask of(final Locator locator, final AccessInfo accessInfo,
+                             final UUID taskId, final UUID clusterId,
+                             final Transformed<RealVector> centroid,
+                             final List<ClusterReference> nearestClusters) {
         return new SplitMergeTask(locator, accessInfo, taskId, clusterId, centroid, nearestClusters);
     }
 
@@ -1043,7 +1027,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      *
      * @return the larger of the two core-cluster lists
      */
-    @Nonnull
     private static List<ClusterMetadataWithDistance> largestCoreClusters(@Nullable final ClusterClassification classification1,
                                                                               @Nullable final ClusterClassification classification2) {
         if (classification1 == null) {
@@ -1081,12 +1064,11 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param maxRestarts maximum number of random restarts
      * @return an assignment candidate wrapping the k-means result and primary vectors
      */
-    @Nonnull
     @SuppressWarnings("checkstyle:MethodName")
-    private static RepartitioningCandidate kMeans(@Nonnull final ClusterClassification classification,
-                                                  @Nonnull final List<VectorReference> vectorReferences,
-                                                  @Nonnull final SplittableRandom random,
-                                                  @Nonnull final DistanceEstimator estimator,
+    private static RepartitioningCandidate kMeans(final ClusterClassification classification,
+                                                  final List<VectorReference> vectorReferences,
+                                                  final SplittableRandom random,
+                                                  final DistanceEstimator estimator,
                                                   final int targetNumPartitions,
                                                   final int maxIterations,
                                                   final int maxRestarts) {
@@ -1117,11 +1099,10 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param repartitioningCandidate the proposed new partition from k-means
      * @return the evaluation result containing the decision and score gain
      */
-    @Nonnull
     private static EvaluationResult
-            scoreCandidate(@Nonnull final DistanceEstimator estimator,
-                           @Nonnull final List<Cluster> currentClusters,
-                           @Nonnull final RepartitioningCandidate repartitioningCandidate) {
+            scoreCandidate(final DistanceEstimator estimator,
+                           final List<Cluster> currentClusters,
+                           final RepartitioningCandidate repartitioningCandidate) {
         int vectorCount = 0;
         final ImmutableList.Builder<Transformed<RealVector>> clusterCentroidsBuilder =
                 ImmutableList.builder();
@@ -1178,8 +1159,7 @@ class SplitMergeTask extends AbstractDeferredTask {
      *
      * @return the evaluator parameters tuned for the {@code currentK → candidateK} transition
      */
-    @Nonnull
-    private static PartitionEvaluator.Parameters parametersFor(@Nonnull final DistanceEstimator estimator,
+    private static PartitionEvaluator.Parameters parametersFor(final DistanceEstimator estimator,
                                                                final int currentK,
                                                                final int candidateK) {
         final PartitionEvaluator.Parameters defaults = new PartitionEvaluator.Parameters(estimator);
@@ -1212,8 +1192,7 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param candidateToEvaluationResultMap map of candidates to their evaluation results
      * @return the best valid candidate, or empty if no valid candidate exists
      */
-    @Nonnull
-    private Optional<RepartitioningCandidate> selectBestCandidateMaybe(@Nonnull final Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap) {
+    private Optional<RepartitioningCandidate> selectBestCandidateMaybe(final Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap) {
         RepartitioningCandidate bestCandidate = null;
         EvaluationResult bestEvaluationResult = null;
         for (final Map.Entry<RepartitioningCandidate, EvaluationResult> entry : candidateToEvaluationResultMap.entrySet()) {
@@ -1242,9 +1221,9 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param primaryVectorReferences the primary vectors participating in the split
      * @param kMeansResult the k-means result defining the proposed new cluster boundaries
      */
-    private record RepartitioningCandidate(@Nonnull ClusterClassification classification,
-                                           @Nonnull List<VectorReference> primaryVectorReferences,
-                                           @Nonnull @SuppressWarnings("checkstyle:MemberName") KMeans.Result<Transformed<RealVector>> kMeansResult) {
+    private record RepartitioningCandidate(ClusterClassification classification,
+                                           List<VectorReference> primaryVectorReferences,
+                                           @SuppressWarnings("checkstyle:MemberName") KMeans.Result<Transformed<RealVector>> kMeansResult) {
     }
 
     /**
@@ -1257,10 +1236,10 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param assignmentMultimap the assignments of vectors to clusters
      * @param updatedStandardDeviationsMap a map from cluster id to its updated running distance statistics
      */
-    private record Repartitioning(@Nonnull Set<UUID> newClusterIds,
-                                  @Nonnull Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap,
-                                  @Nonnull ListMultimap<UUID, VectorReference> assignmentMultimap,
-                                  @Nonnull Map<UUID, RunningStats> updatedStandardDeviationsMap) {
+    private record Repartitioning(Set<UUID> newClusterIds,
+                                  Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap,
+                                  ListMultimap<UUID, VectorReference> assignmentMultimap,
+                                  Map<UUID, RunningStats> updatedStandardDeviationsMap) {
     }
 
     /**
@@ -1271,8 +1250,8 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param numPrimaryUnderreplicatedVectorsAdded a map from cluster id to the number of primary underreplicated vectors written to it
      * @param numReplicatedVectorsAdded a map from cluster id to the number of replicated vectors written to it
      */
-    private record VectorWriteCounters(@Nonnull Map<UUID, Integer> numPrimaryVectorsAdded,
-                                       @Nonnull Map<UUID, Integer> numPrimaryUnderreplicatedVectorsAdded,
-                                       @Nonnull Map<UUID, Integer> numReplicatedVectorsAdded) {
+    private record VectorWriteCounters(Map<UUID, Integer> numPrimaryVectorsAdded,
+                                       Map<UUID, Integer> numPrimaryUnderreplicatedVectorsAdded,
+                                       Map<UUID, Integer> numReplicatedVectorsAdded) {
     }
 }

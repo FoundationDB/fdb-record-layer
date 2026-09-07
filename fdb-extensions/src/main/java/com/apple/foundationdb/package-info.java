@@ -21,4 +21,7 @@
 /**
  * FDB client code that might conceivably be in the standard Java binding someday.
  */
+@NullMarked
 package com.apple.foundationdb;
+
+import org.jspecify.annotations.NullMarked;

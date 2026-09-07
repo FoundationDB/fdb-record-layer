@@ -45,8 +45,7 @@ import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
@@ -110,49 +109,40 @@ import java.util.concurrent.Executor;
  *
  */
 class ReassignTask extends AbstractDeferredTask {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(ReassignTask.class);
 
-    @Nonnull
     private final Transformed<RealVector> centroid;
 
-    @Nonnull
     private final Set<UUID> causeClusterIds;
-    @Nonnull
     private final List<ClusterReference> nearestClusters;
 
-    private ReassignTask(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                         @Nonnull final UUID taskId, @Nonnull final UUID targetClusterId,
-                         @Nonnull final Transformed<RealVector> centroid,
-                         @Nonnull final Set<UUID> causeClusterIds,
-                         @Nonnull final List<ClusterReference> nearestClusters) {
+    private ReassignTask(final Locator locator, final AccessInfo accessInfo,
+                         final UUID taskId, final UUID targetClusterId,
+                         final Transformed<RealVector> centroid,
+                         final Set<UUID> causeClusterIds,
+                         final List<ClusterReference> nearestClusters) {
         super(locator, accessInfo, taskId, ImmutableSet.of(targetClusterId));
         this.centroid = centroid;
         this.causeClusterIds = ImmutableSet.copyOf(causeClusterIds);
         this.nearestClusters = ImmutableList.copyOf(nearestClusters);
     }
 
-    @Nonnull
     public Transformed<RealVector> getCentroid() {
         return centroid;
     }
 
-    @Nonnull
     public Set<UUID> getCauseClusterIds() {
         return causeClusterIds;
     }
 
-    @Nonnull
     private List<ClusterReference> getNearestClusters() {
         return nearestClusters;
     }
 
-    @Nonnull
     public UUID getTargetClusterId() {
         return Iterables.getOnlyElement(getTargetClusterIds());
     }
 
-    @Nonnull
     @Override
     public Tuple valueTuple() {
         final Quantizer quantizer = getLocator().primitives().quantizer(getAccessInfo());
@@ -172,7 +162,7 @@ class ReassignTask extends AbstractDeferredTask {
     }
 
     @Override
-    protected void writeDeferredTask(@Nonnull final Transaction transaction) {
+    protected void writeDeferredTask(final Transaction transaction) {
         super.writeDeferredTask(transaction);
         if (logger.isDebugEnabled()) {
             logger.debug("enqueuing REASSIGN; taskId={}; clusterId={}",
@@ -180,15 +170,13 @@ class ReassignTask extends AbstractDeferredTask {
         }
     }
 
-    @Nonnull
     @Override
     public TaskKind getKind() {
         return TaskKind.REASSIGN;
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Void> runTask(@Nonnull final Transaction transaction) {
+    public CompletableFuture<Void> runTask(final Transaction transaction) {
         logStart(logger);
 
         final Primitives primitives = getLocator().primitives();
@@ -228,10 +216,9 @@ class ReassignTask extends AbstractDeferredTask {
      *
      * @return a future that completes when the reassignment has been persisted
      */
-    @Nonnull
-    CompletableFuture<Void> reassign(@Nonnull final Transaction transaction,
-                                     @Nonnull final ClusterMetadata targetClusterMetadata,
-                                     @Nonnull final RealVector targetClusterCentroid,
+    CompletableFuture<Void> reassign(final Transaction transaction,
+                                     final ClusterMetadata targetClusterMetadata,
+                                     final RealVector targetClusterCentroid,
                                      final boolean enqueueFollowUpTasks) {
         final SplittableRandom random = RandomHelpers.random(getTaskId());
         final Config config = getConfig();
@@ -303,11 +290,11 @@ class ReassignTask extends AbstractDeferredTask {
      * precomputed nearest clusters rather than re-enqueue.
      */
     @Nullable
-    private CompletableFuture<Void> reenqueueWithFetchedNearestClustersIfEmpty(@Nonnull final Transaction transaction,
-                                                                               @Nonnull final ClusterMetadata targetClusterMetadata,
-                                                                               @Nonnull final RealVector targetClusterCentroid,
-                                                                               @Nonnull final SplittableRandom random,
-                                                                               @Nonnull final StorageTransform storageTransform,
+    private CompletableFuture<Void> reenqueueWithFetchedNearestClustersIfEmpty(final Transaction transaction,
+                                                                               final ClusterMetadata targetClusterMetadata,
+                                                                               final RealVector targetClusterCentroid,
+                                                                               final SplittableRandom random,
+                                                                               final StorageTransform storageTransform,
                                                                                final int numNearestClusters,
                                                                                final boolean enqueueFollowUpTasks) {
         if (!getNearestClusters().isEmpty()) {
@@ -333,11 +320,10 @@ class ReassignTask extends AbstractDeferredTask {
                 });
     }
 
-    @Nonnull
-    private Reassignment reassignVectorReferences(@Nonnull final DistanceEstimator estimator,
-                                                  @Nonnull final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
-                                                  @Nonnull final List<ClusterMetadataWithDistance> neighboringClusters,
-                                                  @Nonnull final List<VectorReference> vectorReferences) {
+    private Reassignment reassignVectorReferences(final DistanceEstimator estimator,
+                                                  final ClusterMetadataWithDistance targetClusterMetadataWithDistance,
+                                                  final List<ClusterMetadataWithDistance> neighboringClusters,
+                                                  final List<VectorReference> vectorReferences) {
         final ImmutableMap.Builder<UUID, ClusterMetadataWithDistance> clusterIdMetadataMapBuilder =
                 ImmutableMap.builder();
 
@@ -467,10 +453,9 @@ class ReassignTask extends AbstractDeferredTask {
      * @param k the maximum number of references to keep
      * @return a future of the finalized reassignment
      */
-    @Nonnull
-    private CompletableFuture<Reassignment> foldCollapsedReplicas(@Nonnull final ReadTransaction readTransaction,
-                                                                  @Nonnull final Reassignment reassignment,
-                                                                  @Nonnull final UUID targetClusterId,
+    private CompletableFuture<Reassignment> foldCollapsedReplicas(final ReadTransaction readTransaction,
+                                                                  final Reassignment reassignment,
+                                                                  final UUID targetClusterId,
                                                                   final int k) {
         final Primitives primitives = getLocator().primitives();
         final Executor executor = getLocator().getExecutor();
@@ -537,14 +522,13 @@ class ReassignTask extends AbstractDeferredTask {
      * cluster that should hold a replica, records a replicated copy keyed by that cluster. Pure — returns the
      * replicas to place together with this primary's contribution to the replication trace counters.
      */
-    @Nonnull
-    private ReplicaSelection selectReplicationAssignments(@Nonnull final DistanceEstimator estimator,
-                                                          @Nonnull final VectorReference vectorReference,
+    private ReplicaSelection selectReplicationAssignments(final DistanceEstimator estimator,
+                                                          final VectorReference vectorReference,
                                                           final double distanceToPrimaryCentroid,
-                                                          @Nonnull final List<ClusterMetadataWithDistance> replicationCandidates,
-                                                          @Nonnull final Set<UUID> causeClusterIds,
-                                                          @Nonnull final UUID targetClusterId,
-                                                          @Nonnull final Map<UUID, RunningStats> standardDeviationsMap) {
+                                                          final List<ClusterMetadataWithDistance> replicationCandidates,
+                                                          final Set<UUID> causeClusterIds,
+                                                          final UUID targetClusterId,
+                                                          final Map<UUID, RunningStats> standardDeviationsMap) {
         final Config config = getConfig();
         final List<ClusterMetadataWithDistance> selectedReplicationClusters =
                 Lists.newArrayListWithExpectedSize(replicationCandidates.size());
@@ -607,21 +591,20 @@ class ReassignTask extends AbstractDeferredTask {
                 new ReplicationStats(replicationPriorityStandardDeviation, numReplicated, numOccluded));
     }
 
-    @Nonnull
-    private TargetClusterDelta computeTargetClusterDelta(@Nonnull final Cluster targetCluster,
-                                                         @Nonnull final Reassignment reassignment,
-                                                         @Nonnull final UUID targetClusterId) {
+    private TargetClusterDelta computeTargetClusterDelta(final Cluster targetCluster,
+                                                         final Reassignment reassignment,
+                                                         final UUID targetClusterId) {
         final List<VectorReference> targetClusterAssignedVectors =
                 reassignment.assignmentMultimap().get(targetClusterId);
         return AbstractDeferredTask.computeTargetClusterDelta(targetCluster, targetClusterAssignedVectors);
     }
 
-    private void persistReassignment(@Nonnull final Transaction transaction,
-                                     @Nonnull final SplittableRandom random,
-                                     @Nonnull final ClusterMetadata targetClusterMetadata,
-                                     @Nonnull final Reassignment reassignment,
-                                     @Nonnull final TargetClusterDelta delta,
-                                     @Nonnull final Quantizer quantizer,
+    private void persistReassignment(final Transaction transaction,
+                                     final SplittableRandom random,
+                                     final ClusterMetadata targetClusterMetadata,
+                                     final Reassignment reassignment,
+                                     final TargetClusterDelta delta,
+                                     final Quantizer quantizer,
                                      final boolean enqueueFollowUpTasks) {
         final WriteCounters counters = countAssignments(targetClusterMetadata, reassignment);
         writeOuterClusterVectors(transaction, quantizer, targetClusterMetadata, reassignment);
@@ -630,9 +613,8 @@ class ReassignTask extends AbstractDeferredTask {
                 enqueueFollowUpTasks);
     }
 
-    @Nonnull
-    private WriteCounters countAssignments(@Nonnull final ClusterMetadata targetClusterMetadata,
-                                           @Nonnull final Reassignment reassignment) {
+    private WriteCounters countAssignments(final ClusterMetadata targetClusterMetadata,
+                                           final Reassignment reassignment) {
         final ListMultimap<UUID, VectorReference> assignmentMultiMap = reassignment.assignmentMultimap();
 
         final Map<UUID, Integer> clusterIdToNumPrimaryVectorsAdded = Maps.newHashMap();
@@ -668,10 +650,10 @@ class ReassignTask extends AbstractDeferredTask {
                 numPrimaryPushedOut, numReplicatedPushedOut);
     }
 
-    private void writeOuterClusterVectors(@Nonnull final Transaction transaction,
-                                          @Nonnull final Quantizer quantizer,
-                                          @Nonnull final ClusterMetadata targetClusterMetadata,
-                                          @Nonnull final Reassignment reassignment) {
+    private void writeOuterClusterVectors(final Transaction transaction,
+                                          final Quantizer quantizer,
+                                          final ClusterMetadata targetClusterMetadata,
+                                          final Reassignment reassignment) {
         final Primitives primitives = getLocator().primitives();
         final ListMultimap<UUID, VectorReference> assignmentMultiMap = reassignment.assignmentMultimap();
 
@@ -687,10 +669,10 @@ class ReassignTask extends AbstractDeferredTask {
         }
     }
 
-    private void persistTargetClusterDelta(@Nonnull final Transaction transaction,
-                                           @Nonnull final Quantizer quantizer,
-                                           @Nonnull final UUID targetClusterId,
-                                           @Nonnull final TargetClusterDelta delta) {
+    private void persistTargetClusterDelta(final Transaction transaction,
+                                           final Quantizer quantizer,
+                                           final UUID targetClusterId,
+                                           final TargetClusterDelta delta) {
         final Primitives primitives = getLocator().primitives();
 
         for (final Tuple primaryKey : delta.toDelete()) {
@@ -702,12 +684,12 @@ class ReassignTask extends AbstractDeferredTask {
         }
     }
 
-    private void writeClusterMetadata(@Nonnull final Transaction transaction,
-                                      @Nonnull final SplittableRandom random,
-                                      @Nonnull final ClusterMetadata targetClusterMetadata,
-                                      @Nonnull final Reassignment reassignment,
-                                      @Nonnull final WriteCounters counters,
-                                      @Nonnull final TargetClusterDelta delta,
+    private void writeClusterMetadata(final Transaction transaction,
+                                      final SplittableRandom random,
+                                      final ClusterMetadata targetClusterMetadata,
+                                      final Reassignment reassignment,
+                                      final WriteCounters counters,
+                                      final TargetClusterDelta delta,
                                       final boolean enqueueFollowUpTasks) {
         final Primitives primitives = getLocator().primitives();
         final Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap =
@@ -768,17 +750,15 @@ class ReassignTask extends AbstractDeferredTask {
         }
     }
 
-    @Nonnull
-    private ReassignTask withHighPriorityAndNearestClusters(@Nonnull final SplittableRandom random,
-                                                         @Nonnull final List<ClusterReference> nearestClusters) {
+    private ReassignTask withHighPriorityAndNearestClusters(final SplittableRandom random,
+                                                         final List<ClusterReference> nearestClusters) {
         return ReassignTask.of(getLocator(), getAccessInfo(),
                 randomHighPriorityTaskId(random, getConfig().deterministicRandomness()), getTargetClusterId(),
                 getCentroid(), getCauseClusterIds(), nearestClusters);
     }
 
-    @Nonnull
-    static ReassignTask fromTuples(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                                   @Nonnull final Tuple keyTuple, @Nonnull final Tuple valueTuple) {
+    static ReassignTask fromTuples(final Locator locator, final AccessInfo accessInfo,
+                                   final Tuple keyTuple, final Tuple valueTuple) {
         Verify.verify(TaskKind.fromValueTuple(valueTuple) == TaskKind.REASSIGN);
         final StorageTransform storageTransform = locator.primitives().storageTransform(accessInfo);
 
@@ -798,20 +778,18 @@ class ReassignTask extends AbstractDeferredTask {
                 causeClusterIds, nearestClustersBuilder.build());
     }
 
-    @Nonnull
-    static ReassignTask of(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                           @Nonnull final UUID taskId, @Nonnull final UUID clusterId,
-                           @Nonnull final Transformed<RealVector> centroid,
-                           @Nonnull final Set<UUID> causeClusterIds) {
+    static ReassignTask of(final Locator locator, final AccessInfo accessInfo,
+                           final UUID taskId, final UUID clusterId,
+                           final Transformed<RealVector> centroid,
+                           final Set<UUID> causeClusterIds) {
         return of(locator, accessInfo, taskId, clusterId, centroid, causeClusterIds, ImmutableList.of());
     }
 
-    @Nonnull
-    static ReassignTask of(@Nonnull final Locator locator, @Nonnull final AccessInfo accessInfo,
-                           @Nonnull final UUID taskId, @Nonnull final UUID clusterId,
-                           @Nonnull final Transformed<RealVector> centroid,
-                           @Nonnull final Set<UUID> causeClusterIds,
-                           @Nonnull final List<ClusterReference> nearestClusters) {
+    static ReassignTask of(final Locator locator, final AccessInfo accessInfo,
+                           final UUID taskId, final UUID clusterId,
+                           final Transformed<RealVector> centroid,
+                           final Set<UUID> causeClusterIds,
+                           final List<ClusterReference> nearestClusters) {
         return new ReassignTask(locator, accessInfo, taskId, clusterId, centroid, causeClusterIds, nearestClusters);
     }
 
@@ -826,10 +804,10 @@ class ReassignTask extends AbstractDeferredTask {
      *        replication priority but not yet top-k-truncated, deduplicated, or collapse-folded; consumed by
      *        {@link #foldCollapsedReplicas}
      */
-    private record Reassignment(@Nonnull Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap,
-                                @Nonnull ListMultimap<UUID, VectorReference> assignmentMultimap,
-                                @Nonnull Map<UUID, RunningStats> updatedStandardDeviationsMap,
-                                @Nonnull List<VectorReference> orderedReplicatedReferences) {
+    private record Reassignment(Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap,
+                                ListMultimap<UUID, VectorReference> assignmentMultimap,
+                                Map<UUID, RunningStats> updatedStandardDeviationsMap,
+                                List<VectorReference> orderedReplicatedReferences) {
     }
 
     /**
@@ -842,9 +820,9 @@ class ReassignTask extends AbstractDeferredTask {
      * @param numPrimaryPushedOut the number of primary vectors moved out of the target cluster
      * @param numReplicatedPushedOut the number of replicated vectors moved out of the target cluster
      */
-    private record WriteCounters(@Nonnull Map<UUID, Integer> numPrimaryVectorsAdded,
-                                 @Nonnull Map<UUID, Integer> numPrimaryUnderreplicatedVectorsAdded,
-                                 @Nonnull Map<UUID, Integer> numReplicatedVectorsAdded,
+    private record WriteCounters(Map<UUID, Integer> numPrimaryVectorsAdded,
+                                 Map<UUID, Integer> numPrimaryUnderreplicatedVectorsAdded,
+                                 Map<UUID, Integer> numReplicatedVectorsAdded,
                                  int numPrimaryPushedOut,
                                  int numReplicatedPushedOut) {
     }

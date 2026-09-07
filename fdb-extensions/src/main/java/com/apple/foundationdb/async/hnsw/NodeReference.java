@@ -23,7 +23,6 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -32,14 +31,13 @@ import java.util.Objects;
  * specialized node references.
  */
 public class NodeReference {
-    @Nonnull
     private final Tuple primaryKey;
 
     /**
      * Constructs a new {@code NodeReference} with the specified primary key.
      * @param primaryKey the primary key of the node to reference; must not be {@code null}.
      */
-    public NodeReference(@Nonnull final Tuple primaryKey) {
+    public NodeReference(final Tuple primaryKey) {
         this.primaryKey = primaryKey;
     }
 
@@ -47,7 +45,6 @@ public class NodeReference {
      * Gets the primary key for this object.
      * @return the primary key as a {@code Tuple} object, which is guaranteed to be non-null.
      */
-    @Nonnull
     public Tuple getPrimaryKey() {
         return primaryKey;
     }
@@ -69,7 +66,6 @@ public class NodeReference {
      * @throws IllegalStateException always, to indicate that this object cannot be
      *         represented as a {@link NodeReferenceWithVector}.
      */
-    @Nonnull
     public NodeReferenceWithVector asNodeReferenceWithVector() {
         throw new IllegalStateException("method should not be called");
     }
@@ -122,8 +118,7 @@ public class NodeReference {
      * @param neighbors an iterable of {@link NodeReference} objects from which to extract primary keys.
      * @return a lazily-evaluated {@code Iterable} of {@link Tuple}s, representing the primary keys of the input nodes.
      */
-    @Nonnull
-    public static Iterable<Tuple> primaryKeys(@Nonnull Iterable<? extends NodeReference> neighbors) {
+    public static Iterable<Tuple> primaryKeys(Iterable<? extends NodeReference> neighbors) {
         return () -> Streams.stream(neighbors)
                 .map(nodeReference ->
                         Objects.requireNonNull(nodeReference).getPrimaryKey())

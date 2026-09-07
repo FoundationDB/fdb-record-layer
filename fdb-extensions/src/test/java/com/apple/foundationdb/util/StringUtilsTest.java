@@ -27,7 +27,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -287,7 +286,7 @@ public class StringUtilsTest {
 
     @ParameterizedTest(name = "containsIgnoreCase[source={0}, searchString={1}]")
     @MethodSource
-    void containsIgnoreCase(@Nonnull String source, @Nonnull String searchString, boolean expected) {
+    void containsIgnoreCase(String source, String searchString, boolean expected) {
         assertEquals(expected, StringUtils.containsIgnoreCase(source, searchString),
                 () -> "string \"" + source + "\" should " + (expected ? "" : "not ") + "contain \"" + searchString + "\" ignoring case");
     }

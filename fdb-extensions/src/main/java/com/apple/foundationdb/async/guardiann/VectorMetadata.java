@@ -22,8 +22,7 @@ package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.UUID;
 
 /**
@@ -37,7 +36,7 @@ import java.util.UUID;
  * @param vectorId the identity (primary key plus UUID) of the vector this metadata describes
  * @param additionalValues the extra covering values stored with the vector, or {@code null} if there are none
  */
-record VectorMetadata(@Nonnull VectorId vectorId, @Nullable Tuple additionalValues) {
+record VectorMetadata(VectorId vectorId, @Nullable Tuple additionalValues) {
     /**
      * Convenience constructor that assembles the {@link VectorId} from its primary key and UUID components.
      *
@@ -45,7 +44,7 @@ record VectorMetadata(@Nonnull VectorId vectorId, @Nullable Tuple additionalValu
      * @param uuid the UUID disambiguating copies of the same vector
      * @param additionalValues the extra covering values stored with the vector, or {@code null} if there are none
      */
-    VectorMetadata(@Nonnull final Tuple primaryKey, @Nonnull final UUID uuid, @Nullable final Tuple additionalValues) {
+    VectorMetadata(final Tuple primaryKey, final UUID uuid, @Nullable final Tuple additionalValues) {
         this(new VectorId(primaryKey, uuid), additionalValues);
     }
 }

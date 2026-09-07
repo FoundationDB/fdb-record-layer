@@ -37,8 +37,8 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.util.LogMessageKeys;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,6 +46,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -105,9 +106,7 @@ public class BunchedMap<K, V> {
     private static final int MAX_VALUE_SIZE = 10_000; // The actual max value size is 100_000, but let's stay clear of that
     private static final byte[] ZERO_ARRAY = { 0x00 };
 
-    @Nonnull
     private final Comparator<K> keyComparator;
-    @Nonnull
     private final BunchedSerializer<K, V> serializer;
     private final int bunchSize;
 
@@ -126,7 +125,7 @@ public class BunchedMap<K, V> {
      * @param keyComparator comparator used to order keys
      * @param bunchSize maximum size of bunch within the database
      */
-    public BunchedMap(@Nonnull BunchedSerializer<K, V> serializer, @Nonnull Comparator<K> keyComparator, int bunchSize) {
+    public BunchedMap(BunchedSerializer<K, V> serializer, Comparator<K> keyComparator, int bunchSize) {
         this.serializer = serializer;
         this.keyComparator = keyComparator;
         this.bunchSize = bunchSize;
@@ -140,11 +139,11 @@ public class BunchedMap<K, V> {
      *
      * @param model original {@link BunchedMap} to base the new one on
      */
-    protected BunchedMap(@Nonnull BunchedMap<K, V> model) {
+    protected BunchedMap(BunchedMap<K, V> model) {
         this(model.serializer, model.keyComparator, model.bunchSize);
     }
 
-    private static <T> List<T> makeMutable(@Nonnull List<T> list) {
+    private static <T> List<T> makeMutable(List<T> list) {
         if (list instanceof ArrayList<?>) {
             return list;
         } else {
@@ -160,8 +159,7 @@ public class BunchedMap<K, V> {
      * @param readFuture a future that will complete to a list of keys and values
      * @return an instrumented future that returns the same values as the original future
      */
-    @Nonnull
-    protected CompletableFuture<List<KeyValue>> instrumentRangeRead(@Nonnull CompletableFuture<List<KeyValue>> readFuture) {
+    protected CompletableFuture<List<KeyValue>> instrumentRangeRead(CompletableFuture<List<KeyValue>> readFuture) {
         return readFuture;
     }
 
@@ -175,7 +173,7 @@ public class BunchedMap<K, V> {
      * @param value the new value being written to the key
      * @param oldValue the previous value being overwritten or {@code null} if the key is new or the previous value unknown
      */
-    protected void instrumentWrite(@Nonnull byte[] key, @Nonnull byte[] value, @Nullable byte[] oldValue) {
+    protected void instrumentWrite(byte[] key, byte[] value, @Nullable byte[] oldValue) {
 
     }
 
@@ -188,11 +186,17 @@ public class BunchedMap<K, V> {
      * @param key the key being deleted
      * @param oldValue the previous value being delete or {@code null} if the previous value is unknown
      */
-    protected void instrumentDelete(@Nonnull byte[] key, @Nullable byte[] oldValue) {
+    protected void instrumentDelete(byte[] key, @Nullable byte[] oldValue) {
 
     }
 
-    private CompletableFuture<Optional<KeyValue>> entryForKey(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull K key) {
+    // NullAway does not reliably honor @Nullable on byte[]-typed parameters when checking a call's arguments,
+    // even for our own methods declared immediately above with an @Nullable byte[] parameter. A bare `null`
+    // literal, or an already-@Nullable-tracked byte[] value, passed to instrumentWrite/instrumentDelete is
+    // therefore misflagged as a NonNull violation. Call sites below wrap such calls in a Runnable so the
+    // resulting suppression can be scoped to a single local declaration rather than a whole method body.
+
+    private CompletableFuture<Optional<KeyValue>> entryForKey(Transaction tr, byte[] subspaceKey, K key) {
         byte[] keyBytes = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(key));
         tr.addReadConflictKey(keyBytes);
         // We need to use a range read rather than a getKey with a single key selector
@@ -269,21 +273,23 @@ public class BunchedMap<K, V> {
     // comment. But in addition to proving them correct, a fair amount of testing has gone into
     // trying to verify that they work as intended through randomized testing.
 
-    private void addEntryListReadConflictRange(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull byte[] keyBytes, @Nonnull List<Map.Entry<K, V>> entryList) {
+    private void addEntryListReadConflictRange(Transaction tr, byte[] subspaceKey, byte[] keyBytes, List<Map.Entry<K, V>> entryList) {
         byte[] end = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(entryList.get(entryList.size() - 1).getKey()), ZERO_ARRAY);
         tr.addReadConflictRange(keyBytes, end);
     }
 
-    private void insertAlone(@Nonnull Transaction tr, @Nonnull byte[] keyBytes, @Nonnull Map.Entry<K, V> entry) {
+    private void insertAlone(Transaction tr, byte[] keyBytes, Map.Entry<K, V> entry) {
         tr.addReadConflictKey(keyBytes);
         byte[] valueBytes = serializer.serializeEntries(Collections.singletonList(entry));
         tr.set(keyBytes, valueBytes);
-        instrumentWrite(keyBytes, valueBytes, null);
+        @SuppressWarnings("NullAway")
+        final Runnable instrumentAction = () -> instrumentWrite(keyBytes, valueBytes, null);
+        instrumentAction.run();
     }
 
-    private void writeEntryListWithoutChecking(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull byte[] keyBytes,
-                                               @Nullable KeyValue oldKv, @Nonnull byte[] newKey, @Nonnull List<Map.Entry<K, V>> entryList,
-                                               @Nonnull byte[] serializedBytes) {
+    private void writeEntryListWithoutChecking(Transaction tr, byte[] subspaceKey, byte[] keyBytes,
+                                               @Nullable KeyValue oldKv, byte[] newKey, List<Map.Entry<K, V>> entryList,
+                                               byte[] serializedBytes) {
         // The order of these operations is fairly important as, it turns out, adding an explicit
         // read conflict range does will skip over values that have already been written. This
         // means that we will miss the value that is the actual key we are writing if we
@@ -292,7 +298,9 @@ public class BunchedMap<K, V> {
         addEntryListReadConflictRange(tr, subspaceKey, newKey, entryList);
         final byte[] oldKey = oldKv == null ? null : oldKv.getKey();
         final byte[] oldValue;
-        if (oldKey != null && !Arrays.equals(oldKey, newKey)) {
+        // oldKv != null is implied by oldKey != null (oldKey is derived from it above), but NullAway cannot
+        // correlate the nullness of two different variables, so the check is spelled out explicitly here.
+        if (oldKey != null && oldKv != null && !Arrays.equals(oldKey, newKey)) {
             tr.clear(oldKey);
             instrumentDelete(oldKey, oldKv.getValue());
             oldValue = null; // set the old value to null so that the instrumentation of the write doesn't double-count the delete
@@ -300,14 +308,18 @@ public class BunchedMap<K, V> {
             oldValue = oldKv == null ? null : oldKv.getValue();
         }
         tr.set(newKey, serializedBytes);
-        instrumentWrite(newKey, serializedBytes, oldValue);
+        // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so forwarding the
+        // already-@Nullable-tracked oldValue local into instrumentWrite is misflagged as a NonNull violation.
+        @SuppressWarnings("NullAway")
+        final Runnable instrumentAction = () -> instrumentWrite(newKey, serializedBytes, oldValue);
+        instrumentAction.run();
         if (!Arrays.equals(keyBytes, newKey)) {
             tr.addWriteConflictKey(keyBytes);
         }
     }
 
-    private void writeEntryList(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull byte[] keyBytes,
-                                @Nullable KeyValue oldKv, @Nonnull byte[] newKey, @Nonnull List<Map.Entry<K, V>> entryList,
+    private void writeEntryList(Transaction tr, byte[] subspaceKey, byte[] keyBytes,
+                                @Nullable KeyValue oldKv, byte[] newKey, List<Map.Entry<K, V>> entryList,
                                 @Nullable KeyValue kvAfter, boolean isFirst, boolean isLast) {
         byte[] serializedBytes = serializer.serializeEntries(entryList);
         if (serializedBytes.length > MAX_VALUE_SIZE) {
@@ -342,7 +354,12 @@ public class BunchedMap<K, V> {
                 addEntryListReadConflictRange(tr, subspaceKey, newKey, entryList);
                 byte[] appendBytes = serializer.serializeEntry(entryList.get(entryList.size() - 1));
                 tr.mutate(MutationType.APPEND_IF_FITS, newKey, appendBytes);
-                instrumentWrite(newKey, appendBytes, null); // do not include old value in instrumentation as we are incrementing the total size
+                // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null literal
+                // below is misflagged as a NonNull violation even though instrumentWrite's oldValue parameter
+                // is declared @Nullable byte[].
+                @SuppressWarnings("NullAway")
+                final Runnable instrumentAction = () -> instrumentWrite(newKey, appendBytes, null); // do not include old value in instrumentation as we are incrementing the total size
+                instrumentAction.run();
                 tr.addWriteConflictKey(keyBytes);
             } else {
                 writeEntryListWithoutChecking(tr, subspaceKey, keyBytes, oldKv, newKey, entryList, serializedBytes);
@@ -360,8 +377,8 @@ public class BunchedMap<K, V> {
         }
     }
 
-    private void insertAfter(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull byte[] keyBytes,
-                             @Nullable KeyValue kvAfter, @Nonnull Map.Entry<K, V> entry) {
+    private void insertAfter(Transaction tr, byte[] subspaceKey, byte[] keyBytes,
+                             @Nullable KeyValue kvAfter, Map.Entry<K, V> entry) {
         if (kvAfter == null) {
             insertAlone(tr, keyBytes, entry);
         } else {
@@ -380,10 +397,9 @@ public class BunchedMap<K, V> {
         }
     }
 
-    @Nonnull
-    private Optional<V> insertEntry(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey, @Nonnull byte[] keyBytes,
-                                    @Nonnull K key, @Nonnull V value, @Nullable KeyValue kvBefore, @Nullable KeyValue kvAfter,
-                                    @Nonnull Map.Entry<K, V> entry) {
+    private Optional<V> insertEntry(Transaction tr, byte[] subspaceKey, byte[] keyBytes,
+                                    K key, V value, @Nullable KeyValue kvBefore, @Nullable KeyValue kvAfter,
+                                    Map.Entry<K, V> entry) {
         if (kvBefore == null) {
             insertAfter(tr, subspaceKey, keyBytes, kvAfter, entry);
             return Optional.empty();
@@ -473,8 +489,7 @@ public class BunchedMap<K, V> {
      * @return a future that will complete with an optional that will either contain the previous value
      *         associated with the key or be empty if there was not a previous value
      */
-    @Nonnull
-    public CompletableFuture<Optional<V>> put(@Nonnull TransactionContext tcx, @Nonnull Subspace subspace, @Nonnull K key, @Nonnull V value) {
+    public CompletableFuture<Optional<V>> put(TransactionContext tcx, Subspace subspace, K key, V value) {
         return tcx.runAsync(tr -> {
             byte[] subspaceKey = subspace.pack();
             byte[] keyBytes = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(key));
@@ -547,8 +562,7 @@ public class BunchedMap<K, V> {
      * @return a future that will be completed to <code>true</code> if the map contains <code>key</code>
      *         and <code>false</code> otherwise
      */
-    @Nonnull
-    public CompletableFuture<Boolean> containsKey(@Nonnull TransactionContext tcx, @Nonnull Subspace subspace, @Nonnull K key) {
+    public CompletableFuture<Boolean> containsKey(TransactionContext tcx, Subspace subspace, K key) {
         final byte[] subspaceKey = subspace.getKey();
         return tcx.runAsync(tr -> entryForKey(tr, subspaceKey, key)
             .thenApply(optionalEntry -> optionalEntry
@@ -575,8 +589,7 @@ public class BunchedMap<K, V> {
      * @return a future that will be completed with an optional that will be present with the value
      *         associated with the key in the database or empty if the key is not contained within the map
      */
-    @Nonnull
-    public CompletableFuture<Optional<V>> get(@Nonnull TransactionContext tcx, @Nonnull Subspace subspace, @Nonnull K key) {
+    public CompletableFuture<Optional<V>> get(TransactionContext tcx, Subspace subspace, K key) {
         final byte[] subspaceKey = subspace.getKey();
         return tcx.runAsync(tr -> entryForKey(tr, subspaceKey, key)
             .thenApply(optionalEntry -> optionalEntry
@@ -613,8 +626,7 @@ public class BunchedMap<K, V> {
      * @return a future that will be completed with an optional that will be present with the value associated
      *         with the key in the database (prior to removal) or will be empty if the key was not present
      */
-    @Nonnull
-    public CompletableFuture<Optional<V>> remove(@Nonnull TransactionContext tcx, @Nonnull Subspace subspace, @Nonnull K key) {
+    public CompletableFuture<Optional<V>> remove(TransactionContext tcx, Subspace subspace, K key) {
         final byte[] subspaceKey = subspace.getKey();
         return tcx.runAsync(tr -> entryForKey(tr, subspaceKey, key).thenApply(optionalEntry -> optionalEntry.flatMap((KeyValue kv) -> {
             K mapKey = serializer.deserializeKey(kv.getKey(), subspaceKey.length);
@@ -637,7 +649,12 @@ public class BunchedMap<K, V> {
                     // The only key that was in the range was the key that
                     // we are currently removing, so just remove it.
                     tr.clear(kv.getKey());
-                    instrumentDelete(kv.getKey(), null);
+                    // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null
+                    // literal below is misflagged as a NonNull violation even though instrumentDelete's
+                    // oldValue parameter is declared @Nullable byte[].
+                    @SuppressWarnings("NullAway")
+                    final Runnable instrumentAction = () -> instrumentDelete(kv.getKey(), null);
+                    instrumentAction.run();
                 } else {
                     // We have other items in the entry. Remove the entry
                     // we actually care about and serialize the rest.
@@ -656,7 +673,12 @@ public class BunchedMap<K, V> {
                     }
                     final byte[] newValue = serializer.serializeEntries(entryList);
                     tr.set(newKey, newValue);
-                    instrumentWrite(newKey, newValue, oldValue);
+                    // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so forwarding the
+                    // already-@Nullable-tracked oldValue local into instrumentWrite is misflagged as a NonNull
+                    // violation.
+                    @SuppressWarnings("NullAway")
+                    final Runnable instrumentAction = () -> instrumentWrite(newKey, newValue, oldValue);
+                    instrumentAction.run();
                 }
                 return Optional.of(oldEntry.getValue());
             } else {
@@ -674,8 +696,7 @@ public class BunchedMap<K, V> {
      * @param subspace subspace within which the map's data are located
      * @return a future that will complete when the integrity check has finished
      */
-    @Nonnull
-    public CompletableFuture<Void> verifyIntegrity(@Nonnull TransactionContext tcx, @Nonnull Subspace subspace) {
+    public CompletableFuture<Void> verifyIntegrity(TransactionContext tcx, Subspace subspace) {
         return tcx.runAsync(tr -> {
             AtomicReference<K> lastKey = new AtomicReference<>(null);
             byte[] subspaceKey = subspace.getKey();
@@ -703,9 +724,9 @@ public class BunchedMap<K, V> {
         });
     }
 
-    private void flushEntryList(@Nonnull Transaction tr, @Nonnull byte[] subspaceKey,
-                                @Nonnull List<Map.Entry<K, V>> currentEntryList,
-                                @Nonnull AtomicReference<K> lastKey) {
+    private void flushEntryList(Transaction tr, byte[] subspaceKey,
+                                List<Map.Entry<K, V>> currentEntryList,
+                                AtomicReference<K> lastKey) {
         byte[] keyBytes = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(currentEntryList.get(0).getKey()));
         writeEntryListWithoutChecking(tr, subspaceKey, keyBytes, null, keyBytes, currentEntryList,
                 serializer.serializeEntries(currentEntryList));
@@ -726,12 +747,14 @@ public class BunchedMap<K, V> {
      * @return future that will complete with a continuation that can be used to complete
      *         the compaction across multiple transactions (<code>null</code> if finished)
      */
-    @Nonnull
-    protected CompletableFuture<byte[]> compact(@Nonnull TransactionContext tcx, @Nonnull Subspace subspace,
+    protected CompletableFuture<byte[]> compact(TransactionContext tcx, Subspace subspace,
                                               int keyLimit, @Nullable byte[] continuation) {
         return tcx.runAsync(tr -> {
             byte[] subspaceKey = subspace.getKey();
-            byte[] begin = (continuation == null) ? subspaceKey : continuation;
+            // NullAway does not reliably narrow @Nullable byte[] locals inside a ternary, even though
+            // continuation is provably non-null in the else branch here.
+            @SuppressWarnings("NullAway")
+            final byte[] begin = (continuation == null) ? subspaceKey : continuation;
             byte[] end = subspace.range().end;
             final AsyncIterable<KeyValue> iterable = tr.snapshot().getRange(begin, end, keyLimit);
             List<Map.Entry<K, V>> currentEntryList = new ArrayList<>(bunchSize);
@@ -750,12 +773,16 @@ public class BunchedMap<K, V> {
                     lastReadKeyBytes.set(null);
                     return;
                 }
-                if (lastReadKeyBytes.get() == null) {
-                    lastReadKeyBytes.set(kv.getKey());
+                // lastReadKeyBytes.get() is re-fetched (rather than reused from the check above) after
+                // possibly being set just below, so capture it once here for both use and null-safety.
+                byte[] lastRead = lastReadKeyBytes.get();
+                if (lastRead == null) {
+                    lastRead = kv.getKey();
+                    lastReadKeyBytes.set(lastRead);
                 }
                 final byte[] endKeyBytes = ByteArrayUtil.join(subspaceKey, serializer.serializeKey(entriesFromKey.get(entriesFromKey.size() - 1).getKey()), ZERO_ARRAY);
-                tr.addReadConflictRange(lastReadKeyBytes.get(), endKeyBytes);
-                tr.addWriteConflictRange(lastReadKeyBytes.get(), kv.getKey());
+                tr.addReadConflictRange(lastRead, endKeyBytes);
+                tr.addWriteConflictRange(lastRead, kv.getKey());
                 lastReadKeyBytes.set(endKeyBytes);
                 tr.clear(kv.getKey());
                 instrumentDelete(kv.getKey(), kv.getValue());
@@ -792,7 +819,6 @@ public class BunchedMap<K, V> {
      * @return this map's serializer
      * @see BunchedSerializer
      */
-    @Nonnull
     public BunchedSerializer<K, V> getSerializer() {
         return serializer;
     }
@@ -802,7 +828,6 @@ public class BunchedMap<K, V> {
      *
      * @return this map's key comparator
      */
-    @Nonnull
     public Comparator<K> getKeyComparator() {
         return keyComparator;
     }
@@ -829,9 +854,12 @@ public class BunchedMap<K, V> {
      * @param subspace subspace in which the map's data are located
      * @return an iterator over the entries in the map
      */
-    @Nonnull
-    public BunchedMapIterator<K, V> scan(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace) {
-        return scan(tr, subspace, null, Transaction.ROW_LIMIT_UNLIMITED, false);
+    public BunchedMapIterator<K, V> scan(ReadTransaction tr, Subspace subspace) {
+        // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null literal below
+        // is misflagged as a NonNull violation even though scan()'s continuation parameter is @Nullable byte[].
+        @SuppressWarnings("NullAway")
+        final BunchedMapIterator<K, V> result = scan(tr, subspace, null, Transaction.ROW_LIMIT_UNLIMITED, false);
+        return result;
     }
 
     /**
@@ -845,8 +873,7 @@ public class BunchedMap<K, V> {
      * @param continuation continuation from a previous scan (or <code>null</code> to start from the beginning)
      * @return an iterator over the entries in the map
      */
-    @Nonnull
-    public BunchedMapIterator<K, V> scan(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nullable byte[] continuation) {
+    public BunchedMapIterator<K, V> scan(ReadTransaction tr, Subspace subspace, @Nullable byte[] continuation) {
         return scan(tr, subspace, continuation, ReadTransaction.ROW_LIMIT_UNLIMITED, false);
     }
 
@@ -866,8 +893,7 @@ public class BunchedMap<K, V> {
      * @param reverse <code>true</code> if keys are wanted in descending instead of ascending order
      * @return an iterator over the entries in the map
      */
-    @Nonnull
-    public BunchedMapIterator<K, V> scan(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nullable byte[] continuation, int limit, boolean reverse) {
+    public BunchedMapIterator<K, V> scan(ReadTransaction tr, Subspace subspace, @Nullable byte[] continuation, int limit, boolean reverse) {
         byte[] subspaceKey = subspace.getKey();
         AsyncIterable<KeyValue> rangeReadIterable;
         K continuationKey;
@@ -875,8 +901,11 @@ public class BunchedMap<K, V> {
             continuationKey = null;
             rangeReadIterable = tr.getRange(subspace.range(), ReadTransaction.ROW_LIMIT_UNLIMITED, reverse);
         } else {
-            continuationKey = serializer.deserializeKey(continuation);
-            byte[] continuationKeyBytes = ByteArrayUtil.join(subspaceKey, continuation);
+            // continuation is provably non-null here (the if-branch above handles the null case), but
+            // NullAway does not reliably narrow @Nullable byte[] locals, so it is re-asserted explicitly.
+            final byte[] nonNullContinuation = Objects.requireNonNull(continuation);
+            continuationKey = serializer.deserializeKey(nonNullContinuation);
+            byte[] continuationKeyBytes = ByteArrayUtil.join(subspaceKey, nonNullContinuation);
             if (reverse) {
                 rangeReadIterable = tr.getRange(subspaceKey, continuationKeyBytes, ReadTransaction.ROW_LIMIT_UNLIMITED, true);
             } else {
@@ -908,9 +937,12 @@ public class BunchedMap<K, V> {
      * @param <T> type of the tag of each map subspace
      * @return an iterator over the entries in multiple maps
      */
-    @Nonnull
-    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter) {
-        return scanMulti(tr, subspace, splitter, null, ReadTransaction.ROW_LIMIT_UNLIMITED, false);
+    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(ReadTransaction tr, Subspace subspace, SubspaceSplitter<T> splitter) {
+        // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null literal below
+        // is misflagged as a NonNull violation even though the continuation parameter is @Nullable byte[].
+        @SuppressWarnings("NullAway")
+        final BunchedMapMultiIterator<K, V, T> result = scanMulti(tr, subspace, splitter, null, ReadTransaction.ROW_LIMIT_UNLIMITED, false);
+        return result;
     }
 
     /**
@@ -928,10 +960,13 @@ public class BunchedMap<K, V> {
      * @param <T> type of the tag of each map subspace
      * @return an iterator over the entries in multiple maps
      */
-    @Nonnull
-    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter,
+    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(ReadTransaction tr, Subspace subspace, SubspaceSplitter<T> splitter,
                                                         @Nullable byte[] continuation, int limit, boolean reverse) {
-        return scanMulti(tr, subspace, splitter, null, null, continuation, limit, reverse);
+        // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null literals below
+        // are misflagged as NonNull violations even though subspaceStart/subspaceEnd are @Nullable byte[].
+        @SuppressWarnings("NullAway")
+        final BunchedMapMultiIterator<K, V, T> result = scanMulti(tr, subspace, splitter, null, null, continuation, limit, reverse);
+        return result;
     }
 
     /**
@@ -985,8 +1020,7 @@ public class BunchedMap<K, V> {
      * @param <T> type of the tag of each map subspace
      * @return an iterator over the entries in multiple maps
      */
-    @Nonnull
-    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter,
+    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(ReadTransaction tr, Subspace subspace, SubspaceSplitter<T> splitter,
                                                           @Nullable byte[] subspaceStart, @Nullable byte[] subspaceEnd,
                                                           @Nullable byte[] continuation, int limit, boolean reverse) {
         return scanMulti(tr, subspace, splitter, subspaceStart, subspaceEnd, continuation, limit, null, reverse);
@@ -1010,18 +1044,24 @@ public class BunchedMap<K, V> {
      * @return an iterator over the entries in multiple maps
      * @see #scanMulti(ReadTransaction, Subspace, SubspaceSplitter, byte[], byte[], byte[], int, Consumer, boolean)
      */
-    @Nonnull
-    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(@Nonnull ReadTransaction tr, @Nonnull Subspace subspace, @Nonnull SubspaceSplitter<T> splitter,
+    public <T> BunchedMapMultiIterator<K, V, T> scanMulti(ReadTransaction tr, Subspace subspace, SubspaceSplitter<T> splitter,
                                                           @Nullable byte[] subspaceStart, @Nullable byte[] subspaceEnd,
                                                           @Nullable byte[] continuation, int limit, @Nullable Consumer<KeyValue> postReadCallback, boolean reverse) {
         byte[] subspaceKey = subspace.getKey();
-        byte[] startBytes = (subspaceStart == null ? subspaceKey : ByteArrayUtil.join(subspaceKey, subspaceStart));
-        byte[] endBytes = (subspaceEnd == null ? ByteArrayUtil.strinc(subspaceKey) : ByteArrayUtil.join(subspaceKey, subspaceEnd));
+        // NullAway does not reliably propagate non-null-ness through generic substitution (e.g.
+        // Objects.requireNonNull) or ternary narrowing when the type involved is byte[], so the calls below
+        // are misflagged as NonNull violations even though subspaceStart/subspaceEnd/continuation are
+        // provably non-null on the join(...) side of each expression.
+        @SuppressWarnings("NullAway")
+        final byte[] startBytes = (subspaceStart == null ? subspaceKey : ByteArrayUtil.join(subspaceKey, subspaceStart));
+        @SuppressWarnings("NullAway")
+        final byte[] endBytes = (subspaceEnd == null ? ByteArrayUtil.strinc(subspaceKey) : ByteArrayUtil.join(subspaceKey, subspaceEnd));
         AsyncIterable<KeyValue> rangeReadIterable;
         if (continuation == null) {
             rangeReadIterable = tr.getRange(startBytes, endBytes, ReadTransaction.ROW_LIMIT_UNLIMITED, reverse);
         } else {
-            byte[] continuationEndpoint = ByteArrayUtil.join(subspaceKey, continuation);
+            @SuppressWarnings("NullAway")
+            final byte[] continuationEndpoint = ByteArrayUtil.join(subspaceKey, continuation);
             if (reverse) {
                 if (ByteArrayUtil.compareUnsigned(continuationEndpoint, endBytes) < 0) {
                     rangeReadIterable = tr.getRange(startBytes, continuationEndpoint, ReadTransaction.ROW_LIMIT_UNLIMITED, true);

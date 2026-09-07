@@ -22,8 +22,7 @@ package com.apple.foundationdb.linear;
 
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 public interface RealMatrix extends LinearOperator {
     double getEntry(int row, int column);
@@ -33,12 +32,10 @@ public interface RealMatrix extends LinearOperator {
         return true;
     }
 
-    @Nonnull
     RealMatrix transpose();
 
-    @Nonnull
     @Override
-    default RealVector apply(@Nonnull final RealVector vector) {
+    default RealVector apply(final RealVector vector) {
         Verify.verify(getNumColumnDimensions() == vector.getNumDimensions());
         final double[] result = new double[getNumRowDimensions()];
         for (int i = 0; i < getNumRowDimensions(); i ++) {
@@ -51,9 +48,8 @@ public interface RealMatrix extends LinearOperator {
         return new DoubleRealVector(result);
     }
 
-    @Nonnull
     @Override
-    default RealVector transposedApply(@Nonnull final RealVector vector) {
+    default RealVector transposedApply(final RealVector vector) {
         Verify.verify(getNumRowDimensions() == vector.getNumDimensions());
         final double[] result = new double[getNumColumnDimensions()];
         for (int j = 0; j < getNumColumnDimensions(); j ++) {
@@ -66,28 +62,20 @@ public interface RealMatrix extends LinearOperator {
         return new DoubleRealVector(result);
     }
 
-    @Nonnull
-    RealMatrix multiply(@Nonnull RealMatrix otherMatrix);
+    RealMatrix multiply(RealMatrix otherMatrix);
 
-    @Nonnull
     RealMatrix subMatrix(int startRow, int lengthRow, int startColumn, int lengthColumn);
 
-    @Nonnull
     RowMajorRealMatrix toRowMajor();
 
-    @Nonnull
     double[][] getRowMajorData();
 
-    @Nonnull
     ColumnMajorRealMatrix toColumnMajor();
 
-    @Nonnull
     double[][] getColumnMajorData();
 
-    @Nonnull
     RealMatrix quickTranspose();
 
-    @Nonnull
     default RealMatrix flipMajor() {
         return transpose().quickTranspose();
     }

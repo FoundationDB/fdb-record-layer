@@ -41,8 +41,7 @@ import com.google.common.collect.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -72,10 +71,8 @@ import static com.apple.foundationdb.async.common.StorageHelpers.deleteAllSample
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class Insert {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(Insert.class);
 
-    @Nonnull
     private final Locator locator;
 
     /**
@@ -85,11 +82,10 @@ public class Insert {
      * @param locator the {@link Locator} where the graph data is stored, which config to use, which executor to use,
      *        etc.
      */
-    public Insert(@Nonnull final Locator locator) {
+    public Insert(final Locator locator) {
         this.locator = locator;
     }
 
-    @Nonnull
     public Locator getLocator() {
         return locator;
     }
@@ -99,7 +95,6 @@ public class Insert {
      *
      * @return the non-null subspace
      */
-    @Nonnull
     public Subspace getSubspace() {
         return getLocator().getSubspace();
     }
@@ -108,7 +103,6 @@ public class Insert {
      * Get the executor used by this hnsw.
      * @return executor used when running asynchronous tasks
      */
-    @Nonnull
     public Executor getExecutor() {
         return getLocator().getExecutor();
     }
@@ -117,7 +111,6 @@ public class Insert {
      * Get the configuration of this hnsw.
      * @return hnsw configuration
      */
-    @Nonnull
     public Config getConfig() {
         return getLocator().getConfig();
     }
@@ -126,7 +119,6 @@ public class Insert {
      * Get the on-write listener.
      * @return the on-write listener
      */
-    @Nonnull
     public OnWriteListener getOnWriteListener() {
         return getLocator().getOnWriteListener();
     }
@@ -135,17 +127,14 @@ public class Insert {
      * Get the on-read listener.
      * @return the on-read listener
      */
-    @Nonnull
     public OnReadListener getOnReadListener() {
         return getLocator().getOnReadListener();
     }
 
-    @Nonnull
     private Primitives primitives() {
         return getLocator().primitives();
     }
 
-    @Nonnull
     private Search searcher() {
         return getLocator().search();
     }
@@ -170,9 +159,8 @@ public class Insert {
      *
      * @return a {@link CompletableFuture} that completes when the insertion operation is finished
      */
-    @Nonnull
-    public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
-                                          @Nonnull final RealVector newVector,
+    public CompletableFuture<Void> insert(final Transaction transaction, final Tuple newPrimaryKey,
+                                          final RealVector newVector,
                                           @Nullable final Tuple newAdditionalValues) {
         final Primitives primitives = primitives();
         final SplittableRandom random = RandomHelpers.random(newPrimaryKey);
@@ -259,12 +247,12 @@ public class Insert {
                 }).thenCompose(ignored -> AsyncUtil.DONE);
     }
 
-    private void firstInsert(@Nonnull final Transaction transaction,
-                             @Nonnull final Tuple newPrimaryKey,
-                             @Nonnull final RealVector newVector,
+    private void firstInsert(final Transaction transaction,
+                             final Tuple newPrimaryKey,
+                             final RealVector newVector,
                              @Nullable final Tuple additionalValues,
-                             @Nonnull final SplittableRandom random,
-                             @Nonnull final Primitives primitives,
+                             final SplittableRandom random,
+                             final Primitives primitives,
                              final int insertionLayer) {
         final Config config = getConfig();
         final long rotatorSeed;
@@ -324,11 +312,10 @@ public class Insert {
      *
      * @return a future that returns {@code null} when completed
      */
-    @Nonnull
-    private CompletableFuture<Void> addToStatsIfNecessary(@Nonnull final Transaction transaction,
-                                                          @Nonnull final SplittableRandom random,
-                                                          @Nonnull final AccessInfo currentAccessInfo,
-                                                          @Nonnull final Transformed<RealVector> transformedNewVector) {
+    private CompletableFuture<Void> addToStatsIfNecessary(final Transaction transaction,
+                                                          final SplittableRandom random,
+                                                          final AccessInfo currentAccessInfo,
+                                                          final Transformed<RealVector> transformedNewVector) {
         if (getConfig().useRaBitQ() &&
                 !currentAccessInfo.canUseRaBitQ()) {
             if (shouldSampleVector(random)) {
@@ -423,14 +410,13 @@ public class Insert {
      * @return a {@link CompletableFuture} that completes when the new node has been successfully inserted into all
      * its designated layers
      */
-    @Nonnull
-    private CompletableFuture<Void> insertIntoLayers(@Nonnull final Transaction transaction,
-                                                     @Nonnull final StorageTransform storageTransform,
-                                                     @Nonnull final Quantizer quantizer,
-                                                     @Nonnull final Tuple newPrimaryKey,
-                                                     @Nonnull final Transformed<RealVector> newVector,
+    private CompletableFuture<Void> insertIntoLayers(final Transaction transaction,
+                                                     final StorageTransform storageTransform,
+                                                     final Quantizer quantizer,
+                                                     final Tuple newPrimaryKey,
+                                                     final Transformed<RealVector> newVector,
                                                      @Nullable final Tuple newAdditionalValues,
-                                                     @Nonnull final NodeReferenceWithDistance nodeReference,
+                                                     final NodeReferenceWithDistance nodeReference,
                                                      final int lMax,
                                                      final int insertionLayer) {
         if (logger.isTraceEnabled()) {
@@ -485,16 +471,15 @@ public class Insert {
      *         initial search phase. This list serves as the entry point for insertion into the next lower layer
      *         (i.e., {@code layer - 1}).
      */
-    @Nonnull
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithDistance, N>>>
-            insertIntoLayer(@Nonnull final StorageAdapter<N> storageAdapter,
-                            @Nonnull final Transaction transaction,
-                            @Nonnull final StorageTransform storageTransform,
-                            @Nonnull final Quantizer quantizer,
-                            @Nonnull final List<NodeReferenceWithDistance> nearestNeighbors,
+            insertIntoLayer(final StorageAdapter<N> storageAdapter,
+                            final Transaction transaction,
+                            final StorageTransform storageTransform,
+                            final Quantizer quantizer,
+                            final List<NodeReferenceWithDistance> nearestNeighbors,
                             final int layer,
-                            @Nonnull final Tuple newPrimaryKey,
-                            @Nonnull final Transformed<RealVector> newVector,
+                            final Tuple newPrimaryKey,
+                            final Transformed<RealVector> newVector,
                             @Nullable final Tuple newAdditionalValues) {
         if (logger.isTraceEnabled()) {
             logger.trace("begin insert key={} at layer={}", newPrimaryKey, layer);
@@ -583,16 +568,15 @@ public class Insert {
                 });
     }
 
-    @Nonnull
     private Subspace getSamplesSubspace() {
         return StorageAdapter.samplesSubspace(getSubspace());
     }
 
-    private boolean shouldSampleVector(@Nonnull final SplittableRandom random) {
+    private boolean shouldSampleVector(final SplittableRandom random) {
         return random.nextDouble() < getConfig().sampleVectorStatsProbability();
     }
 
-    private boolean shouldMaintainStats(@Nonnull final SplittableRandom random) {
+    private boolean shouldMaintainStats(final SplittableRandom random) {
         return random.nextDouble() < getConfig().maintainStatsProbability();
     }
 }

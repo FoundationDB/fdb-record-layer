@@ -24,8 +24,7 @@ import com.apple.foundationdb.linear.DistanceEstimator;
 import com.google.common.base.Verify;
 import com.google.common.collect.Maps;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 import java.util.UUID;
 
@@ -41,7 +40,7 @@ import java.util.UUID;
  *        {@link ClusterView#transformedCentroid()} by {@link #computeAssignmentRanking}; {@code null} only when
  *        the structure is empty (no clusters)
  */
-record StructureSnapshot(@Nonnull Map<UUID, ClusterView> clusters,
+record StructureSnapshot(Map<UUID, ClusterView> clusters,
                          @Nullable DistanceEstimator estimator) {
     /** Returns the number of clusters in this snapshot. */
     public int numClusters() {
@@ -68,7 +67,6 @@ record StructureSnapshot(@Nonnull Map<UUID, ClusterView> clusters,
      * {@link Verify} if a primary appears in more than one cluster, so the returned map is guaranteed unique by
      * construction.
      */
-    @Nonnull
     public Map<VectorId, UUID> primaryOwners() {
         final Map<VectorId, UUID> owners = Maps.newHashMapWithExpectedSize(totalPrimaries());
         for (final ClusterView cv : clusters.values()) {
@@ -99,7 +97,6 @@ record StructureSnapshot(@Nonnull Map<UUID, ClusterView> clusters,
      *
      * @return the ranking-derived statistics
      */
-    @Nonnull
     public AssignmentRanking computeAssignmentRanking() {
         if (estimator == null) {
             return new AssignmentRanking(0, 0);

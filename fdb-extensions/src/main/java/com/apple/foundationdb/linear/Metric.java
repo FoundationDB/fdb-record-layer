@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.linear;
 
-import javax.annotation.Nonnull;
 
 /**
  * Represents various distance calculation strategies (metrics) for vectors.
@@ -78,14 +77,13 @@ public enum Metric implements MetricDefinition {
      */
     DOT_PRODUCT_METRIC(new MetricDefinition.DotProductMetric());
 
-    @Nonnull
     private final MetricDefinition metricDefinition;
 
     /**
      * Constructs a new Metric instance with the specified metric.
      * @param metricDefinition the metric to be associated with this Metric instance; must not be null.
      */
-    Metric(@Nonnull final MetricDefinition metricDefinition) {
+    Metric(final MetricDefinition metricDefinition) {
         this.metricDefinition = metricDefinition;
     }
 
@@ -116,7 +114,7 @@ public enum Metric implements MetricDefinition {
 
 
     @Override
-    public double distance(@Nonnull final double[] vectorData1, @Nonnull final double[] vectorData2) {
+    public double distance(final double[] vectorData1, final double[] vectorData2) {
         return metricDefinition.distance(vectorData1, vectorData2);
     }
 
@@ -135,7 +133,7 @@ public enum Metric implements MetricDefinition {
      * @throws IllegalArgumentException if the vectors have different lengths.
      * @throws NullPointerException if either {@code vector1} or {@code vector2} is null.
      */
-    public double distance(@Nonnull RealVector vector1, @Nonnull RealVector vector2) {
+    public double distance(RealVector vector1, RealVector vector2) {
         return distance(vector1.getData(), vector2.getData());
     }
 

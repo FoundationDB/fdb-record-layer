@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
@@ -29,7 +30,6 @@ import com.google.common.collect.Iterables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
@@ -44,13 +44,10 @@ import java.util.function.Predicate;
  * @param <N> the type of the node reference, which must extend {@link NodeReference}
  */
 class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChangeSet<N> {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(DeleteNeighborsChangeSet.class);
 
-    @Nonnull
     private final NeighborsChangeSet<N> parent;
 
-    @Nonnull
     private final Set<Tuple /* primary key */> deletedNeighborsPrimaryKeys;
 
     /**
@@ -64,8 +61,8 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
      * @param deletedNeighborsPrimaryKeys a {@link Collection} of primary keys, represented as {@link Tuple}s,
      * identifying the neighbors to be deleted. Must not be null.
      */
-    public DeleteNeighborsChangeSet(@Nonnull final NeighborsChangeSet<N> parent,
-                                    @Nonnull final Collection<Tuple> deletedNeighborsPrimaryKeys) {
+    public DeleteNeighborsChangeSet(final NeighborsChangeSet<N> parent,
+                                    final Collection<Tuple> deletedNeighborsPrimaryKeys) {
         this.parent = parent;
         this.deletedNeighborsPrimaryKeys = ImmutableSet.copyOf(deletedNeighborsPrimaryKeys);
     }
@@ -78,7 +75,6 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
      *
      * @return the parent {@link NeighborsChangeSet}
      */
-    @Nonnull
     @Override
     public NeighborsChangeSet<N> getParent() {
         return parent;
@@ -107,8 +103,11 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
      * @return an {@link Iterable} of the merged neighbors, excluding those marked as deleted. This method never returns
      * {@code null}.
      */
-    @Nonnull
     @Override
+    // getParent() is overridden below to always return this.parent, which is non-null by construction (see the
+    // constructor's contract); SpotBugs's NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE analysis appears to fall back to
+    // the wider @Nullable contract declared by NeighborsChangeSet.getParent() rather than this narrowed override.
+    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     public Iterable<N> merge() {
         return Iterables.filter(getParent().merge(),
                 current -> !deletedNeighborsPrimaryKeys.contains(Objects.requireNonNull(current).getPrimaryKey()));
@@ -133,9 +132,11 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
      *        only deletions matching this predicate will be written
      */
     @Override
-    public void writeDelta(@Nonnull final InliningStorageAdapter storageAdapter, @Nonnull final Transaction transaction,
-                           @Nonnull final Quantizer quantizer, final int layer, @Nonnull final AbstractNode<N> node,
-                           @Nonnull final Predicate<Tuple> tuplePredicate) {
+    // See the comment on merge() above: getParent() always returns this.parent (non-null) in this class.
+    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
+    public void writeDelta(final InliningStorageAdapter storageAdapter, final Transaction transaction,
+                           final Quantizer quantizer, final int layer, final AbstractNode<N> node,
+                           final Predicate<Tuple> tuplePredicate) {
         Verify.verify(node.isInliningNode());
         getParent().writeDelta(storageAdapter, transaction, quantizer, layer, node,
                 tuplePredicate.and(tuple -> !deletedNeighborsPrimaryKeys.contains(tuple)));

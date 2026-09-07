@@ -25,4 +25,7 @@
  * class allows the user to attach arbitrary keys and values to an {@link java.lang.Exception} when
  * thrown.
  */
+@NullMarked
 package com.apple.foundationdb.util;
+
+import org.jspecify.annotations.NullMarked;

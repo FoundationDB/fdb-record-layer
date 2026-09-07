@@ -40,8 +40,7 @@ import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -66,10 +65,8 @@ import static com.apple.foundationdb.async.MoreAsyncUtil.forLoop;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
 public class Search {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(Search.class);
 
-    @Nonnull
     private final Locator locator;
 
     /**
@@ -79,11 +76,10 @@ public class Search {
      * @param locator the {@link Locator} where the graph data is stored, which config to use, which executor to use,
      *        etc.
      */
-    public Search(@Nonnull final Locator locator) {
+    public Search(final Locator locator) {
         this.locator = locator;
     }
 
-    @Nonnull
     public Locator getLocator() {
         return locator;
     }
@@ -93,7 +89,6 @@ public class Search {
      *
      * @return the non-null subspace
      */
-    @Nonnull
     public Subspace getSubspace() {
         return getLocator().getSubspace();
     }
@@ -102,7 +97,6 @@ public class Search {
      * Get the executor used by this hnsw.
      * @return executor used when running asynchronous tasks
      */
-    @Nonnull
     private Executor getExecutor() {
         return getLocator().getExecutor();
     }
@@ -111,7 +105,6 @@ public class Search {
      * Get the configuration of this hnsw.
      * @return hnsw configuration
      */
-    @Nonnull
     private Config getConfig() {
         return getLocator().getConfig();
     }
@@ -120,12 +113,10 @@ public class Search {
      * Get the on-read listener.
      * @return the on-read listener
      */
-    @Nonnull
     private OnReadListener getOnReadListener() {
         return getLocator().getOnReadListener();
     }
 
-    @Nonnull
     private Primitives primitives() {
         return locator.primitives();
     }
@@ -144,13 +135,12 @@ public class Search {
      *         sorted by distance in ascending order.
      */
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
-    @Nonnull
     public CompletableFuture<List<? extends ResultEntry>>
-            kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
+            kNearestNeighborsSearch(final ReadTransaction readTransaction,
                                     final int k,
                                     final int efSearch,
                                     final boolean includeVectors,
-                                    @Nonnull final RealVector queryVector) {
+                                    final RealVector queryVector) {
         return search(readTransaction, queryVector,
                 layer -> layer > 0 ? 1 : efSearch,
                 Search::distanceToTargetVector)
@@ -174,13 +164,12 @@ public class Search {
      *         sorted by distance in ascending order.
      */
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
-    @Nonnull
     public CompletableFuture<List<? extends ResultEntry>>
-            kNearestNeighborsRingSearch(@Nonnull final ReadTransaction readTransaction,
+            kNearestNeighborsRingSearch(final ReadTransaction readTransaction,
                                         final int k,
                                         final int efSearch,
                                         final boolean includeVectors,
-                                        @Nonnull final RealVector queryVector,
+                                        final RealVector queryVector,
                                         final double radius) {
         return search(readTransaction, queryVector,
                 layer ->
@@ -216,11 +205,10 @@ public class Search {
      *         sorted by distance in ascending order.
      */
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
-    @Nonnull
-    CompletableFuture<SearchResult> search(@Nonnull final ReadTransaction readTransaction,
-                                           @Nonnull final RealVector queryVector,
-                                           @Nonnull final IntUnaryOperator efSearchFunction,
-                                           @Nonnull final ObjectiveFunctionCreator objectiveFunctionCreator) {
+    CompletableFuture<SearchResult> search(final ReadTransaction readTransaction,
+                                           final RealVector queryVector,
+                                           final IntUnaryOperator efSearchFunction,
+                                           final ObjectiveFunctionCreator objectiveFunctionCreator) {
         return StorageAdapter.fetchAccessInfo(getConfig(), readTransaction, getSubspace(), getOnReadListener())
                 .thenCompose(accessInfo -> {
                     if (accessInfo == null) {
@@ -267,15 +255,14 @@ public class Search {
                 });
     }
 
-    @Nonnull
     private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithDistance>>
-            searchLayer(@Nonnull final StorageAdapter<N> storageAdapter,
-                        @Nonnull final ReadTransaction readTransaction,
-                        @Nonnull final StorageTransform storageTransform,
-                        @Nonnull final List<NodeReferenceWithDistance> nodeReferenceWithDistances,
+            searchLayer(final StorageAdapter<N> storageAdapter,
+                        final ReadTransaction readTransaction,
+                        final StorageTransform storageTransform,
+                        final List<NodeReferenceWithDistance> nodeReferenceWithDistances,
                         final int layer,
                         final int efSearch,
-                        @Nonnull final ToDoubleFunction<Transformed<RealVector>> objectiveFunction) {
+                        final ToDoubleFunction<Transformed<RealVector>> objectiveFunction) {
         if (efSearch == 1 && nodeReferenceWithDistances.size() == 1) {
             return greedySearchLayer(storageAdapter, readTransaction, storageTransform,
                     Iterables.getOnlyElement(nodeReferenceWithDistances),
@@ -288,10 +275,9 @@ public class Search {
         }
     }
 
-    @Nonnull
-    private ImmutableList<ResultEntry> postProcessSearchResult(@Nonnull final StorageTransform storageTransform,
+    private ImmutableList<ResultEntry> postProcessSearchResult(final StorageTransform storageTransform,
                                                                final int k,
-                                                               @Nonnull List<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> nearestReferencesAndNodes,
+                                                               List<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> nearestReferencesAndNodes,
                                                                final boolean includeVectors) {
         final int lastIndex = Math.max(nearestReferencesAndNodes.size() - k, 0);
 
@@ -335,14 +321,13 @@ public class Search {
      * @return a {@link CompletableFuture} that, upon completion, will contain the closest node found on the layer,
      *         represented as a {@link NodeReferenceWithDistance}
      */
-    @Nonnull
     <N extends NodeReference> CompletableFuture<NodeReferenceWithDistance>
-            greedySearchLayer(@Nonnull final StorageAdapter<N> storageAdapter,
-                              @Nonnull final ReadTransaction readTransaction,
-                              @Nonnull final StorageTransform storageTransform,
-                              @Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance,
+            greedySearchLayer(final StorageAdapter<N> storageAdapter,
+                              final ReadTransaction readTransaction,
+                              final StorageTransform storageTransform,
+                              final NodeReferenceWithDistance nodeReferenceWithDistance,
                               final int layer,
-                              @Nonnull final ToDoubleFunction<Transformed<RealVector>> objectiveFunction) {
+                              final ToDoubleFunction<Transformed<RealVector>> objectiveFunction) {
         if (storageAdapter.isInliningStorageAdapter()) {
             return greedySearchInliningLayer(storageAdapter.asInliningStorageAdapter(), readTransaction,
                     storageTransform, nodeReferenceWithDistance, layer, objectiveFunction);
@@ -370,14 +355,13 @@ public class Search {
      * @return a {@link CompletableFuture} that, upon completion, will contain the closest node found on the layer,
      *         represented as a {@link NodeReferenceWithDistance}
      */
-    @Nonnull
     private CompletableFuture<NodeReferenceWithDistance>
-            greedySearchInliningLayer(@Nonnull final InliningStorageAdapter storageAdapter,
-                                      @Nonnull final ReadTransaction readTransaction,
-                                      @Nonnull final StorageTransform storageTransform,
-                                      @Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance,
+            greedySearchInliningLayer(final InliningStorageAdapter storageAdapter,
+                                      final ReadTransaction readTransaction,
+                                      final StorageTransform storageTransform,
+                                      final NodeReferenceWithDistance nodeReferenceWithDistance,
                                       final int layer,
-                                      @Nonnull final ToDoubleFunction<Transformed<RealVector>> objectiveFunction) {
+                                      final ToDoubleFunction<Transformed<RealVector>> objectiveFunction) {
         final Primitives primitives = primitives();
         final NodeFactory<NodeReferenceWithVector> nodeFactory = storageAdapter.getNodeFactory();
         final Map<Tuple, AbstractNode<NodeReferenceWithVector>> nodeCache = Maps.newHashMap();
@@ -496,16 +480,15 @@ public class Search {
      * @return A {@link CompletableFuture} that, upon completion, will contain a list of the
      * best candidate nodes found in this layer, paired with their full node data.
      */
-    @Nonnull
     <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<NodeReferenceWithDistance, N>>>
-            beamSearchLayer(@Nonnull final StorageAdapter<N> storageAdapter,
-                            @Nonnull final ReadTransaction readTransaction,
-                            @Nonnull final StorageTransform storageTransform,
-                            @Nonnull final Collection<NodeReferenceWithDistance> nodeReferences,
+            beamSearchLayer(final StorageAdapter<N> storageAdapter,
+                            final ReadTransaction readTransaction,
+                            final StorageTransform storageTransform,
+                            final Collection<NodeReferenceWithDistance> nodeReferences,
                             final int layer,
                             final int efSearch,
-                            @Nonnull final ToDoubleFunction<Transformed<RealVector>> objectiveFunction,
-                            @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+                            final ToDoubleFunction<Transformed<RealVector>> objectiveFunction,
+                            final Map<Tuple, AbstractNode<N>> nodeCache) {
         final Primitives primitives = primitives();
 
         //
@@ -628,11 +611,11 @@ public class Search {
      * @return an {@link AsyncIterator} of {@link ResultEntry} objects, ordered by increasing distance from the
      *         {@code centerVector}
      */
-    AsyncIterator<ResultEntry> orderByDistance(@Nonnull final ReadTransaction readTransaction,
+    AsyncIterator<ResultEntry> orderByDistance(final ReadTransaction readTransaction,
                                                final int efRingSearch,
                                                final int efOutwardSearch,
                                                final boolean includeVectors,
-                                               @Nonnull final RealVector centerVector,
+                                               final RealVector centerVector,
                                                final double minimumRadius,
                                                @Nullable final Tuple minimumPrimaryKey,
                                                final boolean shouldQuickStart) {
@@ -659,11 +642,10 @@ public class Search {
                 });
     }
 
-    @Nonnull
-    private OutwardTraversalIterator searchAndIterateOutward(@Nonnull final ReadTransaction readTransaction,
+    private OutwardTraversalIterator searchAndIterateOutward(final ReadTransaction readTransaction,
                                                              final int efRingSearch,
                                                              final int efOutwardSearch,
-                                                             @Nonnull final RealVector centerVector,
+                                                             final RealVector centerVector,
                                                              final double minimumRadius,
                                                              @Nullable final Tuple minimumPrimaryKey,
                                                              final boolean shouldQuickStart) {
@@ -680,15 +662,13 @@ public class Search {
                 minimumRadius, minimumPrimaryKey, efOutwardSearch, shouldQuickStart);
     }
 
-    @Nonnull
-    static ToDoubleFunction<Transformed<RealVector>> distanceToTargetVector(@Nonnull final DistanceEstimator distanceEstimator,
-                                                                            @Nonnull final Transformed<RealVector> targetVector) {
+    static ToDoubleFunction<Transformed<RealVector>> distanceToTargetVector(final DistanceEstimator distanceEstimator,
+                                                                            final Transformed<RealVector> targetVector) {
         return vector -> distanceEstimator.distance(targetVector, vector);
     }
 
-    @Nonnull
-    static ToDoubleFunction<Transformed<RealVector>> distanceToSphericalSurface(@Nonnull final DistanceEstimator distanceEstimator,
-                                                                                @Nonnull final Transformed<RealVector> targetVector,
+    static ToDoubleFunction<Transformed<RealVector>> distanceToSphericalSurface(final DistanceEstimator distanceEstimator,
+                                                                                final Transformed<RealVector> targetVector,
                                                                                 final double radius) {
         return vector -> Math.abs(distanceEstimator.distance(targetVector, vector) - radius);
     }
@@ -696,17 +676,14 @@ public class Search {
     static class SearchResult {
         @Nullable
         private final AccessInfo accessInfo;
-        @Nonnull
         private final StorageTransform storageTransform;
-        @Nonnull
         private final List<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> nearestReferenceAndNodes;
-        @Nonnull
         private final Map<Tuple, AbstractNode<NodeReference>> nodeCache;
 
         public SearchResult(@Nullable final AccessInfo accessInfo,
-                            @Nonnull final StorageTransform storageTransform,
-                            @Nonnull final List<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> nearestReferenceWithNodes,
-                            @Nonnull final Map<Tuple, AbstractNode<NodeReference>> nodeCache) {
+                            final StorageTransform storageTransform,
+                            final List<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> nearestReferenceWithNodes,
+                            final Map<Tuple, AbstractNode<NodeReference>> nodeCache) {
             this.accessInfo = accessInfo;
             this.storageTransform = storageTransform;
             this.nearestReferenceAndNodes = nearestReferenceWithNodes;
@@ -718,17 +695,14 @@ public class Search {
             return accessInfo;
         }
 
-        @Nonnull
         public StorageTransform getStorageTransform() {
             return storageTransform;
         }
 
-        @Nonnull
         public List<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> getNearestReferenceAndNodes() {
             return nearestReferenceAndNodes;
         }
 
-        @Nonnull
         public Map<Tuple, AbstractNode<NodeReference>> getNodeCache() {
             return nodeCache;
         }
@@ -736,7 +710,6 @@ public class Search {
 
     @FunctionalInterface
     private interface ObjectiveFunctionCreator {
-        @Nonnull
-        ToDoubleFunction<Transformed<RealVector>> create(@Nonnull DistanceEstimator distanceEstimator, @Nonnull Transformed<RealVector> targetVector);
+        ToDoubleFunction<Transformed<RealVector>> create(DistanceEstimator distanceEstimator, Transformed<RealVector> targetVector);
     }
 }

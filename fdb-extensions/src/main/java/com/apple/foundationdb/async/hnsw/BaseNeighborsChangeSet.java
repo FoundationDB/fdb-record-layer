@@ -25,8 +25,7 @@ import com.apple.foundationdb.linear.Quantizer;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.function.Predicate;
 
@@ -39,7 +38,6 @@ import java.util.function.Predicate;
  * @param <N> the type of the node reference, which must extend {@link NodeReference}
  */
 class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChangeSet<N> {
-    @Nonnull
     private final List<N> neighbors;
 
     /**
@@ -49,7 +47,7 @@ class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChange
      *
      * @param neighbors the list of neighbors for this change set; must not be null.
      */
-    public BaseNeighborsChangeSet(@Nonnull final List<N> neighbors) {
+    public BaseNeighborsChangeSet(final List<N> neighbors) {
         this.neighbors = ImmutableList.copyOf(neighbors);
     }
 
@@ -84,7 +82,6 @@ class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChange
      * @return a non-null list of neighbors. The generic type {@code N} represents
      *         the type of the neighboring elements.
      */
-    @Nonnull
     @Override
     public List<N> merge() {
         return neighbors;
@@ -97,9 +94,9 @@ class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChange
      * as indicated by the empty method body.
      */
     @Override
-    public void writeDelta(@Nonnull final InliningStorageAdapter storageAdapter, @Nonnull final Transaction transaction,
-                           @Nonnull final Quantizer quantizer, final int layer, @Nonnull final AbstractNode<N> node,
-                           @Nonnull final Predicate<Tuple> primaryKeyPredicate) {
+    public void writeDelta(final InliningStorageAdapter storageAdapter, final Transaction transaction,
+                           final Quantizer quantizer, final int layer, final AbstractNode<N> node,
+                           final Predicate<Tuple> primaryKeyPredicate) {
         // nothing to be written
     }
 }

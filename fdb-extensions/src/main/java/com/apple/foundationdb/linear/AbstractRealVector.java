@@ -23,7 +23,6 @@ package com.apple.foundationdb.linear;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -44,18 +43,14 @@ import java.util.stream.Collectors;
  * (per the {@link #AbstractRealVector(double[]) constructor contract}).
  */
 public abstract class AbstractRealVector implements RealVector {
-    @Nonnull
     protected final double[] data;
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     protected Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<byte[]> toRawDataSupplier = Suppliers.memoize(this::computeRawData);
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Double> l2SquaredNormSupplier = Suppliers.memoize(this::computeL2SquaredNorm);
 
@@ -69,7 +64,7 @@ public abstract class AbstractRealVector implements RealVector {
      * @param data the components of this vector
      * @throws NullPointerException if the provided {@code data} array is null.
      */
-    protected AbstractRealVector(@Nonnull final double[] data) {
+    protected AbstractRealVector(final double[] data) {
         this.data = data;
     }
 
@@ -106,7 +101,6 @@ public abstract class AbstractRealVector implements RealVector {
      * unless the concrete subtype is {@link MutableDoubleRealVector}.
      * @return the data array, never {@code null}.
      */
-    @Nonnull
     @Override
     public double[] getData() {
         return data;
@@ -119,7 +113,6 @@ public abstract class AbstractRealVector implements RealVector {
      * implementation-specific and should be documented by the concrete class that implements this method.
      * @return a non-null byte array containing the raw data.
      */
-    @Nonnull
     @Override
     public byte[] getRawData() {
         return toRawDataSupplier.get();
@@ -132,7 +125,6 @@ public abstract class AbstractRealVector implements RealVector {
      * implementation-specific and should be documented by the concrete class that implements this method.
      * @return a non-null byte array containing the raw data.
      */
-    @Nonnull
     protected abstract byte[] computeRawData();
 
     /**
@@ -239,8 +231,7 @@ public abstract class AbstractRealVector implements RealVector {
      * @return a new {@code double[]} of the same length, each element widened from the
      *         corresponding {@code ints[i]}
      */
-    @Nonnull
-    protected static double[] fromInts(@Nonnull final int[] ints) {
+    protected static double[] fromInts(final int[] ints) {
         final double[] result = new double[ints.length];
         for (int i = 0; i < ints.length; i++) {
             result[i] = ints[i];
@@ -259,8 +250,7 @@ public abstract class AbstractRealVector implements RealVector {
      * @return a new {@code double[]} of the same length, each element widened from the
      *         corresponding {@code longs[i]}
      */
-    @Nonnull
-    protected static double[] fromLongs(@Nonnull final long[] longs) {
+    protected static double[] fromLongs(final long[] longs) {
         final double[] result = new double[longs.length];
         for (int i = 0; i < longs.length; i++) {
             result[i] = longs[i];

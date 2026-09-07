@@ -25,6 +25,7 @@ import com.apple.foundationdb.FDB;
 
 import java.time.Instant;
 import java.time.ZonedDateTime;
+import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
@@ -54,6 +55,10 @@ class ClientLogEventCounterTest {
             countWrites = "WRITE".equals(arg) || "BOTH".equals(arg);
         }
         FDB fdb = FDB.selectAPIVersion(630);
+        // FDB.open(String) is from the unannotated fdb-java client library; passing a null cluster file path is
+        // its documented way of using the default cluster file, but the parameter is treated as @NonNull by
+        // NullAway's defaults.
+        @SuppressWarnings("NullAway")
         Database database = fdb.open(cluster);
         Executor executor = database.getExecutor();
         TupleKeyCountTree root = new TupleKeyCountTree();
@@ -63,7 +68,9 @@ class ClientLogEventCounterTest {
                 System.out.print("  ");
             }
             System.out.print(path.stream().map(Object::toString).collect(Collectors.joining("/")));
-            int percent = (path.get(0).getCount() * 100) / path.get(0).getParent().getCount();
+            // TupleKeyCountTree.printTree() never invokes the Printer callback for the root node itself (only
+            // for its descendants), so path.get(0) is guaranteed to have a non-null parent here.
+            int percent = (path.get(0).getCount() * 100) / Objects.requireNonNull(path.get(0).getParent()).getCount();
             System.out.println(" " + percent + "%");
         };
         int eventLimit = 10_000;

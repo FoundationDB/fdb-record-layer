@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 
 /**
  * Represents the different kinds of nodes, each associated with a unique byte value for serialization and
@@ -69,7 +68,6 @@ public enum NodeKind {
      * @throws IllegalArgumentException if the {@code serializedNodeKind} does not
      * correspond to a known node kind.
      */
-    @Nonnull
     static NodeKind fromSerializedNodeKind(byte serializedNodeKind) {
         final NodeKind nodeKind;
         switch (serializedNodeKind) {

@@ -20,8 +20,7 @@
 
 package com.apple.foundationdb.async.common;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Interface for call backs whenever we read data from the database.
@@ -36,7 +35,7 @@ public interface OnKeyValueReadListener {
      * @param value the value associated with the key, can be null if the key was not found
      */
     @SuppressWarnings("unused")
-    default void onKeyValueRead(@Nonnull byte[] key,
+    default void onKeyValueRead(byte[] key,
                                 @Nullable byte[] value) {
         // nothing
     }

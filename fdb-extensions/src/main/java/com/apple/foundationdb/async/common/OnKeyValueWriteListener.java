@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.common;
 
 import com.apple.foundationdb.Range;
 
-import javax.annotation.Nonnull;
 
 /**
  * Interface for call backs whenever we write data to the database.
@@ -37,7 +36,7 @@ public interface OnKeyValueWriteListener {
      * @param value the value.
      */
     @SuppressWarnings("unused")
-    default void onKeyValueWritten(@Nonnull final byte[] key, @Nonnull final byte[] value) {
+    default void onKeyValueWritten(final byte[] key, final byte[] value) {
         // nothing
     }
 
@@ -49,7 +48,7 @@ public interface OnKeyValueWriteListener {
      * @param key the key that was deleted
      */
     @SuppressWarnings("unused")
-    default void onKeyDeleted(@Nonnull final byte[] key) {
+    default void onKeyDeleted(final byte[] key) {
         // nothing
     }
 
@@ -61,7 +60,7 @@ public interface OnKeyValueWriteListener {
      * @param range the {@link Range} that was deleted
      */
     @SuppressWarnings("unused")
-    default void onRangeDeleted(@Nonnull final Range range) {
+    default void onRangeDeleted(final Range range) {
         // nothing
     }
 }

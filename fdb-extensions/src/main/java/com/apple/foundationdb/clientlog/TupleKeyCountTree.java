@@ -26,8 +26,8 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -44,7 +44,6 @@ import java.util.TreeMap;
 @API(API.Status.EXPERIMENTAL)
 @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
 public class TupleKeyCountTree {
-    @Nonnull
     private final byte[] bytes;
     @Nullable
     private final Object object;
@@ -52,7 +51,6 @@ public class TupleKeyCountTree {
     private int count;
     @Nullable
     private final TupleKeyCountTree parent;
-    @Nonnull
     private final Map<byte[], TupleKeyCountTree> children;
 
     private boolean visible = true;
@@ -70,7 +68,7 @@ public class TupleKeyCountTree {
         this(null, new byte[0], null);
     }
 
-    public TupleKeyCountTree(@Nullable TupleKeyCountTree parent, @Nonnull byte[] bytes, @Nullable Object object) {
+    public TupleKeyCountTree(@Nullable TupleKeyCountTree parent, byte[] bytes, @Nullable Object object) {
         this.bytes = bytes;
         this.object = object;
 
@@ -79,7 +77,6 @@ public class TupleKeyCountTree {
         this.children = new TreeMap<>(BYTES_COMPARATOR);
     }
     
-    @Nonnull
     public byte[] getBytes() {
         return bytes;
     }
@@ -104,7 +101,7 @@ public class TupleKeyCountTree {
      * Each element is added to the next deeper level in the tree, incrementing the count as it goes.
      * @param tuple the tuple to add
      */
-    public void add(@Nonnull Tuple tuple) {
+    public void add(Tuple tuple) {
         addInternal(tuple.getItems(), 0, tuple.pack(), 0);
     }
 
@@ -113,7 +110,7 @@ public class TupleKeyCountTree {
      *
      * @param packed the packed form of a tuple to be parsed and added to the tree
      */
-    public void add(@Nonnull byte[] packed) {
+    public void add(byte[] packed) {
         List<Object> items = null;
         int endPosition = packed.length;
         while (endPosition > 0) {
@@ -134,7 +131,7 @@ public class TupleKeyCountTree {
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private synchronized void addInternal(@Nonnull List<Object> items, int itemPosition, @Nonnull byte[] bytes, int bytePosition) {
+    private synchronized void addInternal(List<Object> items, int itemPosition, byte[] bytes, int bytePosition) {
         count++;
         if (itemPosition < items.size()) {
             final Object childObject = items.get(itemPosition);
@@ -150,20 +147,17 @@ public class TupleKeyCountTree {
      * @param prefix an object for the top level child of the tree
      * @return a subtree for the given object
      */
-    @Nonnull
-    public TupleKeyCountTree addPrefixChild(@Nonnull Object prefix) {
+    public TupleKeyCountTree addPrefixChild(Object prefix) {
         count++;
         final byte[] prefixBytes = Tuple.from(prefix).pack();
         return children.computeIfAbsent(prefixBytes, b -> newPrefixChild(prefixBytes, prefix));
     }
 
-    @Nonnull
-    protected TupleKeyCountTree newPrefixChild(@Nonnull byte[] prefixBytes, @Nonnull Object prefix) {
+    protected TupleKeyCountTree newPrefixChild(byte[] prefixBytes, Object prefix) {
         return newChild(prefixBytes, prefix);
     }
 
-    @Nonnull
-    protected TupleKeyCountTree newChild(@Nonnull byte[] childBytes, @Nonnull Object object) {
+    protected TupleKeyCountTree newChild(byte[] childBytes, Object object) {
         return new TupleKeyCountTree(this, childBytes, object);
     }
 
@@ -176,7 +170,6 @@ public class TupleKeyCountTree {
         return parent;
     }
 
-    @Nonnull
     public Collection<TupleKeyCountTree> getChildren() {
         return children.values();
     }
@@ -206,7 +199,7 @@ public class TupleKeyCountTree {
      */
     @FunctionalInterface
     public interface Printer {
-        void print(int depth, @Nonnull List<TupleKeyCountTree> path);
+        void print(int depth, List<TupleKeyCountTree> path);
     }
 
     /**
@@ -214,7 +207,7 @@ public class TupleKeyCountTree {
      * @param printer the printer to be called for each visible level of the tree
      * @param collapseSeparator a string to be used to separate the printed forms of levels with only a single child
      */
-    public void printTree(@Nonnull Printer printer, @Nullable String collapseSeparator) {
+    public void printTree(Printer printer, @Nullable String collapseSeparator) {
         if (parent != null) {
             printTree(0, 0, printer, collapseSeparator);
         } else {
@@ -225,7 +218,7 @@ public class TupleKeyCountTree {
         }
     }
 
-    protected void printTree(int depth, int nancestors, @Nonnull Printer printer, @Nullable String collapseSeparator) {
+    protected void printTree(int depth, int nancestors, Printer printer, @Nullable String collapseSeparator) {
         if (visible) {
             if (collapseSeparator != null) {
                 TupleKeyCountTree onlyChild = null;
@@ -250,7 +243,11 @@ public class TupleKeyCountTree {
                 TupleKeyCountTree ancestor = this;
                 for (int i = 0; i <= nancestors; i++) {
                     path.add(0, ancestor);
-                    ancestor = ancestor.parent;
+                    // nancestors only ever increases in step with an actual recursion into a real child (see
+                    // the onlyChild.printTree(...) call above), so this node is guaranteed to have at least
+                    // `nancestors` real ancestors above it; NullAway cannot verify an invariant across
+                    // recursive calls like this.
+                    ancestor = Objects.requireNonNull(ancestor.parent);
                 }
             } else {
                 path = Collections.singletonList(this);

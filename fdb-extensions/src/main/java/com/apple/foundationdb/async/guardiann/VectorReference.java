@@ -25,7 +25,6 @@ import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.util.Lens;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
@@ -64,7 +63,6 @@ sealed interface VectorReference permits PrimaryCopy, ReplicatedCopy {
      *
      * @return the vector id
      */
-    @Nonnull
     VectorId id();
 
     /**
@@ -72,7 +70,6 @@ sealed interface VectorReference permits PrimaryCopy, ReplicatedCopy {
      *
      * @return the transformed vector
      */
-    @Nonnull
     Transformed<RealVector> vector();
 
     /**
@@ -126,7 +123,7 @@ sealed interface VectorReference permits PrimaryCopy, ReplicatedCopy {
      * @param other the reference to compare against (e.g. a freshly recomputed assignment of the same vector)
      * @return {@code true} if the two priorities differ by more than the floating-point-noise floor
      */
-    default boolean replicationPriorityChanged(@Nonnull final VectorReference other) {
+    default boolean replicationPriorityChanged(final VectorReference other) {
         return Math.abs(other.replicationPriority() - replicationPriority())
                 > RealVector.EPS * (1.0d + Math.abs(replicationPriority()));
     }
@@ -137,8 +134,7 @@ sealed interface VectorReference permits PrimaryCopy, ReplicatedCopy {
      * @param newVectorId the new vector id
      * @return the updated reference (or {@code this} if the id is unchanged)
      */
-    @Nonnull
-    VectorReference withVectorId(@Nonnull VectorId newVectorId);
+    VectorReference withVectorId(VectorId newVectorId);
 
     /**
      * Returns a copy of this reference with the vector data replaced, preserving role and all other state.
@@ -146,8 +142,7 @@ sealed interface VectorReference permits PrimaryCopy, ReplicatedCopy {
      * @param newVector the new vector data in the transformed coordinate space
      * @return the updated reference (or {@code this} if the vector is unchanged)
      */
-    @Nonnull
-    VectorReference withVector(@Nonnull Transformed<RealVector> newVector);
+    VectorReference withVector(Transformed<RealVector> newVector);
 
     /**
      * Returns this reference as a non-underreplicated primary copy. A replica is promoted to a primary (dropping its
@@ -155,7 +150,6 @@ sealed interface VectorReference permits PrimaryCopy, ReplicatedCopy {
      *
      * @return the primary-copy reference
      */
-    @Nonnull
     VectorReference toPrimaryCopy();
 
     /**
@@ -164,7 +158,6 @@ sealed interface VectorReference permits PrimaryCopy, ReplicatedCopy {
      *
      * @return the underreplicated primary-copy reference
      */
-    @Nonnull
     VectorReference toPrimaryUnderreplicatedCopy();
 
     /**
@@ -174,7 +167,6 @@ sealed interface VectorReference permits PrimaryCopy, ReplicatedCopy {
      * @param newReplicationScore the replication priority for the replica
      * @return the replicated-copy reference
      */
-    @Nonnull
     VectorReference toReplicatedCopy(double newReplicationScore);
 
     /**
@@ -186,8 +178,7 @@ sealed interface VectorReference permits PrimaryCopy, ReplicatedCopy {
      * @param vectorUuid the UUID assigned to the collapsed representative
      * @return the collapsed reference
      */
-    @Nonnull
-    VectorReference toCollapsed(@Nonnull UUID signature, @Nonnull UUID vectorUuid);
+    VectorReference toCollapsed(UUID signature, UUID vectorUuid);
 
     /**
      * Creates a primary-copy reference (this cluster owns the vector).
@@ -198,8 +189,7 @@ sealed interface VectorReference permits PrimaryCopy, ReplicatedCopy {
      * @param isCollapsed whether this reference represents a collapsed set of identical vectors
      * @return the primary-copy reference
      */
-    @Nonnull
-    static VectorReference primaryCopy(@Nonnull final VectorId id, @Nonnull final Transformed<RealVector> vector,
+    static VectorReference primaryCopy(final VectorId id, final Transformed<RealVector> vector,
                                        final boolean isUnderreplicated, final boolean isCollapsed) {
         return new PrimaryCopy(id, vector, isUnderreplicated, isCollapsed);
     }
@@ -213,8 +203,7 @@ sealed interface VectorReference permits PrimaryCopy, ReplicatedCopy {
      * @param isCollapsed whether this reference represents a collapsed set of identical vectors
      * @return the replicated-copy reference
      */
-    @Nonnull
-    static VectorReference replicatedCopy(@Nonnull final VectorId id, @Nonnull final Transformed<RealVector> vector,
+    static VectorReference replicatedCopy(final VectorId id, final Transformed<RealVector> vector,
                                           final double replicationPriority, final boolean isCollapsed) {
         return new ReplicatedCopy(id, vector, replicationPriority, isCollapsed);
     }
@@ -225,7 +214,6 @@ sealed interface VectorReference permits PrimaryCopy, ReplicatedCopy {
      *
      * @return the composed lens
      */
-    @Nonnull
     static Lens<VectorReference, RealVector> vectorLens() {
         return VectorReferenceVectorLens.VECTOR_LENS;
     }
@@ -266,7 +254,6 @@ sealed interface VectorReference permits PrimaryCopy, ReplicatedCopy {
          * @return the matching role
          * @throws NullPointerException if the code does not correspond to any role
          */
-        @Nonnull
         public static Role ofCode(final int code) {
             return Objects.requireNonNull(BY_CODE.get(code),
                     () -> "unknown vector reference role code: " + code);

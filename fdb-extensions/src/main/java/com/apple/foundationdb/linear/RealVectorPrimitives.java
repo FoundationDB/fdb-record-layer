@@ -25,7 +25,6 @@ import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.Locale;
 
 /**
@@ -70,7 +69,6 @@ public final class RealVectorPrimitives {
         // nothing
     }
 
-    @Nonnull
     static Backend backend() {
         return backend;
     }
@@ -83,11 +81,9 @@ public final class RealVectorPrimitives {
      */
     @FunctionalInterface
     interface SimdBackendLoader {
-        @Nonnull
         Backend load() throws ReflectiveOperationException;
     }
 
-    @Nonnull
     private static Backend selectBackend() {
         return selectBackend(System.getProperty(simdPropertyName, "auto"), RealVectorPrimitives::loadSimdBackend);
     }
@@ -102,7 +98,6 @@ public final class RealVectorPrimitives {
      * @return a freshly instantiated SIMD backend
      * @throws ReflectiveOperationException if the SIMD backend class cannot be loaded or instantiated
      */
-    @Nonnull
     @VisibleForTesting
     @SuppressWarnings("PMD.UseProperClassLoader")
     static Backend loadSimdBackend() throws ReflectiveOperationException {
@@ -125,9 +120,8 @@ public final class RealVectorPrimitives {
      * @param simdLoader supplier of the SIMD backend; throws if it cannot be loaded
      * @return the selected backend
      */
-    @Nonnull
     @VisibleForTesting
-    static Backend selectBackend(@Nonnull final String modeProperty, @Nonnull final SimdBackendLoader simdLoader) {
+    static Backend selectBackend(final String modeProperty, final SimdBackendLoader simdLoader) {
         final String mode = modeProperty.toLowerCase(Locale.getDefault());
         if ("scalar".equals(mode)) {
             logger.info("RealVectorPrimitives backend forced to scalar via -D{}", simdPropertyName);
@@ -152,8 +146,7 @@ public final class RealVectorPrimitives {
         }
     }
 
-    @Nonnull
-    static double[] normalizeInto(@Nonnull final double[] in, @Nonnull final double[] target) {
+    static double[] normalizeInto(final double[] in, final double[] target) {
         Preconditions.checkArgument(target.length == in.length);
         final double n = Math.sqrt(backend.l2SquaredNorm(in));
         if (n == 0.0d || !Double.isFinite(n)) {
@@ -163,54 +156,49 @@ public final class RealVectorPrimitives {
         return target;
     }
 
-    @Nonnull
-    static double[] addInto(@Nonnull final double[] a,
-                            @Nonnull final double[] b,
-                            @Nonnull final double[] target) {
+    static double[] addInto(final double[] a,
+                            final double[] b,
+                            final double[] target) {
         Preconditions.checkArgument(a.length == b.length);
         Preconditions.checkArgument(target.length == a.length);
         backend.addInto(a, b, target);
         return target;
     }
 
-    @Nonnull
-    static double[] addInto(@Nonnull final double[] a,
+    static double[] addInto(final double[] a,
                             final double scalar,
-                            @Nonnull final double[] target) {
+                            final double[] target) {
         Preconditions.checkArgument(target.length == a.length);
         backend.addInto(a, scalar, target);
         return target;
     }
 
-    @Nonnull
-    static double[] subtractInto(@Nonnull final double[] a,
-                                 @Nonnull final double[] b,
-                                 @Nonnull final double[] target) {
+    static double[] subtractInto(final double[] a,
+                                 final double[] b,
+                                 final double[] target) {
         Preconditions.checkArgument(a.length == b.length);
         Preconditions.checkArgument(target.length == a.length);
         backend.subtractInto(a, b, target);
         return target;
     }
 
-    @Nonnull
-    static double[] subtractInto(@Nonnull final double[] a,
+    static double[] subtractInto(final double[] a,
                                  final double scalar,
-                                 @Nonnull final double[] target) {
+                                 final double[] target) {
         Preconditions.checkArgument(target.length == a.length);
         backend.subtractInto(a, scalar, target);
         return target;
     }
 
-    @Nonnull
-    static double[] multiplyInto(@Nonnull final double[] a,
+    static double[] multiplyInto(final double[] a,
                                  final double scalar,
-                                 @Nonnull final double[] target) {
+                                 final double[] target) {
         Preconditions.checkArgument(target.length == a.length);
         backend.multiplyInto(a, scalar, target);
         return target;
     }
 
-    static void multiplyAddInto(final double scalar, @Nonnull final double[] x, @Nonnull final double[] y,
+    static void multiplyAddInto(final double scalar, final double[] x, final double[] y,
                                 final int from, final int length) {
         // BLAS-style in-place AXPY: y := scalar * x + y over the slice. Delegates to the
         // backend's general 3-operand form with out aliased to y; the per-lane FMA is the
@@ -218,29 +206,29 @@ public final class RealVectorPrimitives {
         backend.multiplyAddInto(scalar, x, y, y, from, length);
     }
 
-    static void multiplyAddInto(final double scalar, @Nonnull final double[] x, @Nonnull final double[] y,
-                                @Nonnull final double[] out, final int from, final int length) {
+    static void multiplyAddInto(final double scalar, final double[] x, final double[] y,
+                                final double[] out, final int from, final int length) {
         backend.multiplyAddInto(scalar, x, y, out, from, length);
     }
 
-    static double dot(@Nonnull final double[] a, @Nonnull final double[] b) {
+    static double dot(final double[] a, final double[] b) {
         Preconditions.checkArgument(a.length == b.length);
         return backend.dot(a, b);
     }
 
-    static double dot(@Nonnull final double[] a, @Nonnull final double[] b, final int from, final int length) {
+    static double dot(final double[] a, final double[] b, final int from, final int length) {
         return backend.dot(a, b, from, length);
     }
 
-    static double l2SquaredNorm(@Nonnull final double[] a) {
+    static double l2SquaredNorm(final double[] a) {
         return backend.l2SquaredNorm(a);
     }
 
-    static double l2SquaredNorm(@Nonnull final double[] a, final int from, final int length) {
+    static double l2SquaredNorm(final double[] a, final int from, final int length) {
         return backend.l2SquaredNorm(a, from, length);
     }
 
-    static double euclideanSquared(@Nonnull final double[] a, @Nonnull final double[] b) {
+    static double euclideanSquared(final double[] a, final double[] b) {
         Preconditions.checkArgument(a.length == b.length);
         return backend.euclideanSquared(a, b);
     }
@@ -254,22 +242,21 @@ public final class RealVectorPrimitives {
     // independently and are already bit-identical on both backends.
     //
 
-    static double dotExact(@Nonnull final double[] a, @Nonnull final double[] b) {
+    static double dotExact(final double[] a, final double[] b) {
         Preconditions.checkArgument(a.length == b.length);
         return scalarBackend.dot(a, b);
     }
 
-    static double l2SquaredNormExact(@Nonnull final double[] a) {
+    static double l2SquaredNormExact(final double[] a) {
         return scalarBackend.l2SquaredNorm(a);
     }
 
-    static double euclideanSquaredExact(@Nonnull final double[] a, @Nonnull final double[] b) {
+    static double euclideanSquaredExact(final double[] a, final double[] b) {
         Preconditions.checkArgument(a.length == b.length);
         return scalarBackend.euclideanSquared(a, b);
     }
 
-    @Nonnull
-    static double[] normalizeIntoExact(@Nonnull final double[] in, @Nonnull final double[] target) {
+    static double[] normalizeIntoExact(final double[] in, final double[] target) {
         Preconditions.checkArgument(target.length == in.length);
         final double n = Math.sqrt(scalarBackend.l2SquaredNorm(in));
         if (n == 0.0d || !Double.isFinite(n)) {

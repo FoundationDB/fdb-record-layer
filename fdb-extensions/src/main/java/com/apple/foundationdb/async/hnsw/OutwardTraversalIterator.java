@@ -33,8 +33,7 @@ import com.google.common.collect.ImmutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -48,18 +47,12 @@ import java.util.concurrent.CompletableFuture;
  * where {@code minimumRadius} is measured as the distance of a vector to the given {@code centerVector}.
  */
 class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(OutwardTraversalIterator.class);
 
-    @Nonnull
     private final Locator locator;
-    @Nonnull
     private final StorageAdapter<NodeReference> storageAdapter;
-    @Nonnull
     private final ReadTransaction readTransaction;
-    @Nonnull
     private final CompletableFuture<Search.SearchResult> zoomInResultFuture;
-    @Nonnull
     private final RealVector centerVector;
     private final double minimumRadius;
     @Nullable
@@ -78,11 +71,11 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
     @Nullable
     private CompletableFuture<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> nextFuture;
 
-    public OutwardTraversalIterator(@Nonnull final Locator locator,
-                                    @Nonnull final StorageAdapter<NodeReference> storageAdapter,
-                                    @Nonnull final ReadTransaction readTransaction,
-                                    @Nonnull final CompletableFuture<Search.SearchResult> zoomInResultFuture,
-                                    @Nonnull final RealVector centerVector,
+    public OutwardTraversalIterator(final Locator locator,
+                                    final StorageAdapter<NodeReference> storageAdapter,
+                                    final ReadTransaction readTransaction,
+                                    final CompletableFuture<Search.SearchResult> zoomInResultFuture,
+                                    final RealVector centerVector,
                                     final double minimumRadius,
                                     @Nullable final Tuple minimumPrimaryKey,
                                     final int efOutwardSearch,
@@ -101,17 +94,14 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
         this.nextFuture = null;
     }
 
-    @Nonnull
     public OutwardTraversalState getTraversalState() {
         return Objects.requireNonNull(traversalState);
     }
 
-    @Nonnull
     private Config getConfig() {
         return locator.getConfig();
     }
 
-    @Nonnull
     private Primitives primitives() {
         return locator.primitives();
     }
@@ -132,8 +122,7 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
         return nextFuture.thenApply(Objects::nonNull);
     }
 
-    @Nonnull
-    private OutwardTraversalState initialTravelState(@Nonnull final Search.SearchResult zoomInResult) {
+    private OutwardTraversalState initialTravelState(final Search.SearchResult zoomInResult) {
         final StorageTransform storageTransform = zoomInResult.getStorageTransform();
         final Transformed<RealVector> transformedCenterVector = storageTransform.transform(centerVector);
         final PriorityQueue<NodeReferenceWithDistance> candidates =
@@ -169,7 +158,6 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
                 transformedCenterVector, candidates, visited, out, quickStart, zoomInResult.getNodeCache());
     }
 
-    @Nonnull
     private CompletableFuture<NodeReferenceAndNode<NodeReferenceWithDistance, NodeReference>> computeNextRecord() {
         final Primitives primitives = primitives();
         final OutwardTraversalState localTraversalState = getTraversalState();
@@ -270,33 +258,24 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
     }
 
     static class OutwardTraversalState {
-        @Nonnull
         private final StorageTransform storageTransform;
-        @Nonnull
         private final DistanceEstimator distanceEstimator;
-        @Nonnull
         private final Transformed<RealVector> transformedCenterVector;
-        @Nonnull
         private final Queue<NodeReferenceWithDistance> candidates;
-        @Nonnull
         private final SpatialRestrictions spatialRestrictions;
-        @Nonnull
         private final Queue<NodeReferenceWithDistance> out;
-        @Nonnull
         private final Queue<NodeReferenceWithDistance> quickStart;
-        @Nonnull
         private final Set<Tuple> quickStartPrimaryKeys;
-        @Nonnull
         private final Map<Tuple, AbstractNode<NodeReference>> nodeCache;
 
-        public OutwardTraversalState(@Nonnull final StorageTransform storageTransform,
-                                     @Nonnull final DistanceEstimator distanceEstimator,
-                                     @Nonnull final Transformed<RealVector> transformedCenterVector,
-                                     @Nonnull final Queue<NodeReferenceWithDistance> candidates,
-                                     @Nonnull final SpatialRestrictions spatialRestrictions,
-                                     @Nonnull final Queue<NodeReferenceWithDistance> out,
-                                     @Nonnull final Queue<NodeReferenceWithDistance> quickStart,
-                                     @Nonnull final Map<Tuple, AbstractNode<NodeReference>> nodeCache) {
+        public OutwardTraversalState(final StorageTransform storageTransform,
+                                     final DistanceEstimator distanceEstimator,
+                                     final Transformed<RealVector> transformedCenterVector,
+                                     final Queue<NodeReferenceWithDistance> candidates,
+                                     final SpatialRestrictions spatialRestrictions,
+                                     final Queue<NodeReferenceWithDistance> out,
+                                     final Queue<NodeReferenceWithDistance> quickStart,
+                                     final Map<Tuple, AbstractNode<NodeReference>> nodeCache) {
             this.storageTransform = storageTransform;
             this.distanceEstimator = distanceEstimator;
             this.transformedCenterVector = transformedCenterVector;
@@ -312,47 +291,38 @@ class OutwardTraversalIterator implements AsyncIterator<NodeReferenceAndNode<Nod
             this.nodeCache = nodeCache;
         }
 
-        @Nonnull
         public StorageTransform getStorageTransform() {
             return storageTransform;
         }
 
-        @Nonnull
         public DistanceEstimator getEstimator() {
             return distanceEstimator;
         }
 
-        @Nonnull
         public Transformed<RealVector> getTransformedCenterVector() {
             return transformedCenterVector;
         }
 
-        @Nonnull
         public Queue<NodeReferenceWithDistance> getCandidates() {
             return candidates;
         }
 
-        @Nonnull
         public SpatialRestrictions getSpatialRestrictions() {
             return spatialRestrictions;
         }
 
-        @Nonnull
         public Queue<NodeReferenceWithDistance> getOut() {
             return out;
         }
 
-        @Nonnull
         public Queue<NodeReferenceWithDistance> getQuickStart() {
             return quickStart;
         }
 
-        @Nonnull
         public Set<Tuple> getQuickStartPrimaryKeys() {
             return quickStartPrimaryKeys;
         }
 
-        @Nonnull
         public Map<Tuple, AbstractNode<NodeReference>> getNodeCache() {
             return nodeCache;
         }

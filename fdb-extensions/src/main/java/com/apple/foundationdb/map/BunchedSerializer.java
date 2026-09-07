@@ -25,7 +25,6 @@ import com.apple.foundationdb.annotation.API;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
 
 /**
  * A class to serialize and deserialize entries of a {@link BunchedMap}. This
@@ -48,8 +47,7 @@ public interface BunchedSerializer<K, V> {
      * @return the serialized key
      * @throws BunchedSerializationException if serializing the key fails
      */
-    @Nonnull
-    byte[] serializeKey(@Nonnull K key);
+    byte[] serializeKey(K key);
 
     /**
      * Serialize a single entry to bytes. This serializes a single key and
@@ -63,8 +61,7 @@ public interface BunchedSerializer<K, V> {
      * @return the serialized entry
      * @throws BunchedSerializationException if serializing the entry fails
      */
-    @Nonnull
-    byte[] serializeEntry(@Nonnull K key, @Nonnull V value);
+    byte[] serializeEntry(K key, V value);
 
     /**
      * Serialize a single entry to bytes. This has the same semantics
@@ -75,8 +72,7 @@ public interface BunchedSerializer<K, V> {
      * @return the serialized entry
      * @throws BunchedSerializationException if serializing the entry fails
      */
-    @Nonnull
-    default byte[] serializeEntry(@Nonnull Map.Entry<K, V> entry) {
+    default byte[] serializeEntry(Map.Entry<K, V> entry) {
         return serializeEntry(entry.getKey(), entry.getValue());
     }
 
@@ -94,8 +90,7 @@ public interface BunchedSerializer<K, V> {
      * @return the serialized list
      * @throws BunchedSerializationException if serializing the entries fails
      */
-    @Nonnull
-    byte[] serializeEntries(@Nonnull List<Map.Entry<K, V>> entries);
+    byte[] serializeEntries(List<Map.Entry<K, V>> entries);
 
     /**
      * Deserialize a byte array into a key. This assumes that the entire
@@ -106,8 +101,7 @@ public interface BunchedSerializer<K, V> {
      * @return key deserialized from reading <code>data</code>
      * @throws BunchedSerializationException if deserializing the key fails
      */
-    @Nonnull
-    default K deserializeKey(@Nonnull byte[] data) {
+    default K deserializeKey(byte[] data) {
         return deserializeKey(data, 0, data.length);
     }
 
@@ -121,8 +115,7 @@ public interface BunchedSerializer<K, V> {
      * @return key deserialized from reading <code>data</code>
      * @throws BunchedSerializationException if deserializing the key fails
      */
-    @Nonnull
-    default K deserializeKey(@Nonnull byte[] data, int offset) {
+    default K deserializeKey(byte[] data, int offset) {
         return deserializeKey(data, offset, data.length - offset);
     }
 
@@ -138,8 +131,7 @@ public interface BunchedSerializer<K, V> {
      * @return key deserialized from reading <code>data</code>
      * @throws BunchedSerializationException if deserializing the key fails
      */
-    @Nonnull
-    K deserializeKey(@Nonnull byte[] data, int offset, int length);
+    K deserializeKey(byte[] data, int offset, int length);
 
     /**
      * Deserialize raw data to a list of entries. This should be
@@ -155,8 +147,7 @@ public interface BunchedSerializer<K, V> {
      * @return entry list deserialized from reading <code>data</code>
      * @throws BunchedSerializationException if deserializing the entries fails
      */
-    @Nonnull
-    List<Map.Entry<K, V>> deserializeEntries(@Nonnull K key, @Nonnull byte[] data);
+    List<Map.Entry<K, V>> deserializeEntries(K key, byte[] data);
 
     /**
      * Deserialize raw data to a list of keys. This expects that <code>data</code>
@@ -171,8 +162,7 @@ public interface BunchedSerializer<K, V> {
      * @return key list deserialized from reading <code>data</code>
      * @throws BunchedSerializationException if deserializing the keys fails
      */
-    @Nonnull
-    default List<K> deserializeKeys(@Nonnull K key, @Nonnull byte[] data) {
+    default List<K> deserializeKeys(K key, byte[] data) {
         return deserializeEntries(key, data).stream().map(Map.Entry::getKey).collect(Collectors.toList());
     }
 

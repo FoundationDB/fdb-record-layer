@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.async.guardiann;
 
-import javax.annotation.Nonnull;
 
 /**
  * The running trace counters accumulated across the per-primary replication passes (used only for logging): the
@@ -32,10 +31,9 @@ import javax.annotation.Nonnull;
  * @param numReplicated the number of replicas written
  * @param numOccluded the number of candidates skipped because they were occluded
  */
-record ReplicationStats(@Nonnull RunningStats replicationPriorityStandardDeviation,
+record ReplicationStats(RunningStats replicationPriorityStandardDeviation,
                         int numReplicated, int numOccluded) {
     /** Returns the empty accumulator (no replicas, no occlusions, empty priority stats). */
-    @Nonnull
     static ReplicationStats identity() {
         return new ReplicationStats(RunningStats.identity(), 0, 0);
     }
@@ -47,8 +45,7 @@ record ReplicationStats(@Nonnull RunningStats replicationPriorityStandardDeviati
      * @param other the accumulator to combine with
      * @return a new accumulator representing the combined counters
      */
-    @Nonnull
-    ReplicationStats combine(@Nonnull final ReplicationStats other) {
+    ReplicationStats combine(final ReplicationStats other) {
         return new ReplicationStats(
                 replicationPriorityStandardDeviation.combine(other.replicationPriorityStandardDeviation()),
                 numReplicated + other.numReplicated(),

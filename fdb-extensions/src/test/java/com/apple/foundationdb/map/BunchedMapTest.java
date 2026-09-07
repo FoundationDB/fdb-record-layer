@@ -45,8 +45,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -114,7 +114,15 @@ public class BunchedMapTest {
         }
     }
 
-    private static List<KeyValue> inconsistentScan(@Nonnull Database db, @Nonnull Subspace subspace) {
+    // Tuple.from(Object...) is from the unannotated fdb-java client library and genuinely supports null
+    // elements (many tests below intentionally construct or log tuples with a null/absent component); its
+    // varargs parameter is treated as @NonNull by NullAway's defaults.
+    @SuppressWarnings("NullAway")
+    private static Tuple tupleFromNullable(@Nullable Object... items) {
+        return Tuple.from(items);
+    }
+
+    private static List<KeyValue> inconsistentScan(Database db, Subspace subspace) {
         Transaction tr = db.createTransaction();  // Note that tr is mutated in the block, hence not using try-with-resources
         try {
             KeySelector begin = KeySelector.firstGreaterOrEqual(subspace.range().begin);
@@ -158,7 +166,11 @@ public class BunchedMapTest {
     public void insertSingleKey() {
         List<Tuple> testTuples = Stream.of(1066L, 1776L, 1415L, 800L).map(Tuple::from).collect(Collectors.toList());
         Tuple value = Tuple.from(1415L);
-        db.run(tr -> {
+        // db.run(Function<Transaction, T>) has no void-returning overload, so tests that only care about side
+        // effects return null from the lambda; NullAway does not accept an explicit @Nullable type witness on
+        // this external, unannotated method either, so the suppression is scoped to this one declaration instead.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             Tuple minSoFar = null;
             for (int i = 0; i < testTuples.size(); i++) {
                 Tuple key = testTuples.get(i);
@@ -189,7 +201,11 @@ public class BunchedMapTest {
         final List<Tuple> firstTuples = LongStream.range(100L, 110L).boxed().map(Tuple::from).collect(Collectors.toList());
         final List<Tuple> secondTuples = LongStream.range(120L, 130L).boxed().map(Tuple::from).collect(Collectors.toList());
 
-        db.run(tr -> {
+        // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call returns
+        // null from the lambda; NullAway does not accept an explicit @Nullable type witness on this external,
+        // unannotated method either, so the suppression is scoped to this one declaration instead.
+        @SuppressWarnings("NullAway")
+        final Void ignored1 = db.run(tr -> {
             firstTuples.forEach(t -> map.put(tr, bmSubspace, t, value).join());
             secondTuples.forEach(t -> map.put(tr, bmSubspace, t, value).join());
 
@@ -244,7 +260,7 @@ public class BunchedMapTest {
         }
     }
 
-    private void verifyBoundaryKeys(@Nonnull List<Tuple> boundaryKeys) throws ExecutionException, InterruptedException {
+    private void verifyBoundaryKeys(List<Tuple> boundaryKeys) throws ExecutionException, InterruptedException {
         try (Transaction tr = db.createTransaction()) {
             map.verifyIntegrity(tr, bmSubspace).get();
             List<KeyValue> rangeKVs = tr.getRange(bmSubspace.range()).asList().get();
@@ -261,9 +277,9 @@ public class BunchedMapTest {
         }
     }
 
-    private void runWithTwoTrs(@Nonnull BiConsumer<? super Transaction, ? super Transaction> operation,
+    private void runWithTwoTrs(BiConsumer<? super Transaction, ? super Transaction> operation,
                                boolean legal,
-                               @Nonnull List<Tuple> boundaryKeys) throws ExecutionException, InterruptedException {
+                               List<Tuple> boundaryKeys) throws ExecutionException, InterruptedException {
         final String id = "two-trs-" + UUID.randomUUID().toString();
         try (Transaction tr1 = db.createTransaction(); Transaction tr2 = db.createTransaction()) {
             tr1.options().setDebugTransactionIdentifier(id + "-1");
@@ -290,7 +306,7 @@ public class BunchedMapTest {
 
     @Test
     public void concurrentLegalUpdates() throws ExecutionException, InterruptedException {
-        final Tuple value = Tuple.from((Object)null);
+        final Tuple value = tupleFromNullable((Object)null);
 
         // From initial database, essentially any two updates will cause each one
         // to get its own key.
@@ -304,7 +320,11 @@ public class BunchedMapTest {
         }
 
         final List<Tuple> tuples = LongStream.range(100L, 115L).boxed().map(Tuple::from).collect(Collectors.toList());
-        db.run(tr -> {
+        // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call returns
+        // null from the lambda; NullAway does not accept an explicit @Nullable type witness on this external,
+        // unannotated method either, so the suppression is scoped to this one declaration instead.
+        @SuppressWarnings("NullAway")
+        final Void ignored2 = db.run(tr -> {
             tuples.forEach(t -> map.put(tr, bmSubspace, t, value).join());
             return null;
         });
@@ -327,11 +347,11 @@ public class BunchedMapTest {
         runWithTwoTrs((tr1, tr2) -> {
             // As the first one is full, the logic chooses to put (109L, null)
             // as the first key of the second set of things.
-            map.put(tr1, bmSubspace, Tuple.from(109L, null), value).join();
+            map.put(tr1, bmSubspace, tupleFromNullable(109L, null), value).join();
             // As the split is in the middle, it will choose to put
             // (107L, null) in the first group of transactions.
-            map.put(tr2, bmSubspace, Tuple.from(107L, null), value).join();
-        }, true, Arrays.asList(Tuple.from(100L), Tuple.from(105L), Tuple.from(109L, null)));
+            map.put(tr2, bmSubspace, tupleFromNullable(107L, null), value).join();
+        }, true, Arrays.asList(Tuple.from(100L), Tuple.from(105L), tupleFromNullable(109L, null)));
         try (Transaction tr = db.createTransaction()) {
             map.verifyIntegrity(tr, bmSubspace).get();
             // Fill up the (100L,) to (105L,) range.
@@ -347,7 +367,7 @@ public class BunchedMapTest {
         runWithTwoTrs((tr1, tr2) -> {
             map.put(tr1, bmSubspace, Tuple.from(104L, 100L), value).join();
             assertEquals(value, map.get(tr2, bmSubspace, Tuple.from(107L)).join().get());
-        }, true, Arrays.asList(Tuple.from(100L), Tuple.from(104L, 100L), Tuple.from(109L, null)));
+        }, true, Arrays.asList(Tuple.from(100L), Tuple.from(104L, 100L), tupleFromNullable(109L, null)));
         try (Transaction tr = db.createTransaction()) {
             // Fill up (104L, 100L) to (109, null).
             LongStream.range(101L, 104L)
@@ -361,13 +381,13 @@ public class BunchedMapTest {
         runWithTwoTrs((tr1, tr2) -> {
             map.put(tr1, bmSubspace, Tuple.from(104L, 42L), value).join();
             map.put(tr2, bmSubspace, Tuple.from(104L, 43L), value).join();
-        }, true, Arrays.asList(Tuple.from(100L), Tuple.from(104L, 42L), Tuple.from(104L, 43L), Tuple.from(104L, 100L), Tuple.from(109L, null)));
+        }, true, Arrays.asList(Tuple.from(100L), Tuple.from(104L, 42L), Tuple.from(104L, 43L), Tuple.from(104L, 100L), tupleFromNullable(109L, null)));
 
         // Case 6: Two keys before all filled ranges.
         runWithTwoTrs((tr1, tr2) -> {
             map.put(tr1, bmSubspace, Tuple.from(42L), value).join();
             map.put(tr2, bmSubspace, Tuple.from(43L), value).join();
-        }, true, Arrays.asList(Tuple.from(42L), Tuple.from(43L), Tuple.from(100L), Tuple.from(104L, 42L), Tuple.from(104L, 43L), Tuple.from(104L, 100L), Tuple.from(109L, null)));
+        }, true, Arrays.asList(Tuple.from(42L), Tuple.from(43L), Tuple.from(100L), Tuple.from(104L, 42L), Tuple.from(104L, 43L), Tuple.from(104L, 100L), tupleFromNullable(109L, null)));
         try (Transaction tr = db.createTransaction()) {
             // Fill up the last range.
             LongStream.range(117L, 120L)
@@ -381,17 +401,22 @@ public class BunchedMapTest {
         runWithTwoTrs((tr1, tr2) -> {
             map.put(tr1, bmSubspace, Tuple.from(120L), value).join();
             map.put(tr2, bmSubspace, Tuple.from(121L), value).join();
-        }, true, Arrays.asList(Tuple.from(42L), Tuple.from(43L), Tuple.from(100L), Tuple.from(104L, 42L), Tuple.from(104L, 43L), Tuple.from(104L, 100L), Tuple.from(109L, null), Tuple.from(120L), Tuple.from(121L)));
+        }, true, Arrays.asList(Tuple.from(42L), Tuple.from(43L), Tuple.from(100L), Tuple.from(104L, 42L), Tuple.from(104L, 43L), Tuple.from(104L, 100L), tupleFromNullable(109L, null), Tuple.from(120L), Tuple.from(121L)));
 
         // Case 8: Adding to a full range while simultaneously adding something after the range.
         runWithTwoTrs((tr1, tr2) -> {
             map.put(tr1, bmSubspace, Tuple.from(102L, 0L), value).join();
             map.put(tr2, bmSubspace, Tuple.from(104L, 41L), value).join();
-        }, true, Arrays.asList(Tuple.from(42L), Tuple.from(43L), Tuple.from(100L), Tuple.from(104L), Tuple.from(104L, 41L), Tuple.from(104L, 43L), Tuple.from(104L, 100L), Tuple.from(109L, null), Tuple.from(120L), Tuple.from(121L)));
+        }, true, Arrays.asList(Tuple.from(42L), Tuple.from(43L), Tuple.from(100L), Tuple.from(104L), Tuple.from(104L, 41L), Tuple.from(104L, 43L), Tuple.from(104L, 100L), tupleFromNullable(109L, null), Tuple.from(120L), Tuple.from(121L)));
 
         // Compact the data to a minimal number of keys.
         try (Transaction tr = db.createTransaction()) {
-            assertNull(map.compact(tr, bmSubspace, 0, null).get());
+            // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null literal below
+            // is misflagged as a NonNull violation even though compact()'s continuation parameter is
+            // declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
+            final byte[] nextContinuation = map.compact(tr, bmSubspace, 0, null).get();
+            assertNull(nextContinuation);
             map.verifyIntegrity(tr, bmSubspace).get();
             tr.commit().get();
         }
@@ -400,7 +425,7 @@ public class BunchedMapTest {
 
     @Test
     public void concurrentIllegalUpdates() throws ExecutionException, InterruptedException {
-        final Tuple value = Tuple.from(Tuple.from((Object)null));
+        final Tuple value = Tuple.from(tupleFromNullable((Object)null));
 
         runWithTwoTrs((tr1, tr2) -> {
             map.put(tr1, bmSubspace, Tuple.from(0L), value).join();
@@ -423,7 +448,11 @@ public class BunchedMapTest {
         }
 
         final List<Tuple> tuples = LongStream.range(100L, 115L).boxed().map(Tuple::from).collect(Collectors.toList());
-        db.run(tr -> {
+        // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call returns
+        // null from the lambda; NullAway does not accept an explicit @Nullable type witness on this external,
+        // unannotated method either, so the suppression is scoped to this one declaration instead.
+        @SuppressWarnings("NullAway")
+        final Void ignored3 = db.run(tr -> {
             tr.clear(bmSubspace.range());
             tuples.forEach(t -> map.put(tr, bmSubspace, t, value).join());
             return null;
@@ -469,7 +498,7 @@ public class BunchedMapTest {
 
         // Case 6: Write a value that would end up being overwritten in a split
         runWithTwoTrs((tr1, tr2) -> {
-            map.put(tr1, bmSubspace, Tuple.from(102L, null), value).join();
+            map.put(tr1, bmSubspace, tupleFromNullable(102L, null), value).join();
             map.put(tr2, bmSubspace, Tuple.from(107L), value.add(3.14d)).join();
         }, false, Arrays.asList(Tuple.from(100L), Tuple.from(104L), Tuple.from(110L)));
         assertEquals(value, map.get(db, bmSubspace, Tuple.from(107L)).get().get());
@@ -497,14 +526,18 @@ public class BunchedMapTest {
         }
     }
 
-    private byte[] getLogKey(@Nonnull Subspace logSubspace, int mapIndex, @Nonnull AtomicInteger localOrder) {
+    private byte[] getLogKey(Subspace logSubspace, int mapIndex, AtomicInteger localOrder) {
         return logSubspace.subspace(Tuple.from(mapIndex)).packWithVersionstamp(Tuple.from(Versionstamp.incomplete(localOrder.getAndIncrement())));
     }
 
     private void stressTest(final Random r, final int trTotal, final int opTotal, final int keyCount, final int workerCount, boolean addBytesToValue, AtomicLong globalTrCount, int mapCount) throws InterruptedException, ExecutionException {
         final long initialTrCount = globalTrCount.get();
         final Subspace logSubspace = DirectoryLayer.getDefault().createOrOpen(db, PathUtil.from(getClass().getName(), "log")).get();
-        db.run(tr -> {
+        // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call returns
+        // null from the lambda; NullAway does not accept an explicit @Nullable type witness on this external,
+        // unannotated method either, so the suppression is scoped to this one declaration instead.
+        @SuppressWarnings("NullAway")
+        final Void ignored4 = db.run(tr -> {
             tr.clear(bmSubspace.range());
             tr.clear(logSubspace.range());
             // If the database is empty, putting these here stop scans from hitting the log subspace within a transaction
@@ -556,7 +589,7 @@ public class BunchedMapTest {
                         int mapIndex = r.nextInt(mapCount);
                         Tuple key = Tuple.from(r.nextInt(keyCount));
                         op = workerMap.get(tr, bmSubspace.get(mapIndex), key).thenAccept(optionalValue ->
-                                tr.mutate(MutationType.SET_VERSIONSTAMPED_KEY, getLogKey(logSubspace, mapIndex, localOrder), Tuple.from("GET", key, optionalValue.orElse(null)).pack())
+                                tr.mutate(MutationType.SET_VERSIONSTAMPED_KEY, getLogKey(logSubspace, mapIndex, localOrder), tupleFromNullable("GET", key, optionalValue.orElse(null)).pack())
                         );
                     } else if (opCode == 2) {
                         // Check contains key
@@ -570,7 +603,7 @@ public class BunchedMapTest {
                         int mapIndex = r.nextInt(mapCount);
                         Tuple key = Tuple.from(r.nextInt(keyCount));
                         op = workerMap.remove(tr, bmSubspace.subspace(Tuple.from(mapIndex)), key).thenAccept(oldValue ->
-                                tr.mutate(MutationType.SET_VERSIONSTAMPED_KEY, getLogKey(logSubspace, mapIndex, localOrder), Tuple.from("REMOVE", key, oldValue.orElse(null)).pack())
+                                tr.mutate(MutationType.SET_VERSIONSTAMPED_KEY, getLogKey(logSubspace, mapIndex, localOrder), tupleFromNullable("REMOVE", key, oldValue.orElse(null)).pack())
                         );
                     }
                     return op.thenApply(ignore -> opCount.incrementAndGet() < opTotal);
@@ -666,10 +699,17 @@ public class BunchedMapTest {
         AtomicInteger mapIndex = new AtomicInteger(0);
         CompletableFuture<Void> compactingWorker = AsyncUtil.whileTrue(() -> {
             AtomicReference<byte[]> continuation = new AtomicReference<>(null);
-            return AsyncUtil.whileTrue(() -> map.compact(db, bmSubspace.subspace(Tuple.from(mapIndex.get())), 5, continuation.get()).thenApply(nextContinuation -> {
-                continuation.set(nextContinuation);
-                return nextContinuation != null;
-            })).thenApply(vignore -> {
+            return AsyncUtil.whileTrue(() -> {
+                // continuation genuinely starts and can remain null (meaning "no continuation yet" / "compaction
+                // complete"), but NullAway does not reliably honor @Nullable on byte[]-typed parameters.
+                @SuppressWarnings("NullAway")
+                final CompletableFuture<byte[]> compactFuture =
+                        map.compact(db, bmSubspace.subspace(Tuple.from(mapIndex.get())), 5, continuation.get());
+                return compactFuture.thenApply(nextContinuation -> {
+                    continuation.set(nextContinuation);
+                    return nextContinuation != null;
+                });
+            }).thenApply(vignore -> {
                 mapIndex.getAndUpdate(oldIndex -> (oldIndex + 1) % mapCount);
                 return stillWorking.get();
             });

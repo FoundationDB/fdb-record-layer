@@ -29,4 +29,7 @@
  * <a href="https://github.com/apple/foundationdb/blob/master/design/special-key-space.md">Special key space</a>.
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.system;
+
+import org.jspecify.annotations.NullMarked;

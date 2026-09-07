@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.async.guardiann;
 
-import javax.annotation.Nonnull;
 
 /**
  * Incrementally maintained statistics for a set of distance values, using Welford's online algorithm
@@ -51,7 +50,6 @@ record RunningStats(long numElements, double runningMean, double runningSumSquar
      * @param newValue the value to add
      * @return a new accumulator reflecting the added value
      */
-    @Nonnull
     public RunningStats add(final double newValue) {
         long newN = numElements() + 1;
         double delta = newValue - runningMean();
@@ -70,7 +68,6 @@ record RunningStats(long numElements, double runningMean, double runningSumSquar
      * @return a new accumulator reflecting the removal
      * @throws IllegalStateException if the accumulator is empty
      */
-    @Nonnull
     public RunningStats remove(double x) {
         if (numElements() == 0) {
             throw new IllegalStateException("Cannot remove from an empty set");
@@ -103,8 +100,7 @@ record RunningStats(long numElements, double runningMean, double runningSumSquar
      * @param other the accumulator to combine with
      * @return a new accumulator representing the combined statistics
      */
-    @Nonnull
-    public RunningStats combine(@Nonnull final RunningStats other) {
+    public RunningStats combine(final RunningStats other) {
         if (other.numElements() == 0) {
             return this;
         }
@@ -133,8 +129,7 @@ record RunningStats(long numElements, double runningMean, double runningSumSquar
      * @throws IllegalArgumentException if the other accumulator has more elements
      * @throws IllegalStateException if the subtraction produces an invalid M2 (negative beyond roundoff)
      */
-    @Nonnull
-    public RunningStats subtract(@Nonnull final RunningStats other) {
+    public RunningStats subtract(final RunningStats other) {
         if (other.numElements() == 0) {
             return this;
         }
@@ -212,7 +207,6 @@ record RunningStats(long numElements, double runningMean, double runningSumSquar
         return Double.isInfinite(runningMaxEver) && runningMaxEver < 0 ? Double.NaN : runningMaxEver;
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return "RunningStats[" + numElements() + ", " + runningMean() + ", " +
@@ -220,7 +214,6 @@ record RunningStats(long numElements, double runningMean, double runningSumSquar
     }
 
     /** Returns the empty accumulator (zero elements). */
-    @Nonnull
     public static RunningStats identity() {
         return IDENTITY;
     }
@@ -231,7 +224,6 @@ record RunningStats(long numElements, double runningMean, double runningSumSquar
      * @param newValue the initial value
      * @return a new accumulator with one element
      */
-    @Nonnull
     public static RunningStats of(final double newValue) {
         return identity().add(newValue);
     }

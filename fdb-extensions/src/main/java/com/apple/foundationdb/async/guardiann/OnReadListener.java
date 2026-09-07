@@ -28,7 +28,6 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -53,7 +52,7 @@ public interface OnReadListener extends OnKeyValueReadListener {
      * @return the future to await; by default the same instance
      */
     @SuppressWarnings("unused")
-    default <T> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
+    default <T> CompletableFuture<T> onAsyncRead(final CompletableFuture<T> future) {
         return future;
     }
 
@@ -68,8 +67,7 @@ public interface OnReadListener extends OnKeyValueReadListener {
      * @return the iterable to consume; by default the same instance
      */
     @SuppressWarnings("unused")
-    @Nonnull
-    default AsyncIterable<KeyValue> onAsyncReadRange(@Nonnull final AsyncIterable<KeyValue> iterable) {
+    default AsyncIterable<KeyValue> onAsyncReadRange(final AsyncIterable<KeyValue> iterable) {
         return iterable;
     }
 
@@ -86,8 +84,8 @@ public interface OnReadListener extends OnKeyValueReadListener {
      *        vector
      */
     @SuppressWarnings("unused")
-    default void onVectorRead(@Nonnull final UUID clusterId, @Nonnull final Tuple primaryKey,
-                              @Nonnull final UUID vectorUuid, @Nonnull final Transformed<RealVector> vector) {
+    default void onVectorRead(final UUID clusterId, final Tuple primaryKey,
+                              final UUID vectorUuid, final Transformed<RealVector> vector) {
         // nothing
     }
 }

@@ -33,8 +33,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -72,7 +71,6 @@ interface StorageAdapter<N extends NodeReference> {
      * construction (efConstruction), and the beam width for searching (ef).
      * @return the {@code HNSW.Config} for this graph, never {@code null}.
      */
-    @Nonnull
     Config getConfig();
 
     /**
@@ -81,7 +79,6 @@ interface StorageAdapter<N extends NodeReference> {
      * This factory is responsible for instantiating new nodes of type {@code N}.
      * @return the non-null factory for creating nodes.
      */
-    @Nonnull
     NodeFactory<N> getNodeFactory();
 
     /**
@@ -98,7 +95,6 @@ interface StorageAdapter<N extends NodeReference> {
      * method that the storage adapter actually is of the right kind (by calling{@link #isInliningStorageAdapter()}.
      * @return {@code this} as an {@link InliningStorageAdapter}
      */
-    @Nonnull
     InliningStorageAdapter asInliningStorageAdapter();
 
     /**
@@ -115,14 +111,12 @@ interface StorageAdapter<N extends NodeReference> {
      * actually is of the right kind (by calling{@link #isCompactStorageAdapter()}.
      * @return {@code this} as a {@link CompactStorageAdapter}
      */
-    @Nonnull
     CompactStorageAdapter asCompactStorageAdapter();
 
     /**
      * Get the subspace used to store this HNSW structure.
      * @return the subspace
      */
-    @Nonnull
     Subspace getSubspace();
 
     /**
@@ -132,21 +126,18 @@ interface StorageAdapter<N extends NodeReference> {
      * or other system-level information.
      * @return the subspace containing the data, which is guaranteed to be non-null
      */
-    @Nonnull
     Subspace getDataSubspace();
 
     /**
      * Get the on-write listener.
      * @return the on-write listener.
      */
-    @Nonnull
     OnWriteListener getOnWriteListener();
 
     /**
      * Get the on-read listener.
      * @return the on-read listener.
      */
-    @Nonnull
     OnReadListener getOnReadListener();
 
     /**
@@ -159,8 +150,7 @@ interface StorageAdapter<N extends NodeReference> {
      * @param node the accompanying node to {@code nodeReference}
      * @return the associated vector as {@link Transformed} of {@link RealVector}
      */
-    @Nonnull
-    Transformed<RealVector> getVector(@Nonnull N nodeReference, @Nonnull AbstractNode<N> node);
+    Transformed<RealVector> getVector(N nodeReference, AbstractNode<N> node);
 
     /**
      * Asynchronously fetches a node from a specific layer, identified by its primary key.
@@ -175,11 +165,10 @@ interface StorageAdapter<N extends NodeReference> {
      * @param primaryKey the {@link Tuple} representing the primary key of the node to retrieve
      * @return a non-null {@link CompletableFuture} which will complete with the fetched {@link AbstractNode}.
      */
-    @Nonnull
-    CompletableFuture<AbstractNode<N>> fetchNode(@Nonnull ReadTransaction readTransaction,
-                                                 @Nonnull StorageTransform storageTransform,
+    CompletableFuture<AbstractNode<N>> fetchNode(ReadTransaction readTransaction,
+                                                 StorageTransform storageTransform,
                                                  int layer,
-                                                 @Nonnull Tuple primaryKey);
+                                                 Tuple primaryKey);
 
     /**
      * Writes a node and its neighbor changes to the data store within a given transaction.
@@ -196,8 +185,8 @@ interface StorageAdapter<N extends NodeReference> {
      * @param changeSet the non-null set of changes describing additions or removals of
      *        neighbors for the given {@link AbstractNode}.
      */
-    void writeNode(@Nonnull Transaction transaction, @Nonnull Quantizer quantizer, int layer,
-                   @Nonnull AbstractNode<N> node, @Nonnull NeighborsChangeSet<N> changeSet);
+    void writeNode(Transaction transaction, Quantizer quantizer, int layer,
+                   AbstractNode<N> node, NeighborsChangeSet<N> changeSet);
 
     /**
      * Deletes a node from a particular layer in the database.
@@ -205,7 +194,7 @@ interface StorageAdapter<N extends NodeReference> {
      * @param layer the layer the node should be deleted from
      * @param primaryKey the primary key of the node
      */
-    void deleteNode(@Nonnull Transaction transaction, int layer, @Nonnull Tuple primaryKey);
+    void deleteNode(Transaction transaction, int layer, Tuple primaryKey);
 
     /**
      * Scans a specified layer of the structure, returning an iterable sequence of nodes.
@@ -222,14 +211,13 @@ interface StorageAdapter<N extends NodeReference> {
      * @return an {@link AsyncIterable} that provides the nodes found in the specified layer range
      */
     @VisibleForTesting
-    Iterable<AbstractNode<N>> scanLayer(@Nonnull ReadTransaction readTransaction, int layer,
+    Iterable<AbstractNode<N>> scanLayer(ReadTransaction readTransaction, int layer,
                                         @Nullable Tuple lastPrimaryKey, int maxNumRead);
 
-    @Nonnull
-    static CompletableFuture<AccessInfo> fetchAccessInfo(@Nonnull final Config config,
-                                                         @Nonnull final ReadTransaction readTransaction,
-                                                         @Nonnull final Subspace subspace,
-                                                         @Nonnull final OnReadListener onReadListener) {
+    static CompletableFuture<AccessInfo> fetchAccessInfo(final Config config,
+                                                         final ReadTransaction readTransaction,
+                                                         final Subspace subspace,
+                                                         final OnReadListener onReadListener) {
         final Subspace entryNodeSubspace = accessInfoSubspace(subspace);
         final byte[] key = entryNodeSubspace.pack();
 
@@ -270,14 +258,18 @@ interface StorageAdapter<N extends NodeReference> {
      * @param accessInfo the {@link AccessInfo} object to write
      * @param onWriteListener the listener to be notified after the key-value pair is written
      */
-    static void writeAccessInfo(@Nonnull final Transaction transaction,
-                                @Nonnull final Subspace subspace,
-                                @Nonnull final AccessInfo accessInfo,
-                                @Nonnull final OnWriteListener onWriteListener) {
+    static void writeAccessInfo(final Transaction transaction,
+                                final Subspace subspace,
+                                final AccessInfo accessInfo,
+                                final OnWriteListener onWriteListener) {
         final Subspace entryNodeSubspace = accessInfoSubspace(subspace);
         final EntryNodeReference entryNodeReference = accessInfo.getEntryNodeReference();
         final RealVector centroid = accessInfo.getNegatedCentroid();
         final byte[] key = entryNodeSubspace.pack();
+        // Tuple.from(Object...) is from the unannotated fdb-java client library and genuinely supports null
+        // elements (a null centroid tuple represents "no centroid"), but its varargs parameter is treated as
+        // @NonNull by NullAway's defaults.
+        @SuppressWarnings("NullAway")
         final byte[] value = Tuple.from(entryNodeReference.getLayer(),
                 entryNodeReference.getPrimaryKey(),
                 // getting underlying is okay as it is only written to the database
@@ -294,22 +286,20 @@ interface StorageAdapter<N extends NodeReference> {
      * @param subspace the subspace where the entry node reference will be stored
      * @param onWriteListener the listener to be notified after the key-value pair is written
      */
-    static void deleteAccessInfo(@Nonnull final Transaction transaction,
-                                 @Nonnull final Subspace subspace,
-                                 @Nonnull final OnWriteListener onWriteListener) {
+    static void deleteAccessInfo(final Transaction transaction,
+                                 final Subspace subspace,
+                                 final OnWriteListener onWriteListener) {
         final Subspace entryNodeSubspace = accessInfoSubspace(subspace);
         final byte[] key = entryNodeSubspace.pack();
         transaction.clear(key);
         onWriteListener.onKeyDeleted(-1, key);
     }
 
-    @Nonnull
-    static Subspace accessInfoSubspace(@Nonnull final Subspace rootSubspace) {
+    static Subspace accessInfoSubspace(final Subspace rootSubspace) {
         return rootSubspace.subspace(Tuple.from(SUBSPACE_PREFIX_ACCESS_INFO));
     }
 
-    @Nonnull
-    static Subspace samplesSubspace(@Nonnull final Subspace rootSubspace) {
+    static Subspace samplesSubspace(final Subspace rootSubspace) {
         return rootSubspace.subspace(Tuple.from(SUBSPACE_PREFIX_SAMPLES));
     }
 }

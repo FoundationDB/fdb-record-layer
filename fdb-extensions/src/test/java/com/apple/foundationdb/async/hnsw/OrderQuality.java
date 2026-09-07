@@ -26,7 +26,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -260,8 +259,7 @@ public final class OrderQuality {
      * @param wOutlier weight of outlier component in composite
      * @param wContig weight of contiguity component in composite
      */
-    @Nonnull
-    public static <T> Result score(@Nonnull final List<T> s, @Nonnull final List<T> u, final int x, final int okWindow,
+    public static <T> Result score(final List<T> s, final List<T> u, final int x, final int okWindow,
                                    final int outlierThreshold, final double wLocal, final double wOrder,
                                    final double wOutlier, final double wContig) {
         validateArguments(s, u, x, okWindow, outlierThreshold, wLocal, wOrder, wOutlier, wContig);
@@ -392,7 +390,7 @@ public final class OrderQuality {
         Preconditions.checkArgument(x >= 0 && x < u.size());
     }
 
-    private static <T> @Nonnull Map<T, Integer> posInU(final int n, final List<T> u) {
+    private static <T> Map<T, Integer> posInU(final int n, final List<T> u) {
         Map<T, Integer> posInU = Maps.newHashMapWithExpectedSize(n);
         for (int j = 0; j < u.size(); j++) {
             T id = u.get(j);

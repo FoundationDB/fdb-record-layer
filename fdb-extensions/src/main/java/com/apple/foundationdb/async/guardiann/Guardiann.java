@@ -28,8 +28,7 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -92,7 +91,6 @@ import java.util.concurrent.Executor;
  */
 @API(API.Status.EXPERIMENTAL)
 public class Guardiann {
-    @Nonnull
     private final Locator locator;
 
     /**
@@ -110,7 +108,6 @@ public class Guardiann {
      * @return a new default {@code Config}.
      * @see Config.ConfigBuilder#build
      */
-    @Nonnull
     public static Config defaultConfig(int numDimensions) {
         return new Config.ConfigBuilder().build(numDimensions);
     }
@@ -127,15 +124,14 @@ public class Guardiann {
      * @param onWriteListener a listener to be notified of write events
      * @param onReadListener a listener to be notified of read events
      */
-    public Guardiann(@Nonnull final Subspace subspace,
-                     @Nonnull final Executor executor,
-                     @Nonnull final Config config,
-                     @Nonnull final OnWriteListener onWriteListener,
-                     @Nonnull final OnReadListener onReadListener) {
+    public Guardiann(final Subspace subspace,
+                     final Executor executor,
+                     final Config config,
+                     final OnWriteListener onWriteListener,
+                     final OnReadListener onReadListener) {
         this.locator = new Locator(subspace, executor, config, onWriteListener, onReadListener);
     }
 
-    @Nonnull
     public Locator getLocator() {
         return locator;
     }
@@ -145,7 +141,6 @@ public class Guardiann {
      *
      * @return the non-null subspace
      */
-    @Nonnull
     public Subspace getSubspace() {
         return getLocator().getSubspace();
     }
@@ -154,7 +149,6 @@ public class Guardiann {
      * Get the executor used by this object.
      * @return executor used when running asynchronous tasks
      */
-    @Nonnull
     public Executor getExecutor() {
         return getLocator().getExecutor();
     }
@@ -163,7 +157,6 @@ public class Guardiann {
      * Get this object's configuration.
      * @return the configuration
      */
-    @Nonnull
     public Config getConfig() {
         return getLocator().getConfig();
     }
@@ -172,7 +165,6 @@ public class Guardiann {
      * Get the on-write listener.
      * @return the on-write listener
      */
-    @Nonnull
     public OnWriteListener getOnWriteListener() {
         return getLocator().getOnWriteListener();
     }
@@ -181,22 +173,18 @@ public class Guardiann {
      * Get the on-read listener.
      * @return the on-read listener
      */
-    @Nonnull
     public OnReadListener getOnReadListener() {
         return getLocator().getOnReadListener();
     }
 
-    @Nonnull
     private Search search() {
         return getLocator().search();
     }
 
-    @Nonnull
     private Insert insert() {
         return getLocator().insert();
     }
 
-    @Nonnull
     private Delete delete() {
         return getLocator().delete();
     }
@@ -214,13 +202,12 @@ public class Guardiann {
      *         sorted by distance in ascending order.
      */
     @SuppressWarnings("checkstyle:MethodName") // method name normally used in literature
-    @Nonnull
     public CompletableFuture<List<? extends ResultEntry>>
-            kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
+            kNearestNeighborsSearch(final ReadTransaction readTransaction,
                                     final int k,
-                                    @Nonnull final SearchConfig searchConfig,
+                                    final SearchConfig searchConfig,
                                     final boolean includeVectors,
-                                    @Nonnull final RealVector queryVector) {
+                                    final RealVector queryVector) {
         return search().kNearestNeighborsSearch(readTransaction, k, searchConfig, includeVectors, queryVector);
     }
 
@@ -246,16 +233,15 @@ public class Guardiann {
      *
      * @return a {@link CompletableFuture} completing with up to {@code k} results in ascending distance order
      */
-    @Nonnull
     CompletableFuture<List<? extends ResultEntry>>
-            searchOrderedByDistance(@Nonnull final ReadTransaction readTransaction,
+            searchOrderedByDistance(final ReadTransaction readTransaction,
                                     final int k,
-                                    @Nonnull final SearchConfig searchConfig,
+                                    final SearchConfig searchConfig,
                                     final double minimumRadiusCluster,
                                     final double minimumRadius,
                                     @Nullable final Tuple minimumPrimaryKey,
                                     final boolean includeVectors,
-                                    @Nonnull final RealVector queryVector) {
+                                    final RealVector queryVector) {
         return search().searchOrderedByDistanceResults(readTransaction, k, searchConfig,
                 queryVector, minimumRadiusCluster, minimumRadius, minimumPrimaryKey, includeVectors);
     }
@@ -276,9 +262,8 @@ public class Guardiann {
      *        transaction (and skip hard-cap back-pressure); when {@code false} tasks accumulate for a background merge
      * @return a {@link CompletableFuture} that completes when the insertion operation is finished
      */
-    @Nonnull
-    public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
-                                          @Nonnull final RealVector newVector, @Nullable final Tuple additionalValues,
+    public CompletableFuture<Void> insert(final Transaction transaction, final Tuple newPrimaryKey,
+                                          final RealVector newVector, @Nullable final Tuple additionalValues,
                                           final boolean maintainInTransaction) {
         return insert().insert(transaction, newPrimaryKey, newVector, additionalValues, maintainInTransaction);
     }
@@ -297,9 +282,8 @@ public class Guardiann {
      *        transaction; when {@code false} tasks accumulate for a background merge
      * @return a {@link CompletableFuture} that completes when the deletion is finished
      */
-    @Nonnull
-    public CompletableFuture<Void> delete(@Nonnull final Transaction transaction, @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector, final boolean maintainInTransaction) {
+    public CompletableFuture<Void> delete(final Transaction transaction, final Tuple primaryKey,
+                                          final RealVector vector, final boolean maintainInTransaction) {
         return delete().delete(transaction, primaryKey, vector, maintainInTransaction);
     }
 
@@ -316,8 +300,7 @@ public class Guardiann {
      * @return a {@link CompletableFuture} of the number of tasks actually executed ({@code 0} if the structure holds
      *         none, or has never been initialized)
      */
-    @Nonnull
-    public CompletableFuture<Integer> executeDeferredTasks(@Nonnull final Transaction transaction, final int numTasks,
+    public CompletableFuture<Integer> executeDeferredTasks(final Transaction transaction, final int numTasks,
                                                            final long deadlineMillis) {
         final Primitives primitives = getLocator().primitives();
         return primitives.fetchAccessInfo(transaction)

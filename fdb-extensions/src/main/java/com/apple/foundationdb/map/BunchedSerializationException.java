@@ -23,8 +23,8 @@ package com.apple.foundationdb.map;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 
 /**
@@ -37,7 +37,11 @@ import java.util.Arrays;
 @SuppressWarnings("serial")
 public class BunchedSerializationException extends BunchedMapException {
     @Nullable
-    private byte[] data;
+    // NullAway does not reliably recognize @Nullable on byte[]-typed fields, so the explicit `= null` here
+    // (needed so neither constructor is separately flagged for not "guaranteeing" this field is initialized)
+    // is itself misflagged as a NonNull violation.
+    @SuppressWarnings("NullAway")
+    private byte[] data = null;
     @Nullable
     private Object value;
 
@@ -45,7 +49,7 @@ public class BunchedSerializationException extends BunchedMapException {
      * Create a new exception with a static message.
      * @param message error message
      */
-    public BunchedSerializationException(@Nonnull String message) {
+    public BunchedSerializationException(String message) {
         super(message);
     }
 
@@ -55,7 +59,7 @@ public class BunchedSerializationException extends BunchedMapException {
      * @param message error message
      * @param cause cause
      */
-    public BunchedSerializationException(@Nonnull String message, @Nonnull Throwable cause) {
+    public BunchedSerializationException(String message, Throwable cause) {
         super(message, cause);
     }
 
@@ -67,8 +71,7 @@ public class BunchedSerializationException extends BunchedMapException {
      * @param data raw data array that triggered this exception
      * @return this <code>BunchedSerializationException</code>
      */
-    @Nonnull
-    public BunchedSerializationException setData(@Nonnull byte[] data) {
+    public BunchedSerializationException setData(byte[] data) {
         this.data = Arrays.copyOf(data, data.length);
         addLogInfo("data", ByteArrayUtil2.loggable(data));
         return this;
@@ -82,6 +85,9 @@ public class BunchedSerializationException extends BunchedMapException {
      * @return the data array that triggered the exception
      */
     @Nullable
+    // NullAway does not reliably recognize @Nullable on array-typed return values, so the `null` branch below
+    // is misflagged as returning @Nullable from a @NonNull-returning method despite the annotation.
+    @SuppressWarnings("NullAway")
     public byte[] getData() {
         return (data == null) ? null : Arrays.copyOf(data, data.length);
     }
@@ -95,8 +101,7 @@ public class BunchedSerializationException extends BunchedMapException {
      * @param value the value that triggered the exception
      * @return this <code>BunchedSerializationException</code>
      */
-    @Nonnull
-    public BunchedSerializationException setValue(@Nonnull Object value) {
+    public BunchedSerializationException setValue(Object value) {
         this.value = value;
         addLogInfo("value", value);
         return this;

@@ -24,8 +24,7 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 /**
@@ -54,14 +53,12 @@ interface NodeFactory<N extends NodeReference> {
      *        node does not carry additional values (see {@link CompactNode} versus {@link InliningNode}).
      * @return a new, non-null {@link AbstractNode} instance configured with the provided parameters.
      */
-    @Nonnull
-    AbstractNode<N> create(@Nonnull Tuple primaryKey, @Nullable Transformed<RealVector> vector,
-                           @Nullable Tuple additionalValues, @Nonnull List<? extends NodeReference> neighbors);
+    AbstractNode<N> create(Tuple primaryKey, @Nullable Transformed<RealVector> vector,
+                           @Nullable Tuple additionalValues, List<? extends NodeReference> neighbors);
 
     /**
      * Gets the kind of this node.
      * @return the kind of this node, never {@code null}.
      */
-    @Nonnull
     NodeKind getNodeKind();
 }

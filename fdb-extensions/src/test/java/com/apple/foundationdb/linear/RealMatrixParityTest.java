@@ -27,7 +27,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
 import java.util.Random;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -235,11 +234,11 @@ class RealMatrixParityTest {
      * orientation) so the scalar reference can use contiguous {@code dot} reads regardless of
      * which fast path the active backend exercised.
      */
-    private static void assertProductParity(@Nonnull final ScalarBackend scalar,
+    private static void assertProductParity(final ScalarBackend scalar,
                                             final int n, final int m, final int l,
-                                            @Nonnull final RealMatrix a,
-                                            @Nonnull final RealMatrix b,
-                                            @Nonnull final RealMatrix product) {
+                                            final RealMatrix a,
+                                            final RealMatrix b,
+                                            final RealMatrix product) {
         final RowMajorRealMatrix aRowMajor = a.toRowMajor();
         final ColumnMajorRealMatrix bColMajor = b.toColumnMajor();
         for (int i = 0; i < n; i++) {

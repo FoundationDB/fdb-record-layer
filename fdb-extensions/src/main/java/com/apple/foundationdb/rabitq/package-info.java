@@ -21,4 +21,7 @@
 /**
  * RaBitQ implementation.
  */
+@NullMarked
 package com.apple.foundationdb.rabitq;
+
+import org.jspecify.annotations.NullMarked;

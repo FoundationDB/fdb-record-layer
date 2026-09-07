@@ -23,8 +23,8 @@ package com.apple.foundationdb.util;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.function.UnaryOperator;
@@ -98,8 +98,7 @@ public interface Lens<C, A> {
      * @return the extracted attribute, never {@code null}
      * @throws NullPointerException if {@code get(c)} returns {@code null}
      */
-    @Nonnull
-    default A getNonnull(@Nonnull final C c) {
+    default A getNonnull(final C c) {
         return Objects.requireNonNull(get(c));
     }
 
@@ -110,7 +109,7 @@ public interface Lens<C, A> {
      * @return the attribute, or {@code null} if the implementation models an absent attribute
      */
     @Nullable
-    A get(@Nonnull C c);
+    A get(C c);
 
     /**
      * Builds a fresh container around {@code a} — equivalent to {@code set(null, a)} but reads
@@ -120,7 +119,6 @@ public interface Lens<C, A> {
      *          containers without the attribute
      * @return a non-null container holding {@code a}
      */
-    @Nonnull
     default C wrap(@Nullable final A a) {
         return set(null, a);
     }
@@ -136,7 +134,6 @@ public interface Lens<C, A> {
      *          supports containers without the attribute
      * @return a non-null container with the attribute set to {@code a}
      */
-    @Nonnull
     C set(@Nullable C c, @Nullable A a);
 
     /**
@@ -149,9 +146,8 @@ public interface Lens<C, A> {
      * @param operator transformation applied to the extracted attribute
      * @return a container reflecting the transformed attribute, possibly {@code c} itself
      */
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    default C map(@Nonnull final C c, @Nonnull final UnaryOperator<A> operator) {
+    default C map(final C c, final UnaryOperator<A> operator) {
         final A oldA = get(c);
         final A newA = operator.apply(oldA);
         if (newA == oldA) {
@@ -171,19 +167,24 @@ public interface Lens<C, A> {
      * @param <A2> the deeply focused attribute type
      * @return a composed lens from {@code C} to {@code A2}
      */
-    default <A2> Lens<C, A2> compose(@Nonnull final Lens<A, A2> downstream) {
+    default <A2> Lens<C, A2> compose(final Lens<A, A2> downstream) {
         return new Lens<>() {
             @Nullable
             @Override
-            public A2 get(@Nonnull final C c) {
-                return downstream.get(Lens.this.get(c));
+            public A2 get(final C c) {
+                // The intermediate A may be absent (get() is documented to allow null); in that case there is
+                // nothing for downstream to focus into, so the composed attribute is absent too.
+                final A intermediate = Lens.this.get(c);
+                return intermediate == null ? null : downstream.get(intermediate);
             }
 
-            @Nonnull
             @Override
-            @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
             public C set(@Nullable final C c, @Nullable final A2 a2) {
-                return Lens.this.set(c, downstream.set(Lens.this.get(c), a2));
+                // Lens.this.get() requires a non-null container; when c is null (the "build a fresh container"
+                // case), there is no existing intermediate A to read, so treat it as absent rather than calling
+                // Lens.this.get(null).
+                final A currentA = c == null ? null : Lens.this.get(c);
+                return Lens.this.set(c, downstream.set(currentA, a2));
             }
         };
     }
@@ -196,16 +197,13 @@ public interface Lens<C, A> {
      * @param <T> shared container/attribute type
      * @return a lens that focuses each element on itself
      */
-    @Nonnull
     static <T> Lens<T, T> identity() {
         return new Lens<>() {
-            @Nonnull
             @Override
-            public T get(@Nonnull final T t) {
+            public T get(final T t) {
                 return t;
             }
 
-            @Nonnull
             @Override
             @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
             public T set(@Nullable final T t, @Nullable final T t2) {
@@ -226,8 +224,7 @@ public interface Lens<C, A> {
      * @return an immutable list of extracted attributes in source order; never {@code null}
      * @throws NullPointerException if any element extraction yields {@code null}
      */
-    @Nonnull
-    static <T1, T2> List<T2> extract(@Nonnull final Lens<T1, T2> lens, @Nonnull final List<T1> elements) {
+    static <T1, T2> List<T2> extract(final Lens<T1, T2> lens, final List<T1> elements) {
         final ImmutableList.Builder<T2> resultsBuilder = ImmutableList.builder();
         for (final T1 element : elements) {
             resultsBuilder.add(lens.getNonnull(element));

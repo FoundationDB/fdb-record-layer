@@ -37,7 +37,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
 
-import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Random;
@@ -62,6 +61,8 @@ class CardinalityTest implements BaseTest {
     TestSubspaceExtension subspaceExtension = new TestSubspaceExtension(dbExtension);
 
     @TempDir
+    // Injected by JUnit's TempDirectory extension before each test; NullAway cannot see framework injection.
+    @SuppressWarnings("NullAway")
     Path tempDir;
 
     private Database db;
@@ -71,19 +72,16 @@ class CardinalityTest implements BaseTest {
         db = dbExtension.getDatabase();
     }
 
-    @Nonnull
     @Override
     public Database getDb() {
         return db;
     }
 
-    @Nonnull
     @Override
     public Subspace getSubspace() {
         return subspaceExtension.getSubspace();
     }
 
-    @Nonnull
     @Override
     public Path getTempDir() {
         return tempDir;
@@ -116,19 +114,17 @@ class CardinalityTest implements BaseTest {
         assertThat(cardinality(hnsw)).isEqualTo(Cardinality.MULTIPLE);
     }
 
-    @Nonnull
     private HNSW newHnsw() {
         return new HNSW(getSubspace(), TestExecutors.defaultThreadPool(),
                 HNSW.newConfigBuilder().build(NUM_DIMENSIONS),
                 new TestOnWriteListener(), new TestOnReadListener());
     }
 
-    @Nonnull
-    private Cardinality cardinality(@Nonnull final HNSW hnsw) {
+    private Cardinality cardinality(final HNSW hnsw) {
         return db.run(tr -> hnsw.cardinality(tr).join());
     }
 
-    private void insert(@Nonnull final HNSW hnsw, final int count) throws Exception {
+    private void insert(final HNSW hnsw, final int count) throws Exception {
         final List<PrimaryKeyAndVector> data =
                 CommonTestHelpers.randomVectors(new Random(SEED), NUM_DIMENSIONS, count);
         TestHelpers.basicInsertBatch(getDb(), hnsw, count, 0,

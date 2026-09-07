@@ -23,7 +23,6 @@ package com.apple.foundationdb.async.guardiann;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 
-import javax.annotation.Nonnull;
 
 /**
  * A fully enriched search result: a vector's {@link VectorMetadata} together with its stored vector data and the
@@ -41,5 +40,5 @@ import javax.annotation.Nonnull;
  *        coordinate space during result post-processing
  * @param distance the computed distance between this vector and the query vector
  */
-record VectorRecord(@Nonnull VectorMetadata vectorMetadata, @Nonnull Transformed<RealVector> vector, double distance) {
+record VectorRecord(VectorMetadata vectorMetadata, Transformed<RealVector> vector, double distance) {
 }

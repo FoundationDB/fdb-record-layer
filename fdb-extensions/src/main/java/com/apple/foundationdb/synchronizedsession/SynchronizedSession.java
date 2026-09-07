@@ -33,7 +33,6 @@ import com.apple.foundationdb.util.LoggableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -69,17 +68,13 @@ import java.util.concurrent.CompletableFuture;
 public class SynchronizedSession {
     private static final Logger LOGGER = LoggerFactory.getLogger(SynchronizedSession.class);
 
-    @Nonnull
     private Subspace lockSubspace;
-    @Nonnull
     private UUID sessionId;
     private long leaseLengthMillis;
 
     // The UUID stored here indicates which session holds the lock.
-    @Nonnull
     private final byte[] lockSessionIdSubspaceKey;
     // The timestamp stored here indicates the session above holds the lock until which time if the lease is not renewed.
-    @Nonnull
     private final byte[] lockSessionLeaseEndTimeSubspaceKey;
 
     // The UUID of the session owning the lock.
@@ -94,7 +89,7 @@ public class SynchronizedSession {
      * @param sessionId session ID
      * @param leaseLengthMillis length between last access and lease's end time in milliseconds
      */
-    public SynchronizedSession(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, long leaseLengthMillis) {
+    public SynchronizedSession(Subspace lockSubspace, UUID sessionId, long leaseLengthMillis) {
         this.lockSubspace = lockSubspace;
         this.sessionId = sessionId;
         this.leaseLengthMillis = leaseLengthMillis;
@@ -102,11 +97,11 @@ public class SynchronizedSession {
         lockSessionLeaseEndTimeSubspaceKey = lockSessionLeaseEndTimeSubspaceKey(lockSubspace);
     }
 
-    private static byte[] lockSessionIdSubspaceKey(@Nonnull Subspace lockSubspace) {
+    private static byte[] lockSessionIdSubspaceKey(Subspace lockSubspace) {
         return lockSubspace.subspace(Tuple.from(LOCK_SESSION_ID_KEY)).pack();
     }
 
-    private static byte[] lockSessionLeaseEndTimeSubspaceKey(@Nonnull Subspace lockSubspace) {
+    private static byte[] lockSessionLeaseEndTimeSubspaceKey(Subspace lockSubspace) {
         return lockSubspace.subspace(Tuple.from(LOCK_SESSION_TIME_KEY)).pack();
     }
 
@@ -115,7 +110,7 @@ public class SynchronizedSession {
      * @param tr transaction to use
      * @return a future that will return {@code null} when the session is initialized
      */
-    public CompletableFuture<Void> initializeSessionAsync(@Nonnull Transaction tr) {
+    public CompletableFuture<Void> initializeSessionAsync(Transaction tr) {
         // Though sessionTime is not necessarily needed in some cases, it's read in parallel with the lockSessionId read
         // in the hope of that the FDB client then batches those two operations together into a single request.
         return getLockSessionId(tr).thenAcceptBoth(getLockSessionTime(tr.snapshot()), (lockSessionId, sessionTime) -> {
@@ -151,7 +146,7 @@ public class SynchronizedSession {
         });
     }
 
-    private void takeSessionLock(@Nonnull Transaction tr) {
+    private void takeSessionLock(Transaction tr) {
         setLockSessionId(tr);
         updateLockSessionLeaseEndTime(tr);
     }
@@ -160,7 +155,6 @@ public class SynchronizedSession {
      * Get session ID.
      * @return session ID
      */
-    @Nonnull
     public UUID getSessionId() {
         return sessionId;
     }
@@ -171,7 +165,7 @@ public class SynchronizedSession {
      * @param tr transaction to use
      * @return a future that will return {@code null} when the lock is checked
      */
-    public CompletableFuture<Void> checkLockAsync(@Nonnull Transaction tr) {
+    public CompletableFuture<Void> checkLockAsync(Transaction tr) {
         return getLockSessionId(tr)
                 .thenCompose(lockSessionId -> {
                     if (!sessionId.equals(lockSessionId)) { // Note sessionId is nonnull and lockSessionId is nullable.
@@ -189,7 +183,7 @@ public class SynchronizedSession {
      * @param tr transaction to use
      * @return a future that will return {@code null} when the lock is no longer this session
      */
-    public CompletableFuture<Void> releaseLock(@Nonnull Transaction tr) {
+    public CompletableFuture<Void> releaseLock(Transaction tr) {
         return getLockSessionId(tr).thenApply(lockSessionId -> {
             if (sessionId.equals(lockSessionId)) {
                 tr.clear(lockSubspace.range());
@@ -208,7 +202,7 @@ public class SynchronizedSession {
      * </p>
      * @param tr transaction to use
      */
-    public void endAnySession(@Nonnull Transaction tr) {
+    public void endAnySession(Transaction tr) {
         endAnySession(tr, lockSubspace);
     }
 
@@ -222,7 +216,7 @@ public class SynchronizedSession {
      * @param tr transaction to use
      * @param lockSubspace the lock whose active session needs to be ended
      */
-    public static void endAnySession(@Nonnull Transaction tr, @Nonnull Subspace lockSubspace) {
+    public static void endAnySession(Transaction tr, Subspace lockSubspace) {
         tr.clear(lockSubspace.range());
     }
 
@@ -233,7 +227,7 @@ public class SynchronizedSession {
      * @param lockSubspace the lock whose active session needs to be checked
      * @return {@code true} if there is any active session, otherwise {@code false}
      */
-    public static CompletableFuture<Boolean> checkActiveSessionExists(@Nonnull Transaction tr, @Nonnull Subspace lockSubspace) {
+    public static CompletableFuture<Boolean> checkActiveSessionExists(Transaction tr, Subspace lockSubspace) {
         // It is false in the situations where initializeSessionAsync of a new session ID would takeSessionLock.
         return getLockSessionId(tr, lockSubspace).thenCombineAsync(getLockSessionTime(tr.snapshot(), lockSubspace), (lockSessionId, sessionTime) -> {
             if (lockSessionId == null) {
@@ -250,20 +244,20 @@ public class SynchronizedSession {
         });
     }
 
-    private static CompletableFuture<UUID> getLockSessionId(@Nonnull Transaction tr, @Nonnull Subspace lockSubspace) {
+    private static CompletableFuture<UUID> getLockSessionId(Transaction tr, Subspace lockSubspace) {
         return tr.get(lockSessionIdSubspaceKey(lockSubspace))
                 .thenApply(value -> value == null ? null : Tuple.fromBytes(value).getUUID(0));
     }
 
-    private CompletableFuture<UUID> getLockSessionId(@Nonnull Transaction tr) {
+    private CompletableFuture<UUID> getLockSessionId(Transaction tr) {
         return getLockSessionId(tr, lockSubspace);
     }
 
-    private void setLockSessionId(@Nonnull Transaction tr) {
+    private void setLockSessionId(Transaction tr) {
         tr.set(lockSessionIdSubspaceKey, Tuple.from(sessionId).pack());
     }
 
-    private static CompletableFuture<Long> getLockSessionTime(@Nonnull ReadTransaction tr, @Nonnull Subspace lockSubspace) {
+    private static CompletableFuture<Long> getLockSessionTime(ReadTransaction tr, Subspace lockSubspace) {
         return tr.get(lockSessionLeaseEndTimeSubspaceKey(lockSubspace))
                 .thenApply(value -> value == null ? null : Tuple.fromBytes(value).getLong(0));
     }
@@ -276,7 +270,7 @@ public class SynchronizedSession {
     //   final value comes not from whoever gets committed last but whoever writes the largest value
     // - When the session time is read during session initialization, it should be a snapshot read so it will not have
     //   conflicts with working transactions (which write to session time).
-    private CompletableFuture<Long> getLockSessionTime(@Nonnull ReadTransaction tr) {
+    private CompletableFuture<Long> getLockSessionTime(ReadTransaction tr) {
         return getLockSessionTime(tr, lockSubspace);
     }
 
@@ -285,7 +279,7 @@ public class SynchronizedSession {
      * alive.
      * @param tr transaction to use
      */
-    public void updateLockSessionLeaseEndTime(@Nonnull Transaction tr) {
+    public void updateLockSessionLeaseEndTime(Transaction tr) {
         long leaseEndTime = System.currentTimeMillis() + leaseLengthMillis;
         // Use BYTE_MAX rather than MAX because `Tuple`s write their integers in big Endian.
         tr.mutate(MutationType.BYTE_MAX, lockSessionLeaseEndTimeSubspaceKey, Tuple.from(leaseEndTime).pack());

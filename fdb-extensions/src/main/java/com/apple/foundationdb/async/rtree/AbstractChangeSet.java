@@ -23,8 +23,7 @@ package com.apple.foundationdb.async.rtree;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.rtree.Node.ChangeSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Abstract base implementations for all {@link ChangeSet}s.
@@ -35,19 +34,18 @@ public abstract class AbstractChangeSet<S extends NodeSlot, N extends AbstractNo
     @Nullable
     private final ChangeSet previousChangeSet;
 
-    @Nonnull
     private final N node;
 
     private final int level;
 
-    AbstractChangeSet(@Nullable final ChangeSet previousChangeSet, @Nonnull final N node, final int level) {
+    AbstractChangeSet(@Nullable final ChangeSet previousChangeSet, final N node, final int level) {
         this.previousChangeSet = previousChangeSet;
         this.node = node;
         this.level = level;
     }
 
     @Override
-    public void apply(@Nonnull final Transaction transaction) {
+    public void apply(final Transaction transaction) {
         if (previousChangeSet != null) {
             previousChangeSet.apply(transaction);
         }
@@ -66,7 +64,6 @@ public abstract class AbstractChangeSet<S extends NodeSlot, N extends AbstractNo
      * The node this change set applies to.
      * @return the node this change set applies to
      */
-    @Nonnull
     public N getNode() {
         return node;
     }

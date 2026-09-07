@@ -36,9 +36,9 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.SplittableRandom;
 import java.util.concurrent.CompletableFuture;
 
@@ -65,11 +65,10 @@ public final class StorageHelpers {
      *
      * @return a future completing with the consumed sampled vectors
      */
-    @Nonnull
-    public static CompletableFuture<List<AggregatedVector>> consumeSampledVectors(@Nonnull final Transaction transaction,
-                                                                                  @Nonnull final Subspace prefixSubspace,
+    public static CompletableFuture<List<AggregatedVector>> consumeSampledVectors(final Transaction transaction,
+                                                                                  final Subspace prefixSubspace,
                                                                                   final int numMaxVectors,
-                                                                                  @Nonnull final OnKeyValueReadListener onReadListener) {
+                                                                                  final OnKeyValueReadListener onReadListener) {
         final byte[] prefixKey = prefixSubspace.pack();
         final ReadTransaction snapshot = transaction.snapshot();
         final Range range = Range.startsWith(prefixKey);
@@ -104,7 +103,7 @@ public final class StorageHelpers {
      * @return the combined aggregate, or {@code null} if {@code vectors} contributes no elements
      */
     @Nullable
-    public static AggregatedVector aggregateVectors(@Nonnull final Iterable<AggregatedVector> vectors) {
+    public static AggregatedVector aggregateVectors(final Iterable<AggregatedVector> vectors) {
         Transformed<RealVector> partialVector = null;
         int partialCount = 0;
         for (final AggregatedVector vector : vectors) {
@@ -112,7 +111,10 @@ public final class StorageHelpers {
                             ? vector.partialVector() : partialVector.add(vector.partialVector());
             partialCount += vector.partialCount();
         }
-        return partialCount == 0 ? null : new AggregatedVector(partialCount, partialVector);
+        // partialCount != 0 implies the loop ran at least once (it starts at 0 and is only ever increased by
+        // vector.partialCount()), which in turn means partialVector was assigned a non-null value; NullAway
+        // cannot correlate the nullness of two different locals like this.
+        return partialCount == 0 ? null : new AggregatedVector(partialCount, Objects.requireNonNull(partialVector));
     }
 
     /**
@@ -127,13 +129,13 @@ public final class StorageHelpers {
      * @param vector the sampled (partial) vector to store
      * @param onWriteListener the listener notified of the written key/value
      */
-    public static void appendSampledVector(@Nonnull final Transaction transaction,
-                                           @Nonnull final SplittableRandom random,
+    public static void appendSampledVector(final Transaction transaction,
+                                           final SplittableRandom random,
                                            final boolean deterministicRandomness,
-                                           @Nonnull final Subspace prefixSubspace,
+                                           final Subspace prefixSubspace,
                                            final int partialCount,
-                                           @Nonnull final Transformed<RealVector> vector,
-                                           @Nonnull final OnKeyValueWriteListener onWriteListener) {
+                                           final Transformed<RealVector> vector,
+                                           final OnKeyValueWriteListener onWriteListener) {
         final Subspace keySubspace = prefixSubspace.subspace(Tuple.from(partialCount,
                 RandomHelpers.randomUuid(random, deterministicRandomness)));
         final byte[] prefixKey = keySubspace.pack();
@@ -150,18 +152,17 @@ public final class StorageHelpers {
      * @param prefixSubspace the subspace holding the sampled vectors
      * @param onWriteListener the listener notified of the cleared range
      */
-    public static void deleteAllSampledVectors(@Nonnull final Transaction transaction, @Nonnull final Subspace prefixSubspace,
-                                               @Nonnull final OnKeyValueWriteListener onWriteListener) {
+    public static void deleteAllSampledVectors(final Transaction transaction, final Subspace prefixSubspace,
+                                               final OnKeyValueWriteListener onWriteListener) {
         final byte[] prefixKey = prefixSubspace.pack();
         final Range range = Range.startsWith(prefixKey);
         transaction.clear(range);
         onWriteListener.onRangeDeleted(range);
     }
 
-    @Nonnull
-    private static AggregatedVector aggregatedVectorFromRaw(@Nonnull final Subspace prefixSubspace,
-                                                            @Nonnull final byte[] key,
-                                                            @Nonnull final byte[] value) {
+    private static AggregatedVector aggregatedVectorFromRaw(final Subspace prefixSubspace,
+                                                            final byte[] key,
+                                                            final byte[] value) {
         final Tuple keyTuple = prefixSubspace.unpack(key);
         final int partialCount = Math.toIntExact(keyTuple.getLong(0));
         final RealVector vector = DoubleRealVector.fromBytes(Tuple.fromBytes(value).getBytes(0));
@@ -174,8 +175,7 @@ public final class StorageHelpers {
      * @param vector a transformed vector
      * @return a new, non-null {@code Tuple} instance representing the contents of the underlying vector.
      */
-    @Nonnull
-    public static Tuple tupleFromVector(@Nonnull final Transformed<RealVector> vector) {
+    public static Tuple tupleFromVector(final Transformed<RealVector> vector) {
         return tupleFromVector(vector.getUnderlyingVector());
     }
 
@@ -187,9 +187,8 @@ public final class StorageHelpers {
      * @param vector the {@link RealVector} to convert. Cannot be null.
      * @return a new, non-null {@code Tuple} instance representing the contents of the vector.
      */
-    @Nonnull
     @SuppressWarnings("PrimitiveArrayArgumentToVarargsMethod")
-    public static Tuple tupleFromVector(@Nonnull final RealVector vector) {
+    public static Tuple tupleFromVector(final RealVector vector) {
         return Tuple.from(vector.getRawData());
     }
 
@@ -200,8 +199,7 @@ public final class StorageHelpers {
      *
      * @return the raw bytes of the underlying vector
      */
-    @Nonnull
-    public static byte[] bytesFromVector(@Nonnull final Transformed<RealVector> transformedVector) {
+    public static byte[] bytesFromVector(final Transformed<RealVector> transformedVector) {
         return transformedVector.getUnderlyingVector().getRawData();
     }
 
@@ -216,8 +214,7 @@ public final class StorageHelpers {
      * @return a new {@link RealVector} instance created from the tuple's data.
      *         This method never returns {@code null}.
      */
-    @Nonnull
-    public static RealVector vectorFromTuple(@Nonnull final VectorEncodingConfig config, @Nonnull final Tuple vectorTuple) {
+    public static RealVector vectorFromTuple(final VectorEncodingConfig config, final Tuple vectorTuple) {
         return vectorFromBytes(config, vectorTuple.getBytes(0));
     }
 
@@ -230,8 +227,7 @@ public final class StorageHelpers {
      * @param vectorBytes the non-null byte array to convert.
      * @return a new {@link RealVector} instance created from the byte array.
      */
-    @Nonnull
-    public static RealVector vectorFromBytes(@Nonnull final VectorEncodingConfig config, @Nonnull final byte[] vectorBytes) {
+    public static RealVector vectorFromBytes(final VectorEncodingConfig config, final byte[] vectorBytes) {
         final byte vectorTypeOrdinal = vectorBytes[0];
         return switch (RealVector.fromVectorTypeOrdinal(vectorTypeOrdinal)) {
             case RABITQ -> {

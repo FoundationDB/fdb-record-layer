@@ -27,7 +27,6 @@ import com.apple.foundationdb.linear.RealVector;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
-import javax.annotation.Nonnull;
 import java.util.Comparator;
 import java.util.PriorityQueue;
 
@@ -60,7 +59,6 @@ public final class RaBitQuantizer implements Quantizer {
     };
 
     final int numExBits;
-    @Nonnull
     private final Metric metric;
 
     /**
@@ -72,7 +70,7 @@ public final class RaBitQuantizer implements Quantizer {
      * @param metric the {@link Metric} to be used for quantization; must not be null.
      * @param numExBits the number of extra bits for quantization.
      */
-    public RaBitQuantizer(@Nonnull final Metric metric, final int numExBits) {
+    public RaBitQuantizer(final Metric metric, final int numExBits) {
         Preconditions.checkArgument(numExBits > 0 && numExBits < TIGHT_START.length);
         Preconditions.checkArgument(
                 metric == Metric.EUCLIDEAN_METRIC ||
@@ -94,7 +92,6 @@ public final class RaBitQuantizer implements Quantizer {
      *
      * @return a new, non-null instance of {@link RaBitDistanceEstimator}
      */
-    @Nonnull
     @Override
     public RaBitDistanceEstimator estimator() {
         return new RaBitDistanceEstimator(metric, numExBits);
@@ -111,9 +108,8 @@ public final class RaBitQuantizer implements Quantizer {
      *
      * @return the resulting {@link EncodedRealVector}, guaranteed to be non-null.
      */
-    @Nonnull
     @Override
-    public EncodedRealVector encode(@Nonnull final RealVector vector) {
+    public EncodedRealVector encode(final RealVector vector) {
         if (vector instanceof EncodedRealVector) {
             return (EncodedRealVector)vector;
         }
@@ -136,9 +132,8 @@ public final class RaBitQuantizer implements Quantizer {
      *
      * @throws IllegalArgumentException if the configured {@code metric} is not supported for encoding.
      */
-    @Nonnull
     @VisibleForTesting
-    Result encodeInternal(@Nonnull final RealVector data) {
+    Result encodeInternal(final RealVector data) {
         final int dims = data.getNumDimensions();
 
         final QuantizeExResult base = exBitsCode(data);
@@ -204,7 +199,7 @@ public final class RaBitQuantizer implements Quantizer {
      * returns the code, {@code t}, and {@code ipNormInv}.
      * @param residual rotated residual vector r.
      */
-    private QuantizeExResult exBitsCode(@Nonnull final RealVector residual) {
+    private QuantizeExResult exBitsCode(final RealVector residual) {
         int dims = residual.getNumDimensions();
 
         // oAbs = |r| normalized (RaBitQ does this before quantizeEx)
@@ -237,7 +232,7 @@ public final class RaBitQuantizer implements Quantizer {
      *         {@code t = 0}, and {@code ipNormInv = 1} (benign fallback). Downstream code uses {@code ipNormInv} to
      *         compute {@code fRescaleEx}, etc.
      */
-    private QuantizeExResult quantizeEx(@Nonnull final RealVector oAbs) {
+    private QuantizeExResult quantizeEx(final RealVector oAbs) {
         final int dim = oAbs.getNumDimensions();
         final int maxLevel = (1 << numExBits) - 1;
 
@@ -292,7 +287,7 @@ public final class RaBitQuantizer implements Quantizer {
      * @return The optimal scaling factor {@code t} that maximizes the objective function,
      * or 0.0 if the input vector is all zeros.
      */
-    private double bestRescaleFactor(@Nonnull final RealVector oAbs) {
+    private double bestRescaleFactor(final RealVector oAbs) {
         final int numDimensions = oAbs.getNumDimensions();
 
         // max_o = max(oAbs)
@@ -384,7 +379,7 @@ public final class RaBitQuantizer implements Quantizer {
      * @return a new {@code RealVector} containing the absolute values of the components of the
      * normalized input vector.
      */
-    private static RealVector absOfNormalized(@Nonnull final RealVector x) {
+    private static RealVector absOfNormalized(final RealVector x) {
         // Scalar backend: this norm feeds oAbs, which drives both the chosen scale t and the
         // per-dimension floor() codes. A ULP difference here can flip an integer code near a
         // boundary, so the encoded bytes would otherwise depend on the ambient backend.
@@ -406,7 +401,7 @@ public final class RaBitQuantizer implements Quantizer {
         public final double t;
         public final double ipNormInv;
 
-        public Result(@Nonnull final EncodedRealVector encodedVector, double t, double ipNormInv) {
+        public Result(final EncodedRealVector encodedVector, double t, double ipNormInv) {
             this.encodedVector = encodedVector;
             this.t = t;
             this.ipNormInv = ipNormInv;

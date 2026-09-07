@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.linear;
 
-import javax.annotation.Nonnull;
 
 /**
  * Scalar (plain {@code for}-loop) implementation of {@link Backend}. Always available; serves as
@@ -28,50 +27,49 @@ import javax.annotation.Nonnull;
  */
 final class ScalarBackend implements Backend {
 
-    @Nonnull
     @Override
     public String name() {
         return "scalar";
     }
 
     @Override
-    public void addInto(@Nonnull final double[] a, @Nonnull final double[] b, @Nonnull final double[] out) {
+    public void addInto(final double[] a, final double[] b, final double[] out) {
         for (int i = 0; i < a.length; i++) {
             out[i] = a[i] + b[i];
         }
     }
 
     @Override
-    public void addInto(@Nonnull final double[] a, final double scalar, @Nonnull final double[] out) {
+    public void addInto(final double[] a, final double scalar, final double[] out) {
         for (int i = 0; i < a.length; i++) {
             out[i] = a[i] + scalar;
         }
     }
 
     @Override
-    public void subtractInto(@Nonnull final double[] a, @Nonnull final double[] b, @Nonnull final double[] out) {
+    public void subtractInto(final double[] a, final double[] b, final double[] out) {
         for (int i = 0; i < a.length; i++) {
             out[i] = a[i] - b[i];
         }
     }
 
     @Override
-    public void subtractInto(@Nonnull final double[] a, final double scalar, @Nonnull final double[] out) {
+    public void subtractInto(final double[] a, final double scalar, final double[] out) {
         for (int i = 0; i < a.length; i++) {
             out[i] = a[i] - scalar;
         }
     }
 
     @Override
-    public void multiplyInto(@Nonnull final double[] a, final double scalar, @Nonnull final double[] out) {
+    public void multiplyInto(final double[] a, final double scalar, final double[] out) {
         for (int i = 0; i < a.length; i++) {
             out[i] = a[i] * scalar;
         }
     }
 
     @Override
-    public void multiplyAddInto(final double scalar, @Nonnull final double[] x, @Nonnull final double[] y,
-                                @Nonnull final double[] out, final int from, final int length) {
+    public void multiplyAddInto(final double scalar, final double[] x, final double[] y,
+                                final double[] out, final int from, final int length) {
         final int end = from + length;
         for (int i = from; i < end; i++) {
             out[i] = scalar * x[i] + y[i];
@@ -79,12 +77,12 @@ final class ScalarBackend implements Backend {
     }
 
     @Override
-    public double dot(@Nonnull final double[] a, @Nonnull final double[] b) {
+    public double dot(final double[] a, final double[] b) {
         return dot(a, b, 0, a.length);
     }
 
     @Override
-    public double dot(@Nonnull final double[] a, @Nonnull final double[] b, final int from, final int length) {
+    public double dot(final double[] a, final double[] b, final int from, final int length) {
         double sum = 0.0d;
         final int end = from + length;
         for (int i = from; i < end; i++) {
@@ -94,12 +92,12 @@ final class ScalarBackend implements Backend {
     }
 
     @Override
-    public double l2SquaredNorm(@Nonnull final double[] a) {
+    public double l2SquaredNorm(final double[] a) {
         return l2SquaredNorm(a, 0, a.length);
     }
 
     @Override
-    public double l2SquaredNorm(@Nonnull final double[] a, final int from, final int length) {
+    public double l2SquaredNorm(final double[] a, final int from, final int length) {
         double sum = 0.0d;
         final int end = from + length;
         for (int i = from; i < end; i++) {
@@ -110,7 +108,7 @@ final class ScalarBackend implements Backend {
     }
 
     @Override
-    public double euclideanSquared(@Nonnull final double[] a, @Nonnull final double[] b) {
+    public double euclideanSquared(final double[] a, final double[] b) {
         double sum = 0.0d;
         for (int i = 0; i < a.length; i++) {
             final double diff = a[i] - b[i];

@@ -25,8 +25,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -46,6 +46,14 @@ public class TupleTest {
     private static final char zeroByteCharacter = 0;
     private static final char weirdCharacter = 3;
     private static final char ffCharacter = 0xff;
+
+    // Tuple.from(Object...) is from the unannotated fdb-java client library and genuinely supports a null
+    // element (obj is null for the null-value test cases below); its varargs parameter is treated as
+    // @NonNull by NullAway's defaults.
+    @SuppressWarnings("NullAway")
+    private static Tuple tupleFromNullable(@Nullable Object obj) {
+        return Tuple.from(obj);
+    }
 
     private static List<ExpectedTupleEncoding<?>> tests = ImmutableList.<ExpectedTupleEncoding<?>>builder()
             .add(new ExpectedTupleEncoding<>(null, "\\x00"))
@@ -107,7 +115,6 @@ public class TupleTest {
             .add()
             .build();
 
-    @Nonnull
     static Stream<ExpectedTupleEncoding<?>> testTuple() {
         return tests.stream();
     }
@@ -148,14 +155,16 @@ public class TupleTest {
         }
 
         public void check() {
-            byte[] actualAlone = Tuple.from(obj).pack();
+            byte[] actualAlone = tupleFromNullable(obj).pack();
             if (encodedLoggable == null) {
                 // This is used to generate new test cases.
                 // To add a new test case, create a new ExpectedTupleEncoding with a null string, then run
                 // testTuple above. Then copy the encoding into the test case from standard output
                 if (actualAlone != null) {
-                    System.out.println("\"" +
-                            ByteArrayUtil2.loggable(actualAlone).replaceAll("\\\\", "\\\\\\\\") + "\"");
+                    String loggable = ByteArrayUtil2.loggable(actualAlone);
+                    if (loggable != null) {
+                        System.out.println("\"" + loggable.replaceAll("\\\\", "\\\\\\\\") + "\"");
+                    }
                 }
             } else {
                 assertEquals(encodedLoggable, ByteArrayUtil2.loggable(actualAlone));

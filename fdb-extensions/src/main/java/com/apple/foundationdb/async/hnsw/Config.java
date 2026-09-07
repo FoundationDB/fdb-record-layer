@@ -25,7 +25,6 @@ import com.apple.foundationdb.linear.Metric;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
-import javax.annotation.Nonnull;
 
 /**
  * Configuration settings for an {@link HNSW}.
@@ -50,7 +49,7 @@ import javax.annotation.Nonnull;
  * @param maxNumConcurrentDeleteFromLayer maximum concurrent delete operations per layer
  */
 @SuppressWarnings("checkstyle:MemberName")
-public record Config(@Nonnull Metric metric,
+public record Config(Metric metric,
                      int numDimensions,
                      boolean useInlining,
                      int m,
@@ -69,7 +68,7 @@ public record Config(@Nonnull Metric metric,
                      int maxNumConcurrentNeighborhoodFetches,
                      int maxNumConcurrentDeleteFromLayer) implements VectorEncodingConfig {
 
-    @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
+    public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final boolean DEFAULT_USE_INLINING = false;
     public static final int DEFAULT_M = 16;
     public static final int DEFAULT_M_MAX_0 = 2 * DEFAULT_M;
@@ -120,7 +119,6 @@ public record Config(@Nonnull Metric metric,
                 "maxNumConcurrentDeleteFromLayer must be (0, 10]");
     }
 
-    @Nonnull
     public ConfigBuilder toBuilder() {
         return new ConfigBuilder(metric(), useInlining(), m(), mMax(), mMax0(),
                 efConstruction(), efRepair(), extendCandidates(), keepPrunedConnections(),
@@ -130,7 +128,6 @@ public record Config(@Nonnull Metric metric,
     }
 
     @Override
-    @Nonnull
     public String toString() {
         return "Config[metric=" + metric() + ", numDimensions=" + numDimensions() +
                 ", useInlining=" + useInlining() + ", m=" + m() + ", mMax=" + mMax() +
@@ -155,7 +152,6 @@ public record Config(@Nonnull Metric metric,
     @CanIgnoreReturnValue
     @SuppressWarnings("checkstyle:MemberName")
     public static class ConfigBuilder {
-        @Nonnull
         private Metric metric = DEFAULT_METRIC;
         private boolean useInlining = DEFAULT_USE_INLINING;
         private int m = DEFAULT_M;
@@ -180,7 +176,7 @@ public record Config(@Nonnull Metric metric,
         public ConfigBuilder() {
         }
 
-        public ConfigBuilder(@Nonnull final Metric metric, final boolean useInlining, final int m, final int mMax,
+        public ConfigBuilder(final Metric metric, final boolean useInlining, final int m, final int mMax,
                              final int mMax0, final int efConstruction, final int efRepair,
                              final boolean extendCandidates, final boolean keepPrunedConnections,
                              final double sampleVectorStatsProbability, final double maintainStatsProbability,
@@ -206,13 +202,11 @@ public record Config(@Nonnull Metric metric,
             this.maxNumConcurrentDeleteFromLayer = maxNumConcurrentDeleteFromLayer;
         }
 
-        @Nonnull
         public Metric getMetric() {
             return metric;
         }
 
-        @Nonnull
-        public ConfigBuilder setMetric(@Nonnull final Metric metric) {
+        public ConfigBuilder setMetric(final Metric metric) {
             this.metric = metric;
             return this;
         }
@@ -221,7 +215,6 @@ public record Config(@Nonnull Metric metric,
             return useInlining;
         }
 
-        @Nonnull
         public ConfigBuilder setUseInlining(final boolean useInlining) {
             this.useInlining = useInlining;
             return this;
@@ -231,7 +224,6 @@ public record Config(@Nonnull Metric metric,
             return m;
         }
 
-        @Nonnull
         public ConfigBuilder setM(final int m) {
             this.m = m;
             return this;
@@ -241,7 +233,6 @@ public record Config(@Nonnull Metric metric,
             return mMax;
         }
 
-        @Nonnull
         public ConfigBuilder setMMax(final int mMax) {
             this.mMax = mMax;
             return this;
@@ -251,7 +242,6 @@ public record Config(@Nonnull Metric metric,
             return mMax0;
         }
 
-        @Nonnull
         public ConfigBuilder setMMax0(final int mMax0) {
             this.mMax0 = mMax0;
             return this;
@@ -261,7 +251,6 @@ public record Config(@Nonnull Metric metric,
             return efConstruction;
         }
 
-        @Nonnull
         public ConfigBuilder setEfConstruction(final int efConstruction) {
             this.efConstruction = efConstruction;
             return this;
@@ -271,7 +260,6 @@ public record Config(@Nonnull Metric metric,
             return efRepair;
         }
 
-        @Nonnull
         public ConfigBuilder setEfRepair(final int efRepair) {
             this.efRepair = efRepair;
             return this;
@@ -281,7 +269,6 @@ public record Config(@Nonnull Metric metric,
             return extendCandidates;
         }
 
-        @Nonnull
         public ConfigBuilder setExtendCandidates(final boolean extendCandidates) {
             this.extendCandidates = extendCandidates;
             return this;
@@ -291,7 +278,6 @@ public record Config(@Nonnull Metric metric,
             return keepPrunedConnections;
         }
 
-        @Nonnull
         public ConfigBuilder setKeepPrunedConnections(final boolean keepPrunedConnections) {
             this.keepPrunedConnections = keepPrunedConnections;
             return this;
@@ -301,7 +287,6 @@ public record Config(@Nonnull Metric metric,
             return sampleVectorStatsProbability;
         }
 
-        @Nonnull
         public ConfigBuilder setSampleVectorStatsProbability(final double sampleVectorStatsProbability) {
             this.sampleVectorStatsProbability = sampleVectorStatsProbability;
             return this;
@@ -311,7 +296,6 @@ public record Config(@Nonnull Metric metric,
             return maintainStatsProbability;
         }
 
-        @Nonnull
         public ConfigBuilder setMaintainStatsProbability(final double maintainStatsProbability) {
             this.maintainStatsProbability = maintainStatsProbability;
             return this;
@@ -321,7 +305,6 @@ public record Config(@Nonnull Metric metric,
             return statsThreshold;
         }
 
-        @Nonnull
         public ConfigBuilder setStatsThreshold(final int statsThreshold) {
             this.statsThreshold = statsThreshold;
             return this;
@@ -331,7 +314,6 @@ public record Config(@Nonnull Metric metric,
             return useRaBitQ;
         }
 
-        @Nonnull
         public ConfigBuilder setUseRaBitQ(final boolean useRaBitQ) {
             this.useRaBitQ = useRaBitQ;
             return this;
@@ -341,7 +323,6 @@ public record Config(@Nonnull Metric metric,
             return raBitQNumExBits;
         }
 
-        @Nonnull
         public ConfigBuilder setRaBitQNumExBits(final int raBitQNumExBits) {
             this.raBitQNumExBits = raBitQNumExBits;
             return this;

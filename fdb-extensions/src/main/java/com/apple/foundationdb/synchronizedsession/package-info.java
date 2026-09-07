@@ -22,4 +22,7 @@
  * Basic classes to support running operations in synchronized sessions.
  * @see com.apple.foundationdb.synchronizedsession.SynchronizedSession
  */
+@NullMarked
 package com.apple.foundationdb.synchronizedsession;
+
+import org.jspecify.annotations.NullMarked;

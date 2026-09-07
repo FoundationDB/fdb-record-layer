@@ -41,7 +41,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -87,23 +86,22 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
     final TestSubspaceExtension subspaceExtension = new TestSubspaceExtension(dbExtension);
 
     @TempDir
+    // Injected by JUnit's TempDirectory extension before each test; NullAway cannot see framework injection.
+    @SuppressWarnings("NullAway")
     Path tempDir;
 
     private static Database db;
 
-    @Nonnull
     @Override
     public Database getDb() {
         return Objects.requireNonNull(db);
     }
 
-    @Nonnull
     @Override
     public Subspace getSubspace() {
         return subspaceExtension.getSubspace();
     }
 
-    @Nonnull
     @Override
     public Path getTempDir() {
         return tempDir;
@@ -114,7 +112,6 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
         db = dbExtension.getDatabase();
     }
 
-    @Nonnull
     private static Stream<Long> seeds() {
         return RandomizedTestUtils.randomSeeds(0xC0FFEEL, 0xDEADBEEFL, 0x5EED1234L);
     }
@@ -147,7 +144,11 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
         // ---- Phase 1: insert near-duplicates; the oversized cluster splits into bordered sub-clusters. ----
         onWriteListener.pushFrame();
         for (final PrimaryKeyAndVector op : inserts) {
-            db.run(transaction -> {
+            // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call
+            // returns null from the lambda; NullAway does not accept an explicit @Nullable type witness on this
+            // external, unannotated method either, so the suppression is scoped to this one declaration instead.
+            @SuppressWarnings("NullAway")
+            final Void ignored = db.run(transaction -> {
                 guardiann.insert(transaction, op.primaryKey(), op.vector(), null, true).join();
                 return null;
             });
@@ -175,7 +176,9 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
         final List<PrimaryKeyAndVector> deletes = inserts.subList(0, NUM_DELETES);
         onWriteListener.pushFrame();
         for (final PrimaryKeyAndVector op : deletes) {
-            db.run(transaction -> {
+            // See the insert loop above for why this suppression is needed.
+            @SuppressWarnings("NullAway")
+            final Void ignored = db.run(transaction -> {
                 guardiann.delete(transaction, op.primaryKey(), op.vector(), true).join();
                 return null;
             });
@@ -208,7 +211,6 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
         GuardiannStructureAsserts.assertGuardiannInvariantsAfterDeletes(db, guardiann);
     }
 
-    @Nonnull
     private List<PrimaryKeyAndVector> buildInserts(final long seed) throws Exception {
         final List<PrimaryKeyAndVector> baseLoaded =
                 VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1);

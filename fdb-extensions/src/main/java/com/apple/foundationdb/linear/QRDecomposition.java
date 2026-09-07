@@ -22,7 +22,6 @@ package com.apple.foundationdb.linear;
 
 import com.google.common.base.Preconditions;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.function.Supplier;
 
@@ -59,8 +58,7 @@ public class QRDecomposition {
      *
      * @throws IllegalArgumentException if the provided {@code matrix} is not square.
      */
-    @Nonnull
-    public static Result decomposeMatrix(@Nonnull final RealMatrix matrix) {
+    public static Result decomposeMatrix(final RealMatrix matrix) {
         Preconditions.checkArgument(matrix.isSquare());
 
         final double[] rDiagonal = new double[matrix.getNumRowDimensions()];
@@ -144,7 +142,6 @@ public class QRDecomposition {
      * Returns the matrix {@code Q} of the decomposition where {@code Q} is an orthogonal matrix.
      * @return the {@code Q} matrix
      */
-    @Nonnull
     private static RealMatrix getQ(final double[][] qrt, final double[] rDiagonal) {
         final int m = qrt.length;
         final double[][] q = new double[m][m];
@@ -197,7 +194,6 @@ public class QRDecomposition {
      *
      * @return The reconstructed upper-triangular R matrix as a {@link RealMatrix}.
      */
-    @Nonnull
     private static RealMatrix getR(final double[][] qrt, final double[] rDiagonal) {
         final int m = qrt.length; // square in this helper
         final double[][] r = new double[m][m];
@@ -222,22 +218,18 @@ public class QRDecomposition {
 
     @SuppressWarnings("checkstyle:MemberName")
     public static class Result {
-        @Nonnull
         private final Supplier<RealMatrix> qSupplier;
-        @Nonnull
         private final Supplier<RealMatrix> rSupplier;
 
-        public Result(@Nonnull final Supplier<RealMatrix> qSupplier, @Nonnull final Supplier<RealMatrix> rSupplier) {
+        public Result(final Supplier<RealMatrix> qSupplier, final Supplier<RealMatrix> rSupplier) {
             this.qSupplier = qSupplier;
             this.rSupplier = rSupplier;
         }
 
-        @Nonnull
         RealMatrix getQ() {
             return qSupplier.get();
         }
 
-        @Nonnull
         RealMatrix getR() {
             return rSupplier.get();
         }

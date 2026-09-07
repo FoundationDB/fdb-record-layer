@@ -29,7 +29,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -45,8 +44,7 @@ public final class CommonTestHelpers {
         // nothing
     }
 
-    @Nonnull
-    public static List<PrimaryKeyAndVector> randomVectors(@Nonnull final Random random, final int numDimensions,
+    public static List<PrimaryKeyAndVector> randomVectors(final Random random, final int numDimensions,
                                                           final int numberOfVectors) {
         final ImmutableList.Builder<PrimaryKeyAndVector> resultBuilder = ImmutableList.builder();
         for (int i = 0; i < numberOfVectors; i ++) {
@@ -57,9 +55,8 @@ public final class CommonTestHelpers {
         return resultBuilder.build();
     }
 
-    @Nonnull
-    public static List<PrimaryKeyAndVector> pickRandomVectors(@Nonnull final Random random,
-                                                              @Nonnull final Collection<PrimaryKeyAndVector> vectors,
+    public static List<PrimaryKeyAndVector> pickRandomVectors(final Random random,
+                                                              final Collection<PrimaryKeyAndVector> vectors,
                                                               final int numberOfVectors) {
         Verify.verify(numberOfVectors <= vectors.size());
         final List<PrimaryKeyAndVector> remainingVectors = Lists.newArrayList(vectors);
@@ -70,17 +67,15 @@ public final class CommonTestHelpers {
         return resultBuilder.build();
     }
 
-    @Nonnull
-    public static NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances(@Nonnull final Metric metric,
-                                                                               @Nonnull final List<PrimaryKeyAndVector> vectors,
-                                                                               @Nonnull final RealVector queryVector) {
+    public static NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances(final Metric metric,
+                                                                               final List<PrimaryKeyAndVector> vectors,
+                                                                               final RealVector queryVector) {
         return orderedByDistances(metric::distance, vectors, queryVector);
     }
 
-    @Nonnull
-    public static NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances(@Nonnull final ToDoubleBiFunction<RealVector, RealVector> distanceFunction,
-                                                                               @Nonnull final List<PrimaryKeyAndVector> vectors,
-                                                                               @Nonnull final RealVector queryVector) {
+    public static NavigableSet<PrimaryKeyVectorAndDistance> orderedByDistances(final ToDoubleBiFunction<RealVector, RealVector> distanceFunction,
+                                                                               final List<PrimaryKeyAndVector> vectors,
+                                                                               final RealVector queryVector) {
         final TreeSet<PrimaryKeyVectorAndDistance> vectorsOrderedByDistance =
                 new TreeSet<>(Comparator.comparing(PrimaryKeyVectorAndDistance::distance)
                         .thenComparing(PrimaryKeyVectorAndDistance::primaryKey));
@@ -93,12 +88,10 @@ public final class CommonTestHelpers {
         return vectorsOrderedByDistance;
     }
 
-    @Nonnull
-    public static Tuple createRandomPrimaryKey(final @Nonnull Random random) {
+    public static Tuple createRandomPrimaryKey(final Random random) {
         return createPrimaryKey(random.nextLong());
     }
 
-    @Nonnull
     public static Tuple createPrimaryKey(final long nextId) {
         return Tuple.from(nextId);
     }
@@ -113,9 +106,8 @@ public final class CommonTestHelpers {
      *
      * @return a fresh perturbed vector
      */
-    @Nonnull
-    public static DoubleRealVector perturb(@Nonnull final DoubleRealVector base,
-                                           @Nonnull final RandomHelpers.GaussianSampler sampler,
+    public static DoubleRealVector perturb(final DoubleRealVector base,
+                                           final RandomHelpers.GaussianSampler sampler,
                                            final double sigma) {
         final double[] data = base.getData().clone();
         for (int i = 0; i < data.length; i++) {

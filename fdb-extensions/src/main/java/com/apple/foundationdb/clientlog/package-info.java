@@ -21,4 +21,7 @@
 /**
  * Utilities for interpreting events written to system keyspace.
  */
+@NullMarked
 package com.apple.foundationdb.clientlog;
+
+import org.jspecify.annotations.NullMarked;

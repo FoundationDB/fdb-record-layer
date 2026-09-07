@@ -47,8 +47,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -83,6 +82,15 @@ public class RTreeScanTest  {
     @Nullable
     private static Item[] items;
 
+    // Tuple.from(Object...) is from the unannotated fdb-java client library and genuinely supports a null
+    // element (RTree.Point.getCoordinate(d) is correctly declared @Nullable, since points can have null
+    // coordinates -- see RTreeModificationTest.randomInsertsWithNulls); the varargs parameter is treated
+    // as @NonNull by NullAway's defaults.
+    @SuppressWarnings("NullAway")
+    private static Tuple tupleFromNullable(@Nullable Object... elements) {
+        return Tuple.from(elements);
+    }
+
     @BeforeAll
     public static void setUpDb() {
         db = dbExtension.getDatabase();
@@ -96,7 +104,6 @@ public class RTreeScanTest  {
         items = ObjectArrays.concat(items1, items2, Item.class);
     }
 
-    @Nonnull
     public static Stream<Arguments> queries() {
         final Random random = new Random(1);
         final ImmutableList.Builder<Arguments> argumentsBuilder = ImmutableList.builder();
@@ -117,7 +124,7 @@ public class RTreeScanTest  {
 
     @ParameterizedTest
     @MethodSource("queries")
-    public void queryWithFilters(@Nonnull final RTree.Rectangle query) {
+    public void queryWithFilters(final RTree.Rectangle query) {
         final Predicate<RTree.Rectangle> mbrPredicate =
                 rectangle -> rectangle.isOverlapping(query);
 
@@ -157,7 +164,11 @@ public class RTreeScanTest  {
                 onReadCounters);
 
         final AtomicLong nresults = new AtomicLong(0L);
-        db.run(tr -> {
+        // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call
+        // returns null from the lambda; NullAway does not accept an explicit @Nullable type witness on this
+        // external, unannotated method either, so the suppression is scoped to this one declaration instead.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             AsyncUtil.forEachRemaining(rt.scan(tr, mbrPredicate, (s, l) -> true), itemSlot -> {
                 if (query.contains(itemSlot.getPosition())) {
                     nresults.incrementAndGet();
@@ -186,7 +197,7 @@ public class RTreeScanTest  {
     @SuppressWarnings({"UnstableApiUsage", "ResultOfMethodCallIgnored"})
     @ParameterizedTest
     @MethodSource("queries")
-    public void queryTopNWithFilters(@Nonnull final RTree.Rectangle query) {
+    public void queryTopNWithFilters(final RTree.Rectangle query) {
         final Comparator<Item> itemComparator =
                 Comparator.<Item>comparingLong(item -> item.getPoint().getCoordinates().getLong(0))
                         .thenComparing(Item::getKeySuffix);
@@ -194,9 +205,9 @@ public class RTreeScanTest  {
         final TopNTraversal topNTraversal = new TopNTraversal(query, 5);
 
         for (int i = 0; i < NUM_SAMPLES; ++i) {
-            final RTree.Point point = Objects.requireNonNull(items)[i].getPoint();
-            if (query.contains(point)) {
-                expectedResultsQueue.add(items[i]);
+            final Item item = Objects.requireNonNull(items)[i];
+            if (query.contains(item.getPoint())) {
+                expectedResultsQueue.add(item);
             }
         }
         final OnReadCounters onReadCounters = new OnReadCounters();
@@ -204,7 +215,9 @@ public class RTreeScanTest  {
                 RTreeHilbertCurveHelpers::hilbertValue, NodeHelpers::newSequentialNodeId, OnWriteListener.NOOP,
                 onReadCounters);
         final AtomicLong nresults = new AtomicLong(0L);
-        db.run(tr -> {
+        // See queryWithFilters() above for why this suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             final AsyncIterator<ItemSlot> scan = rt.scan(tr, topNTraversal, (s, l) -> true);
             AsyncUtil.forEachRemaining(scan, itemSlot -> {
                 if (query.contains(itemSlot.getPosition())) {
@@ -246,20 +259,17 @@ public class RTreeScanTest  {
                 Comparator.<ItemSlot>comparingLong(itemSlot -> itemSlot.getPosition().getCoordinates().getLong(0))
                         .thenComparing(ItemSlot::getKeySuffix);
 
-        @Nonnull
         private RTree.Rectangle query;
         private final int num;
-        @Nonnull
         private final MinMaxPriorityQueue<ItemSlot> queue;
 
         @SuppressWarnings("UnstableApiUsage")
-        public TopNTraversal(@Nonnull final RTree.Rectangle query, final int num) {
+        public TopNTraversal(final RTree.Rectangle query, final int num) {
             this.query = query;
             this.num = num;
             this.queue = MinMaxPriorityQueue.orderedBy(comparator).maximumSize(num).create();
         }
 
-        @Nonnull
         public MinMaxPriorityQueue<ItemSlot> getQueue() {
             return queue;
         }
@@ -269,7 +279,7 @@ public class RTreeScanTest  {
             return rectangle.isOverlapping(query);
         }
 
-        public void addItemSlot(@Nonnull final ItemSlot itemSlot) {
+        public void addItemSlot(final ItemSlot itemSlot) {
             queue.add(itemSlot);
 
             if (queue.size() == num) {
@@ -278,7 +288,7 @@ public class RTreeScanTest  {
                 if (comparator.compare(maximumItemSlot, itemSlot) >= 0) {
                     // maximum item slot must be somewhere between minX and maxX
                     final Tuple ranges = query.getRanges();
-                    final Tuple newRanges = Tuple.from(ranges.get(0), ranges.get(1), maximumItemSlot.getPosition().getCoordinate(0), ranges.get(3));
+                    final Tuple newRanges = tupleFromNullable(ranges.get(0), ranges.get(1), maximumItemSlot.getPosition().getCoordinate(0), ranges.get(3));
                     this.query = new RTree.Rectangle(newRanges);
                 }
             }
@@ -343,17 +353,17 @@ public class RTreeScanTest  {
         }
 
         @Override
-        public void onSlotIndexEntryRead(@Nonnull final byte[] key) {
+        public void onSlotIndexEntryRead(final byte[] key) {
             readSlotIndexEntryCounter.incrementAndGet();
         }
 
         @Override
-        public <T extends Node> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
+        public <T extends Node> CompletableFuture<T> onAsyncRead(final CompletableFuture<T> future) {
             return future;
         }
 
         @Override
-        public void onNodeRead(@Nonnull final Node node) {
+        public void onNodeRead(final Node node) {
             if (node.getKind() == NodeKind.LEAF) {
                 readLeafNodesCounter.incrementAndGet();
             } else {
@@ -363,7 +373,7 @@ public class RTreeScanTest  {
         }
 
         @Override
-        public void onKeyValueRead(@Nonnull final Node node, @Nonnull final byte[] key, @Nonnull final byte[] value) {
+        public void onKeyValueRead(final Node node, final byte[] key, final byte[] value) {
             if (node.getKind() == NodeKind.LEAF) {
                 readLeafKeyValueCounter.incrementAndGet();
                 readLeafKeyValueBytes.addAndGet(key.length + value.length);
@@ -461,18 +471,18 @@ public class RTreeScanTest  {
         }
 
         @Override
-        public void onSlotIndexEntryWritten(@Nonnull final byte[] key) {
+        public void onSlotIndexEntryWritten(final byte[] key) {
             slotIndexEntryWrittenCounter.incrementAndGet();
             slotIndexEntryWrittenBytes.addAndGet(key.length);
         }
 
         @Override
-        public void onSlotIndexEntryCleared(@Nonnull final byte[] key) {
+        public void onSlotIndexEntryCleared(final byte[] key) {
             slotIndexEntryClearedBytes.addAndGet(key.length);
         }
 
         @Override
-        public void onNodeWritten(@Nonnull final Node node) {
+        public void onNodeWritten(final Node node) {
             if (node.getKind() == NodeKind.LEAF) {
                 leafNodeWrittenCounter.incrementAndGet();
             } else {
@@ -482,7 +492,7 @@ public class RTreeScanTest  {
         }
 
         @Override
-        public void onKeyValueWritten(@Nonnull final Node node, @Nonnull final byte[] key, @Nonnull final byte[] value) {
+        public void onKeyValueWritten(final Node node, final byte[] key, final byte[] value) {
             if (node.getKind() == NodeKind.LEAF) {
                 leafKeyValueWrittenCounter.incrementAndGet();
                 leafKeyValueWrittenBytes.addAndGet(key.length + value.length);
@@ -494,7 +504,7 @@ public class RTreeScanTest  {
         }
 
         @Override
-        public void onKeyCleared(@Nonnull final Node node, @Nonnull final byte[] key) {
+        public void onKeyCleared(final Node node, final byte[] key) {
             if (node.getKind() == NodeKind.LEAF) {
                 leafKeyValueClearedBytes.addAndGet(key.length);
             } else {

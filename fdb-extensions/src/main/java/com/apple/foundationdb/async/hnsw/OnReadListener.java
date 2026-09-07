@@ -22,8 +22,7 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.async.common.OnKeyValueReadListener;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -43,7 +42,7 @@ public interface OnReadListener extends OnKeyValueReadListener {
      * @param value the value associated with the key, can be null if the key was not found
      */
     @SuppressWarnings("unused")
-    default void onKeyValueRead(final int layer, @Nonnull final byte[] key, @Nullable final byte[] value) {
+    default void onKeyValueRead(final int layer, final byte[] key, @Nullable final byte[] value) {
         onKeyValueRead(key, value);
     }
 
@@ -60,7 +59,7 @@ public interface OnReadListener extends OnKeyValueReadListener {
      *         By default, this is the same future that was passed as an argument.
      */
     @SuppressWarnings("unused")
-    default <N extends NodeReference, T extends Node<N>> CompletableFuture<T> onAsyncRead(@Nonnull CompletableFuture<T> future) {
+    default <N extends NodeReference, T extends Node<N>> CompletableFuture<T> onAsyncRead(CompletableFuture<T> future) {
         return future;
     }
 
@@ -73,7 +72,7 @@ public interface OnReadListener extends OnKeyValueReadListener {
      * @param node the {@link Node} that was just read (guaranteed to be non-null).
      */
     @SuppressWarnings("unused")
-    default void onNodeRead(int layer, @Nonnull Node<? extends NodeReference> node) {
+    default void onNodeRead(int layer, Node<? extends NodeReference> node) {
         // nothing
     }
 }

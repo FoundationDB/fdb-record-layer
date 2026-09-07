@@ -30,8 +30,7 @@ import com.google.common.base.Verify;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -45,21 +44,14 @@ import java.util.concurrent.CompletableFuture;
  * @param <N> the type of {@link NodeReference} used to reference nodes in the graph
  */
 abstract class AbstractStorageAdapter<N extends NodeReference> implements StorageAdapter<N> {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(AbstractStorageAdapter.class);
 
-    @Nonnull
     private final Config config;
-    @Nonnull
     private final NodeFactory<N> nodeFactory;
-    @Nonnull
     private final Subspace subspace;
-    @Nonnull
     private final OnWriteListener onWriteListener;
-    @Nonnull
     private final OnReadListener onReadListener;
 
-    @Nonnull
     private final Subspace dataSubspace;
 
     /**
@@ -75,10 +67,10 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * @param onWriteListener the listener to be called on write operations
      * @param onReadListener the listener to be called on read operations
      */
-    protected AbstractStorageAdapter(@Nonnull final Config config, @Nonnull final NodeFactory<N> nodeFactory,
-                                     @Nonnull final Subspace subspace,
-                                     @Nonnull final OnWriteListener onWriteListener,
-                                     @Nonnull final OnReadListener onReadListener) {
+    protected AbstractStorageAdapter(final Config config, final NodeFactory<N> nodeFactory,
+                                     final Subspace subspace,
+                                     final OnWriteListener onWriteListener,
+                                     final OnReadListener onReadListener) {
         this.config = config;
         this.nodeFactory = nodeFactory;
         this.subspace = subspace;
@@ -88,12 +80,10 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
     }
 
     @Override
-    @Nonnull
     public Config getConfig() {
         return config;
     }
 
-    @Nonnull
     @Override
     public NodeFactory<N> getNodeFactory() {
         return nodeFactory;
@@ -106,7 +96,6 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
         return isInliningStorageAdapter;
     }
 
-    @Nonnull
     @Override
     public InliningStorageAdapter asInliningStorageAdapter() {
         Verify.verify(isInliningStorageAdapter());
@@ -120,7 +109,6 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
         return isCompactStorageAdapter;
     }
 
-    @Nonnull
     @Override
     public CompactStorageAdapter asCompactStorageAdapter() {
         Verify.verify(isCompactStorageAdapter());
@@ -128,7 +116,6 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
     }
 
     @Override
-    @Nonnull
     public Subspace getSubspace() {
         return subspace;
     }
@@ -142,28 +129,24 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * @return the non-null {@link Subspace} for the data
      */
     @Override
-    @Nonnull
     public Subspace getDataSubspace() {
         return dataSubspace;
     }
 
     @Override
-    @Nonnull
     public OnWriteListener getOnWriteListener() {
         return onWriteListener;
     }
 
     @Override
-    @Nonnull
     public OnReadListener getOnReadListener() {
         return onReadListener;
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<AbstractNode<N>> fetchNode(@Nonnull final ReadTransaction readTransaction,
-                                                        @Nonnull final StorageTransform storageTransform,
-                                                        final int layer, @Nonnull Tuple primaryKey) {
+    public CompletableFuture<AbstractNode<N>> fetchNode(final ReadTransaction readTransaction,
+                                                        final StorageTransform storageTransform,
+                                                        final int layer, Tuple primaryKey) {
         return fetchNodeInternal(readTransaction, storageTransform, layer, primaryKey).thenApply(this::checkNode);
     }
 
@@ -183,10 +166,9 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * @return a {@link CompletableFuture} that will be completed with the fetched {@link AbstractNode}.
      *         The future will complete with {@code null} if no node is found for the given key and layer.
      */
-    @Nonnull
-    protected abstract CompletableFuture<AbstractNode<N>> fetchNodeInternal(@Nonnull ReadTransaction readTransaction,
-                                                                            @Nonnull StorageTransform storageTransform,
-                                                                            int layer, @Nonnull Tuple primaryKey);
+    protected abstract CompletableFuture<AbstractNode<N>> fetchNodeInternal(ReadTransaction readTransaction,
+                                                                            StorageTransform storageTransform,
+                                                                            int layer, Tuple primaryKey);
 
     /**
      * Method to perform basic invariant check(s) on a newly-fetched node.
@@ -218,9 +200,9 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * to the node's neighbors
      */
     @Override
-    public void writeNode(@Nonnull final Transaction transaction, @Nonnull final Quantizer quantizer,
-                          final int layer, @Nonnull final AbstractNode<N> node,
-                          @Nonnull final NeighborsChangeSet<N> changeSet) {
+    public void writeNode(final Transaction transaction, final Quantizer quantizer,
+                          final int layer, final AbstractNode<N> node,
+                          final NeighborsChangeSet<N> changeSet) {
         writeNodeInternal(transaction, quantizer, layer, node, changeSet);
         if (logger.isTraceEnabled()) {
             logger.trace("written node with key={} at layer={}", node.getPrimaryKey(), layer);
@@ -242,12 +224,12 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * @param changeSet the non-null {@link NeighborsChangeSet} detailing additions or
      * removals of neighbor links
      */
-    protected abstract void writeNodeInternal(@Nonnull Transaction transaction, @Nonnull Quantizer quantizer,
-                                              int layer, @Nonnull AbstractNode<N> node,
-                                              @Nonnull NeighborsChangeSet<N> changeSet);
+    protected abstract void writeNodeInternal(Transaction transaction, Quantizer quantizer,
+                                              int layer, AbstractNode<N> node,
+                                              NeighborsChangeSet<N> changeSet);
 
     @Override
-    public void deleteNode(@Nonnull final Transaction transaction, final int layer, @Nonnull final Tuple primaryKey) {
+    public void deleteNode(final Transaction transaction, final int layer, final Tuple primaryKey) {
         deleteNodeInternal(transaction, layer, primaryKey);
         if (logger.isTraceEnabled()) {
             logger.trace("deleted node with key={} at layer={}", primaryKey, layer);
@@ -260,5 +242,5 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
      * @param layer the layer
      * @param primaryKey the primary key of the node
      */
-    protected abstract void deleteNodeInternal(@Nonnull Transaction transaction, int layer, @Nonnull Tuple primaryKey);
+    protected abstract void deleteNodeInternal(Transaction transaction, int layer, Tuple primaryKey);
 }

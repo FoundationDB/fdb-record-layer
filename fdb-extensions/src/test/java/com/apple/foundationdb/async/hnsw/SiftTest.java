@@ -57,7 +57,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
@@ -93,25 +92,24 @@ class SiftTest implements BaseTest {
     static final TestClassSubspaceExtension rtSecondarySubspace = new TestClassSubspaceExtension(dbExtension);
 
     @TempDir
+    // Injected by JUnit's TempDirectory extension before each test; NullAway cannot see framework injection.
+    @SuppressWarnings("NullAway")
     Path tempDir;
 
     private static Database db;
     private static HNSW hnsw;
     private static List<PrimaryKeyAndVector> insertedData;
 
-    @Nonnull
     @Override
     public Database getDb() {
         return Objects.requireNonNull(db);
     }
 
-    @Nonnull
     @Override
     public Subspace getSubspace() {
         return subspaceExtension.getSubspace();
     }
 
-    @Nonnull
     @Override
     public Path getTempDir() {
         return tempDir;
@@ -276,7 +274,6 @@ class SiftTest implements BaseTest {
                         quality -> assertThat(quality.getContigScore()).isGreaterThan(0.9));
     }
 
-    @Nonnull
     private static RealVector readQuery(final int queryIndex) throws IOException {
         final RealVector queryVector;
         final Path siftSmallQueryPath = Paths.get(".out/extracted/siftsmall/siftsmall_query.fvecs");

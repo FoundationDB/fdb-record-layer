@@ -22,8 +22,7 @@ package com.apple.foundationdb.async.rtree;
 
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Collections;
@@ -53,7 +52,6 @@ public class NodeHelpers {
      * production to avoid conflicts.
      * @return a new 16-byte byte array containing a new unique node identifier
      */
-    @Nonnull
     public static byte[] newRandomNodeId() {
         final UUID uuid = UUID.randomUUID();
         final byte[] uuidBytes = new byte[nodeIdLength];
@@ -70,7 +68,6 @@ public class NodeHelpers {
      * or logged. This way of creating node identifiers should only be used for testing and debugging purposes.
      * @return a new 16-byte byte array containing a new unique node identifier
      */
-    @Nonnull
     static byte[] newSequentialNodeId() {
         final long nodeIdAsLong = nodeIdState.getAndIncrement();
         final byte[] uuidBytes = new byte[nodeIdLength];
@@ -86,7 +83,6 @@ public class NodeHelpers {
      * @param bytes an array of bytes
      * @return a {@link String} containing the hexadecimal representation of the byte array passed in
      */
-    @Nonnull
     static String bytesToHex(byte[] bytes) {
         char[] hexChars = new char[bytes.length * 2];
         for (int j = 0; j < bytes.length; j++) {
@@ -102,7 +98,6 @@ public class NodeHelpers {
      * @param node a node that is usually linked up to its parents to form an insert/update path
      * @return a {@link String} containing the string presentation of the insert/update path starting at {@code node}
      */
-    @Nonnull
     static String nodeIdPath(@Nullable Node node) {
         final List<String> nodeIds = Lists.newArrayList();
         do {
@@ -123,8 +118,7 @@ public class NodeHelpers {
      * @param slots an {@link Iterable} of slots
      * @return a {@link RTree.Rectangle} representing the mbr of the {@link RTree.Point}s of the given slots.
      */
-    @Nonnull
-    static RTree.Rectangle computeMbr(@Nonnull final Iterable<? extends NodeSlot> slots) {
+    static RTree.Rectangle computeMbr(final Iterable<? extends NodeSlot> slots) {
         RTree.Rectangle mbr = null;
         for (final NodeSlot slot : slots) {
             if (slot instanceof ItemSlot) {

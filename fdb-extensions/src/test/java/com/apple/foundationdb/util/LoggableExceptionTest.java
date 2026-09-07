@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.util;
 
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Collections;
@@ -40,7 +41,11 @@ public class LoggableExceptionTest {
     @Test
     public void emptyLogInfo() {
         LoggableException e = new LoggableException("this has no k/v pairs");
-        Map<String, Object> logInfo = e.getLogInfo();
+        // NullAway does not reliably read @Nullable on nested generic type arguments
+        // (Map<String, @Nullable Object>) from LoggableException's already-compiled classfile, even though
+        // the annotation is correctly present there (confirmed via javap -v's RuntimeVisibleTypeAnnotations).
+        @SuppressWarnings("NullAway")
+        Map<String, @Nullable Object> logInfo = e.getLogInfo();
         assertNotNull(logInfo);
         assertEquals(Collections.emptyMap(), logInfo);
         Object[] logInfoArray = e.exportLogInfo();
@@ -52,7 +57,11 @@ public class LoggableExceptionTest {
     public void oneLogInfo() {
         LoggableException e = new LoggableException("this has one k/v pair")
                 .addLogInfo("key", "value");
-        Map<String, Object> logInfo = e.getLogInfo();
+        // NullAway does not reliably read @Nullable on nested generic type arguments
+        // (Map<String, @Nullable Object>) from LoggableException's already-compiled classfile, even though
+        // the annotation is correctly present there (confirmed via javap -v's RuntimeVisibleTypeAnnotations).
+        @SuppressWarnings("NullAway")
+        Map<String, @Nullable Object> logInfo = e.getLogInfo();
         assertNotNull(logInfo);
         assertEquals(Collections.singletonMap("key", "value"), logInfo);
         Object[] logInfoArray = e.exportLogInfo();
@@ -67,7 +76,11 @@ public class LoggableExceptionTest {
         expectedLogInfo.put("k1", "v1");
         expectedLogInfo.put("k2", "v2");
         LoggableException e = new LoggableException("this has multiple k/v pairs", "k0", "v0", "k1", "v1", "k2", "v2");
-        Map<String, Object> logInfo = e.getLogInfo();
+        // NullAway does not reliably read @Nullable on nested generic type arguments
+        // (Map<String, @Nullable Object>) from LoggableException's already-compiled classfile, even though
+        // the annotation is correctly present there (confirmed via javap -v's RuntimeVisibleTypeAnnotations).
+        @SuppressWarnings("NullAway")
+        Map<String, @Nullable Object> logInfo = e.getLogInfo();
         assertNotNull(logInfo);
         assertEquals(expectedLogInfo, logInfo);
         Object[] logInfoArray = e.exportLogInfo();

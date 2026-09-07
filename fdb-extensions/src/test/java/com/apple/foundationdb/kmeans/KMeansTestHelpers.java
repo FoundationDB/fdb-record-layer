@@ -30,7 +30,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
@@ -61,7 +60,6 @@ final class KMeansTestHelpers {
      * {@link DoubleRealVector}s. The file is produced by the {@code extractSiftSmall} gradle task,
      * which {@code test} depends on.
      */
-    @Nonnull
     static List<DoubleRealVector> loadSiftSmall() throws IOException {
         final Path siftSmallPath = Paths.get(".out/extracted/siftsmall/siftsmall_base.fvecs");
         try (var fileChannel = FileChannel.open(siftSmallPath, StandardOpenOption.READ)) {
@@ -79,9 +77,8 @@ final class KMeansTestHelpers {
     /**
      * Picks {@code n} distinct random elements from {@code items} using {@code random}.
      */
-    @Nonnull
-    static <T> List<T> pickRandomSubset(@Nonnull final Random random,
-                                        @Nonnull final List<T> items,
+    static <T> List<T> pickRandomSubset(final Random random,
+                                        final List<T> items,
                                         final int n) {
         Verify.verify(n <= items.size(), "cannot pick %s elements from a list of size %s", n, items.size());
         final List<T> remaining = Lists.newArrayList(items);
@@ -96,8 +93,7 @@ final class KMeansTestHelpers {
      * Returns the L2-normalized form of every input vector. Useful for cosine-metric tests where
      * the algorithm and the asserted invariants assume unit-norm centroids.
      */
-    @Nonnull
-    static List<RealVector> normalizeAll(@Nonnull final List<? extends RealVector> vectors) {
+    static List<RealVector> normalizeAll(final List<? extends RealVector> vectors) {
         final ImmutableList.Builder<RealVector> b = ImmutableList.builderWithExpectedSize(vectors.size());
         for (final RealVector v : vectors) {
             b.add(v.normalize());
@@ -105,9 +101,8 @@ final class KMeansTestHelpers {
         return b.build();
     }
 
-    @Nonnull
-    static RealVector gaussianND(@Nonnull final SplittableRandom random,
-                                 @Nonnull final RealVector mean,
+    static RealVector gaussianND(final SplittableRandom random,
+                                 final RealVector mean,
                                  final double sigma) {
         final RandomHelpers.GaussianSampler sampler = new RandomHelpers.GaussianSampler(random);
         final int d = mean.getNumDimensions();
@@ -119,9 +114,8 @@ final class KMeansTestHelpers {
         return new DoubleRealVector(v);
     }
 
-    @Nonnull
-    static RealVector noisyUnitVector(@Nonnull final SplittableRandom random,
-                                      @Nonnull final RealVector meanUnitVector,
+    static RealVector noisyUnitVector(final SplittableRandom random,
+                                      final RealVector meanUnitVector,
                                       final double sigma) {
         return gaussianND(random, meanUnitVector, sigma).normalize();
     }
@@ -131,9 +125,9 @@ final class KMeansTestHelpers {
      * Euclidean and cosine distance for cosine. {@link KMeans.Result#getDistances()} entries
      * and {@link KMeans.Result#getObjective()} are sums of this quantity.
      */
-    static double baseObjective(@Nonnull final DistanceEstimator distanceEstimator,
-                                @Nonnull final RealVector v,
-                                @Nonnull final RealVector c) {
+    static double baseObjective(final DistanceEstimator distanceEstimator,
+                                final RealVector v,
+                                final RealVector c) {
         switch (distanceEstimator.getMetric()) {
             case EUCLIDEAN_METRIC: {
                 final double d = distanceEstimator.distance(v, c);
@@ -166,10 +160,10 @@ final class KMeansTestHelpers {
      *       reassignment pass, so this holds regardless of how the main loop exited.</li>
      * </ul>
      */
-    static void assertKMeansInvariants(@Nonnull final KMeans.Result<RealVector> result,
-                                       @Nonnull final List<? extends RealVector> vectors,
+    static void assertKMeansInvariants(final KMeans.Result<RealVector> result,
+                                       final List<? extends RealVector> vectors,
                                        final int k,
-                                       @Nonnull final DistanceEstimator distanceEstimator,
+                                       final DistanceEstimator distanceEstimator,
                                        final double lambda) {
         final int n = vectors.size();
         final int[] assignment = result.assignment();

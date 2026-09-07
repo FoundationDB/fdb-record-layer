@@ -28,8 +28,7 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Preconditions;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Record class that wraps the results of a kNN-search.
@@ -47,7 +46,7 @@ import javax.annotation.Nullable;
  * @param distance The distance of item's vector to the query vector.
  * @param rankOrRowNumber The row number of the item. TODO support rank.
  */
-public record ResultEntry(@Nonnull Tuple primaryKey, @Nullable RealVector vector, @Nullable Tuple additionalValues,
+public record ResultEntry(Tuple primaryKey, @Nullable RealVector vector, @Nullable Tuple additionalValues,
                           double distance, int rankOrRowNumber) {
     public ResultEntry {
         if (vector != null) {
@@ -59,7 +58,6 @@ public record ResultEntry(@Nonnull Tuple primaryKey, @Nullable RealVector vector
         }
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return "[" +

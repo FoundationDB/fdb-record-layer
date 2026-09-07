@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.guardiann;
 
 import com.google.common.base.Preconditions;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Map;
@@ -44,11 +43,11 @@ import java.util.stream.Collectors;
  *        number of primary vectors
  * @param states the set of maintenance operations currently in flight for this cluster
  */
-record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, int numReplicatedVectors,
-                       @Nonnull RunningStats runningStandardDeviation, @Nonnull EnumSet<State> states) {
-    public ClusterMetadata(@Nonnull final UUID id, final int numPrimaryUnderreplicatedVectors,
+record ClusterMetadata(UUID id, int numPrimaryUnderreplicatedVectors, int numReplicatedVectors,
+                       RunningStats runningStandardDeviation, EnumSet<State> states) {
+    public ClusterMetadata(final UUID id, final int numPrimaryUnderreplicatedVectors,
                            final int numReplicatedVectors,
-                           @Nonnull final RunningStats runningStandardDeviation, final int stateCode) {
+                           final RunningStats runningStandardDeviation, final int stateCode) {
         this(id, numPrimaryUnderreplicatedVectors, numReplicatedVectors, runningStandardDeviation,
                 State.ofCode(stateCode));
     }
@@ -77,35 +76,31 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
         return result;
     }
 
-    @Nonnull
     public ClusterMetadata withNewVectors(final int numPrimaryUnderreplicatedVectors,
                                           final int numReplicatedVectors,
-                                          @Nonnull final RunningStats newStandardDeviation,
-                                          @Nonnull final EnumSet<State> states) {
+                                          final RunningStats newStandardDeviation,
+                                          final EnumSet<State> states) {
         final EnumSet<State> newStates = EnumSet.copyOf(states);
         return new ClusterMetadata(id(), numPrimaryUnderreplicatedVectors, numReplicatedVectors,
                 newStandardDeviation, newStates);
     }
 
-    @Nonnull
     public ClusterMetadata withAdditionalVectors(final int numPrimaryUnderreplicatedVectorsAdded,
                                                  final int numReplicatedVectorsAdded,
-                                                 @Nonnull final RunningStats newStandardDeviation) {
+                                                 final RunningStats newStandardDeviation) {
         return withAdditionalVectorsAndStates(numPrimaryUnderreplicatedVectorsAdded,
                 numReplicatedVectorsAdded, newStandardDeviation, EnumSet.noneOf(State.class));
     }
 
-    @Nonnull
-    public ClusterMetadata withNewStates(@Nonnull final EnumSet<State> newStates) {
+    public ClusterMetadata withNewStates(final EnumSet<State> newStates) {
         return new ClusterMetadata(id(), numPrimaryUnderreplicatedVectors(), numReplicatedVectors(),
                 runningStandardDeviation(), newStates);
     }
 
-    @Nonnull
     public ClusterMetadata withAdditionalVectorsAndStates(final int numPrimaryUnderreplicatedVectorsAdded,
                                                           final int numReplicatedVectorsAdded,
-                                                          @Nonnull final RunningStats newStandardDeviation,
-                                                          @Nonnull final EnumSet<State> additionalStates) {
+                                                          final RunningStats newStandardDeviation,
+                                                          final EnumSet<State> additionalStates) {
         final EnumSet<State> newStates = EnumSet.copyOf(states());
         newStates.addAll(additionalStates);
         return new ClusterMetadata(id(),
@@ -115,7 +110,6 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
     }
 
     @Override
-    @Nonnull
     public String toString() {
         return "CM[id=" + id() +
                 ", numPrimaryVectors=" + getNumPrimaryVectors() +

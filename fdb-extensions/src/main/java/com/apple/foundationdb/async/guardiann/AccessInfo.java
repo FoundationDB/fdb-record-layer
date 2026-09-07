@@ -25,8 +25,7 @@ import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.FhtKacRotator;
 import com.apple.foundationdb.linear.RealVector;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 /**
@@ -69,7 +68,6 @@ record AccessInfo(long rotatorSeed, @Nullable RealVector negatedCentroid) {
      * before accessing this field.
      * @return a vector which is the negated centroid used for translation
      */
-    @Nonnull
     public RealVector negatedCentroid() {
         return Objects.requireNonNull(negatedCentroid);
     }
@@ -85,7 +83,6 @@ record AccessInfo(long rotatorSeed, @Nullable RealVector negatedCentroid) {
         return negatedCentroid != null;
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return "AccessInfo[" +

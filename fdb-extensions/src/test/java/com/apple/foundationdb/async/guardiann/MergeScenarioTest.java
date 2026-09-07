@@ -40,7 +40,6 @@ import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -91,25 +90,24 @@ public class MergeScenarioTest implements BaseTest {
     static final TestClassSubspaceExtension subspaceExtension = new TestClassSubspaceExtension(dbExtension);
 
     @TempDir
+    // Injected by JUnit's TempDirectory extension before each test; NullAway cannot see framework injection.
+    @SuppressWarnings("NullAway")
     Path tempDir;
 
     private static Database db;
     private static Guardiann guardiann;
     private static TestHelpers.TestOnWriteListener onWriteListener;
 
-    @Nonnull
     @Override
     public Database getDb() {
         return Objects.requireNonNull(db);
     }
 
-    @Nonnull
     @Override
     public Subspace getSubspace() {
         return subspaceExtension.getSubspace();
     }
 
-    @Nonnull
     @Override
     public Path getTempDir() {
         return tempDir;
@@ -157,7 +155,11 @@ public class MergeScenarioTest implements BaseTest {
         for (int i = 0; i < NUM_NEAR_DUPLICATES; i++) {
             final DoubleRealVector perturbed = CommonTestHelpers.perturb(base, sampler, PERTURBATION_SIGMA);
             final Tuple pk = CommonTestHelpers.createPrimaryKey(i);
-            db.run(tr -> {
+            // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call
+            // returns null from the lambda; NullAway does not accept an explicit @Nullable type witness on this
+            // external, unannotated method either, so the suppression is scoped to this one declaration instead.
+            @SuppressWarnings("NullAway")
+            final Void ignored = db.run(tr -> {
                 guardiann.insert(tr, pk, perturbed, null, true).join();
                 return null;
             });
@@ -165,7 +167,7 @@ public class MergeScenarioTest implements BaseTest {
         }
         GuardiannStructureAsserts.runToQuiescence(db, guardiann);
 
-        final StructureSnapshot afterInsert = GuardiannStructureAsserts.snapshotStructure(db, guardiann);
+        final StructureSnapshot afterInsert = Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann));
         assertThat(afterInsert)
                 .as("structure snapshot must be non-null after inserts")
                 .isNotNull();
@@ -198,7 +200,7 @@ public class MergeScenarioTest implements BaseTest {
         // Deletes can leave dangling replicas, so use the after-deletes invariant variant.
         GuardiannStructureAsserts.assertGuardiannInvariantsAfterDeletes(db, guardiann);
 
-        final StructureSnapshot afterDelete = GuardiannStructureAsserts.snapshotStructure(db, guardiann);
+        final StructureSnapshot afterDelete = Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann));
         assertThat(afterDelete)
                 .as("structure snapshot must be non-null after deletes")
                 .isNotNull();
@@ -207,7 +209,7 @@ public class MergeScenarioTest implements BaseTest {
                 .isEqualTo(REMAINING_AFTER_DELETE);
     }
 
-    private void deleteRecords(@Nonnull final List<PrimaryKeyAndVector> records) throws Exception {
+    private void deleteRecords(final List<PrimaryKeyAndVector> records) throws Exception {
         TestHelpers.deleteToCompletion(getDb(), guardiann, records);
     }
 }

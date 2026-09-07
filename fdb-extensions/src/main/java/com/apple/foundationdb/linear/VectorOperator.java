@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.linear;
 
-import javax.annotation.Nonnull;
 
 /**
  * Interface that represents the root of all linear and affine operators including matrices. A vector operator can
@@ -44,24 +43,21 @@ public interface VectorOperator {
      * @param vector the vector
      * @return a new vector
      */
-    @Nonnull
-    RealVector apply(@Nonnull RealVector vector);
+    RealVector apply(RealVector vector);
 
     /**
      * Apply the inverted operator to the vector passed in. {@code applyInverted(apply(v)) == v} should hold.
      * @param vector the vector
      * @return a new vector
      */
-    @Nonnull
-    RealVector invertedApply(@Nonnull RealVector vector);
+    RealVector invertedApply(RealVector vector);
 
     /**
      * Applies the operator to the vector that is passed in and creates a `Transformed` wrapper wrapping the result.
      * @param vector the vector
      * @return a {@link Transformed}-wrapped result
      */
-    @Nonnull
-    default Transformed<RealVector> transform(@Nonnull final RealVector vector) {
+    default Transformed<RealVector> transform(final RealVector vector) {
         return Transformed.underlyingLens().identityTransform(apply(vector));
     }
 
@@ -71,8 +67,7 @@ public interface VectorOperator {
      * @param vector the vector
      * @return a {@link Transformed}-wrapped result
      */
-    @Nonnull
-    default RealVector untransform(@Nonnull final Transformed<RealVector> vector) {
+    default RealVector untransform(final Transformed<RealVector> vector) {
         return invertedApply(vector.getUnderlyingVector());
     }
 }

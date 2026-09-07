@@ -27,14 +27,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.Random;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.within;
 
 class FhtKacRotatorTest {
-    @Nonnull
     private static Stream<Arguments> randomSeedsWithNumDimensions() {
         return RandomizedTestUtils.randomSeeds(0xdeadc0deL, 0xfdb5ca1eL, 0xf005ba1L)
                 .flatMap(seed -> ImmutableSet.of(3, 5, 10, 128, 768, 1000).stream()

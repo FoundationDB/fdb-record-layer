@@ -23,7 +23,6 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -37,9 +36,7 @@ import java.util.List;
  *        references
  */
 class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
-    @Nonnull
     private final T nodeReference;
-    @Nonnull
     private final AbstractNode<N> node;
 
     /**
@@ -49,8 +46,8 @@ class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
      *        {@code null}.
      * @param node the actual {@link AbstractNode} object that the reference points to. Must not be {@code null}.
      */
-    public NodeReferenceAndNode(@Nonnull final T nodeReference,
-                                @Nonnull final AbstractNode<N> node) {
+    public NodeReferenceAndNode(final T nodeReference,
+                                final AbstractNode<N> node) {
         this.nodeReference = nodeReference;
         this.node = node;
     }
@@ -59,7 +56,6 @@ class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
      * Gets the node reference and its associated distance.
      * @return the non-null {@link NodeReferenceWithDistance} object.
      */
-    @Nonnull
     public T getNodeReference() {
         return nodeReference;
     }
@@ -68,7 +64,6 @@ class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
      * Gets the underlying node represented by this object.
      * @return the associated {@link Node} instance, never {@code null}.
      */
-    @Nonnull
     public AbstractNode<N> getNode() {
         return node;
     }
@@ -84,8 +79,7 @@ class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
      *        references.
      * @return a {@link List} of {@link NodeReferenceAndNode}s
      */
-    @Nonnull
-    public static <T extends NodeReferenceWithVector> List<T> references(@Nonnull List<? extends NodeReferenceAndNode<T, ?>> referencesAndNodes) {
+    public static <T extends NodeReferenceWithVector> List<T> references(List<? extends NodeReferenceAndNode<T, ?>> referencesAndNodes) {
         final ImmutableList.Builder<T> referencesBuilder = ImmutableList.builder();
         for (final NodeReferenceAndNode<T, ?> referenceWithNode : referencesAndNodes) {
             referencesBuilder.add(referenceWithNode.getNodeReference());
@@ -99,8 +93,7 @@ class NodeReferenceAndNode<T extends NodeReference, N extends NodeReference> {
      *        primary keys.
      * @return a {@link List} of {@link Tuple}s
      */
-    @Nonnull
-    public static List<Tuple> primaryKeys(@Nonnull List<? extends NodeReferenceAndNode<?, ?>> referencesAndNodes) {
+    public static List<Tuple> primaryKeys(List<? extends NodeReferenceAndNode<?, ?>> referencesAndNodes) {
         final ImmutableList.Builder<Tuple> referencesBuilder = ImmutableList.builder();
         for (final NodeReferenceAndNode<?, ?> referenceWithNode : referencesAndNodes) {
             referencesBuilder.add(referenceWithNode.getNodeReference().getPrimaryKey());

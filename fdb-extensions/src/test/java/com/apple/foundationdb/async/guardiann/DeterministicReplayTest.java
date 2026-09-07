@@ -47,7 +47,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -113,23 +112,22 @@ public class DeterministicReplayTest implements BaseTest {
     final TestSubspaceExtension subspaceExtension = new TestSubspaceExtension(dbExtension);
 
     @TempDir
+    // Injected by JUnit's TempDirectory extension before each test; NullAway cannot see framework injection.
+    @SuppressWarnings("NullAway")
     Path tempDir;
 
     private static Database db;
 
-    @Nonnull
     @Override
     public Database getDb() {
         return Objects.requireNonNull(db);
     }
 
-    @Nonnull
     @Override
     public Subspace getSubspace() {
         return subspaceExtension.getSubspace();
     }
 
-    @Nonnull
     @Override
     public Path getTempDir() {
         return tempDir;
@@ -140,7 +138,6 @@ public class DeterministicReplayTest implements BaseTest {
         db = dbExtension.getDatabase();
     }
 
-    @Nonnull
     private static Stream<Long> seeds() {
         return RandomizedTestUtils.randomSeeds(0xC0FFEEL, 0xDEADBEEFL, 0x5EED1234L);
     }
@@ -209,10 +206,9 @@ public class DeterministicReplayTest implements BaseTest {
      *
      * @return the captures taken after the insert phase and after the delete phase
      */
-    @Nonnull
-    private RunResult replay(@Nonnull final String runName,
-                             @Nonnull final List<PrimaryKeyAndVector> inserts,
-                             @Nonnull final List<PrimaryKeyAndVector> deletes) {
+    private RunResult replay(final String runName,
+                             final List<PrimaryKeyAndVector> inserts,
+                             final List<PrimaryKeyAndVector> deletes) {
         final Subspace runSubspace = getSubspace().subspace(Tuple.from(runName));
         final Config config = Guardiann.newConfigBuilder()
                 .setUseRaBitQ(true)
@@ -235,7 +231,11 @@ public class DeterministicReplayTest implements BaseTest {
 
         onWriteListener.pushFrame();
         for (final PrimaryKeyAndVector op : inserts) {
-            db.run(transaction -> {
+            // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call
+            // returns null from the lambda; NullAway does not accept an explicit @Nullable type witness on this
+            // external, unannotated method either, so the suppression is scoped to this one declaration instead.
+            @SuppressWarnings("NullAway")
+            final Void ignored = db.run(transaction -> {
                 guardiann.insert(transaction, op.primaryKey(), op.vector(), null, true).join();
                 return null;
             });
@@ -248,7 +248,9 @@ public class DeterministicReplayTest implements BaseTest {
 
         onWriteListener.pushFrame();
         for (final PrimaryKeyAndVector op : deletes) {
-            db.run(transaction -> {
+            // See the insert loop above for why this suppression is needed.
+            @SuppressWarnings("NullAway")
+            final Void ignored = db.run(transaction -> {
                 guardiann.delete(transaction, op.primaryKey(), op.vector(), true).join();
                 return null;
             });
@@ -263,16 +265,15 @@ public class DeterministicReplayTest implements BaseTest {
     }
 
     /** Snapshots the cluster topology and dumps the raw stored state for the run's subspace. */
-    @Nonnull
-    private Capture capture(@Nonnull final Guardiann guardiann, @Nonnull final Subspace runSubspace) {
+    private Capture capture(final Guardiann guardiann, final Subspace runSubspace) {
         final StructureSnapshot snapshot = GuardiannStructureAsserts.snapshotStructure(db, guardiann);
         Verify.verifyNotNull(snapshot, "structure must be non-empty");
         return new Capture(snapshot.numClusters(), snapshot.totalPrimaries(), snapshot.totalReplicas(),
                 snapshot.totalCollapsedRefs(), clusterFingerprint(snapshot), dump(runSubspace));
     }
 
-    private static void logComparison(final long seed, @Nonnull final String phase,
-                                      @Nonnull final Capture a, @Nonnull final Capture b) {
+    private static void logComparison(final long seed, final String phase,
+                                      final Capture a, final Capture b) {
         logger.info("seed={} {}: comparing run-a/run-b — clusters={}/{}, primaries={}/{}, replicas={}/{}, "
                         + "collapsed={}/{}, storedKeys={}/{}",
                 String.format("%#x", seed), phase,
@@ -288,8 +289,7 @@ public class DeterministicReplayTest implements BaseTest {
      * integer vector counts, its states, and the sorted ids of its primary / replica / collapsed members. The
      * centroid and running statistics (both floating point) are intentionally excluded so the comparison is exact.
      */
-    @Nonnull
-    private static Map<UUID, String> clusterFingerprint(@Nonnull final StructureSnapshot snapshot) {
+    private static Map<UUID, String> clusterFingerprint(final StructureSnapshot snapshot) {
         final Map<UUID, String> fingerprint = new TreeMap<>();
         for (final ClusterView cv : snapshot.clusters().values()) {
             final ClusterMetadata metadata = cv.metadata();
@@ -305,8 +305,7 @@ public class DeterministicReplayTest implements BaseTest {
         return fingerprint;
     }
 
-    @Nonnull
-    private static String sortedIds(@Nonnull final Set<VectorId> ids) {
+    private static String sortedIds(final Set<VectorId> ids) {
         return ids.stream().map(VectorId::toString).sorted().collect(Collectors.joining(","));
     }
 
@@ -314,8 +313,7 @@ public class DeterministicReplayTest implements BaseTest {
      * Dumps every key/value stored under the run's subspace, keyed by the printable subspace-relative key (the
      * subspace prefix is stripped so the two runs' dumps are directly comparable).
      */
-    @Nonnull
-    private Map<String, String> dump(@Nonnull final Subspace runSubspace) {
+    private Map<String, String> dump(final Subspace runSubspace) {
         final byte[] prefix = runSubspace.pack();
         return db.run(transaction -> {
             final List<KeyValue> keyValues =
@@ -334,7 +332,6 @@ public class DeterministicReplayTest implements BaseTest {
      * Generates the insert workload from the seed: {@link #NUM_INSERTS} vectors, each a Gaussian perturbation of one
      * of {@link #NUM_BASES} distinct SIFT base vectors chosen by the seeded random.
      */
-    @Nonnull
     private List<PrimaryKeyAndVector> buildInserts(final long seed) throws Exception {
         final List<PrimaryKeyAndVector> baseLoaded =
                 VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, NUM_BASES);
@@ -361,12 +358,12 @@ public class DeterministicReplayTest implements BaseTest {
                            int totalPrimaries,
                            int totalReplicas,
                            int totalCollapsedRefs,
-                           @Nonnull Map<UUID, String> clusterFingerprint,
-                           @Nonnull Map<String, String> dump) {
+                           Map<UUID, String> clusterFingerprint,
+                           Map<String, String> dump) {
     }
 
     /** The two captures taken during one replay: right after the inserts drain, and after the deletes drain. */
-    private record RunResult(@Nonnull Capture afterInsert,
-                             @Nonnull Capture afterDelete) {
+    private record RunResult(Capture afterInsert,
+                             Capture afterDelete) {
     }
 }

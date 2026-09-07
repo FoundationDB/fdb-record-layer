@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.rtree;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 import java.math.BigInteger;
 import java.util.Arrays;
 
@@ -37,7 +36,7 @@ public class RTreeHilbertCurveHelpers {
         // do not instantiate
     }
 
-    public static BigInteger hilbertValue(@Nonnull final RTree.Point point) {
+    public static BigInteger hilbertValue(final RTree.Point point) {
         int numBits = 64;
         final long[] shiftedCoordinates = new long[point.getNumDimensions()];
         for (int i = 0; i < point.getNumDimensions(); i++) {

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.linear;
 
-import javax.annotation.Nonnull;
 import java.util.Random;
 
 public class MatrixHelpers {
@@ -29,13 +28,11 @@ public class MatrixHelpers {
         // nothing
     }
     
-    @Nonnull
-    public static RealMatrix randomOrthogonalMatrix(@Nonnull final Random random, final int dimension) {
+    public static RealMatrix randomOrthogonalMatrix(final Random random, final int dimension) {
         return QRDecomposition.decomposeMatrix(randomGaussianMatrix(random, dimension, dimension)).getQ();
     }
 
-    @Nonnull
-    public static RealMatrix randomGaussianMatrix(@Nonnull final Random random,
+    public static RealMatrix randomGaussianMatrix(final Random random,
                                                   final int rowDimension,
                                                   final int columnDimension) {
         final double[][] resultMatrix = new double[rowDimension][columnDimension];

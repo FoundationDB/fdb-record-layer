@@ -27,8 +27,7 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.VectorOperator;
 import com.apple.foundationdb.rabitq.EncodedRealVector;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A special operator that is used to rotate, translate, and potentially normalize vectors. This operator is used
@@ -40,7 +39,6 @@ public class StorageTransform implements VectorOperator {
     private static final StorageTransform IDENTITY_STORAGE_TRANSFORM =
             new StorageTransform(null, null, false);
 
-    @Nonnull
     private final AffineOperator affineOperator;
     private final boolean normalizeVectors;
 
@@ -56,9 +54,8 @@ public class StorageTransform implements VectorOperator {
         return affineOperator.getNumDimensions();
     }
 
-    @Nonnull
     @Override
-    public RealVector apply(@Nonnull final RealVector vector) {
+    public RealVector apply(final RealVector vector) {
         //
         // Only transform the vector if it is needed. We make the decision based on whether the vector is encoded or
         // not. When we switch on encoding, we apply the new coordinate system from that point onwards meaning that all
@@ -73,9 +70,8 @@ public class StorageTransform implements VectorOperator {
         return affineOperator.apply(normalizeVectors ? vector.normalize() : vector);
     }
 
-    @Nonnull
     @Override
-    public RealVector invertedApply(@Nonnull final RealVector vector) {
+    public RealVector invertedApply(final RealVector vector) {
         //
         // Only invertApply(.) the vector, do not also un-normalize (which is impossible to do as we don't have the
         // original L2-norm stored anywhere) using the following reasoning:
@@ -89,7 +85,6 @@ public class StorageTransform implements VectorOperator {
         return affineOperator.invertedApply(vector);
     }
 
-    @Nonnull
     public static StorageTransform identity() {
         return IDENTITY_STORAGE_TRANSFORM;
     }

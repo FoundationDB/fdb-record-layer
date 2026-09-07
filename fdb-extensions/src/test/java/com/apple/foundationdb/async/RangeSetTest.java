@@ -37,7 +37,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -83,7 +82,7 @@ public class RangeSetTest {
         return keys;
     }
 
-    private int checkConsistent(@Nonnull List<Range> ranges, @Nonnull List<byte[]> keys) {
+    private int checkConsistent(List<Range> ranges, List<byte[]> keys) {
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         int present = 0;
         for (byte[] key : keys) {
@@ -101,7 +100,7 @@ public class RangeSetTest {
         return present;
     }
 
-    private boolean disjoint(@Nonnull Range r1, @Nonnull Range r2) {
+    private boolean disjoint(Range r1, Range r2) {
         return ByteArrayUtil.compareUnsigned(r1.end, r2.begin) <= 0 || ByteArrayUtil.compareUnsigned(r2.end, r1.begin) <= 0;
     }
 
@@ -128,7 +127,11 @@ public class RangeSetTest {
 
     @Test
     void clear() {
-        db.run(tr -> {
+        // db.run(Function<Transaction, T>) has no void-returning overload, so this side-effect-only call
+        // returns null from the lambda; NullAway does not accept an explicit @Nullable type witness on this
+        // external, unannotated method either, so the suppression is scoped to this one declaration instead.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             tr.set(rsSubspace.pack(new byte[]{(byte)0xde, (byte)0xad}), new byte[]{(byte)0xc0, (byte)0xde});
             return null;
         });
@@ -142,7 +145,9 @@ public class RangeSetTest {
     @Test
     void contains() {
         // Insert a few ranges manually.
-        db.run(tr -> {
+        // See clear() above for why this suppression is needed.
+        @SuppressWarnings("NullAway")
+        final Void ignored = db.run(tr -> {
             tr.set(rsSubspace.pack(new byte[]{(byte)0x10}), new byte[]{(byte)0x66});
             tr.set(rsSubspace.pack(new byte[]{(byte)0x77}), new byte[]{(byte)0x88});
             tr.set(rsSubspace.pack(new byte[]{(byte)0x88}), new byte[]{(byte)0x99});
@@ -443,7 +448,12 @@ public class RangeSetTest {
         int maxRangeByte = 2 * ranges.size() + 1;
         try (MultipleTransactions multi = MultipleTransactions.create(db, maxRangeByte + 1)) {
             // Insert the full range with the first transaction
-            assertTrue(rs.insertRange(multi.get(0), null, null, false).join());
+            // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null literals
+            // below are misflagged as NonNull violations even though insertRange()'s begin/end parameters
+            // are declared @Nullable byte[] (null meaning "the full range").
+            @SuppressWarnings("NullAway")
+            final boolean inserted = rs.insertRange(multi.get(0), null, null, false).join();
+            assertTrue(inserted);
 
             // Check on a key in each previously inserted range
             Set<Integer> conflicts = new HashSet<>();

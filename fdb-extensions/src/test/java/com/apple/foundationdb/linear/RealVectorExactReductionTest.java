@@ -29,7 +29,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.Random;
 import java.util.stream.Stream;
 
@@ -53,7 +52,6 @@ class RealVectorExactReductionTest {
     private static final ImmutableList<Integer> LENGTHS =
             ImmutableList.of(1, 2, 3, 7, 8, 15, 16, 17, 64, 65, 128, 1024);
 
-    @Nonnull
     private static Stream<Arguments> randomSeedsWithLengths() {
         return RandomizedTestUtils.randomSeeds(0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L)
                 .flatMap(seed -> LENGTHS.stream().map(len -> Arguments.of(seed, len)));
@@ -119,8 +117,7 @@ class RealVectorExactReductionTest {
         }
     }
 
-    @Nonnull
-    private static double[] randomVector(@Nonnull final Random rnd, final int len) {
+    private static double[] randomVector(final Random rnd, final int len) {
         final double[] v = new double[len];
         for (int i = 0; i < len; i++) {
             v[i] = (rnd.nextDouble() - 0.5d) * 10.0d;

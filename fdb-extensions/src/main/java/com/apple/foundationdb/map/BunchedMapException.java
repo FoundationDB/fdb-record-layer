@@ -22,7 +22,8 @@ package com.apple.foundationdb.map;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.util.LoggableException;
-import javax.annotation.Nonnull;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * Exception class that can be thrown by a {@link BunchedMap}. Exceptions of this class
@@ -41,7 +42,7 @@ public class BunchedMapException extends LoggableException {
      * Create a new exception with a static message.
      * @param message error message
      */
-    public BunchedMapException(@Nonnull String message) {
+    public BunchedMapException(String message) {
         super(message);
     }
 
@@ -51,20 +52,18 @@ public class BunchedMapException extends LoggableException {
      * @param message error message
      * @param cause cause
      */
-    public BunchedMapException(@Nonnull String message, @Nonnull Throwable cause) {
+    public BunchedMapException(String message, Throwable cause) {
         super(message, cause);
     }
 
-    @Nonnull
     @Override
-    public BunchedMapException addLogInfo(@Nonnull String description, Object object) {
+    public BunchedMapException addLogInfo(String description, @Nullable Object object) {
         super.addLogInfo(description, object);
         return this;
     }
 
-    @Nonnull
     @Override
-    public BunchedMapException addLogInfo(@Nonnull Object... keyValue) {
+    public BunchedMapException addLogInfo(@Nullable Object... keyValue) {
         super.addLogInfo(keyValue);
         return this;
     }

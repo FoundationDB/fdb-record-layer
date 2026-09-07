@@ -49,8 +49,7 @@ import org.junit.jupiter.params.aggregator.ArgumentsAccessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -86,8 +85,8 @@ import static org.assertj.core.api.Assertions.within;
 class TestHelpers {
     private static final Logger logger = LoggerFactory.getLogger(TestHelpers.class);
 
-    static void dumpQueryResults(@Nonnull final Path tempDir, @Nonnull final String prefix, final int layer,
-                                 @Nonnull final List<? extends ResultEntry> results) throws Exception {
+    static void dumpQueryResults(final Path tempDir, final String prefix, final int layer,
+                                 final List<? extends ResultEntry> results) throws Exception {
         final Path verticesFile = tempDir.resolve("vertices-" + prefix + "-" + layer + ".csv");
         try (final BufferedWriter verticesWriter = Files.newBufferedWriter(verticesFile)) {
             for (final ResultEntry result : results) {
@@ -97,12 +96,11 @@ class TestHelpers {
         }
     }
 
-    @Nonnull
-    static List<PrimaryKeyAndVector> basicInsertBatch(@Nonnull final Database db,
-                                                      @Nonnull final HNSW hnsw,
+    static List<PrimaryKeyAndVector> basicInsertBatch(final Database db,
+                                                      final HNSW hnsw,
                                                       final int batchSize,
                                                       final long firstId,
-                                                      @Nonnull final BiFunction<Transaction, Long, PrimaryKeyAndVector> insertFunction)
+                                                      final BiFunction<Transaction, Long, PrimaryKeyAndVector> insertFunction)
             throws ExecutionException, InterruptedException, TimeoutException {
         return db.runAsync(tr -> {
             final TestOnWriteListener onWriteListener = (TestOnWriteListener)hnsw.getOnWriteListener();
@@ -138,8 +136,8 @@ class TestHelpers {
         }).get(2, TimeUnit.MINUTES); // set a timeout for inserting a single batch including retries so setup won't run forever
     }
 
-    static List<PrimaryKeyAndVector> insertSIFTSmall(@Nonnull final Database db,
-                                                     @Nonnull final HNSW hnsw) throws Exception {
+    static List<PrimaryKeyAndVector> insertSIFTSmall(final Database db,
+                                                     final HNSW hnsw) throws Exception {
         final Path siftSmallPath = Paths.get(".out/extracted/siftsmall/siftsmall_base.fvecs");
 
         final ImmutableList.Builder<PrimaryKeyAndVector> insertedDataBuilder = ImmutableList.builder();
@@ -172,9 +170,9 @@ class TestHelpers {
         return insertedDataBuilder.build();
     }
 
-    static void validateSIFTSmall(@Nonnull final Database db,
-                                  @Nonnull final HNSW hnsw,
-                                  @Nonnull final List<PrimaryKeyAndVector> data,
+    static void validateSIFTSmall(final Database db,
+                                  final HNSW hnsw,
+                                  final List<PrimaryKeyAndVector> data,
                                   final int k) throws IOException {
         final Metric metric = hnsw.getConfig().metric();
         final Path siftSmallGroundTruthPath = Paths.get(".out/extracted/siftsmall/siftsmall_groundtruth.ivecs");
@@ -234,27 +232,27 @@ class TestHelpers {
         }
     }
 
-    static long countNodesOnLayer(@Nonnull Database db,
-                                  @Nonnull Subspace subspace,
-                                  @Nonnull final Config config, final int layer) {
+    static long countNodesOnLayer(Database db,
+                                  Subspace subspace,
+                                  final Config config, final int layer) {
         final AtomicLong counter = new AtomicLong();
         scanLayer(db, subspace, config, layer, 100,
                 node -> counter.incrementAndGet());
         return counter.get();
     }
 
-    static void scanLayer(@Nonnull final Database db,
-                          @Nonnull final Subspace subspace,
-                          @Nonnull final Config config,
+    static void scanLayer(final Database db,
+                          final Subspace subspace,
+                          final Config config,
                           final int layer,
                           final int batchSize,
-                          @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
+                          final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
         HNSW.scanLayerInternal(config, subspace, db, layer, batchSize, nodeConsumer);
     }
 
-    static int getEntryLayer(@Nonnull final Database db,
-                             @Nonnull final Subspace subspace,
-                             @Nonnull final Config config) {
+    static int getEntryLayer(final Database db,
+                             final Subspace subspace,
+                             final Config config) {
         @Nullable final AccessInfo accessInfo = db.run(readTransaction ->
                 StorageAdapter.fetchAccessInfo(config, readTransaction, subspace, OnReadListener.NOOP).join());
         return accessInfo == null
@@ -262,10 +260,10 @@ class TestHelpers {
                : accessInfo.getEntryNodeReference().getLayer();
     }
 
-    static void dumpLayers(@Nonnull final Database db,
-                           @Nonnull final Subspace subspace,
-                           @Nonnull final Config config,
-                           @Nonnull final Path tempDir) {
+    static void dumpLayers(final Database db,
+                           final Subspace subspace,
+                           final Config config,
+                           final Path tempDir) {
         final int entryLayer = getEntryLayer(db, subspace, config);
 
         if (entryLayer < 0) {
@@ -281,11 +279,11 @@ class TestHelpers {
         }
     }
 
-    static long dumpLayer(@Nonnull final Database db,
-                          @Nonnull final Subspace subspace,
-                          @Nonnull final Config config,
-                          @Nonnull final Path tempDir,
-                          @Nonnull final String prefix, final int layer) throws IOException {
+    static long dumpLayer(final Database db,
+                          final Subspace subspace,
+                          final Config config,
+                          final Path tempDir,
+                          final String prefix, final int layer) throws IOException {
         final Path verticesFile = tempDir.resolve("vertices-" + prefix + "-" + layer + ".csv");
         final Path edgesFile = tempDir.resolve("edges-" + prefix + "-" + layer + ".csv");
 
@@ -329,9 +327,9 @@ class TestHelpers {
         return numReadAtomic.get();
     }
 
-    static <N extends NodeReference> void writeNode(@Nonnull final Transaction transaction,
-                                                    @Nonnull final StorageAdapter<N> storageAdapter,
-                                                    @Nonnull final AbstractNode<N> node,
+    static <N extends NodeReference> void writeNode(final Transaction transaction,
+                                                    final StorageAdapter<N> storageAdapter,
+                                                    final AbstractNode<N> node,
                                                     final int layer) {
         final NeighborsChangeSet<N> insertChangeSet =
                 new InsertNeighborsChangeSet<>(new BaseNeighborsChangeSet<>(ImmutableList.of()),
@@ -340,9 +338,8 @@ class TestHelpers {
                 insertChangeSet);
     }
 
-    @Nonnull
-    static AbstractNode<NodeReference> createRandomCompactNode(@Nonnull final Random random,
-                                                               @Nonnull final NodeFactory<NodeReference> nodeFactory,
+    static AbstractNode<NodeReference> createRandomCompactNode(final Random random,
+                                                               final NodeFactory<NodeReference> nodeFactory,
                                                                final int numDimensions,
                                                                final int numberOfNeighbors) {
         final Tuple primaryKey = CommonTestHelpers.createRandomPrimaryKey(random);
@@ -357,9 +354,8 @@ class TestHelpers {
                 neighborsBuilder.build());
     }
 
-    @Nonnull
-    static AbstractNode<NodeReferenceWithVector> createRandomInliningNode(@Nonnull final Random random,
-                                                                          @Nonnull final NodeFactory<NodeReferenceWithVector> nodeFactory,
+    static AbstractNode<NodeReferenceWithVector> createRandomInliningNode(final Random random,
+                                                                          final NodeFactory<NodeReferenceWithVector> nodeFactory,
                                                                           final int numDimensions,
                                                                           final int numberOfNeighbors) {
         final Tuple primaryKey = CommonTestHelpers.createRandomPrimaryKey(random);
@@ -374,19 +370,17 @@ class TestHelpers {
                 neighborsBuilder.build());
     }
 
-    @Nonnull
-    static NodeReference createRandomNodeReference(@Nonnull final Random random) {
+    static NodeReference createRandomNodeReference(final Random random) {
         return new NodeReference(CommonTestHelpers.createRandomPrimaryKey(random));
     }
 
-    @Nonnull
-    static NodeReferenceWithVector createRandomNodeReferenceWithVector(@Nonnull final Random random,
+    static NodeReferenceWithVector createRandomNodeReferenceWithVector(final Random random,
                                                                        final int dimensionality) {
         return new NodeReferenceWithVector(CommonTestHelpers.createRandomPrimaryKey(random),
                 AffineOperator.identity().transform(createRandomHalfVector(random, dimensionality)));
     }
 
-    static ToDoubleBiFunction<RealVector, RealVector> ringDistance(@Nonnull final Metric metric,
+    static ToDoubleBiFunction<RealVector, RealVector> ringDistance(final Metric metric,
                                                                    final double radius) {
         return (queryVector, dataVector) ->
                 Math.abs(metric.distance(queryVector, dataVector) - radius);
@@ -394,7 +388,7 @@ class TestHelpers {
 
     static class DumpLayersIfFailure implements AfterTestExecutionCallback {
         @Override
-        public void afterTestExecution(@Nonnull final ExtensionContext context) {
+        public void afterTestExecution(final ExtensionContext context) {
             final Optional<Throwable> failure = context.getExecutionException();
             if (failure.isEmpty()) {
                 return;
@@ -406,7 +400,9 @@ class TestHelpers {
                 final ArgumentsAccessor args = parameterInfo.getArguments();
 
                 final BaseTest baseTest = (BaseTest)context.getRequiredTestInstance();
-                final Config config = (Config)args.get(1);
+                // This test extension is only ever registered on parameterized tests whose second argument is a
+                // Config; ArgumentsAccessor.get(int) is generically nullable, but that invariant guarantees non-null here.
+                final Config config = (Config)Objects.requireNonNull(args.get(1));
                 logger.error("dumping contents of HNSW to {}", baseTest.getTempDir());
                 dumpLayers(baseTest.getDb(), baseTest.getSubspace(), config, baseTest.getTempDir());
             } else {
@@ -431,7 +427,7 @@ class TestHelpers {
         }
 
         @Override
-        public void onNodeDeleted(final int layer, @Nonnull final Tuple primaryKey) {
+        public void onNodeDeleted(final int layer, final Tuple primaryKey) {
             deleteCountByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) + 1L);
         }
     }
@@ -466,13 +462,13 @@ class TestHelpers {
         }
 
         @Override
-        public void onNodeRead(final int layer, @Nonnull final Node<? extends NodeReference> node) {
+        public void onNodeRead(final int layer, final Node<? extends NodeReference> node) {
             nodeCountByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) + 1L);
             sumMByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) + node.getNeighbors().size());
         }
 
         @Override
-        public void onKeyValueRead(final int layer, @Nonnull final byte[] key, @Nullable final byte[] value) {
+        public void onKeyValueRead(final int layer, final byte[] key, @Nullable final byte[] value) {
             bytesReadByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) +
                     key.length + (value == null ? 0 : value.length));
         }

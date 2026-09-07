@@ -29,9 +29,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -65,27 +65,27 @@ import java.util.function.Function;
  * </pre>
  */
 class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdapter {
-    public ByNodeStorageAdapter(@Nonnull final RTree.Config config, @Nonnull final Subspace subspace,
-                                @Nonnull final Subspace nodeSlotIndexSubspace,
-                                @Nonnull final Function<RTree.Point, BigInteger> hilbertValueFunction,
-                                @Nonnull final OnWriteListener onWriteListener,
-                                @Nonnull final OnReadListener onReadListener) {
+    public ByNodeStorageAdapter(final RTree.Config config, final Subspace subspace,
+                                final Subspace nodeSlotIndexSubspace,
+                                final Function<RTree.Point, BigInteger> hilbertValueFunction,
+                                final OnWriteListener onWriteListener,
+                                final OnReadListener onReadListener) {
         super(config, subspace, nodeSlotIndexSubspace, hilbertValueFunction, onWriteListener, onReadListener);
     }
 
     @Override
-    public void writeLeafNodeSlot(@Nonnull final Transaction transaction, @Nonnull final LeafNode node,
-                                  @Nonnull final ItemSlot itemSlot) {
+    public void writeLeafNodeSlot(final Transaction transaction, final LeafNode node,
+                                  final ItemSlot itemSlot) {
         persistNode(transaction, node);
     }
 
     @Override
-    public void clearLeafNodeSlot(@Nonnull final Transaction transaction, @Nonnull final LeafNode node,
-                                  @Nonnull final ItemSlot itemSlot) {
+    public void clearLeafNodeSlot(final Transaction transaction, final LeafNode node,
+                                  final ItemSlot itemSlot) {
         persistNode(transaction, node);
     }
 
-    private void persistNode(@Nonnull final Transaction transaction, @Nonnull final Node node) {
+    private void persistNode(final Transaction transaction, final Node node) {
         final byte[] packedKey = packWithSubspace(node.getId());
 
         if (node.isEmpty()) {
@@ -100,8 +100,7 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         }
     }
 
-    @Nonnull
-    private Tuple toTuple(@Nonnull final Node node) {
+    private Tuple toTuple(final Node node) {
         final RTree.Config config = getConfig();
         final List<Tuple> slotTuples = Lists.newArrayListWithExpectedSize(node.size());
         for (final NodeSlot nodeSlot : node.getSlots()) {
@@ -113,10 +112,9 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         return Tuple.from(node.getKind().getSerialized(), slotTuples);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Node> fetchNodeInternal(@Nonnull final ReadTransaction transaction,
-                                                     @Nonnull final byte[] nodeId) {
+    public CompletableFuture<Node> fetchNodeInternal(final ReadTransaction transaction,
+                                                     final byte[] nodeId) {
         final byte[] key = packWithSubspace(nodeId);
         return transaction.get(key)
                 .thenApply(valueBytes -> {
@@ -132,8 +130,7 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     }
 
     @SuppressWarnings("unchecked")
-    @Nonnull
-    private Node fromTuple(@Nonnull final byte[] nodeId, @Nonnull final Tuple tuple) {
+    private Node fromTuple(final byte[] nodeId, final Tuple tuple) {
         final NodeKind nodeKind = NodeKind.fromSerializedNodeKind((byte)tuple.getLong(0));
         final List<Object> nodeSlotObjects = tuple.getNestedList(1);
 
@@ -171,44 +168,44 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         Verify.verify((nodeKind == NodeKind.LEAF && itemSlots != null) ||
                       (nodeKind == NodeKind.INTERMEDIATE && childSlots != null));
 
-        return nodeKind == NodeKind.LEAF
-               ? new LeafNode(nodeId, itemSlots)
-               : new IntermediateNode(nodeId, childSlots);
+        // Verified above, but NullAway does not treat Verify.verify() as a null-check, so the invariant is
+        // re-asserted here.
+        if (nodeKind == NodeKind.LEAF) {
+            return new LeafNode(nodeId, Objects.requireNonNull(itemSlots));
+        } else {
+            return new IntermediateNode(nodeId, Objects.requireNonNull(childSlots));
+        }
     }
 
-    @Nonnull
     @Override
     public <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
-            newInsertChangeSet(@Nonnull final N node, final int level, @Nonnull final List<S> insertedSlots) {
+            newInsertChangeSet(final N node, final int level, final List<S> insertedSlots) {
         return new InsertChangeSet<>(node, level, insertedSlots);
     }
 
-    @Nonnull
     @Override
     public <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
-            newUpdateChangeSet(@Nonnull final N node, final int level,
-                               @Nonnull final S originalSlot, @Nonnull final S updatedSlot) {
+            newUpdateChangeSet(final N node, final int level,
+                               final S originalSlot, final S updatedSlot) {
         return new UpdateChangeSet<>(node, level, originalSlot, updatedSlot);
     }
 
-    @Nonnull
     @Override
     public <S extends NodeSlot, N extends AbstractNode<S, N>> AbstractChangeSet<S, N>
-            newDeleteChangeSet(@Nonnull final N node, final int level, @Nonnull final List<S> deletedSlots) {
+            newDeleteChangeSet(final N node, final int level, final List<S> deletedSlots) {
         return new DeleteChangeSet<>(node, level, deletedSlots);
     }
 
     private class InsertChangeSet<S extends NodeSlot, N extends AbstractNode<S, N>> extends AbstractChangeSet<S, N> {
-        @Nonnull
         private final List<S> insertedSlots;
 
-        public InsertChangeSet(@Nonnull final N node, final int level, @Nonnull final List<S> insertedSlots) {
+        public InsertChangeSet(final N node, final int level, final List<S> insertedSlots) {
             super(node.getChangeSet(), node, level);
             this.insertedSlots = ImmutableList.copyOf(insertedSlots);
         }
 
         @Override
-        public void apply(@Nonnull final Transaction transaction) {
+        public void apply(final Transaction transaction) {
             super.apply(transaction);
 
             //
@@ -228,20 +225,18 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     }
 
     private class UpdateChangeSet<S extends NodeSlot, N extends AbstractNode<S, N>> extends AbstractChangeSet<S, N> {
-        @Nonnull
         private final S originalSlot;
-        @Nonnull
         private final S updatedSlot;
 
-        public UpdateChangeSet(@Nonnull final N node, final int level, @Nonnull final S originalSlot,
-                               @Nonnull final S updatedSlot) {
+        public UpdateChangeSet(final N node, final int level, final S originalSlot,
+                               final S updatedSlot) {
             super(node.getChangeSet(), node, level);
             this.originalSlot = originalSlot;
             this.updatedSlot = updatedSlot;
         }
 
         @Override
-        public void apply(@Nonnull final Transaction transaction) {
+        public void apply(final Transaction transaction) {
             super.apply(transaction);
 
             //
@@ -260,16 +255,15 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     }
 
     private class DeleteChangeSet<S extends NodeSlot, N extends AbstractNode<S, N>> extends AbstractChangeSet<S, N> {
-        @Nonnull
         private final List<S> deletedSlots;
 
-        public DeleteChangeSet(@Nonnull final N node, final int level, @Nonnull final List<S> deletedSlots) {
+        public DeleteChangeSet(final N node, final int level, final List<S> deletedSlots) {
             super(node.getChangeSet(), node, level);
             this.deletedSlots = ImmutableList.copyOf(deletedSlots);
         }
 
         @Override
-        public void apply(@Nonnull final Transaction transaction) {
+        public void apply(final Transaction transaction) {
             super.apply(transaction);
 
             //

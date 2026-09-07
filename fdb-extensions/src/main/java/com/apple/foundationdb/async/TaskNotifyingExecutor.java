@@ -22,7 +22,6 @@ package com.apple.foundationdb.async;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.Executor;
 
 /**
@@ -32,10 +31,9 @@ import java.util.concurrent.Executor;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class TaskNotifyingExecutor implements Executor {
-    @Nonnull
     protected final Executor delegate;
 
-    public TaskNotifyingExecutor(@Nonnull Executor executor) {
+    public TaskNotifyingExecutor(Executor executor) {
         this.delegate = executor;
     }
 
@@ -63,10 +61,9 @@ public abstract class TaskNotifyingExecutor implements Executor {
     public abstract void afterTask();
 
     private class Notifier implements Runnable {
-        @Nonnull
         private final Runnable delegate;
 
-        public Notifier(@Nonnull Runnable delegate) {
+        public Notifier(Runnable delegate) {
             this.delegate = delegate;
         }
 

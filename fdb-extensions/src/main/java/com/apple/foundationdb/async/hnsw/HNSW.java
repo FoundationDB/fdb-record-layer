@@ -31,8 +31,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -58,7 +57,6 @@ import java.util.function.Consumer;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
 public class HNSW {
-    @Nonnull
     private final Locator locator;
 
     /**
@@ -76,7 +74,6 @@ public class HNSW {
      * @return a new default {@code Config}.
      * @see Config.ConfigBuilder#build
      */
-    @Nonnull
     public static Config defaultConfig(int numDimensions) {
         return new Config.ConfigBuilder().build(numDimensions);
     }
@@ -95,15 +92,14 @@ public class HNSW {
      *
      * @throws NullPointerException if any of the parameters are {@code null}.
      */
-    public HNSW(@Nonnull final Subspace subspace,
-                @Nonnull final Executor executor,
-                @Nonnull final Config config,
-                @Nonnull final OnWriteListener onWriteListener,
-                @Nonnull final OnReadListener onReadListener) {
+    public HNSW(final Subspace subspace,
+                final Executor executor,
+                final Config config,
+                final OnWriteListener onWriteListener,
+                final OnReadListener onReadListener) {
         this.locator = new Locator(subspace, executor, config, onWriteListener, onReadListener);
     }
 
-    @Nonnull
     public Locator getLocator() {
         return locator;
     }
@@ -113,7 +109,6 @@ public class HNSW {
      *
      * @return the non-null subspace
      */
-    @Nonnull
     public Subspace getSubspace() {
         return getLocator().getSubspace();
     }
@@ -122,7 +117,6 @@ public class HNSW {
      * Get the executor used by this hnsw.
      * @return executor used when running asynchronous tasks
      */
-    @Nonnull
     public Executor getExecutor() {
         return getLocator().getExecutor();
     }
@@ -131,7 +125,6 @@ public class HNSW {
      * Get this hnsw's configuration.
      * @return hnsw configuration
      */
-    @Nonnull
     public Config getConfig() {
         return getLocator().getConfig();
     }
@@ -140,7 +133,6 @@ public class HNSW {
      * Get the on-write listener.
      * @return the on-write listener
      */
-    @Nonnull
     public OnWriteListener getOnWriteListener() {
         return getLocator().getOnWriteListener();
     }
@@ -149,27 +141,22 @@ public class HNSW {
      * Get the on-read listener.
      * @return the on-read listener
      */
-    @Nonnull
     public OnReadListener getOnReadListener() {
         return getLocator().getOnReadListener();
     }
 
-    @Nonnull
     private Primitives primitives() {
         return getLocator().primitives();
     }
 
-    @Nonnull
     private Search search() {
         return getLocator().search();
     }
 
-    @Nonnull
     private Insert insert() {
         return getLocator().insert();
     }
 
-    @Nonnull
     private Delete delete() {
         return getLocator().delete();
     }
@@ -181,9 +168,8 @@ public class HNSW {
      * @return a new {@link ResultEntry} where {@link ResultEntry#distance()} returns {@code 0.0d} and
      *         {@link ResultEntry#rankOrRowNumber()} returns {@code -1}
      */
-    @Nonnull
-    public CompletableFuture<ResultEntry> fetch(@Nonnull final ReadTransaction readTransaction,
-                                                @Nonnull final Tuple primaryKey) {
+    public CompletableFuture<ResultEntry> fetch(final ReadTransaction readTransaction,
+                                                final Tuple primaryKey) {
         return primitives().fetch(readTransaction, primaryKey);
     }
 
@@ -201,8 +187,7 @@ public class HNSW {
      *
      * @return a {@link CompletableFuture} that completes with the {@link Cardinality} of layer 0
      */
-    @Nonnull
-    public CompletableFuture<Cardinality> cardinality(@Nonnull final ReadTransaction readTransaction) {
+    public CompletableFuture<Cardinality> cardinality(final ReadTransaction readTransaction) {
         return primitives().cardinality(readTransaction);
     }
 
@@ -220,13 +205,12 @@ public class HNSW {
      *         sorted by distance in ascending order.
      */
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
-    @Nonnull
     public CompletableFuture<List<? extends ResultEntry>>
-            kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
+            kNearestNeighborsSearch(final ReadTransaction readTransaction,
                                     final int k,
                                     final int efSearch,
                                     final boolean includeVectors,
-                                    @Nonnull final RealVector queryVector) {
+                                    final RealVector queryVector) {
         return search().kNearestNeighborsSearch(readTransaction, k, efSearch, includeVectors, queryVector);
     }
 
@@ -244,13 +228,12 @@ public class HNSW {
      *         sorted by distance in ascending order.
      */
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
-    @Nonnull
     public CompletableFuture<List<? extends ResultEntry>>
-            kNearestNeighborsRingSearch(@Nonnull final ReadTransaction readTransaction,
+            kNearestNeighborsRingSearch(final ReadTransaction readTransaction,
                                         final int k,
                                         final int efSearch,
                                         final boolean includeVectors,
-                                        @Nonnull final RealVector queryVector,
+                                        final RealVector queryVector,
                                         final double radius) {
         return search().kNearestNeighborsRingSearch(readTransaction, k, efSearch, includeVectors, queryVector, radius);
     }
@@ -275,9 +258,8 @@ public class HNSW {
      *
      * @return a {@link CompletableFuture} that completes when the insertion operation is finished
      */
-    @Nonnull
-    public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
-                                          @Nonnull final RealVector newVector, @Nullable final Tuple additionalValues) {
+    public CompletableFuture<Void> insert(final Transaction transaction, final Tuple newPrimaryKey,
+                                          final RealVector newVector, @Nullable final Tuple additionalValues) {
         return insert().insert(transaction, newPrimaryKey, newVector, additionalValues);
     }
 
@@ -323,8 +305,7 @@ public class HNSW {
      *         including all graph repairs and entry point updates. The future completes with {@code null}
      *         on successful deletion.
      */
-    @Nonnull
-    public CompletableFuture<Void> delete(@Nonnull final Transaction transaction, @Nonnull final Tuple primaryKey) {
+    public CompletableFuture<Void> delete(final Transaction transaction, final Tuple primaryKey) {
         return delete().delete(transaction, primaryKey);
     }
 
@@ -358,12 +339,11 @@ public class HNSW {
      * @return an {@link AsyncIterator} of {@link ResultEntry} objects, ordered by increasing distance from the
      *         {@code centerVector}
      */
-    @Nonnull
-    public AsyncIterator<ResultEntry> orderByDistance(@Nonnull final ReadTransaction readTransaction,
+    public AsyncIterator<ResultEntry> orderByDistance(final ReadTransaction readTransaction,
                                                       final int efRingSearch,
                                                       final int efOutwardSearch,
                                                       final boolean includeVectors,
-                                                      @Nonnull final RealVector centerVector,
+                                                      final RealVector centerVector,
                                                       final double minimumRadius,
                                                       @Nullable final Tuple minimumPrimaryKey,
                                                       final boolean shouldQuickStart) {
@@ -372,12 +352,12 @@ public class HNSW {
     }
 
     @VisibleForTesting
-    public static void scanLayer(@Nonnull final Config config,
-                                 @Nonnull final Subspace subspace,
-                                 @Nonnull final Database db,
+    public static void scanLayer(final Config config,
+                                 final Subspace subspace,
+                                 final Database db,
                                  final int layer,
                                  final int batchSize,
-                                 @Nonnull final Consumer<ResultEntry> consumer) {
+                                 final Consumer<ResultEntry> consumer) {
         Primitives.scanLayer(config, subspace, db, layer, batchSize, consumer);
     }
 
@@ -395,12 +375,12 @@ public class HNSW {
      * found in the layer.
      */
     @VisibleForTesting
-    static void scanLayerInternal(@Nonnull final Config config,
-                                  @Nonnull final Subspace subspace,
-                                  @Nonnull final Database db,
+    static void scanLayerInternal(final Config config,
+                                  final Subspace subspace,
+                                  final Database db,
                                   final int layer,
                                   final int batchSize,
-                                  @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
+                                  final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
         Primitives.scanLayerInternal(config, subspace, db, layer, batchSize, nodeConsumer);
     }
 
@@ -418,13 +398,12 @@ public class HNSW {
      * @param layer the layer number for which to get the storage adapter
      * @return a non-null {@link StorageAdapter} instance
      */
-    @Nonnull
     @VisibleForTesting
     static StorageAdapter<? extends NodeReference>
-            storageAdapterForLayer(@Nonnull final Config config,
-                                   @Nonnull final Subspace subspace,
-                                   @Nonnull final OnWriteListener onWriteListener,
-                                   @Nonnull final OnReadListener onReadListener,
+            storageAdapterForLayer(final Config config,
+                                   final Subspace subspace,
+                                   final OnWriteListener onWriteListener,
+                                   final OnReadListener onReadListener,
                                    final int layer) {
         return Primitives.storageAdapterForLayer(config, subspace, onWriteListener, onReadListener, layer);
     }

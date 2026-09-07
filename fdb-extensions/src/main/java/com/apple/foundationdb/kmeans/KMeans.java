@@ -29,11 +29,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.SplittableRandom;
 
 /**
@@ -73,7 +74,6 @@ public final class KMeans {
      *
      * @return a non-null overflow-quadratic penalty function
      */
-    @Nonnull
     public static SizePenalty overflowQuadraticPenalty() {
         return (proj, target) -> {
             final int overflow = Math.max(0, proj - target);
@@ -121,11 +121,11 @@ public final class KMeans {
      * @param <C> caller's centroid representation
      * @return the best partitioning found across all restarts, ranked by geometric SSE
      */
-    public static <V, C> Result<C> fit(@Nonnull final SplittableRandom random,
-                                       @Nonnull final DistanceEstimator distanceEstimator,
-                                       @Nonnull final Lens<V, RealVector> vectorLens,
-                                       @Nonnull final Lens<C, RealVector> centroidLens,
-                                       @Nonnull final List<V> vectors,
+    public static <V, C> Result<C> fit(final SplittableRandom random,
+                                       final DistanceEstimator distanceEstimator,
+                                       final Lens<V, RealVector> vectorLens,
+                                       final Lens<C, RealVector> centroidLens,
+                                       final List<V> vectors,
                                        final int k,
                                        final int maxIterations,
                                        final int maxRestarts,
@@ -284,7 +284,10 @@ public final class KMeans {
             }
         }
 
-        return best;
+        // The restart loop below runs `r` from 0 to maxRestarts inclusive, so it always executes at least once,
+        // and its first iteration unconditionally sets best (the `best == null || ...` check is true on that
+        // pass), so best is always non-null here; NullAway cannot verify a loop invariant like this.
+        return Objects.requireNonNull(best);
     }
 
     /**
@@ -305,11 +308,10 @@ public final class KMeans {
      * @param <C> caller's centroid representation
      * @return a single-cluster {@link Result}
      */
-    @Nonnull
-    private static <V, C> Result<C> singleClusterResult(@Nonnull final MetricAdapter metricAdapter,
-                                                        @Nonnull final Lens<V, RealVector> vectorLens,
-                                                        @Nonnull final Lens<C, RealVector> centroidLens,
-                                                        @Nonnull final List<V> vectors,
+    private static <V, C> Result<C> singleClusterResult(final MetricAdapter metricAdapter,
+                                                        final Lens<V, RealVector> vectorLens,
+                                                        final Lens<C, RealVector> centroidLens,
+                                                        final List<V> vectors,
                                                         final int numDimensions) {
         final int n = vectors.size();
 
@@ -361,10 +363,10 @@ public final class KMeans {
      * @param sizePenalty optional size penalty hook; if {@code null} no penalty is added
      * @return the score; lower is better
      */
-    private static double score(@Nonnull final MetricAdapter metricAdapter,
-                                @Nonnull final RealVector vector,
+    private static double score(final MetricAdapter metricAdapter,
+                                final RealVector vector,
                                 final int c,
-                                @Nonnull final List<MutableDoubleRealVector> centroids,
+                                final List<MutableDoubleRealVector> centroids,
                                 final int[] projectedSizes,
                                 final int targetSize,
                                 final double lambda,
@@ -409,14 +411,14 @@ public final class KMeans {
      * @return the number of vectors whose new assignment differs from their prior value in
      *         {@code assignment}
      */
-    private static <V> int assignmentStep(@Nonnull final MetricAdapter metricAdapter,
-                                          @Nonnull final Lens<V, RealVector> vectorLens,
-                                          @Nonnull final List<V> vectors,
-                                          @Nonnull final List<MutableDoubleRealVector> centroids,
+    private static <V> int assignmentStep(final MetricAdapter metricAdapter,
+                                          final Lens<V, RealVector> vectorLens,
+                                          final List<V> vectors,
+                                          final List<MutableDoubleRealVector> centroids,
                                           final int k,
-                                          @Nonnull final int[] order,
-                                          @Nonnull final int[] assignment,
-                                          @Nonnull final int[] projected,
+                                          final int[] order,
+                                          final int[] assignment,
+                                          final int[] projected,
                                           final int targetSize,
                                           final double lambda,
                                           @Nullable final SizePenalty sizePenalty) {
@@ -485,11 +487,10 @@ public final class KMeans {
      * @return a list of {@code k} freshly allocated mutable centroids, copied from the chosen
      *         input vectors
      */
-    @Nonnull
-    private static <V> List<MutableDoubleRealVector> initKMeansPP(@Nonnull final MetricAdapter metricAdapter,
-                                                                  @Nonnull final SplittableRandom random,
-                                                                  @Nonnull final Lens<V, RealVector> vectorLens,
-                                                                  @Nonnull final List<V> vectors,
+    private static <V> List<MutableDoubleRealVector> initKMeansPP(final MetricAdapter metricAdapter,
+                                                                  final SplittableRandom random,
+                                                                  final Lens<V, RealVector> vectorLens,
+                                                                  final List<V> vectors,
                                                                   final int k) {
         final int n = vectors.size();
 
@@ -577,10 +578,10 @@ public final class KMeans {
      * @return the index in {@code vectors} of the farthest point
      */
     @VisibleForTesting
-    static <V> int farthestVectorIndex(@Nonnull final MetricAdapter metricAdapter,
-                                       @Nonnull final Lens<V, RealVector> vectorLens,
-                                       @Nonnull final List<V> vectors,
-                                       @Nonnull final List<? extends RealVector> centroids) {
+    static <V> int farthestVectorIndex(final MetricAdapter metricAdapter,
+                                       final Lens<V, RealVector> vectorLens,
+                                       final List<V> vectors,
+                                       final List<? extends RealVector> centroids) {
         double best = -1.0d;
         int bestIdx = 0;
 
@@ -614,9 +615,8 @@ public final class KMeans {
      * @param <V> caller's input vector representation
      * @return the extracted vector; never {@code null}
      */
-    @Nonnull
-    private static <V> RealVector getVector(@Nonnull final Lens<V, RealVector> vectorLens,
-                                            @Nonnull final List<V> vectors,
+    private static <V> RealVector getVector(final Lens<V, RealVector> vectorLens,
+                                            final List<V> vectors,
                                             final int index) {
         return vectorLens.getNonnull(vectors.get(index));
     }
@@ -630,7 +630,7 @@ public final class KMeans {
      * @param random random source
      * @param a array shuffled in place
      */
-    private static void shuffleInPlace(@Nonnull final SplittableRandom random, @Nonnull final int[] a) {
+    private static void shuffleInPlace(final SplittableRandom random, final int[] a) {
         for (int i = a.length - 1; i > 0; i--) {
             final int j = random.nextInt(i + 1);
             final int tmp = a[i];
@@ -647,9 +647,8 @@ public final class KMeans {
      * @throws UnsupportedOperationException if the estimator's metric is neither
      *         {@code EUCLIDEAN_METRIC} nor {@code COSINE_METRIC}
      */
-    @Nonnull
     @VisibleForTesting
-    static MetricAdapter fromEstimator(@Nonnull final DistanceEstimator distanceEstimator) {
+    static MetricAdapter fromEstimator(final DistanceEstimator distanceEstimator) {
         return switch (distanceEstimator.getMetric()) {
             case EUCLIDEAN_METRIC -> new EuclideanMetricAdapter(distanceEstimator);
             case COSINE_METRIC -> new CosineMetricAdapter(distanceEstimator);
@@ -673,7 +672,7 @@ public final class KMeans {
          * @param centroid the centroid being scored against
          * @return the per-pair contribution to the clustering objective
          */
-        double baseObjective(@Nonnull RealVector vector, @Nonnull RealVector centroid);
+        double baseObjective(RealVector vector, RealVector centroid);
 
         /**
          * Renormalizes a freshly averaged centroid in place if the metric requires it (e.g.
@@ -685,8 +684,7 @@ public final class KMeans {
          *         for convenience in fluent expressions
          */
         @CanIgnoreReturnValue
-        @Nonnull
-        MutableDoubleRealVector renormalizeIfNecessary(@Nonnull MutableDoubleRealVector vector);
+        MutableDoubleRealVector renormalizeIfNecessary(MutableDoubleRealVector vector);
 
         /**
          * Returns whether the given vector has a "meaningless" norm under this metric — for
@@ -696,7 +694,7 @@ public final class KMeans {
          * @param vector the vector to test
          * @return {@code true} if the vector's norm is meaningless under this metric
          */
-        boolean isMeaninglessNorm(@Nonnull RealVector vector);
+        boolean isMeaninglessNorm(RealVector vector);
     }
 
     /**
@@ -718,16 +716,15 @@ public final class KMeans {
      * well-defined.
      */
     private static class EuclideanMetricAdapter implements MetricAdapter {
-        @Nonnull
         private final DistanceEstimator distanceEstimator;
 
-        public EuclideanMetricAdapter(@Nonnull final DistanceEstimator distanceEstimator) {
+        public EuclideanMetricAdapter(final DistanceEstimator distanceEstimator) {
             this.distanceEstimator = distanceEstimator;
         }
 
         @Override
-        public double baseObjective(@Nonnull final RealVector vector,
-                                    @Nonnull final RealVector centroid) {
+        public double baseObjective(final RealVector vector,
+                                    final RealVector centroid) {
             if (distanceEstimator.isOptimized(vector, centroid)) {
                 final double d = distanceEstimator.distance(vector, centroid);
                 return d * d;
@@ -735,14 +732,13 @@ public final class KMeans {
             return vector.l2SquaredDistance(centroid);
         }
 
-        @Nonnull
         @Override
-        public MutableDoubleRealVector renormalizeIfNecessary(@Nonnull final MutableDoubleRealVector vector) {
+        public MutableDoubleRealVector renormalizeIfNecessary(final MutableDoubleRealVector vector) {
             return vector;
         }
 
         @Override
-        public boolean isMeaninglessNorm(@Nonnull final RealVector vector) {
+        public boolean isMeaninglessNorm(final RealVector vector) {
             return false;
         }
     }
@@ -753,27 +749,25 @@ public final class KMeans {
      * near-zero-norm centroid is treated as meaningless and triggers a reseed.
      */
     private static class CosineMetricAdapter implements MetricAdapter {
-        @Nonnull
         private final DistanceEstimator distanceEstimator;
 
-        public CosineMetricAdapter(@Nonnull final DistanceEstimator distanceEstimator) {
+        public CosineMetricAdapter(final DistanceEstimator distanceEstimator) {
             this.distanceEstimator = distanceEstimator;
         }
 
         @Override
-        public double baseObjective(@Nonnull final RealVector vector,
-                                    @Nonnull final RealVector centroid) {
+        public double baseObjective(final RealVector vector,
+                                    final RealVector centroid) {
             return distanceEstimator.distance(vector, centroid);
         }
 
-        @Nonnull
         @Override
-        public MutableDoubleRealVector renormalizeIfNecessary(@Nonnull final MutableDoubleRealVector vector) {
+        public MutableDoubleRealVector renormalizeIfNecessary(final MutableDoubleRealVector vector) {
             return vector.normalizeThis();
         }
 
         @Override
-        public boolean isMeaninglessNorm(@Nonnull final RealVector vector) {
+        public boolean isMeaninglessNorm(final RealVector vector) {
             return vector.isNearlyZeroNorm();
         }
     }
@@ -806,10 +800,10 @@ public final class KMeans {
      *                  objective alone
      * @param <C> caller's centroid representation
      */
-    public record Result<C>(@Nonnull List<C> clusterCentroids,
-                            @Nonnull int[] clusterSizes,
-                            @Nonnull int[] assignment,
-                            @Nonnull double[] distances,
+    public record Result<C>(List<C> clusterCentroids,
+                            int[] clusterSizes,
+                            int[] assignment,
+                            double[] distances,
                             double objective) {
     }
 

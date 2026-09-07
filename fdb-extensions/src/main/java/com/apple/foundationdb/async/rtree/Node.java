@@ -26,8 +26,7 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Objects;
@@ -50,7 +49,6 @@ public interface Node {
      * Return the id of this node.
      * @return a byte array that represents the unique identifier of this node
      */
-    @Nonnull
     byte[] getId();
 
     /**
@@ -72,7 +70,6 @@ public interface Node {
      * {@code ? extends NodeSlot} rather than the particular actual node slot type.
      * @return an {@link Iterable} of node slots.
      */
-    @Nonnull
     Iterable<? extends NodeSlot> getSlots();
 
     /**
@@ -82,7 +79,6 @@ public interface Node {
      * @param endIndexExclusive end index (exclusive)
      * @return an {@link Iterable} of node slots.
      */
-    @Nonnull
     Iterable<? extends NodeSlot> getSlots(int startIndexInclusive, int endIndexExclusive);
 
     /**
@@ -90,7 +86,6 @@ public interface Node {
      * @param index the index
      * @return a {@link NodeSlot} at position {@code index}
      */
-    @Nonnull
     NodeSlot getSlot(int index);
 
     /**
@@ -98,7 +93,6 @@ public interface Node {
      * {@code ? extends NodeSlot} rather than the particular actual node slot type.
      * @return a {@link Stream} of node slots
      */
-    @Nonnull
     Stream<? extends NodeSlot> slotsStream();
 
     /**
@@ -118,8 +112,7 @@ public interface Node {
      * @return this node
      */
     @CanIgnoreReturnValue
-    @Nonnull
-    Node moveInSlots(@Nonnull StorageAdapter storageAdapter, @Nonnull Iterable<? extends NodeSlot> slots);
+    Node moveInSlots(StorageAdapter storageAdapter, Iterable<? extends NodeSlot> slots);
 
     /**
      * Move all slots out of this node. This operation differs from the semantics of
@@ -129,8 +122,7 @@ public interface Node {
      * @return this node
      */
     @CanIgnoreReturnValue
-    @Nonnull
-    Node moveOutAllSlots(@Nonnull StorageAdapter storageAdapter);
+    Node moveOutAllSlots(StorageAdapter storageAdapter);
 
     /**
      * Insert a new slot into the node.
@@ -141,8 +133,7 @@ public interface Node {
      * @return this node
      */
     @CanIgnoreReturnValue
-    @Nonnull
-    Node insertSlot(@Nonnull StorageAdapter storageAdapter, int level, int slotIndex, @Nonnull NodeSlot slot);
+    Node insertSlot(StorageAdapter storageAdapter, int level, int slotIndex, NodeSlot slot);
 
     /**
      * Update an existing slot of this node.
@@ -153,8 +144,7 @@ public interface Node {
      * @return this node
      */
     @CanIgnoreReturnValue
-    @Nonnull
-    Node updateSlot(@Nonnull StorageAdapter storageAdapter, int level, int slotIndex, @Nonnull NodeSlot updatedSlot);
+    Node updateSlot(StorageAdapter storageAdapter, int level, int slotIndex, NodeSlot updatedSlot);
 
     /**
      * Delete a slot from the node.
@@ -164,8 +154,7 @@ public interface Node {
      * @return this node
      */
     @CanIgnoreReturnValue
-    @Nonnull
-    Node deleteSlot(@Nonnull StorageAdapter storageAdapter, int level, int slotIndex);
+    Node deleteSlot(StorageAdapter storageAdapter, int level, int slotIndex);
 
     /**
      * Delete all slots from the node.
@@ -174,8 +163,7 @@ public interface Node {
      * @return this node
      */
     @CanIgnoreReturnValue
-    @Nonnull
-    Node deleteAllSlots(@Nonnull StorageAdapter storageAdapter, int level);
+    Node deleteAllSlots(StorageAdapter storageAdapter, int level);
 
     /**
      * Returns if this node is the root node. Note that a node is considered the root node if its node id is
@@ -190,7 +178,6 @@ public interface Node {
      * Return the kind of the node, i.e. {@link NodeKind#LEAF} or {@link NodeKind#INTERMEDIATE}.
      * @return the kind of this node as a {@link NodeKind}
      */
-    @Nonnull
     NodeKind getKind();
 
     /**
@@ -229,15 +216,14 @@ public interface Node {
      * @param slotInParent the slot index indicating the {@link ChildSlot} in the parent node that corresponds to this
      *        node
      */
-    void linkToParent(@Nonnull IntermediateNode parentNode, int slotInParent);
+    void linkToParent(IntermediateNode parentNode, int slotInParent);
 
     /**
      * Create a new node that is of the same {@link NodeKind} as this node.
      * @param nodeId node id for the new node
      * @return a new empty node using the unique node id passed in
      */
-    @Nonnull
-    Node newOfSameKind(@Nonnull byte[] nodeId);
+    Node newOfSameKind(byte[] nodeId);
 
     /**
      * Method to validate the invariants of this node.
@@ -253,7 +239,9 @@ public interface Node {
                 Verify.verify(hilbertValueCompare >= 0,
                         "smallest (hilbertValue, key) pairs are not monotonically increasing (hilbertValueCheck)");
                 if (hilbertValueCompare == 0) {
-                    Verify.verify(TupleHelpers.compare(nodeSlot.getSmallestKey(), lastKey) >= 0,
+                    // lastHilbertValue != null implies lastKey != null (both are set together at the end of
+                    // each iteration below), but NullAway cannot correlate the nullness of two different locals.
+                    Verify.verify(TupleHelpers.compare(nodeSlot.getSmallestKey(), Objects.requireNonNull(lastKey)) >= 0,
                             "smallest (hilbertValue, key) pairs are not monotonically increasing (keyCheck)");
                 }
             }
@@ -324,6 +312,6 @@ public interface Node {
          * provided.
          * @param transaction transaction to use when making all modifications
          */
-        void apply(@Nonnull Transaction transaction);
+        void apply(Transaction transaction);
     }
 }

@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -56,8 +57,10 @@ class CallbackUtilsTest {
         final CallbackUtils.InvokeResults<String> result = CallbackUtils.invokeAll(
                 List.of(successCallback("s1"), failureCallback("s2"), successCallback("s3")));
         Assertions.assertNotNull(result.getAccumulatedException());
-        Assertions.assertEquals(CallbackException.class, result.getAccumulatedException().getClass());
-        Assertions.assertEquals("s2", result.getAccumulatedException().getCause().getMessage());
+        // This test's own setup (one failing callback) guarantees an accumulated exception is present.
+        final CallbackException accumulatedException = Objects.requireNonNull(result.getAccumulatedException());
+        Assertions.assertEquals(CallbackException.class, accumulatedException.getClass());
+        Assertions.assertEquals("s2", Objects.requireNonNull(accumulatedException.getCause()).getMessage());
         Assertions.assertEquals(List.of("s1", "s3"), result.getResults());
     }
 
@@ -66,8 +69,10 @@ class CallbackUtilsTest {
         final CallbackUtils.InvokeResults<String> result = CallbackUtils.invokeAll(
                 List.of(failureCallback("f1"), failureCallback("f2"), failureCallback("f3")));
         Assertions.assertNotNull(result.getAccumulatedException());
-        Assertions.assertEquals("f1", result.getAccumulatedException().getCause().getMessage());
-        final Throwable[] suppressed = result.getAccumulatedException().getSuppressed();
+        // This test's own setup (all callbacks fail) guarantees an accumulated exception is present.
+        final CallbackException accumulatedException = Objects.requireNonNull(result.getAccumulatedException());
+        Assertions.assertEquals("f1", Objects.requireNonNull(accumulatedException.getCause()).getMessage());
+        final Throwable[] suppressed = accumulatedException.getSuppressed();
         Assertions.assertEquals(2, suppressed.length);
         Assertions.assertEquals("f2", suppressed[0].getMessage());
         Assertions.assertEquals("f3", suppressed[1].getMessage());
@@ -79,15 +84,23 @@ class CallbackUtilsTest {
         final CallbackUtils.InvokeResults<String> result = CallbackUtils.invokeAll(
                 List.of(successCallback("s1"), successCallback("s2"), failureCallback("f3")));
         Assertions.assertNotNull(result.getAccumulatedException());
-        Assertions.assertEquals("f3", result.getAccumulatedException().getCause().getMessage());
-        Assertions.assertEquals(0, result.getAccumulatedException().getSuppressed().length);
+        // This test's own setup (last callback fails) guarantees an accumulated exception is present.
+        final CallbackException accumulatedException = Objects.requireNonNull(result.getAccumulatedException());
+        Assertions.assertEquals("f3", Objects.requireNonNull(accumulatedException.getCause()).getMessage());
+        Assertions.assertEquals(0, accumulatedException.getSuppressed().length);
         Assertions.assertEquals(List.of("s1", "s2"), result.getResults());
     }
 
     @Test
     void invokeAllNullReturn() {
+        // successCallback's str parameter is @NonNull String, but this test intentionally exercises the case
+        // where a Supplier<T> passed to invokeAll returns null (verifying invokeAll doesn't reject or crash on
+        // it); CallbackUtils.invokeAll's generic contract does not actually enforce non-null results at
+        // runtime, so widening successCallback's signature just for this one test isn't warranted.
+        @SuppressWarnings("NullAway")
+        final Supplier<String> nullReturningCallback = successCallback(null);
         final CallbackUtils.InvokeResults<String> result = CallbackUtils.invokeAll(
-                List.of(successCallback(null), successCallback("s2")));
+                List.of(nullReturningCallback, successCallback("s2")));
         Assertions.assertNull(result.getAccumulatedException());
         Assertions.assertEquals(2, result.getResults().size());
         Assertions.assertNull(result.getResults().get(0));
@@ -126,10 +139,13 @@ class CallbackUtilsTest {
                 tracked(futureSuccess("s3"), f3Done)));
         final CompletionException exception = assertThrows(CompletionException.class, future::join);
         Assertions.assertInstanceOf(CallbackException.class, exception.getCause());
-        final CallbackException closeException = (CallbackException)exception.getCause();
+        // Throwable.getCause() is nullable in general, but the assertInstanceOf just above guarantees a cause
+        // is present here.
+        final CallbackException closeException = (CallbackException)Objects.requireNonNull(exception.getCause());
         // allOf wraps non-CompletionException causes in a CompletionException before propagating
         Assertions.assertInstanceOf(CompletionException.class, closeException.getCause());
-        Assertions.assertEquals("f2", closeException.getCause().getCause().getMessage());
+        final Throwable closeExceptionCause = Objects.requireNonNull(closeException.getCause());
+        Assertions.assertEquals("f2", Objects.requireNonNull(closeExceptionCause.getCause()).getMessage());
         Assertions.assertEquals(0, closeException.getSuppressed().length);
         Assertions.assertTrue(f1Done.get());
         Assertions.assertTrue(f2Done.get());
@@ -146,8 +162,10 @@ class CallbackUtilsTest {
                 tracked(futureSuccess("s2"), f2Done),
                 tracked(futureFailure("f3"), f3Done)));
         final CompletionException exception = assertThrows(CompletionException.class, future::join);
-        final CallbackException callbackException = (CallbackException)exception.getCause();
-        Assertions.assertEquals("f1", callbackException.getCause().getCause().getMessage());
+        // Throwable.getCause() is nullable in general, but this test's own setup guarantees a cause is present.
+        final CallbackException callbackException = (CallbackException)Objects.requireNonNull(exception.getCause());
+        final Throwable callbackExceptionCause = Objects.requireNonNull(callbackException.getCause());
+        Assertions.assertEquals("f1", Objects.requireNonNull(callbackExceptionCause.getCause()).getMessage());
         Assertions.assertEquals(0, callbackException.getSuppressed().length);
         // When multiple futures fail, whenAll only throws one of the exceptions, so we can't assert on f3
         Assertions.assertTrue(f1Done.get());
@@ -166,9 +184,9 @@ class CallbackUtilsTest {
                 tracked(futureSuccess("s3"), f3Done)));
         final CompletionException exception = assertThrows(CompletionException.class, future::join);
         Assertions.assertInstanceOf(CallbackException.class, exception.getCause());
-        final CallbackException callbackException = (CallbackException)exception.getCause();
+        final CallbackException callbackException = (CallbackException)Objects.requireNonNull(exception.getCause());
         // The CloseException's cause is the exception thrown by the supplier
-        Assertions.assertEquals("t2", callbackException.getCause().getMessage());
+        Assertions.assertEquals("t2", Objects.requireNonNull(callbackException.getCause()).getMessage());
         Assertions.assertEquals(0, callbackException.getSuppressed().length);
         Assertions.assertTrue(f1Done.get());
         Assertions.assertTrue(f3Done.get());
@@ -180,8 +198,8 @@ class CallbackUtilsTest {
                 List.of(throwingSupplier("t1"), throwingSupplier("t2")));
         final CompletionException exception = assertThrows(CompletionException.class, future::join);
         Assertions.assertInstanceOf(CallbackException.class, exception.getCause());
-        final CallbackException callbackException = (CallbackException)exception.getCause();
-        Assertions.assertEquals("t1", callbackException.getCause().getMessage());
+        final CallbackException callbackException = (CallbackException)Objects.requireNonNull(exception.getCause());
+        Assertions.assertEquals("t1", Objects.requireNonNull(callbackException.getCause()).getMessage());
         Assertions.assertEquals(1, callbackException.getSuppressed().length);
         Assertions.assertEquals("t2", callbackException.getSuppressed()[0].getMessage());
     }
@@ -195,11 +213,11 @@ class CallbackUtilsTest {
                 throwingSupplier("t2")));
         final CompletionException exception = assertThrows(CompletionException.class, future::join);
         Assertions.assertInstanceOf(CallbackException.class, exception.getCause());
-        final CallbackException callbackException = (CallbackException)exception.getCause();
+        final CallbackException callbackException = (CallbackException)Objects.requireNonNull(exception.getCause());
         // The supplier exception is the primary cause; the future failure is suppressed
-        Assertions.assertEquals("t2", callbackException.getCause().getMessage());
+        Assertions.assertEquals("t2", Objects.requireNonNull(callbackException.getCause()).getMessage());
         Assertions.assertEquals(1, callbackException.getSuppressed().length);
-        Assertions.assertEquals("f1", callbackException.getSuppressed()[0].getCause().getMessage());
+        Assertions.assertEquals("f1", Objects.requireNonNull(callbackException.getSuppressed()[0].getCause()).getMessage());
         Assertions.assertTrue(f1Done.get());
     }
 

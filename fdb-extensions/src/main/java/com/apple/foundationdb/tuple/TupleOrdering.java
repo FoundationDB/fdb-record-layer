@@ -22,8 +22,8 @@ package com.apple.foundationdb.tuple;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
@@ -121,7 +121,6 @@ public class TupleOrdering {
             return inverted != counterflowNulls;
         }
 
-        @Nonnull
         public Direction reverseDirection() {
             switch (this) {
                 case ASC_NULLS_FIRST:
@@ -147,8 +146,7 @@ public class TupleOrdering {
      * @param direction direction of desired ordering
      * @return a byte string that compares properly
      */
-    @Nonnull
-    public static byte[] pack(@Nonnull Tuple tuple, @Nonnull Direction direction) {
+    public static byte[] pack(Tuple tuple, Direction direction) {
         final byte[] packed = direction.isCounterflowNulls() ? packNullsLast(tuple.elements) : tuple.pack();
         return direction.isInverted() ? invert(packed) : packed;
     }
@@ -159,14 +157,12 @@ public class TupleOrdering {
      * @param direction direction used by encoding
      * @return tuple that would encode that way
      */
-    @Nonnull
-    public static Tuple unpack(@Nonnull byte[] packed, @Nonnull Direction direction) {
+    public static Tuple unpack(byte[] packed, Direction direction) {
         final byte[] bytes = direction.isInverted() ? uninvert(packed) : packed;
         return direction.isCounterflowNulls() ? Tuple.fromList(unpackNullsLast(bytes)) : Tuple.fromBytes(bytes);
     }
 
-    @Nonnull
-    static byte[] packNullsLast(@Nonnull List<Object> elements) {
+    static byte[] packNullsLast(List<Object> elements) {
         ByteBuffer dest = ByteBuffer.allocate(TupleUtil.getPackedSize(elements, false));
         ByteOrder origOrder = dest.order();
         TupleUtil.EncodeState state = new TupleUtil.EncodeState(dest);
@@ -180,7 +176,7 @@ public class TupleOrdering {
         return dest.array();
     }
 
-    static void encodeNullsLast(@Nonnull TupleUtil.EncodeState state, @Nullable Object obj) {
+    static void encodeNullsLast(TupleUtil.EncodeState state, @Nullable Object obj) {
         if (obj == null) {
             state.add(NULL_LAST);
         } else {
@@ -188,8 +184,7 @@ public class TupleOrdering {
         }
     }
 
-    @Nonnull
-    static List<Object> unpackNullsLast(@Nonnull byte[] bytes) {
+    static List<Object> unpackNullsLast(byte[] bytes) {
         TupleUtil.DecodeState decodeState = new TupleUtil.DecodeState();
         int pos = 0;
         int end = bytes.length;
@@ -200,7 +195,11 @@ public class TupleOrdering {
         return decodeState.values;
     }
 
-    static void decodeNullsLast(@Nonnull TupleUtil.DecodeState state, @Nonnull byte[] bytes, int pos, int end) {
+    // state.add(...) is from the unannotated fdb-java client library, so its Object value parameter is treated
+    // as @NonNull by NullAway's defaults; a decoded NULL_LAST marker legitimately represents a null tuple
+    // element, so passing null here is correct.
+    @SuppressWarnings("NullAway")
+    static void decodeNullsLast(TupleUtil.DecodeState state, byte[] bytes, int pos, int end) {
         if (bytes[pos] == NULL_LAST) {
             state.add(null, pos + 1);
         } else {
@@ -222,8 +221,7 @@ public class TupleOrdering {
      * @param bytes byte array to be inverted
      * @return a byte array that compared in the reverse direction
      */
-    @Nonnull
-    static byte[] invert(@Nonnull byte[] bytes) {
+    static byte[] invert(byte[] bytes) {
         final int originalLength = bytes.length;
         final int invertedLength = (originalLength * 8 + 6) / 7 + 1;
         final byte[] inverted = new byte[invertedLength];
@@ -252,8 +250,7 @@ public class TupleOrdering {
         return inverted;
     }
 
-    @Nonnull
-    static byte[] uninvert(@Nonnull byte[] inverted) {
+    static byte[] uninvert(byte[] inverted) {
         final int invertedLength = inverted.length;
         if (invertedLength == 0 || (inverted[invertedLength - 1] & 0x80) == 0) {
             throw new IllegalArgumentException("inverted bytes not in expected format");

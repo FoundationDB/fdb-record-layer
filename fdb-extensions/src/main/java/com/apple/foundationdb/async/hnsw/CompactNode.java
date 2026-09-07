@@ -26,8 +26,7 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 
@@ -42,28 +41,24 @@ import java.util.Objects;
  * @see NodeReference
  */
 class CompactNode extends AbstractNode<NodeReference> {
-    @Nonnull
     private static final NodeFactory<NodeReference> FACTORY = new NodeFactory<>() {
         @SuppressWarnings("unchecked")
-        @Nonnull
         @Override
         @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-        public AbstractNode<NodeReference> create(@Nonnull final Tuple primaryKey,
+        public AbstractNode<NodeReference> create(final Tuple primaryKey,
                                                   @Nullable final Transformed<RealVector> vector,
                                                   @Nullable final Tuple additionalValues,
-                                                  @Nonnull final List<? extends NodeReference> neighbors) {
+                                                  final List<? extends NodeReference> neighbors) {
             return new CompactNode(primaryKey, (List<NodeReference>)neighbors, Objects.requireNonNull(vector),
                     additionalValues);
         }
 
-        @Nonnull
         @Override
         public NodeKind getNodeKind() {
             return NodeKind.COMPACT;
         }
     };
 
-    @Nonnull
     private final Transformed<RealVector> vector;
 
     @Nullable
@@ -82,9 +77,9 @@ class CompactNode extends AbstractNode<NodeReference> {
      * @param vector the data vector of type {@code RealVector} associated with this node; must not be {@code null}.
      * @param additionalValues additional values to be stored with the node
      */
-    public CompactNode(@Nonnull final Tuple primaryKey,
-                       @Nonnull final List<NodeReference> neighbors,
-                       @Nonnull final Transformed<RealVector> vector,
+    public CompactNode(final Tuple primaryKey,
+                       final List<NodeReference> neighbors,
+                       final Transformed<RealVector> vector,
                        @Nullable final Tuple additionalValues) {
         super(primaryKey, neighbors);
         this.vector = vector;
@@ -102,7 +97,6 @@ class CompactNode extends AbstractNode<NodeReference> {
      *
      * @return a non-null {@link NodeReference} to this node.
      */
-    @Nonnull
     @Override
     public NodeReference getSelfReference(@Nullable final Transformed<RealVector> vector) {
         return new NodeReference(getPrimaryKey());
@@ -113,7 +107,6 @@ class CompactNode extends AbstractNode<NodeReference> {
      * This implementation always returns {@link NodeKind#COMPACT}.
      * @return the node kind, which is guaranteed to be {@link NodeKind#COMPACT}.
      */
-    @Nonnull
     @Override
     public NodeKind getKind() {
         return NodeKind.COMPACT;
@@ -123,7 +116,6 @@ class CompactNode extends AbstractNode<NodeReference> {
      * Gets the vector of {@code Half} objects.
      * @return the non-null vector of {@link Half} objects.
      */
-    @Nonnull
     public Transformed<RealVector> getVector() {
         return vector;
     }
@@ -143,7 +135,6 @@ class CompactNode extends AbstractNode<NodeReference> {
      * {@code this}.
      * @return this object cast as a {@code CompactNode}, which is guaranteed to be non-null.
      */
-    @Nonnull
     @Override
     public CompactNode asCompactNode() {
         return this;
@@ -162,7 +153,6 @@ class CompactNode extends AbstractNode<NodeReference> {
      * @return this node as a non-null {@link InliningNode}
      * @throws IllegalStateException always, as this is not an inlining node
      */
-    @Nonnull
     @Override
     public InliningNode asInliningNode() {
         throw new IllegalStateException("this is not an inlining node");
@@ -176,7 +166,6 @@ class CompactNode extends AbstractNode<NodeReference> {
      *
      * @return a shared, non-null instance of {@code NodeFactory<NodeReference>}
      */
-    @Nonnull
     public static NodeFactory<NodeReference> factory() {
         return FACTORY;
     }

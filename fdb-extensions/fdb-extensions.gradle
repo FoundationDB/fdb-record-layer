@@ -21,6 +21,10 @@
 import de.undercouch.gradle.tasks.download.Download
 import de.undercouch.gradle.tasks.download.Verify
 
+plugins {
+    alias(libs.plugins.errorprone)
+}
+
 apply plugin: 'java-test-fixtures'
 apply from: rootProject.file('gradle/publishing.gradle')
 
@@ -31,7 +35,10 @@ dependencies {
     api(libs.fdbJava)
     implementation(libs.guava)
     implementation(libs.slf4j.api)
-    compileOnly(libs.jsr305)
+    compileOnly(libs.jspecify)
+
+    errorprone(libs.errorprone.core)
+    errorprone(libs.nullaway)
 
     testImplementation project(':fdb-test-utils')
     testImplementation(libs.bundles.test.impl)
@@ -47,6 +54,26 @@ dependencies {
     testFixturesCompileOnly(libs.jsr305)
     testFixturesImplementation(libs.slf4j.api)
     testFixturesAnnotationProcessor(libs.autoService)
+}
+
+// jspecify + NullAway null-checking, scoped to this module only. See @NullMarked
+// package-info.java files across fdb-extensions' packages (com.apple.foundationdb.async,
+// .linear, .tuple, .util, .map, .kmeans, .rabitq, .clientlog, .system, .synchronizedsession,
+// and their sub-packages). The shared "com.apple.foundationdb" prefix covers all of them in one
+// go; NullAway only analyzes this module's own compiled sources regardless of prefix breadth,
+// and any package lacking @NullMarked (e.g. the vendored com.apple.foundationdb.half datatype,
+// copied from an external library) is treated leniently rather than strictly checked, so the
+// broad prefix cannot cause false positives there. There is no generated/vendored code under
+// src/main that needs an UnannotatedSubPackages carve-out.
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += ['-Xmaxerrs', '5000']
+    options.errorprone {
+        disableAllChecks = true
+        error("NullAway")
+        option("NullAway:AnnotatedPackages", "com.apple.foundationdb")
+        option("NullAway:JSpecifyMode", "true")
+        option("NullAway:AcknowledgeRestrictiveAnnotations", "true")
+    }
 }
 
 // Describe all SIFT datasets here. Each is downloaded once into project.ext.downloadsDirectory

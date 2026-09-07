@@ -25,8 +25,7 @@ import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.Transformed;
 import com.apple.foundationdb.util.Lens;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 /**
@@ -39,7 +38,7 @@ class VectorReferenceVectorLens implements Lens<VectorReference, Transformed<Rea
 
     @Nullable
     @Override
-    public Transformed<RealVector> get(@Nonnull final VectorReference vectorReference) {
+    public Transformed<RealVector> get(final VectorReference vectorReference) {
         return vectorReference.vector();
     }
 
@@ -55,7 +54,6 @@ class VectorReferenceVectorLens implements Lens<VectorReference, Transformed<Rea
      *
      * @return the reference carrying {@code transformed}
      */
-    @Nonnull
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
     public VectorReference set(@Nullable final VectorReference vectorReference,

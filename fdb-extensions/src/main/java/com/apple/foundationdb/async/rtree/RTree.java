@@ -39,8 +39,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -183,7 +182,6 @@ public class RTree {
      * inlines slot information into the node leading to a more size-efficient layout of the data. That advantage is
      * offset by a higher likelihood of conflicts.
      */
-    @Nonnull
     public static final Storage DEFAULT_STORAGE = Storage.BY_NODE;
 
     /**
@@ -192,22 +190,14 @@ public class RTree {
      */
     public static final boolean DEFAULT_STORE_HILBERT_VALUES = true;
 
-    @Nonnull
     public static final Config DEFAULT_CONFIG = new Config();
 
-    @Nonnull
     private final StorageAdapter storageAdapter;
-    @Nonnull
     private final Executor executor;
-    @Nonnull
     private final Config config;
-    @Nonnull
     private final Function<Point, BigInteger> hilbertValueFunction;
-    @Nonnull
     private final Supplier<byte[]> nodeIdSupplier;
-    @Nonnull
     private final OnWriteListener onWriteListener;
-    @Nonnull
     private final OnReadListener onReadListener;
 
     /**
@@ -223,19 +213,17 @@ public class RTree {
          */
         BY_NODE(ByNodeStorageAdapter::new);
 
-        @Nonnull
         private final StorageAdapterCreator storageAdapterCreator;
 
-        Storage(@Nonnull final StorageAdapterCreator storageAdapterCreator) {
+        Storage(final StorageAdapterCreator storageAdapterCreator) {
             this.storageAdapterCreator = storageAdapterCreator;
         }
 
-        @Nonnull
-        private StorageAdapter newStorageAdapter(@Nonnull final Config config, @Nonnull final Subspace subspace,
-                                                 @Nonnull final Subspace nodeSlotIndexSubspace,
-                                                 @Nonnull final Function<Point, BigInteger> hilbertValueFunction,
-                                                 @Nonnull final OnWriteListener onWriteListener,
-                                                 @Nonnull final OnReadListener onReadListener) {
+        private StorageAdapter newStorageAdapter(final Config config, final Subspace subspace,
+                                                 final Subspace nodeSlotIndexSubspace,
+                                                 final Function<Point, BigInteger> hilbertValueFunction,
+                                                 final OnWriteListener onWriteListener,
+                                                 final OnReadListener onReadListener) {
             return storageAdapterCreator.create(config, subspace, nodeSlotIndexSubspace,
                     hilbertValueFunction, onWriteListener, onReadListener);
         }
@@ -245,10 +233,10 @@ public class RTree {
      * Functional interface to create a {@link StorageAdapter}.
      */
     private interface StorageAdapterCreator {
-        StorageAdapter create(@Nonnull Config config, @Nonnull Subspace subspace, @Nonnull Subspace nodeSlotIndexSubspace,
-                              @Nonnull Function<Point, BigInteger> hilbertValueFunction,
-                              @Nonnull OnWriteListener onWriteListener,
-                              @Nonnull OnReadListener onReadListener);
+        StorageAdapter create(Config config, Subspace subspace, Subspace nodeSlotIndexSubspace,
+                              Function<Point, BigInteger> hilbertValueFunction,
+                              OnWriteListener onWriteListener,
+                              OnReadListener onReadListener);
     }
 
     /**
@@ -259,7 +247,6 @@ public class RTree {
         private final int minM;
         private final int maxM;
         private final int splitS;
-        @Nonnull
         private final Storage storage;
 
         private final boolean storeHilbertValues;
@@ -274,7 +261,7 @@ public class RTree {
         }
 
         protected Config(final boolean useNodeSlotIndex, final int minM, final int maxM, final int splitS,
-                         @Nonnull final Storage storage, final boolean storeHilbertValues) {
+                         final Storage storage, final boolean storeHilbertValues) {
             this.useNodeSlotIndex = useNodeSlotIndex;
             this.minM = minM;
             this.maxM = maxM;
@@ -299,7 +286,6 @@ public class RTree {
             return splitS;
         }
 
-        @Nonnull
         public Storage getStorage() {
             return storage;
         }
@@ -331,7 +317,6 @@ public class RTree {
         private int minM = DEFAULT_MIN_M;
         private int maxM = DEFAULT_MAX_M;
         private int splitS = DEFAULT_S;
-        @Nonnull
         private Storage storage = DEFAULT_STORAGE;
         private boolean storeHilbertValues = DEFAULT_STORE_HILBERT_VALUES;
 
@@ -339,7 +324,7 @@ public class RTree {
         }
 
         public ConfigBuilder(final boolean useNodeSlotIndex, final int minM, final int maxM, final int splitS,
-                             @Nonnull final Storage storage, final boolean storeHilbertValues) {
+                             final Storage storage, final boolean storeHilbertValues) {
             this.useNodeSlotIndex = useNodeSlotIndex;
             this.minM = minM;
             this.maxM = maxM;
@@ -375,12 +360,11 @@ public class RTree {
             return this;
         }
 
-        @Nonnull
         public Storage getStorage() {
             return storage;
         }
 
-        public ConfigBuilder setStorage(@Nonnull final Storage storage) {
+        public ConfigBuilder setStorage(final Storage storage) {
             this.storage = storage;
             return this;
         }
@@ -424,8 +408,8 @@ public class RTree {
      * @param executor an executor to use when running asynchronous tasks
      * @param hilbertValueFunction function to compute the Hilbert value from a {@link Point}
      */
-    public RTree(@Nonnull final Subspace subspace, @Nonnull final Subspace secondarySubspace,
-                 @Nonnull final Executor executor, @Nonnull final Function<Point, BigInteger> hilbertValueFunction) {
+    public RTree(final Subspace subspace, final Subspace secondarySubspace,
+                 final Executor executor, final Function<Point, BigInteger> hilbertValueFunction) {
         this(subspace, secondarySubspace, executor, DEFAULT_CONFIG, hilbertValueFunction, NodeHelpers::newRandomNodeId,
                 OnWriteListener.NOOP, OnReadListener.NOOP);
     }
@@ -441,12 +425,12 @@ public class RTree {
      * @param onWriteListener an on-write listener to be called after writes take place
      * @param onReadListener an on-read listener to be called after reads take place
      */
-    public RTree(@Nonnull final Subspace subspace, @Nonnull final Subspace nodeSlotIndexSubspace,
-                 @Nonnull final Executor executor, @Nonnull final Config config,
-                 @Nonnull final Function<Point, BigInteger> hilbertValueFunction,
-                 @Nonnull final Supplier<byte[]> nodeIdSupplier,
-                 @Nonnull final OnWriteListener onWriteListener,
-                 @Nonnull final OnReadListener onReadListener) {
+    public RTree(final Subspace subspace, final Subspace nodeSlotIndexSubspace,
+                 final Executor executor, final Config config,
+                 final Function<Point, BigInteger> hilbertValueFunction,
+                 final Supplier<byte[]> nodeIdSupplier,
+                 final OnWriteListener onWriteListener,
+                 final OnReadListener onReadListener) {
         this.storageAdapter = config.getStorage()
                 .newStorageAdapter(config, subspace, nodeSlotIndexSubspace, hilbertValueFunction, onWriteListener,
                         onReadListener);
@@ -462,7 +446,6 @@ public class RTree {
      * Get the {@link StorageAdapter} used to manage this r-tree.
      * @return r-tree subspace
      */
-    @Nonnull
     StorageAdapter getStorageAdapter() {
         return storageAdapter;
     }
@@ -471,7 +454,6 @@ public class RTree {
      * Get the executer used by this r-tree.
      * @return executor used when running asynchronous tasks
      */
-    @Nonnull
     public Executor getExecutor() {
         return executor;
     }
@@ -480,7 +462,6 @@ public class RTree {
      * Get this r-tree's configuration.
      * @return r-tree configuration
      */
-    @Nonnull
     public Config getConfig() {
         return config;
     }
@@ -489,7 +470,6 @@ public class RTree {
      * Get the on-write listener.
      * @return the on-write listener
      */
-    @Nonnull
     public OnWriteListener getOnWriteListener() {
         return onWriteListener;
     }
@@ -498,7 +478,6 @@ public class RTree {
      * Get the on-read listener.
      * @return the on-read listener
      */
-    @Nonnull
     public OnReadListener getOnReadListener() {
         return onReadListener;
     }
@@ -523,10 +502,9 @@ public class RTree {
      * @param suffixKeyPredicate a predicate on the suffix key
      * @return an {@link AsyncIterator} of {@link ItemSlot}s.
      */
-    @Nonnull
-    public AsyncIterator<ItemSlot> scan(@Nonnull final ReadTransaction readTransaction,
-                                        @Nonnull final Predicate<Rectangle> mbrPredicate,
-                                        @Nonnull final BiPredicate<Tuple, Tuple> suffixKeyPredicate) {
+    public AsyncIterator<ItemSlot> scan(final ReadTransaction readTransaction,
+                                        final Predicate<Rectangle> mbrPredicate,
+                                        final BiPredicate<Tuple, Tuple> suffixKeyPredicate) {
         return scan(readTransaction, null, null, mbrPredicate, suffixKeyPredicate);
     }
 
@@ -548,12 +526,11 @@ public class RTree {
      * @param suffixKeyPredicate a predicate on the suffix key
      * @return an {@link AsyncIterator} of {@link ItemSlot}s.
      */
-    @Nonnull
-    public AsyncIterator<ItemSlot> scan(@Nonnull final ReadTransaction readTransaction,
+    public AsyncIterator<ItemSlot> scan(final ReadTransaction readTransaction,
                                         @Nullable final BigInteger lastHilbertValue,
                                         @Nullable final Tuple lastKey,
-                                        @Nonnull final Predicate<Rectangle> mbrPredicate,
-                                        @Nonnull final BiPredicate<Tuple, Tuple> suffixKeyPredicate) {
+                                        final Predicate<Rectangle> mbrPredicate,
+                                        final BiPredicate<Tuple, Tuple> suffixKeyPredicate) {
         Preconditions.checkArgument((lastHilbertValue == null && lastKey == null) ||
                                     (lastHilbertValue != null && lastKey != null));
         AsyncIterator<LeafNode> leafIterator =
@@ -577,20 +554,23 @@ public class RTree {
      * @return a {@link TraversalState} of the left-most path from {@code nodeId} to a {@link LeafNode} whose
      *         {@link Node}s all pass the mbr predicate test.
      */
-    @Nonnull
-    private CompletableFuture<TraversalState> fetchLeftmostPathToLeaf(@Nonnull final ReadTransaction readTransaction,
-                                                                      @Nonnull final byte[] nodeId,
+    private CompletableFuture<TraversalState> fetchLeftmostPathToLeaf(final ReadTransaction readTransaction,
+                                                                      final byte[] nodeId,
                                                                       @Nullable final BigInteger lastHilbertValue,
                                                                       @Nullable final Tuple lastKey,
-                                                                      @Nonnull final Predicate<Rectangle> mbrPredicate,
-                                                                      @Nonnull final BiPredicate<Tuple, Tuple> suffixPredicate) {
+                                                                      final Predicate<Rectangle> mbrPredicate,
+                                                                      final BiPredicate<Tuple, Tuple> suffixPredicate) {
         final AtomicReference<byte[]> currentId = new AtomicReference<>(nodeId);
         final List<Deque<ChildSlot>> toBeProcessed = Lists.newArrayList();
         final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
-        return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(storageAdapter.fetchNode(readTransaction, currentId.get()))
+        return AsyncUtil.whileTrue(() -> {
+            // currentId is only ever set (below) via Objects.requireNonNull(...), so it is never actually null;
+            // NullAway still models AtomicReference#get() as @Nullable, so the invariant is re-asserted here.
+            final byte[] currentIdValue = Objects.requireNonNull(currentId.get());
+            return onReadListener.onAsyncRead(storageAdapter.fetchNode(readTransaction, currentIdValue))
                 .thenApply(node -> {
                     if (node == null) {
-                        if (Arrays.equals(currentId.get(), rootId)) {
+                        if (Arrays.equals(currentIdValue, rootId)) {
                             Verify.verify(leafNode.get() == null);
                             return false;
                         }
@@ -645,7 +625,8 @@ public class RTree {
                         leafNode.set((LeafNode)node);
                         return false;
                     }
-                }), executor).thenApply(vignore -> leafNode.get() == null
+                });
+        }, executor).thenApply(vignore -> leafNode.get() == null
                                                    ? TraversalState.end()
                                                    : TraversalState.of(toBeProcessed, leafNode.get()));
     }
@@ -663,13 +644,12 @@ public class RTree {
      * @return a {@link TraversalState} of the left-most path from {@code nodeId} to a {@link LeafNode} whose
      *         {@link Node}s all pass the mbr predicate test.
      */
-    @Nonnull
-    private CompletableFuture<TraversalState> fetchNextPathToLeaf(@Nonnull final ReadTransaction readTransaction,
-                                                                  @Nonnull final TraversalState traversalState,
+    private CompletableFuture<TraversalState> fetchNextPathToLeaf(final ReadTransaction readTransaction,
+                                                                  final TraversalState traversalState,
                                                                   @Nullable final BigInteger lastHilbertValue,
                                                                   @Nullable final Tuple lastKey,
-                                                                  @Nonnull final Predicate<Rectangle> mbrPredicate,
-                                                                  @Nonnull final BiPredicate<Tuple, Tuple> suffixPredicate) {
+                                                                  final Predicate<Rectangle> mbrPredicate,
+                                                                  final BiPredicate<Tuple, Tuple> suffixPredicate) {
 
         final List<Deque<ChildSlot>> toBeProcessed = traversalState.getToBeProcessed();
         final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
@@ -710,10 +690,10 @@ public class RTree {
      */
     @Nullable
     @SuppressWarnings("PMD.AvoidBranchingStatementAsLastInLoop")
-    private static ChildSlot resolveNextIdForFetch(@Nonnull final List<Deque<ChildSlot>> toBeProcessed,
-                                                   @Nonnull final Predicate<Rectangle> mbrPredicate,
-                                                   @Nonnull final BiPredicate<Tuple, Tuple> suffixPredicate,
-                                                   @Nonnull final OnReadListener onReadListener) {
+    private static ChildSlot resolveNextIdForFetch(final List<Deque<ChildSlot>> toBeProcessed,
+                                                   final Predicate<Rectangle> mbrPredicate,
+                                                   final BiPredicate<Tuple, Tuple> suffixPredicate,
+                                                   final OnReadListener onReadListener) {
         for (int level = toBeProcessed.size() - 1; level >= 0; level--) {
             final Deque<ChildSlot> toBeProcessedThisLevel = toBeProcessed.get(level);
 
@@ -755,11 +735,10 @@ public class RTree {
      * @param value the additional value to be stored with the item
      * @return a completable future that completes when the insert is completed
      */
-    @Nonnull
-    public CompletableFuture<Void> insertOrUpdate(@Nonnull final TransactionContext tc,
-                                                  @Nonnull final Point point,
-                                                  @Nonnull final Tuple keySuffix,
-                                                  @Nonnull final Tuple value) {
+    public CompletableFuture<Void> insertOrUpdate(final TransactionContext tc,
+                                                  final Point point,
+                                                  final Tuple keySuffix,
+                                                  final Tuple value) {
         final BigInteger hilbertValue = hilbertValueFunction.apply(point);
         final Tuple itemKey = Tuple.from(point.getCoordinates(), keySuffix);
 
@@ -787,13 +766,12 @@ public class RTree {
      * @param value the additional value to be stored with the item
      * @return a completable future that completes when the insert/update is completed
      */
-    @Nonnull
-    private CompletableFuture<Void> insertOrUpdateSlot(@Nonnull final Transaction transaction,
-                                                       @Nonnull final LeafNode targetNode,
-                                                       @Nonnull final Point point,
-                                                       @Nonnull final BigInteger hilbertValue,
-                                                       @Nonnull final Tuple key,
-                                                       @Nonnull final Tuple value) {
+    private CompletableFuture<Void> insertOrUpdateSlot(final Transaction transaction,
+                                                       final LeafNode targetNode,
+                                                       final Point point,
+                                                       final BigInteger hilbertValue,
+                                                       final Tuple key,
+                                                       final Tuple value) {
         Verify.verify(targetNode.size() <= config.getMaxM());
 
         final AtomicInteger level = new AtomicInteger(0);
@@ -822,28 +800,35 @@ public class RTree {
         //
         return AsyncUtil.whileTrue(() -> {
             final NodeSlot currentNewSlot = parentSlot.get();
+            // currentNode is only ever set (below) to the parent of a node already confirmed non-root, which by
+            // the tree's linkage invariant is always non-null once reached; NullAway still models
+            // AtomicReference#get() as @Nullable, so the invariant is re-asserted here.
+            final Node currentNodeValue = Objects.requireNonNull(currentNode.get());
 
             if (currentNewSlot != null) {
-                return insertSlotIntoTargetNode(transaction, level.get(), hilbertValue, key, currentNode.get(), currentNewSlot, insertSlotIndex.get())
+                return insertSlotIntoTargetNode(transaction, level.get(), hilbertValue, key, currentNodeValue, currentNewSlot, insertSlotIndex.get())
                         .thenApply(nodeOrAdjust -> {
-                            if (currentNode.get().isRoot()) {
+                            if (currentNodeValue.isRoot()) {
                                 return false;
                             }
-                            currentNode.set(currentNode.get().getParentNode());
+                            currentNode.set(currentNodeValue.getParentNode());
                             parentSlot.set(nodeOrAdjust.getSlotInParent());
-                            insertSlotIndex.set(nodeOrAdjust.getSplitNode() == null ? -1 : nodeOrAdjust.getSplitNode().getSlotIndexInParent());
+                            // Captured once rather than calling getSplitNode() three times; SpotBugs
+                            // (NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE) cannot tell that the separate calls would agree.
+                            final Node splitNode = nodeOrAdjust.getSplitNode();
+                            insertSlotIndex.set(splitNode == null ? -1 : splitNode.getSlotIndexInParent());
                             level.incrementAndGet();
-                            return nodeOrAdjust.getSplitNode() != null || nodeOrAdjust.parentNeedsAdjustment();
+                            return splitNode != null || nodeOrAdjust.parentNeedsAdjustment();
                         });
             } else {
                 // adjustment only
-                return updateSlotsAndAdjustNode(transaction, level.get(), hilbertValue, key, currentNode.get(), true)
+                return updateSlotsAndAdjustNode(transaction, level.get(), hilbertValue, key, currentNodeValue, true)
                         .thenApply(nodeOrAdjust -> {
                             Verify.verify(nodeOrAdjust.getSlotInParent() == null);
-                            if (currentNode.get().isRoot()) {
+                            if (currentNodeValue.isRoot()) {
                                 return false;
                             }
-                            currentNode.set(currentNode.get().getParentNode());
+                            currentNode.set(currentNodeValue.getParentNode());
                             level.incrementAndGet();
                             return nodeOrAdjust.parentNeedsAdjustment();
                         });
@@ -864,13 +849,12 @@ public class RTree {
      *        information; we can avoid searching for the proper spot on our own.
      * @return a completable future that when completed indicates what needs to be done next (see {@link NodeOrAdjust}).
      */
-    @Nonnull
-    private CompletableFuture<NodeOrAdjust> insertSlotIntoTargetNode(@Nonnull final Transaction transaction,
+    private CompletableFuture<NodeOrAdjust> insertSlotIntoTargetNode(final Transaction transaction,
                                                                      final int level,
-                                                                     @Nonnull final BigInteger hilbertValue,
-                                                                     @Nonnull final Tuple key,
-                                                                     @Nonnull final Node targetNode,
-                                                                     @Nonnull final NodeSlot newSlot,
+                                                                     final BigInteger hilbertValue,
+                                                                     final Tuple key,
+                                                                     final Node targetNode,
+                                                                     final NodeSlot newSlot,
                                                                      final int slotIndexInTargetNode) {
         if (targetNode.size() < config.getMaxM()) {
             // enough space left in target
@@ -1055,9 +1039,9 @@ public class RTree {
      * @param level the level counting starting at {@code 0} indicating the leaf level increasing upwards
      * @param oldRootNode the old root node
      */
-    private void splitRootNode(@Nonnull final Transaction transaction,
+    private void splitRootNode(final Transaction transaction,
                                final int level,
-                               @Nonnull final Node oldRootNode) {
+                               final Node oldRootNode) {
         final Node leftNode = oldRootNode.newOfSameKind(nodeIdSupplier.get());
         final Node rightNode = oldRootNode.newOfSameKind(nodeIdSupplier.get());
         final int leftSize = oldRootNode.size() / 2;
@@ -1097,10 +1081,9 @@ public class RTree {
      * @param keySuffix the additional key to be stored with the item
      * @return a completable future that completes when the delete operation is completed
      */
-    @Nonnull
-    public CompletableFuture<Void> delete(@Nonnull final TransactionContext tc,
-                                          @Nonnull final Point point,
-                                          @Nonnull final Tuple keySuffix) {
+    public CompletableFuture<Void> delete(final TransactionContext tc,
+                                          final Point point,
+                                          final Tuple keySuffix) {
         final BigInteger hilbertValue = hilbertValueFunction.apply(point);
         final Tuple itemKey = Tuple.from(point.getCoordinates(), keySuffix);
 
@@ -1126,11 +1109,10 @@ public class RTree {
      * @param key the additional key to be stored with the item
      * @return a completable future that completes when the delete is completed
      */
-    @Nonnull
-    private CompletableFuture<Void> deleteSlotIfExists(@Nonnull final Transaction transaction,
-                                                       @Nonnull final LeafNode targetNode,
-                                                       @Nonnull final BigInteger hilbertValue,
-                                                       @Nonnull final Tuple key) {
+    private CompletableFuture<Void> deleteSlotIfExists(final Transaction transaction,
+                                                       final LeafNode targetNode,
+                                                       final BigInteger hilbertValue,
+                                                       final Tuple key) {
         Verify.verify(targetNode.size() <= config.getMaxM());
 
         final AtomicInteger level = new AtomicInteger(0);
@@ -1161,28 +1143,35 @@ public class RTree {
         //
         return AsyncUtil.whileTrue(() -> {
             final NodeSlot currentDeleteSlot = parentSlot.get();
+            // currentNode is only ever set (below) to the parent of a node already confirmed non-root, which by
+            // the tree's linkage invariant is always non-null once reached; NullAway still models
+            // AtomicReference#get() as @Nullable, so the invariant is re-asserted here.
+            final Node currentNodeValue = Objects.requireNonNull(currentNode.get());
 
             if (currentDeleteSlot != null) {
-                return deleteSlotFromTargetNode(transaction, level.get(), hilbertValue, key, currentNode.get(), currentDeleteSlot, deleteSlotIndex.get())
+                return deleteSlotFromTargetNode(transaction, level.get(), hilbertValue, key, currentNodeValue, currentDeleteSlot, deleteSlotIndex.get())
                         .thenApply(nodeOrAdjust -> {
-                            if (currentNode.get().isRoot()) {
+                            if (currentNodeValue.isRoot()) {
                                 return false;
                             }
-                            currentNode.set(currentNode.get().getParentNode());
+                            currentNode.set(currentNodeValue.getParentNode());
                             parentSlot.set(nodeOrAdjust.getSlotInParent());
-                            deleteSlotIndex.set(nodeOrAdjust.getTombstoneNode() == null ? -1 : nodeOrAdjust.getTombstoneNode().getSlotIndexInParent());
+                            // Captured once rather than calling getTombstoneNode() three times; SpotBugs
+                            // (NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE) cannot tell that the separate calls would agree.
+                            final Node tombstoneNode = nodeOrAdjust.getTombstoneNode();
+                            deleteSlotIndex.set(tombstoneNode == null ? -1 : tombstoneNode.getSlotIndexInParent());
                             level.incrementAndGet();
-                            return nodeOrAdjust.getTombstoneNode() != null || nodeOrAdjust.parentNeedsAdjustment();
+                            return tombstoneNode != null || nodeOrAdjust.parentNeedsAdjustment();
                         });
             } else {
                 // adjustment only
-                return updateSlotsAndAdjustNode(transaction, level.get(), hilbertValue, key, currentNode.get(), false)
+                return updateSlotsAndAdjustNode(transaction, level.get(), hilbertValue, key, currentNodeValue, false)
                         .thenApply(nodeOrAdjust -> {
                             Verify.verify(nodeOrAdjust.getSlotInParent() == null);
-                            if (currentNode.get().isRoot()) {
+                            if (currentNodeValue.isRoot()) {
                                 return false;
                             }
-                            currentNode.set(currentNode.get().getParentNode());
+                            currentNode.set(currentNodeValue.getParentNode());
                             level.incrementAndGet();
                             return nodeOrAdjust.parentNeedsAdjustment();
                         });
@@ -1203,13 +1192,12 @@ public class RTree {
      *        information; we can avoid searching for the proper spot on our own.
      * @return a completable future that when completed indicates what needs to be done next (see {@link NodeOrAdjust}).
      */
-    @Nonnull
-    private CompletableFuture<NodeOrAdjust> deleteSlotFromTargetNode(@Nonnull final Transaction transaction,
+    private CompletableFuture<NodeOrAdjust> deleteSlotFromTargetNode(final Transaction transaction,
                                                                      final int level,
                                                                      final BigInteger hilbertValue,
                                                                      final Tuple key,
-                                                                     @Nonnull final Node targetNode,
-                                                                     @Nonnull final NodeSlot deleteSlot,
+                                                                     final Node targetNode,
+                                                                     final NodeSlot deleteSlot,
                                                                      final int slotIndexInTargetNode) {
         //
         // We need to keep the number of slots per node between minM <= size() <= maxM unless this is the root node.
@@ -1384,7 +1372,7 @@ public class RTree {
      * @param oldRootNode the old root node
      * @param toBePromotedNode node to be promoted.
      */
-    private void promoteNodeToRoot(final @Nonnull Transaction transaction, final int level, final IntermediateNode oldRootNode,
+    private void promoteNodeToRoot(final Transaction transaction, final int level, final IntermediateNode oldRootNode,
                                    final Node toBePromotedNode) {
         oldRootNode.deleteAllSlots(storageAdapter, level);
 
@@ -1412,12 +1400,11 @@ public class RTree {
      *         {@link NodeOrAdjust#ADJUST} if the slots of the parent node of the target node need to be adjusted as
      *         well.
      */
-    @Nonnull
-    private CompletableFuture<NodeOrAdjust> updateSlotsAndAdjustNode(@Nonnull final Transaction transaction,
+    private CompletableFuture<NodeOrAdjust> updateSlotsAndAdjustNode(final Transaction transaction,
                                                                      final int level,
-                                                                     @Nonnull final BigInteger hilbertValue,
-                                                                     @Nonnull final Tuple key,
-                                                                     @Nonnull final Node targetNode,
+                                                                     final BigInteger hilbertValue,
+                                                                     final Tuple key,
+                                                                     final Node targetNode,
                                                                      final boolean isInsertUpdate) {
         storageAdapter.writeNodes(transaction, Collections.singletonList(targetNode));
 
@@ -1438,7 +1425,7 @@ public class RTree {
      *         inform the caller if modifications need to be persisted and/or if the parent node itseld=f needs to be
      *         adjusted as well.
      */
-    private boolean adjustSlotInParent(@Nonnull final Node targetNode, final int level) {
+    private boolean adjustSlotInParent(final Node targetNode, final int level) {
         Preconditions.checkArgument(!targetNode.isRoot());
         boolean slotHasChanged;
         final IntermediateNode parentNode = Objects.requireNonNull(targetNode.getParentNode());
@@ -1462,10 +1449,9 @@ public class RTree {
         return slotHasChanged;
     }
 
-    @Nonnull
-    private CompletableFuture<LeafNode> fetchPathForModification(@Nonnull final Transaction transaction,
-                                                                 @Nonnull final BigInteger hilbertValue,
-                                                                 @Nonnull final Tuple key,
+    private CompletableFuture<LeafNode> fetchPathForModification(final Transaction transaction,
+                                                                 final BigInteger hilbertValue,
+                                                                 final Tuple key,
                                                                  final boolean isInsertUpdate) {
         if (config.isUseNodeSlotIndex()) {
             return scanIndexAndFetchLeafNode(transaction, hilbertValue, key, isInsertUpdate);
@@ -1474,10 +1460,9 @@ public class RTree {
         }
     }
 
-    @Nonnull
-    private CompletableFuture<LeafNode> scanIndexAndFetchLeafNode(@Nonnull final ReadTransaction transaction,
-                                                                  @Nonnull final BigInteger hilbertValue,
-                                                                  @Nonnull final Tuple key,
+    private CompletableFuture<LeafNode> scanIndexAndFetchLeafNode(final ReadTransaction transaction,
+                                                                  final BigInteger hilbertValue,
+                                                                  final Tuple key,
                                                                   final boolean isInsertUpdate) {
         return storageAdapter.scanNodeIndexAndFetchNode(transaction, 0, hilbertValue, key, isInsertUpdate)
                 .thenApply(node -> {
@@ -1487,11 +1472,10 @@ public class RTree {
                 });
     }
 
-    @Nonnull
-    private CompletableFuture<IntermediateNode> scanIndexAndFetchIntermediateNode(@Nonnull final ReadTransaction transaction,
+    private CompletableFuture<IntermediateNode> scanIndexAndFetchIntermediateNode(final ReadTransaction transaction,
                                                                                   final int level,
-                                                                                  @Nonnull final BigInteger hilbertValue,
-                                                                                  @Nonnull final Tuple key,
+                                                                                  final BigInteger hilbertValue,
+                                                                                  final Tuple key,
                                                                                   final boolean isInsertUpdate) {
         Verify.verify(level > 0);
         return storageAdapter.scanNodeIndexAndFetchNode(transaction, level, hilbertValue, key, isInsertUpdate)
@@ -1508,12 +1492,11 @@ public class RTree {
                 });
     }
 
-    @Nonnull
-    private CompletableFuture<IntermediateNode> fetchParentNodeIfNecessary(@Nonnull final ReadTransaction transaction,
-                                                                           @Nonnull final Node node,
+    private CompletableFuture<IntermediateNode> fetchParentNodeIfNecessary(final ReadTransaction transaction,
+                                                                           final Node node,
                                                                            final int level,
-                                                                           @Nonnull final BigInteger hilbertValue,
-                                                                           @Nonnull final Tuple key,
+                                                                           final BigInteger hilbertValue,
+                                                                           final Tuple key,
                                                                            final boolean isInsertUpdate) {
         Verify.verify(!node.isRoot());
         final IntermediateNode linkedParentNode = node.getParentNode();
@@ -1547,48 +1530,53 @@ public class RTree {
      *         all intermediate nodes up to the root node that may get affected by an insert, update, or delete
      *         of the specified item.
      */
-    @Nonnull
-    private CompletableFuture<LeafNode> fetchUpdatePathToLeaf(@Nonnull final Transaction transaction,
-                                                              @Nonnull final BigInteger hilbertValue,
-                                                              @Nonnull final Tuple key,
+    private CompletableFuture<LeafNode> fetchUpdatePathToLeaf(final Transaction transaction,
+                                                              final BigInteger hilbertValue,
+                                                              final Tuple key,
                                                               final boolean isInsertUpdate) {
         final AtomicReference<IntermediateNode> parentNode = new AtomicReference<>(null);
         final AtomicInteger slotInParent = new AtomicInteger(-1);
         final AtomicReference<byte[]> currentId = new AtomicReference<>(rootId);
         final AtomicReference<LeafNode> leafNode = new AtomicReference<>(null);
-        return AsyncUtil.whileTrue(() -> storageAdapter.fetchNode(transaction, currentId.get())
-                        .thenApply(node -> {
-                            if (node == null) {
-                                if (Arrays.equals(currentId.get(), rootId)) {
-                                    Verify.verify(leafNode.get() == null);
-                                    return false;
-                                }
-                                throw new IllegalStateException("unable to fetch node for insert or update");
-                            }
-                            if (parentNode.get() != null) {
-                                node.linkToParent(parentNode.get(), slotInParent.get());
-                            }
-                            if (node.getKind() == NodeKind.INTERMEDIATE) {
-                                final IntermediateNode intermediateNode = (IntermediateNode)node;
-                                final int slotIndex = findChildSlotIndex(intermediateNode, hilbertValue, key, isInsertUpdate);
-                                if (slotIndex < 0) {
-                                    Verify.verify(!isInsertUpdate);
-                                    //
-                                    // This is for a delete operation and we were unable to find a child that covers
-                                    // the Hilbert Value/key to be deleted
-                                    return false;
-                                }
+        return AsyncUtil.whileTrue(() -> {
+            // currentId is only ever set (below) to a ChildSlot's non-null child id, so it is never
+            // actually null; NullAway still models AtomicReference#get() as @Nullable, so the
+            // invariant is re-asserted here.
+            final byte[] currentIdValue = Objects.requireNonNull(currentId.get());
+            return storageAdapter.fetchNode(transaction, currentIdValue)
+                .thenApply(node -> {
+                    if (node == null) {
+                        if (Arrays.equals(currentIdValue, rootId)) {
+                            Verify.verify(leafNode.get() == null);
+                            return false;
+                        }
+                        throw new IllegalStateException("unable to fetch node for insert or update");
+                    }
+                    if (parentNode.get() != null) {
+                        node.linkToParent(parentNode.get(), slotInParent.get());
+                    }
+                    if (node.getKind() == NodeKind.INTERMEDIATE) {
+                        final IntermediateNode intermediateNode = (IntermediateNode)node;
+                        final int slotIndex = findChildSlotIndex(intermediateNode, hilbertValue, key, isInsertUpdate);
+                        if (slotIndex < 0) {
+                            Verify.verify(!isInsertUpdate);
+                            //
+                            // This is for a delete operation and we were unable to find a child that covers
+                            // the Hilbert Value/key to be deleted
+                            return false;
+                        }
 
-                                parentNode.set(intermediateNode);
-                                slotInParent.set(slotIndex);
-                                final ChildSlot childSlot = intermediateNode.getSlot(slotIndex);
-                                currentId.set(childSlot.getChildId());
-                                return true;
-                            } else {
-                                leafNode.set((LeafNode)node);
-                                return false;
-                            }
-                        }), executor)
+                        parentNode.set(intermediateNode);
+                        slotInParent.set(slotIndex);
+                        final ChildSlot childSlot = intermediateNode.getSlot(slotIndex);
+                        currentId.set(childSlot.getChildId());
+                        return true;
+                    } else {
+                        leafNode.set((LeafNode)node);
+                        return false;
+                    }
+                });
+        }, executor)
                 .thenApply(ignored -> {
                     final LeafNode node = leafNode.get();
                     if (logger.isTraceEnabled()) {
@@ -1612,9 +1600,8 @@ public class RTree {
      *         passed in as good as possible meaning that we attempt to return the node passed in as middle-most element
      *         of the returned list.
      */
-    @Nonnull
-    private CompletableFuture<List<Node>> fetchSiblings(@Nonnull final Transaction transaction,
-                                                        @Nonnull final Node node) {
+    private CompletableFuture<List<Node>> fetchSiblings(final Transaction transaction,
+                                                        final Node node) {
         // this deque is only modified by once upon creation
         final ArrayDeque<byte[]> toBeProcessed = new ArrayDeque<>();
         final List<CompletableFuture<Void>> working = Lists.newArrayList();
@@ -1683,7 +1670,7 @@ public class RTree {
      * @param transactionContext transaction context to be used
      * @return the depth of the R-tree
      */
-    public int depth(@Nonnull final TransactionContext transactionContext) {
+    public int depth(final TransactionContext transactionContext) {
         //
         // find the number of levels in this tree
         //
@@ -1695,9 +1682,14 @@ public class RTree {
         }
 
         int numLevels = 1;
-        while (node.getParentNode() != null) {
+        // Captured once per level rather than calling getParentNode() twice (once in the loop condition, once in
+        // the body); SpotBugs (NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE) cannot tell that two separate calls would
+        // agree.
+        IntermediateNode parentNode = node.getParentNode();
+        while (parentNode != null) {
             numLevels ++;
-            node = node.getParentNode();
+            node = parentNode;
+            parentNode = node.getParentNode();
         }
         Verify.verify(node.isRoot(), "end of update path should be the root");
         logger.trace("numLevels = {}", numLevels);
@@ -1708,7 +1700,7 @@ public class RTree {
      * Method to validate the Hilbert R-tree.
      * @param db the database to use
      */
-    public void validate(@Nonnull final Database db) {
+    public void validate(final Database db) {
         validate(db, Integer.MAX_VALUE);
     }
 
@@ -1717,7 +1709,7 @@ public class RTree {
      * @param db the database to use
      * @param maxNumNodesToBeValidated a maximum number of nodes this call should attempt to validate
      */
-    public void validate(@Nonnull final Database db,
+    public void validate(final Database db,
                          final int maxNumNodesToBeValidated) {
 
         ArrayDeque<ValidationTraversalState> toBeProcessed = new ArrayDeque<>();
@@ -1736,10 +1728,9 @@ public class RTree {
      * @return a completable future that completes successfully with the current deque of to-be-processed nodes if the
      *         portion of the tree that was validated is in fact valid, completes with failure otherwise
      */
-    @Nonnull
-    private CompletableFuture<ArrayDeque<ValidationTraversalState>> validate(@Nonnull final Transaction transaction,
+    private CompletableFuture<ArrayDeque<ValidationTraversalState>> validate(final Transaction transaction,
                                                                              final int maxNumNodesToBeValidated,
-                                                                             @Nonnull final ArrayDeque<ValidationTraversalState> toBeProcessed) {
+                                                                             final ArrayDeque<ValidationTraversalState> toBeProcessed) {
         final AtomicInteger numNodesEnqueued = new AtomicInteger(0);
         final List<CompletableFuture<List<ValidationTraversalState>>> working = Lists.newArrayList();
 
@@ -1854,9 +1845,9 @@ public class RTree {
      *         compared smaller than {@code p}. If, on the contrary, a record is deleted and a slot covering {@code p}
      *         cannot be found, this method returns {@code -1}.
      */
-    private static int findChildSlotIndex(@Nonnull final IntermediateNode intermediateNode,
-                                          @Nonnull final BigInteger hilbertValue,
-                                          @Nonnull final Tuple key,
+    private static int findChildSlotIndex(final IntermediateNode intermediateNode,
+                                          final BigInteger hilbertValue,
+                                          final Tuple key,
                                           final boolean isInsertUpdate) {
         Verify.verify(!intermediateNode.isEmpty());
 
@@ -1900,7 +1891,7 @@ public class RTree {
      * @return if found the 0-based slot index that corresponds to slot using holding the given {@code childId};
      *         {@code -1} otherwise
      */
-    private static int findChildSlotIndex(@Nonnull final IntermediateNode parentNode, @Nonnull final byte[] childId) {
+    private static int findChildSlotIndex(final IntermediateNode parentNode, final byte[] childId) {
         for (int slotIndex = 0; slotIndex < parentNode.size(); slotIndex++) {
             final ChildSlot childSlot = parentNode.getSlot(slotIndex);
 
@@ -1921,9 +1912,9 @@ public class RTree {
      *         the 0-based slot index that represents the insertion point index of the given {@code (hilbertValue, key)}
      *         pair, otherwise
      */
-    private static int findInsertUpdateItemSlotIndex(@Nonnull final LeafNode leafNode,
-                                                     @Nonnull final BigInteger hilbertValue,
-                                                     @Nonnull final Tuple key) {
+    private static int findInsertUpdateItemSlotIndex(final LeafNode leafNode,
+                                                     final BigInteger hilbertValue,
+                                                     final Tuple key) {
         for (int slotIndex = 0; slotIndex < leafNode.size(); slotIndex++) {
             final ItemSlot slot = leafNode.getSlot(slotIndex);
 
@@ -1950,9 +1941,9 @@ public class RTree {
      *         the 0-based slot index that corresponds to the slot for the given {@code (hilbertValue, key)}
      *         pair, otherwise
      */
-    private static int findDeleteItemSlotIndex(@Nonnull final LeafNode leafNode,
-                                               @Nonnull final BigInteger hilbertValue,
-                                               @Nonnull final Tuple key) {
+    private static int findDeleteItemSlotIndex(final LeafNode leafNode,
+                                               final BigInteger hilbertValue,
+                                               final Tuple key) {
         for (int slotIndex = 0; slotIndex < leafNode.size(); slotIndex++) {
             final ItemSlot slot = leafNode.getSlot(slotIndex);
 
@@ -1989,12 +1980,10 @@ public class RTree {
             this.currentLeafNode = currentLeafNode;
         }
 
-        @Nonnull
         public List<Deque<ChildSlot>> getToBeProcessed() {
             return Objects.requireNonNull(toBeProcessed);
         }
 
-        @Nonnull
         public LeafNode getCurrentLeafNode() {
             return Objects.requireNonNull(currentLeafNode);
         }
@@ -2003,7 +1992,7 @@ public class RTree {
             return currentLeafNode == null;
         }
 
-        public static TraversalState of(@Nonnull final List<Deque<ChildSlot>> toBeProcessed, @Nonnull final LeafNode currentLeafNode) {
+        public static TraversalState of(final List<Deque<ChildSlot>> toBeProcessed, final LeafNode currentLeafNode) {
             return new TraversalState(toBeProcessed, currentLeafNode);
         }
 
@@ -2020,17 +2009,13 @@ public class RTree {
      * intermediate {@link TraversalState}s created by these methods.
      */
     private class LeafIterator implements AsyncIterator<LeafNode> {
-        @Nonnull
         private final ReadTransaction readTransaction;
-        @Nonnull
         private final byte[] rootId;
         @Nullable
         private final BigInteger lastHilbertValue;
         @Nullable
         private final Tuple lastKey;
-        @Nonnull
         private final Predicate<Rectangle> mbrPredicate;
-        @Nonnull
         private final BiPredicate<Tuple, Tuple> suffixKeyPredicate;
 
         @Nullable
@@ -2038,9 +2023,9 @@ public class RTree {
         @Nullable
         private CompletableFuture<TraversalState> nextStateFuture;
 
-        public LeafIterator(@Nonnull final ReadTransaction readTransaction, @Nonnull final byte[] rootId,
+        public LeafIterator(final ReadTransaction readTransaction, final byte[] rootId,
                             @Nullable final BigInteger lastHilbertValue, @Nullable final Tuple lastKey,
-                            @Nonnull final Predicate<Rectangle> mbrPredicate, @Nonnull final BiPredicate<Tuple, Tuple> suffixKeyPredicate) {
+                            final Predicate<Rectangle> mbrPredicate, final BiPredicate<Tuple, Tuple> suffixKeyPredicate) {
             Preconditions.checkArgument((lastHilbertValue == null && lastKey == null) ||
                                         (lastHilbertValue != null && lastKey != null));
             this.readTransaction = readTransaction;
@@ -2097,14 +2082,13 @@ public class RTree {
      * {@code Streams.stream(leafIterator).flatMap(leafNode -> leafNode.getItems().stream()).toIterator()}.
      */
     public static class ItemSlotIterator implements AsyncIterator<ItemSlot> {
-        @Nonnull
         private final AsyncIterator<LeafNode> leafIterator;
         @Nullable
         private LeafNode currentLeafNode;
         @Nullable
         private Iterator<ItemSlot> currenLeafItemsIterator;
 
-        private ItemSlotIterator(@Nonnull final AsyncIterator<LeafNode> leafIterator) {
+        private ItemSlotIterator(final AsyncIterator<LeafNode> leafIterator) {
             this.leafIterator = leafIterator;
             this.currentLeafNode = null;
             this.currenLeafItemsIterator = null;
@@ -2198,10 +2182,9 @@ public class RTree {
         final int level;
         @Nullable
         private final IntermediateNode parentNode;
-        @Nonnull
         private final byte[] childId;
 
-        public ValidationTraversalState(final int level, @Nullable final IntermediateNode parentNode, @Nonnull final byte[] childId) {
+        public ValidationTraversalState(final int level, @Nullable final IntermediateNode parentNode, final byte[] childId) {
             this.level = level;
             this.parentNode = parentNode;
             this.childId = childId;
@@ -2216,7 +2199,6 @@ public class RTree {
             return parentNode;
         }
 
-        @Nonnull
         public byte[] getChildId() {
             return childId;
         }
@@ -2228,15 +2210,13 @@ public class RTree {
      * numbers.
      */
     public static class Point {
-        @Nonnull
         private final Tuple coordinates;
 
-        public Point(@Nonnull final Tuple coordinates) {
+        public Point(final Tuple coordinates) {
             Preconditions.checkArgument(!coordinates.isEmpty());
             this.coordinates = coordinates;
         }
 
-        @Nonnull
         public Tuple getCoordinates() {
             return coordinates;
         }
@@ -2272,7 +2252,6 @@ public class RTree {
             return coordinates.hashCode();
         }
 
-        @Nonnull
         @Override
         public String toString() {
             return coordinates.toString();
@@ -2290,7 +2269,6 @@ public class RTree {
          * {@code (low1, low2, ..., lowN, high1, high2, ..., highN}. Note that we don't use nested {@link Tuple}s for
          * space-saving reasons (when the tuple is serialized).
          */
-        @Nonnull
         private final Tuple ranges;
 
         public Rectangle(final Tuple ranges) {
@@ -2302,22 +2280,18 @@ public class RTree {
             return ranges.size() >> 1;
         }
 
-        @Nonnull
         public Tuple getRanges() {
             return ranges;
         }
 
-        @Nonnull
         public Object getLow(final int dimension) {
             return ranges.get(dimension);
         }
 
-        @Nonnull
         public Object getHigh(final int dimension) {
             return ranges.get((ranges.size() >> 1) + dimension);
         }
 
-        @Nonnull
         public BigInteger area() {
             BigInteger currentArea = BigInteger.ONE;
             for (int d = 0; d < getNumDimensions(); d++) {
@@ -2326,8 +2300,14 @@ public class RTree {
             return currentArea;
         }
 
-        @Nonnull
-        public Rectangle unionWith(@Nonnull final Point point) {
+        // A Tuple's element can genuinely be null (Tuple explicitly supports null entries), so
+        // point.getCoordinate(d) is correctly declared @Nullable. ranges is a plain Object[] here (rather
+        // than a @Nullable Object[]) because it is ultimately handed to Tuple.from(Object...), an external,
+        // unannotated varargs API that NullAway would misflag as array-of-nullable-into-array-of-nonnull
+        // regardless of how ranges is declared. Suppressed at the method level since every null-related
+        // finding in this method traces back to this one, already-understood situation.
+        @SuppressWarnings("NullAway")
+        public Rectangle unionWith(final Point point) {
             Preconditions.checkArgument(getNumDimensions() == point.getNumDimensions());
             boolean isModified = false;
             Object[] ranges = new Object[getNumDimensions() << 1];
@@ -2361,8 +2341,7 @@ public class RTree {
             return new Rectangle(Tuple.from(ranges));
         }
 
-        @Nonnull
-        public Rectangle unionWith(@Nonnull final Rectangle other) {
+        public Rectangle unionWith(final Rectangle other) {
             Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
             boolean isModified = false;
             Object[] ranges = new Object[getNumDimensions() << 1];
@@ -2398,7 +2377,7 @@ public class RTree {
             return new Rectangle(Tuple.from(ranges));
         }
 
-        public boolean isOverlapping(@Nonnull final Rectangle other) {
+        public boolean isOverlapping(final Rectangle other) {
             Preconditions.checkArgument(getNumDimensions() == other.getNumDimensions());
 
             for (int d = 0; d < getNumDimensions(); d++) {
@@ -2416,10 +2395,13 @@ public class RTree {
             return true;
         }
 
-        public boolean contains(@Nonnull final Point point) {
+        public boolean contains(final Point point) {
             Preconditions.checkArgument(getNumDimensions() == point.getNumDimensions());
 
             for (int d = 0; d < getNumDimensions(); d++) {
+                // A Tuple's element (point.getCoordinate(d)) can genuinely be null; Tuple.from(Object...) is an
+                // external, unannotated varargs API that NullAway misflags as requiring non-null elements.
+                @SuppressWarnings("NullAway")
                 final Tuple otherTuple = Tuple.from(point.getCoordinate(d));
 
                 final Tuple lowTuple = Tuple.from(getLow(d));
@@ -2450,7 +2432,6 @@ public class RTree {
             return ranges.hashCode();
         }
 
-        @Nonnull
         public String toPlotString() {
             final StringBuilder builder = new StringBuilder();
             for (int d = 0; d < getNumDimensions(); d++) {
@@ -2471,14 +2452,15 @@ public class RTree {
             return builder.toString();
         }
 
-        @Nonnull
         @Override
         public String toString() {
             return ranges.toString();
         }
         
-        @Nonnull
-        public static Rectangle fromPoint(@Nonnull final Point point) {
+        // A Tuple's element can genuinely be null (see unionWith(Point) above for the full rationale);
+        // mbrRanges ends up passed to the external, unannotated Tuple.from(Object...) either way.
+        @SuppressWarnings("NullAway")
+        public static Rectangle fromPoint(final Point point) {
             final Object[] mbrRanges = new Object[point.getNumDimensions() * 2];
             for (int d = 0; d < point.getNumDimensions(); d++) {
                 final Object coordinate = point.getCoordinate(d);

@@ -22,21 +22,20 @@ package com.apple.foundationdb.async.rtree;
 
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 /**
  * A leaf node of the R-tree. A leaf node holds the actual data in {@link ItemSlot}s.
  */
 class LeafNode extends AbstractNode<ItemSlot, LeafNode> {
-    public LeafNode(@Nonnull final byte[] id,
-                    @Nonnull final List<ItemSlot> itemSlots) {
+    public LeafNode(final byte[] id,
+                    final List<ItemSlot> itemSlots) {
         this(id, itemSlots, null, -1);
     }
 
-    public LeafNode(@Nonnull final byte[] id,
-                    @Nonnull final List<ItemSlot> itemSlots,
+    public LeafNode(final byte[] id,
+                    final List<ItemSlot> itemSlots,
                     @Nullable final IntermediateNode parentNode,
                     final int slotIndexInParent) {
         super(id, itemSlots, parentNode, slotIndexInParent);
@@ -47,21 +46,18 @@ class LeafNode extends AbstractNode<ItemSlot, LeafNode> {
         return this;
     }
 
-    @Nonnull
     @Override
-    public ItemSlot narrowSlot(@Nonnull final NodeSlot slot) {
+    public ItemSlot narrowSlot(final NodeSlot slot) {
         return (ItemSlot)slot;
     }
 
-    @Nonnull
     @Override
     public NodeKind getKind() {
         return NodeKind.LEAF;
     }
 
-    @Nonnull
     @Override
-    public LeafNode newOfSameKind(@Nonnull final byte[] nodeId) {
+    public LeafNode newOfSameKind(final byte[] nodeId) {
         return new LeafNode(nodeId, Lists.newArrayList());
     }
 }

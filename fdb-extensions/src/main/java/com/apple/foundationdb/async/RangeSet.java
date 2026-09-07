@@ -30,11 +30,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -52,9 +52,9 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 @API(API.Status.UNSTABLE)
 public class RangeSet {
-    @Nonnull private Subspace subspace;
-    @Nonnull private static final byte[] FIRST_KEY = { (byte)0x00 };
-    @Nonnull private static final byte[] FINAL_KEY = { (byte)0xff };
+    private Subspace subspace;
+    private static final byte[] FIRST_KEY = { (byte)0x00 };
+    private static final byte[] FINAL_KEY = { (byte)0xff };
 
     private static final Range COMPLETE_RANGE = new Range(FIRST_KEY, FINAL_KEY);
 
@@ -71,43 +71,48 @@ public class RangeSet {
      * used by another RangeSet object.
      * @param subspace the subspace in which to write data
      */
-    public RangeSet(@Nonnull Subspace subspace) {
+    public RangeSet(Subspace subspace) {
         this.subspace = subspace;
     }
 
-    private static void checkKey(@Nonnull byte[] key) {
+    private static void checkKey(byte[] key) {
         if (key.length == 0 || ByteArrayUtil.compareUnsigned(key, FINAL_KEY) >= 0) {
             // NOTE: Perhaps this should instead return a completable future completed in exceptional state...
             throw new IllegalArgumentException("Key " + ByteArrayUtil.printable(key) + " outside of accepted key range of [\\x00,\\xff)");
         }
     }
 
-    private static void checkRange(@Nonnull byte[] begin, @Nonnull byte[] end) {
+    private static void checkRange(byte[] begin, byte[] end) {
         if (ByteArrayUtil.compareUnsigned(begin, end) > 0) {
             throw new IllegalArgumentException("Inverted range; " + ByteArrayUtil.printable(begin) + " is greater than " + ByteArrayUtil.printable(end));
         }
     }
 
-    public static boolean isFirstKey(@Nonnull byte[] key) {
+    public static boolean isFirstKey(byte[] key) {
         return Arrays.equals(key, FIRST_KEY);
     }
 
-    public static boolean isFinalKey(@Nonnull byte[] key) {
+    public static boolean isFinalKey(byte[] key) {
         return Arrays.equals(key, FINAL_KEY);
     }
 
-    public static byte[] nullIfFirst(@Nonnull byte[] key) {
+    // NullAway does not reliably recognize @Nullable on array-typed return values, so the `null` branches
+    // below are misflagged as returning @Nullable from a @NonNull-returning method despite the annotation.
+    @Nullable
+    @SuppressWarnings("NullAway")
+    public static byte[] nullIfFirst(byte[] key) {
         return isFirstKey(key) ? null : key;
     }
 
-    public static byte[] nullIfFinal(@Nonnull byte[] key) {
+    @Nullable
+    @SuppressWarnings("NullAway")
+    public static byte[] nullIfFinal(byte[] key) {
         return isFinalKey(key) ? null : key;
     }
 
     // This returns the next possible key after another key (i.e., a key that is greater than current key but
     // every key greater than this key will be greater than or equal to the returned key).
-    @Nonnull
-    private byte[] keyAfter(@Nonnull byte[] key) {
+    private byte[] keyAfter(byte[] key) {
         byte[] ret = new byte[key.length + 1];
         System.arraycopy(key, 0, ret, 0, key.length);
         ret[key.length] = (byte)0;
@@ -125,8 +130,7 @@ public class RangeSet {
      * @param key the key to check presence in set
      * @return a future that contains whether some range in the set contains the key
      */
-    @Nonnull
-    public CompletableFuture<Boolean> contains(@Nonnull TransactionContext tc, @Nonnull byte[] key) {
+    public CompletableFuture<Boolean> contains(TransactionContext tc, byte[] key) {
         checkKey(key);
         return tc.runAsync(tr -> {
             // Add a read conflict to only the key being checked so that if this gets
@@ -156,8 +160,7 @@ public class RangeSet {
      * @param r the range to add to the set
      * @return a future that is <code>true</code> if there were any modifications to the database and <code>false</code> otherwise
      */
-    @Nonnull
-    public CompletableFuture<Boolean> insertRange(@Nonnull TransactionContext tc, @Nonnull Range r) {
+    public CompletableFuture<Boolean> insertRange(TransactionContext tc, Range r) {
         return insertRange(tc, r.begin, r.end);
     }
 
@@ -171,8 +174,7 @@ public class RangeSet {
      * @param requireEmpty whether this should only be added if this range is initally empty
      * @return a future that is <code>true</code> if there were any modifications to the database and <code>false</code> otherwise
      */
-    @Nonnull
-    public CompletableFuture<Boolean> insertRange(@Nonnull TransactionContext tc, @Nonnull Range r, boolean requireEmpty) {
+    public CompletableFuture<Boolean> insertRange(TransactionContext tc, Range r, boolean requireEmpty) {
         return insertRange(tc, r.begin, r.end, requireEmpty);
     }
 
@@ -187,8 +189,7 @@ public class RangeSet {
      * @param end the (exclusive) end of the range to add
      * @return a future that is <code>true</code> if there were any modifications to the database and <code>false</code> otherwise
      */
-    @Nonnull
-    public CompletableFuture<Boolean> insertRange(@Nonnull TransactionContext tc, @Nullable byte[] begin, @Nullable byte[] end) {
+    public CompletableFuture<Boolean> insertRange(TransactionContext tc, @Nullable byte[] begin, @Nullable byte[] end) {
         return insertRange(tc, begin, end, false);
     }
 
@@ -224,10 +225,13 @@ public class RangeSet {
      * @param requireEmpty whether this should only be added if this range is initially empty
      * @return a future that is <code>true</code> if there were any modifications to the database and <code>false</code> otherwise
      */
-    @Nonnull
-    public CompletableFuture<Boolean> insertRange(@Nonnull TransactionContext tc, @Nullable byte[] begin, @Nullable byte[] end, boolean requireEmpty) {
-        byte[] beginNonNull = (begin == null) ? FIRST_KEY : begin;
-        byte[] endNonNull = (end == null) ? FINAL_KEY : end;
+    public CompletableFuture<Boolean> insertRange(TransactionContext tc, @Nullable byte[] begin, @Nullable byte[] end, boolean requireEmpty) {
+        // NullAway does not reliably narrow @Nullable byte[] locals inside a ternary, even though begin/end
+        // are provably non-null in the branch where they are used below.
+        @SuppressWarnings("NullAway")
+        final byte[] beginNonNull = (begin == null) ? FIRST_KEY : begin;
+        @SuppressWarnings("NullAway")
+        final byte[] endNonNull = (end == null) ? FINAL_KEY : end;
         checkKey(beginNonNull);
         checkRange(beginNonNull, endNonNull);
 
@@ -256,7 +260,9 @@ public class RangeSet {
 
                 // If the before key is in some range, we don't have to update from before to the
                 // end of that range.
-                if (hasBefore) {
+                // hasBefore implies before != null (both are derived together just above), but NullAway
+                // cannot correlate the nullness of two different variables, so it is checked explicitly.
+                if (hasBefore && before != null) {
                     byte[] beforeEnd = before.getValue();
                     if (ByteArrayUtil.compareUnsigned(beginNonNull, beforeEnd) < 0) {
                         if (requireEmpty) {
@@ -289,7 +295,10 @@ public class RangeSet {
                     AtomicBoolean changed = new AtomicBoolean(false);
                     // If we are allowing non-empty ranges, then we just need to fill in the gaps.
                     return AsyncUtil.whileTrue(() -> {
-                        byte[] lastSeenBytes = lastSeen.get();
+                        // lastSeen is only ever set to a non-null value (see the AtomicReference construction
+                        // above and the .set() calls below), but NullAway models AtomicReference#get() as
+                        // always @Nullable, so the non-null-ness is re-asserted here.
+                        byte[] lastSeenBytes = Objects.requireNonNull(lastSeen.get());
                         if (MoreAsyncUtil.isCompletedNormally(afterIterator.onHasNext()) && afterIterator.hasNext()) {
                             KeyValue kv = afterIterator.next();
                             if (ByteArrayUtil.compareUnsigned(lastSeenBytes, kv.getKey()) < 0) {
@@ -301,7 +310,7 @@ public class RangeSet {
                         }
                         return afterIterator.onHasNext();
                     }, tc.getExecutor()).thenApply(vignore -> {
-                        byte[] lastSeenBytes = lastSeen.get();
+                        byte[] lastSeenBytes = Objects.requireNonNull(lastSeen.get());
                         // Get from lastSeen to the end (the last gap).
                         if (ByteArrayUtil.compareUnsigned(lastSeenBytes, frobnicatedEnd) < 0) {
                             tr.set(lastSeenBytes, endNonNull);
@@ -324,8 +333,7 @@ public class RangeSet {
      * @param tc transaction that will be used to access the database
      * @return an iterable that will produce all of the missing ranges
      */
-    @Nonnull
-    public CompletableFuture<List<Range>> missingRanges(@Nonnull ReadTransactionContext tc) {
+    public CompletableFuture<List<Range>> missingRanges(ReadTransactionContext tc) {
         return tc.readAsync(tr -> {
             AsyncIterable<Range> ranges = missingRanges(tr);
             return ranges.asList();
@@ -341,9 +349,12 @@ public class RangeSet {
      * @param tr transaction that will be used to access the database
      * @return an iterable that will produce all of the missing ranges
      */
-    @Nonnull
-    public AsyncIterable<Range> missingRanges(@Nonnull ReadTransaction tr) {
-        return missingRanges(tr, null, null);
+    public AsyncIterable<Range> missingRanges(ReadTransaction tr) {
+        // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null literals below
+        // are misflagged as NonNull violations even though missingRanges()'s begin/end are @Nullable byte[].
+        @SuppressWarnings("NullAway")
+        final AsyncIterable<Range> result = missingRanges(tr, null, null);
+        return result;
     }
 
     /**
@@ -355,8 +366,7 @@ public class RangeSet {
      * @param superRange the range within to search for additional ranges
      * @return an iterable that will produce all of the missing ranges
      */
-    @Nonnull
-    public CompletableFuture<List<Range>> missingRanges(@Nonnull ReadTransactionContext tc, @Nonnull Range superRange) {
+    public CompletableFuture<List<Range>> missingRanges(ReadTransactionContext tc, Range superRange) {
         return tc.readAsync(tr -> {
             AsyncIterable<Range> ranges = missingRanges(tr, superRange);
             return ranges.asList();
@@ -372,8 +382,7 @@ public class RangeSet {
      * @param superRange the range within to search for additional ranges
      * @return an iterable that will produce all of the missing ranges
      */
-    @Nonnull
-    public AsyncIterable<Range> missingRanges(@Nonnull ReadTransaction tr, @Nonnull Range superRange) {
+    public AsyncIterable<Range> missingRanges(ReadTransaction tr, Range superRange) {
         return missingRanges(tr, superRange.begin, superRange.end);
     }
 
@@ -387,8 +396,7 @@ public class RangeSet {
      * @param end the end (inclusive) of the range to look for gaps
      * @return an iterable that will produce all of the missing ranges
      */
-    @Nonnull
-    public CompletableFuture<List<Range>> missingRanges(@Nonnull ReadTransactionContext tc, @Nullable byte[] begin, @Nullable byte[] end) {
+    public CompletableFuture<List<Range>> missingRanges(ReadTransactionContext tc, @Nullable byte[] begin, @Nullable byte[] end) {
         return tc.readAsync(tr -> {
             AsyncIterable<Range> ranges = missingRanges(tr, begin, end);
             return ranges.asList();
@@ -406,8 +414,7 @@ public class RangeSet {
      * @param end the end (inclusive) of the range to look for gaps
      * @return an iterable that will produce all of the missing ranges
      */
-    @Nonnull
-    public AsyncIterable<Range> missingRanges(@Nonnull ReadTransaction tr, @Nullable byte[] begin, @Nullable byte[] end) {
+    public AsyncIterable<Range> missingRanges(ReadTransaction tr, @Nullable byte[] begin, @Nullable byte[] end) {
         return missingRanges(tr, begin, end, Integer.MAX_VALUE);
     }
 
@@ -423,8 +430,7 @@ public class RangeSet {
      * @param limit the maximum number of results to return
      * @return an iterable that will produce all of the missing ranges
      */
-    @Nonnull
-    public CompletableFuture<List<Range>> missingRanges(@Nonnull ReadTransactionContext tc, @Nullable byte[] begin, @Nullable byte[] end, int limit) {
+    public CompletableFuture<List<Range>> missingRanges(ReadTransactionContext tc, @Nullable byte[] begin, @Nullable byte[] end, int limit) {
         return tc.readAsync(tr -> {
             AsyncIterable<Range> ranges = missingRanges(tr, begin, end, limit);
             return ranges.asList();
@@ -444,10 +450,13 @@ public class RangeSet {
      * @param limit the maximum number of results to return
      * @return an iterable that will produce all of the missing ranges
      */
-    @Nonnull
-    public AsyncIterable<Range> missingRanges(@Nonnull ReadTransaction tr, @Nullable byte[] begin, @Nullable byte[] end, int limit) {
-        byte[] beginNonNull = (begin == null) ? FIRST_KEY : begin;
-        byte[] endNonNull = (end == null) ? FINAL_KEY : end;
+    public AsyncIterable<Range> missingRanges(ReadTransaction tr, @Nullable byte[] begin, @Nullable byte[] end, int limit) {
+        // NullAway does not reliably narrow @Nullable byte[] locals inside a ternary, even though begin/end
+        // are provably non-null in the branch where they are used below.
+        @SuppressWarnings("NullAway")
+        final byte[] beginNonNull = (begin == null) ? FIRST_KEY : begin;
+        @SuppressWarnings("NullAway")
+        final byte[] endNonNull = (end == null) ? FINAL_KEY : end;
         checkKey(beginNonNull);
         checkRange(beginNonNull, endNonNull);
 
@@ -474,7 +483,7 @@ public class RangeSet {
      * @return a future that will contain {@code true} if there are no ranges in this set or {@code false} otherwise
      * @see #isEmpty(ReadTransaction)
      */
-    public CompletableFuture<Boolean> isEmpty(@Nonnull ReadTransactionContext rtc) {
+    public CompletableFuture<Boolean> isEmpty(ReadTransactionContext rtc) {
         return rtc.readAsync(this::isEmpty);
     }
 
@@ -485,7 +494,10 @@ public class RangeSet {
      * @param rtr transaction that will be used to read from the database
      * @return a future that will contain {@code true} if there are no ranges in this set or {@code false} otherwise
      */
-    public CompletableFuture<Boolean> isEmpty(@Nonnull ReadTransaction rtr) {
+    public CompletableFuture<Boolean> isEmpty(ReadTransaction rtr) {
+        // NullAway does not reliably honor @Nullable on byte[]-typed parameters, so the null literals below
+        // are misflagged as NonNull violations even though missingRanges()'s begin/end are @Nullable byte[].
+        @SuppressWarnings("NullAway")
         final AsyncIterator<Range> missing = missingRanges(rtr, null, null, 1).iterator();
         return missing.onHasNext().thenApply(doesHaveNext -> {
             if (doesHaveNext) {
@@ -502,19 +514,19 @@ public class RangeSet {
     // range. It will stop after the limit has been acheived unless the limit is set
     // to UNLIMITED.
     private class MissingRangeIterator implements CloseableAsyncIterator<Range> {
-        @Nonnull private final byte[] endNonNull;
-        @Nonnull private AsyncIterator<KeyValue> before;
-        @Nonnull private AsyncIterator<KeyValue> after;
+        private final byte[] endNonNull;
+        private AsyncIterator<KeyValue> before;
+        private AsyncIterator<KeyValue> after;
 
-        @Nonnull private byte[] currBegin;
+        private byte[] currBegin;
         @Nullable private Range next;
         private boolean found;
         private int limit;
         private int numFound;
         private final Executor executor;
-        @Nonnull private CompletableFuture<Boolean> nextFuture;
+        private CompletableFuture<Boolean> nextFuture;
 
-        public MissingRangeIterator(@Nonnull ReadTransaction tr, @Nonnull byte[] beginNonNull, @Nonnull byte[] endNonNull, int limit) {
+        public MissingRangeIterator(ReadTransaction tr, byte[] beginNonNull, byte[] endNonNull, int limit) {
             this.endNonNull = endNonNull;
             this.numFound = 0;
             this.limit = limit;
@@ -594,7 +606,8 @@ public class RangeSet {
             if (!hasNext()) {
                 throw new NoSuchElementException("Attempted to get next missing range when none were present");
             }
-            Range ret = next;
+            // hasNext() is guaranteed to have set next when it returns true.
+            Range ret = Objects.requireNonNull(next);
             found = false;
             if (limit == UNLIMITED || numFound < limit) {
                 nextFuture = getNext();
@@ -616,7 +629,7 @@ public class RangeSet {
      * Clears the subspace used by this RangeSet instance. This will remove all ranges from this set.
      * @param tr transaction with which to run the operation
      */
-    public void clear(@Nonnull Transaction tr) {
+    public void clear(Transaction tr) {
         tr.clear(subspace.range());
     }
 
@@ -625,16 +638,14 @@ public class RangeSet {
      * @param tc transaction or database in which to run operation
      * @return a future that is completed when the range has been cleared
      */
-    @Nonnull
-    public CompletableFuture<Void> clear(@Nonnull TransactionContext tc) {
+    public CompletableFuture<Void> clear(TransactionContext tc) {
         return tc.runAsync(tr -> {
             clear(tr);
             return AsyncUtil.DONE;
         });
     }
 
-    @Nonnull
-    public CompletableFuture<String> rep(@Nonnull ReadTransactionContext tc) {
+    public CompletableFuture<String> rep(ReadTransactionContext tc) {
         return tc.readAsync(tr -> {
             StringBuilder sb = new StringBuilder();
             AsyncIterable<KeyValue> iterable = tr.getRange(subspace.range());

@@ -47,7 +47,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -142,23 +141,22 @@ public class SiftTest implements BaseTest {
     final TestSubspaceExtension subspaceExtension = new TestSubspaceExtension(dbExtension);
 
     @TempDir
+    // Injected by JUnit's TempDirectory extension before each test; NullAway cannot see framework injection.
+    @SuppressWarnings("NullAway")
     Path tempDir;
 
     private static Database db;
 
-    @Nonnull
     @Override
     public Database getDb() {
         return Objects.requireNonNull(db);
     }
 
-    @Nonnull
     @Override
     public Subspace getSubspace() {
         return subspaceExtension.getSubspace();
     }
 
-    @Nonnull
     @Override
     public Path getTempDir() {
         return tempDir;
@@ -364,7 +362,7 @@ public class SiftTest implements BaseTest {
         GuardiannStructureAsserts.assertGuardiannInvariantsAfterDeletes(getDb(), guardiann);
 
         // ---- only setB remains ----
-        final StructureSnapshot snap = GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann);
+        final StructureSnapshot snap = Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann));
         assertThat(snap)
                 .as("structure snapshot must be non-null after the run")
                 .isNotNull();
@@ -396,8 +394,8 @@ public class SiftTest implements BaseTest {
      * driving clusters below {@code primaryClusterMin} and exercising the merge (2&rarr;1) path.
      */
     private void runInsertThenDeleteAll(final long seed,
-                                        @Nonnull final List<PrimaryKeyAndVector> startup,
-                                        @Nonnull final List<DoubleRealVector> queries) throws Exception {
+                                        final List<PrimaryKeyAndVector> startup,
+                                        final List<DoubleRealVector> queries) throws Exception {
         final Guardiann guardiann = newGuardiann();
         logger.info("phase1: inserting startup sample ({} records) ...", startup.size());
         insertAndQuiesce(guardiann, startup);
@@ -461,7 +459,6 @@ public class SiftTest implements BaseTest {
     // Helpers
     // ---------------------------------------------------------------------------------------------------------
 
-    @Nonnull
     private Guardiann newGuardiann() {
         return new Guardiann(getSubspace(),
                 TestExecutors.defaultThreadPool(),
@@ -471,15 +468,14 @@ public class SiftTest implements BaseTest {
     }
 
     /** Insert all of {@code dataset} in batches, then drain deferred tasks to quiescence. */
-    private void insertAndQuiesce(@Nonnull final Guardiann guardiann,
-                                  @Nonnull final List<PrimaryKeyAndVector> dataset) throws Exception {
+    private void insertAndQuiesce(final Guardiann guardiann,
+                                  final List<PrimaryKeyAndVector> dataset) throws Exception {
         TestHelpers.insertRecords(getDb(), guardiann, dataset, BATCH_SIZE);
         GuardiannStructureAsserts.runToQuiescence(getDb(), guardiann);
     }
 
     /** A mutable {@code primaryKey -> vector} map over {@code records}, mirroring what is live in the index. */
-    @Nonnull
-    private static Map<Tuple, RealVector> activeMapOf(@Nonnull final List<PrimaryKeyAndVector> records) {
+    private static Map<Tuple, RealVector> activeMapOf(final List<PrimaryKeyAndVector> records) {
         final Map<Tuple, RealVector> active = new HashMap<>(records.size());
         for (final PrimaryKeyAndVector r : records) {
             active.put(r.primaryKey(), r.vector());
@@ -487,7 +483,6 @@ public class SiftTest implements BaseTest {
         return active;
     }
 
-    @Nonnull
     private static Config buildConfig() {
         return Guardiann.newConfigBuilder()
                 .setUseRaBitQ(true)
@@ -505,14 +500,13 @@ public class SiftTest implements BaseTest {
                 .build(128);
     }
 
-    @Nonnull
-    private static List<DoubleRealVector> loadQueries(@Nonnull final String queryPath) throws IOException {
+    private static List<DoubleRealVector> loadQueries(final String queryPath) throws IOException {
         final List<DoubleRealVector> all = VecsDatasetLoaders.loadQueryVectors(queryPath);
         return List.copyOf(all.subList(0, Math.min(RECALL_NUM_QUERIES, all.size())));
     }
 
-    private static void verifyDisjoint(@Nonnull final List<PrimaryKeyAndVector> a,
-                                       @Nonnull final List<PrimaryKeyAndVector> b) {
+    private static void verifyDisjoint(final List<PrimaryKeyAndVector> a,
+                                       final List<PrimaryKeyAndVector> b) {
         final Set<Tuple> pksA = a.stream()
                 .map(PrimaryKeyAndVector::primaryKey)
                 .collect(ImmutableSet.toImmutableSet());
@@ -527,9 +521,8 @@ public class SiftTest implements BaseTest {
      * Returns a freshly shuffled copy of {@code records}, using {@code rng} to drive an in-place Fisher–Yates
      * shuffle of the copy. The input list is left untouched.
      */
-    @Nonnull
-    private static List<PrimaryKeyAndVector> shuffledCopy(@Nonnull final List<PrimaryKeyAndVector> records,
-                                                          @Nonnull final SplittableRandom rng) {
+    private static List<PrimaryKeyAndVector> shuffledCopy(final List<PrimaryKeyAndVector> records,
+                                                          final SplittableRandom rng) {
         final List<PrimaryKeyAndVector> copy = new ArrayList<>(records);
         for (int i = copy.size() - 1; i > 0; i--) {
             final int j = rng.nextInt(i + 1);
@@ -544,8 +537,7 @@ public class SiftTest implements BaseTest {
      * Removes up to {@code batchSize} records from the front of {@code queue} and returns them. The final batch
      * from each queue may be smaller than {@code batchSize}; all earlier batches are exactly {@code batchSize}.
      */
-    @Nonnull
-    private static List<PrimaryKeyAndVector> takeUpTo(@Nonnull final Deque<PrimaryKeyAndVector> queue,
+    private static List<PrimaryKeyAndVector> takeUpTo(final Deque<PrimaryKeyAndVector> queue,
                                                       final int batchSize) {
         final int n = Math.min(batchSize, queue.size());
         final List<PrimaryKeyAndVector> batch = new ArrayList<>(n);
@@ -556,17 +548,17 @@ public class SiftTest implements BaseTest {
     }
 
     /** Delete a single batch (one transaction modulo the bail-out retry) of pre-selected records. */
-    private void deleteOneBatch(@Nonnull final Guardiann guardiann,
-                                @Nonnull final List<PrimaryKeyAndVector> batch) throws Exception {
+    private void deleteOneBatch(final Guardiann guardiann,
+                                final List<PrimaryKeyAndVector> batch) throws Exception {
         TestHelpers.deleteToCompletion(getDb(), guardiann, batch);
     }
 
-    static void scanCentroids(@Nonnull final Database db,
-                              @Nonnull final Subspace subspace,
-                              @Nonnull final com.apple.foundationdb.async.hnsw.Config config,
+    static void scanCentroids(final Database db,
+                              final Subspace subspace,
+                              final com.apple.foundationdb.async.hnsw.Config config,
                               final int layer,
                               final int batchSize,
-                              @Nonnull final Consumer<ResultEntry> consumer) {
+                              final Consumer<ResultEntry> consumer) {
         HNSW.scanLayer(config, subspace, db, layer, batchSize, consumer);
     }
 }
