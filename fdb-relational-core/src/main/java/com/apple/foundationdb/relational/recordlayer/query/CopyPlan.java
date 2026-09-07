@@ -79,6 +79,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -435,7 +436,7 @@ public final class CopyPlan extends QueryPlan {
         final int templateVersion = catalogInfo.getTemplateVersion();
 
         final NonnullPair<URI, String> databaseAndSchema = getDatabaseAndSchema(dataPath);
-        final URI databaseUri = databaseAndSchema.getLeft();
+        final URI databaseUri = Objects.requireNonNull(databaseAndSchema.getLeft());
         final String schemaName = databaseAndSchema.getRight();
 
         try {
@@ -590,7 +591,7 @@ public final class CopyPlan extends QueryPlan {
             pathString = "/" + pathString;
         }
         final NonnullPair<Optional<URI>, String> uri = SemanticAnalyzer.parseSchemaURI(pathString);
-        final Optional<URI> database = uri.getLeft();
+        final Optional<URI> database = Objects.requireNonNull(uri.getLeft());
         if (database.isEmpty()) {
             throw new RelationalException("Invalid COPY path: " + pathString, ErrorCode.INVALID_PATH);
         }

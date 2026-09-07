@@ -70,6 +70,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -551,7 +552,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final Identifier schemaId = visitUid(ctx.schemaId().path().uid());
         final var dbAndSchema = SemanticAnalyzer.parseSchemaIdentifier(schemaId);
         final var templateId = visitUid(ctx.schemaTemplateId().uid());
-        return ProceduralPlan.of(metadataOperationsFactory.getCreateSchemaConstantAction(dbAndSchema.getLeft().orElse(dbUri),
+        final Optional<URI> databaseUri = Objects.requireNonNull(dbAndSchema.getLeft());
+        return ProceduralPlan.of(metadataOperationsFactory.getCreateSchemaConstantAction(databaseUri.orElse(dbUri),
                 dbAndSchema.getRight(), templateId.getName(), Options.NONE));
     }
 
@@ -574,8 +576,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     public ProceduralPlan visitDropSchemaStatement(RelationalParser.DropSchemaStatementContext ctx) {
         final var schemaId = visitUid(ctx.uid());
         final var dbAndSchema = SemanticAnalyzer.parseSchemaIdentifier(schemaId);
-        Assert.thatUnchecked(dbAndSchema.getLeft().isPresent(), ErrorCode.UNKNOWN_DATABASE, () -> String.format(Locale.ROOT, "invalid database identifier in '%s'", ctx.uid().getText()));
-        return ProceduralPlan.of(metadataOperationsFactory.getDropSchemaConstantAction(dbAndSchema.getLeft().get(), dbAndSchema.getRight(), Options.NONE));
+        final Optional<URI> databaseUri = Objects.requireNonNull(dbAndSchema.getLeft());
+        Assert.thatUnchecked(databaseUri.isPresent(), ErrorCode.UNKNOWN_DATABASE, () -> String.format(Locale.ROOT, "invalid database identifier in '%s'", ctx.uid().getText()));
+        return ProceduralPlan.of(metadataOperationsFactory.getDropSchemaConstantAction(databaseUri.get(), dbAndSchema.getRight(), Options.NONE));
     }
 
     @Override

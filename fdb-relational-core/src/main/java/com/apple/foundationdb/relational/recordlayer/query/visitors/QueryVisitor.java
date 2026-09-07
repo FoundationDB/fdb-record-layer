@@ -203,7 +203,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var partitions = getDelegate().getSemanticAnalyzer().partitionRecursiveQuery(recursiveQueryContext.query(),
                 queryName, getDelegate()::visitFullId, memoized, this);
         final var nonRecursiveBranches = partitions.getLeft();
-        final var recursiveBranches = partitions.getRight();
+        final var recursiveBranches = Objects.requireNonNull(partitions.getRight());
         getDelegate().popPlanFragment();
         if (recursiveBranches.isEmpty()) {
             return visitNamedQuery(recursiveQueryContext);
@@ -769,12 +769,13 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     private static StringTrieNode toString(CompatibleTypeEvolutionPredicate.FieldAccessTrieNode fieldAccessTrieNode) {
-        if (fieldAccessTrieNode.getChildrenMap() == null) {
+        final var childrenMap = fieldAccessTrieNode.getChildrenMap();
+        if (childrenMap == null) {
             return StringTrieNode.leafNode();
         }
         // pair.getKey() is always constructed from an Identifier's name (see ExpressionVisitor#visitUidListWithNestings),
         // which is never null, even though ResolvedAccessor.getName() is declared @Nullable in general.
-        final var map = fieldAccessTrieNode.getChildrenMap().entrySet().stream().collect(ImmutableMap.toImmutableMap(
+        final var map = childrenMap.entrySet().stream().collect(ImmutableMap.toImmutableMap(
                 pair -> Objects.requireNonNull(pair.getKey().getName()), pair -> toString(pair.getValue())));
         return new StringTrieNode(map);
     }

@@ -228,7 +228,8 @@ public final class MaterializedViewIndexGenerator {
             final var indexExpressionAndType = generateAggregateIndexKeyExpression(aggregateValue, groupingKeyExpression);
             final String indexType = Objects.requireNonNull(indexExpressionAndType.getRight());
             indexBuilder.setIndexType(indexType);
-            indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(indexExpressionAndType.getLeft().toKeyExpression(), tableType, containsNullableArray)));
+            final var indexKeyExpressionValue = Objects.requireNonNull(indexExpressionAndType.getLeft());
+            indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(indexKeyExpressionValue.toKeyExpression(), tableType, containsNullableArray)));
             if (IndexTypes.PERMUTED_MIN.equals(indexType) || IndexTypes.PERMUTED_MAX.equals(indexType)) {
                 int permutedSize = aggregateOrderIndex < 0 ? 0 : (fieldValues.size() - aggregateOrderIndex);
                 indexBuilder.setOption(IndexOptions.PERMUTED_SIZE_OPTION, permutedSize);

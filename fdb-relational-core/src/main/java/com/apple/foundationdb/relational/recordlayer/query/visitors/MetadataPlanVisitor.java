@@ -26,6 +26,8 @@ import com.apple.foundationdb.relational.recordlayer.query.CopyPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import java.net.URI;
+import java.util.Objects;
+import java.util.Optional;
 
 @API(API.Status.EXPERIMENTAL)
 public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
@@ -60,7 +62,8 @@ public final class MetadataPlanVisitor extends DelegatingVisitor<BaseVisitor> {
         final var ddlFactory = getDelegate().getDdlQueryFactory();
         final var schemaId = visitUid(ctx.schemaId().path().uid());
         final var dbAndSchema = SemanticAnalyzer.parseSchemaIdentifier(schemaId);
-        final var database = dbAndSchema.getLeft().orElse(getDelegate().getDbUri());
+        final Optional<URI> databaseUri = Objects.requireNonNull(dbAndSchema.getLeft());
+        final var database = databaseUri.orElse(getDelegate().getDbUri());
         final var schema = dbAndSchema.getRight();
         return QueryPlan.MetadataQueryPlan.of(ddlFactory.getDescribeSchemaQueryAction(database, schema));
     }
