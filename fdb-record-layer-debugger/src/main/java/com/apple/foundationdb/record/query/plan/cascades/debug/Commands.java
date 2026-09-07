@@ -39,8 +39,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.jline.reader.ParsedLine;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
@@ -79,16 +79,15 @@ public class Commands {
          * @return {@code true} if planning should continue afterward, {@code false} if the REPL should prompt
          *         for the next command after the execution of this command has finished.
          */
-        boolean executeCommand(@Nonnull PlannerRepl plannerRepl, @Nonnull E event, @Nonnull ParsedLine parsedLine);
+        boolean executeCommand(PlannerRepl plannerRepl, E event, ParsedLine parsedLine);
 
         /**
          * The command in as a string.
          * @return the comman token
          */
-        @Nonnull
         String getCommandToken();
 
-        void printUsage(@Nonnull PlannerRepl plannerRepl);
+        void printUsage(PlannerRepl plannerRepl);
     }
 
     /**
@@ -106,9 +105,9 @@ public class Commands {
     @AutoService(Command.class)
     public static class BreakCommand implements Command<PlannerEvent> {
         @Override
-        public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final PlannerEvent plannerEvent,
-                                      @Nonnull final ParsedLine parsedLine) {
+        public boolean executeCommand(final PlannerRepl plannerRepl,
+                                      final PlannerEvent plannerEvent,
+                                      final ParsedLine parsedLine) {
             final List<String> words = parsedLine.words();
 
             if (words.size() == 1) {
@@ -265,14 +264,13 @@ public class Commands {
             }
         }
 
-        @Nonnull
         @Override
         public String getCommandToken() {
             return "BREAK";
         }
 
         @Override
-        public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
+        public void printUsage(final PlannerRepl plannerRepl) {
             plannerRepl.printlnKeyValue("break [list | yield <id> | remove <index> | <event> [ <location>]]", "manage breakpoints");
         }
     }
@@ -283,20 +281,19 @@ public class Commands {
     @AutoService(Command.class)
     public static class ContinueCommand implements Command<PlannerEvent> {
         @Override
-        public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final PlannerEvent plannerEvent,
-                                      @Nonnull final ParsedLine parsedLine) {
+        public boolean executeCommand(final PlannerRepl plannerRepl,
+                                      final PlannerEvent plannerEvent,
+                                      final ParsedLine parsedLine) {
             return true;
         }
 
-        @Nonnull
         @Override
         public String getCommandToken() {
             return "CONT";
         }
 
         @Override
-        public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
+        public void printUsage(final PlannerRepl plannerRepl) {
             plannerRepl.printlnKeyValue("cont", "continue execution");
         }
     }
@@ -307,9 +304,9 @@ public class Commands {
     @AutoService(Command.class)
     public static class CurrentCommand implements Command<PlannerEvent> {
         @Override
-        public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final PlannerEvent plannerEvent,
-                                      @Nonnull final ParsedLine parsedLine) {
+        public boolean executeCommand(final PlannerRepl plannerRepl,
+                                      final PlannerEvent plannerEvent,
+                                      final ParsedLine parsedLine) {
             final RegisteredEntities registeredEntities = plannerRepl.getCurrentRegisteredEntities();
             final List<PlannerEvent> plannerEvents = registeredEntities.getEvents();
             if (plannerEvents == null) {
@@ -321,14 +318,13 @@ public class Commands {
             return false;
         }
 
-        @Nonnull
         @Override
         public String getCommandToken() {
             return "CURRENT";
         }
 
         @Override
-        public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
+        public void printUsage(final PlannerRepl plannerRepl) {
             plannerRepl.printlnKeyValue("current", "dump current event");
         }
     }
@@ -339,9 +335,9 @@ public class Commands {
     @AutoService(Command.class)
     public static class EventsCommand implements Command<PlannerEvent> {
         @Override
-        public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final PlannerEvent plannerEvent,
-                                      @Nonnull final ParsedLine parsedLine) {
+        public boolean executeCommand(final PlannerRepl plannerRepl,
+                                      final PlannerEvent plannerEvent,
+                                      final ParsedLine parsedLine) {
             final RegisteredEntities registeredEntities = plannerRepl.getCurrentRegisteredEntities();
             final List<PlannerEvent> plannerEvents = registeredEntities.getEvents();
             if (plannerEvents == null) {
@@ -362,14 +358,13 @@ public class Commands {
             return false;
         }
 
-        @Nonnull
         @Override
         public String getCommandToken() {
             return "EVENTS";
         }
 
         @Override
-        public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
+        public void printUsage(final PlannerRepl plannerRepl) {
             plannerRepl.printlnKeyValue("events", "list history of events");
         }
     }
@@ -380,9 +375,9 @@ public class Commands {
     @AutoService(Command.class)
     public static class ExpsCommand implements Command<PlannerEvent> {
         @Override
-        public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final PlannerEvent plannerEvent,
-                                      @Nonnull final ParsedLine parsedLine) {
+        public boolean executeCommand(final PlannerRepl plannerRepl,
+                                      final PlannerEvent plannerEvent,
+                                      final ParsedLine parsedLine) {
             final RegisteredEntities registeredEntities = plannerRepl.getCurrentRegisteredEntities();
             final Cache<Integer, RelationalExpression> expressionCache = registeredEntities.getExpressionCache();
             final List<Integer> ids = Lists.newArrayList(expressionCache.asMap().keySet());
@@ -402,14 +397,13 @@ public class Commands {
             return false;
         }
 
-        @Nonnull
         @Override
         public String getCommandToken() {
             return "EXPS";
         }
 
         @Override
-        public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
+        public void printUsage(final PlannerRepl plannerRepl) {
             plannerRepl.printlnKeyValue("exps", "list all expressions");
         }
     }
@@ -420,9 +414,9 @@ public class Commands {
     @AutoService(Command.class)
     public static class HelpCommand implements Command<PlannerEvent> {
         @Override
-        public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final PlannerEvent plannerEvent,
-                                      @Nonnull final ParsedLine parsedLine) {
+        public boolean executeCommand(final PlannerRepl plannerRepl,
+                                      final PlannerEvent plannerEvent,
+                                      final ParsedLine parsedLine) {
             plannerRepl.printlnHighlighted("Basic Usage");
             plannerRepl.println();
             for (final Command<PlannerEvent> command : PlannerRepl.getCommands()) {
@@ -432,14 +426,13 @@ public class Commands {
             return false;
         }
 
-        @Nonnull
         @Override
         public String getCommandToken() {
             return "HELP";
         }
 
         @Override
-        public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
+        public void printUsage(final PlannerRepl plannerRepl) {
             plannerRepl.printlnKeyValue("help", "print this help");
         }
     }
@@ -450,9 +443,9 @@ public class Commands {
     @AutoService(Command.class)
     public static class RefsCommand implements Command<PlannerEvent> {
         @Override
-        public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final PlannerEvent plannerEvent,
-                                      @Nonnull final ParsedLine parsedLine) {
+        public boolean executeCommand(final PlannerRepl plannerRepl,
+                                      final PlannerEvent plannerEvent,
+                                      final ParsedLine parsedLine) {
             final RegisteredEntities registeredEntities = plannerRepl.getCurrentRegisteredEntities();
             final Cache<Integer, Reference> referenceCache = registeredEntities.getReferenceCache();
             final List<Integer> ids = Lists.newArrayList(referenceCache.asMap().keySet());
@@ -477,14 +470,13 @@ public class Commands {
             return false;
         }
 
-        @Nonnull
         @Override
         public String getCommandToken() {
             return "REFS";
         }
 
         @Override
-        public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
+        public void printUsage(final PlannerRepl plannerRepl) {
             plannerRepl.printlnKeyValue("refs", "list all references");
         }
     }
@@ -495,9 +487,9 @@ public class Commands {
     @AutoService(Command.class)
     public static class RestartCommand implements Command<PlannerEvent> {
         @Override
-        public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final PlannerEvent plannerEvent,
-                                      @Nonnull final ParsedLine parsedLine) {
+        public boolean executeCommand(final PlannerRepl plannerRepl,
+                                      final PlannerEvent plannerEvent,
+                                      final ParsedLine parsedLine) {
             plannerRepl.restartState();
             plannerRepl.addInternalBreakPoint(new PlannerRepl.CountingTautologyBreakPoint(1));
             plannerRepl.printHighlighted("restarting planning...");
@@ -505,14 +497,13 @@ public class Commands {
             throw new RestartException();
         }
 
-        @Nonnull
         @Override
         public String getCommandToken() {
             return "RESTART";
         }
 
         @Override
-        public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
+        public void printUsage(final PlannerRepl plannerRepl) {
             plannerRepl.printlnKeyValue("restart", "restart the planner and return to tick 0");
         }
     }
@@ -524,9 +515,9 @@ public class Commands {
     @AutoService(Command.class)
     public static class ShowCommand implements Command<PlannerEvent> {
         @Override
-        public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final PlannerEvent plannerEvent,
-                                      @Nonnull final ParsedLine parsedLine) {
+        public boolean executeCommand(final PlannerRepl plannerRepl,
+                                      final PlannerEvent plannerEvent,
+                                      final ParsedLine parsedLine) {
             final List<String> words = parsedLine.words();
             if (words.size() < 2) {
                 plannerRepl.printlnError("usage show [(exp|ref|qun)id] | graph | matches | finals");
@@ -575,14 +566,13 @@ public class Commands {
             return false;
         }
 
-        @Nonnull
         @Override
         public String getCommandToken() {
             return "SHOW";
         }
 
         @Override
-        public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
+        public void printUsage(final PlannerRepl plannerRepl) {
             plannerRepl.printlnKeyValue("show (<expId> | <refId> | <qunId>)", "render the entity graphically");
         }
     }
@@ -594,9 +584,9 @@ public class Commands {
     @SuppressWarnings("PMD.ForLoopCanBeForeach") // false positive due to the descending iteration
     public static class TasksCommand implements Command<PlannerEvent> {
         @Override
-        public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final PlannerEvent plannerEvent,
-                                      @Nonnull final ParsedLine parsedLine) {
+        public boolean executeCommand(final PlannerRepl plannerRepl,
+                                      final PlannerEvent plannerEvent,
+                                      final ParsedLine parsedLine) {
             if (plannerEvent instanceof PlannerEventWithState) {
                 final Deque<CascadesPlanner.Task> taskStack = ((PlannerEventWithState)plannerEvent).getTaskStack();
                 for (final Iterator<CascadesPlanner.Task> iterator = taskStack.descendingIterator(); iterator.hasNext();) {
@@ -617,14 +607,13 @@ public class Commands {
             return false;
         }
 
-        @Nonnull
         @Override
         public String getCommandToken() {
             return "TASKS";
         }
 
         @Override
-        public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
+        public void printUsage(final PlannerRepl plannerRepl) {
             plannerRepl.printlnKeyValue("tasks", "show the current state of the task stack");
         }
     }
@@ -636,9 +625,9 @@ public class Commands {
     @AutoService(Command.class)
     public static class StepCommand implements Command<PlannerEvent> {
         @Override
-        public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final PlannerEvent plannerEvent,
-                                      @Nonnull final ParsedLine parsedLine) {
+        public boolean executeCommand(final PlannerRepl plannerRepl,
+                                      final PlannerEvent plannerEvent,
+                                      final ParsedLine parsedLine) {
             final List<String> words = parsedLine.words();
             final int steps;
             if (words.size() == 2) {
@@ -662,14 +651,13 @@ public class Commands {
             return true;
         }
 
-        @Nonnull
         @Override
         public String getCommandToken() {
             return "STEP";
         }
 
         @Override
-        public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
+        public void printUsage(final PlannerRepl plannerRepl) {
             plannerRepl.printlnKeyValue("step [<number>]", "continue execution by the number of specified steps (default: 1)");
         }
     }
@@ -682,9 +670,9 @@ public class Commands {
     @AutoService(Command.class)
     public static class PhaseCommand implements Command<PlannerEvent> {
         @Override
-        public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final PlannerEvent plannerEvent,
-                                      @Nonnull final ParsedLine parsedLine) {
+        public boolean executeCommand(final PlannerRepl plannerRepl,
+                                      final PlannerEvent plannerEvent,
+                                      final ParsedLine parsedLine) {
             final List<String> words = parsedLine.words();
             final PlannerPhase plannerPhase;
             if (words.size() == 2) {
@@ -703,14 +691,13 @@ public class Commands {
             return true;
         }
 
-        @Nonnull
         @Override
         public String getCommandToken() {
             return "PHASE";
         }
 
         @Override
-        public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
+        public void printUsage(final PlannerRepl plannerRepl) {
             plannerRepl.printlnKeyValue("phase [rewriting, planning]",
                     "continue execution until the next initphase of the desired planner phase occurs.");
         }
@@ -722,9 +709,9 @@ public class Commands {
     @AutoService(Command.class)
     public static class QunsCommand implements Command<PlannerEvent> {
         @Override
-        public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final PlannerEvent plannerEvent,
-                                      @Nonnull final ParsedLine parsedLine) {
+        public boolean executeCommand(final PlannerRepl plannerRepl,
+                                      final PlannerEvent plannerEvent,
+                                      final ParsedLine parsedLine) {
             final RegisteredEntities registeredEntities = plannerRepl.getCurrentRegisteredEntities();
             final List<Integer> ids = Lists.newArrayList(registeredEntities.getQuantifierCache().asMap().keySet());
             Collections.sort(ids);
@@ -742,14 +729,13 @@ public class Commands {
             return false;
         }
 
-        @Nonnull
         @Override
         public String getCommandToken() {
             return "QUNS";
         }
 
         @Override
-        public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
+        public void printUsage(final PlannerRepl plannerRepl) {
             plannerRepl.printlnKeyValue("quns", "list all quantifiers");
         }
     }
@@ -762,9 +748,9 @@ public class Commands {
     @SuppressWarnings("PMD.DoNotTerminateVM")
     public static class QuitCommand implements Command<PlannerEvent> {
         @Override
-        public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
-                                      @Nonnull final PlannerEvent plannerEvent,
-                                      @Nonnull final ParsedLine parsedLine) {
+        public boolean executeCommand(final PlannerRepl plannerRepl,
+                                      final PlannerEvent plannerEvent,
+                                      final ParsedLine parsedLine) {
             plannerRepl.printlnHighlighted("I hope you found the problem.");
             if (plannerRepl.shouldExitOnQuit()) {
                 System.exit(0);
@@ -773,14 +759,13 @@ public class Commands {
             return true;
         }
 
-        @Nonnull
         @Override
         public String getCommandToken() {
             return "QUIT";
         }
 
         @Override
-        public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
+        public void printUsage(final PlannerRepl plannerRepl) {
             plannerRepl.printlnKeyValue("quit", "System.exit(0)");
         }
     }
