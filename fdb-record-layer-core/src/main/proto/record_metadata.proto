@@ -261,11 +261,11 @@ message PStoredQuery {
       // spelling or whitespace and the reader's mapping is a total function on four inputs.
       optional string state = 2;
     }
-    // Every parameter the query declares, each with its state. Completeness is enforced by the SQL layer: for a
-    // parameter declared nullable, no state would mean planning it with no value and a nullable type, and such a plan
-    // is not correct for a null binding. For one declared NOT NULL the omission would in fact be safe, since the
-    // declaration already excludes null, but it is required all the same so that a case reads as complete without
-    // consulting the declarations.
+    // Every parameter the query declares, each with its state. Completeness is enforced by the SQL layer, which fills
+    // in the parameters the author left out: a parameter declared nullable has to be pinned explicitly, since no state
+    // would mean planning it with no value and a nullable type, and such a plan is not correct for a null binding. One
+    // declared NOT NULL may be omitted, because its declaration already excludes null, and is recorded here as
+    // IS_NOT_NULL. So a reader of this message never has to consult the declarations to learn what an omission meant.
     repeated PParameterState parameter_states = 1;
   }
   // The combinations warmed for this query, one plan each. Empty exactly when the query declares no parameters.

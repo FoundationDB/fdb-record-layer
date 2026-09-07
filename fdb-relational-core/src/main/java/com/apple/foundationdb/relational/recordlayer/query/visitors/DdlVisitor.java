@@ -983,13 +983,13 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      * each.
      *
      * <p>
-     * The block is required whenever the query declares parameters, and every case must pin every one of them. For a
-     * parameter declared nullable — the default — leaving it unpinned would mean planning it with no value and a
-     * nullable type, and such a plan is not correct for a null binding: the null reaches the scan range as the value to
-     * look for. For one declared {@code NOT NULL} the requirement is redundant, since the declaration already excludes
-     * null, but it is kept so that a case states every parameter on its face instead of leaving a reader to work out
-     * which declarations made an omission safe. Requiring completeness also makes the cases non-overlapping by
-     * construction, since each pins every parameter to a definite state, so no rule about which case wins is needed.
+     * The block is required whenever the query declares parameters, and every parameter declared nullable — the default
+     * — must be pinned in every case. Leaving one unpinned would mean planning it with no value and a nullable type,
+     * and such a plan is not correct for a null binding: the null reaches the scan range as the value to look for. A
+     * parameter declared {@code NOT NULL} may be left out, since its declaration already excludes null; it is recorded
+     * as {@code IS_NOT_NULL}, the only state it could be given, so the persisted case still states every parameter.
+     * Since every parameter ends up with a definite state, no two cases can overlap and no rule about which case wins
+     * is needed.
      * </p>
      *
      * @param ctx the block, or {@code null} when the query has none
@@ -1009,54 +1009,90 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         Assert.thatUnchecked(signatureCtx != null && !parameterNames.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
                 () -> "PREPARE FOR requires a signature, since it pins the parameters a signature declares");
-        // The two facts about the declarations that a case has to agree with. Collected here rather than kept by
-        // parseSignature, which deliberately keeps a declaration as plain text.
-        final var nonNullableNames = new HashSet<String>();
-        final var booleanNames = new HashSet<String>();
-        for (final var param : signatureCtx.storedQueryParameter()) {
+        final var facts = signatureFactsOf(signatureCtx);
+        final var cases = new ArrayList<Map<String, StoredQuery.ParameterState>>();
+        for (final var caseCtx : ctx.storedQueryPreparedCase()) {
+            final var preparedCase = parsePreparedCase(caseCtx, parameterNames, facts);
+            Assert.thatUnchecked(!cases.contains(preparedCase), ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "duplicate prepared case " + preparedCase);
+            cases.add(preparedCase);
+        }
+        return ImmutableList.copyOf(cases);
+    }
+
+    /**
+     * The facts about a signature's declarations that a prepared case has to agree with. Derived from the parse tree
+     * rather than kept by {@link #parseSignature}, which deliberately keeps a declaration as plain text.
+     *
+     * @param nonNullable the parameters declared {@code NOT NULL}
+     * @param booleans the parameters declared as the primitive {@code BOOLEAN}
+     */
+    private record SignatureFacts(@Nonnull Set<String> nonNullable, @Nonnull Set<String> booleans) {
+    }
+
+    @Nonnull
+    private SignatureFacts signatureFactsOf(@Nonnull final RelationalParser.StoredQuerySignatureContext ctx) {
+        final var nonNullable = ImmutableSet.<String>builder();
+        final var booleans = ImmutableSet.<String>builder();
+        for (final var param : ctx.storedQueryParameter()) {
             final var parameterName = visitUid(param.parameterName).getName();
             if (param.nullNotnull() != null && param.nullNotnull().NOT() != null) {
-                nonNullableNames.add(parameterName);
+                nonNullable.add(parameterName);
             }
             // BOOLEAN is a primitive, so this reads off the parse tree and needs no type resolution. A custom type
             // names a struct or an enum, which is never boolean, and an ARRAY of booleans is not one either.
             final var declaredType = param.parameterType;
             if (declaredType.primitiveType() != null && declaredType.primitiveType().BOOLEAN() != null
                     && declaredType.ARRAY() == null) {
-                booleanNames.add(parameterName);
+                booleans.add(parameterName);
             }
         }
-        final var cases = new ArrayList<Map<String, StoredQuery.ParameterState>>();
-        for (final var caseCtx : ctx.storedQueryPreparedCase()) {
-            final var states = new LinkedHashMap<String, StoredQuery.ParameterState>();
-            for (final var stateCtx : caseCtx.storedQueryParameterState()) {
-                final var parameterName = visitUid(stateCtx.parameterName).getName();
-                Assert.thatUnchecked(parameterNames.contains(parameterName), ErrorCode.UNSUPPORTED_QUERY,
-                        () -> "prepared case names '" + parameterName + "', which the signature does not declare");
-                final var state = parameterStateOf(stateCtx);
-                Assert.thatUnchecked(state != StoredQuery.ParameterState.IS_NULL
-                                || !nonNullableNames.contains(parameterName),
-                        ErrorCode.UNSUPPORTED_QUERY,
-                        () -> "prepared case pins '" + parameterName + "' to IS NULL, but the signature declares it NOT NULL");
-                Assert.thatUnchecked((state != StoredQuery.ParameterState.IS_TRUE
-                                && state != StoredQuery.ParameterState.IS_FALSE)
-                                || booleanNames.contains(parameterName),
-                        ErrorCode.UNSUPPORTED_QUERY,
-                        () -> "prepared case pins '" + parameterName + "' to a boolean, but the signature does not declare it BOOLEAN");
-                Assert.thatUnchecked(states.put(parameterName, state) == null, ErrorCode.UNSUPPORTED_QUERY,
-                        () -> "prepared case names '" + parameterName + "' more than once");
-            }
-            final var unpinned = Sets.difference(parameterNames, states.keySet());
-            Assert.thatUnchecked(unpinned.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
-                    () -> "prepared case leaves " + unpinned + " unpinned; every case must pin every declared parameter");
-            // Order-independent, because map equality is: two cases pinning the same parameters to the same states are
-            // the same case however they are written, and warming both would build one plan twice.
-            final var preparedCase = ImmutableMap.copyOf(states);
-            Assert.thatUnchecked(!cases.contains(preparedCase), ErrorCode.UNSUPPORTED_QUERY,
-                    () -> "duplicate prepared case " + preparedCase);
-            cases.add(preparedCase);
+        return new SignatureFacts(nonNullable.build(), booleans.build());
+    }
+
+    /**
+     * Parses one case and returns it completed: a {@code NOT NULL} parameter left out is recorded as
+     * {@code IS_NOT_NULL}, which is the only state its declaration allows.
+     */
+    @Nonnull
+    private Map<String, StoredQuery.ParameterState> parsePreparedCase(
+            @Nonnull final RelationalParser.StoredQueryPreparedCaseContext ctx,
+            @Nonnull final Set<String> parameterNames,
+            @Nonnull final SignatureFacts facts) {
+        final var states = new LinkedHashMap<String, StoredQuery.ParameterState>();
+        for (final var stateCtx : ctx.storedQueryParameterState()) {
+            final var parameterName = visitUid(stateCtx.parameterName).getName();
+            Assert.thatUnchecked(parameterNames.contains(parameterName), ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "prepared case names '" + parameterName + "', which the signature does not declare");
+            final var state = parameterStateOf(stateCtx);
+            Assert.thatUnchecked(state != StoredQuery.ParameterState.IS_NULL
+                            || !facts.nonNullable().contains(parameterName),
+                    ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "prepared case pins '" + parameterName + "' to IS NULL, but the signature declares it NOT NULL");
+            Assert.thatUnchecked((state != StoredQuery.ParameterState.IS_TRUE
+                            && state != StoredQuery.ParameterState.IS_FALSE)
+                            || facts.booleans().contains(parameterName),
+                    ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "prepared case pins '" + parameterName + "' to a boolean, but the signature does not declare it BOOLEAN");
+            Assert.thatUnchecked(states.put(parameterName, state) == null, ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "prepared case names '" + parameterName + "' more than once");
         }
-        return ImmutableList.copyOf(cases);
+        // Snapshotted, because Sets.difference is a live view over states.keySet(), which is filled in below.
+        final var unpinned = ImmutableSet.copyOf(Sets.difference(parameterNames, states.keySet()));
+        final var unpinnedNullable = Sets.difference(unpinned, facts.nonNullable());
+        Assert.thatUnchecked(unpinnedNullable.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
+                () -> "prepared case leaves nullable " + unpinnedNullable
+                        + " unpinned; a nullable parameter must be pinned to IS NULL or IS NOT NULL");
+        // A NOT NULL parameter may be left out: its declaration already excludes null, so IS NOT NULL is the only state
+        // it could be given and writing it says nothing new. It is recorded all the same, so that the persisted case
+        // states every parameter and warm-up never has to fall back to the declaration to learn what an omission meant.
+        for (final var parameterName : unpinned) {
+            states.put(parameterName, StoredQuery.ParameterState.IS_NOT_NULL);
+        }
+        // Order-independent, because map equality is: two cases pinning the same parameters to the same states are the
+        // same case however they are written, and warming both would build one plan twice. Comparing the completed cases
+        // also means an omission and an explicit IS NOT NULL count as the same case.
+        return ImmutableMap.copyOf(states);
     }
 
     /**
