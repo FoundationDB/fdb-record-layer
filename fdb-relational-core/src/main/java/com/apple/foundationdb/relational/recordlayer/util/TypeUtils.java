@@ -47,7 +47,8 @@ public final class TypeUtils {
         if (input.isPrimitive()) {
             return input;
         }
-        if (trie.getChildrenMap() != null && trie.getChildrenMap().isEmpty()) {
+        final var childrenMap = trie.getChildrenMap();
+        if (childrenMap != null && childrenMap.isEmpty()) {
             return input;
         }
         if (input.isArray()) {
@@ -67,8 +68,8 @@ public final class TypeUtils {
         final var newlyNamedFields = ImmutableList.<Type.Record.Field>builder();
         // A record's trie node always has a populated children map -- one entry per field -- which is
         // exactly what we index into below.
-        final var childrenMap = Objects.requireNonNull(trie.getChildrenMap(), "record type's field-access trie node has no children map");
-        final var fieldAliases = new ArrayList<>(childrenMap.keySet());
+        final var nonNullChildrenMap = Objects.requireNonNull(childrenMap, "record type's field-access trie node has no children map");
+        final var fieldAliases = new ArrayList<>(nonNullChildrenMap.keySet());
         Assert.thatUnchecked(fieldAliases.size() == recordFields.size(), ErrorCode.INCOMPATIBLE_TABLE_ALIAS,
                 () -> "number of record fields mismatch");
         fieldAliases.sort(Comparator.comparingInt(FieldValue.ResolvedAccessor::getOrdinal));
@@ -77,7 +78,7 @@ public final class TypeUtils {
             final var recordField = recordFields.get(i);
             // fieldAlias is one of childrenMap's own keys (drawn from childrenMap.keySet() above), so this
             // lookup always finds a value.
-            final var fieldTrie = Objects.requireNonNull(childrenMap.get(fieldAlias));
+            final var fieldTrie = Objects.requireNonNull(nonNullChildrenMap.get(fieldAlias));
             final var renamedFieldType = setFieldNamesInternal(recordField.getFieldType(), fieldTrie);
             final var newField = Type.Record.Field.of(renamedFieldType, Optional.ofNullable(fieldAlias.getName()),
                     Optional.of(recordField.getFieldIndex()));

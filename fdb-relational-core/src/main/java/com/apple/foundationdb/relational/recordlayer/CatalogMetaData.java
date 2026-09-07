@@ -53,6 +53,7 @@ import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -72,7 +73,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
 
     @Override
     public RelationalResultSet getSchemas() throws SQLException {
-        return getSchemas(conn.getPath().getPath(), null);
+        return getSchemas(Objects.requireNonNull(conn.getPath()).getPath(), null);
     }
 
     @Override

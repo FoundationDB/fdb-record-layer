@@ -222,9 +222,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public NonnullPair<String, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitInlineTableDefinition(RelationalParser.InlineTableDefinitionContext ctx) {
         final var tableId = visitTableName(ctx.tableName());
         final var columnIdTrie = visitUidListWithNestingsInParens(ctx.uidListWithNestingsInParens());
-        int columnCount = Objects.requireNonNull(columnIdTrie.getThis().getChildrenMap()).size();
-        final var columnsList = new ArrayList<>(Collections.nCopies(columnCount, (RecordLayerColumn) null));
-        for (final var entry : columnIdTrie.getThis().getChildrenMap().entrySet()) {
+        final var childrenMap = Objects.requireNonNull(columnIdTrie.getThis().getChildrenMap());
+        final var columnsList = new ArrayList<>(Collections.nCopies(childrenMap.size(), (RecordLayerColumn) null));
+        for (final var entry : childrenMap.entrySet()) {
             final var column = toColumn(entry.getKey(), entry.getValue());
             columnsList.set(column.getIndex(), column);
         }
@@ -238,12 +238,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         // null, even though ResolvedAccessor.getName() is declared @Nullable in general.
         final var columnName = Objects.requireNonNull(field.getName(), "inline table column must have a name");
         final var builder = RecordLayerColumn.newBuilder().setName(columnName).setIndex(field.getOrdinal());
-        if (columnIdTrie.getChildrenMap() == null) {
+        final var childrenMap = columnIdTrie.getChildrenMap();
+        if (childrenMap == null) {
             return builder.setDataType(DataTypeUtils.toRelationalType(field.getType())).build();
         }
-        int columnCount = columnIdTrie.getChildrenMap().size();
-        final var fields = new ArrayList<>(Collections.nCopies(columnCount, (DataType.StructType.Field) null));
-        for (final var child : columnIdTrie.getChildrenMap().entrySet()) {
+        final var fields = new ArrayList<>(Collections.nCopies(childrenMap.size(), (DataType.StructType.Field) null));
+        for (final var child : childrenMap.entrySet()) {
             final var column = toColumn(child.getKey(), child.getValue());
             fields.set(column.getIndex(), DataType.StructType.Field.from(column.getName(), column.getDataType(), column.getIndex()));
         }
