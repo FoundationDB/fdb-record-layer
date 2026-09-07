@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.record.util.MapUtils;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
@@ -723,6 +724,17 @@ public class RecordMetaData implements RecordMetaDataProvider {
                         .setName(parameter.getKey())
                         .setDeclaredType(parameter.getValue()));
             }
+            for (final Map<String, String> preparedCase : storedQuery.getPreparedCases()) {
+                final RecordMetaDataProto.PStoredQuery.PPreparedCase.Builder caseBuilder =
+                        RecordMetaDataProto.PStoredQuery.PPreparedCase.newBuilder();
+                for (final Map.Entry<String, String> parameterState : preparedCase.entrySet()) {
+                    caseBuilder.addParameterStates(
+                            RecordMetaDataProto.PStoredQuery.PPreparedCase.PParameterState.newBuilder()
+                                    .setName(parameterState.getKey())
+                                    .setState(parameterState.getValue()));
+                }
+                storedQueryBuilder.addPreparedCases(caseBuilder);
+            }
             builder.addStoredQueries(storedQueryBuilder.build());
         }
         builder.setSplitLongRecords(splitLongRecords);
@@ -766,19 +778,25 @@ public class RecordMetaData implements RecordMetaDataProvider {
         private final List<String> tempFunctions;
         @Nonnull
         private final Map<String, String> parameters;
+        @Nonnull
+        private final List<Map<String, String>> preparedCases;
 
         public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions) {
-            this(storedQuery, tempFunctions, ImmutableMap.of());
+            this(storedQuery, tempFunctions, ImmutableMap.of(), ImmutableList.of());
         }
 
         public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions,
-                           @Nonnull final Map<String, String> parameters) {
+                           @Nonnull final Map<String, String> parameters,
+                           @Nonnull final List<Map<String, String>> preparedCases) {
             this.query = storedQuery;
             this.tempFunctions = List.copyOf(tempFunctions);
             // ImmutableMap rather than Map.copyOf: the latter randomizes iteration order per JVM run, which would make
             // the same metadata serialize to different bytes each time. Parameters are looked up by name, so the order
             // itself carries no meaning — only its stability matters.
             this.parameters = ImmutableMap.copyOf(parameters);
+            this.preparedCases = preparedCases.stream()
+                    .map(ImmutableMap::copyOf)
+                    .collect(ImmutableList.toImmutableList());
         }
 
         @Nonnull
@@ -799,6 +817,18 @@ public class RecordMetaData implements RecordMetaDataProvider {
         @Nonnull
         public Map<String, String> getParameters() {
             return parameters;
+        }
+
+        /**
+         * The combinations this query is warmed for, one plan each, as a list of maps from parameter name to the
+         * canonical token naming the state that parameter is pinned to. The record layer stores these and returns them
+         * without interpreting them; the tokens are defined by the SQL layer that writes and reads them. Empty if the
+         * query declares no parameters.
+         * @return one map per case, keyed by parameter name.
+         */
+        @Nonnull
+        public List<Map<String, String>> getPreparedCases() {
+            return preparedCases;
         }
     }
 

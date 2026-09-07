@@ -35,25 +35,50 @@ import java.util.Map;
  * <p>The SELECT body and each temp-function declaration are kept as their original verbatim source.</p>
  */
 public final class StoredQuery {
+    /**
+     * How one parameter is pinned in a prepared case. These four are exactly the states that change the plan itself
+     * rather than only its constraints: any other value of a parameter's declared type yields the same plan as
+     * {@link #IS_NOT_NULL}, because literals are stripped before planning.
+     *
+     * <p>The constant names are the canonical tokens the wire format carries, so {@link #name()} and
+     * {@link #valueOf(String)} are the conversion in both directions.</p>
+     */
+    public enum ParameterState {
+        /** Warmed with a real null bound, so the planner folds the predicate away at plan time. */
+        IS_NULL,
+        /** Warmed value-free, with the declared type forced non-nullable so a null binding cannot match. */
+        IS_NOT_NULL,
+        /** Warmed with {@code true} bound. */
+        IS_TRUE,
+        /** Warmed with {@code false} bound. */
+        IS_FALSE
+    }
+
     @Nonnull
     private final String query;
     @Nonnull
     private final List<String> tempFunctions;
     @Nonnull
     private final Map<String, String> parameters;
+    @Nonnull
+    private final List<Map<String, ParameterState>> preparedCases;
 
     public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions) {
-        this(storedQuery, tempFunctions, ImmutableMap.of());
+        this(storedQuery, tempFunctions, ImmutableMap.of(), ImmutableList.of());
     }
 
     public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions,
-                       @Nonnull final Map<String, String> parameters) {
+                       @Nonnull final Map<String, String> parameters,
+                       @Nonnull final List<Map<String, ParameterState>> preparedCases) {
         this.query = storedQuery;
         this.tempFunctions = ImmutableList.copyOf(tempFunctions);
         // ImmutableMap rather than Map.copyOf: the latter randomizes iteration order per JVM run, which would make the
         // same metadata serialize to different bytes each time. Parameters are looked up by name, so the order itself
         // carries no meaning — only its stability matters.
         this.parameters = ImmutableMap.copyOf(parameters);
+        this.preparedCases = preparedCases.stream()
+                .map(ImmutableMap::copyOf)
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull
@@ -74,5 +99,16 @@ public final class StoredQuery {
     @Nonnull
     public Map<String, String> getParameters() {
         return parameters;
+    }
+
+    /**
+     * The combinations this query is warmed for, one plan each. Every case pins every declared parameter, so a
+     * parameter is never planned with no value and a nullable type at once — such a plan is not correct for a null
+     * binding. Empty exactly when the query declares no parameters.
+     * @return one map per case, from parameter name to the state it is pinned to.
+     */
+    @Nonnull
+    public List<Map<String, ParameterState>> getPreparedCases() {
+        return preparedCases;
     }
 }
