@@ -32,8 +32,8 @@ import com.apple.foundationdb.record.planprotos.PSortedInParameterSource;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 
@@ -46,19 +46,18 @@ import java.util.Objects;
  */
 @API(API.Status.INTERNAL)
 public class SortedInParameterSource extends InParameterSource {
-    @Nonnull
     private static final ObjectPlanHash OBJECT_PLAN_HASH_SORTED_IN_PARAMETER_SOURCE = new ObjectPlanHash("Sorted-In-Parameter");
 
     private final boolean isReverse;
 
-    protected SortedInParameterSource(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final PSortedInParameterSource sortedInParameterSourceProto) {
+    protected SortedInParameterSource(final PlanSerializationContext serializationContext,
+                                      final PSortedInParameterSource sortedInParameterSourceProto) {
         super(serializationContext, Objects.requireNonNull(sortedInParameterSourceProto.getSuper()));
         Verify.verify(sortedInParameterSourceProto.hasReverse());
         this.isReverse = sortedInParameterSourceProto.getReverse();
     }
 
-    public SortedInParameterSource(@Nonnull String bindingName, @Nonnull final String parameterName, final boolean isReverse) {
+    public SortedInParameterSource(String bindingName, final String parameterName, final boolean isReverse) {
         super(bindingName, parameterName);
         this.isReverse = isReverse;
     }
@@ -74,16 +73,15 @@ public class SortedInParameterSource extends InParameterSource {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, baseHash(mode, OBJECT_PLAN_HASH_SORTED_IN_PARAMETER_SOURCE), super.planHash(mode), isReverse);
     }
 
     @Override
-    protected int size(@Nonnull final EvaluationContext context) {
+    protected int size(final EvaluationContext context) {
         return getBoundValues(context).size();
     }
 
-    @Nonnull
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
     protected List<Object> getValues(@Nullable final EvaluationContext context) {
@@ -92,7 +90,6 @@ public class SortedInParameterSource extends InParameterSource {
         return Objects.requireNonNull(InSource.sortValues(values, isReverse));
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return getBindingName() + " IN $" + getParameterName() + (isReverse() ? " DESC" : " ASC");
@@ -119,24 +116,21 @@ public class SortedInParameterSource extends InParameterSource {
         return Objects.hash(super.hashCode(), isReverse);
     }
 
-    @Nonnull
     @Override
-    public PSortedInParameterSource toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PSortedInParameterSource toProto(final PlanSerializationContext serializationContext) {
         return PSortedInParameterSource.newBuilder()
                 .setSuper(toInParameterSourceProto(serializationContext))
                 .setReverse(isReverse)
                 .build();
     }
 
-    @Nonnull
     @Override
-    protected PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+    protected PInSource toInSourceProto(final PlanSerializationContext serializationContext) {
         return PInSource.newBuilder().setSortedInParameterSource(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static SortedInParameterSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                    @Nonnull final PSortedInParameterSource sortedInParameterSourceProto) {
+    public static SortedInParameterSource fromProto(final PlanSerializationContext serializationContext,
+                                                    final PSortedInParameterSource sortedInParameterSourceProto) {
         return new SortedInParameterSource(serializationContext, sortedInParameterSourceProto);
     }
 
@@ -145,16 +139,14 @@ public class SortedInParameterSource extends InParameterSource {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PSortedInParameterSource, SortedInParameterSource> {
-        @Nonnull
         @Override
         public Class<PSortedInParameterSource> getProtoMessageClass() {
             return PSortedInParameterSource.class;
         }
 
-        @Nonnull
         @Override
-        public SortedInParameterSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PSortedInParameterSource sortedInParameterSourceProto) {
+        public SortedInParameterSource fromProto(final PlanSerializationContext serializationContext,
+                                                 final PSortedInParameterSource sortedInParameterSourceProto) {
             return SortedInParameterSource.fromProto(serializationContext, sortedInParameterSourceProto);
         }
     }

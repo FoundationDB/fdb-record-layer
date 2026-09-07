@@ -30,7 +30,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
@@ -55,10 +54,9 @@ public class TransitiveClosure {
      * @param <T> type
      * @return the transitive closure
      */
-    public static <T> ImmutableSetMultimap<T, T> transitiveClosure(@Nonnull Set<T> set, @Nonnull final SetMultimap<T, T> dependsOnMap) {
+    public static <T> ImmutableSetMultimap<T, T> transitiveClosure(Set<T> set, final SetMultimap<T, T> dependsOnMap) {
         return transitiveClosure(PartiallyOrderedSet.of(set, dependsOnMap));
     }
-
 
     /**
      * Compute the transitive closure of the depends-on map that is passed in.
@@ -66,7 +64,7 @@ public class TransitiveClosure {
      * @param <T> type
      * @return the transitive closure of the partial order handed in
      */
-    public static <T> ImmutableSetMultimap<T, T> transitiveClosure(@Nonnull PartiallyOrderedSet<T> partiallyOrderedSet) {
+    public static <T> ImmutableSetMultimap<T, T> transitiveClosure(PartiallyOrderedSet<T> partiallyOrderedSet) {
         final var set = partiallyOrderedSet.getSet();
         final var dependsOnMap = partiallyOrderedSet.getDependencyMap();
         final ImmutableSetMultimap<T, T> usedByMap = dependsOnMap.inverse();
@@ -74,7 +72,7 @@ public class TransitiveClosure {
         final Set<T> processed = Sets.newHashSetWithExpectedSize(partiallyOrderedSet.size());
         final Deque<T> deque = new ArrayDeque<>(partiallyOrderedSet.size());
         for (final T current : set) {
-            if (inDegreeMap.get(current) == 0) {
+            if (Objects.requireNonNull(inDegreeMap.get(current)) == 0) {
                 deque.add(current);
             }
         }
@@ -108,8 +106,7 @@ public class TransitiveClosure {
         return ImmutableSetMultimap.copyOf(resultMap);
     }
 
-    @Nonnull
-    private static <T> Map<T, Integer> computeInDegreeMap(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> usedByMap) {
+    private static <T> Map<T, Integer> computeInDegreeMap(final Set<T> set, final SetMultimap<T, T> usedByMap) {
         final HashMap<T, Integer> result = Maps.newHashMapWithExpectedSize(set.size());
         set.forEach(element -> result.put(element, 0));
 

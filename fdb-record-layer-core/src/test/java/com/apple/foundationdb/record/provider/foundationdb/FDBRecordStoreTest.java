@@ -77,8 +77,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -87,6 +87,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -179,6 +180,9 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         // Load by scanning records
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = storeBuilder.setContext(context).open();
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // scanRecords's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
             final List<FDBStoredRecord<Message>> records = store.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().get();
             assertThat(records, hasSize(2));
             assertEquals(record1, records.get(0).getRecord());
@@ -238,9 +242,13 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                     int i = 0;
                     byte[] continuation = null;
                     do {
-                        try (RecordCursorIterator<FDBStoredRecord<Message>> cursor = scanContinuationsCursor(continuation, limit, false, builtInLimit).asIterator()) {
+                        // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters,
+                        // even though scanContinuationsCursor's continuation parameter is declared @Nullable byte[].
+                        @SuppressWarnings("NullAway")
+                        RecordCursorIterator<FDBStoredRecord<Message>> cursor = scanContinuationsCursor(continuation, limit, false, builtInLimit).asIterator();
+                        try (cursor) {
                             while (cursor.hasNext()) {
-                                assertEquals(i, cursor.next().getPrimaryKey().getLong(0));
+                                assertEquals(i, Objects.requireNonNull(cursor.next()).getPrimaryKey().getLong(0));
                                 i++;
                             }
                             continuation = cursor.getContinuation();
@@ -251,7 +259,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                         try (RecordCursorIterator<FDBStoredRecord<Message>> cursor = scanContinuationsCursor(continuation, limit, true, builtInLimit).asIterator()) {
                             while (cursor.hasNext()) {
                                 i--;
-                                assertEquals(i, cursor.next().getPrimaryKey().getLong(0));
+                                assertEquals(i, Objects.requireNonNull(cursor.next()).getPrimaryKey().getLong(0));
                             }
                             continuation = cursor.getContinuation();
                         }
@@ -263,7 +271,11 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private RecordCursor<FDBStoredRecord<Message>> scanContinuationsCursor(byte[] continuation, int limit, boolean reverse, boolean builtInLimit) {
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even when passing
+    // this method's own @Nullable byte[] continuation through to FDBRecordStore#scanRecords's identically
+    // declared @Nullable byte[] continuation parameter.
+    @SuppressWarnings("NullAway")
+    private RecordCursor<FDBStoredRecord<Message>> scanContinuationsCursor(@Nullable byte[] continuation, int limit, boolean reverse, boolean builtInLimit) {
         if (builtInLimit) {
             return recordStore.scanRecords(continuation, new ScanProperties(ExecuteProperties.newBuilder()
                     .setReturnedRowLimit(limit)
@@ -309,9 +321,14 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             List<List<Object>> rows = new ArrayList<>();
             Index index = metaData.getIndex("MyRecord$path_str");
             ScanComparisons comparisons = ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "aaa"));
-            TupleRange range = comparisons.toTupleRange();
-            try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, IndexScanType.BY_VALUE, range,
-                                                                            null, ScanProperties.FORWARD_SCAN)) {
+            // comparisons is non-null here because an EQUALITY comparison always produces one; see ScanComparisons#from.
+            TupleRange range = Objects.requireNonNull(comparisons).toTupleRange();
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // scanIndex's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
+            RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, IndexScanType.BY_VALUE, range,
+                                                                            null, ScanProperties.FORWARD_SCAN);
+            try (cursor) {
                 cursor.forEach(row -> rows.add(row.getKey().getItems())).join();
             }
             assertEquals(Arrays.asList(Arrays.asList("aaa", "goodbye", 2L),
@@ -383,12 +400,12 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertThat("large record should only need few key bytes", rec2.getKeySize(), allOf(greaterThan(rec2.getKeyCount() * recordSubspaceSize), lessThan(rec2.getKeyCount() * (recordSubspaceSize + 10))));
             assertThat("large record should only need many value bytes", rec2.getValueSize(), allOf(greaterThan(100000), lessThan(101000)));
 
-            FDBStoredRecord<Message> rec1x = recordStore.loadRecord(rec1.getPrimaryKey());
+            FDBStoredRecord<Message> rec1x = Objects.requireNonNull(recordStore.loadRecord(rec1.getPrimaryKey()));
             assertEquals(rec1.getKeyCount(), rec1x.getKeyCount(), "small record loaded key count should match");
             assertEquals(rec1.getKeySize(), rec1x.getKeySize(), "small record loaded key size should match");
             assertEquals(rec1.getValueSize(), rec1x.getValueSize(), "small record loaded value size should match");
 
-            FDBStoredRecord<Message> rec2x = recordStore.loadRecord(rec2.getPrimaryKey());
+            FDBStoredRecord<Message> rec2x = Objects.requireNonNull(recordStore.loadRecord(rec2.getPrimaryKey()));
             assertEquals(rec2.getKeyCount(), rec2x.getKeyCount(), "large record loaded key count should match");
             assertEquals(rec2.getKeySize(), rec2x.getKeySize(), "large record loaded key size should match");
             assertEquals(rec2.getValueSize(), rec2x.getValueSize(), "large record loaded value size should match");
@@ -398,6 +415,9 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanRecords's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     public void testStoredRecordSizeIsConsistent() {
         final RecordMetaDataHook hook = md -> md.setSplitLongRecords(true);
 
@@ -439,6 +459,9 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanRecords's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     public void testStoreTimersIncrement() throws Exception {
         final int recordCount = 10;
         final int recordKeyCount = 2 * recordCount;
@@ -704,7 +727,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             fail("should have gotten failure");
         } catch (FDBExceptions.FDBStoreRetriableException ex) {
             assertTrue(ex.getCause() instanceof FDBException);
-            assertThat(((FDBException)ex.getCause()).getCode(), equalTo(FDBError.NOT_COMMITTED.code()));
+            assertThat(((FDBException)Objects.requireNonNull(ex.getCause())).getCode(), equalTo(FDBError.NOT_COMMITTED.code()));
         }
     }
 
@@ -757,7 +780,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            assertEquals("bar", recordStore.getHeaderUserField("foo").toStringUtf8());
+            assertEquals("bar", Objects.requireNonNull(recordStore.getHeaderUserField("foo")).toStringUtf8());
             RecordMetaDataProto.DataStoreInfo storeHeader = recordStore.getRecordStoreState().getStoreHeader();
             assertEquals(1, storeHeader.getUserFieldCount());
 
@@ -794,7 +817,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             assertEquals("µs", recordStore.getHeaderUserField("foo").toStringUtf8());
             assertNull(recordStore.getHeaderUserField("baz"));
-            assertEquals(Tuple.from(1066L), Tuple.fromBytes(recordStore.getHeaderUserField("qwop").toByteArray()));
+            assertEquals(Tuple.from(1066L), Tuple.fromBytes(Objects.requireNonNull(recordStore.getHeaderUserField("qwop")).toByteArray()));
             RecordMetaDataProto.DataStoreInfo storeHeader = recordStore.getRecordStoreState().getStoreHeader();
             assertEquals(2, storeHeader.getUserFieldCount());
             commit(context);
@@ -870,14 +893,13 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             this.metaData2 = metaData2;
         }
 
-        @Nonnull
         @Override
         public RecordMetaData getRecordMetaData() {
             return needOld ? metaData1 : metaData2;
         }
 
         @Override
-        public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+        public CompletableFuture<Integer> checkUserVersion(final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
             if (storeHeader.getFormatVersion() == 0) {
                 return CompletableFuture.completedFuture(defaultVersion);
             }
@@ -978,11 +1000,11 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                             .toByteArray()
             );
 
-            assertEquals(record1, recordStore.loadRecord(Tuple.from(record1.getRecNo())).getRecord());
-            assertEquals(record2, recordStore.loadRecord(Tuple.from(record2.getRecNo())).getRecord());
+            assertEquals(record1, Objects.requireNonNull(recordStore.loadRecord(Tuple.from(record1.getRecNo()))).getRecord());
+            assertEquals(record2, Objects.requireNonNull(recordStore.loadRecord(Tuple.from(record2.getRecNo()))).getRecord());
 
             RecordCoreException e = assertThrows(RecordCoreException.class,
-                    () -> recordStore.loadRecord(Tuple.from(record3.getRecNo())).getRecord());
+                    () -> Objects.requireNonNull(recordStore.loadRecord(Tuple.from(record3.getRecNo()))).getRecord());
             assertNotNull(e.getCause());
             assertThat(e.getCause(), instanceOf(RecordSerializationException.class));
             assertThat(e.getCause().getMessage(), containsString("because there are unknown fields"));
@@ -1008,6 +1030,9 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanIndex's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     public void importedRecordType() throws Exception {
         final RecordMetaDataHook hook = md -> md.addIndex("MySimpleRecord", "added_index", "num_value_2");
 
@@ -1090,8 +1115,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         });
     }
 
-    @Nonnull
-    private FDBMetaDataStore openMetaDataStore(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath metaDataPath, boolean clear) {
+    private FDBMetaDataStore openMetaDataStore(FDBRecordContext context, KeySpacePath metaDataPath, boolean clear) {
         FDBMetaDataStore metaDataStore = new FDBMetaDataStore(context, metaDataPath);
         metaDataStore.setDependencies(new Descriptors.FileDescriptor[] {
                 RecordMetaDataOptionsProto.getDescriptor()
@@ -1169,7 +1193,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
             assertEquals(version + 1 , metaDataStore.getRecordMetaData().getVersion());
-            assertEquals(version + 1 , metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion().intValue());
+            assertEquals(version + 1 , Objects.requireNonNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion()).intValue());
             context.commit();
         }
 
@@ -1189,6 +1213,9 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanIndex's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     public void testDryRunSaveRecord() throws Exception {
         TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
         TestRecords1Proto.MySimpleRecord record1 = recBuilder.setRecNo(1).setStrValueIndexed("abc").build();
@@ -1237,7 +1264,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private long checkLastUpdateTimeUpdated(long previousUpdateTime, @Nullable RecordMetaDataHook metaDataHook, @Nonnull Consumer<FDBRecordStore> updateOperation) {
+    private long checkLastUpdateTimeUpdated(long previousUpdateTime, @Nullable RecordMetaDataHook metaDataHook, Consumer<FDBRecordStore> updateOperation) {
         long updateTime;
         try (FDBRecordContext context = openContext()) {
             final long beforeOpenTime = System.currentTimeMillis();
@@ -1525,23 +1552,25 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
     private static FDBRecordStore openWithSlowRecordCount(FDBRecordStore.Builder standardBuilder) {
         return new FDBRecordStore.Builder(standardBuilder) {
             @Override
-            @Nonnull
             public FDBRecordStore build() {
-                return new FDBRecordStore(getContext(), subspaceProvider, getFormatVersionEnum(),
-                        getMetaDataProvider(), getSerializer(),
+                // standardBuilder was fully configured (context, subspace path, metadata) before being copied
+                // into this Builder, so these are guaranteed non-null by the time build() is called.
+                return new FDBRecordStore(Objects.requireNonNull(getContext()), Objects.requireNonNull(subspaceProvider), getFormatVersionEnum(),
+                        Objects.requireNonNull(getMetaDataProvider()), Objects.requireNonNull(getSerializer()),
                         getIndexMaintainerRegistry(), getIndexMaintenanceFilter(),
                         getPipelineSizer(), getStoreStateCache(),
                         getStateCacheabilityOnOpen(), getUserVersionChecker(),
                         getBypassFullStoreLockReason(), getPlanSerializationRegistry()) {
-                    @Nonnull
                     @Override
                     protected CompletableFuture<Long> getRecordCountForRebuildIndexes(
                             boolean newStore, boolean rebuildRecordCounts,
-                            @Nonnull Map<Index, List<RecordType>> indexes,
+                            Map<Index, List<RecordType>> indexes,
                             @Nullable RecordType singleRecordTypeWithPrefixKey) {
-                        recordStoreStateRef.get().beginRead();
+                        // recordStoreStateRef is guaranteed non-null by this point: the record store state was
+                        // already loaded before this simulated slow rebuild-index-count read begins.
+                        Objects.requireNonNull(recordStoreStateRef.get()).beginRead();
                         return MoreAsyncUtil.delayedFuture(100, TimeUnit.MILLISECONDS).thenApply(vignore -> {
-                            recordStoreStateRef.get().endRead();
+                            Objects.requireNonNull(recordStoreStateRef.get()).endRead();
                             return 0L; // Report empty store to allow inline rebuild
                         });
                     }
@@ -1563,7 +1592,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
         @Override
         public CompletableFuture<Integer> checkUserVersion(
-                @Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,
+                RecordMetaDataProto.DataStoreInfo storeHeader,
                 RecordMetaDataProvider metaData) {
             return CompletableFuture.completedFuture(storeHeader.getUserVersion());
         }
@@ -1575,7 +1604,6 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             return Assertions.fail(); // if we've hit this, then we've gone down an unexpected path
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<IndexState> needRebuildIndex(Index index,
                                                               Supplier<CompletableFuture<Long>> lazyRecordCount,

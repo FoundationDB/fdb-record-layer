@@ -55,8 +55,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -74,7 +73,6 @@ import java.util.stream.StreamSupport;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<QueryPredicate>, UsesValueEquivalence<QueryPredicate>, PlanHashable, Narrowable<QueryPredicate>, PlanSerializable {
-    @Nonnull
     @Override
     default QueryPredicate getThis() {
         return this;
@@ -167,12 +165,11 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * and compensation for {@code candidatePredicate}
      * such that {@code candidatePredicate} to also imply {@code this}, {@code Optional.empty()} otherwise
      */
-    @Nonnull
     @SuppressWarnings("unused")
-    default Optional<PredicateMapping> impliesCandidatePredicateMaybe(@Nonnull final ValueEquivalence valueEquivalence,
-                                                                      @Nonnull final QueryPredicate originalQueryPredicate,
-                                                                      @Nonnull final QueryPredicate candidatePredicate,
-                                                                      @Nonnull final EvaluationContext evaluationContext) {
+    default Optional<PredicateMapping> impliesCandidatePredicateMaybe(final ValueEquivalence valueEquivalence,
+                                                                      final QueryPredicate originalQueryPredicate,
+                                                                      final QueryPredicate candidatePredicate,
+                                                                      final EvaluationContext evaluationContext) {
         if (candidatePredicate instanceof Placeholder) {
             return Optional.empty();
         }
@@ -198,8 +195,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * @param originalQueryPredicate the original query predicate that was used to create this predicate
      * @return a new {@link PredicateCompensation} that reapplies this predicate.
      */
-    @Nonnull
-    default PredicateCompensation getDefaultPredicateCompensation(@Nonnull final QueryPredicate originalQueryPredicate) {
+    default PredicateCompensation getDefaultPredicateCompensation(final QueryPredicate originalQueryPredicate) {
         return (partialMatch, boundParameterPrefixMap, pullUp) ->
                 computeCompensationFunction(partialMatch, originalQueryPredicate, boundParameterPrefixMap, pullUp);
     }
@@ -212,11 +208,10 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * @param pullUp the pull-up structure used during compensation
      * @return a new {@link PredicateCompensation} that reapplies this predicate.
      */
-    @Nonnull
-    default PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
-                                                                      @Nonnull final QueryPredicate originalQueryPredicate,
-                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                      @Nonnull final PullUp pullUp) {
+    default PredicateCompensationFunction computeCompensationFunction(final PartialMatch partialMatch,
+                                                                      final QueryPredicate originalQueryPredicate,
+                                                                      final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                      final PullUp pullUp) {
         Debugger.sanityCheck(() ->
                 Verify.verify(Iterables.size(getChildren()) ==
                         Iterables.size(originalQueryPredicate.getChildren())));
@@ -235,19 +230,17 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
                 childPredicateCompensations.build(), pullUp);
     }
 
-    @Nonnull
-    PredicateCompensationFunction computeCompensationFunction(@Nonnull PartialMatch partialMatch,
-                                                              @Nonnull QueryPredicate originalQueryPredicate,
-                                                              @Nonnull Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                              @Nonnull List<PredicateCompensationFunction> childrenResults,
-                                                              @Nonnull PullUp pullUp);
+    PredicateCompensationFunction computeCompensationFunction(PartialMatch partialMatch,
+                                                              QueryPredicate originalQueryPredicate,
+                                                              Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                              List<PredicateCompensationFunction> childrenResults,
+                                                              PullUp pullUp);
 
     /**
      * Create a {@link QueryPredicate} that is equivalent to {@code this} but which is evaluated as a residual
      * predicate (cannot function as an index search argument).
      * @return a {@link QueryPredicate} (which may be {@code this}) that can be evaluated as a residual predicate.
      */
-    @Nonnull
     default QueryPredicate toResidualPredicate() {
         if (Iterables.isEmpty(getChildren())) {
             return this;
@@ -268,10 +261,10 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      * @param evaluationContext the evaluation context used to examine predicate implication.
      * @return a non-empty collection of {@link PredicateMapping}s
      */
-    default Collection<PredicateMapping> findImpliedMappings(@Nonnull final ValueEquivalence valueEquivalence,
-                                                             @Nonnull final QueryPredicate originalQueryPredicate,
-                                                             @Nonnull final Iterable<? extends QueryPredicate> candidatePredicates,
-                                                             @Nonnull final EvaluationContext evaluationContext) {
+    default Collection<PredicateMapping> findImpliedMappings(final ValueEquivalence valueEquivalence,
+                                                             final QueryPredicate originalQueryPredicate,
+                                                             final Iterable<? extends QueryPredicate> candidatePredicates,
+                                                             final EvaluationContext evaluationContext) {
         final Set<PredicateMapping.MappingKey> mappingKeys = Sets.newHashSet();
         final ImmutableList.Builder<PredicateMapping> mappingBuilder = ImmutableList.builder();
 
@@ -316,19 +309,18 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nullable
-    default Boolean compileTimeEval(@Nonnull final EvaluationContext context) {
+    default Boolean compileTimeEval(final EvaluationContext context) {
         return eval(null, context);
     }
 
     @Nullable
-    default <M extends Message> Boolean evalWithoutStore(@Nonnull final EvaluationContext context) {
+    default <M extends Message> Boolean evalWithoutStore(final EvaluationContext context) {
         return eval(null, context);
     }
 
     @Nullable
-    <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
+    <M extends Message> Boolean eval(@Nullable FDBRecordStoreBase<M> store, EvaluationContext context);
 
-    @Nonnull
     Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();
 
     @Override
@@ -339,7 +331,7 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default boolean semanticEquals(@Nullable final Object other,
-                                   @Nonnull final AliasMap aliasMap) {
+                                   final AliasMap aliasMap) {
         if (other == null) {
             return false;
         }
@@ -355,10 +347,9 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isTrue();
     }
 
-    @Nonnull
     @Override
-    default ConstrainedBoolean semanticEqualsTyped(@Nonnull final QueryPredicate other,
-                                                   @Nonnull final ValueEquivalence valueEquivalence) {
+    default ConstrainedBoolean semanticEqualsTyped(final QueryPredicate other,
+                                                   final ValueEquivalence valueEquivalence) {
         final var equalsWithoutChildren =
                 equalsWithoutChildren(other, valueEquivalence);
         if (equalsWithoutChildren.isFalse()) {
@@ -368,9 +359,8 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         return equalsWithoutChildren.composeWithOther(equalsForChildren(other, valueEquivalence));
     }
 
-    @Nonnull
-    default ConstrainedBoolean equalsForChildren(@Nonnull final QueryPredicate otherPred,
-                                                 @Nonnull final ValueEquivalence valueEquivalence) {
+    default ConstrainedBoolean equalsForChildren(final QueryPredicate otherPred,
+                                                 final ValueEquivalence valueEquivalence) {
         final Iterator<? extends QueryPredicate> preds = getChildren().iterator();
         final Iterator<? extends QueryPredicate> otherPreds = otherPred.getChildren().iterator();
 
@@ -395,9 +385,8 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @SuppressWarnings({"squid:S1172", "unused", "PMD.CompareObjectsWithEquals"})
-    @Nonnull
-    default ConstrainedBoolean equalsWithoutChildren(@Nonnull final QueryPredicate other,
-                                                     @Nonnull final ValueEquivalence valueEquivalence) {
+    default ConstrainedBoolean equalsWithoutChildren(final QueryPredicate other,
+                                                     final ValueEquivalence valueEquivalence) {
         if (this == other) {
             return ConstrainedBoolean.alwaysTrue();
         }
@@ -411,7 +400,6 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     boolean isAtomic();
 
-    @Nonnull
     QueryPredicate withAtomicity(boolean isAtomic);
 
     /**
@@ -419,7 +407,6 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      *
      * @return a human-friendly textual representation of this {@link QueryPredicate}.
      */
-    @Nonnull
     default ExplainTokensWithPrecedence explain() {
         final var explainFunctions =
                 Streams.stream(getChildren())
@@ -428,39 +415,36 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
         return explain(explainFunctions);
     }
 
-    @Nonnull
-    ExplainTokensWithPrecedence explain(@Nonnull Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers);
+    ExplainTokensWithPrecedence explain(Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers);
 
-    @Nonnull
     @Override
-    default QueryPredicate rebase(@Nonnull final AliasMap aliasMap) {
+    default QueryPredicate rebase(final AliasMap aliasMap) {
         final var translationMap = TranslationMap.rebaseWithAliasMap(aliasMap);
         return translateCorrelations(translationMap, false);
     }
 
-    @Nonnull
-    default QueryPredicate translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplify) {
+    default QueryPredicate translateCorrelations(final TranslationMap translationMap, final boolean shouldSimplify) {
         if (translationMap.definesOnlyIdentities()) {
             return this;
         }
-        return replaceLeavesMaybe(predicate -> predicate.translateLeafPredicate(translationMap, shouldSimplify))
+        final Function<QueryPredicate, @Nullable QueryPredicate> leafTranslationFunction =
+                predicate -> predicate.translateLeafPredicate(translationMap, shouldSimplify);
+        return replaceLeavesMaybe(leafTranslationFunction)
                 .orElseThrow(() -> new RecordCoreException("unable to map tree"));
     }
 
     @Nullable
     @SuppressWarnings("unused")
-    default QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap, final boolean shouldSimplify) {
+    default QueryPredicate translateLeafPredicate(final TranslationMap translationMap, final boolean shouldSimplify) {
         throw new RecordCoreException("implementor must override");
     }
 
-    @Nonnull
-    default Optional<PredicateWithValueAndRanges> toValueWithRangesMaybe(@Nonnull final EvaluationContext evaluationContext) {
+    default Optional<PredicateWithValueAndRanges> toValueWithRangesMaybe(final EvaluationContext evaluationContext) {
         return Optional.empty();
     }
 
-    @Nonnull
-    default Optional<QueryPredicate> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
-        return replaceLeavesMaybe(leafPredicate -> {
+    default Optional<QueryPredicate> replaceValuesMaybe(final Function<Value, Optional<Value>> replacementFunction) {
+        final Function<QueryPredicate, @Nullable QueryPredicate> leafReplacementFunction = leafPredicate -> {
             if (leafPredicate instanceof PredicateWithValue) {
                 final var predicateWithValue = (PredicateWithValue)leafPredicate;
 
@@ -468,11 +452,11 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
                         comparison -> comparison.replaceValuesMaybe(replacementFunction)).orElse(null);
             }
             return leafPredicate;
-        });
+        };
+        return replaceLeavesMaybe(leafReplacementFunction);
     }
 
-    @Nonnull
-    PQueryPredicate toQueryPredicateProto(@Nonnull PlanSerializationContext serializationContext);
+    PQueryPredicate toQueryPredicateProto(PlanSerializationContext serializationContext);
 
     /**
      * Determines whether this predicate involves an index-only value that cannot be evaluated from base records.
@@ -507,20 +491,20 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
      */
     boolean isIndexOnly();
 
-    @Nonnull
-    static QueryPredicate fromQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final PQueryPredicate queryPredicateProto) {
+    static QueryPredicate fromQueryPredicateProto(final PlanSerializationContext serializationContext,
+                                                  final PQueryPredicate queryPredicateProto) {
         return (QueryPredicate)PlanSerialization.dispatchFromProtoContainer(serializationContext, queryPredicateProto);
     }
 
-    @Nonnull
-    static List<QueryPredicate> translatePredicates(@Nonnull final TranslationMap translationMap,
-                                                    @Nonnull final List<QueryPredicate> predicates,
+    static List<QueryPredicate> translatePredicates(final TranslationMap translationMap,
+                                                    final List<QueryPredicate> predicates,
                                                     final boolean shouldSimplifyValues) {
         final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
         for (final var predicate : predicates) {
+            final Function<QueryPredicate, @Nullable QueryPredicate> leafTranslationFunction =
+                    leafPredicate -> leafPredicate.translateLeafPredicate(translationMap, shouldSimplifyValues);
             final var newOuterInnerPredicate =
-                    predicate.replaceLeavesMaybe(leafPredicate -> leafPredicate.translateLeafPredicate(translationMap, shouldSimplifyValues))
+                    predicate.replaceLeavesMaybe(leafTranslationFunction)
                             .orElseThrow(() -> new RecordCoreException("unable to translate predicate"));
             resultPredicatesBuilder.add(newOuterInnerPredicate);
         }

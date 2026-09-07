@@ -88,8 +88,7 @@ import org.opentest4j.AssertionFailedError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -136,7 +135,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
 
     private static final IndexQueryabilityFilter noMultidimensionalIndexes = new IndexQueryabilityFilter() {
         @Override
-        public boolean isQueryable(@Nonnull final Index index) {
+        public boolean isQueryable(final Index index) {
             return !index.getType().equals(IndexTypes.MULTIDIMENSIONAL);
         }
 
@@ -165,7 +164,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
     }
 
     @CanIgnoreReturnValue
-    RecordMetaDataBuilder addCalendarNameStartEpochIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+    RecordMetaDataBuilder addCalendarNameStartEpochIndex(final RecordMetaDataBuilder metaDataBuilder) {
         metaDataBuilder.addIndex("MyMultidimensionalRecord",
                 new Index("calendarNameStartEpoch",
                         concat(field("calendar_name"), field("start_epoch"), field("end_epoch")),
@@ -174,8 +173,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
     }
 
     @CanIgnoreReturnValue
-    RecordMetaDataBuilder addMultidimensionalIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder,
-                                                   @Nonnull final String storage,
+    RecordMetaDataBuilder addMultidimensionalIndex(final RecordMetaDataBuilder metaDataBuilder,
+                                                   final String storage,
                                                    final boolean storeHilbertValues,
                                                    final boolean useNodeSlotIndex) {
         metaDataBuilder.addIndex("MyMultidimensionalRecord",
@@ -188,8 +187,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
     }
 
     @CanIgnoreReturnValue
-    RecordMetaDataBuilder addUnprefixedMultidimensionalIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder,
-                                                             @Nonnull final String storage,
+    RecordMetaDataBuilder addUnprefixedMultidimensionalIndex(final RecordMetaDataBuilder metaDataBuilder,
+                                                             final String storage,
                                                              final boolean storeHilbertValues,
                                                              final boolean useNodeSlotIndex) {
         metaDataBuilder.addIndex("MyMultidimensionalRecord",
@@ -202,8 +201,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
     }
 
     @CanIgnoreReturnValue
-    RecordMetaDataBuilder addUnprefixedSuffixedMultidimensionalIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder,
-                                                                     @Nonnull final String storage,
+    RecordMetaDataBuilder addUnprefixedSuffixedMultidimensionalIndex(final RecordMetaDataBuilder metaDataBuilder,
+                                                                     final String storage,
                                                                      final boolean storeHilbertValues,
                                                                      final boolean useNodeSlotIndex) {
         metaDataBuilder.addIndex("MyMultidimensionalRecord",
@@ -216,8 +215,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
     }
 
     @CanIgnoreReturnValue
-    RecordMetaDataBuilder addAdditionalValueMultidimensionalIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder,
-                                                                  @Nonnull final String storage,
+    RecordMetaDataBuilder addAdditionalValueMultidimensionalIndex(final RecordMetaDataBuilder metaDataBuilder,
+                                                                  final String storage,
                                                                   final boolean storeHilbertValues,
                                                                   final boolean useNodeSlotIndex) {
         metaDataBuilder.addIndex("MyMultidimensionalRecord",
@@ -231,7 +230,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         return metaDataBuilder;
     }
 
-    static Function<Integer, Message> getRecordGenerator(@Nonnull Random random, @Nonnull List<String> calendarNames) {
+    static Function<Integer, Message> getRecordGenerator(Random random, List<String> calendarNames) {
         final long epochStandardDeviation = 3L * 24L * 60L * 60L;
         final long durationCutOff = 30L * 60L; // meetings are at least 30 minutes long
         final long durationStandardDeviation = 60L * 60L;
@@ -254,7 +253,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         };
     }
 
-    static Function<Integer, Message> getRecordWithNullGenerator(@Nonnull Random random, @Nonnull List<String> calendarNames) {
+    static Function<Integer, Message> getRecordWithNullGenerator(Random random, List<String> calendarNames) {
         final long epochStandardDeviation = 3L * 24L * 60L * 60L;
         final long durationStandardDeviation = 60L * 60L;
         final long expirationStandardDeviation = 24L * 60L * 60L;
@@ -289,7 +288,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         };
     }
 
-    public void loadRecords(final boolean useAsync, final boolean withNulls, @Nonnull final RecordMetaDataHook hook,
+    public void loadRecords(final boolean useAsync, final boolean withNulls, final RecordMetaDataHook hook,
                             final long seed, final List<String> calendarNames, final int numSamples)  {
         final Random random = new Random(seed);
         final var recordGenerator = withNulls ? getRecordWithNullGenerator(random, calendarNames) : getRecordGenerator(random, calendarNames);
@@ -300,7 +299,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         }
     }
 
-    public void deleteRecords(final boolean useAsync, @Nonnull final RecordMetaDataHook hook, final long seed, final int numRecords,
+    public void deleteRecords(final boolean useAsync, final RecordMetaDataHook hook, final long seed, final int numRecords,
                               final int numDeletes) throws Exception {
         Preconditions.checkArgument(numDeletes <= numRecords);
         final Random random = new Random(seed);
@@ -356,7 +355,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         return numRecordsCommitted;
     }
 
-    private static void logRecord(@Nonnull final String calendarName, final Long startEpoch, final Long endEpoch, final Long expirationEpoch) {
+    private static void logRecord(final String calendarName, @Nullable final Long startEpoch, @Nullable final Long endEpoch, @Nullable final Long expirationEpoch) {
         if (logger.isTraceEnabled()) {
             final Long duration = (startEpoch == null || endEpoch  == null) ? null : (endEpoch - startEpoch);
             Verify.verify(duration == null || duration > 0L);
@@ -374,7 +373,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         }
     }
 
-    public void loadSpecificRecordsWithNullsAndMins(final boolean useAsync, @Nonnull final RecordMetaDataHook hook) throws Exception {
+    public void loadSpecificRecordsWithNullsAndMins(final boolean useAsync, final RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
             TestRecordsMultidimensionalProto.MyMultidimensionalRecord record1 =
@@ -423,7 +422,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         }
     }
 
-    public void loadSpecificRecordsWithDuplicates(final boolean useAsync, @Nonnull final RecordMetaDataHook hook, int numRecords) throws Exception {
+    public void loadSpecificRecordsWithDuplicates(final boolean useAsync, final RecordMetaDataHook hook, int numRecords) throws Exception {
         final Function<Integer, NonnullPair<Message, Message>> getRecords = recNo -> {
             TestRecordsMultidimensionalProto.MyMultidimensionalRecord record1 =
                     TestRecordsMultidimensionalProto.MyMultidimensionalRecord.newBuilder()
@@ -459,7 +458,11 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         }
     }
 
-    void basicReadTest(final boolean useAsync, @Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+    // Tuple.from/TupleRange.betweenInclusive below intentionally accept a null element as test data
+    // (an unannotated, external API conservatively treated by NullAway as requiring non-null);
+    // Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
+    void basicReadTest(final boolean useAsync, final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndex = metaDataBuilder -> addMultidimensionalIndex(metaDataBuilder, storage,
                 storeHilbertValues, useNodeSlotIndex);
         loadRecords(useAsync, false, additionalIndex, 0, ImmutableList.of("business"), 500);
@@ -475,7 +478,11 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         }
     }
 
-    void basicReadWithNullsTest(final boolean useAsync, @Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+    // Tuple.from/TupleRange.betweenInclusive below intentionally accept a null element as test data
+    // (an unannotated, external API conservatively treated by NullAway as requiring non-null);
+    // Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
+    void basicReadWithNullsTest(final boolean useAsync, final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndex = metaDataBuilder -> addMultidimensionalIndex(metaDataBuilder, storage,
                 storeHilbertValues, useNodeSlotIndex);
         loadRecords(useAsync, false, additionalIndex, 0, ImmutableList.of("business"), 500);
@@ -491,7 +498,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         }
     }
 
-    void indexReadTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
+    void indexReadTest(final boolean useAsync, final long seed, final int numRecords, final String storage,
                        final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
@@ -548,7 +555,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         Assertions.assertEquals(expectedResults, actualResults);
     }
 
-    void indexReadWithNullsTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
+    void indexReadWithNullsTest(final boolean useAsync, final long seed, final int numRecords, final String storage,
                             final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
@@ -710,7 +717,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         Assertions.assertEquals(expectedResults, actualResults);
     }
 
-    void indexReadIsNullTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
+    void indexReadIsNullTest(final boolean useAsync, final long seed, final int numRecords, final String storage,
                          final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
@@ -820,7 +827,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
     }
 
     void indexReadsAfterDeletesTest(final boolean useAsync, final long seed, final int numRecords, final int numDeletes,
-                                @Nonnull final String storage, final boolean storeHilbertValues,
+                                final String storage, final boolean storeHilbertValues,
                                 final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
@@ -856,7 +863,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         Assertions.assertEquals(expectedResults, actualResults);
     }
 
-    void indexSkipScanTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
+    void indexSkipScanTest(final boolean useAsync, final long seed, final int numRecords, final String storage,
                        final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
@@ -946,9 +953,11 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         Assertions.assertTrue(plan2.hasRecordScan());
     }
 
-    @SuppressWarnings({"resource", "SameParameterValue"})
-    private Set<Message> getResultsWithContinuations(@Nonnull final RecordMetaDataHook additionalIndexes,
-                                                     @Nonnull final RecordQueryPlan plan, final int batchSize) throws Exception {
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings({"resource", "SameParameterValue", "NullAway"})
+    private Set<Message> getResultsWithContinuations(final RecordMetaDataHook additionalIndexes,
+                                                     final RecordQueryPlan plan, final int batchSize) throws Exception {
         final Set<Message> results = Sets.newHashSet();
         byte[] continuation = null;
         do {
@@ -974,7 +983,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         return results;
     }
 
-    void coveringIndexScanWithFetchTest(final boolean useAsync, @Nonnull final String storage, final boolean storeHilbertValues,
+    void coveringIndexScanWithFetchTest(final boolean useAsync, final String storage, final boolean storeHilbertValues,
                                     final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
@@ -1046,7 +1055,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         });
     }
 
-    void coveringIndexReadTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
+    void coveringIndexReadTest(final boolean useAsync, final long seed, final int numRecords, final String storage,
                            final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
@@ -1093,7 +1102,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         Assertions.assertEquals(expectedResults, actualResults);
     }
 
-    void indexScan3DTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
+    void indexScan3DTest(final boolean useAsync, final long seed, final int numRecords, final String storage,
                      final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndex = metaDataBuilder ->
                 metaDataBuilder.addIndex("MyMultidimensionalRecord",
@@ -1164,12 +1173,16 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                                 IndexTypes.MULTIDIMENSIONAL, ImmutableMap.of(IndexOptions.RTREE_STORAGE, BY_NODE.toString(),
                                 IndexOptions.RTREE_STORE_HILBERT_VALUES, "true")));
 
-        final var cause = Assertions.assertThrows(AssertionFailedError.class, () ->
-                loadRecords(useAsync, true, additionalIndex, 0, ImmutableList.of("business"), 10)).getCause();
+        final var cause = Objects.requireNonNull(Assertions.assertThrows(AssertionFailedError.class, () ->
+                loadRecords(useAsync, true, additionalIndex, 0, ImmutableList.of("business"), 10)).getCause());
         Assertions.assertEquals(KeyExpression.InvalidExpressionException.class, cause.getClass());
     }
 
-    void deleteWhereTest(final boolean useAsync, @Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+    // Tuple.from/TupleRange.betweenInclusive below intentionally accept a null element as test data
+    // (an unannotated, external API conservatively treated by NullAway as requiring non-null);
+    // Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
+    void deleteWhereTest(final boolean useAsync, final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     metaDataBuilder.addIndex("MyMultidimensionalRecord",
@@ -1206,7 +1219,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         Assertions.assertTrue(actualResults.isEmpty());
     }
 
-    void unprefixedIndexReadTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
+    void unprefixedIndexReadTest(final boolean useAsync, final long seed, final int numRecords, final String storage,
                              final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
@@ -1257,7 +1270,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         Assertions.assertEquals(expectedResults, actualResults);
     }
 
-    void unprefixedSuffixedIndexReadTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
+    void unprefixedSuffixedIndexReadTest(final boolean useAsync, final long seed, final int numRecords, final String storage,
                                      final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
@@ -1301,7 +1314,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         Assertions.assertEquals(expectedResults, actualResults);
     }
 
-    void unprefixedSuffixedIndexReadWithResidualsTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
+    void unprefixedSuffixedIndexReadWithResidualsTest(final boolean useAsync, final long seed, final int numRecords, final String storage,
                                                   final boolean storeHilbertValues, final Boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
@@ -1351,7 +1364,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         Assertions.assertEquals(expectedResults, actualResults);
     }
 
-    void indexReadWithAdditionalValueTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
+    void indexReadWithAdditionalValueTest(final boolean useAsync, final long seed, final int numRecords, final String storage,
                                       final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
@@ -1410,7 +1423,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
      * @param storeHilbertValues indicator whether we should store hilbert values in the index
      * @throws Exception any thrown exception
      */
-    void indexReadWithDuplicatesTest(final boolean useAsync, final int numRecords, @Nonnull final String storage,
+    void indexReadWithDuplicatesTest(final boolean useAsync, final int numRecords, final String storage,
                                  final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
@@ -1456,17 +1469,17 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         Assertions.assertEquals(expectedResults, actualResults);
     }
 
-    @Nonnull
-    private Set<Message> getResults(@Nonnull final RecordMetaDataHook additionalIndexes,
-                                    @Nonnull final RecordQueryPlan queryPlan) throws Exception {
+    private Set<Message> getResults(final RecordMetaDataHook additionalIndexes,
+                                    final RecordQueryPlan queryPlan) throws Exception {
         return getResults(additionalIndexes, queryPlan, fdbStoreTimer -> { });
     }
 
-    @Nonnull
-    @SuppressWarnings("resource")
-    private Set<Message> getResults(@Nonnull final RecordMetaDataHook additionalIndexes,
-                                    @Nonnull final RecordQueryPlan queryPlan,
-                                    @Nonnull final Consumer<FDBStoreTimer> timersConsumer) throws Exception {
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings({"resource", "NullAway"})
+    private Set<Message> getResults(final RecordMetaDataHook additionalIndexes,
+                                    final RecordQueryPlan queryPlan,
+                                    final Consumer<FDBStoreTimer> timersConsumer) throws Exception {
         final Set<Message> actualResults;
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, additionalIndexes);
@@ -1487,19 +1500,17 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         private final String minCalendarName;
         @Nullable
         private final String maxCalendarName;
-        @Nonnull
-        private final Long[] minsInclusive;
-        @Nonnull
-        private final Long[] maxsInclusive;
+        private final @Nullable Long[] minsInclusive;
+        private final @Nullable Long[] maxsInclusive;
 
         public HypercubeScanParameters(@Nullable final String calendarName,
-                                       @Nonnull final Long... minMaxLimits) {
+                                       @Nullable final Long... minMaxLimits) {
             this(calendarName, calendarName, minMaxLimits);
         }
 
         public HypercubeScanParameters(@Nullable final String minCalendarName,
                                        @Nullable final String maxCalendarName,
-                                       @Nonnull final Long... minMaxLimits) {
+                                       @Nullable final Long... minMaxLimits) {
             Preconditions.checkArgument(minMaxLimits.length % 2 == 0);
             this.minCalendarName = minCalendarName;
             this.maxCalendarName = maxCalendarName;
@@ -1512,31 +1523,27 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             return 11;
         }
 
-        @Nonnull
         @Override
-        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public Message toProto(final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
 
-        @Nonnull
         @Override
-        public PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PIndexScanParameters toIndexScanParametersProto(final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
 
-        @Nonnull
         @Override
         public IndexScanType getScanType() {
             return IndexScanType.BY_VALUE;
         }
 
-        @Nonnull
         @Override
-        public IndexScanBounds bind(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Index index, @Nonnull final EvaluationContext context) {
+        public IndexScanBounds bind(final FDBRecordStoreBase<?> store, final Index index, final EvaluationContext context) {
             final ImmutableList.Builder<TupleRange> tupleRangesBuilder = ImmutableList.builder();
             for (int i = 0; i < minsInclusive.length; i++) {
                 final Long min = minsInclusive[i];
@@ -1552,41 +1559,37 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         }
 
         @Override
-        public boolean isUnique(@Nonnull final Index index) {
+        public boolean isUnique(final Index index) {
             return false;
         }
 
-        @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString("multidimensional"));
         }
 
         @Override
-        public void getPlannerGraphDetails(@Nonnull final ImmutableList.Builder<String> detailsBuilder, @Nonnull final ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
+        public void getPlannerGraphDetails(final ImmutableList.Builder<String> detailsBuilder, final ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         }
 
-        @Nonnull
         @Override
-        public IndexScanParameters translateCorrelations(@Nonnull final TranslationMap translationMap,
+        public IndexScanParameters translateCorrelations(final TranslationMap translationMap,
                                                          final boolean shouldSimplifyValues) {
             throw new RecordCoreException("not supported");
         }
 
-        @Nonnull
         @Override
         public Set<CorrelationIdentifier> getCorrelatedTo() {
             return ImmutableSet.of();
         }
 
-        @Nonnull
         @Override
-        public IndexScanParameters rebase(@Nonnull final AliasMap translationMap) {
+        public IndexScanParameters rebase(final AliasMap translationMap) {
             return this;
         }
 
         @Override
-        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+        public boolean semanticEquals(@Nullable final Object other, final AliasMap aliasMap) {
             return false;
         }
 
@@ -1598,78 +1601,69 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
 
     @SuppressWarnings("CheckStyle")
     static class CompositeScanParameters implements IndexScanParameters {
-        @Nonnull
         private final MultidimensionalIndexScanBounds scanBounds;
 
-        public CompositeScanParameters(@Nonnull final MultidimensionalIndexScanBounds scanBounds) {
+        public CompositeScanParameters(final MultidimensionalIndexScanBounds scanBounds) {
             this.scanBounds = scanBounds;
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             return 13;
         }
 
-        @Nonnull
         @Override
-        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public Message toProto(final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
 
-        @Nonnull
         @Override
-        public PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PIndexScanParameters toIndexScanParametersProto(final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("unsupported");
         }
 
-        @Nonnull
         @Override
         public IndexScanType getScanType() {
             return IndexScanType.BY_VALUE;
         }
 
-        @Nonnull
         @Override
-        public IndexScanBounds bind(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Index index, @Nonnull final EvaluationContext context) {
+        public IndexScanBounds bind(final FDBRecordStoreBase<?> store, final Index index, final EvaluationContext context) {
             return scanBounds;
         }
 
         @Override
-        public boolean isUnique(@Nonnull final Index index) {
+        public boolean isUnique(final Index index) {
             return false;
         }
 
-        @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString("multidimensional"));
         }
 
         @Override
-        public void getPlannerGraphDetails(@Nonnull final ImmutableList.Builder<String> detailsBuilder, @Nonnull final ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
+        public void getPlannerGraphDetails(final ImmutableList.Builder<String> detailsBuilder, final ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         }
 
-        @Nonnull
         @Override
-        public IndexScanParameters translateCorrelations(@Nonnull final TranslationMap translationMap,
+        public IndexScanParameters translateCorrelations(final TranslationMap translationMap,
                                                          final boolean shouldSimplifyValues) {
             throw new RecordCoreException("not supported");
         }
 
-        @Nonnull
         @Override
         public Set<CorrelationIdentifier> getCorrelatedTo() {
             return ImmutableSet.of();
         }
 
-        @Nonnull
         @Override
-        public IndexScanParameters rebase(@Nonnull final AliasMap translationMap) {
+        public IndexScanParameters rebase(final AliasMap translationMap) {
             return this;
         }
 
         @Override
-        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+        public boolean semanticEquals(@Nullable final Object other, final AliasMap aliasMap) {
             return false;
         }
 

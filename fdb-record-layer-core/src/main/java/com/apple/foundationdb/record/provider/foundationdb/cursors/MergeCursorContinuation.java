@@ -26,8 +26,7 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Iterator;
 import java.util.List;
 
@@ -44,7 +43,6 @@ import java.util.List;
  */
 @API(API.Status.INTERNAL)
 public abstract class MergeCursorContinuation<B extends Message.Builder, C extends RecordCursorContinuation> implements RecordCursorContinuation {
-    @Nonnull
     private final List<C> continuations; // all continuations must themselves be immutable
     @Nullable
     private Message cachedProto;
@@ -53,7 +51,8 @@ public abstract class MergeCursorContinuation<B extends Message.Builder, C exten
     @Nullable
     private ByteString cachedByteString;
 
-    protected MergeCursorContinuation(@Nonnull List<C> continuations, @Nullable Message originalProto) {
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
+    protected MergeCursorContinuation(List<C> continuations, @Nullable Message originalProto) {
         this.continuations = continuations;
         this.cachedProto = originalProto;
     }
@@ -66,7 +65,7 @@ public abstract class MergeCursorContinuation<B extends Message.Builder, C exten
      * @param builder a builder for the Protobuf continuation
      * @param continuation the first child's continuation
      */
-    protected abstract void setFirstChild(@Nonnull B builder, @Nonnull C continuation);
+    protected abstract void setFirstChild(B builder, C continuation);
 
     /**
      * Fill in the Protobuf builder with the information from the second child. For backwards-compatibility reasons,
@@ -76,7 +75,7 @@ public abstract class MergeCursorContinuation<B extends Message.Builder, C exten
      * @param builder a builder for the Protobuf continuation
      * @param continuation the second child's continuation
      */
-    protected abstract void setSecondChild(@Nonnull B builder, @Nonnull C continuation);
+    protected abstract void setSecondChild(B builder, C continuation);
 
     /**
      * Fill in the Protobuf builder with the information for a child other than the first or second child. For
@@ -86,7 +85,7 @@ public abstract class MergeCursorContinuation<B extends Message.Builder, C exten
      * @param builder a builder for the Protobuf continuation
      * @param continuation a child other than the first or second child
      */
-    protected abstract void addOtherChild(@Nonnull B builder, @Nonnull C continuation);
+    protected abstract void addOtherChild(B builder, C continuation);
 
     /**
      * Get a new builder instance for the Protobuf message associated with this continuation. This should typically
@@ -94,10 +93,8 @@ public abstract class MergeCursorContinuation<B extends Message.Builder, C exten
      *
      * @return a new builder for the underlying Protobuf message type
      */
-    @Nonnull
     protected abstract B newProtoBuilder();
 
-    @Nonnull
     protected Message toProto() {
         if (cachedProto == null) {
             B builder = newProtoBuilder();
@@ -115,6 +112,7 @@ public abstract class MergeCursorContinuation<B extends Message.Builder, C exten
     @Nullable
     @Override
     @SpotBugsSuppressWarnings("EI")
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
     public byte[] toBytes() {
         if (isEnd()) {
             return null;
@@ -126,7 +124,6 @@ public abstract class MergeCursorContinuation<B extends Message.Builder, C exten
     }
 
     @Override
-    @Nonnull
     @SpotBugsSuppressWarnings("EI")
     public ByteString toByteString() {
         if (isEnd()) {
@@ -138,7 +135,6 @@ public abstract class MergeCursorContinuation<B extends Message.Builder, C exten
         return cachedByteString;
     }
 
-    @Nonnull
     protected List<C> getContinuations() {
         return continuations;
     }

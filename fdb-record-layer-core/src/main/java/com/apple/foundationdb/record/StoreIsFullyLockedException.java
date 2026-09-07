@@ -24,8 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.SubspaceProvider;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Error thrown when attempting to open a store that is in the {@link RecordMetaDataProto.DataStoreInfo.StoreLockState.State#FULL_STORE}
@@ -36,13 +35,13 @@ import javax.annotation.Nullable;
 public final class StoreIsFullyLockedException extends RecordCoreStorageException {
     private static final long serialVersionUID = -2341887654789012345L;
 
-    public StoreIsFullyLockedException(@Nonnull final RecordMetaDataProto.DataStoreInfo.StoreLockState storeLockState,
+    public StoreIsFullyLockedException(final RecordMetaDataProto.DataStoreInfo.StoreLockState storeLockState,
                                        @Nullable LogMessageKeys subspaceLogKey,
                                        @Nullable SubspaceProvider subspaceProvider) {
         super("Record Store is fully locked and cannot be opened",
                 LogMessageKeys.STORE_LOCK_STATE_REASON, storeLockState.getReason(),
                 LogMessageKeys.STORE_LOCK_STATE_TIMESTAMP_MILLIS, storeLockState.getTimestamp());
-        if (subspaceLogKey != null) {
+        if (subspaceLogKey != null && subspaceProvider != null) {
             addLogInfo(subspaceLogKey, subspaceProvider);
         }
     }

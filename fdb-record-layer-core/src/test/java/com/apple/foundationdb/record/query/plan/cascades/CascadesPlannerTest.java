@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.Set;
 
@@ -193,7 +192,7 @@ class CascadesPlannerTest {
         final CascadesPlanner.AbstractExploreExpression reExplore =
                 planner.new AbstractExploreExpression(PlannerPhase.REWRITING, group, expression) {
                     @Override
-                    protected boolean shouldPushRule(@Nonnull final CascadesRule<?> rule) {
+                    protected boolean shouldPushRule(final CascadesRule<?> rule) {
                         return group.isFullyExploring() || !group.isExploredForAttributes(rule.getConstraintDependencies());
                     }
                 };
@@ -214,17 +213,15 @@ class CascadesPlannerTest {
      * invoked by these tests; identity is all that matters.
      */
     private static final PlannerConstraint<Object> CONSTRAINT_A = new PlannerConstraint<Object>() {
-        @Nonnull
         @Override
-        public Optional<Object> combine(@Nonnull final Object currentConstraint, @Nonnull final Object newConstraint) {
+        public Optional<Object> combine(final Object currentConstraint, final Object newConstraint) {
             return Optional.empty();
         }
     };
 
     private static final PlannerConstraint<Object> CONSTRAINT_B = new PlannerConstraint<Object>() {
-        @Nonnull
         @Override
-        public Optional<Object> combine(@Nonnull final Object currentConstraint, @Nonnull final Object newConstraint) {
+        public Optional<Object> combine(final Object currentConstraint, final Object newConstraint) {
             return Optional.empty();
         }
     };
@@ -232,7 +229,6 @@ class CascadesPlannerTest {
     /**
      * Creates a {@link CascadesPlanner} over an empty {@link TestRecords1Proto}-based store.
      */
-    @Nonnull
     private static CascadesPlanner newPlanner() {
         final RecordMetaData metaData =
                 RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor()).getRecordMetaData();
@@ -242,8 +238,7 @@ class CascadesPlannerTest {
     /**
      * Creates a leaf {@link RelationalExpression} for the given record type, with no quantifiers.
      */
-    @Nonnull
-    private static FullUnorderedScanExpression scanExpression(@Nonnull final String recordType) {
+    private static FullUnorderedScanExpression scanExpression(final String recordType) {
         return new FullUnorderedScanExpression(ImmutableSet.of(recordType), new Type.AnyRecord(false), new AccessHints());
     }
 
@@ -262,20 +257,19 @@ class CascadesPlannerTest {
             this(shouldYield, ImmutableSet.of());
         }
 
-        RecordingExplorationCascadesRule(final boolean shouldYield, @Nonnull final Set<PlannerConstraint<?>> constraintDependencies) {
+        RecordingExplorationCascadesRule(final boolean shouldYield, final Set<PlannerConstraint<?>> constraintDependencies) {
             super(matcher(), constraintDependencies);
             this.shouldYield = shouldYield;
         }
 
         @Override
-        public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
+        public void onMatch(final ExplorationCascadesRuleCall call) {
             matchCount++;
             if (shouldYield) {
                 call.yieldExploratoryExpression(scanExpression("B"));
             }
         }
 
-        @Nonnull
         @SuppressWarnings("unchecked")
         private static BindingMatcher<RelationalExpression> matcher() {
             return (BindingMatcher<RelationalExpression>)(BindingMatcher<?>)

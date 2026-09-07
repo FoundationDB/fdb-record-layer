@@ -39,7 +39,6 @@ import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.column;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.selectWithPredicates;
@@ -54,7 +53,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.j
  * Tests of the {@link FinalizeExpressionsRule}.
  */
 class FinalizeExpressionsRuleTest {
-    @Nonnull
     private static final RuleTestHelper testHelper = new RuleTestHelper(new FinalizeExpressionsRule(), PlannerPhase.REWRITING);
 
     @BeforeEach
@@ -98,8 +96,7 @@ class FinalizeExpressionsRuleTest {
                 joinedOn(mergeableA, mergeableB));
     }
 
-    @Nonnull
-    private static SelectExpression joinedOn(@Nonnull final RelationalExpression childA, @Nonnull final RelationalExpression childB) {
+    private static SelectExpression joinedOn(final RelationalExpression childA, final RelationalExpression childB) {
         final Quantifier qunA = Quantifier.forEach(Reference.ofFinalExpressions(PlannerStage.CANONICAL, ImmutableSet.of(childA)));
         final Quantifier qunB = Quantifier.forEach(Reference.ofFinalExpressions(PlannerStage.CANONICAL, ImmutableSet.of(childB)));
         return join(qunA, qunB)
@@ -129,8 +126,7 @@ class FinalizeExpressionsRuleTest {
                 joinedOnSingle(mergeable));
     }
 
-    @Nonnull
-    private static SelectExpression joinedOnSingle(@Nonnull final RelationalExpression child) {
+    private static SelectExpression joinedOnSingle(final RelationalExpression child) {
         final Quantifier qun = Quantifier.forEach(Reference.ofFinalExpressions(PlannerStage.CANONICAL, ImmutableSet.of(child)));
         return join(qun)
                 .addResultColumn(column(qun, "a", "a1"))

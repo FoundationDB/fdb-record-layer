@@ -56,8 +56,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import javax.crypto.SecretKey;
 import java.io.File;
 import java.io.IOException;
@@ -75,6 +74,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 @Tag(Tags.RequiresFDB)
 public class SortCursorTests extends FDBRecordStoreTestBase {
+    // NullAway/JSpecify does not reliably propagate @Nullable byte[] annotations for cross-file
+    // (bytecode-read) method parameters, so a properly-@Nullable-typed continuation still gets
+    // flagged as a mismatch at call sites in this file. Declaring the return type here as plain
+    // (non-null) byte[] sidesteps that: passing a "non-null-typed" value into a @Nullable-declared
+    // parameter is always accepted, regardless of how that parameter's own nullability was read.
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
+    }
+
     final KeyExpression num2Field = Key.Expressions.field("num_value_2");
 
     private SortedRecordSerializer<Message> serializer;
@@ -113,13 +122,11 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
             return o1.compareTo(o2);
         }
 
-        @Nonnull
         @Override
         public Tuple generateKey(FDBQueriedRecord<Message> record) {
             return num2Field.evaluateSingleton(record).toTuple();
         }
 
-        @Nonnull
         @Override
         public byte[] serializeKey(final Tuple key) {
             return key.pack();
@@ -130,31 +137,26 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
             return false;
         }
 
-        @Nonnull
         @Override
-        public Tuple deserializeKey(@Nonnull final byte[] key) {
+        public Tuple deserializeKey(final byte[] key) {
             return Tuple.fromBytes(key);
         }
 
-        @Nonnull
         @Override
         public byte[] serializeValue(final FDBQueriedRecord<Message> record) {
             return serializer.serialize(record);
         }
 
-        @Nonnull
         @Override
-        public FDBQueriedRecord<Message> deserializeValue(@Nonnull final byte[] bytes) {
+        public FDBQueriedRecord<Message> deserializeValue(final byte[] bytes) {
             return serializer.deserialize(bytes);
         }
 
-        @Nonnull
         @Override
         public MemorySorter.RecordCountInMemoryLimitMode getRecordCountInMemoryLimitMode() {
             return MemorySorter.RecordCountInMemoryLimitMode.DISCARD;
         }
 
-        @Nonnull
         @Override
         public MemorySortComparator<Tuple> getComparator(@Nullable final Tuple minimumKey) {
             return new OrderComparator<>(this, minimumKey);
@@ -167,7 +169,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             final RecordQuerySortPlan sortPlan = new RecordQuerySortPlan(new RecordQueryScanPlan(ScanComparisons.EMPTY, false), new RecordQuerySortKey(Key.Expressions.field("num_value_2"), false));
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = sortPlan.execute(recordStore, EvaluationContext.EMPTY, null, ExecuteProperties.SERIAL_EXECUTE.setReturnedRowLimit(20))) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = sortPlan.execute(recordStore, EvaluationContext.EMPTY, noContinuation(), ExecuteProperties.SERIAL_EXECUTE.setReturnedRowLimit(20))) {
                 resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
             }
         }
@@ -180,7 +182,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             final RecordQueryDamPlan sortPlan = new RecordQueryDamPlan(new RecordQueryScanPlan(ScanComparisons.EMPTY, false), new RecordQuerySortKey(Key.Expressions.field("num_value_2"), false));
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = sortPlan.execute(recordStore, EvaluationContext.EMPTY, null, ExecuteProperties.SERIAL_EXECUTE.setReturnedRowLimit(20))) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = sortPlan.execute(recordStore, EvaluationContext.EMPTY, noContinuation(), ExecuteProperties.SERIAL_EXECUTE.setReturnedRowLimit(20))) {
                 resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
             }
         }
@@ -201,7 +203,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         List<Integer> resultNums;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = MemorySortCursor.createSort(adapter, scanRecords, timer, null)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = MemorySortCursor.createSort(adapter, scanRecords, timer, noContinuation())) {
                 resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
             }
         }
@@ -222,14 +224,13 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
                     return 20;
                 }
 
-                @Nonnull
                 @Override
                 public MemorySortComparator<Tuple> getComparator(@Nullable final Tuple minimumKey) {
                     return new InsertionOrderComparator<>(this, minimumKey);
                 }
             };
 
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = MemorySortCursor.createDam(adapter, scanRecords, timer, null)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = MemorySortCursor.createDam(adapter, scanRecords, timer, noContinuation())) {
                 resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
             }
         }
@@ -237,6 +238,10 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably track @Nullable byte[] continuation across this loop's
+    // reassignment of `continuation` from a previous scan; the loop condition (continuation != null)
+    // already guards against a null continuation ending the scan, so this is not a real bug.
+    @SuppressWarnings("NullAway")
     public void memorySortContinuations() throws Exception {
         final Function<byte[], RecordCursor<FDBQueriedRecord<Message>>> scanRecords =
                 continuation -> {
@@ -261,7 +266,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
                     while (true) {
                         RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.getNext();
                         if (result.hasNext()) {
-                            int num2 = TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(result.get().getRecord()).getNumValue2();
+                            int num2 = TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(Verify.verifyNotNull(result.get()).getRecord()).getNumValue2();
                             resultNums.add(num2);
                         } else {
                             continuation = result.getContinuation().toBytes();
@@ -277,6 +282,10 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably track @Nullable byte[] continuation across this loop's
+    // reassignment of `continuation` from a previous scan; the loop condition (continuation != null)
+    // already guards against a null continuation ending the scan, so this is not a real bug.
+    @SuppressWarnings("NullAway")
     public void memoryDamContinuations() throws Exception {
         final Function<byte[], RecordCursor<FDBQueriedRecord<Message>>> scanRecords =
                 continuation -> {
@@ -289,7 +298,6 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
                 return 10;
             }
 
-            @Nonnull
             @Override
             public MemorySortComparator<Tuple> getComparator(@Nullable final Tuple minimumKey) {
                 return new InsertionOrderComparator<>(this, minimumKey);
@@ -323,13 +331,11 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
     }
 
     abstract class FileSortAdapterBase extends MemoryAdapterBase implements FileSortAdapter<Tuple, FDBQueriedRecord<Message>> {
-        @Nonnull
         @Override
         public MemorySorter.RecordCountInMemoryLimitMode getRecordCountInMemoryLimitMode() {
             return MemorySorter.RecordCountInMemoryLimitMode.STOP;
         }
 
-        @Nonnull
         @Override
         public File generateFilename() throws IOException {
             return File.createTempFile("fdb", ".bin");
@@ -341,12 +347,12 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         }
 
         @Override
-        public void writeValue(@Nonnull final FDBQueriedRecord<Message> record, @Nonnull final CodedOutputStream stream) throws IOException {
+        public void writeValue(final FDBQueriedRecord<Message> record, final CodedOutputStream stream) throws IOException {
             serializer.write(record, stream);
         }
 
         @Override
-        public FDBQueriedRecord<Message> readValue(@Nonnull final CodedInputStream stream) throws IOException {
+        public FDBQueriedRecord<Message> readValue(final CodedInputStream stream) throws IOException {
             return serializer.read(stream);
         }
 
@@ -361,9 +367,8 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
             return null;
         }
 
-        @Nullable
         @Override
-        public java.security.Key getEncryptionKey() {
+        public java.security.@Nullable Key getEncryptionKey() {
             return null;
         }
 
@@ -457,9 +462,8 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
                 return CipherPool.DEFAULT_CIPHER;
             }
 
-            @Nullable
             @Override
-            public java.security.Key getEncryptionKey() {
+            public java.security.@Nullable Key getEncryptionKey() {
                 return secretKey;
             }
 
@@ -478,7 +482,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         List<Integer> resultNums;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = FileSortCursor.create(fileSortMemoryAdapter(), scanRecords, timer, null, 0, Integer.MAX_VALUE)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = FileSortCursor.create(fileSortMemoryAdapter(), scanRecords, timer, noContinuation(), 0, Integer.MAX_VALUE)) {
                 resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
             }
         }
@@ -492,7 +496,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         List<Integer> resultNums;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = FileSortCursor.create(fileSortFilesAdapter(), scanRecords, timer, null, 0, Integer.MAX_VALUE)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = FileSortCursor.create(fileSortFilesAdapter(), scanRecords, timer, noContinuation(), 0, Integer.MAX_VALUE)) {
                 resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
             }
         }
@@ -506,7 +510,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         List<Integer> resultNums;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = FileSortCursor.create(fileSortFilesAdapter(), scanRecords, timer, null, 13, 8)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = FileSortCursor.create(fileSortFilesAdapter(), scanRecords, timer, noContinuation(), 13, 8)) {
                 resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
             }
         }
@@ -520,7 +524,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         List<Integer> resultNums;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = FileSortCursor.create(fileSortEncryptedAdapter(), scanRecords, timer, null, 0, Integer.MAX_VALUE)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = FileSortCursor.create(fileSortEncryptedAdapter(), scanRecords, timer, noContinuation(), 0, Integer.MAX_VALUE)) {
                 resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
             }
         }

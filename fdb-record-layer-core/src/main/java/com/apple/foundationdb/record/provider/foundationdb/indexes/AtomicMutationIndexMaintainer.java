@@ -46,8 +46,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
@@ -73,12 +72,12 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
         this.mutation = mutation;
     }
 
-    protected static boolean getClearWhenZero(@Nonnull Index index) {
+    protected static boolean getClearWhenZero(Index index) {
         return index.getBooleanOption(IndexOptions.CLEAR_WHEN_ZERO, false);
     }
 
     @SuppressWarnings({"deprecation", "squid:CallToDeprecatedMethod"})
-    protected static AtomicMutation getAtomicMutation(@Nonnull Index index) {
+    protected static AtomicMutation getAtomicMutation(Index index) {
         if (IndexTypes.COUNT.equals(index.getType())) {
             return getClearWhenZero(index) ? AtomicMutation.Standard.COUNT_CLEAR_WHEN_ZERO : AtomicMutation.Standard.COUNT;
         }
@@ -109,12 +108,11 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
         throw new MetaDataException("Unknown index type for " + index);
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType,
-                                            @Nonnull TupleRange range,
+    public RecordCursor<IndexEntry> scan(IndexScanType scanType,
+                                            TupleRange range,
                                             @Nullable byte[] continuation,
-                                            @Nonnull ScanProperties scanProperties) {
+                                            ScanProperties scanProperties) {
         if (!scanType.equals(IndexScanType.BY_GROUP)) {
             throw new RecordCoreException("Can only scan aggregate index by group.");
         }
@@ -122,9 +120,12 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) locals, even after an explicit
+    // null check (param/compareAndClear are confirmed non-null by the checks/continue above their use).
+    @SuppressWarnings("NullAway")
+    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(final FDBIndexableRecord<M> savedRecord,
                                                                           final boolean remove,
-                                                                          @Nonnull final List<IndexEntry> indexEntries) {
+                                                                          final List<IndexEntry> indexEntries) {
         final MutationType mutationType = mutation.getMutationType();
         final int groupPrefixSize = getGroupingCount();
         for (IndexEntry indexEntry : indexEntries) {
@@ -141,7 +142,7 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
                 groupKey = TupleHelpers.subTuple(indexEntry.getKey(), 0, groupPrefixSize);
                 groupedValue = indexEntry.subKey(groupPrefixSize, indexEntry.getKeySize());
             }
-            final byte[] param = mutation.getMutationParam(groupedValue, remove);
+            final @Nullable byte[] param = mutation.getMutationParam(groupedValue, remove);
             if (param == null) {
                 continue;
             }
@@ -170,7 +171,7 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
                 }
             } else {
                 state.transaction.mutate(mutationType, key, param);
-                final byte[] compareAndClear = mutation.getCompareAndClearParam();
+                final @Nullable byte[] compareAndClear = mutation.getCompareAndClearParam();
                 if (compareAndClear != null) {
                     state.transaction.mutate(MutationType.COMPARE_AND_CLEAR, key, compareAndClear);
                 }
@@ -183,7 +184,7 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    protected Tuple decodeValue(@Nonnull byte[] value) {
+    protected Tuple decodeValue(byte[] value) {
         switch (mutation.getMutationType()) {
             case ADD:
             case BIT_AND:
@@ -198,17 +199,21 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    public boolean canEvaluateAggregateFunction(@Nonnull IndexAggregateFunction function) {
+    public boolean canEvaluateAggregateFunction(IndexAggregateFunction function) {
         return matchesAggregateFunction(function) &&
                IndexFunctionHelper.isGroupPrefix(function.getOperand(), state.index.getRootExpression());
     }
 
     @Override
-    @Nonnull
-    @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
-                                                              @Nonnull TupleRange range,
-                                                              @Nonnull IsolationLevel isolationveLevel) {
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters
+    // (passing null to mean "start from the beginning"); and RecordCursor#reduce's
+    // generic <U> is declared without "extends @Nullable Object", so NullAway treats
+    // its identity parameter and return value as non-null even though this mutation's
+    // identity/aggregate values are genuinely @Nullable Tuples.
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"})
+    public CompletableFuture<Tuple> evaluateAggregateFunction(IndexAggregateFunction function,
+                                                              TupleRange range,
+                                                              IsolationLevel isolationveLevel) {
         if (!matchesAggregateFunction(function)) {
             throw new MetaDataException("this index does not support aggregate function: " + function);
         }
@@ -218,7 +223,7 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
         return cursor.reduce(mutation.getIdentity(), (accum, kv) -> aggregator.apply(accum, kv.getValue()));
     }
 
-    protected boolean matchesAggregateFunction(@Nonnull IndexAggregateFunction function) {
+    protected boolean matchesAggregateFunction(IndexAggregateFunction function) {
         String functionName = function.getName();
         String indexType = state.index.getType();
         return functionName.equals(indexType) ||

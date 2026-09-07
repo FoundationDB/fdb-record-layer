@@ -91,7 +91,6 @@ import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortKey;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
-import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomSeedSource;
 import com.apple.test.RandomizedTestUtils;
@@ -107,8 +106,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -134,8 +133,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class ExplainPlanVisitorTest {
     private static final Logger logger = LoggerFactory.getLogger(ExplainPlanVisitorTest.class);
 
-    @Nonnull
-    private static String randomAlphabetic(@Nonnull Random r, int minCount, int maxCount) {
+    private static String randomAlphabetic(Random r, int minCount, int maxCount) {
         final int letterCount = minCount + r.nextInt(maxCount - minCount);
         char[] letters = new char[letterCount];
         for (int i = 0; i < letterCount; i++) {
@@ -152,32 +150,28 @@ public class ExplainPlanVisitorTest {
                 .boxed();
     }
 
-    @Nonnull
-    private static String randomParameterName(@Nonnull Random r) {
+    private static String randomParameterName(Random r) {
         return randomAlphabetic(r, 5, 8);
     }
 
-    @Nonnull
-    private static String randomTypeName(@Nonnull Random r) {
+    private static String randomTypeName(Random r) {
         return randomAlphabetic(r, 10, 15);
     }
 
-    @Nonnull
-    private static String randomIndexName(@Nonnull Random r) {
+    private static String randomIndexName(Random r) {
         return randomAlphabetic(r, 8, 10);
     }
 
-    @Nonnull
-    private static String randomFieldName(@Nonnull Random r) {
+    private static String randomFieldName(Random r) {
         return randomAlphabetic(r, 4, 9);
     }
 
-    private static <T> T randomChoice(@Nonnull Random r, @Nonnull List<T> elements) {
+    private static <T> T randomChoice(Random r, List<T> elements) {
         int choice = r.nextInt(elements.size());
         return elements.get(choice);
     }
 
-    private static Comparisons.Comparison randomEqualityComparison(@Nonnull Random r) {
+    private static Comparisons.Comparison randomEqualityComparison(Random r) {
         double choice = r.nextDouble();
         if (choice < 0.25) {
             return new Comparisons.NullComparison(Comparisons.Type.IS_NULL);
@@ -190,7 +184,7 @@ public class ExplainPlanVisitorTest {
         }
     }
 
-    private static Comparisons.Comparison randomInequalityComparison(@Nonnull Random r) {
+    private static Comparisons.Comparison randomInequalityComparison(Random r) {
         Comparisons.Type type = randomChoice(r, List.of(Comparisons.Type.LESS_THAN, Comparisons.Type.LESS_THAN_OR_EQUALS, Comparisons.Type.GREATER_THAN, Comparisons.Type.GREATER_THAN_OR_EQUALS));
         if (r.nextBoolean()) {
             return new Comparisons.SimpleComparison(type, r.nextLong());
@@ -215,7 +209,7 @@ public class ExplainPlanVisitorTest {
     }
 
     private static NonnullPair<RecordQueryPlan, String> randomScanPlan(Random r) {
-        Pair<ScanComparisons, String> comparisons = randomScanComparisons(r);
+        NonnullPair<ScanComparisons, String> comparisons = randomScanComparisons(r);
         boolean reverse = r.nextBoolean();
         return NonnullPair.of(new RecordQueryScanPlan(comparisons.getLeft(), reverse), "SCAN(" + comparisons.getRight() + ")");
     }
@@ -226,7 +220,7 @@ public class ExplainPlanVisitorTest {
     }
 
     private static NonnullPair<RecordQueryPlan, String> randomIndexDetails(Random r) {
-        Pair<ScanComparisons, String> comparisons = randomScanComparisons(r);
+        NonnullPair<ScanComparisons, String> comparisons = randomScanComparisons(r);
         IndexScanType scanType = randomChoice(r, List.of(IndexScanType.BY_VALUE, IndexScanType.BY_RANK, IndexScanType.BY_GROUP, IndexScanType.BY_VALUE_OVER_SCAN));
         IndexScanParameters scanParameters = IndexScanComparisons.byValue(comparisons.getLeft(), scanType);
         String indexName = randomIndexName(r);
@@ -291,8 +285,7 @@ public class ExplainPlanVisitorTest {
                 indexName + ", " + groupComparisons + ", " + textComparison + ", " + (suffixComparisons == null ? "NULL" : suffixComparisons));
     }
 
-    @Nonnull
-    private static NonnullPair<RecordQueryPlan, String> randomCoveringIndexPlan(@Nonnull Random r) {
+    private static NonnullPair<RecordQueryPlan, String> randomCoveringIndexPlan(Random r) {
         NonnullPair<RecordQueryPlan, String> childPlan;
         if (r.nextDouble() < 0.8) {
             childPlan = randomIndexDetails(r);
@@ -309,8 +302,7 @@ public class ExplainPlanVisitorTest {
                 "COVERING(" + childPlan.getRight() + " -> " + partialRecord + ")");
     }
 
-    @Nonnull
-    private static NonnullPair<RecordQueryPlan, String> randomExplodePlan(@Nonnull Random r) {
+    private static NonnullPair<RecordQueryPlan, String> randomExplodePlan(Random r) {
         Value collectionValue;
         if (r.nextBoolean()) {
             collectionValue = LiteralValue.ofList(List.of(1, 2, 3, 4, 5));
@@ -320,8 +312,7 @@ public class ExplainPlanVisitorTest {
         return NonnullPair.of(new RecordQueryExplodePlan(collectionValue), "EXPLODE " + collectionValue);
     }
 
-    @Nonnull
-    private static NonnullPair<RecordQueryPlan, String> randomLoadByKeysPlan(@Nonnull Random r) {
+    private static NonnullPair<RecordQueryPlan, String> randomLoadByKeysPlan(Random r) {
         if (r.nextBoolean()) {
             String parameterName = randomParameterName(r);
             return NonnullPair.of(new RecordQueryLoadByKeysPlan(parameterName), "BYKEYS $" + parameterName);
@@ -335,9 +326,8 @@ public class ExplainPlanVisitorTest {
         }
     }
 
-    @Nonnull
-    private static NonnullPair<RecordQueryPlan, String> randomFilterPlan(@Nonnull Random r, double decay) {
-        Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
+    private static NonnullPair<RecordQueryPlan, String> randomFilterPlan(Random r, double decay) {
+        NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         List<QueryComponent> filters = new ArrayList<>();
         int filterCount = 1 + r.nextInt(4);
         for (int i = 0; i < filterCount; i++) {
@@ -347,24 +337,21 @@ public class ExplainPlanVisitorTest {
                 childPlan.getRight() + " | QCFILTER " + (filters.size() == 1 ? Iterables.getOnlyElement(filters) : Query.and(filters)));
     }
 
-    @Nonnull
-    private static NonnullPair<RecordQueryPlan, String> randomFetchFromPartialRecordPlan(@Nonnull Random r, double decay) {
+    private static NonnullPair<RecordQueryPlan, String> randomFetchFromPartialRecordPlan(Random r, double decay) {
         NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         return NonnullPair.of(new RecordQueryFetchFromPartialRecordPlan(childPlan.getLeft(), TranslateValueFunction.unableToTranslate(), Type.primitiveType(Type.TypeCode.UNKNOWN), RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY),
                 childPlan.getRight() + " | FETCH");
     }
 
-    @Nonnull
-    private static NonnullPair<RecordQueryPlan, String> randomMapPlan(@Nonnull Random r, double decay) {
+    private static NonnullPair<RecordQueryPlan, String> randomMapPlan(Random r, double decay) {
         NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         Value resultValue = LiteralValue.ofScalar("a_value");
         return NonnullPair.of(new RecordQueryMapPlan(Quantifier.physical(Reference.plannedOf(childPlan.getLeft())), resultValue),
                 childPlan.getRight() + " | MAP " + resultValue);
     }
 
-    @Nonnull
-    public static NonnullPair<RecordQueryPlan, String> randomInJoinPlan(@Nonnull Random r, double decay) {
-        Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
+    public static NonnullPair<RecordQueryPlan, String> randomInJoinPlan(Random r, double decay) {
+        NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         double choice = r.nextDouble();
         boolean sortValues = r.nextBoolean();
         boolean sortReverse = r.nextBoolean();
@@ -404,29 +391,25 @@ public class ExplainPlanVisitorTest {
                 "[" + valueString + (sortValues ? " SORTED" : "") + (sortValues && sortReverse ? " DESC" : "") + "] | INJOIN " + innerParam + " -> { " + childPlan.getRight() + " }");
     }
 
-    @Nonnull
-    private static NonnullPair<RecordQueryPlan, String> randomPrimaryKeyUnorderedDistinctPlan(@Nonnull Random r, double decay) {
+    private static NonnullPair<RecordQueryPlan, String> randomPrimaryKeyUnorderedDistinctPlan(Random r, double decay) {
         NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         return NonnullPair.of(new RecordQueryUnorderedPrimaryKeyDistinctPlan(childPlan.getLeft()), childPlan.getRight() + " | DISTINCT BY PK");
     }
 
-    @Nonnull
-    private static NonnullPair<RecordQueryPlan, String> randomUnorderedDistinctPlan(@Nonnull Random r, double decay) {
-        Pair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
+    private static NonnullPair<RecordQueryPlan, String> randomUnorderedDistinctPlan(Random r, double decay) {
+        NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         KeyExpression expression = Key.Expressions.field(randomAlphabetic(r, 5, 10));
         return NonnullPair.of(new RecordQueryUnorderedDistinctPlan(childPlan.getLeft(), expression), childPlan.getRight() + " | DISTINCT BY " + expression);
     }
 
-    @Nonnull
-    private static NonnullPair<RecordQueryPlan, String> randomSortPlan(@Nonnull Random r, double decay) {
+    private static NonnullPair<RecordQueryPlan, String> randomSortPlan(Random r, double decay) {
         NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         KeyExpression expression = Key.Expressions.field(randomAlphabetic(r, 5, 10));
         boolean reverse = r.nextBoolean();
         return NonnullPair.of(new RecordQuerySortPlan(childPlan.getLeft(), new RecordQuerySortKey(expression, reverse)), childPlan.getRight() + " | SORT BY " + expression + (reverse ? " DESC" : ""));
     }
 
-    @Nonnull
-    private static NonnullPair<RecordQueryPlan, String> randomTypeFilterPlan(@Nonnull Random r, double decay) {
+    private static NonnullPair<RecordQueryPlan, String> randomTypeFilterPlan(Random r, double decay) {
         NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         int typeCount = r.nextInt(3) + 1;
         Set<String> types = new HashSet<>();
@@ -436,8 +419,7 @@ public class ExplainPlanVisitorTest {
         return NonnullPair.of(new RecordQueryTypeFilterPlan(childPlan.getLeft(), types), childPlan.getRight() + " | TFILTER " + String.join(", ", types));
     }
 
-    @Nonnull
-    private static NonnullPair<RecordQueryPlan, String> randomUnionOrIntersectionPlan(@Nonnull Random r, double decay) {
+    private static NonnullPair<RecordQueryPlan, String> randomUnionOrIntersectionPlan(Random r, double decay) {
         List<RecordQueryPlan> plans = new ArrayList<>();
         List<String> strings = new ArrayList<>();
         int planCount = r.nextInt(5) + 2;
@@ -470,8 +452,7 @@ public class ExplainPlanVisitorTest {
         }
     }
 
-    @Nonnull
-    private static NonnullPair<RecordQueryPlan, String> randomPlanAndString(@Nonnull Random r, double decay) {
+    private static NonnullPair<RecordQueryPlan, String> randomPlanAndString(Random r, double decay) {
         // Generate a random plan, but use the decay argument to avoid creating trees with too many
         // levels (and potentially hitting the maximum stack depth). Every time a plan with
         // child plans is chosen, the decay parameter is decreased, which eventually ensures that
@@ -521,12 +502,10 @@ public class ExplainPlanVisitorTest {
         }
     }
 
-    @Nonnull
-    private static NonnullPair<RecordQueryPlan, String> randomPlanAndString(@Nonnull Random r) {
+    private static NonnullPair<RecordQueryPlan, String> randomPlanAndString(Random r) {
         return randomPlanAndString(r, 1.0);
     }
 
-    @Nonnull
     static Stream<Long> randomPlanRepresentation() {
         long seedSeed = RandomizedTestUtils.includeRandomTests() ? System.nanoTime() : 0x5ca1ab1eL;
         return manyRandomSeeds(seedSeed, 500);
@@ -551,7 +530,6 @@ public class ExplainPlanVisitorTest {
         logger.info("dot={}", PlannerGraphVisitor.internalGraphicalExplain(planAndString.getLeft()));
     }
 
-    @Nonnull
     static Stream<Long> shrinkPlansToFit() {
         long seedSeed = RandomizedTestUtils.includeRandomTests() ? System.nanoTime() : 0x0fdb5ca1eL;
         return manyRandomSeeds(seedSeed, 100);
@@ -562,7 +540,7 @@ public class ExplainPlanVisitorTest {
     void shrinkPlansToFit(long seed) {
         Random r = new Random(seed);
         logger.info("shrinkPlansToFit seed {}", seed);
-        Pair<RecordQueryPlan, String> planAndString = randomPlanAndString(r);
+        NonnullPair<RecordQueryPlan, String> planAndString = randomPlanAndString(r);
         RecordQueryPlan plan = planAndString.getLeft();
         String planString = planAndString.getRight();
         for (int i = 0; i < Math.min(planString.length() + 10, 1000); i++) {
@@ -571,7 +549,6 @@ public class ExplainPlanVisitorTest {
         }
     }
 
-    @Nonnull
     static Stream<Long> doNotEvaluateOutsideOfLimit() {
         long seedSeed = RandomizedTestUtils.includeRandomTests() ? System.nanoTime() : 0x5ca1e0fdbL;
         return manyRandomSeeds(seedSeed, 50);
@@ -659,8 +636,7 @@ public class ExplainPlanVisitorTest {
         assertEquals("defined:q0 q0.x EQUALS 0l", selfContainedExplainPredicateString);
     }
 
-    @Nonnull
-    private static WithIndentationsExplainFormatter getIndentingFormatter(@Nonnull final Supplier<ExplainSymbolMap> symbolMapSupplier) {
+    private static WithIndentationsExplainFormatter getIndentingFormatter(final Supplier<ExplainSymbolMap> symbolMapSupplier) {
         final WithIndentationsExplainFormatter formatter = new WithIndentationsExplainFormatter(symbolMapSupplier, 0, 50, 4);
         formatter.register();
         return formatter;
@@ -682,49 +658,43 @@ public class ExplainPlanVisitorTest {
             this.reverse = reverse;
         }
 
-        @Nonnull
         @Override
-        public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final byte[] continuation, @Nonnull final ExecuteProperties executeProperties) {
+        public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store, final EvaluationContext context, @Nullable final byte[] continuation, final ExecuteProperties executeProperties) {
             throw new UnsupportedOperationException("cannot execute unstringable plan");
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             return hashCodeWithoutChildren();
         }
 
-        @Nonnull
         @Override
         public Set<CorrelationIdentifier> getCorrelatedTo() {
             return getCorrelatedToWithoutChildren();
         }
 
-        @Nonnull
         @Override
         public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
             return ImmutableSet.of();
         }
 
-        @Nonnull
         @Override
-        public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
             throw new UnsupportedOperationException("cannot run operation on unstringable plan");
         }
 
-        @Nonnull
         @Override
         public Value getResultValue() {
             return new NullValue(Type.primitiveType(Type.TypeCode.UNKNOWN, true));
         }
 
-        @Nonnull
         @Override
         public List<? extends Quantifier> getQuantifiers() {
             return Collections.emptyList();
         }
 
         @Override
-        public boolean equalsWithoutChildren(@Nonnull final RelationalExpression other, @Nonnull final AliasMap equivalences) {
+        public boolean equalsWithoutChildren(final RelationalExpression other, final AliasMap equivalences) {
             return other instanceof UnstringableQueryPlan && ((UnstringableQueryPlan)other).isReverse() == reverse;
         }
 
@@ -733,11 +703,10 @@ public class ExplainPlanVisitorTest {
             return reverse ? 1 : -1;
         }
 
-        @Nonnull
         @Override
-        public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+        public RelationalExpression translateCorrelations(final TranslationMap translationMap,
                                                           final boolean shouldSimplifyValues,
-                                                          @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                          final List<? extends Quantifier> translatedQuantifiers) {
             return this;
         }
 
@@ -757,11 +726,10 @@ public class ExplainPlanVisitorTest {
         }
 
         @Override
-        public boolean hasIndexScan(@Nonnull final String indexName) {
+        public boolean hasIndexScan(final String indexName) {
             return false;
         }
 
-        @Nonnull
         @Override
         public Set<String> getUsedIndexes() {
             return Collections.emptySet();
@@ -782,27 +750,23 @@ public class ExplainPlanVisitorTest {
             return 1;
         }
 
-        @Nonnull
         @Override
         public List<RecordQueryPlan> getChildren() {
             return Collections.emptyList();
         }
 
-        @Nonnull
         @Override
         public AvailableFields getAvailableFields() {
             return AvailableFields.NO_FIELDS;
         }
 
-        @Nonnull
         @Override
-        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public Message toProto(final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("serialization of this plan is not supported");
         }
 
-        @Nonnull
         @Override
-        public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("serialization of this plan is not supported");
         }
     }

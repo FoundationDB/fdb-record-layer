@@ -36,8 +36,8 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -64,7 +64,6 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
     @Nullable
     protected StoreTimer delayedTimer;
 
-    @Nonnull
     protected T underlying;
 
     protected final boolean enableAssertions;
@@ -81,7 +80,7 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
      * @param enableAssertions whether operations should validate their inputs and throw {@link com.apple.foundationdb.record.RecordCoreException}s
      *     if constaints like maximum key or value size are exceeded
      */
-    public InstrumentedReadTransaction(@Nullable StoreTimer timer, @Nullable StoreTimer delayedTimer, @Nonnull T underlying, boolean enableAssertions) {
+    public InstrumentedReadTransaction(@Nullable StoreTimer timer, @Nullable StoreTimer delayedTimer, T underlying, boolean enableAssertions) {
         this.timer = timer;
         this.delayedTimer = delayedTimer;
         this.underlying = underlying;
@@ -266,21 +265,18 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         }
     }
 
-    @Nonnull
-    protected KeySelector checkKey(@Nonnull KeySelector keySelector) {
+    protected KeySelector checkKey(KeySelector keySelector) {
         checkKey(keySelector.getKey());
         return keySelector;
     }
 
-    @Nonnull
-    protected Range checkKey(@Nonnull Range range) {
+    protected Range checkKey(Range range) {
         checkKey(range.begin);
         checkKey(range.end);
         return range;
     }
 
-    @Nonnull
-    protected byte[] checkKey(@Nonnull byte[] key) {
+    protected byte[] checkKey(byte[] key) {
         if (enableAssertions && key.length > MAX_KEY_LENGTH) {
             throw new FDBExceptions.FDBStoreKeySizeException("Key length exceeds limit",
                     LogMessageKeys.KEY_SIZE, key.length,
@@ -289,8 +285,7 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         return key;
     }
 
-    @Nonnull
-    protected byte[] checkValue(@Nonnull byte[] key, @Nonnull byte[] value) {
+    protected byte[] checkValue(byte[] key, byte[] value) {
         if (enableAssertions && value.length > MAX_VALUE_LENGTH) {
             throw new FDBExceptions.FDBStoreValueSizeException("Value length exceeds limit",
                     LogMessageKeys.VALUE_SIZE, value.length,
@@ -300,8 +295,7 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         return value;
     }
 
-    @Nonnull
-    protected String loggable(@Nonnull byte[] value) {
+    protected String loggable(byte[] value) {
         if (value.length <= MAX_LOGGED_BYTES + 20) {
             return Objects.requireNonNull(ByteArrayUtil2.loggable(value));
         }
@@ -336,7 +330,6 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         }
 
         @Override
-        @Nonnull
         public AsyncIterator<K> iterator() {
             increment(FDBStoreTimer.Counts.READS);
             increment(FDBStoreTimer.Counts.RANGE_READS);

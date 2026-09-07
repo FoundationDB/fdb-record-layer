@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
@@ -48,10 +47,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementUpdateRule extends AbstractCascadesRule<UpdateExpression> implements ImplementationCascadesRule<UpdateExpression> {
-    @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = anyPlanPartition();
 
-    @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
             planPartitions(filterPlanPartitions(planPartition -> planPartition.getPartitionPropertyValue(StoredRecordProperty.storedRecord()),
                     any(innerPlanPartitionMatcher)));
@@ -59,7 +56,6 @@ public class ImplementUpdateRule extends AbstractCascadesRule<UpdateExpression> 
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher =
             forEachQuantifierOverRef(innerReferenceMatcher);
 
-    @Nonnull
     private static final BindingMatcher<UpdateExpression> root =
             updateExpression(innerQuantifierMatcher);
 
@@ -68,7 +64,7 @@ public class ImplementUpdateRule extends AbstractCascadesRule<UpdateExpression> 
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
         final var innerReference = call.get(innerReferenceMatcher);
         final var innerQuantifier = call.get(innerQuantifierMatcher);

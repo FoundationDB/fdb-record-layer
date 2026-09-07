@@ -24,8 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 
 /**
@@ -38,10 +37,8 @@ import java.util.Map;
  */
 @API(API.Status.UNSTABLE)
 public class EvaluationContext {
-    @Nonnull
     private final Bindings bindings;
 
-    @Nonnull
     private final TypeRepository typeRepository;
 
     public static final EvaluationContext EMPTY = new EvaluationContext(Bindings.EMPTY_BINDINGS, TypeRepository.EMPTY_SCHEMA);
@@ -55,7 +52,7 @@ public class EvaluationContext {
         return EMPTY;
     }
 
-    private EvaluationContext(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository) {
+    private EvaluationContext(Bindings bindings, TypeRepository typeRepository) {
         this.bindings = bindings;
         this.typeRepository = typeRepository;
     }
@@ -66,8 +63,7 @@ public class EvaluationContext {
      * @param bindings a mapping from parameter name to values
      * @return a new evaluation context with the bindings
      */
-    @Nonnull
-    public static EvaluationContext forBindings(@Nonnull Bindings bindings) {
+    public static EvaluationContext forBindings(Bindings bindings) {
         return new EvaluationContext(bindings, TypeRepository.EMPTY_SCHEMA);
     }
 
@@ -78,13 +74,11 @@ public class EvaluationContext {
      * @param typeRepository a type repository
      * @return a new evaluation context with the bindings and the schema.
      */
-    @Nonnull
-    public static EvaluationContext forBindingsAndTypeRepository(@Nonnull Bindings bindings, @Nonnull TypeRepository typeRepository) {
+    public static EvaluationContext forBindingsAndTypeRepository(Bindings bindings, TypeRepository typeRepository) {
         return new EvaluationContext(bindings, typeRepository);
     }
 
-    @Nonnull
-    public static EvaluationContext forTypeRepository(@Nonnull TypeRepository typeRepository) {
+    public static EvaluationContext forTypeRepository(TypeRepository typeRepository) {
         return new EvaluationContext(Bindings.EMPTY_BINDINGS, typeRepository);
     }
 
@@ -95,8 +89,7 @@ public class EvaluationContext {
      * @param value the value to bind the name to
      * @return a new <code>EvaluationContext</code> with the new binding
      */
-    @Nonnull
-    public static EvaluationContext forBinding(@Nonnull String bindingName, @Nullable Object value) {
+    public static EvaluationContext forBinding(String bindingName, @Nullable Object value) {
         return new EvaluationContext(Bindings.newBuilder().set(bindingName, value).build(), TypeRepository.EMPTY_SCHEMA);
     }
 
@@ -106,7 +99,6 @@ public class EvaluationContext {
      *
      * @return a mapping from parameter names to to values
      */
-    @Nonnull
     public Bindings getBindings() {
         return bindings;
     }
@@ -119,7 +111,7 @@ public class EvaluationContext {
      * @see Bindings#get(String)
      */
     @Nullable
-    public Object getBinding(@Nonnull String name) {
+    public Object getBinding(String name) {
         return bindings.get(name);
     }
 
@@ -131,7 +123,10 @@ public class EvaluationContext {
      *
      * @return the value bound to the given parameter
      */
-    public Object getBinding(@Nonnull final Bindings.Internal type, @Nonnull final CorrelationIdentifier alias) {
+    @SuppressWarnings("NullAway") // Bindings.get() is @Nullable in general (a binding may be explicitly set to null),
+    // but every caller of this typed overload only ever binds non-null values (e.g. quantified records) under the
+    // given Internal/alias pair; pre-existing contract, not tracked by the type system.
+    public Object getBinding(final Bindings.Internal type, final CorrelationIdentifier alias) {
         return bindings.get(type.bindingName(alias.getId()));
     }
 
@@ -142,7 +137,7 @@ public class EvaluationContext {
      * @return whether a value is bound to the given parameter
      * @see Bindings#containsBinding(String) 
      */
-    public boolean containsBinding(@Nonnull final String name) {
+    public boolean containsBinding(final String name) {
         return bindings.containsBinding(name);
     }
 
@@ -153,7 +148,7 @@ public class EvaluationContext {
      * @param alias the parameter's alias
      * @return whether the bindings contain that special correlation value
      */
-    public boolean containsBinding(@Nonnull final Bindings.Internal type, @Nonnull final CorrelationIdentifier alias) {
+    public boolean containsBinding(final Bindings.Internal type, final CorrelationIdentifier alias) {
         return containsBinding(type.bindingName(alias.getId()));
     }
 
@@ -164,7 +159,7 @@ public class EvaluationContext {
      * @param constantId the identity of the constant within the map
      * @return whether a value is bound to the given constant
      */
-    public boolean containsConstantBinding(@Nonnull final CorrelationIdentifier alias, @Nonnull final String constantId) {
+    public boolean containsConstantBinding(final CorrelationIdentifier alias, final String constantId) {
         if (!containsBinding(Bindings.Internal.CONSTANT, alias)) {
             return false;
         }
@@ -181,18 +176,16 @@ public class EvaluationContext {
      * @return de-referenced constant
      */
     @Nullable
-    public Object dereferenceConstant(@Nonnull final CorrelationIdentifier alias, @Nonnull final String constantId) {
+    public Object dereferenceConstant(final CorrelationIdentifier alias, final String constantId) {
         final var constantsMap = getConstantsMap(alias);
         return constantsMap.get(constantId);
     }
 
     @SuppressWarnings("unchecked")
-    @Nonnull
-    private Map<String, ?> getConstantsMap(@Nonnull final CorrelationIdentifier alias) {
+    private Map<String, ?> getConstantsMap(final CorrelationIdentifier alias) {
         return (Map<String, ?>) getBinding(Bindings.Internal.CONSTANT, alias);
     }
 
-    @Nonnull
     public TypeRepository getTypeRepository() {
         return typeRepository;
     }
@@ -205,7 +198,6 @@ public class EvaluationContext {
      *
      * @return a builder for this class based on this instance
      */
-    @Nonnull
     public EvaluationContextBuilder childBuilder() {
         return new EvaluationContextBuilder(this);
     }
@@ -215,7 +207,6 @@ public class EvaluationContext {
      *
      * @return a builder for this class based on this instance
      */
-    @Nonnull
     public static EvaluationContextBuilder newBuilder() {
         return new EvaluationContextBuilder();
     }
@@ -230,8 +221,7 @@ public class EvaluationContext {
      * @param value the value to bind the name to
      * @return a new <code>EvaluationContext</code> with the new binding
      */
-    @Nonnull
-    public EvaluationContext withBinding(@Nonnull String bindingName, @Nullable Object value) {
+    public EvaluationContext withBinding(String bindingName, @Nullable Object value) {
         return childBuilder().setBinding(bindingName, value).build(typeRepository);
     }
 
@@ -247,7 +237,7 @@ public class EvaluationContext {
      *
      * @return a new <code>EvaluationContext</code> with the new binding
      */
-    public EvaluationContext withBinding(final Bindings.Internal type, @Nonnull CorrelationIdentifier alias, @Nullable Object value) {
+    public EvaluationContext withBinding(final Bindings.Internal type, CorrelationIdentifier alias, @Nullable Object value) {
         return childBuilder().setBinding(type.bindingName(alias.getId()), value).build(typeRepository);
     }
 }

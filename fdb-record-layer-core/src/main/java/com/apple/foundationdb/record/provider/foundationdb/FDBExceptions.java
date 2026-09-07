@@ -30,8 +30,8 @@ import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.util.LoggableKeysAndValues;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
@@ -49,6 +49,14 @@ public class FDBExceptions {
     private FDBExceptions() {
     }
 
+    // Throwable#getMessage() is genuinely @Nullable (a Throwable need not have a message), but the various
+    // RecordCoreException-family constructors used below require a non-null message; fall back to toString()
+    // (which includes the exception's class name) rather than force every call site to null-check.
+    private static String messageOrToString(Throwable t) {
+        final String message = t.getMessage();
+        return message != null ? message : t.toString();
+    }
+
     /**
      * Exceptions that are reported by (or due to limitations of, etc.) the FDB API.
      */
@@ -63,7 +71,7 @@ public class FDBExceptions {
         }
 
         public FDBStoreException(FDBException cause) {
-            super(cause.getMessage(), cause);
+            super(messageOrToString(cause), cause);
         }
     }
 
@@ -168,7 +176,7 @@ public class FDBExceptions {
     @SuppressWarnings("serial")
     public static class FDBStoreRetriableException extends RecordCoreRetriableTransactionException {
         public FDBStoreRetriableException(FDBException cause) {
-            super(cause.getMessage(), cause);
+            super(messageOrToString(cause), cause);
         }
 
         public FDBStoreRetriableException(String message, FDBException cause) {
@@ -176,7 +184,7 @@ public class FDBExceptions {
         }
     }
 
-    public static RuntimeException wrapException(@Nonnull Throwable ex) {
+    public static RuntimeException wrapException(Throwable ex) {
         //transfer any logging details into mapped exception
         Object[] logInfo;
         if (ex instanceof LoggableKeysAndValues) {
@@ -217,9 +225,9 @@ public class FDBExceptions {
         }
 
         if (ex instanceof InterruptedException) {
-            return new RecordCoreInterruptedException(ex.getMessage(), (InterruptedException)ex).addLogInfo(logInfo);
+            return new RecordCoreInterruptedException(messageOrToString(ex), (InterruptedException)ex).addLogInfo(logInfo);
         }
-        return new RecordCoreException(ex.getMessage(), ex).addLogInfo(logInfo);
+        return new RecordCoreException(messageOrToString(ex), ex).addLogInfo(logInfo);
     }
 
     /**
@@ -269,8 +277,8 @@ public class FDBExceptions {
      * @param type the exception type to look for in the cause chain
      * @return {@code true} if {@code type} is found at or below {@code throwable}
      */
-    public static boolean isOrHasCause(@Nonnull final Throwable throwable,
-                                       @Nonnull final Class<? extends Throwable> type) {
+    public static boolean isOrHasCause(final Throwable throwable,
+                                       final Class<? extends Throwable> type) {
         final Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         for (Throwable current = throwable; current != null && seen.add(current); current = current.getCause()) {
             if (type.isInstance(current)) {

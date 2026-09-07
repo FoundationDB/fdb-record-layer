@@ -123,6 +123,9 @@ class StringInterningLayerTest {
     }
 
     @Test
+    // LocatableResolver#create's metadata parameter is declared @Nullable byte[] (a position NullAway
+    // does not reliably recognize as nullable), so the null literal below still trips the checker.
+    @SuppressWarnings("NullAway")
     void testCreate() {
         try (FDBRecordContext context = database.openContext()) {
             StringInterningLayer interningLayer = new StringInterningLayer(testSubspace);
@@ -199,6 +202,10 @@ class StringInterningLayerTest {
 
     @Test
     @Tag(Tags.WipesFDB)
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter is
+    // treated as @NonNull, so the implicit Void "return null" trips NullAway even though there is no
+    // real value to return.
+    @SuppressWarnings("NullAway")
     void testFilterInvalidAllocationValues() {
         Range everything = new Range(new byte[]{(byte) 0x00}, new byte[]{(byte) 0xFF});
         database.run(context -> {

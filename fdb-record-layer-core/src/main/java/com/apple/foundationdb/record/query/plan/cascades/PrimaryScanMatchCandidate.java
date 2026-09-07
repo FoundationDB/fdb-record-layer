@@ -34,7 +34,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -48,42 +47,35 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     /**
      * Holds the parameter names for all necessary parameters that need to be bound during matching.
      */
-    @Nonnull
     private final List<CorrelationIdentifier> parameters;
 
     /**
      * Traversal object of the primary scan graph (not the query graph).
      */
-    @Nonnull
     private final Traversal traversal;
 
     /**
      * Set of record types that are available in the context of the query.
      */
-    @Nonnull
     private final List<RecordType> availableRecordTypes;
 
     /**
      * Set of record types that are actually queried.
      */
-    @Nonnull
     private final List<RecordType> queriedRecordTypes;
 
-    @Nonnull
     private final KeyExpression primaryKey;
 
-    @Nonnull
     private final Type.Record baseType;
 
-    @Nonnull
     private final Supplier<Optional<List<Value>>> primaryKeyValuesSupplier;
 
-    public PrimaryScanMatchCandidate(@Nonnull final Traversal traversal,
-                                     @Nonnull final List<CorrelationIdentifier> parameters,
-                                     @Nonnull final Collection<RecordType> availableRecordTypes,
-                                     @Nonnull final Collection<RecordType> queriedRecordTypes,
-                                     @Nonnull final KeyExpression primaryKey,
-                                     @Nonnull final Type.Record baseType) {
+    public PrimaryScanMatchCandidate(final Traversal traversal,
+                                     final List<CorrelationIdentifier> parameters,
+                                     final Collection<RecordType> availableRecordTypes,
+                                     final Collection<RecordType> queriedRecordTypes,
+                                     final KeyExpression primaryKey,
+                                     final Type.Record baseType) {
         this.traversal = traversal;
         this.parameters = ImmutableList.copyOf(parameters);
         this.availableRecordTypes = ImmutableList.copyOf(availableRecordTypes);
@@ -93,61 +85,51 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
         this.primaryKeyValuesSupplier = Suppliers.memoize(() -> MatchCandidate.computePrimaryKeyValuesMaybe(primaryKey, baseType));
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return "primary(" + String.join(",", getAvailableRecordTypeNames()) + ")";
     }
 
-    @Nonnull
     @Override
     public Traversal getTraversal() {
         return traversal;
     }
 
-    @Nonnull
     @Override
     public List<CorrelationIdentifier> getSargableAliases() {
         return parameters;
     }
 
-    @Nonnull
     @Override
     public List<CorrelationIdentifier> getOrderingAliases() {
         return getSargableAliases();
     }
 
-    @Nonnull
     @Override
     public Type.Record getBaseType() {
         return baseType;
     }
 
-    @Nonnull
     public List<RecordType> getAvailableRecordTypes() {
         return availableRecordTypes;
     }
 
-    @Nonnull
     public Set<String> getAvailableRecordTypeNames() {
         return getAvailableRecordTypes().stream()
                 .map(RecordType::getName)
                 .collect(ImmutableSet.toImmutableSet());
     }
 
-    @Nonnull
     @Override
     public List<RecordType> getQueriedRecordTypes() {
         return queriedRecordTypes;
     }
 
-    @Nonnull
     @Override
     public Optional<List<Value>> getPrimaryKeyValuesMaybe() {
         return primaryKeyValuesSupplier.get();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getSargableAliasesRequiredForBinding() {
         if (hasAndOrderedByRecordTypeKey()) {
@@ -156,7 +138,6 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
     public KeyExpression getFullKeyExpression() {
         return primaryKey;
@@ -182,13 +163,12 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
         return true;
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public RecordQueryPlan toEquivalentPlan(@Nonnull PartialMatch partialMatch,
-                                            @Nonnull final PlanContext planContext,
-                                            @Nonnull final Memoizer memoizer,
-                                            @Nonnull final List<ComparisonRange> comparisonRanges,
+    public RecordQueryPlan toEquivalentPlan(PartialMatch partialMatch,
+                                            final PlanContext planContext,
+                                            final Memoizer memoizer,
+                                            final List<ComparisonRange> comparisonRanges,
                                             final boolean reverseScanOrder) {
         final var availableRecordTypeNames = getAvailableRecordTypeNames();
         final var queriedRecordTypeNames = getQueriedRecordTypeNames();
@@ -219,8 +199,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
         return Key.Expressions.recordType().isPrefixKey(primaryKey);
     }
 
-    @Nonnull
-    private Type inferScanType(@Nonnull final Collection<RecordType> types) {
+    private Type inferScanType(final Collection<RecordType> types) {
         if (types.size() == 1 && hasAndOrderedByRecordTypeKey()) {
             return baseType;
         }
@@ -236,8 +215,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
         return queriedRecordTypes.size() == 1 || hasAndOrderedByRecordTypeKey();
     }
 
-    @Nonnull
-    private static ScanComparisons toScanComparisons(@Nonnull List<ComparisonRange> comparisonRanges) {
+    private static ScanComparisons toScanComparisons(List<ComparisonRange> comparisonRanges) {
         ScanComparisons.Builder builder = new ScanComparisons.Builder();
         for (ComparisonRange comparisonRange : comparisonRanges) {
             builder.addComparisonRange(comparisonRange);

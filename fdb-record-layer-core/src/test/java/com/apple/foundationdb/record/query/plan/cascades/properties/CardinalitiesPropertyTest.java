@@ -36,7 +36,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.cardinalities;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,7 +45,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class CardinalitiesPropertyTest {
 
-    @Nonnull
     private static Quantifier.ForEach rangeQuantifier(final long endExclusive) {
         final RangeValue rangeValue = (RangeValue) new RangeValue.RangeFn()
                 .encapsulate(CallSiteArguments.ofPositional(LiteralValue.ofScalar(endExclusive)));
@@ -54,7 +52,6 @@ class CardinalitiesPropertyTest {
         return Quantifier.forEach(Reference.initialOf(tvf));
     }
 
-    @Nonnull
     private static Quantifier.ForEach unknownCardinalityQuantifier() {
         // `FullUnorderedScanExpression` yields `unknownMaxCardinality()`: min = 0, max = unknown.
         final FullUnorderedScanExpression scan = new FullUnorderedScanExpression(

@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Set;
 
@@ -40,17 +39,14 @@ import java.util.Set;
 public interface RelationalExpressionWithChildren extends RelationalExpression {
     int getRelationalChildCount();
 
-    @Nonnull
     @Override
     Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();
 
-    @Nonnull
     @Override
-    default Set<Quantifier> getMatchedQuantifiers(@Nonnull final PartialMatch partialMatch) {
+    default Set<Quantifier> getMatchedQuantifiers(final PartialMatch partialMatch) {
         return partialMatch.getMatchedQuantifiers();
     }
 
-    @Nonnull
     @Override
     default PartiallyOrderedSet<CorrelationIdentifier> getCorrelationOrder() {
         if (canCorrelate()) {

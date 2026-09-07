@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Plan
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractRuleCall;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -44,15 +43,20 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class AbstractQueryPredicateRuleCall<RESULT, CALL extends AbstractQueryPredicateRuleCall<RESULT, CALL>> extends AbstractRuleCall<RESULT, CALL, QueryPredicate> {
-    public AbstractQueryPredicateRuleCall(@Nonnull final PlannerRule<CALL, ? extends QueryPredicate> rule,
-                                          @Nonnull final QueryPredicate root,
-                                          @Nonnull final QueryPredicate current,
-                                          @Nonnull final EvaluationContext evaluationContext,
-                                          @Nonnull final PlannerBindings bindings,
-                                          @Nonnull final AliasMap equivalenceMap,
-                                          @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                          @Nonnull final Function<QueryPredicate, QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
+    public AbstractQueryPredicateRuleCall(final PlannerRule<CALL, ? extends QueryPredicate> rule,
+                                          final QueryPredicate root,
+                                          final QueryPredicate current,
+                                          final EvaluationContext evaluationContext,
+                                          final PlannerBindings bindings,
+                                          final AliasMap equivalenceMap,
+                                          final Set<CorrelationIdentifier> constantAliases,
+                                          final Function<QueryPredicate, QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
+        // Wrap in a fresh lambda (rather than passing the reference directly) so this non-null-returning
+        // function's target type is re-inferred against AbstractRuleCall's Function<BASE, @Nullable
+        // QueryPlanConstraint> parameter; a non-null producer is always safely assignable to a nullable-permitting
+        // consumer, but NullAway treats the generic type argument invariantly when a pre-typed reference is passed
+        // directly. See Simplification.optimize() for the deliberate choice to keep this function non-null-returning.
         super(rule, root, current, evaluationContext, bindings, equivalenceMap, constantAliases,
-                retrieveQueryPlanConstraintFunction);
+                predicate -> retrieveQueryPlanConstraintFunction.apply(predicate));
     }
 }

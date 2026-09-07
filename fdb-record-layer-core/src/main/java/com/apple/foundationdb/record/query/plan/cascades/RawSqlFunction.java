@@ -25,19 +25,15 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-
 public class RawSqlFunction extends UserDefinedFunction {
 
-    @Nonnull
     private final String definition;
 
-    public RawSqlFunction(@Nonnull final String functionName, @Nonnull final String description) {
+    public RawSqlFunction(final String functionName, final String description) {
         super(functionName, ImmutableList.of());
         this.definition = description;
     }
 
-    @Nonnull
     @Override
     public RecordMetaDataProto.PUserDefinedFunction toProto() {
         final var builder = RecordMetaDataProto.PRawSqlFunction.newBuilder();
@@ -47,19 +43,16 @@ public class RawSqlFunction extends UserDefinedFunction {
                 .build();
     }
 
-    @Nonnull
     @Override
-    public Typed encapsulate(@Nonnull final CallSiteArguments arguments) {
+    public Typed encapsulate(final CallSiteArguments arguments) {
         throw new RecordCoreException("attempt to encapsulate raw sql function");
     }
 
-    @Nonnull
     public String getDefinition() {
         return definition;
     }
 
-    @Nonnull
-    public static RawSqlFunction fromProto(@Nonnull final RecordMetaDataProto.PRawSqlFunction sqlFunction) {
+    public static RawSqlFunction fromProto(final RecordMetaDataProto.PRawSqlFunction sqlFunction) {
         return new RawSqlFunction(sqlFunction.getName(), sqlFunction.getDefinition());
     }
 }

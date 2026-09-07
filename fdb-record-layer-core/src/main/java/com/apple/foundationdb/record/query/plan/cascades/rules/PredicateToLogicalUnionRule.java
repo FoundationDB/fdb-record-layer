@@ -58,8 +58,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -124,11 +124,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class PredicateToLogicalUnionRule extends AbstractCascadesRule<MatchPartition> {
     public static final int DEFAULT_MAX_NUM_CONJUNCTS = 9; // 510 combinations
 
-    @Nonnull
     private static final BindingMatcher<Quantifier> qunMatcher = anyQuantifier();
-    @Nonnull
     private static final CollectionMatcher<QueryPredicate> combinationPredicateMatcher = all(anyPredicate());
-    @Nonnull
     private static final BindingMatcher<SelectExpression> expressionMatcher =
             RelationalExpressionMatchers.selectExpression(nonTrivialPredicates(limitedPredicateCombinations(combinationPredicateMatcher)), all(qunMatcher));
 
@@ -142,7 +139,7 @@ public class PredicateToLogicalUnionRule extends AbstractCascadesRule<MatchParti
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(final CascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var selectExpression = bindings.get(expressionMatcher);
         final var resultValue = selectExpression.getResultValue();
@@ -224,7 +221,7 @@ public class PredicateToLogicalUnionRule extends AbstractCascadesRule<MatchParti
 
         final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(quantifiers);
         // there is definitely exactly one quantifier in the needed list
-        final var onlyNeededForEachQuantifier = aliasToQuantifierMap.get(Iterables.getOnlyElement(ownedForEachAliases));
+        final var onlyNeededForEachQuantifier = Objects.requireNonNull(aliasToQuantifierMap.get(Iterables.getOnlyElement(ownedForEachAliases)));
         final Value lowerResultValue = onlyNeededForEachQuantifier.getFlowedObjectValue();
         final var fixedPredicatesCorrelatedTo = fixedPredicates.stream().flatMap(p -> p.getCorrelatedTo().stream()).collect(ImmutableSet.toImmutableSet());
         final var fixedAtomicPredicates =
@@ -251,11 +248,11 @@ public class PredicateToLogicalUnionRule extends AbstractCascadesRule<MatchParti
                             .filter(quantifier -> quantifier instanceof Quantifier.Existential &&
                                                   (orTermCorrelatedTo.contains(quantifier.getAlias()) ||
                                                    fixedPredicatesCorrelatedTo.contains(quantifier.getAlias())))
-                            .map(quantifier -> Quantifier.existentialBuilder().withAlias(quantifier.getAlias()).build(aliasToQuantifierMap.get(quantifier.getAlias()).getRangesOver()))
+                            .map(quantifier -> Quantifier.existentialBuilder().withAlias(quantifier.getAlias()).build(Objects.requireNonNull(aliasToQuantifierMap.get(quantifier.getAlias())).getRangesOver()))
                             .collect(ImmutableList.toImmutableList());
 
             final var neededForEachQuantifiers =
-                    ownedForEachAliases.stream().map(alias -> Quantifier.forEachBuilder().withAlias(alias).build(aliasToQuantifierMap.get(alias).getRangesOver())).collect(ImmutableList.toImmutableList());
+                    ownedForEachAliases.stream().map(alias -> Quantifier.forEachBuilder().withAlias(alias).build(Objects.requireNonNull(aliasToQuantifierMap.get(alias)).getRangesOver())).collect(ImmutableList.toImmutableList());
 
             final var selectExpressionLeg =
                     new SelectExpression(lowerResultValue,
@@ -288,7 +285,7 @@ public class PredicateToLogicalUnionRule extends AbstractCascadesRule<MatchParti
     }
 
     @SuppressWarnings("unchecked")
-    private static CollectionMatcher<QueryPredicate> nonTrivialPredicates(@Nonnull final CollectionMatcher<? extends QueryPredicate> downstream) {
+    private static CollectionMatcher<QueryPredicate> nonTrivialPredicates(final CollectionMatcher<? extends QueryPredicate> downstream) {
         //
         // We want to subset the predicates in the SelectExpression to only use the factors of the normal form that
         // are non-trivial, i.e. real ORs as opposed to boolean variables, i.e. comparisons and other leaves.
@@ -306,7 +303,7 @@ public class PredicateToLogicalUnionRule extends AbstractCascadesRule<MatchParti
     }
 
     @SuppressWarnings("SameParameterValue")
-    private static CollectionMatcher<QueryPredicate> limitedPredicateCombinations(@Nonnull final CollectionMatcher<? extends QueryPredicate> downstream) {
+    private static CollectionMatcher<QueryPredicate> limitedPredicateCombinations(final CollectionMatcher<? extends QueryPredicate> downstream) {
         //
         // We create a regular combinations() matcher that is limited on the number of predicates in a way that
         // it will only create a combination of size 0, that is we will only transform an existing OR into a UNION

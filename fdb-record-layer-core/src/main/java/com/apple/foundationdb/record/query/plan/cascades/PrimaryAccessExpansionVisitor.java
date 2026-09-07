@@ -33,8 +33,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -45,29 +45,26 @@ import java.util.Set;
  * {@link KeyExpressionExpansionVisitor}, this class merely provides a specific {@link #expand} method.
  */
 public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
-    @Nonnull
     private final List<RecordType> availableRecordTypes;
-    @Nonnull
     private final List<RecordType> recordTypes;
 
-    public PrimaryAccessExpansionVisitor(@Nonnull final Collection<RecordType> availableRecordTypes, @Nonnull final Collection<RecordType> recordTypes) {
+    public PrimaryAccessExpansionVisitor(final Collection<RecordType> availableRecordTypes, final Collection<RecordType> recordTypes) {
         this.availableRecordTypes = ImmutableList.copyOf(availableRecordTypes);
         this.recordTypes = ImmutableList.copyOf(recordTypes);
     }
 
-    @Nonnull
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
-    public MatchCandidate expand(@Nonnull final Set<String> availableRecordTypeNames,
-                                 @Nonnull final Set<String> queriedRecordTypeNames,
-                                 @Nonnull final Type.Record baseType,
-                                 @Nonnull final AccessHint accessHint,
+    public MatchCandidate expand(final Set<String> availableRecordTypeNames,
+                                 final Set<String> queriedRecordTypeNames,
+                                 final Type.Record baseType,
+                                 final AccessHint accessHint,
                                  @Nullable final KeyExpression primaryKey,
                                  final boolean isReverse) {
         Objects.requireNonNull(primaryKey);
         Debugger.updateIndex(PredicateWithValueAndRanges.class, old -> 0);
 
-        @Nullable final var recordTypeKeyParameterAlias = Key.Expressions.recordType().isPrefixKey(primaryKey)
+        @Nullable final CorrelationIdentifier recordTypeKeyParameterAlias = Key.Expressions.recordType().isPrefixKey(primaryKey)
                 ? newParameterAlias()
                 : null;
         final Quantifier.ForEach baseQuantifier = Quantifier.forEach(ExpansionVisitor.createBaseRef(availableRecordTypeNames,

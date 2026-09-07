@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
 
 /**
  * Intermediate class that fixes the base type of the {@link AbstractRuleCall} to be {@link Value}.
@@ -32,7 +31,7 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class ValueSimplificationRule<TYPE extends Value> extends AbstractValueRule<Value, ValueSimplificationRuleCall, TYPE> {
-    public ValueSimplificationRule(@Nonnull final BindingMatcher<TYPE> matcher) {
+    public ValueSimplificationRule(final BindingMatcher<TYPE> matcher) {
         super(matcher);
     }
 }

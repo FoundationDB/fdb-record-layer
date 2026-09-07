@@ -29,8 +29,8 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -162,10 +162,8 @@ import java.util.function.Function;
  *
  */
 public class AliasMap {
-    @Nonnull
     private static final AliasMap EMPTY = new AliasMap(ImmutableBiMap.of(), true);
 
-    @Nonnull
     private final ImmutableBiMap<CorrelationIdentifier, CorrelationIdentifier> map;
 
     private final boolean definesOnlyIdentities;
@@ -174,7 +172,7 @@ public class AliasMap {
      * Private constructor. Use static factory methods/builders to instantiate alias maps.
      * @param map the backing bi-map
      */
-    private AliasMap(@Nonnull final ImmutableBiMap<CorrelationIdentifier, CorrelationIdentifier> map,
+    private AliasMap(final ImmutableBiMap<CorrelationIdentifier, CorrelationIdentifier> map,
                      final boolean definesOnlyIdentities) {
         this.definesOnlyIdentities = definesOnlyIdentities;
         this.map = map;
@@ -221,14 +219,13 @@ public class AliasMap {
 
     public boolean containsMapping(@Nullable final CorrelationIdentifier source,
                                    @Nullable final CorrelationIdentifier target) {
-        return containsSource(source) && containsTarget(target) && getTargetOrThrow(source).equals(target);
+        return containsSource(source) && containsTarget(target) && Objects.equals(getTargetOrThrow(source), target);
     }
 
     /**
      * Returns the set of {@link CorrelationIdentifier}s that are mapped by this {@code AliasMap}.
      * @return a set of {@link CorrelationIdentifier}s that this map contains mappings for
      */
-    @Nonnull
     public Set<CorrelationIdentifier> sources() {
         return map.keySet();
     }
@@ -238,7 +235,6 @@ public class AliasMap {
      * {@link CorrelationIdentifier}s returned by {@link #sources()}.
      * @return a set of {@link CorrelationIdentifier}s that this map maps to.
      */
-    @Nonnull
     public Set<CorrelationIdentifier> targets() {
         return map.values();
     }
@@ -255,7 +251,6 @@ public class AliasMap {
      * Create a builder for a new alias map using the bindings of this map.
      * @return a new builder derived from the contents of this map.
      */
-    @Nonnull
     public Builder toBuilder() {
         return builder().putAll(this);
     }
@@ -266,7 +261,6 @@ public class AliasMap {
      *        build is called.
      * @return a new builder derived from the contents of this map.
      */
-    @Nonnull
     public Builder toBuilder(final int expectedAdditionalElements) {
         return builder(expectedAdditionalElements).putAll(this);
     }
@@ -275,7 +269,6 @@ public class AliasMap {
      * Returns the set of entries in this map.
      * @return the set of entries
      */
-    @Nonnull
     public Set<Map.Entry<CorrelationIdentifier, CorrelationIdentifier>> entrySet() {
         return map.entrySet();
     }
@@ -295,7 +288,6 @@ public class AliasMap {
      * Returns the inverse of this {@link AliasMap}.
      * @return The inverse of this {@link AliasMap}.
      */
-    @Nonnull
     public AliasMap inverse() {
         return new AliasMap(map.inverse(), definesOnlyIdentities);
     }
@@ -307,8 +299,7 @@ public class AliasMap {
      * @return the source that target is bound to in this alias map or {@code null} if there is no binding
      *         to {@code target} in this alias map
      */
-    @Nonnull
-    public CorrelationIdentifier getSourceOrDefault(@Nonnull final CorrelationIdentifier target, @Nonnull final CorrelationIdentifier defaultValue) {
+    public CorrelationIdentifier getSourceOrDefault(final CorrelationIdentifier target, final CorrelationIdentifier defaultValue) {
         @Nullable final CorrelationIdentifier source = getSource(target);
         if (source == null) {
             return defaultValue;
@@ -322,8 +313,7 @@ public class AliasMap {
      * @return the source that target is bound to in this alias map or {@code null} if there is no binding
      *         to {@code target} in this alias map
      */
-    @Nonnull
-    public CorrelationIdentifier getSourceOrThrow(@Nonnull final CorrelationIdentifier target) {
+    public CorrelationIdentifier getSourceOrThrow(final CorrelationIdentifier target) {
         @Nullable final CorrelationIdentifier source = getTarget(target);
         return Objects.requireNonNull(source);
     }
@@ -335,7 +325,9 @@ public class AliasMap {
      *         from {@code source} in this alias map
      */
     @Nullable
-    public CorrelationIdentifier getTarget(final CorrelationIdentifier source) {
+    public CorrelationIdentifier getTarget(@Nullable final CorrelationIdentifier source) {
+        // ImmutableBiMap.get() tolerates a null key (it just can never contain one), so a null source correctly
+        // and safely reports "no mapping" rather than needing to be excluded here.
         return map.get(source);
     }
 
@@ -346,8 +338,7 @@ public class AliasMap {
      * @return the target that source is bound to in this alias map or {@code null} if there is no binding
      *         from {@code source} in this alias map
      */
-    @Nonnull
-    public CorrelationIdentifier getTargetOrDefault(@Nullable final CorrelationIdentifier source, @Nonnull final CorrelationIdentifier defaultValue) {
+    public CorrelationIdentifier getTargetOrDefault(@Nullable final CorrelationIdentifier source, final CorrelationIdentifier defaultValue) {
         @Nullable final CorrelationIdentifier target = getTarget(source);
         if (target == null) {
             return defaultValue;
@@ -361,7 +352,6 @@ public class AliasMap {
      * @return the target that source is bound to in this alias map or {@code null} if there is no binding
      *         from {@code source} in this alias map
      */
-    @Nonnull
     public CorrelationIdentifier getTargetOrThrow(@Nullable final CorrelationIdentifier source) {
         @Nullable final CorrelationIdentifier target = getTarget(source);
         return Objects.requireNonNull(target);
@@ -371,7 +361,7 @@ public class AliasMap {
      * Call an action for each mapping contained in this alias map.
      * @param action a bi-consumer that is called for each (source, target) pair
      */
-    public void forEachMapping(@Nonnull final BiConsumer<CorrelationIdentifier, CorrelationIdentifier> action) {
+    public void forEachMapping(final BiConsumer<CorrelationIdentifier, CorrelationIdentifier> action) {
         for (final CorrelationIdentifier source : sources()) {
             action.accept(source, Objects.requireNonNull(getTarget(source)));
         }
@@ -386,8 +376,7 @@ public class AliasMap {
      * @return a new alias map that only retains bindings that where accepted by {@code predicate}, i.e., for which
      *         the predicate returned {@code true}.
      */
-    @Nonnull
-    public AliasMap filterMappings(@Nonnull final BiPredicate<CorrelationIdentifier, CorrelationIdentifier> predicate) {
+    public AliasMap filterMappings(final BiPredicate<CorrelationIdentifier, CorrelationIdentifier> predicate) {
         final Builder builder = builder(size());
         for (final CorrelationIdentifier source : sources()) {
             final CorrelationIdentifier target = Objects.requireNonNull(getTarget(source));
@@ -408,8 +397,7 @@ public class AliasMap {
      *         {@code b -> c} for {@code b, c} if {@code a -> x} for any {@code x} is not contained in {@code this} and
      *         {@code b -> c} is contained in {@code other}
      */
-    @Nonnull
-    public AliasMap compose(@Nonnull final AliasMap other) {
+    public AliasMap compose(final AliasMap other) {
         final Builder builder =
                 AliasMap.builder(size() + other.size());
 
@@ -436,11 +424,11 @@ public class AliasMap {
      *         mappings in a sense that a union of the mappings of {@code this} and {@code other} can form a
      *         {@link BiMap}, {@code false} otherwise.
      */
-    public boolean isCompatible(@Nonnull final AliasMap other) {
+    public boolean isCompatible(final AliasMap other) {
         for (final CorrelationIdentifier otherSource : other.sources()) {
             final CorrelationIdentifier otherTarget = Objects.requireNonNull(other.getTarget(otherSource));
             if (containsSource(otherSource)) {
-                if (!otherTarget.equals(getTarget(otherSource))) {
+                if (!Objects.equals(otherTarget, getTarget(otherSource))) {
                     return false;
                 }
             } else {
@@ -452,14 +440,12 @@ public class AliasMap {
         return true;
     }
 
-
     /**
      * Combine two compatible {@link AliasMap}s.
      * @param other second alias map
      * @return a combined translation map (see {@link #combineMaybe})
      */
-    @Nonnull
-    public AliasMap combine(@Nonnull final AliasMap other) {
+    public AliasMap combine(final AliasMap other) {
         return combineMaybe(other)
                 .orElseThrow(() -> new IllegalArgumentException("duplicate mapping"));
     }
@@ -471,15 +457,14 @@ public class AliasMap {
      *         {@code a -> b} is contained in {@code this} and there is no c with {@code b != c}
      *         such that {@code a -> c} is contained in {@code other}. Empty {@code Optional}, otherwise.
      */
-    @Nonnull
-    public Optional<AliasMap> combineMaybe(@Nonnull final AliasMap other) {
+    public Optional<AliasMap> combineMaybe(final AliasMap other) {
         final Builder builder =
                 AliasMap.builder(size() + other.size());
 
         for (final CorrelationIdentifier otherSource : other.sources()) {
             final CorrelationIdentifier otherTarget = Objects.requireNonNull(other.getTarget(otherSource));
             if (containsSource(otherSource)) {
-                if (!otherTarget.equals(getTarget(otherSource))) {
+                if (!Objects.equals(otherTarget, getTarget(otherSource))) {
                     return Optional.empty();
                 }
             } else {
@@ -513,11 +498,11 @@ public class AliasMap {
      *        for more info
      * @return an iterable of {@link AliasMap}s where each individual {@link AliasMap} is considered one match
      */
-    public Iterable<AliasMap> findCompleteMatches(@Nonnull final Set<CorrelationIdentifier> aliases,
-                                                  @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> dependsOnFn,
-                                                  @Nonnull final Set<CorrelationIdentifier> otherAliases,
-                                                  @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> otherDependsOnFn,
-                                                  @Nonnull final MatchPredicate<CorrelationIdentifier> matchPredicate) {
+    public Iterable<AliasMap> findCompleteMatches(final Set<CorrelationIdentifier> aliases,
+                                                  final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> dependsOnFn,
+                                                  final Set<CorrelationIdentifier> otherAliases,
+                                                  final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> otherDependsOnFn,
+                                                  final MatchPredicate<CorrelationIdentifier> matchPredicate) {
         return matcher(
                 aliases,
                 dependsOnFn,
@@ -539,11 +524,11 @@ public class AliasMap {
      *        for more info
      * @return an iterable of {@link AliasMap}s where each individual {@link AliasMap} is considered one match
      */
-    public Iterable<AliasMap> findMatches(@Nonnull final Set<CorrelationIdentifier> aliases,
-                                          @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> dependsOnFn,
-                                          @Nonnull final Set<CorrelationIdentifier> otherAliases,
-                                          @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> otherDependsOnFn,
-                                          @Nonnull final MatchPredicate<CorrelationIdentifier> matchPredicate) {
+    public Iterable<AliasMap> findMatches(final Set<CorrelationIdentifier> aliases,
+                                          final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> dependsOnFn,
+                                          final Set<CorrelationIdentifier> otherAliases,
+                                          final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> otherDependsOnFn,
+                                          final MatchPredicate<CorrelationIdentifier> matchPredicate) {
         return matcher(
                 aliases,
                 dependsOnFn,
@@ -553,11 +538,11 @@ public class AliasMap {
                 .findMatches();
     }
 
-    private PredicatedMatcher matcher(@Nonnull final Set<CorrelationIdentifier> aliases,
-                                      @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> dependsOnFn,
-                                      @Nonnull final Set<CorrelationIdentifier> otherAliases,
-                                      @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> otherDependsOnFn,
-                                      @Nonnull final MatchPredicate<CorrelationIdentifier> matchPredicate) {
+    private PredicatedMatcher matcher(final Set<CorrelationIdentifier> aliases,
+                                      final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> dependsOnFn,
+                                      final Set<CorrelationIdentifier> otherAliases,
+                                      final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> otherDependsOnFn,
+                                      final MatchPredicate<CorrelationIdentifier> matchPredicate) {
         return FindingMatcher.onAliases(
                 this,
                 aliases,
@@ -571,7 +556,6 @@ public class AliasMap {
      * Create a new empty builder.
      * @return a builder for a new {@link AliasMap}
      */
-    @Nonnull
     public static Builder builder() {
         return new Builder();
     }
@@ -581,7 +565,6 @@ public class AliasMap {
      * @param expectedSize expected size of the eventual {@link AliasMap}
      * @return a builder for a new {@link AliasMap}
      */
-    @Nonnull
     public static Builder builder(final int expectedSize) {
         return new Builder(expectedSize);
     }
@@ -590,7 +573,6 @@ public class AliasMap {
      * Factory method to create an empty alias map.
      * @return a new empty {@link AliasMap}
      */
-    @Nonnull
     public static AliasMap emptyMap() {
         return EMPTY;
     }
@@ -601,8 +583,7 @@ public class AliasMap {
      * @param target an alias of a target
      * @return a new {@link AliasMap} containing exactly the binding {@code source -> target}
      */
-    @Nonnull
-    public static AliasMap ofAliases(@Nonnull final CorrelationIdentifier source, @Nonnull final CorrelationIdentifier target) {
+    public static AliasMap ofAliases(final CorrelationIdentifier source, final CorrelationIdentifier target) {
         return new AliasMap(ImmutableBiMap.of(source, target), source.equals(target));
     }
 
@@ -612,8 +593,7 @@ public class AliasMap {
      * @param map a bi0map containing bindings
      * @return a new {@link AliasMap}
      */
-    @Nonnull
-    public static AliasMap copyOf(@Nonnull final Map<CorrelationIdentifier, CorrelationIdentifier> map) {
+    public static AliasMap copyOf(final Map<CorrelationIdentifier, CorrelationIdentifier> map) {
         final var definesOnlyIdentities =
                 map.entrySet()
                         .stream()
@@ -627,7 +607,6 @@ public class AliasMap {
      * @param aliases set of aliases that this method should create identity-bindings for
      * @return a new {@link AliasMap}
      */
-    @Nonnull
     public static AliasMap identitiesFor(final Set<CorrelationIdentifier> aliases) {
         return builder(aliases.size()).identitiesFor(aliases).build();
     }
@@ -638,8 +617,7 @@ public class AliasMap {
      * @param right other list
      * @return a new {@link AliasMap}
      */
-    @Nonnull
-    public static AliasMap zip(@Nonnull final List<CorrelationIdentifier> left, @Nonnull final List<CorrelationIdentifier> right) {
+    public static AliasMap zip(final List<CorrelationIdentifier> left, final List<CorrelationIdentifier> right) {
         return builder(left.size()).zip(left, right).build();
     }
 
@@ -667,8 +645,7 @@ public class AliasMap {
          * @return {@code this} that has been modified to contain {@code source -> target}
          * @throws IllegalArgumentException if {@code target} is already contained in the builder
          */
-        @Nonnull
-        public Builder put(@Nonnull final CorrelationIdentifier source, @Nonnull final CorrelationIdentifier target) {
+        public Builder put(final CorrelationIdentifier source, final CorrelationIdentifier target) {
             map.put(source, target);
             return this;
         }
@@ -682,8 +659,7 @@ public class AliasMap {
          * @return {@code this} that has been modified to contain all bindings from {@code other}
          * @throws IllegalArgumentException if any target contained in {@code other} is already contained in the builder
          */
-        @Nonnull
-        public Builder putAll(@Nonnull final AliasMap other) {
+        public Builder putAll(final AliasMap other) {
             other.sources()
                     .forEach(source -> put(source,
                             Objects.requireNonNull(other.getTarget(source))));
@@ -697,7 +673,6 @@ public class AliasMap {
          * @return {@code this} that has been modified to contain identity-bindings for all aliases contained in
          *         {@code aliases}
          */
-        @Nonnull
         public Builder identitiesFor(final Set<CorrelationIdentifier> aliases) {
             aliases.forEach(id -> put(id, id));
             return this;
@@ -709,8 +684,7 @@ public class AliasMap {
          * @param right other list
          * @return {@code this} that has been modified to contain the zip of left and right as bindings {@code l -> r};
          */
-        @Nonnull
-        public Builder zip(@Nonnull final List<CorrelationIdentifier> left, @Nonnull final List<CorrelationIdentifier> right) {
+        public Builder zip(final List<CorrelationIdentifier> left, final List<CorrelationIdentifier> right) {
             final int size = left.size();
             Verify.verify(size == right.size());
 
@@ -724,8 +698,7 @@ public class AliasMap {
          * @param limitExclusive the limit (exclusively) up to which the lists are zipped together
          * @return {@code this} that has been modified to contain the zip of left and right as bindings {@code l -> r};
          */
-        @Nonnull
-        public Builder zip(@Nonnull final List<CorrelationIdentifier> left, @Nonnull final List<CorrelationIdentifier> right, int limitExclusive) {
+        public Builder zip(final List<CorrelationIdentifier> left, final List<CorrelationIdentifier> right, int limitExclusive) {
             for (int i = 0; i < limitExclusive; i ++) {
                 final CorrelationIdentifier leftId = left.get(i);
                 put(leftId, right.get(i));
@@ -734,12 +707,10 @@ public class AliasMap {
             return this;
         }
 
-
         /**
          * Build a new {@link AliasMap}. This will entail a copy of the mappings in order to gain immutability guarantees.
          * @return a new {@link AliasMap}
          */
-        @Nonnull
         public AliasMap build() {
             if (map.isEmpty()) {
                 return AliasMap.emptyMap();

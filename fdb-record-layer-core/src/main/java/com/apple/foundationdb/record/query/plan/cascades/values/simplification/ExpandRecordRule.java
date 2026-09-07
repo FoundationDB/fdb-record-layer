@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -62,7 +61,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ExpandRecordRule extends ValueSimplificationRule<Value> {
-    @Nonnull
     private static final BindingMatcher<Value> rootMatcher =
             anyNotNullableValue().where(not(recordConstructorValue(all(anyValue()))));
 
@@ -70,14 +68,13 @@ public class ExpandRecordRule extends ValueSimplificationRule<Value> {
         super(rootMatcher);
     }
 
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.empty();
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
+    public void onMatch(final ValueSimplificationRuleCall call) {
         Verify.verify(call.isRoot());
 
         final var bindings = call.getBindings();

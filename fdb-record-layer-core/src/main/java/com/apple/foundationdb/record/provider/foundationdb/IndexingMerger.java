@@ -33,11 +33,13 @@ import com.apple.foundationdb.record.util.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -60,6 +62,7 @@ public class IndexingMerger {
     private final IndexingCommon common;
     private int repartitionDocumentCount = 0;
     private int repartitionSecondChances = 0;
+    @Nullable
     private StoreTimerSnapshot lastProgressSnapshot = null;
 
 
@@ -115,8 +118,10 @@ public class IndexingMerger {
                     final IndexDeferredMaintenanceControl mergeControl = mergeControlRef.get();
                     // Note: this mergeControl will not be re-used and should not be modified.
                     if (e == null) {
-                        // Here: no errors
-                        return handleSuccess(mergeControl);
+                        // Here: no errors. mergeControlRef was set inside the successful runAsync callback above,
+                        // so it is guaranteed to be non-null on this path.
+                        return handleSuccess(Objects.requireNonNull(mergeControl,
+                                "mergeControl is always set on a successful merge attempt"));
                     }
                     if (mergeControl == null) {
                         // Here: very early exception that has nothing to do with the merge

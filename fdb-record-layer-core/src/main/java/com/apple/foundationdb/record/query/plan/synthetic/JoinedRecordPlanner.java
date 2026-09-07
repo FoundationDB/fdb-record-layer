@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -59,17 +58,11 @@ import java.util.stream.Collectors;
  *
  */
 class JoinedRecordPlanner {
-    @Nonnull
     private final JoinedRecordType joinedRecordType;
-    @Nonnull
     private final RecordQueryPlanner queryPlanner;
-    @Nonnull
     private final List<PendingType> pendingTypes;
-    @Nonnull
     private final Set<PendingJoin> pendingJoins;
-    @Nonnull
     private final List<JoinedRecordPlan.JoinedType> joinedTypes;
-    @Nonnull
     private final List<RecordQueryPlan> queries;
 
     private int bindingCounter;
@@ -93,7 +86,7 @@ class JoinedRecordPlanner {
         }
 
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public boolean isJoinBound(@Nonnull PendingJoin pendingJoin) {
+        public boolean isJoinBound(PendingJoin pendingJoin) {
             if (pendingJoin.pendingLeft == this) {
                 return pendingJoin.rightBound;
             } else if (pendingJoin.pendingRight == this) {
@@ -125,7 +118,7 @@ class JoinedRecordPlanner {
         }
     }
 
-    JoinedRecordPlanner(@Nonnull JoinedRecordType joinedRecordType, @Nonnull RecordQueryPlanner queryPlanner) {
+    JoinedRecordPlanner(JoinedRecordType joinedRecordType, RecordQueryPlanner queryPlanner) {
         this.joinedRecordType = joinedRecordType;
         this.queryPlanner = queryPlanner;
 
@@ -136,13 +129,11 @@ class JoinedRecordPlanner {
         queries = new ArrayList<>(pendingTypes.size() - 1);
     }
 
-    @Nonnull
-    private PendingType createPendingType(@Nonnull JoinedRecordType.JoinConstituent joinConstituent) {
+    private PendingType createPendingType(JoinedRecordType.JoinConstituent joinConstituent) {
         return new PendingType(joinConstituent);
     }
 
-    @Nonnull
-    private PendingJoin createPendingJoin(@Nonnull JoinedRecordType.Join join) {
+    private PendingJoin createPendingJoin(JoinedRecordType.Join join) {
         final PendingType pendingLeft = findPendingType(join.getLeft());
         final PendingType pendingRight = findPendingType(join.getRight());
         final PendingJoin pendingJoin = new PendingJoin(join, pendingLeft, pendingRight, "_j" + (++bindingCounter));
@@ -151,14 +142,12 @@ class JoinedRecordPlanner {
         return pendingJoin;
     }
 
-    @Nonnull
-    private PendingType findPendingType(@Nonnull JoinedRecordType.JoinConstituent joinConstituent) {
+    private PendingType findPendingType(JoinedRecordType.JoinConstituent joinConstituent) {
         // Only works before removing from pending, so during construction and first thing in plan.
         return pendingTypes.get(joinedRecordType.getConstituents().indexOf(joinConstituent));
     }
 
-    @Nonnull
-    public JoinedRecordPlan plan(@Nonnull JoinedRecordType.JoinConstituent joinConstituent) {
+    public JoinedRecordPlan plan(JoinedRecordType.JoinConstituent joinConstituent) {
         PendingType pendingType = findPendingType(joinConstituent);
         bindAndRemove(pendingType);
         while (!pendingTypes.isEmpty()) {
@@ -180,7 +169,7 @@ class JoinedRecordPlanner {
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private void bindAndRemove(@Nonnull PendingType pendingType) {
+    private void bindAndRemove(PendingType pendingType) {
         final List<JoinedRecordPlan.BindingPlan> bindingPlans = new ArrayList<>();
         for (PendingJoin pendingJoin : pendingType.pendingJoins) {
             if (pendingJoins.contains(pendingJoin)) {
@@ -204,9 +193,8 @@ class JoinedRecordPlanner {
         pendingTypes.remove(pendingType);
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private RecordQuery buildQuery(@Nonnull PendingType pendingType) {
+    private RecordQuery buildQuery(PendingType pendingType) {
         final List<QueryComponent> conditions = new ArrayList<>();
         for (PendingJoin pendingJoin : pendingType.pendingJoins) {
             final boolean bound;
@@ -238,8 +226,7 @@ class JoinedRecordPlanner {
         return builder.build();
     }
 
-    @Nonnull
-    private static QueryComponent buildCondition(@Nonnull KeyExpression expression, @Nonnull Comparisons.Comparison comparison) {
+    private static QueryComponent buildCondition(KeyExpression expression, Comparisons.Comparison comparison) {
         if (expression instanceof FieldKeyExpression) {
             final FieldKeyExpression field = (FieldKeyExpression)expression;
             switch (field.getFanType()) {

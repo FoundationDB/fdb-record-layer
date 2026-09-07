@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -34,39 +33,34 @@ import java.util.function.Predicate;
  * A plan partition used for matching.
  */
 public class PlanPartition extends ExpressionPartition<RecordQueryPlan> {
-    private PlanPartition(@Nonnull final Map<ExpressionProperty<?>, ?> propertyValuesMap,
-                          @Nonnull final Map<RecordQueryPlan, Map<ExpressionProperty<?>, ?>> planPropertyMap) {
+    private PlanPartition(final Map<ExpressionProperty<?>, ?> propertyValuesMap,
+                          final Map<RecordQueryPlan, Map<ExpressionProperty<?>, ?>> planPropertyMap) {
         super(propertyValuesMap, planPropertyMap);
     }
 
-    @Nonnull
     public Set<RecordQueryPlan> getPlans() {
         return getExpressions();
     }
 
-    @Nonnull
     @Override
-    public PlanPartition filter(@Nonnull final Predicate<RecordQueryPlan> expressionPredicate) {
+    public PlanPartition filter(final Predicate<RecordQueryPlan> expressionPredicate) {
         return with(getPartitionPropertiesMap(), filterGroupedPropertyMap(expressionPredicate));
     }
 
-    @Nonnull
     @Override
-    protected PlanPartition with(@Nonnull final Map<ExpressionProperty<?>, ?> groupingPropertyMap,
-                                 @Nonnull final Map<RecordQueryPlan, Map<ExpressionProperty<?>, ?>> groupedPropertyMap) {
+    protected PlanPartition with(final Map<ExpressionProperty<?>, ?> groupingPropertyMap,
+                                 final Map<RecordQueryPlan, Map<ExpressionProperty<?>, ?>> groupedPropertyMap) {
         return new PlanPartition(groupingPropertyMap, groupedPropertyMap);
     }
 
-    @Nonnull
-    public static PlanPartition ofPlans(@Nonnull final Map<ExpressionProperty<?>, ?> propertyValuesMap,
-                                        @Nonnull final Map<RecordQueryPlan, Map<ExpressionProperty<?>, ?>> planPropertyMap) {
+    public static PlanPartition ofPlans(final Map<ExpressionProperty<?>, ?> propertyValuesMap,
+                                        final Map<RecordQueryPlan, Map<ExpressionProperty<?>, ?>> planPropertyMap) {
         return new PlanPartition(propertyValuesMap, planPropertyMap);
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked")
-    public static PlanPartition ofExpressions(@Nonnull final Map<ExpressionProperty<?>, ?> propertyValuesMap,
-                                              @Nonnull final Map<? extends RelationalExpression, Map<ExpressionProperty<?>, ?>> expressionPropertyMap) {
+    public static PlanPartition ofExpressions(final Map<ExpressionProperty<?>, ?> propertyValuesMap,
+                                              final Map<? extends RelationalExpression, Map<ExpressionProperty<?>, ?>> expressionPropertyMap) {
         Debugger.sanityCheck(() ->
                 Verify.verify(expressionPropertyMap.keySet()
                         .stream()

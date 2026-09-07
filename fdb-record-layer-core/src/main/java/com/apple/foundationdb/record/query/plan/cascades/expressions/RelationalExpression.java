@@ -68,8 +68,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -119,9 +119,8 @@ import java.util.stream.StreamSupport;
 @API(API.Status.EXPERIMENTAL)
 @GenerateVisitor
 public interface RelationalExpression extends Correlated<RelationalExpression>, Typed, Narrowable<RelationalExpression> {
-    @Nonnull
-    static RelationalExpression fromRecordQuery(@Nonnull RecordMetaData recordMetaData,
-                                                @Nonnull RecordQuery query) {
+    static RelationalExpression fromRecordQuery(RecordMetaData recordMetaData,
+                                                RecordQuery query) {
         query.validate(recordMetaData);
         final Set<String> allRecordTypes = recordMetaData.getRecordTypes().keySet();
         final Collection<String> recordTypesFromQuery = query.getRecordTypes();
@@ -190,22 +189,19 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         return quantifier.getRangesOver().get();
     }
 
-    @Nonnull
     @Override
     default Type.Relation getResultType() {
         return new Type.Relation(getResultValue().getResultType());
     }
 
-    @Nonnull
     Value getResultValue();
 
-    @Nonnull
     default Set<Type> getDynamicTypes() {
         return getResultValue().getDynamicTypes();
     }
 
     @SuppressWarnings("java:S3655")
-    default boolean semanticEqualsForResults(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap aliasMap) {
+    default boolean semanticEqualsForResults(final RelationalExpression otherExpression, final AliasMap aliasMap) {
         return getResultValue().semanticEquals(otherExpression.getResultValue(), aliasMap);
     }
 
@@ -217,7 +213,6 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * The iterator must return its elements in a consistent order.
      * @return an iterator of references to the children of this planner expression
      */
-    @Nonnull
     List<? extends Quantifier> getQuantifiers();
 
     /**
@@ -252,7 +247,6 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         return false;
     }
 
-    @Nonnull
     Set<CorrelationIdentifier> getCorrelatedToWithoutChildren();
 
     /**
@@ -260,13 +254,12 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * @return a partial order representing the transitive closure of all dependencies between quantifiers in this
      *         expression.
      */
-    @Nonnull
     default PartiallyOrderedSet<CorrelationIdentifier> getCorrelationOrder() {
         return PartiallyOrderedSet.empty();
     }
 
-    boolean equalsWithoutChildren(@Nonnull RelationalExpression other,
-                                  @Nonnull AliasMap equivalences);
+    boolean equalsWithoutChildren(RelationalExpression other,
+                                  AliasMap equivalences);
 
     int hashCodeWithoutChildren();
 
@@ -293,7 +286,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default boolean semanticEquals(@Nullable final Object other,
-                                   @Nonnull final AliasMap aliasMap) {
+                                   final AliasMap aliasMap) {
         // check some early-outs
         if (this == other) {
             return true;
@@ -345,11 +338,10 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * @param combinePredicate a predicate to accept or reject a match
      * @return an {@link Iterable} of {@link AliasMap}s where each alias map is a match.
      */
-    @Nonnull
-    default Iterable<AliasMap> findMatches(@Nonnull final RelationalExpression otherExpression,
-                                           @Nonnull final AliasMap aliasMap,
-                                           @Nonnull final MatchPredicate<Quantifier> matchPredicate,
-                                           @Nonnull final CombinePredicate combinePredicate) {
+    default Iterable<AliasMap> findMatches(final RelationalExpression otherExpression,
+                                           final AliasMap aliasMap,
+                                           final MatchPredicate<Quantifier> matchPredicate,
+                                           final CombinePredicate combinePredicate) {
 
         if (getClass() != otherExpression.getClass()) {
             return ImmutableList.of();
@@ -389,8 +381,8 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
          *        {@code boundCorrelatedToMap}
          * @return {@code false} if the match should be dropped or {@code true} if it should be kept.
          */
-        boolean combine(@Nonnull AliasMap boundCorrelatedToMap,
-                        @Nonnull Iterable<AliasMap> boundMapIterable);
+        boolean combine(AliasMap boundCorrelatedToMap,
+                        Iterable<AliasMap> boundMapIterable);
     }
 
     /**
@@ -410,12 +402,11 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * @param <S> final type to represent match results
      * @return an {@link Iterable} of type {@code S} of matches of {@code this} expression with {@code otherExpression}.
      */
-    @Nonnull
-    default <M, S> Iterable<S> match(@Nonnull final RelationalExpression otherExpression,
-                                     @Nonnull final AliasMap boundAliasMap,
-                                     @Nonnull final Function<Quantifier, Collection<AliasMap>> constraintsFunction,
-                                     @Nonnull final MatchFunction<Quantifier, M> matchFunction,
-                                     @Nonnull final CombineFunction<M, S> combineFunction) {
+    default <M, S> Iterable<S> match(final RelationalExpression otherExpression,
+                                     final AliasMap boundAliasMap,
+                                     final Function<Quantifier, Collection<AliasMap>> constraintsFunction,
+                                     final MatchFunction<Quantifier, M> matchFunction,
+                                     final CombineFunction<M, S> combineFunction) {
         final List<? extends Quantifier> quantifiers = getQuantifiers();
         final List<? extends Quantifier> otherQuantifiers = otherExpression.getQuantifiers();
 
@@ -468,14 +459,13 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * @param <S> final type to represent match results
      * @return an {@link Iterable} of type {@code S} of matches of {@code this} expression with {@code otherExpression}.
      */
-    @Nonnull
-    default <M, S> Iterable<S> match(@Nonnull final RelationalExpression otherExpression,
-                                     @Nonnull final AliasMap boundAliasMap,
-                                     @Nonnull final List<? extends Quantifier> quantifiers,
-                                     @Nonnull final List<? extends Quantifier> otherQuantifiers,
-                                     @Nonnull final Function<Quantifier, Collection<AliasMap>> constraintsFunction,
-                                     @Nonnull final MatchFunction<Quantifier, M> matchFunction,
-                                     @Nonnull final CombineFunction<M, S> combineFunction) {
+    default <M, S> Iterable<S> match(final RelationalExpression otherExpression,
+                                     final AliasMap boundAliasMap,
+                                     final List<? extends Quantifier> quantifiers,
+                                     final List<? extends Quantifier> otherQuantifiers,
+                                     final Function<Quantifier, Collection<AliasMap>> constraintsFunction,
+                                     final MatchFunction<Quantifier, M> matchFunction,
+                                     final CombineFunction<M, S> combineFunction) {
         // This is a cheap and effective great filter that is prone to eliminate non-matching cases hopefully very
         // quickly -- removing this shouldn't change any semantics, just performance
         if (getClass() != otherExpression.getClass()) {
@@ -561,9 +551,8 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
          * @param boundMatches iterable of {@link BoundMatch}es
          * @return an iterable of type {@code S}
          */
-        @Nonnull
-        Iterable<S> combine(@Nonnull AliasMap boundCorrelatedToMap,
-                            @Nonnull Iterable<BoundMatch<EnumeratingIterable<R>>> boundMatches);
+        Iterable<S> combine(AliasMap boundCorrelatedToMap,
+                            Iterable<BoundMatch<EnumeratingIterable<R>>> boundMatches);
     }
 
     /**
@@ -608,9 +597,8 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * @param otherExpression the other expression
      * @return an iterable of sets of bindings
      */
-    @Nonnull
-    default Iterable<AliasMap> enumerateUnboundCorrelatedTo(@Nonnull final AliasMap boundAliasMap,
-                                                            @Nonnull final RelationalExpression otherExpression) {
+    default Iterable<AliasMap> enumerateUnboundCorrelatedTo(final AliasMap boundAliasMap,
+                                                            final RelationalExpression otherExpression) {
         final Set<CorrelationIdentifier> correlatedTo = getCorrelatedTo();
         final Set<CorrelationIdentifier> otherCorrelatedTo = otherExpression.getCorrelatedTo();
 
@@ -638,9 +626,8 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * @return an {@link AliasMap} for containing only identity bindings for the intersection of the correlatedTo set
      *         of this expression and the other expression
      */
-    @Nonnull
-    default AliasMap bindIdentities(@Nonnull final RelationalExpression otherExpression,
-                                    @Nonnull final AliasMap boundAliasMap) {
+    default AliasMap bindIdentities(final RelationalExpression otherExpression,
+                                    final AliasMap boundAliasMap) {
         final Set<CorrelationIdentifier> correlatedTo = getCorrelatedTo();
         final Set<CorrelationIdentifier> otherCorrelatedTo = otherExpression.getCorrelatedTo();
 
@@ -685,11 +672,10 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * @return an iterable of {@link MatchInfo}s if subsumption between this expression and the candidate expression
      * can be established
      */
-    @Nonnull
-    default Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                           @Nonnull final AliasMap bindingAliasMap,
-                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
-                                           @Nonnull final EvaluationContext evaluationContext) {
+    default Iterable<MatchInfo> subsumedBy(final RelationalExpression candidateExpression,
+                                           final AliasMap bindingAliasMap,
+                                           final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                           final EvaluationContext evaluationContext) {
         // we don't match by default -- end
         return ImmutableList.of();
     }
@@ -705,11 +691,10 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * @return an iterable of {@link MatchInfo}s if semantic equivalence between this expression and the candidate
      *         expression can be established
      */
-    @Nonnull
-    default Iterable<MatchInfo> exactlySubsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                                  @Nonnull final AliasMap bindingAliasMap,
-                                                  @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
-                                                  @Nonnull final TranslationMap translationMap) {
+    default Iterable<MatchInfo> exactlySubsumedBy(final RelationalExpression candidateExpression,
+                                                  final AliasMap bindingAliasMap,
+                                                  final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                                  final TranslationMap translationMap) {
         Verify.verify(!candidateExpression.canCorrelate());
         Verify.verify(candidateExpression.getQuantifiers().size() <= 1);
 
@@ -727,10 +712,9 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         }
     }
 
-    @Nonnull
-    static Optional<TranslationMap> pullUpAndComposeTranslationMapsMaybe(@Nonnull final RelationalExpression candidateExpression,
-                                                                         @Nonnull final AliasMap bindingAliasMap,
-                                                                         @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+    static Optional<TranslationMap> pullUpAndComposeTranslationMapsMaybe(final RelationalExpression candidateExpression,
+                                                                         final AliasMap bindingAliasMap,
+                                                                         final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
         final var candidateAliasesToQuantifierMap =
                 Quantifiers.aliasToQuantifierMap(candidateExpression.getQuantifiers());
         var translationMapBuilder = TranslationMap.regularBuilder();
@@ -760,13 +744,12 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * @return {@code Optional.empty()} if the match could not be adjusted, Optional.of(matchInfo) for a new adjusted
      *         match, otherwise.
      */
-    @Nonnull
-    default Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
+    default Optional<MatchInfo> adjustMatch(final PartialMatch partialMatch) {
         return Optional.empty();
     }
 
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
-    default boolean isCompatiblyAndCompletelyBound(@Nonnull final AliasMap bindingAliasMap, @Nonnull final List<? extends Quantifier> candidateQuantifiers) {
+    default boolean isCompatiblyAndCompletelyBound(final AliasMap bindingAliasMap, final List<? extends Quantifier> candidateQuantifiers) {
         return !hasUnboundQuantifiers(bindingAliasMap) &&
                 !hasIncompatibleBoundQuantifiers(bindingAliasMap, candidateQuantifiers);
     }
@@ -790,32 +773,27 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                 });
     }
 
-    @Nonnull
-    default Compensation compensate(@Nonnull final PartialMatch partialMatch,
-                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+    default Compensation compensate(final PartialMatch partialMatch,
+                                    final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                     @Nullable final PullUp pullUp,
-                                    @Nonnull final CorrelationIdentifier candidateAlias) {
+                                    final CorrelationIdentifier candidateAlias) {
         throw new RecordCoreException("expression matched but no compensation logic implemented");
     }
 
-    @Nonnull
     @Override
-    default RelationalExpression rebase(@Nonnull AliasMap aliasMap) {
+    default RelationalExpression rebase(AliasMap aliasMap) {
         throw new UnsupportedOperationException("rebase unsupported on relational expression");
     }
 
-    @Nonnull
-    default RelationalExpression withQuantifiers(@Nonnull final List<? extends Quantifier> newQuantifiers) {
+    default RelationalExpression withQuantifiers(final List<? extends Quantifier> newQuantifiers) {
         return translateCorrelations(TranslationMap.empty(), false, newQuantifiers);
     }
 
-    @Nonnull
-    RelationalExpression translateCorrelations(@Nonnull TranslationMap translationMap,
+    RelationalExpression translateCorrelations(TranslationMap translationMap,
                                                boolean shouldSimplifyValues,
-                                               @Nonnull List<? extends Quantifier> translatedQuantifiers);
+                                               List<? extends Quantifier> translatedQuantifiers);
 
-    @Nonnull
-    default Set<Quantifier> getMatchedQuantifiers(@Nonnull final PartialMatch partialMatch) {
+    default Set<Quantifier> getMatchedQuantifiers(final PartialMatch partialMatch) {
         return ImmutableSet.of();
     }
 
@@ -841,7 +819,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * @return the result of evaluating the property on the subtree rooted at this expression
      */
     @Nullable
-    default <U> U acceptVisitor(@Nonnull SimpleExpressionVisitor<U> simpleExpressionVisitor) {
+    default <U> U acceptVisitor(SimpleExpressionVisitor<U> simpleExpressionVisitor) {
         if (simpleExpressionVisitor.shouldVisit(this)) {
             return simpleExpressionVisitor.visit(this);
         }
@@ -855,20 +833,19 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * @param renderSingleGroups whether to render group references with just one member
      * @return the String "done"
      */
-    @Nonnull
     default String show(final boolean renderSingleGroups) {
         return PlannerGraphVisitor.show(renderSingleGroups, this);
     }
 
-    @Nonnull
     default String showExploratory() {
         return PlannerGraphVisitor.show(PlannerGraphVisitor.REMOVE_FINAL_EXPRESSIONS | PlannerGraphVisitor.RENDER_SINGLE_GROUPS, this);
     }
 
-    @Nonnull
     default PExpression toPlannerEventExpressionProto() {
         return PExpression.newBuilder()
-                .setName(Debugger.mapDebugger(debugger -> debugger.nameForObject(this)).orElseThrow())
+                .setName(Debugger.mapDebugger(debugger -> Optional.ofNullable(debugger.nameForObject(this)))
+                        .flatMap(Function.identity())
+                        .orElseThrow())
                 .setSemanticHashCode(semanticHashCode())
                 .build();
     }

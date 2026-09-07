@@ -31,8 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -100,18 +99,13 @@ import java.util.function.Function;
  */
 @API(API.Status.UNSTABLE)
 public class ChainedCursor<T> implements BaseCursor<T> {
-    @Nonnull
     private final Function<Optional<T>, CompletableFuture<Optional<T>>> nextGenerator;
-    @Nonnull
     private final Function<T, byte[]> continuationEncoder;
-    @Nonnull
     private final Executor executor;
-    @Nonnull
     private Optional<T> lastValue;
     @Nullable
     private RecordCursorResult<T> lastResult;
 
-    @Nonnull
     private final CursorLimitManager limitManager;
     private final long maxReturnedRows;
     private long returnedRowCount;
@@ -130,11 +124,11 @@ public class ChainedCursor<T> implements BaseCursor<T> {
      * @param executor executor that will be returned by {@link #getExecutor()}
      */
     public ChainedCursor(
-            @Nonnull Function<Optional<T>, CompletableFuture<Optional<T>>> nextGenerator,
-            @Nonnull Function<T, byte[]> continuationEncoder,
-            @Nonnull Function<byte[], T> continuationDecoder,
+            Function<Optional<T>, CompletableFuture<Optional<T>>> nextGenerator,
+            Function<T, byte[]> continuationEncoder,
+            Function<byte[], T> continuationDecoder,
             @Nullable byte[] continuation,
-            @Nonnull Executor executor) {
+            Executor executor) {
         this(null, nextGenerator, continuationEncoder, continuationDecoder, continuation, null, executor);
     }
 
@@ -154,23 +148,24 @@ public class ChainedCursor<T> implements BaseCursor<T> {
      * @param scanProperties properties used to control the scanning behavior
      */
     public ChainedCursor(
-            @Nonnull FDBRecordContext context,
-            @Nonnull Function<Optional<T>, CompletableFuture<Optional<T>>> nextGenerator,
-            @Nonnull Function<T, byte[]> continuationEncoder,
-            @Nonnull Function<byte[], T> continuationDecoder,
+            FDBRecordContext context,
+            Function<Optional<T>, CompletableFuture<Optional<T>>> nextGenerator,
+            Function<T, byte[]> continuationEncoder,
+            Function<byte[], T> continuationDecoder,
             @Nullable byte[] continuation,
-            @Nonnull ScanProperties scanProperties) {
+            ScanProperties scanProperties) {
         this(context, nextGenerator, continuationEncoder, continuationDecoder, continuation, scanProperties, context.getExecutor());
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even across explicit null checks.
     private ChainedCursor(
             @Nullable FDBRecordContext context,
-            @Nonnull Function<Optional<T>, CompletableFuture<Optional<T>>> nextGenerator,
-            @Nonnull Function<T, byte[]> continuationEncoder,
-            @Nonnull Function<byte[], T> continuationDecoder,
+            Function<Optional<T>, CompletableFuture<Optional<T>>> nextGenerator,
+            Function<T, byte[]> continuationEncoder,
+            Function<byte[], T> continuationDecoder,
             @Nullable byte[] continuation,
             @Nullable ScanProperties scanProperties,
-            @Nonnull Executor executor) {
+            Executor executor) {
         this.nextGenerator = nextGenerator;
         this.continuationEncoder = continuationEncoder;
         this.executor = executor;
@@ -202,7 +197,6 @@ public class ChainedCursor<T> implements BaseCursor<T> {
                                : scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (lastResult != null && !lastResult.hasNext()) {
@@ -244,40 +238,38 @@ public class ChainedCursor<T> implements BaseCursor<T> {
         return closed;
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return executor;
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
         return visitor.visitLeave(this);
     }
 
     private static class Continuation<T> implements RecordCursorContinuation {
-        @Nonnull
         private final Optional<T> lastValue;
-        @Nonnull
         private final Function<T, byte[]> continuationEncoder;
         @Nullable
         private byte[] cachedBytes;
 
-        public Continuation(@Nonnull Optional<T> lastValue, @Nonnull Function<T, byte[]> continuationEncoder) {
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
+        public Continuation(Optional<T> lastValue, Function<T, byte[]> continuationEncoder) {
             this.lastValue = lastValue;
             this.continuationEncoder = continuationEncoder;
         }
 
-        @Nonnull
         @Override
         public ByteString toByteString() {
-            byte[] bytes = toBytes();
+            @Nullable byte[] bytes = toBytes();
             return bytes == null ? ByteString.EMPTY : ZeroCopyByteString.wrap(bytes);
         }
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields.
         public byte[] toBytes() {
             if (cachedBytes == null) {
                 cachedBytes = lastValue.map(continuationEncoder).orElse(null);

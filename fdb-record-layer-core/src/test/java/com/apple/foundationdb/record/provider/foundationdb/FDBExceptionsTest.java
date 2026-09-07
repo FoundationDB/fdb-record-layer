@@ -37,12 +37,12 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.api.parallel.ResourceAccessMode;
 import org.junit.jupiter.api.parallel.ResourceLock;
 
-import javax.annotation.Nonnull;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -70,7 +70,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class FDBExceptionsTest {
     // Several tests in this class modify the static CompletionExceptionLogHelper. Those tests must be run in serial, so
     // they use the @ResourceLock feature with this named lock to avoid stepping on each other
-    @Nonnull
     public static final String COMPLETION_EXCEPTION_HELPER_LOCK = "CompletionExceptionLogHelper";
 
     @RegisterExtension
@@ -93,7 +92,7 @@ class FDBExceptionsTest {
         LoggableException ex = assertThrows(LoggableException.class, () -> database.asyncToSync(new FDBStoreTimer(), FDBStoreTimer.Waits.WAIT_COMMIT, delayed));
         Map<String, Object> logInfo = ex.getLogInfo();
         assertTrue(logInfo.containsKey(LogMessageKeys.TIME_LIMIT.toString()));
-        Assertions.assertEquals((long)(logInfo.get(LogMessageKeys.TIME_LIMIT.toString())), TimeUnit.MILLISECONDS.toNanos(1L));
+        Assertions.assertEquals((long)Objects.requireNonNull(logInfo.get(LogMessageKeys.TIME_LIMIT.toString())), TimeUnit.MILLISECONDS.toNanos(1L));
         assertTrue(logInfo.containsKey(LogMessageKeys.TIME_UNIT.toString()));
         Assertions.assertEquals(logInfo.get(LogMessageKeys.TIME_UNIT.toString()), TimeUnit.NANOSECONDS);
     }
@@ -214,17 +213,14 @@ class FDBExceptionsTest {
         return new CompletionException(PARENT_EXCEPTION_MESSAGE, cause);
     }
 
-    @Nonnull
     private Exception createRuntimeException() {
         return new RuntimeException(EXCEPTION_CAUSE_MESSAGE);
     }
 
-    @Nonnull
     private Exception createCheckedException() {
         return new Exception(EXCEPTION_CAUSE_MESSAGE);
     }
 
-    @Nonnull
     private InterruptedException createInterruptedException() {
         return new InterruptedException(EXCEPTION_CAUSE_MESSAGE);
     }

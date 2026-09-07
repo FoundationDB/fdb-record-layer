@@ -37,8 +37,7 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -60,32 +59,25 @@ import java.util.function.Supplier;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState<T>> {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(ComparatorCursor.class);
-    @Nonnull
     private static final Set<StoreTimer.Event> duringEvents = Collections.singleton(FDBStoreTimer.Events.QUERY_COMPARATOR);
-    @Nonnull
     private static final Set<StoreTimer.Count> matchesCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_COMPARATOR_MATCH);
-    @Nonnull
     private static final Set<StoreTimer.Count> mismatchesCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_COMPARATOR_MISMATCH);
-    @Nonnull
     private static final Set<StoreTimer.Count> compareCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_COMPARATOR_COMPARED);
 
     // The "reference plan" whose values are to be compared with the rest of the cursors, and whose values are actually returned
     private final int referencePlanIndex;
-    @Nonnull
     private final Supplier<String> planStringSupplier;
-    @Nonnull
     private final Supplier<Integer> planHashSupplier;
     private boolean errorLogged = false;
     private final boolean abortOnComparisonFailure;
 
-    private ComparatorCursor(@Nonnull List<KeyedMergeCursorState<T>> cursorStates,
+    private ComparatorCursor(List<KeyedMergeCursorState<T>> cursorStates,
                              @Nullable FDBStoreTimer timer,
                              final int referencePlanIndex,
                              final boolean abortOnComparisonFailure,
-                             @Nonnull final Supplier<String> planStringSupplier,
-                             @Nonnull final Supplier<Integer> planHashSupplier) {
+                             final Supplier<String> planStringSupplier,
+                             final Supplier<Integer> planHashSupplier) {
         super(cursorStates, timer);
         this.referencePlanIndex = referencePlanIndex;
         this.abortOnComparisonFailure = abortOnComparisonFailure;
@@ -114,16 +106,15 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      *
      * @see #create(Function, List, byte[], FDBStoreTimer, int, boolean, Supplier, Supplier)
      */
-    @Nonnull
     public static <M extends Message> ComparatorCursor<QueryResult> create(
-            @Nonnull FDBRecordStoreBase<M> store,
-            @Nonnull KeyExpression comparisonKey,
-            @Nonnull List<Function<byte[], RecordCursor<QueryResult>>> cursorFunctions,
+            FDBRecordStoreBase<M> store,
+            KeyExpression comparisonKey,
+            List<Function<byte[], RecordCursor<QueryResult>>> cursorFunctions,
             @Nullable byte[] continuation,
             final int referencePlanIndex,
             final boolean abortOnComparisonFailure,
-            @Nonnull final Supplier<String> planStringSupplier,
-            @Nonnull final Supplier<Integer> planHashSupplier) {
+            final Supplier<String> planStringSupplier,
+            final Supplier<Integer> planHashSupplier) {
         return create(
                 queryResult -> ComparatorCursor.evaluateKey(comparisonKey, queryResult.getMessage()),
                 cursorFunctions, continuation, store.getTimer(),
@@ -162,16 +153,15 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      *
      * @return a cursor that contains the same records as the reference cursor (Note the side effect of logging comparison errors).
      */
-    @Nonnull
     public static <T> ComparatorCursor<T> create(
-            @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
-            @Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
+            Function<? super T, ? extends List<Object>> comparisonKeyFunction,
+            List<Function<byte[], RecordCursor<T>>> cursorFunctions,
             @Nullable byte[] continuation,
             @Nullable FDBStoreTimer timer,
             final int referencePlanIndex,
             final boolean abortOnComparisonFailure,
-            @Nonnull final Supplier<String> planStringSupplier,
-            @Nonnull final Supplier<Integer> planHashSupplier) {
+            final Supplier<String> planStringSupplier,
+            final Supplier<Integer> planHashSupplier) {
         return new ComparatorCursor<>(createCursorStates(cursorFunctions, continuation, comparisonKeyFunction, referencePlanIndex), timer,
                 referencePlanIndex, abortOnComparisonFailure, planStringSupplier, planHashSupplier);
     }
@@ -185,13 +175,11 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      * @return the strongest reason for stopping
      */
     @Override
-    @Nonnull
     protected NoNextReason mergeNoNextReasons() {
         return getStrongestNoNextReason(getCursorStates());
     }
 
     @Override
-    @Nonnull
     public ComparatorCursorContinuation getContinuationObject() {
         return ComparatorCursorContinuation.from(this);
     }
@@ -201,8 +189,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
     }
 
     @Override
-    @Nonnull
-    protected T getNextResult(@Nonnull List<KeyedMergeCursorState<T>> cursorStates) {
+    protected T getNextResult(List<KeyedMergeCursorState<T>> cursorStates) {
         return Objects.requireNonNull(Objects.requireNonNull(getReferenceState(cursorStates).getResult()).get());
     }
 
@@ -217,7 +204,6 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      * @return the list of states included in the next result
      */
     @Override
-    @Nonnull
     protected CompletableFuture<List<KeyedMergeCursorState<T>>> computeNextResultStates() {
         final List<KeyedMergeCursorState<T>> cursorStates = getCursorStates();
         // Wait for all cursors to have a valid state
@@ -259,15 +245,13 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
         });
     }
 
-    @Nonnull
     protected KeyedMergeCursorState<T> getReferenceState(final List<KeyedMergeCursorState<T>> cursorStates) {
         return cursorStates.get(referencePlanIndex);
     }
 
-    @Nonnull
-    private static <T> List<KeyedMergeCursorState<T>> createCursorStates(@Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
+    private static <T> List<KeyedMergeCursorState<T>> createCursorStates(List<Function<byte[], RecordCursor<T>>> cursorFunctions,
                                                                          @Nullable byte[] byteContinuation,
-                                                                         @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
+                                                                         Function<? super T, ? extends List<Object>> comparisonKeyFunction,
                                                                          int referencePlanIndex) {
         final List<KeyedMergeCursorState<T>> cursorStates = new ArrayList<>(cursorFunctions.size());
         final ComparatorCursorContinuation continuation = ComparatorCursorContinuation.from(byteContinuation, cursorFunctions.size(), referencePlanIndex);
@@ -293,8 +277,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      *
      * @return the result of applying the key to the record, for the purpose of comparison to other records
      */
-    @Nonnull
-    private static <M extends Message> List<Object> evaluateKey(final @Nonnull KeyExpression comparisonKey, final M message) {
+    private static <M extends Message> List<Object> evaluateKey(final KeyExpression comparisonKey, final M message) {
         final List<Key.Evaluated> keys = comparisonKey.evaluateMessage(null, message);
         if (keys.size() != 1) {
             return Collections.singletonList(new Unequal());
@@ -305,22 +288,25 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
 
     @CanIgnoreReturnValue
     @SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.CloseResource"})
-    private boolean compareAllStates(@Nonnull final List<KeyedMergeCursorState<T>> cursorStates) {
+    private boolean compareAllStates(final List<KeyedMergeCursorState<T>> cursorStates) {
         final long startTime = System.nanoTime();
 
-        List<Object> referenceKey = getReferenceState(cursorStates).getComparisonKey();
+        // compareAllStates() is only called once all cursor states have a next value (see computeNextResultStates()),
+        // so getComparisonKey() is guaranteed to be non-null for every state here.
+        List<Object> referenceKey = Objects.requireNonNull(getReferenceState(cursorStates).getComparisonKey());
         for (KeyedMergeCursorState<T> cursorState : cursorStates) {
+            List<Object> comparisonKey = Objects.requireNonNull(cursorState.getComparisonKey());
             // No point comparing the reference key to itself
-            if (cursorState.getComparisonKey() == referenceKey) {
+            if (comparisonKey == referenceKey) {
                 continue;
             }
-            int compare = KeyComparisons.KEY_COMPARATOR.compare(cursorState.getComparisonKey(), referenceKey);
+            int compare = KeyComparisons.KEY_COMPARATOR.compare(comparisonKey, referenceKey);
             if (compare != 0) {
-                logComparisonFailure(referenceKey, cursorState.getComparisonKey());
+                logComparisonFailure(referenceKey, comparisonKey);
                 if (abortOnComparisonFailure) {
                     throw new RecordCoreException("Comparison of plans failed")
                             .addLogInfo(LogMessageKeys.EXPECTED, referenceKey)
-                            .addLogInfo(LogMessageKeys.ACTUAL, cursorState.getComparisonKey())
+                            .addLogInfo(LogMessageKeys.ACTUAL, comparisonKey)
                             .addLogInfo(LogMessageKeys.PLAN_HASH, planHashSupplier.get());
                 } else {
                     return false;
@@ -352,7 +338,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
         }
     }
 
-    private void logCounters(@Nonnull List<?> states, long startTime) {
+    private void logCounters(List<?> states, long startTime) {
         if (getTimer() != null) {
             getTimer().record(duringEvents, System.nanoTime() - startTime);
             getTimer().increment(matchesCounts, 1);
@@ -397,7 +383,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static class Unequal implements Comparable<Object> {
         @Override
-        public int compareTo(@Nonnull final Object o) {
+        public int compareTo(final Object o) {
             if (this == o) {
                 return 0;
             } else {

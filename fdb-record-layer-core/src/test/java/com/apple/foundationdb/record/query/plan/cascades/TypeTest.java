@@ -62,8 +62,8 @@ import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.support.ParameterDeclarations;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -260,7 +260,6 @@ class TypeTest {
                     Arguments.of(LiteralValue.ofScalar("foo"), Type.primitiveType(Type.TypeCode.STRING, false)),
                     Arguments.of(LiteralValue.ofScalar(ByteString.copyFrom("bar", Charset.defaultCharset().name())), Type.primitiveType(Type.TypeCode.BYTES, false)),
 
-
                     // Primitives
                     Arguments.of(null, Type.nullType()),
                     Arguments.of(false, Type.primitiveType(Type.TypeCode.BOOLEAN, false)),
@@ -284,7 +283,6 @@ class TypeTest {
                     Arguments.of(List.of(43L), new Type.Array(Type.primitiveType(Type.TypeCode.LONG, false))),
                     Arguments.of(List.of("foo"), new Type.Array(Type.primitiveType(Type.TypeCode.STRING, false))),
                     Arguments.of(List.of(ByteString.copyFrom("bar", Charset.defaultCharset().name())), new Type.Array(Type.primitiveType(Type.TypeCode.BYTES, false))),
-
 
                     // Arrays of arrays
                     Arguments.of(List.of(listOfNulls), new Type.Array(new Type.Array(Type.any())), false),
@@ -316,7 +314,7 @@ class TypeTest {
 
     @ParameterizedTest(name = "[{index} Java object {0}, Expected type {1}]")
     @ArgumentsSource(TypesProvider.class)
-    void testTypeLifting(@Nullable final Object object, @Nonnull final Type expectedType) {
+    void testTypeLifting(@Nullable final Object object, final Type expectedType) {
         final Type typeFromObject = Type.fromObject(object);
         Assertions.assertEquals(expectedType, typeFromObject);
     }
@@ -387,7 +385,7 @@ class TypeTest {
         assertNormalizedFieldsHaveNumbers(originalFields, numberedFields);
     }
 
-    private void assertNormalizedFieldsHaveNumbers(@Nonnull List<Type.Record.Field> originalFields, @Nonnull List<Type.Record.Field> numberedFields) {
+    private void assertNormalizedFieldsHaveNumbers(List<Type.Record.Field> originalFields, List<Type.Record.Field> numberedFields) {
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
             final Type.Record fromOriginal = Type.Record.fromFields(originalFields);
             final Type.Record fromNumbered = Type.Record.fromFields(numberedFields);
@@ -420,7 +418,6 @@ class TypeTest {
         }
     }
 
-    @Nonnull
     static Stream<Type.Enum> enumTypes() {
         return Stream.of(
                 Type.Enum.fromValues(false, List.of(Type.Enum.EnumValue.from("A", 0), Type.Enum.EnumValue.from("B", 1), Type.Enum.EnumValue.from("C", 2))),
@@ -430,7 +427,6 @@ class TypeTest {
         );
     }
 
-    @Nonnull
     static Stream<Type.Record> recordTypes() {
         return Stream.of(
                 Type.Record.fromFields(List.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.empty()))),
@@ -480,7 +476,6 @@ class TypeTest {
         );
     }
 
-    @Nonnull
     static Stream<Type> types() {
         Stream<Type> primitiveTypes = Stream.of(Type.TypeCode.values())
                 .filter(Type.TypeCode::isPrimitive)
@@ -505,7 +500,6 @@ class TypeTest {
                 .flatMap(t -> Stream.of(t, new Type.Array(false, t), new Type.Array(true, t), new Type.Relation(t)));
     }
 
-    @Nonnull
     static Stream<Arguments> typesWithIndex() {
         final List<Type> typeList = types().collect(Collectors.toList());
         return IntStream.range(0, typeList.size())
@@ -514,7 +508,7 @@ class TypeTest {
 
     @ParameterizedTest(name = "[{index} serialization of {0}]")
     @MethodSource("types")
-    void testSerialization(@Nonnull final Type type) {
+    void testSerialization(final Type type) {
         PlanSerializationContext serializationContext = PlanSerializationContext.newForCurrentMode();
         final PType typeProto = type.toTypeProto(serializationContext);
 
@@ -525,7 +519,7 @@ class TypeTest {
 
     @ParameterizedTest(name = "[{index} nullability of {0}]")
     @MethodSource("types")
-    void testNullability(@Nonnull final Type type) {
+    void testNullability(final Type type) {
         if (type instanceof Type.None || type instanceof Type.Relation) {
             // None and Relational are special and are always not nullable
             Assertions.assertSame(type, type.notNullable());
@@ -563,7 +557,7 @@ class TypeTest {
 
     @ParameterizedTest(name = "pairwiseEquality[{index} {1}]")
     @MethodSource("typesWithIndex")
-    void pairwiseEquality(int index, @Nonnull Type type) {
+    void pairwiseEquality(int index, Type type) {
         final List<Type> typeList = types().collect(Collectors.toList());
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
             // Check this type for equality/inequality against items in the list. It should only be equal to the
@@ -616,7 +610,6 @@ class TypeTest {
                 .containsExactly("ALPHA", "BRAVO", "__CHARLIE", "DELTA__01");
     }
 
-    @Nonnull
     static Stream<Arguments> enumTypesWithNames() {
         return Stream.of(Pair.<String, String>of(null, null),
                         Pair.of("myEnumType", "myEnumType"),
@@ -635,7 +628,7 @@ class TypeTest {
 
     @ParameterizedTest(name = "createEnumProtobuf[{0} storageName={1}]")
     @MethodSource("enumTypesWithNames")
-    void createEnumProtobuf(@Nonnull Type.Enum enumType, @Nullable String expectedStorageName) {
+    void createEnumProtobuf(Type.Enum enumType, @Nullable String expectedStorageName) {
         final TypeRepository.Builder typeBuilder = TypeRepository.newBuilder();
         enumType.defineProtoType(typeBuilder);
         typeBuilder.build();
@@ -660,7 +653,7 @@ class TypeTest {
         assertThat(enumDescriptor)
                 .isNotNull()
                 .isSameAs(repository.getEnumDescriptor(enumTypeName));
-        assertThat(enumDescriptor.getName())
+        assertThat(Objects.requireNonNull(enumDescriptor).getName())
                 .isEqualTo(enumTypeName);
 
         final Type.Enum fromProto = Type.Enum.fromDescriptor(enumType.isNullable(), enumDescriptor);
@@ -692,7 +685,7 @@ class TypeTest {
 
     @ParameterizedTest(name = "enumEqualsIgnoresName[{0}]")
     @MethodSource("enumTypes")
-    void enumEqualsIgnoresName(@Nonnull Type.Enum enumType) {
+    void enumEqualsIgnoresName(Type.Enum enumType) {
         final Type.Enum typeWithName1 = Type.Enum.fromValuesWithName("name_one", enumType.isNullable(), enumType.getEnumValues());
         final Type.Enum typeWithName2 = Type.Enum.fromValuesWithName("name_two", enumType.isNullable(), enumType.getEnumValues());
 
@@ -703,7 +696,6 @@ class TypeTest {
                 .hasSameHashCodeAs(typeWithName2);
     }
 
-    @Nonnull
     static Stream<Arguments> recordTypesWithNames() {
         return Stream.of(Pair.<String, String>of(null, null),
                 Pair.of("myEnumType", "myEnumType"),
@@ -722,7 +714,7 @@ class TypeTest {
 
     @ParameterizedTest(name = "createRecordProtobuf[{0} storageName={1}]")
     @MethodSource("recordTypesWithNames")
-    void createRecordProtobuf(@Nonnull Type.Record recordType, @Nullable String expectedStorageName) {
+    void createRecordProtobuf(Type.Record recordType, @Nullable String expectedStorageName) {
         final TypeRepository.Builder typeBuilder = TypeRepository.newBuilder();
         recordType.defineProtoType(typeBuilder);
         typeBuilder.build();
@@ -747,7 +739,7 @@ class TypeTest {
         assertThat(messageDescriptor)
                 .isNotNull()
                 .isSameAs(repository.getMessageDescriptor(recordTypeName));
-        assertThat(messageDescriptor.getName())
+        assertThat(Objects.requireNonNull(messageDescriptor).getName())
                 .isEqualTo(recordTypeName);
 
         final Type.Record fromDescriptor = Type.Record.fromDescriptor(messageDescriptor).withNullability(recordType.isNullable());
@@ -758,8 +750,7 @@ class TypeTest {
                 .isEqualTo(adjustFieldsForDescriptorParsing(recordType));
     }
 
-    @Nonnull
-    private Type.Record adjustFieldsForDescriptorParsing(@Nonnull Type.Record recordType) {
+    private Type.Record adjustFieldsForDescriptorParsing(Type.Record recordType) {
         // There are a number of changes that happen to a type when we create a protobuf descriptor for it that
         // fail to round trip. These may be bugs, but we can at least assert that everything except for these
         // components are preserved
@@ -768,7 +759,7 @@ class TypeTest {
             Type fieldType = field.getFieldType();
             if (fieldType instanceof Type.Array) {
                 // Array types retain their nullability as there are separate. However, they make their own element types not nullable
-                Type elementType = ((Type.Array)fieldType).getElementType();
+                Type elementType = Objects.requireNonNull(((Type.Array)fieldType).getElementType());
                 if (elementType instanceof Type.Record) {
                     elementType = adjustFieldsForDescriptorParsing((Type.Record) elementType);
                 }
@@ -789,7 +780,7 @@ class TypeTest {
 
     @ParameterizedTest(name = "recordEqualsIgnoresName[{0}]")
     @MethodSource("recordTypes")
-    void recordEqualsIgnoresName(@Nonnull Type.Record recordType) {
+    void recordEqualsIgnoresName(Type.Record recordType) {
         final Type.Record typeWithName1 = recordType.withName("name_one");
         final Type.Record typeWithName2 = recordType.withName("name_two");
 
@@ -802,7 +793,7 @@ class TypeTest {
 
     @ParameterizedTest(name = "updateFieldNullability[{0}]")
     @MethodSource("recordTypes")
-    void updateFieldNullability(@Nonnull Type.Record recordType) {
+    void updateFieldNullability(Type.Record recordType) {
         for (Type.Record.Field field : recordType.getFields()) {
             final Type fieldType = field.getFieldType();
 
@@ -969,7 +960,7 @@ class TypeTest {
         }
     }
 
-    private static void assertContainsField(@Nonnull SoftAssertions softly, @Nonnull Type.Record recordType, @Nonnull String fieldName, @Nonnull Type fieldType, @Nonnull Descriptors.Descriptor messageDescriptor) {
+    private static void assertContainsField(SoftAssertions softly, Type.Record recordType, String fieldName, Type fieldType, Descriptors.Descriptor messageDescriptor) {
         final Descriptors.FieldDescriptor fieldDescriptor = messageDescriptor.findFieldByName(fieldName);
         softly.assertThat(fieldDescriptor)
                 .as("field %s not found in descriptor", fieldDescriptor)
@@ -977,7 +968,7 @@ class TypeTest {
         assertContainsField(softly, recordType, fieldName, fieldType, fieldDescriptor);
     }
 
-    private static void assertContainsField(@Nonnull SoftAssertions softly, @Nonnull Type.Record recordType, @Nonnull String fieldName, @Nonnull Type fieldType, @Nullable Descriptors.FieldDescriptor fieldDescriptor) {
+    private static void assertContainsField(SoftAssertions softly, Type.Record recordType, String fieldName, Type fieldType, Descriptors.@Nullable FieldDescriptor fieldDescriptor) {
         final Map<String, Type.Record.Field> fieldMap = recordType.getFieldNameFieldMap();
         softly.assertThat(fieldMap)
                 .as("should have had field %s", fieldName)
@@ -1015,7 +1006,7 @@ class TypeTest {
         }
     }
 
-    private static void assertTypeNames(@Nonnull SoftAssertions softly, @Nonnull Type.Record recordType, @Nonnull Descriptors.Descriptor descriptor, boolean preserveNames) {
+    private static void assertTypeNames(SoftAssertions softly, Type.Record recordType, Descriptors.Descriptor descriptor, boolean preserveNames) {
         if (preserveNames) {
             softly.assertThat(recordType.getName())
                     .isEqualTo(ProtoUtils.toUserIdentifier(descriptor.getName()));
@@ -1097,8 +1088,7 @@ class TypeTest {
      * @return the deserialized type
      */
     @SuppressWarnings("unchecked")
-    @Nonnull
-    private static <T extends Type> T roundTrip(@Nonnull T type) {
+    private static <T extends Type> T roundTrip(T type) {
         return (T) Type.fromTypeProto(PlanSerializationContext.newForCurrentMode(),
                 type.toTypeProto(PlanSerializationContext.newForCurrentMode()));
     }

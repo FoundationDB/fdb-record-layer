@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,20 +39,17 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 public abstract class AbstractRelationalExpressionWithChildren extends AbstractRelationalExpression implements RelationalExpressionWithChildren {
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
 
     protected AbstractRelationalExpressionWithChildren() {
     }
 
-    @Nonnull
     @Override
     public final Set<CorrelationIdentifier> getCorrelatedTo() {
         return correlatedToSupplier.get();
     }
 
-    @Nonnull
     protected Set<CorrelationIdentifier> computeCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
         final List<? extends Quantifier> quantifiers = getQuantifiers();

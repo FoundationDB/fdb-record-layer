@@ -30,8 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -54,17 +53,15 @@ import java.util.stream.Collectors;
 public class NestingKeyExpression extends BaseKeyExpression implements KeyExpressionWithChild, AtomKeyExpression {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Nesting-Key-Expression");
 
-    @Nonnull
     private final FieldKeyExpression parent;
-    @Nonnull
     private final KeyExpression child;
 
-    public NestingKeyExpression(@Nonnull FieldKeyExpression parent, @Nonnull KeyExpression child) {
+    public NestingKeyExpression(FieldKeyExpression parent, KeyExpression child) {
         this.parent = parent;
         this.child = child;
     }
 
-    public NestingKeyExpression(@Nonnull RecordKeyExpressionProto.Nesting nesting) throws DeserializationException {
+    public NestingKeyExpression(RecordKeyExpressionProto.Nesting nesting) throws DeserializationException {
         if (!nesting.hasParent()) {
             throw new DeserializationException("Serialized Nesting is missing parent");
         }
@@ -72,7 +69,6 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
         child = KeyExpression.fromProto(nesting.getChild());
     }
 
-    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
         final List<Key.Evaluated> parentKeys = parent.evaluateMessage(record, message);
@@ -92,7 +88,7 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
     }
 
     @Override
-    public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor descriptor) {
         parent.validate(descriptor, true);
         return getChild().validate(parent.getDescriptor(descriptor));
     }
@@ -102,7 +98,6 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
         return getChild().getColumnSize();
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.Nesting toProto() throws SerializationException {
         final RecordKeyExpressionProto.Nesting.Builder builder = RecordKeyExpressionProto.Nesting.newBuilder();
@@ -111,13 +106,11 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
         return builder.build();
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
         return RecordKeyExpressionProto.KeyExpression.newBuilder().setNesting(toProto()).build();
     }
 
-    @Nonnull
     @Override
     public List<KeyExpression> normalizeKeyForPositions() {
         return getChild().normalizeKeyForPositions()
@@ -139,9 +132,8 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
         return child.needsCopyingToPartialRecord();
     }
 
-    @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 
@@ -161,13 +153,11 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
         return new NestingKeyExpression(parent, childKey);
     }
 
-    @Nonnull
     public FieldKeyExpression getParent() {
         return parent;
     }
 
     @Override
-    @Nonnull
     public KeyExpression getChild() {
         return child;
     }
@@ -176,13 +166,11 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
      * Get this nesting as a group without any grouping keys.
      * @return this nesting without any grouping keys
      */
-    @Nonnull
     public GroupingKeyExpression ungrouped() {
         return new GroupingKeyExpression(this, getColumnSize());
     }
 
-    @Nonnull
-    public GroupingKeyExpression groupBy(@Nonnull KeyExpression groupByFirst, @Nonnull KeyExpression... groupByRest) {
+    public GroupingKeyExpression groupBy(KeyExpression groupByFirst, KeyExpression... groupByRest) {
         return GroupingKeyExpression.of(this, groupByFirst, groupByRest);
     }
 
@@ -211,7 +199,7 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return parent.planHash(mode) + getChild().planHash(mode);

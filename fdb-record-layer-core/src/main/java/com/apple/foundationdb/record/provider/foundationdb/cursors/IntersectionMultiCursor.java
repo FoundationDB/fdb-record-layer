@@ -24,10 +24,10 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 /**
@@ -41,18 +41,18 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 public class IntersectionMultiCursor<T> extends IntersectionCursorBase<T, List<T>> {
 
-    private IntersectionMultiCursor(@Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
-                                    boolean reverse, @Nonnull List<KeyedMergeCursorState<T>> cursorStates,
+    private IntersectionMultiCursor(Function<? super T, ? extends List<Object>> comparisonKeyFunction,
+                                    boolean reverse, List<KeyedMergeCursorState<T>> cursorStates,
                                     @Nullable FDBStoreTimer timer) {
         super(comparisonKeyFunction, reverse, cursorStates, timer);
 
     }
 
     @Override
-    @Nonnull
-    protected List<T> getNextResult(@Nonnull List<KeyedMergeCursorState<T>> cursorStates) {
+    protected List<T> getNextResult(List<KeyedMergeCursorState<T>> cursorStates) {
         List<T> result = new ArrayList<>(cursorStates.size());
-        cursorStates.forEach(cursorState -> result.add(cursorState.getResult().get()));
+        // computeNextResultStates() has already settled on the states to return, so getResult() is guaranteed non-null here.
+        cursorStates.forEach(cursorState -> result.add(Objects.requireNonNull(cursorState.getResult()).get()));
         return result;
     }
 
@@ -82,11 +82,10 @@ public class IntersectionMultiCursor<T> extends IntersectionCursorBase<T, List<T
      * @param <T> the type of elements returned by this cursor
      * @return a cursor containing all records in all child cursors
      */
-    @Nonnull
     public static <T> IntersectionMultiCursor<T> create(
-            @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
+            Function<? super T, ? extends List<Object>> comparisonKeyFunction,
             boolean reverse,
-            @Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
+            List<Function<byte[], RecordCursor<T>>> cursorFunctions,
             @Nullable byte[] continuation,
             @Nullable FDBStoreTimer timer) {
         return new IntersectionMultiCursor<>(comparisonKeyFunction, reverse,

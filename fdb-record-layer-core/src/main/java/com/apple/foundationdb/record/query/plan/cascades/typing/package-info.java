@@ -21,4 +21,7 @@
 /**
  * Code to create dynamic messages from structured {@link com.apple.foundationdb.record.query.plan.cascades.typing.Type}s using protobuf.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.cascades.typing;
+
+import org.jspecify.annotations.NullMarked;

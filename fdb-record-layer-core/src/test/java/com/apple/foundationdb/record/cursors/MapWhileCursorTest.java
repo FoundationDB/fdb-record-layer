@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 public class MapWhileCursorTest {
     static final List<Integer> ints = Arrays.asList(1, 2, 3, 4, 5);
 
-    private void validateNoNextReason(@Nonnull RecordCursor<?> cursor, @Nonnull RecordCursor.NoNextReason expectedNoNextResult) {
+    private void validateNoNextReason(RecordCursor<?> cursor, RecordCursor.NoNextReason expectedNoNextResult) {
         RecordCursorResult<?> noNextResult = cursor.getNext();
         assertEquals(false, noNextResult.hasNext());
         assertEquals(expectedNoNextResult, noNextResult.getNoNextReason());
@@ -54,6 +54,9 @@ public class MapWhileCursorTest {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably track @Nullable on the byte[] continuation param of
+    // newCursor(), even though it's already correctly annotated -- see the method declaration below.
+    @SuppressWarnings("NullAway")
     public void noStop() {
         RecordCursor<Integer> cursor = newCursor(i -> i > 5, null, MapWhileCursor.StopContinuation.NONE, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
         assertEquals(Arrays.asList(2, 3, 4, 5, 6), cursor.asList().join());
@@ -61,6 +64,9 @@ public class MapWhileCursorTest {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably track @Nullable on the byte[] continuation param of
+    // newCursor(), even though it's already correctly annotated -- see the method declaration below.
+    @SuppressWarnings("NullAway")
     public void stopAndContinue() {
         RecordCursor<Integer> cursor = newCursor(i -> i > 2, null, MapWhileCursor.StopContinuation.AFTER, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
         assertEquals(Arrays.asList(2, 3), cursor.asList().join());
@@ -71,6 +77,9 @@ public class MapWhileCursorTest {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably track @Nullable on the byte[] continuation param of
+    // newCursor(), even though it's already correctly annotated -- see the method declaration below.
+    @SuppressWarnings("NullAway")
     public void stopAndRepeat() {
         RecordCursor<Integer> cursor = newCursor(i -> i > 2, null, MapWhileCursor.StopContinuation.BEFORE, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
         assertEquals(Arrays.asList(2, 3), cursor.asList().join());
@@ -83,7 +92,11 @@ public class MapWhileCursorTest {
         validateNoNextReason(cursor, RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
     }
 
-    private RecordCursor<Integer> newCursor(Predicate<Integer> stopCondition, byte[] continuation, MapWhileCursor.StopContinuation stopContinuation, RecordCursor.NoNextReason noNextReason) {
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even when passing
+    // this method's own @Nullable byte[] continuation through to RecordCursor.fromList's identically
+    // declared @Nullable byte[] continuation parameter.
+    @SuppressWarnings("NullAway")
+    private RecordCursor<Integer> newCursor(Predicate<Integer> stopCondition, @Nullable byte[] continuation, MapWhileCursor.StopContinuation stopContinuation, RecordCursor.NoNextReason noNextReason) {
         return new MapWhileCursor<>(
                 RecordCursor.fromList(ints, continuation),
                 i -> stopCondition.test(i) ? Optional.empty() : Optional.of(i + 1),

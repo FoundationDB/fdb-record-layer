@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.events;
 
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 
-import javax.annotation.Nonnull;
 
 /**
  * Interface for events that hold a group ref.
@@ -33,6 +32,5 @@ public interface PlannerEventWithCurrentGroupReference extends PlannerEventWithS
      *
      * @return the current reference of the event.
      */
-    @Nonnull
     Reference getCurrentReference();
 }

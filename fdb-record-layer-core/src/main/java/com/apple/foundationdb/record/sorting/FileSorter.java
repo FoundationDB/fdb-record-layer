@@ -34,8 +34,7 @@ import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.ExtensionRegistryLite;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
 import javax.crypto.CipherOutputStream;
@@ -51,11 +50,13 @@ import java.io.OutputStream;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.security.GeneralSecurityException;
+import java.security.Key;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.zip.DeflaterOutputStream;
@@ -85,21 +86,18 @@ import java.util.zip.InflaterInputStream;
 public class FileSorter<K, V>  {
     public static final int SORT_FILE_VERSION = 1;
 
-    @Nonnull
     private final MemorySorter<K, V> mapSorter;
-    @Nonnull
     private final FileSortAdapter<K, V> adapter;
     @Nullable
     private final StoreTimer timer;
-    @Nonnull
     private final Executor executor;
-    @Nonnull
     private final List<File> files;
 
+    @Nullable
     private LoadResult loadResult;
 
-    public FileSorter(@Nonnull FileSortAdapter<K, V> adapter, @Nullable StoreTimer timer,
-                      @Nonnull Executor executor) {
+    public FileSorter(FileSortAdapter<K, V> adapter, @Nullable StoreTimer timer,
+                      Executor executor) {
         this.adapter = adapter;
         this.timer = timer;
         this.executor = executor;
@@ -107,12 +105,10 @@ public class FileSorter<K, V>  {
         files = new ArrayList<>();
     }
 
-    @Nonnull
     public MemorySorter<K, V> getMapSorter() {
         return mapSorter;
     }
 
-    @Nonnull
     public List<File> getFiles() {
         return files;
     }
@@ -121,13 +117,11 @@ public class FileSorter<K, V>  {
     public static class LoadResult {
         private final boolean loadComplete;
         private final boolean inMemory;
-        @Nonnull
         private final RecordCursorContinuation sourceContinuation;
-        @Nonnull
         private final RecordCursor.NoNextReason sourceNoNextReason;
 
         public LoadResult(boolean loadComplete, boolean inMemory,
-                          @Nonnull RecordCursorContinuation sourceContinuation, @Nonnull RecordCursor.NoNextReason sourceNoNextReason) {
+                          RecordCursorContinuation sourceContinuation, RecordCursor.NoNextReason sourceNoNextReason) {
             this.loadComplete = loadComplete;
             this.inMemory = inMemory;
             this.sourceContinuation = sourceContinuation;
@@ -142,18 +136,16 @@ public class FileSorter<K, V>  {
             return inMemory;
         }
 
-        @Nonnull
         public RecordCursorContinuation getSourceContinuation() {
             return sourceContinuation;
         }
 
-        @Nonnull
         public RecordCursor.NoNextReason getSourceNoNextReason() {
             return sourceNoNextReason;
         }
     }
 
-    public CompletableFuture<LoadResult> load(@Nonnull RecordCursor<V> source) {
+    public CompletableFuture<LoadResult> load(RecordCursor<V> source) {
         loadResult = null;
         return AsyncUtil.whileTrue(() -> mapSorter.load(source, null).thenCompose(mapResult -> {
             if (mapResult.isFull()) {
@@ -170,14 +162,14 @@ public class FileSorter<K, V>  {
                 // Save from memory and, if necessary, consolidate into a single file.
                 return CompletableFuture.runAsync(() -> saveToNextFile(1), executor).thenApply(vignore -> false);
             }
-        }), executor).thenApply(vignore -> loadResult);
+        }), executor).thenApply(vignore -> Objects.requireNonNull(loadResult, "loadResult should have been set by the loop body above"));
     }
 
     @SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.CloseResource"})
     private void saveToNextFile(int maxNumFiles) {
         final long startTime = System.nanoTime();
         final boolean compress = adapter.isCompressed();
-        final java.security.Key encryptionKey = adapter.getEncryptionKey();
+        final Key encryptionKey = adapter.getEncryptionKey();
         Cipher cipher = null;
         if (!mapSorter.getMap().isEmpty()) {
             File file;
@@ -200,7 +192,9 @@ public class FileSorter<K, V>  {
                         final String cipherName = adapter.getEncryptionCipherName();
                         if (cipherName != null) {
                             cipher = CipherPool.borrowCipher(cipherName);
-                            initCipherEncrypt(cipher, encryptionKey, adapter.getSecureRandom(), sectionHeader);
+                            initCipherEncrypt(cipher, encryptionKey,
+                                    Objects.requireNonNull(adapter.getSecureRandom(), "adapter must supply a secure random source when encryption is configured"),
+                                    sectionHeader);
                         }
                     }
                     headerStream.writeMessageNoTag(sectionHeader.build());
@@ -270,10 +264,10 @@ public class FileSorter<K, V>  {
         }
     }
 
-    static void initCipherEncrypt(@Nonnull Cipher cipher,
-                                  @Nonnull java.security.Key encryptionKey,
-                                  @Nonnull SecureRandom secureRandom,
-                                  @Nonnull RecordSortingProto.SortSectionHeader.Builder sectionHeader)
+    static void initCipherEncrypt(Cipher cipher,
+                                  Key encryptionKey,
+                                  SecureRandom secureRandom,
+                                  RecordSortingProto.SortSectionHeader.Builder sectionHeader)
             throws GeneralSecurityException {
         final byte[] iv = new byte[CipherPool.IV_SIZE];
         secureRandom.nextBytes(iv);
@@ -281,16 +275,15 @@ public class FileSorter<K, V>  {
         cipher.init(Cipher.ENCRYPT_MODE, encryptionKey, new IvParameterSpec(iv));
     }
 
-    static void initCipherDecrypt(@Nonnull Cipher cipher, @Nonnull java.security.Key encryptionKey,
-                                  @Nonnull RecordSortingProto.SortSectionHeader.Builder sectionHeader)
+    static void initCipherDecrypt(Cipher cipher, Key encryptionKey,
+                                  RecordSortingProto.SortSectionHeader.Builder sectionHeader)
             throws GeneralSecurityException {
         final byte[] iv = sectionHeader.getEncryptionIv().toByteArray();
         cipher.init(Cipher.DECRYPT_MODE, encryptionKey, new IvParameterSpec(iv));
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    static OutputStream wrapOutputStream(@Nonnull FileOutputStream fileStream,
+    static OutputStream wrapOutputStream(FileOutputStream fileStream,
                                          @Nullable Cipher cipher, boolean compress) {
         OutputStream stream = new NoCloseFilterStream(fileStream);
         if (compress) {
@@ -302,9 +295,8 @@ public class FileSorter<K, V>  {
         return stream;
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    static InputStream wrapInputStream(@Nonnull FileInputStream fileStream,
+    static InputStream wrapInputStream(FileInputStream fileStream,
                                        @Nullable Cipher cipher, boolean compressed) {
         InputStream stream = fileStream;
         if (compressed) {
@@ -321,7 +313,7 @@ public class FileSorter<K, V>  {
     // Since those streams are pretty thin wrappers around Deflater and Cipher, an alternative would be to implement better
     // contracts from scratch, which might also benefit record serialization.
     private static class NoCloseFilterStream extends FilterOutputStream {
-        public NoCloseFilterStream(@Nonnull OutputStream stream) {
+        public NoCloseFilterStream(OutputStream stream) {
             super(stream);
         }
 
@@ -331,18 +323,14 @@ public class FileSorter<K, V>  {
     }
 
     private static class InputState implements Closeable {
-        @Nonnull
         final File file;
-        @Nonnull
         final FileInputStream fileStream;
-        @Nonnull
         CodedInputStream headerStream;
-        @Nonnull
         CodedInputStream entryStream;
 
         final boolean compressed;
         @Nullable
-        final java.security.Key encryptionKey;
+        final Key encryptionKey;
         @Nullable
         final Cipher cipher;
 
@@ -355,8 +343,10 @@ public class FileSorter<K, V>  {
         int sectionRecordEnd;
         int fileRecordEnd;
         int recordPosition;
-        
-        public InputState(@Nonnull File file, @Nonnull FileSortAdapter<?, ?> adapter) throws IOException, GeneralSecurityException {
+
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably recognize that the already-@Nullable
+        // byte[] fields key/value need no initialization here; they are set on the first call to next().
+        public InputState(File file, FileSortAdapter<?, ?> adapter) throws IOException, GeneralSecurityException {
             this.file = file;
             fileStream = new FileInputStream(file);
             headerStream = CodedInputStream.newInstance(fileStream);
@@ -380,7 +370,8 @@ public class FileSorter<K, V>  {
             fileRecordEnd = builder.getNumberOfRecords();
         }
 
-        @SuppressWarnings("PMD.CloseResource")
+        @SuppressWarnings({"PMD.CloseResource", "NullAway"}) // NullAway/JSpecify does not reliably track the
+        // already-@Nullable byte[] fields key/value across this assignment.
         public void next() throws IOException, GeneralSecurityException {
             while (recordPosition >= sectionRecordEnd) {
                 if (recordPosition >= fileRecordEnd) {
@@ -406,7 +397,8 @@ public class FileSorter<K, V>  {
                     fileChannel.position(sectionFilePosition);
                     sectionFilePosition += builder.getNumberOfBytes();
                     if (cipher != null) {
-                        initCipherDecrypt(cipher, encryptionKey, builder);
+                        // cipher is only non-null when encryptionKey was also non-null (see the constructor).
+                        initCipherDecrypt(cipher, Objects.requireNonNull(encryptionKey), builder);
                     }
                     InputStream inputStream = wrapInputStream(fileStream, cipher, compressed);
                     entryStream = CodedInputStream.newInstance(inputStream);
@@ -427,38 +419,30 @@ public class FileSorter<K, V>  {
     }
 
     private static class OutputState implements Closeable {
-        @Nonnull
         final File file;
         final int recordsPerSection;
-        @Nonnull
         final FileOutputStream fileStream;
-        @Nonnull
         final FileChannel fileChannel;
-        @Nonnull
         CodedOutputStream headerStream;
-        @Nonnull
         OutputStream outputStream;
-        @Nonnull
         CodedOutputStream entryStream;
 
         final boolean compress;
         @Nullable
-        final java.security.Key encryptionKey;
+        final Key encryptionKey;
         @Nullable
         final SecureRandom secureRandom;
         @Nullable
         final Cipher cipher;
 
-        @Nonnull
         final RecordSortingProto.SortFileHeader.Builder fileHeader;
-        @Nonnull
         final RecordSortingProto.SortSectionHeader.Builder sectionHeader;
 
         long fileHeaderEnd;
         long sectionHeaderPosition;
         long sectionRecordsPosition;
 
-        public OutputState(@Nonnull File file, @Nonnull FileSortAdapter<?, ?> adapter) throws IOException, GeneralSecurityException {
+        public OutputState(File file, FileSortAdapter<?, ?> adapter) throws IOException, GeneralSecurityException {
             this.file = file;
             this.recordsPerSection = adapter.getRecordCountPerSection();
             fileStream = new FileOutputStream(file);
@@ -491,7 +475,7 @@ public class FileSorter<K, V>  {
             writeSectionHeader();
         }
 
-        public void next(@Nonnull byte[] key, @Nonnull byte[] value) throws IOException, GeneralSecurityException {
+        public void next(byte[] key, byte[] value) throws IOException, GeneralSecurityException {
             entryStream.writeByteArrayNoTag(key);
             entryStream.writeByteArrayNoTag(value);
             fileHeader.setNumberOfRecords(fileHeader.getNumberOfRecords() + 1);
@@ -530,7 +514,9 @@ public class FileSorter<K, V>  {
             headerStream.flush();
             sectionHeaderPosition = fileChannel.position();
             if (cipher != null) {
-                initCipherEncrypt(cipher, encryptionKey, secureRandom, sectionHeader);
+                // cipher is only non-null when encryptionKey and secureRandom were also both non-null
+                // (see the constructor).
+                initCipherEncrypt(cipher, Objects.requireNonNull(encryptionKey), Objects.requireNonNull(secureRandom), sectionHeader);
             }
             headerStream.writeMessageNoTag(sectionHeader.build());
             headerStream.flush();
@@ -561,8 +547,11 @@ public class FileSorter<K, V>  {
 
     // TODO: If there were a limit on the total number of records saved, then each file could be limited to
     // that number and merge could stop when it is reached.
-    @SuppressWarnings({"PMD.EmptyCatchBlock", "PMD.CloseResource", "PMD.UseTryWithResources"})
-    private void merge(@Nonnull Collection<File> inputFiles, @Nonnull File outputFile) throws IOException, GeneralSecurityException {
+    @SuppressWarnings({"PMD.EmptyCatchBlock", "PMD.CloseResource", "PMD.UseTryWithResources", "NullAway"})
+    // NullAway: minState is only ever assigned from an input with a non-null key (see the loop below), and
+    // InputState always sets key and value together (see InputState#next()), so value is non-null too; but
+    // NullAway/JSpecify does not reliably recognize Objects.requireNonNull() as narrowing a @Nullable byte[].
+    private void merge(Collection<File> inputFiles, File outputFile) throws IOException, GeneralSecurityException {
         final long startTime = System.nanoTime();
         final List<InputState> inputs = new ArrayList<>(inputFiles.size());
         OutputState output = null;
@@ -593,7 +582,9 @@ public class FileSorter<K, V>  {
                 if (minState == null) {
                     break;
                 }
-                output.next(minState.key, minState.value);
+                // minState is only ever assigned from an input with a non-null key (see the loop above), and
+                // InputState always sets key and value together (see InputState#next()), so value is non-null too.
+                output.next(Objects.requireNonNull(minState.key), Objects.requireNonNull(minState.value));
                 minState.next();
             }
             output.finish();
@@ -636,7 +627,7 @@ public class FileSorter<K, V>  {
         }
     }
 
-    private void deleteFile(@Nonnull File file) throws IOException {
+    private void deleteFile(File file) throws IOException {
         // file.delete() doesn't have real error handling.
         Files.delete(file.toPath());
     }

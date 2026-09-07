@@ -41,4 +41,7 @@
  * This package contains various implementations of {@link com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty}.
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.cascades.properties;
+
+import org.jspecify.annotations.NullMarked;

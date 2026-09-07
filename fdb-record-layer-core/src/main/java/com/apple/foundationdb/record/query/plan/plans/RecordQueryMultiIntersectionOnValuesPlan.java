@@ -51,8 +51,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -71,21 +71,20 @@ public class RecordQueryMultiIntersectionOnValuesPlan extends RecordQueryInterse
      */
     @Nullable
     private final List<ProvidedOrderingPart> comparisonKeyOrderingParts;
-    @Nonnull
     private final Value resultValue;
 
-    protected RecordQueryMultiIntersectionOnValuesPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                                       @Nonnull final PRecordQueryMultiIntersectionOnValuesPlan recordQueryMultiIntersectionOnValuesPlanProto) {
+    protected RecordQueryMultiIntersectionOnValuesPlan(final PlanSerializationContext serializationContext,
+                                                       final PRecordQueryMultiIntersectionOnValuesPlan recordQueryMultiIntersectionOnValuesPlanProto) {
         super(serializationContext, Objects.requireNonNull(recordQueryMultiIntersectionOnValuesPlanProto.getSuper()));
         this.comparisonKeyOrderingParts = null;
         this.resultValue = Value.fromValueProto(serializationContext,
                 recordQueryMultiIntersectionOnValuesPlanProto.getResultValue());
     }
 
-    private RecordQueryMultiIntersectionOnValuesPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
+    private RecordQueryMultiIntersectionOnValuesPlan(final List<Quantifier.Physical> quantifiers,
                                                      @Nullable final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
-                                                     @Nonnull final List<? extends Value> comparisonKeyValues,
-                                                     @Nonnull final Value resultValue,
+                                                     final List<? extends Value> comparisonKeyValues,
+                                                     final Value resultValue,
                                                      final boolean reverse) {
         super(quantifiers,
                 new ComparisonKeyFunction.OnValues(Quantifier.current(), comparisonKeyValues),
@@ -95,39 +94,33 @@ public class RecordQueryMultiIntersectionOnValuesPlan extends RecordQueryInterse
         this.resultValue = resultValue;
     }
 
-    @Nonnull
     @Override
     public ComparisonKeyFunction.OnValues getComparisonKeyFunction() {
         return (ComparisonKeyFunction.OnValues)super.getComparisonKeyFunction();
     }
 
-    @Nonnull
     @Override
-    public List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier newBaseAlias,
-                                                   @Nonnull final Type inputType) {
+    public List<? extends Value> getRequiredValues(final CorrelationIdentifier newBaseAlias,
+                                                   final Type inputType) {
         throw new UnsupportedOperationException();
     }
 
     @HeuristicPlanner
-    @Nonnull
     @Override
     public Set<KeyExpression> getRequiredFields() {
         throw new UnsupportedOperationException();
     }
 
-    @Nonnull
     @Override
     public List<ProvidedOrderingPart> getComparisonKeyOrderingParts() {
         return Objects.requireNonNull(comparisonKeyOrderingParts);
     }
 
-    @Nonnull
     @Override
     public List<? extends Value> getComparisonKeyValues() {
         return getComparisonKeyFunction().getComparisonKeyValues();
     }
 
-    @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
         return Streams.concat(getComparisonKeyValues().stream(), Stream.of(resultValue))
@@ -135,19 +128,17 @@ public class RecordQueryMultiIntersectionOnValuesPlan extends RecordQueryInterse
                         comparisonKeyValue.getDynamicTypes().stream()).collect(ImmutableSet.toImmutableSet());
     }
 
-    @Nonnull
     @Override
     protected Value computeResultValue() {
         return resultValue;
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("resource")
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         final var quantifiers = getQuantifiers();
         final ExecuteProperties childExecuteProperties = executeProperties.clearSkipAndLimit();
         return IntersectionMultiCursor.create(
@@ -174,11 +165,10 @@ public class RecordQueryMultiIntersectionOnValuesPlan extends RecordQueryInterse
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
-    @Nonnull
     @Override
-    public RecordQueryMultiIntersectionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryMultiIntersectionOnValuesPlan translateCorrelations(final TranslationMap translationMap,
                                                                           final boolean shouldSimplifyValues,
-                                                                          @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                                          final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryMultiIntersectionOnValuesPlan(Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
                 comparisonKeyOrderingParts,
                 getComparisonKeyValues(),
@@ -186,9 +176,8 @@ public class RecordQueryMultiIntersectionOnValuesPlan extends RecordQueryInterse
                 isReverse());
     }
 
-    @Nonnull
     @Override
-    public RecordQueryMultiIntersectionOnValuesPlan withChildrenReferences(@Nonnull final List<? extends Reference> newChildren) {
+    public RecordQueryMultiIntersectionOnValuesPlan withChildrenReferences(final List<? extends Reference> newChildren) {
         return new RecordQueryMultiIntersectionOnValuesPlan(
                 newChildren.stream()
                         .map(Quantifier::physical)
@@ -201,29 +190,26 @@ public class RecordQueryMultiIntersectionOnValuesPlan extends RecordQueryInterse
 
     @HeuristicPlanner
     @Override
-    public RecordQueryMultiIntersectionOnValuesPlan strictlySorted(@Nonnull final FinalMemoizer finalMemoizer) {
+    public RecordQueryMultiIntersectionOnValuesPlan strictlySorted(final FinalMemoizer finalMemoizer) {
         throw new UnsupportedOperationException();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryMultiIntersectionOnValuesPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryMultiIntersectionOnValuesPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryMultiIntersectionOnValuesPlan.newBuilder()
                 .setSuper(toRecordQueryIntersectionPlan(serializationContext))
                 .setResultValue(resultValue.toValueProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder()
                 .setMultiIntersectionOnValuesPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.INTERSECTION_OPERATOR,
@@ -233,16 +219,14 @@ public class RecordQueryMultiIntersectionOnValuesPlan extends RecordQueryInterse
                 childGraphs);
     }
 
-    @Nonnull
-    public static RecordQueryMultiIntersectionOnValuesPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                                     @Nonnull final PRecordQueryMultiIntersectionOnValuesPlan recordQueryMultiIntersectionOnValuesPlanProto) {
+    public static RecordQueryMultiIntersectionOnValuesPlan fromProto(final PlanSerializationContext serializationContext,
+                                                                     final PRecordQueryMultiIntersectionOnValuesPlan recordQueryMultiIntersectionOnValuesPlanProto) {
         return new RecordQueryMultiIntersectionOnValuesPlan(serializationContext, recordQueryMultiIntersectionOnValuesPlanProto);
     }
 
-    @Nonnull
-    public static RecordQueryMultiIntersectionOnValuesPlan intersection(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                                                        @Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
-                                                                        @Nonnull final Value resultValue,
+    public static RecordQueryMultiIntersectionOnValuesPlan intersection(final List<Quantifier.Physical> quantifiers,
+                                                                        final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
+                                                                        final Value resultValue,
                                                                         final boolean isReverse) {
         return new RecordQueryMultiIntersectionOnValuesPlan(quantifiers,
                 comparisonKeyOrderingParts,
@@ -256,16 +240,14 @@ public class RecordQueryMultiIntersectionOnValuesPlan extends RecordQueryInterse
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryMultiIntersectionOnValuesPlan, RecordQueryMultiIntersectionOnValuesPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryMultiIntersectionOnValuesPlan> getProtoMessageClass() {
             return PRecordQueryMultiIntersectionOnValuesPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryMultiIntersectionOnValuesPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                                  @Nonnull final PRecordQueryMultiIntersectionOnValuesPlan recordQueryMultiIntersectionOnValuesPlanProto) {
+        public RecordQueryMultiIntersectionOnValuesPlan fromProto(final PlanSerializationContext serializationContext,
+                                                                  final PRecordQueryMultiIntersectionOnValuesPlan recordQueryMultiIntersectionOnValuesPlanProto) {
             return RecordQueryMultiIntersectionOnValuesPlan.fromProto(serializationContext, recordQueryMultiIntersectionOnValuesPlanProto);
         }
     }

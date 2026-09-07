@@ -28,8 +28,7 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
@@ -43,30 +42,26 @@ import java.util.concurrent.ForkJoinPool;
  */
 @API(API.Status.UNSTABLE)
 public class ListCursor<T> implements RecordCursor<T> {
-    @Nonnull
     private final Executor executor;
-    @Nonnull
     private final List<T> list;
     private int nextPosition; // position of the next value to return
     private boolean closed = false;
 
-    public ListCursor(@Nonnull List<T> list, byte []continuation) {
+    public ListCursor(List<T> list, @Nullable byte[] continuation) {
         this(ForkJoinPool.commonPool(), list, continuation != null ? ByteBuffer.wrap(continuation).getInt() : 0);
     }
 
-    public ListCursor(@Nonnull Executor executor, @Nonnull List<T> list, int nextPosition) {
+    public ListCursor(Executor executor, List<T> list, int nextPosition) {
         this.executor = executor;
         this.list = list;
         this.nextPosition = nextPosition;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         return CompletableFuture.completedFuture(getNext());
     }
 
-    @Nonnull
     @Override
     public RecordCursorResult<T> getNext() {
         RecordCursorResult<T> nextResult;
@@ -90,13 +85,12 @@ public class ListCursor<T> implements RecordCursor<T> {
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
         return visitor.visitLeave(this);
     }
 
     @Override
-    @Nonnull
     public Executor getExecutor() {
         return executor;
     }
@@ -119,7 +113,6 @@ public class ListCursor<T> implements RecordCursor<T> {
             return nextPosition > listSize;
         }
 
-        @Nonnull
         @Override
         public ByteString toByteString() {
             if (isEnd()) {
@@ -130,6 +123,7 @@ public class ListCursor<T> implements RecordCursor<T> {
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
         public byte[] toBytes() {
             if (isEnd()) {
                 return null;

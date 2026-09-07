@@ -46,8 +46,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -66,53 +66,44 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class FullUnorderedScanExpression extends AbstractRelationalExpressionWithoutChildren implements InternalPlannerGraphRewritable {
-    @Nonnull
     private final Set<String> recordTypes;
-    @Nonnull
     private final Type flowedType;
 
-    @Nonnull
     final AccessHints accessHints;
 
-    public FullUnorderedScanExpression(@Nonnull final Set<String> recordTypes, @Nonnull final Type flowedType, @Nonnull final AccessHints accessHints) {
+    public FullUnorderedScanExpression(final Set<String> recordTypes, final Type flowedType, final AccessHints accessHints) {
         this.recordTypes = ImmutableSet.copyOf(recordTypes);
         this.flowedType = flowedType;
         this.accessHints = accessHints;
     }
 
-    @Nonnull
     public Set<String> getRecordTypes() {
         return recordTypes;
     }
 
-    @Nonnull
     public AccessHints getAccessHints() {
         return accessHints;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return new QueriedValue(flowedType);
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public FullUnorderedScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public FullUnorderedScanExpression translateCorrelations(final TranslationMap translationMap,
                                                              final boolean shouldSimplifyValues,
-                                                             @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                             final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
         // this is ok as there are no new quantifiers
         return this;
@@ -120,7 +111,7 @@ public class FullUnorderedScanExpression extends AbstractRelationalExpressionWit
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression, @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression, final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -155,12 +146,11 @@ public class FullUnorderedScanExpression extends AbstractRelationalExpressionWit
         return "FullUnorderedScan";
     }
 
-    @Nonnull
     @Override
-    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                          @Nonnull final AliasMap bindingAliasMap,
-                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
-                                          @Nonnull final EvaluationContext evaluationContext) {
+    public Iterable<MatchInfo> subsumedBy(final RelationalExpression candidateExpression,
+                                          final AliasMap bindingAliasMap,
+                                          final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                          final EvaluationContext evaluationContext) {
         if (getClass() != candidateExpression.getClass()) {
             return ImmutableList.of();
         }
@@ -177,18 +167,16 @@ public class FullUnorderedScanExpression extends AbstractRelationalExpressionWit
         }
     }
 
-    @Nonnull
     @Override
-    public Compensation compensate(@Nonnull final PartialMatch partialMatch,
-                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+    public Compensation compensate(final PartialMatch partialMatch,
+                                   final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nullable final PullUp pullUp,
-                                   @Nonnull final CorrelationIdentifier candidateAlias) {
+                                   final CorrelationIdentifier candidateAlias) {
         return Compensation.noCompensation();
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteInternalPlannerGraph(List<? extends PlannerGraph> childGraphs) {
         Verify.verify(childGraphs.isEmpty());
 
         final var explainFormatter =

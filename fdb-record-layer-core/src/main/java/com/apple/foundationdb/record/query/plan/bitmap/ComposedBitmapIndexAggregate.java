@@ -46,12 +46,13 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithComparison;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan.ComposerBase;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -59,6 +60,7 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -85,10 +87,9 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ComposedBitmapIndexAggregate {
-    @Nonnull
     private final Node root;
 
-    ComposedBitmapIndexAggregate(@Nonnull Node root) {
+    ComposedBitmapIndexAggregate(Node root) {
         this.root = root;
     }
 
@@ -100,11 +101,10 @@ public class ComposedBitmapIndexAggregate {
      * @param indexQueryabilityFilter a filter to restrict which indexes can be used when planning
      * @return an {@code Optional} query plan or {@code Optional.empty} if planning is not possible
      */
-    @Nonnull
-    public static Optional<RecordQueryPlan> tryPlan(@Nonnull RecordQueryPlanner planner,
-                                                    @Nonnull RecordQuery query,
-                                                    @Nonnull IndexAggregateFunctionCall indexAggregateFunctionCall,
-                                                    @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+    public static Optional<RecordQueryPlan> tryPlan(RecordQueryPlanner planner,
+                                                    RecordQuery query,
+                                                    IndexAggregateFunctionCall indexAggregateFunctionCall,
+                                                    IndexQueryabilityFilter indexQueryabilityFilter) {
         if (query.getFilter() == null || query.getSort() != null) {
             return Optional.empty();
         }
@@ -119,9 +119,8 @@ public class ComposedBitmapIndexAggregate {
      * @param queryBuilder a prototype query providing target record types and required fields
      * @return an {@code Optional} query plan or {@code Optional.empty} if planning is not possible
      */
-    @Nonnull
-    public Optional<RecordQueryPlan> tryPlan(@Nonnull RecordQueryPlanner planner,
-                                             @Nonnull RecordQuery.Builder queryBuilder) {
+    public Optional<RecordQueryPlan> tryPlan(RecordQueryPlanner planner,
+                                             RecordQuery.Builder queryBuilder) {
         final List<RecordQueryCoveringIndexPlan> indexScans = new ArrayList<>();
         final Map<IndexNode, ComposedBitmapIndexQueryPlan.IndexComposer> indexComposers = new IdentityHashMap<>();
         final ComposedBitmapIndexQueryPlan.ComposerBase composer = plan(root, queryBuilder, planner, indexScans, indexComposers);
@@ -155,12 +154,11 @@ public class ComposedBitmapIndexAggregate {
      * @param indexQueryabilityFilter a filter to restrict which indexes can be used when planning
      * @return an {@code Optional} composed bitmap or {@code Optional.empty} if there conditions could not be satisfied
      */
-    @Nonnull
-    public static Optional<ComposedBitmapIndexAggregate> tryBuild(@Nonnull QueryPlanner planner,
-                                                                  @Nonnull Collection<String> recordTypeNames,
-                                                                  @Nonnull IndexAggregateFunctionCall indexAggregateFunctionCall,
-                                                                  @Nonnull QueryComponent filter,
-                                                                  @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+    public static Optional<ComposedBitmapIndexAggregate> tryBuild(QueryPlanner planner,
+                                                                  Collection<String> recordTypeNames,
+                                                                  IndexAggregateFunctionCall indexAggregateFunctionCall,
+                                                                  QueryComponent filter,
+                                                                  IndexQueryabilityFilter indexQueryabilityFilter) {
         // The filters that are common to all the composed index queries.
         // They can be equality conditions on the common group prefix (as specified by indexAggregateFunctionCall)
         // or inequalities on the position.
@@ -178,10 +176,10 @@ public class ComposedBitmapIndexAggregate {
             .map(ComposedBitmapIndexAggregate::new);
     }
 
-    private static boolean separateGroupFilters(@Nonnull QueryComponent filter,
-                                                @Nonnull IndexAggregateFunctionCall indexAggregateFunctionCall,
-                                                @Nonnull List<QueryComponent> commonFilters,
-                                                @Nonnull List<QueryComponent> indexFilters) {
+    private static boolean separateGroupFilters(QueryComponent filter,
+                                                IndexAggregateFunctionCall indexAggregateFunctionCall,
+                                                List<QueryComponent> commonFilters,
+                                                List<QueryComponent> indexFilters) {
         QueryToKeyMatcher matcher = new QueryToKeyMatcher(filter);
         FilterSatisfiedMask filterMask = FilterSatisfiedMask.of(filter);
         QueryToKeyMatcher.Match match = matcher.matchesCoveringKey(indexAggregateFunctionCall.getGroupingKeyExpression().getGroupingSubKey(), filterMask);
@@ -208,10 +206,10 @@ public class ComposedBitmapIndexAggregate {
     }
 
     @Nullable
-    private ComposedBitmapIndexQueryPlan.ComposerBase plan(@Nonnull Node node, @Nonnull RecordQuery.Builder queryBuilder,
-                                                           @Nonnull RecordQueryPlanner planner,
-                                                           @Nonnull List<RecordQueryCoveringIndexPlan> indexScans,
-                                                           @Nonnull Map<IndexNode, ComposedBitmapIndexQueryPlan.IndexComposer> indexComposers) {
+    private ComposerBase plan(Node node, RecordQuery.Builder queryBuilder,
+                                                           RecordQueryPlanner planner,
+                                                           List<RecordQueryCoveringIndexPlan> indexScans,
+                                                           Map<IndexNode, ComposedBitmapIndexQueryPlan.IndexComposer> indexComposers) {
         if (node instanceof OperatorNode) {
             final OperatorNode operatorNode = (OperatorNode) node;
             final List<ComposedBitmapIndexQueryPlan.ComposerBase> children = new ArrayList<>();
@@ -257,12 +255,10 @@ public class ComposedBitmapIndexAggregate {
     static class OperatorNode extends Node {
         enum Operator { AND, OR, NOT }
 
-        @Nonnull
         private final Operator operator;
-        @Nonnull
         private final List<Node> operands;
 
-        OperatorNode(@Nonnull Operator operator, @Nonnull List<Node> operands) {
+        OperatorNode(Operator operator, List<Node> operands) {
             this.operator = operator;
             this.operands = operands;
         }
@@ -271,14 +267,11 @@ public class ComposedBitmapIndexAggregate {
     // Note that the same IndexNode can occur multiple times in the tree, if the same condition subexpression appears
     // multiple times in the filter.
     static class IndexNode extends Node {
-        @Nonnull
         private final QueryComponent filter;
-        @Nonnull
         private final IndexAggregateGroupKeys groupKeys;
-        @Nonnull
         private final String indexName;
 
-        IndexNode(@Nonnull QueryComponent filter, @Nonnull IndexAggregateGroupKeys groupKeys, @Nonnull String indexName) {
+        IndexNode(QueryComponent filter, IndexAggregateGroupKeys groupKeys, String indexName) {
             this.filter = filter;
             this.groupKeys = groupKeys;
             this.indexName = indexName;
@@ -286,31 +279,26 @@ public class ComposedBitmapIndexAggregate {
     }
 
     static class Builder {
-        @Nonnull
         private final QueryPlanner planner;
-        @Nonnull
         private final Collection<String> recordTypeNames;
-        @Nonnull
         private final List<QueryComponent> groupFilters;
-        @Nonnull
         private final IndexAggregateFunctionCall indexAggregateFunctionCall;
         @Nullable
         private Map<KeyExpression, Index> bitmapIndexes;
         @Nullable
         private Map<QueryComponent, IndexNode> indexNodes;
 
-        Builder(@Nonnull final QueryPlanner planner, @Nonnull Collection<String> recordTypeNames,
-                @Nonnull List<QueryComponent> groupFilters, @Nonnull IndexAggregateFunctionCall indexAggregateFunctionCall) {
+        Builder(final QueryPlanner planner, Collection<String> recordTypeNames,
+                List<QueryComponent> groupFilters, IndexAggregateFunctionCall indexAggregateFunctionCall) {
             this.planner = planner;
             this.recordTypeNames = recordTypeNames;
             this.groupFilters = groupFilters;
             this.indexAggregateFunctionCall = indexAggregateFunctionCall;
         }
 
-        @Nonnull
-        Optional<Node> tryBuild(@Nonnull QueryComponent indexFilter,
-                                @Nonnull IndexQueryabilityFilter indexQueryabilityFilter,
-                                @Nonnull List<String> prefixFields) {
+        Optional<Node> tryBuild(QueryComponent indexFilter,
+                                IndexQueryabilityFilter indexQueryabilityFilter,
+                                List<String> prefixFields) {
             if (indexFilter instanceof NestedField) {
                 List<String> newPrefix = new ArrayList<>(prefixFields.size() + 1);
                 newPrefix.addAll(prefixFields);
@@ -340,10 +328,9 @@ public class ComposedBitmapIndexAggregate {
             return Optional.empty();
         }
 
-        @Nonnull
-        Optional<Node> indexScan(@Nonnull QueryComponent indexFilter,
-                                 @Nonnull IndexQueryabilityFilter indexQueryabilityFilter,
-                                 @Nonnull List<String> prefixFields) {
+        Optional<Node> indexScan(QueryComponent indexFilter,
+                                 IndexQueryabilityFilter indexQueryabilityFilter,
+                                 List<String> prefixFields) {
             if (bitmapIndexes == null) {
                 bitmapIndexes = findBitmapIndexes(indexAggregateFunctionCall.getFunctionName(), indexQueryabilityFilter);
                 if (bitmapIndexes.isEmpty()) {
@@ -352,7 +339,9 @@ public class ComposedBitmapIndexAggregate {
                 indexNodes = new HashMap<>();
             }
             final QueryComponent filterWithParents = rebuildNestedComponent(indexFilter, prefixFields);
-            IndexNode existing = indexNodes.get(filterWithParents);
+            // indexNodes is initialized together with bitmapIndexes above (and never cleared), so it's
+            // guaranteed non-null by this point.
+            IndexNode existing = Objects.requireNonNull(indexNodes).get(filterWithParents);
             if (existing != null) {
                 return Optional.of(existing);
             }
@@ -386,16 +375,18 @@ public class ComposedBitmapIndexAggregate {
             final QueryComponent fullFilter = andFilters(groupFilters, filterWithParents);
             // Allow conditions on the position field as well.
             final KeyExpression fullOperand = new GroupingKeyExpression(fullKey.getWholeKey(), 0);
+            // Capture into a final local: indexNodes' narrowed non-null state (established above) doesn't
+            // persist into the lambda below, since it's a mutable field rather than an effectively-final local.
+            final Map<QueryComponent, IndexNode> nonNullIndexNodes = Objects.requireNonNull(indexNodes);
             return IndexAggregateGroupKeys.conditionsToGroupKeys(fullOperand, fullFilter)
                     .map(groupKeys -> {
                         final IndexNode indexNode = new IndexNode(fullFilter, groupKeys, index.getName());
-                        indexNodes.put(indexFilter, indexNode);
+                        nonNullIndexNodes.put(indexFilter, indexNode);
                         return indexNode;
                     });
         }
 
-        @Nonnull
-        private static QueryComponent rebuildNestedComponent(@Nonnull QueryComponent childFilter, @Nonnull List<String> prefixFields) {
+        private static QueryComponent rebuildNestedComponent(QueryComponent childFilter, List<String> prefixFields) {
             QueryComponent filter = childFilter;
             for (int nestIndex = prefixFields.size() - 1; nestIndex >= 0; nestIndex--) {
                 filter = new NestedField(prefixFields.get(nestIndex), filter);
@@ -404,7 +395,7 @@ public class ComposedBitmapIndexAggregate {
         }
 
         @Nullable
-        private static KeyExpression getKeyForQueryComponent(@Nonnull QueryComponent indexFilter, @Nonnull List<String> prefixFields) {
+        private static KeyExpression getKeyForQueryComponent(QueryComponent indexFilter, List<String> prefixFields) {
             KeyExpression key;
             if (indexFilter instanceof FieldWithComparison) {
                 key = Key.Expressions.field(((FieldWithComparison) indexFilter).getFieldName());
@@ -419,9 +410,8 @@ public class ComposedBitmapIndexAggregate {
             return key;
         }
 
-        @Nonnull
-        private ThenKeyExpression insertKey(final @Nonnull KeyExpression indexKey,
-                                            final @Nonnull GroupingKeyExpression groupKey,
+        private ThenKeyExpression insertKey(final KeyExpression indexKey,
+                                            final GroupingKeyExpression groupKey,
                                             final int position) {
             final int wholeCount = groupKey.getColumnSize();
             final int groupedCount = groupKey.getGroupedCount();
@@ -441,8 +431,8 @@ public class ComposedBitmapIndexAggregate {
             return splicedKey;
         }
 
-        private static QueryComponent andFilters(final @Nonnull List<QueryComponent> groupFilters,
-                                                 final @Nonnull QueryComponent indexFilter) {
+        private static QueryComponent andFilters(final List<QueryComponent> groupFilters,
+                                                 final QueryComponent indexFilter) {
             final QueryComponent fullFilter;
             if (groupFilters.isEmpty()) {
                 fullFilter = indexFilter;
@@ -455,9 +445,8 @@ public class ComposedBitmapIndexAggregate {
             return fullFilter;
         }
 
-        @Nonnull
-        Map<KeyExpression, Index> findBitmapIndexes(@Nonnull String aggregateFunction,
-                                                    @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+        Map<KeyExpression, Index> findBitmapIndexes(String aggregateFunction,
+                                                    IndexQueryabilityFilter indexQueryabilityFilter) {
             final String indexType;
             if (BitmapValueIndexMaintainer.AGGREGATE_FUNCTION_NAME.equals(aggregateFunction)) {
                 indexType = IndexTypes.BITMAP_VALUE;

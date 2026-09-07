@@ -38,7 +38,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -528,7 +527,9 @@ class KeySpacePathImportDataTest {
                 "Clearing should remove all the data");
     }
 
-    @Nonnull
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     private List<DataInKeySpacePath> getExportedData(FDBDatabase targetDatabase, final KeySpacePath path) {
         try (FDBRecordContext context = targetDatabase.openContext()) {
             return path.exportAllData(context, null, ScanProperties.FORWARD_SCAN)

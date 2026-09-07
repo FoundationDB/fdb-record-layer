@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.VersionIndexM
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -52,13 +53,13 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadLocalRandom;
@@ -235,7 +236,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 try {
                     indexBuilder.buildIndex(true);
                 } catch (RecordCoreException ex) {
-                    assertTrue(ex.getMessage().contains("Mutual indexing failure - third iteration"));
+                    assertTrue(Objects.requireNonNull(ex.getMessage()).contains("Mutual indexing failure - third iteration"));
                     count.incrementAndGet();
                 }
             }
@@ -302,7 +303,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         scrubAndValidate(indexes);
     }
 
-    int oneThreadIndexing(List<Index> indexes, FDBStoreTimer callerTimer, List<Tuple> boundaries) {
+    int oneThreadIndexing(List<Index> indexes, @Nullable FDBStoreTimer callerTimer, List<Tuple> boundaries) {
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
         openSimpleMetaData(hook);
         final FDBStoreTimer timer = callerTimer != null ? callerTimer : new FDBStoreTimer();
@@ -332,7 +333,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
     }
 
     private boolean wasAnotherThreadChangingStatesToReadable(IndexingBase.ValidationException ex, List<Index> indexes) {
-        if (!ex.getMessage().contains("A target index state doesn't match the primary index state")) {
+        if (!Objects.requireNonNull(ex.getMessage()).contains("A target index state doesn't match the primary index state")) {
             return false;
         }
         try {
@@ -366,7 +367,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 })
                 .build()) {
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains(testThrowMsg));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains(testThrowMsg));
         }
     }
 
@@ -473,7 +474,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer).build()) {
 
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("This index was partly built by another method"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built by another method"));
         }
 
         // Successfully build
@@ -584,7 +585,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 })
                 .build()) {
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains(testThrowMsg));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains(testThrowMsg));
         }
 
         // Continue as mutual
@@ -631,7 +632,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 })
                 .build()) {
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains(testThrowMsg));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains(testThrowMsg));
         }
 
         // Fail to continue as mutual
@@ -642,7 +643,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                         .setMutualIndexingBoundaries(boundaries))
                 .build()) {
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("This index was partly built by another method"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built by another method"));
         }
     }
 
@@ -676,7 +677,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 })
                 .build()) {
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains(testThrowMsg));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains(testThrowMsg));
         }
 
         // Continue as mutual, by a different sublists of the indexes. All should fail
@@ -690,8 +691,8 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                             .setMutualIndexing())
                     .build()) {
                 RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-                assertTrue(e.getMessage().contains("This index was partly built by another method") ||
-                        e.getMessage().contains("A target index state doesn't match the primary index state"));
+                assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built by another method") ||
+                        Objects.requireNonNull(e.getMessage()).contains("A target index state doesn't match the primary index state"));
             }
         }
 
@@ -1136,6 +1137,10 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             "false, 5, 78, 14",
             "true, 20, 202, 14",
     })
+    // FDBRecordStoreBase#scanIndex's continuation parameter is declared @Nullable byte[] (a position
+    // NullAway does not reliably recognize as nullable), so the null literals passed below still trip
+    // the checker.
+    @SuppressWarnings("NullAway")
     void testUniquenessMultiTarget(boolean allowUniquePending, int numThreads, int numRecords, int boundarySize) {
         assertEquals(0, (numRecords & 1)); // must be an even number
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, numRecords).mapToObj( val ->
@@ -1194,7 +1199,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 assertTrue(recordStore.getIndexState(indexes.get(0)).isWriteOnly());
                 RecordCoreException e = assertThrows(ScanNonReadableIndexException.class,
                         () -> recordStore.scanIndex(indexes.get(0), IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN));
-                assertTrue(e.getMessage().contains("Cannot scan non-readable index"));
+                assertTrue(Objects.requireNonNull(e.getMessage()).contains("Cannot scan non-readable index"));
             }
             // non-unique index:
             assertTrue(recordStore.getIndexState(indexes.get(1)).isReadable());
@@ -1207,11 +1212,11 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         final Index index = indexes.get(0);
         try (FDBRecordContext context = openContext()) {
             Set<Tuple> indexEntries = new HashSet<>(recordStore.scanUniquenessViolations(index)
-                    .map( v -> v.getIndexEntry().getKey() )
+                    .map( v -> Objects.requireNonNull(v.getIndexEntry()).getKey() )
                     .asList().join());
 
             for (Tuple indexKey : indexEntries) {
-                List<Tuple> primaryKeys = recordStore.scanUniquenessViolations(index, indexKey).map(RecordIndexUniquenessViolation::getPrimaryKey).asList().join();
+                List<Tuple> primaryKeys = recordStore.scanUniquenessViolations(index, indexKey).map(v -> Objects.requireNonNull(v.getPrimaryKey())).asList().join();
                 assertEquals(2, primaryKeys.size());
                 recordStore.resolveUniquenessViolation(index, indexKey, primaryKeys.get(0)).join();
                 assertEquals(0, (int)recordStore.scanUniquenessViolations(index, indexKey).getCount().join());
@@ -1283,7 +1288,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                             .setMutualIndexingBoundaries(boundaries))
                     .build()) {
                 RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-                assertTrue(e.getMessage().contains("A target index state doesn't match the primary index state"));
+                assertTrue(Objects.requireNonNull(e.getMessage()).contains("A target index state doesn't match the primary index state"));
             }
         });
     }
@@ -1322,7 +1327,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                             .setMutualIndexingBoundaries(boundaries))
                     .build()) {
                 RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-                assertTrue(e.getMessage().contains("This index was partly built by another method"));
+                assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built by another method"));
             }
         });
     }
@@ -1361,12 +1366,12 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                             .setMutualIndexingBoundaries(boundaries))
                     .build()) {
                 RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-                assertTrue(e.getMessage().contains("This index was partly built by another method"));
+                assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built by another method"));
             }
         });
     }
 
-    private void buildIndexAndCrashHalfway(List<Index> indexes, List<Tuple> boundaries, List<Index> indexesHook) {
+    private void buildIndexAndCrashHalfway(List<Index> indexes, @Nullable List<Tuple> boundaries, List<Index> indexesHook) {
         // Force a RecordCoreException failure
         final String throwMsg = "Intentionally crash during test";
         openSimpleMetaData(allIndexesHook(indexesHook));
@@ -1381,7 +1386,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 .build()) {
 
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains(throwMsg));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains(throwMsg));
             // The index should be partially built
         }
     }
@@ -1475,7 +1480,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {
-                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = Objects.requireNonNull(stampMap.get(indexName));
                 assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
                 assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
                 assertTrue(stamp.getBlock());
@@ -1490,7 +1495,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                         .build())
                 .build()) {
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built, and blocked"));
         }
 
         // Unblock, the return value is the old stamp - validate it
@@ -1501,7 +1506,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {
-                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = Objects.requireNonNull(stampMap.get(indexName));
                 assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
                 assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
                 assertFalse(stamp.getBlock());
@@ -1524,7 +1529,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {
-                if (stampMap.get(indexName).getMethod() != IndexBuildProto.IndexBuildIndexingStamp.Method.NONE) {
+                if (Objects.requireNonNull(stampMap.get(indexName)).getMethod() != IndexBuildProto.IndexBuildIndexingStamp.Method.NONE) {
                     return false;
                 }
             }
@@ -1573,7 +1578,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {
-                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = Objects.requireNonNull(stampMap.get(indexName));
                 assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
                 assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
                 assertTrue(stamp.getBlock());
@@ -1592,7 +1597,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                         .build())
                 .build()) {
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built, and blocked"));
         }
 
         // Attempt to unblock with the wrong id, ensure correct stamp is returned.
@@ -1602,7 +1607,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {
-                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = Objects.requireNonNull(stampMap.get(indexName));
                 assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
                 assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
                 assertTrue(stamp.getBlock());
@@ -1671,7 +1676,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             assertTrue(stampMap.keySet().containsAll(indexNames));
             IntStream.range(0, indexNames.size()).forEach(i -> {
                 String indexName = indexNames.get(i);
-                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = Objects.requireNonNull(stampMap.get(indexName));
                 assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
                 assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
                 if (i == 1 || i == 2) {
@@ -1694,7 +1699,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                         .build())
                 .build()) {
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built, and blocked"));
         }
 
         // Continue with unblock, correct id
@@ -1783,7 +1788,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {
-                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = Objects.requireNonNull(stampMap.get(indexName));
                 assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
                 assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
                 assertTrue(stamp.getBlock());
@@ -1798,7 +1803,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                         .build())
                 .build()) {
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("This index was partly built, and blocked"));
         }
 
         // Unblock, the return value is the old stamp - validate it
@@ -1809,7 +1814,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             final List<String> indexNames = indexes.stream().map(Index::getName).collect(Collectors.toList());
             assertTrue(stampMap.keySet().containsAll(indexNames));
             for (String indexName : indexNames) {
-                final IndexBuildProto.IndexBuildIndexingStamp stamp = stampMap.get(indexName);
+                final IndexBuildProto.IndexBuildIndexingStamp stamp = Objects.requireNonNull(stampMap.get(indexName));
                 assertTrue(stamp.getTargetIndexList().containsAll(indexNames));
                 assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS, stamp.getMethod());
                 assertFalse(stamp.getBlock());
@@ -1871,21 +1876,18 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         final Index index = new Index("test", "field");
         // Anonymous implementation that doesn't override getIndexGeneralAttributes
         IndexMaintainerFactory factory = new IndexMaintainerFactory() {
-            @Nonnull
             @Override
             public Iterable<String> getIndexTypes() {
                 return List.of("test");
             }
 
-            @Nonnull
             @Override
             public IndexValidator getIndexValidator(final Index index) {
                 return new IndexValidator(index);
             }
 
-            @Nonnull
             @Override
-            public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
+            public IndexMaintainer getIndexMaintainer(final IndexMaintainerState state) {
                 throw new UnsupportedOperationException();
             }
         };

@@ -47,6 +47,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link com.apple.foundationdb.record.query.plan.plans.QueryPlan#isStrictlySorted}.
  */
 @Tag(Tags.RequiresFDB)
+// NullAway.Init is suppressed here because metaData/planner follow the standard JUnit test-fixture
+// lifecycle: they are left unset by the constructor and are always populated by setup() before any
+// test method that uses them runs.
+@SuppressWarnings("NullAway.Init")
 public class QueryPlanFullySortedTest extends FDBRecordStoreQueryTestBase {
 
     RecordMetaData metaData;

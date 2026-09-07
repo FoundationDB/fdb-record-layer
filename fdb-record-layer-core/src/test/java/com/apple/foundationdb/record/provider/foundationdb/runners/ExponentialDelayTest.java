@@ -27,7 +27,6 @@ import org.junit.jupiter.api.RepeatedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -162,7 +161,6 @@ class ExponentialDelayTest {
         return -1;
     }
 
-    @Nonnull
     private List<Long> forAllGet(final List<List<Long>> allDelays, final int index) {
         return allDelays.stream().map(delays -> delays.get(index)).collect(Collectors.toList());
     }
@@ -205,7 +203,6 @@ class ExponentialDelayTest {
             super(initialDelayMillis, maxDelayMillis, MoreAsyncUtil.getDefaultScheduledExecutor());
         }
 
-        @Nonnull
         @Override
         protected CompletableFuture<Void> delayedFuture(final long nextDelayMillis) {
             requestedDelays.add(nextDelayMillis);

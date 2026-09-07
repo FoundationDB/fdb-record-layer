@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.provider.common;
 import com.apple.foundationdb.annotation.API;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 import java.util.UUID;
 
@@ -37,15 +36,12 @@ import java.util.UUID;
  */
 @API(API.Status.UNSTABLE)
 public final class StoreTimerSnapshot {
-    @Nonnull
     private final ImmutableMap<StoreTimer.Event, CounterSnapshot> counters;
-    @Nonnull
     private final ImmutableMap<StoreTimer.Event, CounterSnapshot> timeoutCounters;
-    @Nonnull
     private final UUID fromUUID;
     private final long createTime;
 
-    private StoreTimerSnapshot(@Nonnull StoreTimer timer) {
+    private StoreTimerSnapshot(StoreTimer timer) {
         ImmutableMap.Builder<StoreTimer.Event, CounterSnapshot> counters = new ImmutableMap.Builder<>();
         ImmutableMap.Builder<StoreTimer.Event, CounterSnapshot> timeoutCounters = new ImmutableMap.Builder<>();
         timer.counters.forEach((key, value) -> counters.put(key, CounterSnapshot.from(value)));
@@ -63,8 +59,7 @@ public final class StoreTimerSnapshot {
      *
      * @return immutable snapshot of the provided timer
      */
-    @Nonnull
-    public static StoreTimerSnapshot from(@Nonnull StoreTimer timer) {
+    public static StoreTimerSnapshot from(StoreTimer timer) {
         return new StoreTimerSnapshot(timer);
     }
 
@@ -95,7 +90,7 @@ public final class StoreTimerSnapshot {
      * @return immutable counter if it exists or null otherwise
      */
     @Nullable
-    public CounterSnapshot getCounterSnapshot(@Nonnull StoreTimer.Event event) {
+    public CounterSnapshot getCounterSnapshot(StoreTimer.Event event) {
         return counters.get(event);
     }
 
@@ -106,7 +101,7 @@ public final class StoreTimerSnapshot {
      *
      * @return true if a counter exists for the event of interest
      */
-    public boolean containsCounter(@Nonnull StoreTimer.Event event) {
+    public boolean containsCounter(StoreTimer.Event event) {
         return counters.containsKey(event);
     }
 
@@ -118,7 +113,7 @@ public final class StoreTimerSnapshot {
      * @return immutable timeout counter if it exists or null otherwise
      */
     @Nullable
-    public CounterSnapshot getTimeoutCounterSnapshot(@Nonnull StoreTimer.Event event) {
+    public CounterSnapshot getTimeoutCounterSnapshot(StoreTimer.Event event) {
         return timeoutCounters.get(event);
     }
 
@@ -129,7 +124,7 @@ public final class StoreTimerSnapshot {
      *
      * @return true if a timeout counter exists for the event of interest
      */
-    public boolean containsTimeoutCounter(@Nonnull StoreTimer.Event event) {
+    public boolean containsTimeoutCounter(StoreTimer.Event event) {
         return timeoutCounters.containsKey(event);
     }
 
@@ -180,7 +175,7 @@ public final class StoreTimerSnapshot {
         private final long cumulativeValue;
         private final int count;
 
-        private CounterSnapshot(@Nonnull StoreTimer.Counter c) {
+        private CounterSnapshot(StoreTimer.Counter c) {
             cumulativeValue = c.getCumulativeValue();
             count = c.getCount();
         }
@@ -192,8 +187,7 @@ public final class StoreTimerSnapshot {
          *
          * @return immutable snapshot of the provided counter
          */
-        @Nonnull
-        public static CounterSnapshot from(@Nonnull StoreTimer.Counter counter) {
+        public static CounterSnapshot from(StoreTimer.Counter counter) {
             return new CounterSnapshot(counter);
         }
 

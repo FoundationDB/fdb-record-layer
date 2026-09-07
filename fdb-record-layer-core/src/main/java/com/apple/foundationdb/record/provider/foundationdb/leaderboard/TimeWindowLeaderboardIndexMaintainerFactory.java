@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactor
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 
 /**
@@ -44,17 +43,15 @@ public class TimeWindowLeaderboardIndexMaintainerFactory implements IndexMaintai
     private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Override
-    @Nonnull
     public Iterable<String> getIndexTypes() {
         return Arrays.asList(TYPES);
     }
 
     @Override
-    @Nonnull
     public IndexValidator getIndexValidator(Index index) {
         return new IndexValidator(index) {
             @Override
-            public void validate(@Nonnull MetaDataValidator metaDataValidator) {
+            public void validate(MetaDataValidator metaDataValidator) {
                 super.validate(metaDataValidator);
                 validateGrouping(1);
                 validateNotVersion();
@@ -63,14 +60,12 @@ public class TimeWindowLeaderboardIndexMaintainerFactory implements IndexMaintai
     }
 
     @Override
-    @Nonnull
-    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
         return new TimeWindowLeaderboardIndexMaintainer(state);
     }
 
-    @Nonnull
     @Override
-    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+    public IndexGeneralAttributes getIndexGeneralAttributes(final Index index) {
         return GENERAL_ATTRIBUTES;
     }
 }

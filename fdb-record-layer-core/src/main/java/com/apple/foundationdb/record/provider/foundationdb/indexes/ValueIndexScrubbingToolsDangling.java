@@ -34,24 +34,30 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.NestedRecordType;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScrubbingTools;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /**
  * Index Scrubbing Toolbox for a Value index maintainer. Scrub dangling value index entries - i.e. index entries
  * pointing to non-existing record(s)
  */
 public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<IndexEntry> {
-    private Index index = null;
+    @Nullable
+    private Index index;
     private boolean allowRepair;
     private boolean isSynthetic;
 
@@ -66,6 +72,10 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
     }
 
     @Override
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters of
+    // FDBRecordStoreBase#scanIndex (out of scope to fix here); null intentionally means
+    // "start from the beginning".
+    @SuppressWarnings("NullAway")
     public RecordCursor<IndexEntry> getCursor(final TupleRange range, final FDBRecordStore store, final int limit) {
         // IsolationLevel.SNAPSHOT will not cause range conflicts, which is ok because this index is idempotent.
         // If a repair is made, any related component (in this case - index entries) should be explicitly added to the conflict list.
@@ -75,28 +85,34 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
                 .setReturnedRowLimit(limit);
 
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build(), false);
-        return store.scanIndex(index, IndexScanType.BY_VALUE, range, null, scanProperties);
+        final Index nonNullIndex = Objects.requireNonNull(index, "presetParams was not called appropriately for this scrubbing tool");
+        return store.scanIndex(nonNullIndex, IndexScanType.BY_VALUE, range, null, scanProperties);
     }
 
     @Override
+    @Nullable
+    // IndexScrubbingTools#getKeyFromCursorResult (out of scope to fix here) is not annotated
+    // @Nullable even though a missing index entry genuinely yields a null key here.
+    @SuppressWarnings("NullAway")
     public Tuple getKeyFromCursorResult(final RecordCursorResult<IndexEntry> result) {
         final IndexEntry indexEntry = result.get();
         return indexEntry == null ? null : indexEntry.getKey();
     }
 
     @Override
-    public CompletableFuture<Issue> handleOneItem(final FDBRecordStore store, final RecordCursorResult<IndexEntry> result) {
+    public CompletableFuture<@Nullable Issue> handleOneItem(final FDBRecordStore store, final RecordCursorResult<IndexEntry> result) {
         if (index == null) {
             throw new IllegalStateException("presetParams was not called appropriately for this scrubbing tool");
         }
 
         final IndexEntry indexEntry = result.get();
         if (indexEntry == null) {
-            return CompletableFuture.completedFuture(null);
+            final CompletableFuture<@Nullable Issue> noIssue = CompletableFuture.completedFuture(null);
+            return noIssue;
         }
 
         if (isSynthetic) {
-            return store.loadSyntheticRecord(indexEntry.getPrimaryKey(), IndexOrphanBehavior.RETURN).thenApply(syntheticRecord -> {
+            final Function<FDBSyntheticRecord, @Nullable Issue> checkSyntheticRecord = syntheticRecord -> {
                 if (syntheticRecord.getConstituents().isEmpty()) {
                     // None of the constituents of this synthetic type are present, so it must be dangling
                     List<Tuple> primaryKeysForConflict = new ArrayList<>(indexEntry.getPrimaryKey().size() - 1);
@@ -109,19 +125,24 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
                     return scrubDanglingEntry(store, indexEntry, primaryKeysForConflict);
                 }
                 return null;
-            });
+            };
+            return store.loadSyntheticRecord(indexEntry.getPrimaryKey(), IndexOrphanBehavior.RETURN).<@Nullable Issue>thenApply(checkSyntheticRecord);
         } else {
-            return store.loadIndexEntryRecord(indexEntry, IndexOrphanBehavior.RETURN).thenApply(indexedRecord -> {
+            final Function<FDBIndexedRecord<Message>, @Nullable Issue> checkIndexedRecord = indexedRecord -> {
                 if (!indexedRecord.hasStoredRecord()) {
                     // Here: Oh, No! this index is dangling!
                     return scrubDanglingEntry(store, indexEntry, List.of(indexEntry.getPrimaryKey()));
                 }
                 return null;
-            });
+            };
+            return store.loadIndexEntryRecord(indexEntry, IndexOrphanBehavior.RETURN).<@Nullable Issue>thenApply(checkIndexedRecord);
         }
     }
 
-    private Issue scrubDanglingEntry(@Nonnull FDBRecordStore store, @Nonnull IndexEntry indexEntry, @Nonnull List<Tuple> conflictPrimaryKeys) {
+    // Issue#recordToIndex's constructor parameter is not annotated @Nullable even though it is
+    // documented as accepting null (this scrubbing tool never has a record to index).
+    @SuppressWarnings("NullAway")
+    private Issue scrubDanglingEntry(FDBRecordStore store, IndexEntry indexEntry, List<Tuple> conflictPrimaryKeys) {
         // Here: the index entry is dangling. Fix it (if allowed) and report the issue.
         final Tuple valueKey = indexEntry.getKey();
 
@@ -131,7 +152,7 @@ public class ValueIndexScrubbingToolsDangling implements IndexScrubbingTools<Ind
             for (Tuple primaryKey : conflictPrimaryKeys) {
                 store.addRecordReadConflict(primaryKey);
             }
-            final byte[] keyBytes = store.indexSubspace(index).pack(valueKey);
+            final byte[] keyBytes = store.indexSubspace(Objects.requireNonNull(index, "presetParams was not called appropriately for this scrubbing tool")).pack(valueKey);
             store.getContext().ensureActive().clear(keyBytes);
         }
 

@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -357,10 +356,9 @@ public class TopologicalSortTest {
     }
 
     private static class TestClass {
-        @Nonnull
         private final String value;
 
-        TestClass(@Nonnull final String value) {
+        TestClass(final String value) {
             this.value = value;
         }
 
@@ -369,8 +367,7 @@ public class TopologicalSortTest {
             return value;
         }
 
-        @Nonnull
-        public static TestClass of(@Nonnull final String value) {
+        public static TestClass of(final String value) {
             return new TestClass(value);
         }
     }

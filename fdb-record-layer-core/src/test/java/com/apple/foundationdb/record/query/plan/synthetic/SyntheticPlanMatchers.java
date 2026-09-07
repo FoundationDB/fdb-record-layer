@@ -25,29 +25,29 @@ import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Matchers for {@link SyntheticRecordPlanner} outputs,
  * such as {@link SyntheticRecordPlan} and {@link SyntheticRecordFromStoredRecordPlan}.
  */
 public class SyntheticPlanMatchers {
-    public static Matcher<SyntheticRecordPlan> syntheticRecordScan(@Nonnull Matcher<RecordQueryPlan> seedMatcher,
-                                                                   @Nonnull Matcher<SyntheticRecordFromStoredRecordPlan> fromSeedMatcher) {
+    public static Matcher<SyntheticRecordPlan> syntheticRecordScan(Matcher<RecordQueryPlan> seedMatcher,
+                                                                   Matcher<SyntheticRecordFromStoredRecordPlan> fromSeedMatcher) {
         return new SyntheticRecordScanPlanMatcher(seedMatcher, fromSeedMatcher);
     }
 
-    public static Matcher<SyntheticRecordFromStoredRecordPlan> joinedRecord(@Nonnull List<Matcher<RecordQueryPlan>> planMatchers) {
+    public static Matcher<SyntheticRecordFromStoredRecordPlan> joinedRecord(List<Matcher<RecordQueryPlan>> planMatchers) {
         return new JoinedRecordPlanMatcher(planMatchers);
     }
 
-    public static Matcher<SyntheticRecordFromStoredRecordPlan> syntheticRecordConcat(@Nonnull List<Matcher<SyntheticRecordFromStoredRecordPlan>> planMatchers) {
+    public static Matcher<SyntheticRecordFromStoredRecordPlan> syntheticRecordConcat(List<Matcher<SyntheticRecordFromStoredRecordPlan>> planMatchers) {
         return new SyntheticRecordConcatPlanMatcher(planMatchers);
     }
 
-    public static Matcher<SyntheticRecordFromStoredRecordPlan> syntheticRecordByType(@Nonnull Map<String, Matcher<SyntheticRecordFromStoredRecordPlan>> subMatchers) {
+    public static Matcher<SyntheticRecordFromStoredRecordPlan> syntheticRecordByType(Map<String, Matcher<SyntheticRecordFromStoredRecordPlan>> subMatchers) {
         return new SyntheticRecordByTypePlanMatcher(subMatchers);
     }
 
@@ -55,19 +55,17 @@ public class SyntheticPlanMatchers {
      * Match {@link SyntheticRecordScanPlan} as {@link SyntheticRecordPlan}.
      */
     public static class SyntheticRecordScanPlanMatcher extends TypeSafeMatcher<SyntheticRecordPlan> {
-        @Nonnull
         private final Matcher<RecordQueryPlan> seedMatcher;
-        @Nonnull
         private final Matcher<SyntheticRecordFromStoredRecordPlan> fromSeedMatcher;
 
-        public SyntheticRecordScanPlanMatcher(@Nonnull Matcher<RecordQueryPlan> seedMatcher,
-                                              @Nonnull Matcher<SyntheticRecordFromStoredRecordPlan> fromSeedMatcher) {
+        public SyntheticRecordScanPlanMatcher(Matcher<RecordQueryPlan> seedMatcher,
+                                              Matcher<SyntheticRecordFromStoredRecordPlan> fromSeedMatcher) {
             this.seedMatcher = seedMatcher;
             this.fromSeedMatcher = fromSeedMatcher;
         }
 
         @Override
-        public boolean matchesSafely(@Nonnull SyntheticRecordPlan plan) {
+        public boolean matchesSafely(SyntheticRecordPlan plan) {
             if (!(plan instanceof SyntheticRecordScanPlan)) {
                 return false;
             }
@@ -90,15 +88,14 @@ public class SyntheticPlanMatchers {
      * Match {@link JoinedRecordPlan} as {@link SyntheticRecordFromStoredRecordPlan}.
      */
     public static class JoinedRecordPlanMatcher extends TypeSafeMatcher<SyntheticRecordFromStoredRecordPlan> {
-        @Nonnull
         private final List<Matcher<RecordQueryPlan>> planMatchers;
 
-        public JoinedRecordPlanMatcher(@Nonnull List<Matcher<RecordQueryPlan>> planMatchers) {
+        public JoinedRecordPlanMatcher(List<Matcher<RecordQueryPlan>> planMatchers) {
             this.planMatchers = planMatchers;
         }
 
         @Override
-        public boolean matchesSafely(@Nonnull SyntheticRecordFromStoredRecordPlan plan) {
+        public boolean matchesSafely(SyntheticRecordFromStoredRecordPlan plan) {
             if (!(plan instanceof JoinedRecordPlan)) {
                 return false;
             }
@@ -125,15 +122,14 @@ public class SyntheticPlanMatchers {
      * Match {@link SyntheticRecordConcatPlan} as {@link SyntheticRecordFromStoredRecordPlan}.
      */
     public static class SyntheticRecordConcatPlanMatcher extends TypeSafeMatcher<SyntheticRecordFromStoredRecordPlan> {
-        @Nonnull
         private final List<Matcher<SyntheticRecordFromStoredRecordPlan>> planMatchers;
 
-        public SyntheticRecordConcatPlanMatcher(@Nonnull List<Matcher<SyntheticRecordFromStoredRecordPlan>> planMatchers) {
+        public SyntheticRecordConcatPlanMatcher(List<Matcher<SyntheticRecordFromStoredRecordPlan>> planMatchers) {
             this.planMatchers = planMatchers;
         }
 
         @Override
-        public boolean matchesSafely(@Nonnull SyntheticRecordFromStoredRecordPlan plan) {
+        public boolean matchesSafely(SyntheticRecordFromStoredRecordPlan plan) {
             if (!(plan instanceof SyntheticRecordConcatPlan)) {
                 return false;
             }
@@ -160,15 +156,14 @@ public class SyntheticPlanMatchers {
      * Match {@link SyntheticRecordByTypePlan} as {@link SyntheticRecordFromStoredRecordPlan}.
      */
     public static class SyntheticRecordByTypePlanMatcher extends TypeSafeMatcher<SyntheticRecordFromStoredRecordPlan> {
-        @Nonnull
         private final Map<String, Matcher<SyntheticRecordFromStoredRecordPlan>> subMatchers;
 
-        public SyntheticRecordByTypePlanMatcher(@Nonnull Map<String, Matcher<SyntheticRecordFromStoredRecordPlan>> subMatchers) {
+        public SyntheticRecordByTypePlanMatcher(Map<String, Matcher<SyntheticRecordFromStoredRecordPlan>> subMatchers) {
             this.subMatchers = subMatchers;
         }
 
         @Override
-        public boolean matchesSafely(@Nonnull SyntheticRecordFromStoredRecordPlan plan) {
+        public boolean matchesSafely(SyntheticRecordFromStoredRecordPlan plan) {
             if (!(plan instanceof SyntheticRecordByTypePlan)) {
                 return false;
             }
@@ -178,7 +173,7 @@ public class SyntheticPlanMatchers {
                 return false;
             }
             for (Map.Entry<String, SyntheticRecordFromStoredRecordPlan> entry : subPlans.entrySet()) {
-                if (!subMatchers.get(entry.getKey()).matches(entry.getValue())) {
+                if (!Objects.requireNonNull(subMatchers.get(entry.getKey())).matches(entry.getValue())) {
                     return false;
                 }
             }

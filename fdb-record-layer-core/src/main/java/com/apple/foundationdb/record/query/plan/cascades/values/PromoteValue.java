@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecede
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.CoercionTrieNode;
+import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers.TransformationTrieNode;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -51,10 +52,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.Descriptors.GenericDescriptor;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -97,57 +98,47 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         NULL_TO_VERSION(Type.TypeCode.NULL, Type.TypeCode.VERSION, (descriptor, in) -> null),
         ;
 
-        @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
                 Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(PhysicalOperator.class, PPhysicalOperator.class));
 
-        @Nonnull
         private final Type.TypeCode from;
-        @Nonnull
         private final Type.TypeCode to;
-        @Nonnull
         private final BiFunction<Descriptors.GenericDescriptor, Object, Object> promotionFunction;
 
-        PhysicalOperator(@Nonnull final Type.TypeCode from, @Nonnull final Type.TypeCode to,
-                         @Nonnull final BiFunction<Descriptors.GenericDescriptor, Object, Object> promotionFunction) {
+        PhysicalOperator(final Type.TypeCode from, final Type.TypeCode to,
+                         final BiFunction<Descriptors.GenericDescriptor, Object, Object> promotionFunction) {
             this.from = from;
             this.to = to;
             this.promotionFunction = promotionFunction;
         }
 
-        @Nonnull
         public Type.TypeCode getFrom() {
             return from;
         }
 
-        @Nonnull
         public Type.TypeCode getTo() {
             return to;
         }
 
-        @Nonnull
         public BiFunction<Descriptors.GenericDescriptor, Object, Object> getPromotionFunction() {
             return promotionFunction;
         }
 
-        public Object apply(@Nullable final Descriptors.GenericDescriptor descriptor, @Nullable Object in) {
+        public Object apply(@Nullable final GenericDescriptor descriptor, @Nullable Object in) {
             return promotionFunction.apply(descriptor, in);
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public PPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PPhysicalOperator toProto(final PlanSerializationContext serializationContext) {
             return Objects.requireNonNull(getProtoEnumBiMap().get(this));
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull PPhysicalOperator physicalOperatorProto) {
+        public static PhysicalOperator fromProto(final PlanSerializationContext serializationContext,
+                                                 PPhysicalOperator physicalOperatorProto) {
             return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(physicalOperatorProto));
         }
 
-        @Nonnull
         public static Descriptors.EnumValueDescriptor stringToEnumValue(Descriptors.EnumDescriptor enumDescriptor, String value) {
             Descriptors.EnumValueDescriptor maybeValue = null;
             for (Descriptors.EnumValueDescriptor valueDescriptor : enumDescriptor.getValues()) {
@@ -164,13 +155,10 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             try {
                 return UUID.fromString(value);
             } catch (IllegalArgumentException ex) {
-                SemanticException.fail(SemanticException.ErrorCode.INVALID_UUID_VALUE, value);
+                throw new SemanticException(SemanticException.ErrorCode.INVALID_UUID_VALUE, value, ex);
             }
-            // won't happen
-            return null;
         }
 
-        @Nonnull
         private static BiMap<PhysicalOperator, PPhysicalOperator> getProtoEnumBiMap() {
             return protoEnumBiMapSupplier.get();
         }
@@ -194,13 +182,11 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
     /**
      * The child expression.
      */
-    @Nonnull
     private final Value inValue;
 
     /**
      * The type that {@code inValue} should be promoted to.
      */
-    @Nonnull
     private final Type promoteToType;
 
     @Nullable
@@ -217,7 +203,7 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
      * @param promoteToType the type to promote to
      * @param promotionTrie the promotion trie defining the actual promotion of the object
      */
-    public PromoteValue(@Nonnull final Value inValue, @Nonnull final Type promoteToType, @Nullable final CoercionTrieNode promotionTrie) {
+    public PromoteValue(final Value inValue, final Type promoteToType, @Nullable final CoercionTrieNode promotionTrie) {
         this.inValue = inValue;
         this.promoteToType = promoteToType;
         this.promotionTrie = promotionTrie;
@@ -226,16 +212,14 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
                          Objects.requireNonNull(((Type.Array)promoteToType).getElementType()).isPrimitive());
     }
 
-    @Nonnull
     @Override
     public Value getChild() {
         return inValue;
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public PromoteValue withNewChild(@Nonnull final Value newChild) {
+    public PromoteValue withNewChild(final Value newChild) {
         if (getChild() == newChild) {
             return this;
         }
@@ -245,7 +229,7 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store,
-                                           @Nonnull final EvaluationContext context) {
+                                           final EvaluationContext context) {
         final Object result = inValue.eval(store, context);
         if (result == null) {
             return null;
@@ -273,13 +257,11 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
                 result);
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return promoteToType;
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of(getChild());
@@ -291,13 +273,12 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, inValue, promoteToType);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var in = Iterables.getOnlyElement(explainSuppliers).get();
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("promote",
                 in.getExplainTokens().addWhitespace().addKeyword("AS").addWhitespace()
@@ -316,9 +297,8 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PPromoteValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PPromoteValue toProto(final PlanSerializationContext serializationContext) {
         final PPromoteValue.Builder builder =
                 PPromoteValue.newBuilder()
                         .setInValue(inValue.toValueProto(serializationContext))
@@ -329,15 +309,13 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setPromoteValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static PromoteValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                         @Nonnull final PPromoteValue promoteValueProto) {
+    public static PromoteValue fromProto(final PlanSerializationContext serializationContext,
+                                         final PPromoteValue promoteValueProto) {
         final var inValue = Value.fromValueProto(serializationContext, Objects.requireNonNull(promoteValueProto.getInValue()));
         final var promoteToType = Type.fromTypeProto(serializationContext, Objects.requireNonNull(promoteValueProto.getPromoteToType()));
         final CoercionTrieNode promotionTrie;
@@ -350,9 +328,9 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
     }
 
     @Nullable
-    public static CoercionTrieNode computePromotionsTrie(@Nonnull final Type targetType,
-                                                         @Nonnull Type currentType,
-                                                         @Nullable final MessageHelpers.TransformationTrieNode transformationsTrie) {
+    public static CoercionTrieNode computePromotionsTrie(final Type targetType,
+                                                         Type currentType,
+                                                         @Nullable final TransformationTrieNode transformationsTrie) {
         if (targetType.getTypeCode() == Type.TypeCode.ANY) {
             return null;
         }
@@ -368,7 +346,8 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             // this is definitely a leaf; and we need to promote
             final var physicalOperator = resolvePhysicalOperator(currentType, targetType);
             SemanticException.check(physicalOperator != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-            return new CoercionTrieNode(new PrimitiveCoercionBiFunction(physicalOperator), null);
+            // check above guarantees the operator is non-null.
+            return new CoercionTrieNode(new PrimitiveCoercionBiFunction(Objects.requireNonNull(physicalOperator)), null);
         }
 
         // NONE is the type of the untyped empty array `[]`. Like a primitive, this is a leaf case that handles the
@@ -376,7 +355,8 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         if (currentType.isNone()) {
             final var physicalOperator = resolvePhysicalOperator(currentType, targetType);
             SemanticException.check(physicalOperator != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-            return new CoercionTrieNode(new PrimitiveCoercionBiFunction(physicalOperator), null);
+            // check above guarantees the operator is non-null.
+            return new CoercionTrieNode(new PrimitiveCoercionBiFunction(Objects.requireNonNull(physicalOperator)), null);
         }
 
         Verify.verify(targetType.getTypeCode() == currentType.getTypeCode());
@@ -437,8 +417,7 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
      * @param promoteToType the target type to promote to
      * @return a value with result type {@code promoteToType}
      */
-    @Nonnull
-    public static Value inject(@Nonnull final Value inValue, @Nonnull final Type promoteToType) {
+    public static Value inject(final Value inValue, final Type promoteToType) {
         final Type inType = inValue.getResultType();
         if (inType.equals(promoteToType)) {
             return inValue;
@@ -450,16 +429,16 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         return new PromoteValue(inValue, promoteToType, promotionTrie);
     }
 
-    public static boolean isPromotable(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
+    public static boolean isPromotable(final Type inType, final Type promoteToType) {
         return resolvePhysicalOperator(inType, promoteToType) != null || inType.isRecord() && promoteToType.isRecord();
     }
 
     @Nullable
-    static PhysicalOperator resolvePhysicalOperator(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
+    static PhysicalOperator resolvePhysicalOperator(final Type inType, final Type promoteToType) {
         return PROMOTION_MAP.get(NonnullPair.of(inType.getTypeCode(), promoteToType.getTypeCode()));
     }
 
-    public static boolean isPromotionNeeded(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
+    public static boolean isPromotionNeeded(final Type inType, final Type promoteToType) {
         if (promoteToType.getTypeCode() == Type.TypeCode.ANY) {
             return false;
         }
@@ -508,10 +487,9 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
      * A coercion function for primitive types.
      */
     public static class PrimitiveCoercionBiFunction implements MessageHelpers.CoercionBiFunction {
-        @Nonnull
         private final PhysicalOperator operator;
 
-        private PrimitiveCoercionBiFunction(@Nonnull final PhysicalOperator operator) {
+        private PrimitiveCoercionBiFunction(final PhysicalOperator operator) {
             this.operator = operator;
         }
 
@@ -538,27 +516,24 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode hashMode) {
+        public int planHash(final PlanHashMode hashMode) {
             return PlanHashable.objectsPlanHash(hashMode, operator);
         }
 
-        @Nonnull
         @Override
-        public PPrimitiveCoercionBiFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PPrimitiveCoercionBiFunction toProto(final PlanSerializationContext serializationContext) {
             return PPrimitiveCoercionBiFunction.newBuilder()
                     .setOperator(operator.toProto(serializationContext))
                     .build();
         }
 
-        @Nonnull
         @Override
-        public PCoercionBiFunction toCoercionBiFunctionProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PCoercionBiFunction toCoercionBiFunctionProto(final PlanSerializationContext serializationContext) {
             return PCoercionBiFunction.newBuilder().setPrimitiveCoercionBiFunction(toProto(serializationContext)).build();
         }
 
-        @Nonnull
-        public static PrimitiveCoercionBiFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                            @Nonnull final PPrimitiveCoercionBiFunction primitiveCoercionBiFunctionProto) {
+        public static PrimitiveCoercionBiFunction fromProto(final PlanSerializationContext serializationContext,
+                                                            final PPrimitiveCoercionBiFunction primitiveCoercionBiFunctionProto) {
             return new PrimitiveCoercionBiFunction(PhysicalOperator.fromProto(serializationContext,
                     Objects.requireNonNull(primitiveCoercionBiFunctionProto.getOperator())));
         }
@@ -568,16 +543,14 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PPrimitiveCoercionBiFunction, PrimitiveCoercionBiFunction> {
-            @Nonnull
             @Override
             public Class<PPrimitiveCoercionBiFunction> getProtoMessageClass() {
                 return PPrimitiveCoercionBiFunction.class;
             }
 
-            @Nonnull
             @Override
-            public PrimitiveCoercionBiFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                         @Nonnull final PPrimitiveCoercionBiFunction primitiveCoercionBiFunctionProto) {
+            public PrimitiveCoercionBiFunction fromProto(final PlanSerializationContext serializationContext,
+                                                         final PPrimitiveCoercionBiFunction primitiveCoercionBiFunctionProto) {
                 return PrimitiveCoercionBiFunction.fromProto(serializationContext, primitiveCoercionBiFunctionProto);
             }
         }
@@ -587,15 +560,13 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
      * Coercion function for arrays.
      */
     public static class ArrayCoercionBiFunction implements MessageHelpers.CoercionBiFunction {
-        @Nonnull
         private final Type.Array fromArrayType;
-        @Nonnull
         private final Type.Array toArrayType;
 
         @Nullable
         private final CoercionTrieNode elementsTrie;
 
-        public ArrayCoercionBiFunction(@Nonnull final Type.Array fromArrayType, @Nonnull final Type.Array toArrayType,
+        public ArrayCoercionBiFunction(final Type.Array fromArrayType, final Type.Array toArrayType,
                                        @Nullable final CoercionTrieNode elementsTrie) {
             this.fromArrayType = fromArrayType;
             this.toArrayType = toArrayType;
@@ -627,13 +598,15 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode hashMode) {
+        @SuppressWarnings("NullAway") // PlanHashable.objectsPlanHash's varargs Object... is not @Nullable-annotated,
+        // but its element-wise implementation (objectPlanHash(mode, Object)) explicitly null-checks each element
+        // and returns 0 for null, so passing the (legitimately nullable) elementsTrie here is safe at runtime.
+        public int planHash(final PlanHashMode hashMode) {
             return PlanHashable.objectsPlanHash(hashMode, fromArrayType, toArrayType, elementsTrie);
         }
 
-        @Nonnull
         @Override
-        public PArrayCoercionBiFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PArrayCoercionBiFunction toProto(final PlanSerializationContext serializationContext) {
             final PArrayCoercionBiFunction.Builder builder = PArrayCoercionBiFunction.newBuilder()
                     .setFromArrayType(fromArrayType.toTypeProto(serializationContext))
                     .setToArrayType(toArrayType.toTypeProto(serializationContext));
@@ -644,15 +617,13 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             return builder.build();
         }
 
-        @Nonnull
         @Override
-        public PCoercionBiFunction toCoercionBiFunctionProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PCoercionBiFunction toCoercionBiFunctionProto(final PlanSerializationContext serializationContext) {
             return PCoercionBiFunction.newBuilder().setArrayCoercionBiFunction(toProto(serializationContext)).build();
         }
 
-        @Nonnull
-        public static ArrayCoercionBiFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                        @Nonnull final PArrayCoercionBiFunction arrayCoercionBiFunctionProto) {
+        public static ArrayCoercionBiFunction fromProto(final PlanSerializationContext serializationContext,
+                                                        final PArrayCoercionBiFunction arrayCoercionBiFunctionProto) {
             final CoercionTrieNode elementsTrie;
             if (arrayCoercionBiFunctionProto.hasElementsTrie()) {
                 elementsTrie = CoercionTrieNode.fromProto(serializationContext, arrayCoercionBiFunctionProto.getElementsTrie());
@@ -669,16 +640,14 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PArrayCoercionBiFunction, ArrayCoercionBiFunction> {
-            @Nonnull
             @Override
             public Class<PArrayCoercionBiFunction> getProtoMessageClass() {
                 return PArrayCoercionBiFunction.class;
             }
 
-            @Nonnull
             @Override
-            public ArrayCoercionBiFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                     @Nonnull final PArrayCoercionBiFunction arrayCoercionBiFunctionProto) {
+            public ArrayCoercionBiFunction fromProto(final PlanSerializationContext serializationContext,
+                                                     final PArrayCoercionBiFunction arrayCoercionBiFunctionProto) {
                 return ArrayCoercionBiFunction.fromProto(serializationContext, arrayCoercionBiFunctionProto);
             }
         }
@@ -689,16 +658,14 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PPromoteValue, PromoteValue> {
-        @Nonnull
         @Override
         public Class<PPromoteValue> getProtoMessageClass() {
             return PPromoteValue.class;
         }
 
-        @Nonnull
         @Override
-        public PromoteValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final PPromoteValue promoteValueProto) {
+        public PromoteValue fromProto(final PlanSerializationContext serializationContext,
+                                      final PPromoteValue promoteValueProto) {
             return PromoteValue.fromProto(serializationContext, promoteValueProto);
         }
     }

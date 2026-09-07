@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.rules.SelectMergeRule;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -48,21 +47,19 @@ public class SelectMergeableProperty implements ExpressionProperty<Boolean> {
         // prevent outside instantiation
     }
 
-    @Nonnull
     @Override
     public RelationalExpressionVisitorWithDefaults<Boolean> createVisitor() {
         return new SelectMergeableVisitor();
     }
 
-    public boolean evaluate(@Nonnull final Reference reference) {
+    public boolean evaluate(final Reference reference) {
         return evaluate(reference.get());
     }
 
-    public boolean evaluate(@Nonnull final RelationalExpression expression) {
+    public boolean evaluate(final RelationalExpression expression) {
         return Objects.requireNonNull(createVisitor().visit(expression));
     }
 
-    @Nonnull
     public static SelectMergeableProperty selectMergeable() {
         return SELECT_MERGEABLE;
     }
@@ -78,9 +75,8 @@ public class SelectMergeableProperty implements ExpressionProperty<Boolean> {
      * {@code false} for everything else. It does not recurse into children.
      */
     public static class SelectMergeableVisitor implements RelationalExpressionVisitorWithDefaults<Boolean> {
-        @Nonnull
         @Override
-        public Boolean visitDefault(@Nonnull final RelationalExpression expression) {
+        public Boolean visitDefault(final RelationalExpression expression) {
             return expression instanceof RelationalExpressionWithPredicates;
         }
     }

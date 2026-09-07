@@ -28,8 +28,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A continuation for the {@link SizeStatisticsGroupingCursor}.
@@ -46,6 +45,7 @@ class SizeStatisticsGroupingContinuation implements RecordCursorContinuation {
     private RecordCursorContinuation innerContinuation;
     @Nullable
     private SizeStatisticsResults partialResults;
+    @Nullable
     private Tuple currentGroupingKey;
     @Nullable
     private byte[] cachedBytes;
@@ -55,6 +55,7 @@ class SizeStatisticsGroupingContinuation implements RecordCursorContinuation {
     /**
      * The inner cursor is done, and we sent the last result, cannot continue afterward.
      */
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
     private SizeStatisticsGroupingContinuation() {
         lastResultContinuation = true;
     }
@@ -62,9 +63,10 @@ class SizeStatisticsGroupingContinuation implements RecordCursorContinuation {
     /**
      * The inner cursor still has results, we can continue (e.g. group break).
      */
-    SizeStatisticsGroupingContinuation(@Nonnull RecordCursorResult<KeyValue> currentKvResult,
-                                       @Nonnull SizeStatisticsResults partialResults,
-                                       @Nonnull Tuple currentGroupingKey) {
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
+    SizeStatisticsGroupingContinuation(RecordCursorResult<KeyValue> currentKvResult,
+                                       SizeStatisticsResults partialResults,
+                                       @Nullable Tuple currentGroupingKey) {
         lastResultContinuation = false;
         this.innerContinuation = currentKvResult.getContinuation();
         this.partialResults = partialResults.copy(); //cache an immutable snapshot of the partial aggregate state
@@ -96,7 +98,6 @@ class SizeStatisticsGroupingContinuation implements RecordCursorContinuation {
     }
 
     @Override
-    @Nonnull
     public ByteString toByteString() {
         if (cachedByteString == null) {
             final RecordCursorProto.SizeStatisticsGroupingContinuation.Builder builder = RecordCursorProto.SizeStatisticsGroupingContinuation.newBuilder();

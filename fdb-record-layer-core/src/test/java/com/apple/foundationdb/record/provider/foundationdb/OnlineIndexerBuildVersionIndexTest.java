@@ -35,13 +35,14 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -65,10 +66,14 @@ import static org.junit.jupiter.api.Assertions.fail;
 @SuppressWarnings("try")
 class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBuildIndexTest {
 
-    private void versionRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
+    private void versionRebuild(List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                                 int agents, boolean overlap) {
         final OnlineIndexerTestRecordHandler<TestRecords1Proto.MySimpleRecord> recordHandler = OnlineIndexerTestSimpleRecordHandler.instance();
         final Index index = new Index("newVersionIndex", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION);
+        // Tuple.from below intentionally accepts a null numValue2/versionstamp as test data (an unannotated,
+        // external API conservatively treated by NullAway as requiring non-null); Tuple encodes a null
+        // element just fine.
+        @SuppressWarnings("NullAway")
         final Function<FDBQueriedRecord<Message>, Tuple> projection = rec -> {
             TestRecords1Proto.MySimpleRecord simple = TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build();
             Integer numValue2 = (simple.hasNumValue2()) ? simple.getNumValue2() : null;
@@ -92,6 +97,10 @@ class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBuildIndexTest {
                 })
                 .collect(Collectors.toList());
 
+        // group()'s Function<V, K> parameter (declared in the shared OnlineIndexerBuildIndexTest base
+        // class, out of scope here) has an unannotated K, defaulting to non-null, but this lambda
+        // intentionally returns null for records without num_value_2 set, matching the isNull() filter used below.
+        @SuppressWarnings("NullAway")
         Function<TestRecords1Proto.MySimpleRecord, Integer> indexValue = msg -> msg.hasNumValue2() ? msg.getNumValue2() : null;
         Map<Integer, List<Message>> valueMap = group(records, indexValue);
         Map<Long, FDBRecordVersion> versionMap = new HashMap<>(records.size() + (recordsWhileBuilding == null ? 0 : recordsWhileBuilding.size()));
@@ -102,7 +111,7 @@ class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBuildIndexTest {
                 for (int i = 0; i < queries.size(); i++) {
                     Integer value2 = (records.get(i).hasNumValue2()) ? records.get(i).getNumValue2() : null;
                     try {
-                        executeQuery(queries.get(i), "Index(newVersionIndex [[" + value2 + "],[" + value2 + "])", valueMap.get(value2));
+                        executeQuery(queries.get(i), "Index(newVersionIndex [[" + value2 + "],[" + value2 + "])", Objects.requireNonNull(valueMap.get(value2)));
                         fail("somehow executed query with new index before build");
                     } catch (RecordCoreException e) {
                         assertEquals("Cannot sort without appropriate index: Version", e.getMessage());
@@ -156,7 +165,7 @@ class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBuildIndexTest {
                 for (int i = 0; i < updatedQueries.size(); i++) {
                     Integer value2 = (updatedRecords.get(i).hasNumValue2()) ? updatedRecords.get(i).getNumValue2() : null;
                     try {
-                        executeQuery(updatedQueries.get(i), "Index(newVersionIndex [[" + value2 + "],[" + value2 + "])", updatedValueMap.get(value2));
+                        executeQuery(updatedQueries.get(i), "Index(newVersionIndex [[" + value2 + "],[" + value2 + "])", Objects.requireNonNull(updatedValueMap.get(value2)));
                         fail("somehow executed query with new index before readable");
                     } catch (RecordCoreException e) {
                         assertEquals("Cannot sort without appropriate index: Version", e.getMessage());
@@ -183,12 +192,16 @@ class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBuildIndexTest {
             }
         };
 
+        // Tuple.from below intentionally accepts a null value2/versionstamp as test data (an unannotated,
+        // external API conservatively treated by NullAway as requiring non-null); Tuple encodes a null
+        // element just fine.
+        @SuppressWarnings("NullAway")
         Runnable afterReadable = () -> {
             Descriptors.FieldDescriptor recNoFieldDescriptor = TestRecords1Proto.MySimpleRecord.getDescriptor().findFieldByName("rec_no");
             try (FDBRecordContext context = openContext()) {
                 for (int i = 0; i < updatedQueries.size(); i++) {
                     Integer value2 = (updatedRecords.get(i).hasNumValue2()) ? updatedRecords.get(i).getNumValue2() : null;
-                    List<Tuple> sortedValues = updatedValueMap.get(value2).stream()
+                    List<Tuple> sortedValues = Objects.requireNonNull(updatedValueMap.get(value2)).stream()
                             .map(msg -> {
                                 FDBRecordVersion version = updatedVersionMap.get(((Number)msg.getField(recNoFieldDescriptor)).longValue());
                                 return Tuple.from(value2, version == null ? null : version.toVersionstamp());
@@ -204,11 +217,11 @@ class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBuildIndexTest {
         singleRebuild(recordHandler, records, recordsWhileBuilding, null, agents, overlap, false, index, null, beforeBuild, afterBuild, afterReadable);
     }
 
-    private void versionRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding) {
+    private void versionRebuild(List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding) {
         versionRebuild(records, recordsWhileBuilding, 1, false);
     }
 
-    private void versionRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records) {
+    private void versionRebuild(List<TestRecords1Proto.MySimpleRecord> records) {
         versionRebuild(records, null);
     }
 

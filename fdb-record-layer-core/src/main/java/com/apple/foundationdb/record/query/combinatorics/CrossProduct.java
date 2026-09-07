@@ -29,8 +29,8 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.PeekingIterator;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -52,7 +52,6 @@ public class CrossProduct {
      * @param <T> type
      */
     private static class ComplexIterable<T> implements EnumeratingIterable<T> {
-        @Nonnull
         private final List<Iterable<T>> sources;
 
         private class ComplexIterator extends AbstractIterator<List<T>> implements EnumeratingIterator<T> {
@@ -175,12 +174,11 @@ public class CrossProduct {
             }
         }
 
-        private ComplexIterable(@Nonnull final Collection<? extends Iterable<T>> sources) {
+        private ComplexIterable(final Collection<? extends Iterable<T>> sources) {
             Verify.verify(sources.size() > 1);
             this.sources = ImmutableList.copyOf(sources);
         }
 
-        @Nonnull
         @Override
         public EnumeratingIterator<T> iterator() {
             return new ComplexIterator();
@@ -196,10 +194,9 @@ public class CrossProduct {
      * @param <T> type
      */
     private static class SingleIterable<T> implements EnumeratingIterable<T> {
-        @Nonnull
         private final Iterable<T> singleCollection;
 
-        private SingleIterable(@Nonnull final Iterable<T> singleCollection) {
+        private SingleIterable(final Iterable<T> singleCollection) {
             this.singleCollection = singleCollection;
         }
 
@@ -216,6 +213,7 @@ public class CrossProduct {
                 // skipping is a non-op
             }
 
+            @Nullable
             @Override
             protected List<T> computeNext() {
                 atFirst = false;
@@ -228,7 +226,6 @@ public class CrossProduct {
             }
         }
 
-        @Nonnull
         @Override
         public EnumeratingIterator<T> iterator() {
             return new SingleIterator();
@@ -244,7 +241,7 @@ public class CrossProduct {
      *         {@code dependsOnFn} in a sense that the iterators created by this iterator will not return
      *         orderings that violate the given depends-on constraints
      */
-    public static <T> EnumeratingIterable<T> crossProduct(@Nonnull final Collection<? extends Iterable<T>> sources) {
+    public static <T> EnumeratingIterable<T> crossProduct(final Collection<? extends Iterable<T>> sources) {
         // try simple
         @Nullable
         final EnumeratingIterable<T> maybeSimpleIterable = trySimpleIterable(sources);
@@ -256,7 +253,7 @@ public class CrossProduct {
     }
 
     @Nullable
-    private static <T> EnumeratingIterable<T> trySimpleIterable(@Nonnull final Collection<? extends Iterable<T>> sources) {
+    private static <T> EnumeratingIterable<T> trySimpleIterable(final Collection<? extends Iterable<T>> sources) {
         if (sources.isEmpty()) {
             return EnumeratingIterable.emptyIterable();
         } else if (sources.size() == 1) {

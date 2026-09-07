@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionP
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -53,18 +52,14 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementUnorderedUnionRule extends AbstractCascadesRule<LogicalUnionExpression> implements ImplementationCascadesRule<LogicalUnionExpression> {
-    @Nonnull
     private static final BindingMatcher<PlanPartition> unionLegPlanPartitionsMatcher = anyPlanPartition();
 
-    @Nonnull
     private static final BindingMatcher<Reference> unionLegReferenceMatcher =
             planPartitions(rollUpPartitions(any(unionLegPlanPartitionsMatcher)));
 
-    @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =
             all(forEachQuantifierOverRef(unionLegReferenceMatcher));
 
-    @Nonnull
     private static final BindingMatcher<LogicalUnionExpression> root =
             logicalUnionExpression(allForEachQuantifiersMatcher);
 
@@ -73,7 +68,7 @@ public class ImplementUnorderedUnionRule extends AbstractCascadesRule<LogicalUni
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var planPartitions = bindings.getAll(unionLegPlanPartitionsMatcher);
         final var allQuantifiers = bindings.get(allForEachQuantifiersMatcher);

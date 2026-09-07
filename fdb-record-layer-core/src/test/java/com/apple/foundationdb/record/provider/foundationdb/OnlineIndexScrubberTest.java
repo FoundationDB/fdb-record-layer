@@ -1068,6 +1068,10 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         // manually delete a few index entries
         int missingCount = 0;
         try (FDBRecordContext context = openContext()) {
+            // FDBRecordStoreBase#scanIndex's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            @SuppressWarnings("NullAway")
             List<IndexEntry> indexEntries = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null,
                     ScanProperties.FORWARD_SCAN).asList().get();
 
@@ -1088,6 +1092,10 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
     private int causeDanglingIndexEntries(Index index, long numRecords) throws ExecutionException, InterruptedException {
         int danglingCount = 0;
         try (FDBRecordContext context = openContext(false)) {
+            // FDBRecordStoreBase#scanIndexRecords's continuation parameter is declared @Nullable byte[]
+            // (a position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            @SuppressWarnings("NullAway")
             List<FDBIndexedRecord<Message>> indexRecordEntries = recordStore.scanIndexRecords(index.getName(), IndexScanType.BY_VALUE, TupleRange.ALL, null,
                     ScanProperties.FORWARD_SCAN).asList().get();
 

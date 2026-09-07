@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -157,13 +156,11 @@ class ValueComparisonTest extends ComparisonsTestBase {
         assertThat(comparison().eval(null, evaluationContext, 20)).isFalse();
     }
 
-    @Nonnull
     private static ValueComparison correlatedComparison() {
         return new ValueComparison(Comparisons.Type.EQUALS,
                 QuantifiedObjectValue.of(q1(), Type.primitiveType(Type.TypeCode.INT, false)));
     }
 
-    @Nonnull
     private static ValueComparison comparison() {
         return new ValueComparison(Comparisons.Type.EQUALS, new LiteralValue<>(10));
     }

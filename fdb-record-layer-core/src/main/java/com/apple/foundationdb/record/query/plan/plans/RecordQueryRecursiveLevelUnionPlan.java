@@ -55,11 +55,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.Descriptors;
+import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -83,36 +83,28 @@ import java.util.function.Supplier;
 @API(API.Status.INTERNAL)
 public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChildren {
 
-    @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Recursive-Union-Query-Plan");
 
-    @Nonnull
     private final Quantifier.Physical initialStateQuantifier;
 
-    @Nonnull
     private final Quantifier.Physical recursiveStateQuantifier;
 
-    @Nonnull
     private final CorrelationIdentifier tempTableScanAlias;
 
-    @Nonnull
     private final CorrelationIdentifier tempTableInsertAlias;
 
-    @Nonnull
     private final Value resultValue;
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<List<RecordQueryPlan>> computeChildren = Suppliers.memoize(this::computeChildren);
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Integer> computeComplexitySupplier = Suppliers.memoize(this::computeComplexity);
 
-    public RecordQueryRecursiveLevelUnionPlan(@Nonnull final Quantifier.Physical initialStateQuantifier,
-                                              @Nonnull final Quantifier.Physical recursiveStateQuantifier,
-                                              @Nonnull final CorrelationIdentifier tempTableScanAlias,
-                                              @Nonnull final CorrelationIdentifier tempTableInsertAlias) {
+    public RecordQueryRecursiveLevelUnionPlan(final Quantifier.Physical initialStateQuantifier,
+                                              final Quantifier.Physical recursiveStateQuantifier,
+                                              final CorrelationIdentifier tempTableScanAlias,
+                                              final CorrelationIdentifier tempTableInsertAlias) {
         this.initialStateQuantifier = initialStateQuantifier;
         this.recursiveStateQuantifier = recursiveStateQuantifier;
         this.tempTableScanAlias = tempTableScanAlias;
@@ -125,17 +117,14 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
         return 2;
     }
 
-    @Nonnull
     private RecordQueryPlan getInitialStatePlan() {
         return initialStateQuantifier.getRangesOverPlan();
     }
 
-    @Nonnull
     private RecordQueryPlan getRecursiveStatePlan() {
         return recursiveStateQuantifier.getRangesOverPlan();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
@@ -147,19 +136,20 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
         return builder.build();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @SuppressWarnings("resource")
-    @Nonnull
+    // NullAway doesn't reliably track @Nullable on byte[] through the
+    // `x == null ? null : x.toByteArray()` ternary, even though the
+    // target executePlan parameter is declared @Nullable byte[].
+    @SuppressWarnings({"resource", "NullAway"})
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         final var type = getInnerTypeDescriptor(context);
         final var childExecuteProperties = executeProperties.clearSkipAndLimit();
         final var recursiveStateManager = new RecursiveStateManagerImpl(
@@ -176,8 +166,8 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
     }
 
     @Nullable
-    private Descriptors.Descriptor getInnerTypeDescriptor(@Nonnull final EvaluationContext context) {
-        @Nullable final Descriptors.Descriptor typeDescriptor;
+    private Descriptor getInnerTypeDescriptor(final EvaluationContext context) {
+        @Nullable final Descriptor typeDescriptor;
         final var innerType = getResultValue().getResultType();
         if (Objects.requireNonNull(innerType).isRecord()) {
             typeDescriptor = context.getTypeRepository().getMessageDescriptor(innerType);
@@ -187,26 +177,22 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
         return typeDescriptor;
     }
 
-    @Nonnull
     @Override
     public List<RecordQueryPlan> getChildren() {
         return computeChildren.get();
     }
 
-    @Nonnull
     private List<RecordQueryPlan> computeChildren() {
         return ImmutableList.of(getInitialStatePlan(), getRecursiveStatePlan());
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.ALL_FIELDS;
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryRecursiveLevelUnionPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryRecursiveLevelUnionPlan toProto(final PlanSerializationContext serializationContext) {
         final var builder = PRecordQueryRecursiveLevelUnionPlan.newBuilder()
                 .setInitialStateQuantifier(initialStateQuantifier.toProto(serializationContext))
                 .setRecursiveStateQuantifier(recursiveStateQuantifier.toProto(serializationContext))
@@ -215,9 +201,8 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
         return builder.build();
     }
 
-    @Nonnull
-    public static RecordQueryRecursiveLevelUnionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                               @Nonnull final PRecordQueryRecursiveLevelUnionPlan recordQueryUnorderedDistinctPlanProto) {
+    public static RecordQueryRecursiveLevelUnionPlan fromProto(final PlanSerializationContext serializationContext,
+                                                               final PRecordQueryRecursiveLevelUnionPlan recordQueryUnorderedDistinctPlanProto) {
         final var initialStateQuantifier = Quantifier.Physical.fromProto(serializationContext, recordQueryUnorderedDistinctPlanProto.getInitialStateQuantifier());
         final var recursiveStateQuantifier = Quantifier.Physical.fromProto(serializationContext, recordQueryUnorderedDistinctPlanProto.getRecursiveStateQuantifier());
         return new RecordQueryRecursiveLevelUnionPlan(initialStateQuantifier, recursiveStateQuantifier,
@@ -225,15 +210,13 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
                 CorrelationIdentifier.of(recordQueryUnorderedDistinctPlanProto.getRecursiveTempTableAlias()));
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setRecursiveLevelUnionPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.RECURSIVE_UNION_OPERATOR),
                 childGraphs);
@@ -262,13 +245,11 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
         return 1 + getChildren().stream().map(QueryPlan::getComplexity).reduce(1, Integer::sum);
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(initialStateQuantifier, recursiveStateQuantifier); // memoize
@@ -276,8 +257,8 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalences) {
+    public boolean equalsWithoutChildren(final RelationalExpression otherExpression,
+                                         final AliasMap equivalences) {
         if (this == otherExpression) {
             return true;
         }
@@ -300,15 +281,14 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode hashMode) {
+    public int planHash(final PlanHashMode hashMode) {
         return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, getChildren());
     }
 
-    @Nonnull
     @Override
-    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RelationalExpression translateCorrelations(final TranslationMap translationMap,
                                                       final boolean shouldSimplifyValues,
-                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                      final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
         Verify.verify(!translationMap.containsSourceAlias(tempTableScanAlias));
         Verify.verify(!translationMap.containsSourceAlias(tempTableInsertAlias));
@@ -318,12 +298,10 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
                 tempTableScanAlias, tempTableInsertAlias);
     }
 
-    @Nonnull
     public CorrelationIdentifier getTempTableScanAlias() {
         return tempTableScanAlias;
     }
 
-    @Nonnull
     public CorrelationIdentifier getTempTableInsertAlias() {
         return tempTableInsertAlias;
     }
@@ -333,16 +311,14 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
      */
     @AutoService(PlanDeserializer.class)
     public static final class Deserializer implements PlanDeserializer<PRecordQueryRecursiveLevelUnionPlan, RecordQueryRecursiveLevelUnionPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryRecursiveLevelUnionPlan> getProtoMessageClass() {
             return PRecordQueryRecursiveLevelUnionPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryRecursiveLevelUnionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                            @Nonnull final PRecordQueryRecursiveLevelUnionPlan recordQueryUnorderedDistinctPlanProto) {
+        public RecordQueryRecursiveLevelUnionPlan fromProto(final PlanSerializationContext serializationContext,
+                                                            final PRecordQueryRecursiveLevelUnionPlan recordQueryUnorderedDistinctPlanProto) {
             return RecordQueryRecursiveLevelUnionPlan.fromProto(serializationContext, recordQueryUnorderedDistinctPlanProto);
         }
     }
@@ -355,26 +331,19 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
 
         private boolean isInitialState;
 
-        @Nonnull
         private TempTable recursiveUnionTempTable;
 
-        @Nonnull
-        private final BiFunction<ByteString, EvaluationContext, RecordCursor<QueryResult>> recursiveCursorCreator;
+        private final BiFunction<@Nullable ByteString, EvaluationContext, RecordCursor<QueryResult>> recursiveCursorCreator;
 
-        @Nonnull
         private final EvaluationContext baseContext;
 
-        @Nonnull
         private final CorrelationIdentifier insertTempTableAlias;
 
-        @Nonnull
         private final CorrelationIdentifier scanTempTableAlias;
 
-        @Nonnull
         private RecordCursor<QueryResult> activeCursor;
 
         // transient
-        @Nonnull
         private EvaluationContext overridenEvaluationContext;
 
         /**
@@ -388,13 +357,17 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
          * @param tempTableFactory the {@link TempTable} factory.
          * @param continuationBytes optional continuation of the {@link RecursiveUnionCursor}.
          */
-        RecursiveStateManagerImpl(@Nonnull final BiFunction<ByteString, EvaluationContext, RecordCursor<QueryResult>> initialCursorCreator,
-                                  @Nonnull final BiFunction<ByteString, EvaluationContext,  RecordCursor<QueryResult>> recursiveCursorCreator,
-                                  @Nonnull final EvaluationContext baseContext,
-                                  @Nonnull final CorrelationIdentifier scanTempTableAlias,
-                                  @Nonnull final CorrelationIdentifier insertTempTableAlias,
-                                  @Nonnull final Function<PTempTable, TempTable> tempTableDeserializer,
-                                  @Nonnull final TempTable.Factory tempTableFactory,
+        // NullAway doesn't reliably narrow @Nullable byte[] via the enclosing
+        // `continuationBytes == null` check below; Continuation.from's parameter
+        // is genuinely non-null here.
+        @SuppressWarnings("NullAway")
+        RecursiveStateManagerImpl(final BiFunction<@Nullable ByteString, EvaluationContext, RecordCursor<QueryResult>> initialCursorCreator,
+                                  final BiFunction<@Nullable ByteString, EvaluationContext,  RecordCursor<QueryResult>> recursiveCursorCreator,
+                                  final EvaluationContext baseContext,
+                                  final CorrelationIdentifier scanTempTableAlias,
+                                  final CorrelationIdentifier insertTempTableAlias,
+                                  final Function<PTempTable, TempTable> tempTableDeserializer,
+                                  final TempTable.Factory tempTableFactory,
                                   @Nullable byte[] continuationBytes) {
             this.recursiveCursorCreator = recursiveCursorCreator;
             this.baseContext = baseContext;
@@ -434,13 +407,11 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
         }
 
         @Override
-        @Nonnull
         public RecordCursor<QueryResult> getActiveStateCursor() {
             return activeCursor;
         }
 
         @Override
-        @Nonnull
         public TempTable getRecursiveUnionTempTable() {
             return recursiveUnionTempTable;
         }
@@ -461,9 +432,8 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
          * @return A nested {@link EvaluationContext} with reversed referenced to {@link TempTable}s participating in
          * the recursive execution.
          */
-        @Nonnull
         @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional
-        private EvaluationContext flipBuffers(@Nonnull final EvaluationContext evaluationContext) {
+        private EvaluationContext flipBuffers(final EvaluationContext evaluationContext) {
             final var insertTempTable = getTempTable(evaluationContext, insertTempTableAlias);
             final var scanTempTable = getTempTable(evaluationContext, scanTempTableAlias);
             if (recursiveUnionTempTable == insertTempTable) {
@@ -481,8 +451,7 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
             }
         }
 
-        @Nonnull
-        private TempTable getTempTable(@Nonnull final EvaluationContext evaluationContext, @Nonnull final CorrelationIdentifier alias) {
+        private TempTable getTempTable(final EvaluationContext evaluationContext, final CorrelationIdentifier alias) {
             return (TempTable)evaluationContext.getBinding(Bindings.Internal.CORRELATION, alias);
         }
 
@@ -495,10 +464,9 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
          * @return A nested {@link EvaluationContext} that has a mapping between a {@code key} and a {@code TempTable}
          * value.
          */
-        @Nonnull
-        private static EvaluationContext withTempTable(@Nonnull final EvaluationContext context,
-                                                       @Nonnull final CorrelationIdentifier key,
-                                                       @Nonnull final TempTable value) {
+        private static EvaluationContext withTempTable(final EvaluationContext context,
+                                                       final CorrelationIdentifier key,
+                                                       final TempTable value) {
             return context.withBinding(Bindings.Internal.CORRELATION.bindingName(key.getId()), value);
         }
 
@@ -509,10 +477,9 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
          * @param tempTableFactory a {@link TempTable} factory.
          * @return a new {@link EvaluationContext} with binding to a newly created {@link TempTable}.
          */
-        @Nonnull
-        private static EvaluationContext withEmptyTempTable(@Nonnull final EvaluationContext context,
-                                                            @Nonnull final CorrelationIdentifier key,
-                                                            @Nonnull final TempTable.Factory tempTableFactory) {
+        private static EvaluationContext withEmptyTempTable(final EvaluationContext context,
+                                                            final CorrelationIdentifier key,
+                                                            final TempTable.Factory tempTableFactory) {
             return context
                     .childBuilder()
                     .setBinding(Bindings.Internal.CORRELATION.bindingName(key.getId()), tempTableFactory.createTempTable())

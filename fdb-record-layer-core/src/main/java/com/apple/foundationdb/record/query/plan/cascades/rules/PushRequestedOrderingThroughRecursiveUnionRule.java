@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUn
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyRef;
@@ -47,19 +46,14 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class PushRequestedOrderingThroughRecursiveUnionRule extends AbstractCascadesRule<RecursiveUnionExpression> implements PreOrderRule {
 
-    @Nonnull
     private static final BindingMatcher<Reference> initialRefMatcher = anyRef();
 
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> initialQunMatcher = forEachQuantifierOverRef(initialRefMatcher);
 
-    @Nonnull
     private static final BindingMatcher<Reference> recursiveRefMatcher = anyRef();
 
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> recursiveQunMatcher = forEachQuantifierOverRef(recursiveRefMatcher);
 
-    @Nonnull
     private static final BindingMatcher<RecursiveUnionExpression> root = recursiveUnionExpression(initialQunMatcher, recursiveQunMatcher);
 
     public PushRequestedOrderingThroughRecursiveUnionRule() {
@@ -67,7 +61,7 @@ public class PushRequestedOrderingThroughRecursiveUnionRule extends AbstractCasc
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(final CascadesRuleCall call) {
         final var requestedOrderingsOptional = call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;

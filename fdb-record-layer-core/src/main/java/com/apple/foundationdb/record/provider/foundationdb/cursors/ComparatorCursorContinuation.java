@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorEndContinuation;
-import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -33,48 +32,48 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
-class ComparatorCursorContinuation extends MergeCursorContinuation<RecordCursorProto.ComparatorContinuation.Builder, RecordCursorContinuation> {
+import static com.apple.foundationdb.record.RecordCursorProto.ComparatorContinuation;
+
+class ComparatorCursorContinuation extends MergeCursorContinuation<ComparatorContinuation.Builder, RecordCursorContinuation> {
 
     private final int referencePlanIndex;
 
-    @Nonnull
-    private static final RecordCursorProto.ComparatorContinuation.CursorState EXHAUSTED_PROTO = RecordCursorProto.ComparatorContinuation.CursorState.newBuilder()
+    private static final ComparatorContinuation.CursorState EXHAUSTED_PROTO = ComparatorContinuation.CursorState.newBuilder()
             .setStarted(true)
             .build();
-    @Nonnull
-    private static final RecordCursorProto.ComparatorContinuation.CursorState START_PROTO = RecordCursorProto.ComparatorContinuation.CursorState.newBuilder()
+    private static final ComparatorContinuation.CursorState START_PROTO = ComparatorContinuation.CursorState.newBuilder()
             .setStarted(false)
             .build();
 
-    private ComparatorCursorContinuation(@Nonnull List<RecordCursorContinuation> continuations,
-                                         @Nullable RecordCursorProto.ComparatorContinuation originalProto,
+    private ComparatorCursorContinuation(List<RecordCursorContinuation> continuations,
+                                         @Nullable ComparatorContinuation originalProto,
                                          final int referencePlanIndex) {
         super(continuations, originalProto);
         this.referencePlanIndex = referencePlanIndex;
     }
 
-    private ComparatorCursorContinuation(@Nonnull List<RecordCursorContinuation> continuations, final int referencePlanIndex) {
+    private ComparatorCursorContinuation(List<RecordCursorContinuation> continuations, final int referencePlanIndex) {
         this(continuations, null, referencePlanIndex);
     }
 
     @Override
-    protected void setFirstChild(@Nonnull RecordCursorProto.ComparatorContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
+    protected void setFirstChild(ComparatorContinuation.Builder builder, RecordCursorContinuation continuation) {
         addOtherChild(builder, continuation);
     }
 
     @Override
-    protected void setSecondChild(@Nonnull RecordCursorProto.ComparatorContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
+    protected void setSecondChild(ComparatorContinuation.Builder builder, RecordCursorContinuation continuation) {
         addOtherChild(builder, continuation);
     }
 
     @Override
-    protected void addOtherChild(@Nonnull RecordCursorProto.ComparatorContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
-        final RecordCursorProto.ComparatorContinuation.CursorState cursorState;
+    protected void addOtherChild(ComparatorContinuation.Builder builder, RecordCursorContinuation continuation) {
+        final ComparatorContinuation.CursorState cursorState;
         if (continuation.isEnd()) {
             cursorState = EXHAUSTED_PROTO;
         } else {
@@ -82,7 +81,7 @@ class ComparatorCursorContinuation extends MergeCursorContinuation<RecordCursorP
             if (asBytes.isEmpty() && !continuation.isEnd()) {
                 cursorState = START_PROTO;
             } else {
-                cursorState = RecordCursorProto.ComparatorContinuation.CursorState.newBuilder()
+                cursorState = ComparatorContinuation.CursorState.newBuilder()
                         .setStarted(true)
                         .setContinuation(asBytes)
                         .build();
@@ -92,9 +91,8 @@ class ComparatorCursorContinuation extends MergeCursorContinuation<RecordCursorP
     }
 
     @Override
-    @Nonnull
-    protected RecordCursorProto.ComparatorContinuation.Builder newProtoBuilder() {
-        return RecordCursorProto.ComparatorContinuation.newBuilder();
+    protected ComparatorContinuation.Builder newProtoBuilder() {
+        return ComparatorContinuation.newBuilder();
     }
 
     @Override
@@ -103,28 +101,26 @@ class ComparatorCursorContinuation extends MergeCursorContinuation<RecordCursorP
         return getContinuations().get(referencePlanIndex).isEnd();
     }
 
-    @Nonnull
-    static ComparatorCursorContinuation from(@Nonnull ComparatorCursor<?> cursor) {
+    static ComparatorCursorContinuation from(ComparatorCursor<?> cursor) {
         return new ComparatorCursorContinuation(cursor.getChildContinuations(), cursor.getReferencePlanIndex());
     }
 
-    @Nonnull
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even across explicit null checks.
     static ComparatorCursorContinuation from(@Nullable byte[] bytes, int numberOfChildren, int referencePlanIndex) {
         if (bytes == null) {
             return new ComparatorCursorContinuation(Collections.nCopies(numberOfChildren, RecordCursorStartContinuation.START), referencePlanIndex);
         }
         try {
-            return ComparatorCursorContinuation.from(RecordCursorProto.ComparatorContinuation.parseFrom(bytes), numberOfChildren, referencePlanIndex);
+            return ComparatorCursorContinuation.from(ComparatorContinuation.parseFrom(bytes), numberOfChildren, referencePlanIndex);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid continuation", ex)
-                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(bytes)));
         }
     }
 
-    @Nonnull
-    static ComparatorCursorContinuation from(@Nonnull RecordCursorProto.ComparatorContinuation parsed, int numberOfChildren, int referencePlanIndex) {
+    static ComparatorCursorContinuation from(ComparatorContinuation parsed, int numberOfChildren, int referencePlanIndex) {
         ImmutableList.Builder<RecordCursorContinuation> builder = ImmutableList.builder();
-        for (RecordCursorProto.ComparatorContinuation.CursorState state : parsed.getChildStateList()) {
+        for (ComparatorContinuation.CursorState state : parsed.getChildStateList()) {
             if (!state.getStarted()) {
                 builder.add(RecordCursorStartContinuation.START);
             } else if (state.hasContinuation()) {

@@ -35,8 +35,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -50,32 +50,27 @@ import java.util.function.Supplier;
  * @param <S> the type sort order that is being used
  */
 public class OrderingPart<S extends OrderingPart.SortOrder> {
-    @Nonnull
     private final Value value;
 
-    @Nonnull
     private final S sortOrder;
 
     @SuppressWarnings("this-escape")
     private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
-    protected OrderingPart(@Nonnull final Value value, @Nonnull final S sortOrder) {
+    protected OrderingPart(final Value value, final S sortOrder) {
         this.value = checkValue(value);
         this.sortOrder = sortOrder;
     }
 
-    @Nonnull
     public Value getValue() {
         return value;
     }
 
-    @Nonnull
     public S getSortOrder() {
         return sortOrder;
     }
 
-    @Nonnull
-    public S getDirectionalSortOrderOrDefault(@Nonnull final S defaultSortOrder) {
+    public S getDirectionalSortOrderOrDefault(final S defaultSortOrder) {
         if (sortOrder.isDirectional()) {
             return sortOrder;
         }
@@ -109,21 +104,18 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         return getValue() + getSortOrder().getArrowIndicator();
     }
 
-    @Nonnull
-    public static <S extends SortOrder> List<OrderingPart<S>> prefix(@Nonnull final List<? extends OrderingPart<S>> keyParts, final int endExclusive) {
+    public static <S extends SortOrder> List<OrderingPart<S>> prefix(final List<? extends OrderingPart<S>> keyParts, final int endExclusive) {
         return ImmutableList.copyOf(keyParts.subList(0, endExclusive));
     }
 
-    @Nonnull
-    private static Value checkValue(@Nonnull final Value value) {
+    private static Value checkValue(final Value value) {
         final var correlatedTo = value.getCorrelatedTo();
         Verify.verify(correlatedTo.size() <= 1);
         Verify.verify(correlatedTo.isEmpty() || Iterables.getOnlyElement(correlatedTo).equals(Quantifier.current()));
         return value;
     }
 
-    @Nonnull
-    public static <O extends OrderingPart<S>, S extends SortOrder> Map<Value, O> toOrderingPartMap(@Nonnull final Iterable<O> orderingParts) {
+    public static <O extends OrderingPart<S>, S extends SortOrder> Map<Value, O> toOrderingPartMap(final Iterable<O> orderingParts) {
         final var resultMapBuilder = ImmutableMap.<Value, O>builder();
         for (final O orderingPart : orderingParts) {
             resultMapBuilder.put(orderingPart.getValue(), orderingPart);
@@ -131,8 +123,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         return resultMapBuilder.build();
     }
 
-    @Nonnull
-    public static List<Value> toValues(@Nonnull final Iterable<? extends OrderingPart<?>> orderingParts) {
+    public static List<Value> toValues(final Iterable<? extends OrderingPart<?>> orderingParts) {
         final var resultsBuilder = ImmutableList.<Value>builder();
         for (final var orderingPart : orderingParts) {
             resultsBuilder.add(orderingPart.getValue());
@@ -156,14 +147,12 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
          * Name of the sort order; is implemented by the enum implementing this interface.
          * @return the name of this enum value
          */
-        @Nonnull
         String name();
 
         /**
          * Arrow indicator for pretty-printing the sort order.
          * @return a string containing an arrow indicator
          */
-        @Nonnull
         String getArrowIndicator();
 
         /**
@@ -179,7 +168,6 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
          * Get the corresponding tuple ordering direction.
          * @return the corresponding {@link Direction}.
          */
-        @Nonnull
         Direction getTupleDirection();
 
         default boolean isAnyAscending() {
@@ -207,8 +195,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             return getTupleDirection().isCounterflowNulls();
         }
 
-        @Nonnull
-        static <SO extends SortOrder> EnumMap<Direction, SO> computeDirectionToSortOrder(@Nonnull final Class<SO> soClass) {
+        static <SO extends SortOrder> EnumMap<Direction, SO> computeDirectionToSortOrder(final Class<SO> soClass) {
             final EnumMap<Direction, SO> directionToSortOrderMap = new EnumMap<>(Direction.class);
 
             final var values = soClass.getEnumConstants();
@@ -220,16 +207,14 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             return directionToSortOrderMap;
         }
 
-        @Nonnull
-        static <FO extends SortOrder, TO extends SortOrder> TO mapToSortOrder(@Nonnull final FO fo,
-                                                                              @Nonnull final EnumMap<Direction, TO> directionToSortOrderMap) {
+        static <FO extends SortOrder, TO extends SortOrder> TO mapToSortOrder(final FO fo,
+                                                                              final EnumMap<Direction, TO> directionToSortOrderMap) {
             Verify.verify(fo.isDirectional());
             return Objects.requireNonNull(directionToSortOrderMap.get(fo.getTupleDirection()));
         }
 
-        @Nonnull
-        static <FO extends SortOrder, TO extends SortOrder> TO mapToReverseSortOrder(@Nonnull final FO fo,
-                                                                                     @Nonnull final EnumMap<Direction, TO> directionToSortOrderMap) {
+        static <FO extends SortOrder, TO extends SortOrder> TO mapToReverseSortOrder(final FO fo,
+                                                                                     final EnumMap<Direction, TO> directionToSortOrderMap) {
             Verify.verify(fo.isDirectional());
             return Objects.requireNonNull(directionToSortOrderMap.get(fo.getTupleDirection().reverseDirection()));
         }
@@ -279,20 +264,18 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
 
         @Nullable
         private final Direction tupleDirection;
-        @Nonnull
         private final String arrowIndicator;
 
-        ProvidedSortOrder(@Nonnull final Direction tupleDirection) {
+        ProvidedSortOrder(final Direction tupleDirection) {
             this.tupleDirection = tupleDirection;
             this.arrowIndicator = tupleDirection.getArrowIndicator();
         }
 
-        ProvidedSortOrder(@Nonnull final String arrowIndicator) {
+        ProvidedSortOrder(final String arrowIndicator) {
             this.tupleDirection = null;
             this.arrowIndicator = arrowIndicator;
         }
 
-        @Nonnull
         @Override
         public String getArrowIndicator() {
             return arrowIndicator;
@@ -311,7 +294,6 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             }
         }
 
-        @Nonnull
         @Override
         public Direction getTupleDirection() {
             Verify.verify(isDirectional());
@@ -319,7 +301,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         }
 
         @SuppressWarnings("BooleanMethodIsAlwaysInverted")
-        public boolean isCompatibleWithRequestedSortOrder(@Nonnull final RequestedSortOrder requestedSortOrder) {
+        public boolean isCompatibleWithRequestedSortOrder(final RequestedSortOrder requestedSortOrder) {
             if (requestedSortOrder == RequestedSortOrder.ANY || this == CHOOSE || this == FIXED) {
                 return true;
             }
@@ -331,7 +313,6 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             return this.isAnyAscending() == requestedSortOrder.isAnyAscending();
         }
 
-        @Nonnull
         public ProvidedSortOrder flipIfReverse(final boolean isReverse) {
             if (isReverse) {
                 return SortOrder.mapToReverseSortOrder(this, ProvidedSortOrder.getDirectionToSortOrderMap());
@@ -339,27 +320,22 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             return this;
         }
 
-        @Nonnull
         public MatchedSortOrder toMatchedSortOrder() {
             return SortOrder.mapToSortOrder(this, MatchedSortOrder.getDirectionToSortOrderMap());
         }
 
-        @Nonnull
         public RequestedSortOrder toRequestedSortOrder() {
             return SortOrder.mapToSortOrder(this, RequestedSortOrder.getDirectionToSortOrderMap());
         }
 
-        @Nonnull
         static EnumMap<Direction, ProvidedSortOrder> getDirectionToSortOrderMap() {
             return directionToSortOrderMap;
         }
 
-        @Nonnull
-        public static ProvidedSortOrder fromDirection(@Nonnull final Direction direction) {
+        public static ProvidedSortOrder fromDirection(final Direction direction) {
             return Objects.requireNonNull(directionToSortOrderMap.get(direction));
         }
 
-        @Nonnull
         public static ProvidedSortOrder fromIsReverse(final boolean isReverse) {
             return isReverse ? DESCENDING : ASCENDING;
         }
@@ -390,14 +366,12 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             directionToSortOrderMap = SortOrder.computeDirectionToSortOrder(MatchedSortOrder.class);
         }
 
-        @Nonnull
         private final Direction tupleDirection;
 
-        MatchedSortOrder(@Nonnull final Direction tupleDirection) {
+        MatchedSortOrder(final Direction tupleDirection) {
             this.tupleDirection = tupleDirection;
         }
 
-        @Nonnull
         @Override
         public String getArrowIndicator() {
             return tupleDirection.getArrowIndicator();
@@ -408,18 +382,15 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             return true;
         }
 
-        @Nonnull
         @Override
         public Direction getTupleDirection() {
             return tupleDirection;
         }
 
-        @Nonnull
         public ProvidedSortOrder toProvidedSortOrder() {
             return toProvidedSortOrder(false);
         }
 
-        @Nonnull
         public ProvidedSortOrder toProvidedSortOrder(final boolean isReverse) {
             if (isReverse) {
                 return SortOrder.mapToReverseSortOrder(this, ProvidedSortOrder.getDirectionToSortOrderMap());
@@ -427,18 +398,15 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             return SortOrder.mapToSortOrder(this, ProvidedSortOrder.getDirectionToSortOrderMap());
         }
 
-        @Nonnull
         public RequestedSortOrder toRequestedSortOrder() {
             return SortOrder.mapToSortOrder(this, RequestedSortOrder.getDirectionToSortOrderMap());
         }
 
-        @Nonnull
         static EnumMap<Direction, MatchedSortOrder> getDirectionToSortOrderMap() {
             return directionToSortOrderMap;
         }
 
-        @Nonnull
-        public static MatchedSortOrder fromDirection(@Nonnull final Direction direction) {
+        public static MatchedSortOrder fromDirection(final Direction direction) {
             return Objects.requireNonNull(directionToSortOrderMap.get(direction));
         }
     }
@@ -478,20 +446,18 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
 
         @Nullable
         private final Direction tupleDirection;
-        @Nonnull
         private final String arrowIndicator;
 
-        RequestedSortOrder(@Nonnull final Direction tupleDirection) {
+        RequestedSortOrder(final Direction tupleDirection) {
             this.tupleDirection = tupleDirection;
             this.arrowIndicator = tupleDirection.getArrowIndicator();
         }
 
-        RequestedSortOrder(@Nonnull final String arrowIndicator) {
+        RequestedSortOrder(final String arrowIndicator) {
             this.tupleDirection = null;
             this.arrowIndicator = arrowIndicator;
         }
 
-        @Nonnull
         @Override
         public String getArrowIndicator() {
             return arrowIndicator;
@@ -503,35 +469,29 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
                     this == ASCENDING_NULLS_LAST || this == DESCENDING_NULLS_FIRST;
         }
 
-        @Nonnull
         @Override
         public Direction getTupleDirection() {
             Verify.verify(isDirectional());
             return Objects.requireNonNull(tupleDirection);
         }
 
-        @Nonnull
         public static RequestedSortOrder fromIsReverse(final boolean isReverse) {
             return isReverse ? DESCENDING : ASCENDING;
         }
 
-        @Nonnull
         public ProvidedSortOrder toProvidedSortOrder() {
             return SortOrder.mapToSortOrder(this, ProvidedSortOrder.getDirectionToSortOrderMap());
         }
 
-        @Nonnull
         public MatchedSortOrder toMatchedSortOrder() {
             return SortOrder.mapToSortOrder(this, MatchedSortOrder.getDirectionToSortOrderMap());
         }
 
-        @Nonnull
         static EnumMap<Direction, RequestedSortOrder> getDirectionToSortOrderMap() {
             return directionToSortOrderMap;
         }
 
-        @Nonnull
-        public static RequestedSortOrder fromDirection(@Nonnull final Direction direction) {
+        public static RequestedSortOrder fromDirection(final Direction direction) {
             return Objects.requireNonNull(directionToSortOrderMap.get(direction));
         }
     }
@@ -540,7 +500,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
      * Final class to tag provided ordering parts and to seal {@link OrderingPart}.
      */
     public static final class ProvidedOrderingPart extends OrderingPart<ProvidedSortOrder> {
-        public ProvidedOrderingPart(@Nonnull final Value value, final ProvidedSortOrder sortOrder) {
+        public ProvidedOrderingPart(final Value value, final ProvidedSortOrder sortOrder) {
             super(value, sortOrder);
         }
 
@@ -589,7 +549,6 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
          * @param isReverse indicator if the set operation is using a forward or a reverse comparison function
          * @return a {@link Value} that represents the <em>physical</em> comparison kay part for this ordering part
          */
-        @Nonnull
         public Value comparisonKeyValue(final boolean isReverse) {
             final var tupleDirection = toTupleDirection(isReverse);
             final var value = getValue();
@@ -599,15 +558,13 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             return new ToOrderedBytesValue(value, tupleDirection);
         }
 
-        @Nonnull
         private Direction toTupleDirection(final boolean isReverse) {
             return isReverse
                    ? getSortOrder().getTupleDirection().reverseDirection()
                    : getSortOrder().getTupleDirection();
         }
 
-        @Nonnull
-        public static List<Value> comparisonKeyValues(@Nonnull final Iterable<ProvidedOrderingPart> comparisonKeyOrderingParts,
+        public static List<Value> comparisonKeyValues(final Iterable<ProvidedOrderingPart> comparisonKeyOrderingParts,
                                                       final boolean isReverse) {
             return Streams.stream(comparisonKeyOrderingParts)
                     .map(providedOrderingPart -> providedOrderingPart.comparisonKeyValue(isReverse))
@@ -619,7 +576,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
      * Final class to tag requested ordering parts and to seal {@link OrderingPart}.
      */
     public static final class RequestedOrderingPart extends OrderingPart<RequestedSortOrder> {
-        public RequestedOrderingPart(@Nonnull final Value value, final RequestedSortOrder sortOrder) {
+        public RequestedOrderingPart(final Value value, final RequestedSortOrder sortOrder) {
             super(value, sortOrder);
         }
     }
@@ -628,10 +585,8 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
      * An {@link OrderingPart} that is bound by a comparison during graph matching.
      */
     public static final class MatchedOrderingPart extends OrderingPart<MatchedSortOrder> {
-        @Nonnull
         private final CorrelationIdentifier parameterId;
 
-        @Nonnull
         private final ComparisonRange comparisonRange;
 
         /**
@@ -640,26 +595,23 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
          * @param orderByValue value that defines what to order by
          * @param comparisonRange comparison used to match this ordering part
          */
-        private MatchedOrderingPart(@Nonnull final CorrelationIdentifier parameterId,
-                                    @Nonnull final Value orderByValue,
-                                    @Nonnull final ComparisonRange comparisonRange,
-                                    @Nonnull final MatchedSortOrder matchedSortOrder) {
+        private MatchedOrderingPart(final CorrelationIdentifier parameterId,
+                                    final Value orderByValue,
+                                    final ComparisonRange comparisonRange,
+                                    final MatchedSortOrder matchedSortOrder) {
             super(orderByValue, matchedSortOrder);
             this.parameterId = parameterId;
             this.comparisonRange = comparisonRange;
         }
 
-        @Nonnull
         public CorrelationIdentifier getParameterId() {
             return parameterId;
         }
 
-        @Nonnull
         public ComparisonRange getComparisonRange() {
             return comparisonRange;
         }
 
-        @Nonnull
         public ComparisonRange.Type getComparisonRangeType() {
             return comparisonRange.getRangeType();
         }
@@ -684,23 +636,20 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
             return Objects.hash(super.hashCode(), parameterId, comparisonRange);
         }
 
-        @Nonnull
         public MatchedOrderingPart demote() {
             Verify.verify(getComparisonRange().isEquality());
             return new MatchedOrderingPart(getParameterId(), getValue(), ComparisonRange.EMPTY, getSortOrder());
         }
 
-        @Nonnull
-        public static MatchedOrderingPart of(@Nonnull final CorrelationIdentifier parameterId,
-                                             @Nonnull final Value orderByValue,
+        public static MatchedOrderingPart of(final CorrelationIdentifier parameterId,
+                                             final Value orderByValue,
                                              @Nullable final ComparisonRange comparisonRange,
-                                             @Nonnull final MatchedSortOrder matchedSortOrder) {
+                                             final MatchedSortOrder matchedSortOrder) {
             return new MatchedOrderingPart(parameterId, orderByValue,
                     comparisonRange == null ? ComparisonRange.EMPTY : comparisonRange, matchedSortOrder);
         }
 
-        @Nonnull
-        public static MatchedOrderingPart ofRecordTypeKey(@Nonnull final String recordTypeName, @Nonnull final Type type) {
+        public static MatchedOrderingPart ofRecordTypeKey(final String recordTypeName, final Type type) {
             final var comparison = new RecordTypeKeyComparison(recordTypeName);
             final var opaqueParameterId = CorrelationIdentifier.uniqueId(PredicateWithValueAndRanges.class);
             final var recordTypeValue = new RecordTypeValue(QuantifiedRecordValue.of(Quantifier.current(), type));
@@ -717,6 +666,6 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
      */
     @FunctionalInterface
     public interface OrderingPartCreator<O extends SortOrder, P extends OrderingPart<O>> {
-        P create(@Nonnull Value value, @Nonnull O sortOrder);
+        P create(Value value, O sortOrder);
     }
 }

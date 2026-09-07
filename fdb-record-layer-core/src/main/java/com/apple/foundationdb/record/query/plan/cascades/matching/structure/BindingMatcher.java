@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -58,7 +57,6 @@ public interface BindingMatcher<T> {
      * match rules efficiently.
      * @return a class object for a class that is a super class of every planner expression this matcher can match
      */
-    @Nonnull
     Class<T> getRootClass();
 
     /**
@@ -71,8 +69,7 @@ public interface BindingMatcher<T> {
      * @param in the object we attempt to match
      * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
-    @Nonnull
-    Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull PlannerBindings outerBindings, @Nonnull T in);
+    Stream<PlannerBindings> bindMatchesSafely(RecordQueryPlannerConfiguration plannerConfiguration, PlannerBindings outerBindings, T in);
 
     /**
      * A matcher is completely agnostic to the actual class of an object that is being passed in meaning that
@@ -88,8 +85,7 @@ public interface BindingMatcher<T> {
      * @return a stream of planner bindings
      */
     @SuppressWarnings("unchecked")
-    @Nonnull
-    default Stream<PlannerBindings> bindMatches(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull PlannerBindings outerBindings, @Nonnull Object in) {
+    default Stream<PlannerBindings> bindMatches(RecordQueryPlannerConfiguration plannerConfiguration, PlannerBindings outerBindings, Object in) {
         if (getRootClass().isInstance(in)) {
             return bindMatchesSafely(plannerConfiguration, outerBindings, (T)in);
         } else {
@@ -102,7 +98,7 @@ public interface BindingMatcher<T> {
      * @param downstream a matcher that is used to constrain this matcher
      * @return a new binding matcher.
      */
-    default BindingMatcher<T> where(@Nonnull final BindingMatcher<? super T> downstream) {
+    default BindingMatcher<T> where(final BindingMatcher<? super T> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(getRootClass(),
                 Extractor.identity(),
                 AllOfMatcher.matchingAllOf(getRootClass(), ImmutableList.of(this, downstream)));
@@ -118,7 +114,7 @@ public interface BindingMatcher<T> {
      * @return a new binding matcher.
      */
     @SuppressWarnings({"varags", "unchecked"})
-    default BindingMatcher<T> where(@Nonnull final BindingMatcher<? super T>... downstreams) {
+    default BindingMatcher<T> where(final BindingMatcher<? super T>... downstreams) {
         return where(AllOfMatcher.matchingAllOf(getRootClass(), Arrays.asList(downstreams)));
     }
 
@@ -127,7 +123,7 @@ public interface BindingMatcher<T> {
      * @param downstreams a collection of matchers that is used to constrain this matcher
      * @return a new binding matcher.
      */
-    default BindingMatcher<T> where(@Nonnull final Collection<? extends BindingMatcher<? super T>> downstreams) {
+    default BindingMatcher<T> where(final Collection<? extends BindingMatcher<? super T>> downstreams) {
         return where(AllOfMatcher.matchingAllOf(getRootClass(), downstreams));
     }
 
@@ -136,7 +132,7 @@ public interface BindingMatcher<T> {
      * @param downstream a matcher that is used to constrain this matcher
      * @return a new binding matcher.
      */
-    default BindingMatcher<T> and(@Nonnull final BindingMatcher<? super T> downstream) {
+    default BindingMatcher<T> and(final BindingMatcher<? super T> downstream) {
         return where(downstream);
     }
 
@@ -145,7 +141,7 @@ public interface BindingMatcher<T> {
      * @param downstream a downstream matcher
      * @return a new binding matcher.
      */
-    default BindingMatcher<T> or(@Nonnull final BindingMatcher<? super T> downstream) {
+    default BindingMatcher<T> or(final BindingMatcher<? super T> downstream) {
         return AnyOfMatcher.matchingAnyOf(getRootClass(), ImmutableList.of(this, downstream));
     }
 
@@ -157,7 +153,7 @@ public interface BindingMatcher<T> {
      * @param indentation the current indentation as a string of spaces
      * @return a string explaining the semantics of this matcher
      */
-    String explainMatcher(@Nonnull Class<?> atLeastType, @Nonnull String boundId, @Nonnull String indentation);
+    String explainMatcher(Class<?> atLeastType, String boundId, String indentation);
 
     /**
      * Method that attempts to match the current binding matcher against the object passed in and just returns whether
@@ -167,7 +163,7 @@ public interface BindingMatcher<T> {
      * @return {@code true} if the binding matcher produced any bindings for the object passed in,
      *         {@code false} otherwise
      */
-    default boolean matches(@Nonnull Object in) {
+    default boolean matches(Object in) {
         return bindMatches(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), PlannerBindings.empty(), in).findAny().isPresent();
     }
 
@@ -181,7 +177,7 @@ public interface BindingMatcher<T> {
      * @return {@code true} if the binding matcher produced any bindings for the object passed in,
      *         {@code false} otherwise
      */
-    default boolean matchesExactly(@Nonnull Object in) {
+    default boolean matchesExactly(Object in) {
         final List<PlannerBindings> plannerBindings =
                 bindMatches(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), PlannerBindings.empty(), in)
                         .collect(ImmutableList.toImmutableList());
@@ -214,26 +210,24 @@ public interface BindingMatcher<T> {
      */
     static <T> BindingMatcher<T> instance() {
         return new BindingMatcher<>() {
-            @Nonnull
             @Override
             public Class<T> getRootClass() {
                 throw new RecordCoreException("getRootClass() should not be called");
             }
 
-            @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
+            public Stream<PlannerBindings> bindMatchesSafely(RecordQueryPlannerConfiguration plannerConfiguration, final PlannerBindings outerBindings, final T in) {
                 throw new RecordCoreException("bindMatchesSafely() should not be called");
             }
 
             @Override
-            public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+            public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
                 throw new RecordCoreException("explainMatcher() should not be called");
             }
         };
     }
 
-    static String newLine(@Nonnull final String indent) {
+    static String newLine(final String indent) {
         return "\n" + indent;
     }
 }

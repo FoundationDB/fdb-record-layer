@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidateExpansion;
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 
 /**
@@ -47,17 +46,15 @@ public class VersionIndexMaintainerFactory implements IndexMaintainerFactory {
     private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Override
-    @Nonnull
     public Iterable<String> getIndexTypes() {
         return Arrays.asList(TYPES);
     }
 
-    @Nonnull
     @Override
     public IndexValidator getIndexValidator(Index forIndex) {
         return new IndexValidator(forIndex) {
             @Override
-            public void validate(@Nonnull MetaDataValidator metaDataValidator) {
+            public void validate(MetaDataValidator metaDataValidator) {
                 super.validate(metaDataValidator);
                 validateNotGrouping();
                 validateStoresRecordVersions(metaDataValidator);
@@ -68,20 +65,17 @@ public class VersionIndexMaintainerFactory implements IndexMaintainerFactory {
     }
 
     @Override
-    @Nonnull
-    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
         return new VersionIndexMaintainer(state);
     }
 
-    @Nonnull
     @Override
-    public Iterable<MatchCandidate> createMatchCandidates(@Nonnull final RecordMetaData metaData, @Nonnull final Index index, final boolean reverse) {
+    public Iterable<MatchCandidate> createMatchCandidates(final RecordMetaData metaData, final Index index, final boolean reverse) {
         return MatchCandidateExpansion.expandValueIndexMatchCandidate(metaData, index, reverse);
     }
 
-    @Nonnull
     @Override
-    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+    public IndexGeneralAttributes getIndexGeneralAttributes(final Index index) {
         return GENERAL_ATTRIBUTES;
     }
 }

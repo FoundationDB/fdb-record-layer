@@ -29,11 +29,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -47,20 +47,16 @@ import java.util.function.Function;
  * @param <U> the type of elements returned by this cursor
  */
 abstract class IntersectionCursorBase<T, U> extends MergeCursor<T, U, KeyedMergeCursorState<T>> {
-    @Nonnull
     private final Function<? super T, ? extends List<Object>> comparisonKeyFunction;
     private final boolean reverse;
 
-    @Nonnull
     private static final Set<StoreTimer.Event> duringEvents = Collections.singleton(FDBStoreTimer.Events.QUERY_INTERSECTION);
-    @Nonnull
     private static final Set<StoreTimer.Count> matchesCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_INTERSECTION_PLAN_MATCHES);
-    @Nonnull
     private static final Set<StoreTimer.Count> nonmatchesCounts =
             ImmutableSet.of(FDBStoreTimer.Counts.QUERY_INTERSECTION_PLAN_NONMATCHES, FDBStoreTimer.Counts.QUERY_DISCARDED);
 
-    protected IntersectionCursorBase(@Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
-                                     boolean reverse, @Nonnull List<KeyedMergeCursorState<T>> cursorStates,
+    protected IntersectionCursorBase(Function<? super T, ? extends List<Object>> comparisonKeyFunction,
+                                     boolean reverse, List<KeyedMergeCursorState<T>> cursorStates,
                                      @Nullable FDBStoreTimer timer) {
         super(cursorStates, timer);
         this.comparisonKeyFunction = comparisonKeyFunction;
@@ -69,7 +65,7 @@ abstract class IntersectionCursorBase<T, U> extends MergeCursor<T, U, KeyedMerge
 
     // Identify the list of maximal (and non-maximal) elements from the list of cursor states.
     @SuppressWarnings("PMD.CloseResource")
-    private void findMaxStates(@Nonnull List<KeyedMergeCursorState<T>> maxStates, @Nonnull List<KeyedMergeCursorState<T>> nonMaxCursors) {
+    private void findMaxStates(List<KeyedMergeCursorState<T>> maxStates, List<KeyedMergeCursorState<T>> nonMaxCursors) {
         final List<KeyedMergeCursorState<T>> cursorStates = getCursorStates();
         maxStates.add(cursorStates.get(0));
         List<Object> maxKey = cursorStates.get(0).getComparisonKey();
@@ -107,12 +103,12 @@ abstract class IntersectionCursorBase<T, U> extends MergeCursor<T, U, KeyedMerge
      * @return the list of states included in the next result
      */
     @Override
-    @Nonnull
     protected CompletableFuture<List<KeyedMergeCursorState<T>>> computeNextResultStates() {
         final List<KeyedMergeCursorState<T>> cursorStates = getCursorStates();
         return AsyncUtil.whileTrue(() -> whenAll(cursorStates).thenApply(vignore -> {
             // If any of the cursors do not have a next element, then we are done.
-            if (cursorStates.stream().anyMatch(cursorState -> !cursorState.getResult().hasNext())) {
+            // This waits for all cursor states to return some result, so getResult will return something non-null.
+            if (cursorStates.stream().anyMatch(cursorState -> !Objects.requireNonNull(cursorState.getResult()).hasNext())) {
                 return false;
             }
 
@@ -134,7 +130,7 @@ abstract class IntersectionCursorBase<T, U> extends MergeCursor<T, U, KeyedMerge
         }), getExecutor()).thenApply(vignore -> {
             // This waits for all cursor states to return some result, so getResult will return
             // something non-null.
-            if (cursorStates.stream().anyMatch(cursorState -> !cursorState.getResult().hasNext())) {
+            if (cursorStates.stream().anyMatch(cursorState -> !Objects.requireNonNull(cursorState.getResult()).hasNext())) {
                 return Collections.emptyList();
             } else {
                 return cursorStates;
@@ -142,7 +138,7 @@ abstract class IntersectionCursorBase<T, U> extends MergeCursor<T, U, KeyedMerge
         });
     }
 
-    private void logDuplicates(@Nonnull List<?> maxStates, @Nonnull List<?> nonMaxStates, long startTime) {
+    private void logDuplicates(List<?> maxStates, List<?> nonMaxStates, long startTime) {
         if (getTimer() != null) {
             if (nonMaxStates.isEmpty()) {
                 // All of the cursors are in the intersection, so this will return a match.
@@ -159,7 +155,6 @@ abstract class IntersectionCursorBase<T, U> extends MergeCursor<T, U, KeyedMerge
         }
     }
 
-    @Nonnull
     protected Function<? super T, ? extends List<Object>> getComparisonKeyFunction() {
         return comparisonKeyFunction;
     }
@@ -176,32 +171,28 @@ abstract class IntersectionCursorBase<T, U> extends MergeCursor<T, U, KeyedMerge
      * @return the weakest reason for stopping
      */
     @Override
-    @Nonnull
     protected NoNextReason mergeNoNextReasons() {
         return getWeakestNoNextReason(getCursorStates());
     }
 
     @Override
-    @Nonnull
     public IntersectionCursorContinuation getContinuationObject() {
         return IntersectionCursorContinuation.from(this);
     }
 
-    @Nonnull
-    protected static <T> List<KeyedMergeCursorState<T>> createCursorStates(@Nonnull Function<byte[], RecordCursor<T>> left,
-                                                                           @Nonnull Function<byte[], RecordCursor<T>> right,
+    protected static <T> List<KeyedMergeCursorState<T>> createCursorStates(Function<byte[], RecordCursor<T>> left,
+                                                                           Function<byte[], RecordCursor<T>> right,
                                                                            @Nullable byte[] byteContinuation,
-                                                                           @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction) {
+                                                                           Function<? super T, ? extends List<Object>> comparisonKeyFunction) {
         final IntersectionCursorContinuation continuation = IntersectionCursorContinuation.from(byteContinuation, 2);
         return ImmutableList.of(
                 KeyedMergeCursorState.from(left, continuation.getContinuations().get(0), comparisonKeyFunction),
                 KeyedMergeCursorState.from(right, continuation.getContinuations().get(1), comparisonKeyFunction));
     }
 
-    @Nonnull
-    protected static <T> List<KeyedMergeCursorState<T>> createCursorStates(@Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
+    protected static <T> List<KeyedMergeCursorState<T>> createCursorStates(List<Function<byte[], RecordCursor<T>>> cursorFunctions,
                                                                            @Nullable byte[] byteContinuation,
-                                                                           @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction) {
+                                                                           Function<? super T, ? extends List<Object>> comparisonKeyFunction) {
         if (cursorFunctions.size() < 2) {
             throw new RecordCoreArgumentException("not enough child cursors provided to IntersectionCursor")
                     .addLogInfo(LogMessageKeys.CHILD_COUNT, cursorFunctions.size());

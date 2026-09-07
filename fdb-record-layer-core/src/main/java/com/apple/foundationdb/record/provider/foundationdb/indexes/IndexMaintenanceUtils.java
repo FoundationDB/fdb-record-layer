@@ -28,14 +28,11 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-
 @API(API.Status.INTERNAL)
 public class IndexMaintenanceUtils {
 
-    @Nonnull
-    public static <M extends Message> IndexMaintenanceFilter.IndexValues getFilterTypeForRecord(@Nonnull final IndexMaintainerState state,
-                                                                                                @Nonnull final FDBIndexableRecord<M> savedRecord) {
+    public static <M extends Message> IndexMaintenanceFilter.IndexValues getFilterTypeForRecord(final IndexMaintainerState state,
+                                                                                                final FDBIndexableRecord<M> savedRecord) {
         // Apply both filters:
         // 1. Index predicates (if exist) - currently supports filtering out (i.e. NONE). If not filtered out, fallthrough to the next filter
         // 2. IndexMaintenanceFilter - supports ALL, NONE, and SOME

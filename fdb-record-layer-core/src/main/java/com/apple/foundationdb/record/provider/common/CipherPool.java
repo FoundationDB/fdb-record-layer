@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.common;
 
-import javax.annotation.Nonnull;
 import javax.crypto.Cipher;
 import java.security.GeneralSecurityException;
 
@@ -40,11 +39,11 @@ public class CipherPool {
         return borrowCipher(DEFAULT_CIPHER);
     }
 
-    public static Cipher borrowCipher(@Nonnull String cipherName) throws GeneralSecurityException {
+    public static Cipher borrowCipher(String cipherName) throws GeneralSecurityException {
         return MAPPED_POOL.poll(cipherName);
     }
 
-    public static void returnCipher(@Nonnull Cipher cipher) {
+    public static void returnCipher(Cipher cipher) {
         MAPPED_POOL.offer(cipher.getAlgorithm(), cipher);
     }
 

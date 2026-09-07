@@ -39,39 +39,34 @@ import com.google.common.base.Verify;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 public class SubscriptValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Subscript-Value");
 
-    @Nonnull
     private final Value indexValue;
 
-    @Nonnull
     private final Value sourceValue;
 
-    @Nonnull
     private final Type type;
 
-    public SubscriptValue(@Nonnull final Value indexValue,
-                          @Nonnull final Value sourceValue) {
+    public SubscriptValue(final Value indexValue,
+                          final Value sourceValue) {
         this.indexValue = indexValue;
         this.sourceValue = sourceValue;
         this.type = Verify.verifyNotNull(((Type.Array)sourceValue.getResultType()).getElementType()).nullable();
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return List.of(indexValue, sourceValue);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var indexValueExplain = Iterables.get(explainSuppliers, 0).get();
         final var sourceValueExplain = Iterables.get(explainSuppliers, 1).get();
         return ExplainTokensWithPrecedence.of(sourceValueExplain.getExplainTokens()
@@ -82,7 +77,7 @@ public class SubscriptValue extends AbstractValue {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         final var index = indexValue.eval(store, context);
         if (index == null) {
             return null;
@@ -104,7 +99,6 @@ public class SubscriptValue extends AbstractValue {
         return sourceAsList.get(adjustedIndex);
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return type;
@@ -115,36 +109,32 @@ public class SubscriptValue extends AbstractValue {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH);
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder()
                 .setSubscriptValue(toProto(serializationContext))
                 .build();
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode hashMode) {
+    public int planHash(final PlanHashMode hashMode) {
         return PlanHashable.objectsPlanHash(hashMode, BASE_HASH);
     }
 
-    @Nonnull
     @Override
-    public PSubscriptValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PSubscriptValue toProto(final PlanSerializationContext serializationContext) {
         return PSubscriptValue.newBuilder()
                 .setIndex(indexValue.toValueProto(serializationContext))
                 .setSource(sourceValue.toValueProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
-    public static SubscriptValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final PSubscriptValue subscriptValueProto) {
+    public static SubscriptValue fromProto(final PlanSerializationContext serializationContext,
+                                      final PSubscriptValue subscriptValueProto) {
         return new SubscriptValue(Value.fromValueProto(serializationContext, subscriptValueProto.getIndex()),
                 Value.fromValueProto(serializationContext, subscriptValueProto.getSource()));
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public Value withChildren(final Iterable<? extends Value> newChildren) {
@@ -162,16 +152,14 @@ public class SubscriptValue extends AbstractValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PSubscriptValue, SubscriptValue> {
-        @Nonnull
         @Override
         public Class<PSubscriptValue> getProtoMessageClass() {
             return PSubscriptValue.class;
         }
 
-        @Nonnull
         @Override
-        public SubscriptValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                        @Nonnull final PSubscriptValue subscriptValueProto) {
+        public SubscriptValue fromProto(final PlanSerializationContext serializationContext,
+                                        final PSubscriptValue subscriptValueProto) {
             return SubscriptValue.fromProto(serializationContext, subscriptValueProto);
         }
     }
@@ -186,14 +174,15 @@ public class SubscriptValue extends AbstractValue {
         }
 
         @SuppressWarnings({"PMD.UnusedFormalParameter", "PMD.UnusedPrivateMethod"}) // false positive, method is used
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> ignored,
-                                         @Nonnull final CallSiteArguments callSiteArguments) {
+        private static Value encapsulate(BuiltInFunction<Value> ignored,
+                                         final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             Verify.verify(arguments.size() == 2);
             var indexValue = (Value)arguments.get(0);
             final var indexMaxType = Type.maximumType(indexValue.getResultType(), Type.primitiveType(Type.TypeCode.INT));
             SemanticException.check(indexMaxType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-            indexValue = PromoteValue.inject(indexValue, indexMaxType);
+            // check above guarantees the type is non-null.
+            indexValue = PromoteValue.inject(indexValue, Objects.requireNonNull(indexMaxType));
 
             var sourceValue = (Value)arguments.get(1);
             Verify.verify(sourceValue.getResultType().isArray());

@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
-import javax.annotation.Nonnull;
 import java.util.Comparator;
 
 /**
@@ -32,6 +31,5 @@ import java.util.Comparator;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface CascadesCostModel extends Comparator<RelationalExpression> {
-    @Nonnull
     RecordQueryPlannerConfiguration getConfiguration();
 }

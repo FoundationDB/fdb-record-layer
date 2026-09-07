@@ -37,8 +37,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -47,6 +47,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -58,42 +59,36 @@ import java.util.Set;
  */
 @API(API.Status.INTERNAL)
 class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
-    @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("UnnestStoredRecordPlan");
 
-    @Nonnull
     private final UnnestedRecordType recordType;
-    @Nonnull
     private final RecordType storedRecordType;
 
-    UnnestStoredRecordPlan(@Nonnull UnnestedRecordType recordType, @Nonnull RecordType storedRecordType) {
+    UnnestStoredRecordPlan(UnnestedRecordType recordType, RecordType storedRecordType) {
         this.recordType = recordType;
         this.storedRecordType = storedRecordType;
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode hashMode) {
+    public int planHash(final PlanHashMode hashMode) {
         return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, recordType.getName(), storedRecordType.getName());
     }
 
-    @Nonnull
     @Override
     public Set<String> getStoredRecordTypes() {
         return Collections.singleton(storedRecordType.getName());
     }
 
-    @Nonnull
     @Override
     public Set<String> getSyntheticRecordTypes() {
         return Collections.singleton(recordType.getName());
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<FDBSyntheticRecord> execute(@Nonnull final FDBRecordStore store,
-                                                                        @Nonnull final FDBStoredRecord<M> rec,
+    public <M extends Message> RecordCursor<FDBSyntheticRecord> execute(final FDBRecordStore store,
+                                                                        final FDBStoredRecord<M> rec,
                                                                         @Nullable final byte[] continuation,
-                                                                        @Nonnull final ExecuteProperties executeProperties) {
+                                                                        final ExecuteProperties executeProperties) {
         NestingNode root = new NestingNode(recordType.getParentConstituent(), rec);
         Deque<NestingNode> toProcess = new ArrayDeque<>();
         toProcess.add(root);
@@ -108,7 +103,7 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
         return RecordCursor.fromList(store.getExecutor(), resultRecords);
     }
 
-    private List<FDBSyntheticRecord> iterateTree(@Nonnull NestingNode root) {
+    private List<FDBSyntheticRecord> iterateTree(NestingNode root) {
         List<FDBSyntheticRecord> records = new ArrayList<>();
         do {
             addRecord(records, root);
@@ -116,7 +111,7 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
         return records;
     }
 
-    private void addRecord(@Nonnull List<FDBSyntheticRecord> records, @Nonnull NestingNode node) {
+    private void addRecord(List<FDBSyntheticRecord> records, NestingNode node) {
         @Nullable FDBSyntheticRecord syntheticRecord = constructRecord(node);
         if (syntheticRecord != null) {
             records.add(syntheticRecord);
@@ -124,7 +119,7 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
     }
 
     @Nullable
-    private FDBSyntheticRecord constructRecord(@Nonnull NestingNode node) {
+    private FDBSyntheticRecord constructRecord(NestingNode node) {
         ImmutableMap.Builder<String, FDBStoredRecord<?>> mapBuilder = ImmutableMap.builderWithExpectedSize(recordType.getConstituents().size());
         node.collectConstituents(mapBuilder);
         Map<String, FDBStoredRecord<?>> constituentMap = mapBuilder.build();
@@ -136,9 +131,7 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
     }
 
     private static class NestingNode {
-        @Nonnull
         private final UnnestedRecordType.NestedConstituent constituent;
-        @Nonnull
         private final FDBStoredRecord<?> storedRecord;
         @Nullable
         private Map<String, List<NestingNode>> children;
@@ -147,19 +140,20 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
         @Nullable
         private List<String> keys; // children map keys (stored in a list to ensure a stable ordering)
 
-        public NestingNode(@Nonnull UnnestedRecordType.NestedConstituent constituent, @Nonnull FDBStoredRecord<?> storedRecord) {
+        public NestingNode(UnnestedRecordType.NestedConstituent constituent, FDBStoredRecord<?> storedRecord) {
             this.constituent = constituent;
             this.storedRecord = storedRecord;
         }
 
-        public boolean processNesting(@Nonnull UnnestedRecordType.NestedConstituent nesting, final Deque<NestingNode> toProcess) {
+        public boolean processNesting(UnnestedRecordType.NestedConstituent nesting, final Deque<NestingNode> toProcess) {
             if (!constituent.getName().equals(nesting.getParentName())) {
                 return false;
             }
             List<Key.Evaluated> evaluatedList = nesting.getNestingExpression().evaluate(storedRecord);
             for (int i = 0; i < evaluatedList.size(); i++) {
                 Key.Evaluated evaluated = evaluatedList.get(i);
-                Message childMessage = evaluated.getObject(0, Message.class);
+                Message childMessage = Objects.requireNonNull(evaluated.getObject(0, Message.class),
+                        () -> "nested constituent " + nesting.getName() + " is missing its message value");
                 FDBStoredRecord<?> childRecord = FDBStoredRecord.newBuilder(childMessage)
                         .setRecordType(nesting.getRecordType())
                         .setPrimaryKey(Tuple.from(i))
@@ -187,7 +181,6 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
             toProcess.addLast(newChild);
         }
 
-        @Nonnull
         public List<String> getKeys() {
             if (children == null) {
                 return Collections.emptyList();
@@ -235,8 +228,10 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
             // for that constituent. If all of the child constituents have been exhausted,
             // we are done here
             for (String key : getKeys()) {
-                int pos = state.get(key);
-                List<NestingNode> keyChildren = children.get(key);
+                // getKeys() is derived from children's key set, and state is populated with the same key set in
+                // initializeState(), so both maps are guaranteed to have an entry for key.
+                int pos = Objects.requireNonNull(state.get(key));
+                List<NestingNode> keyChildren = Objects.requireNonNull(children.get(key));
                 NestingNode child = keyChildren.get(pos);
                 if (child.incrementState()) {
                     // We have not exhausted this child's sub-tree
@@ -262,13 +257,15 @@ class UnnestStoredRecordPlan implements SyntheticRecordFromStoredRecordPlan {
          *
          * @param mapBuilder the map builder to collect results into
          */
-        void collectConstituents(@Nonnull ImmutableMap.Builder<String, FDBStoredRecord<?>> mapBuilder) {
+        void collectConstituents(ImmutableMap.Builder<String, FDBStoredRecord<?>> mapBuilder) {
             mapBuilder.put(constituent.getName(), storedRecord);
             if (children != null) {
                 initializeState();
+                // initializeState() guarantees state is non-null (and populated for every key) whenever children is non-null.
+                final Map<String, Integer> currentState = Objects.requireNonNull(state);
                 for (String key : getKeys()) {
-                    int childPos = state.get(key);
-                    NestingNode child = children.get(key).get(childPos);
+                    int childPos = Objects.requireNonNull(currentState.get(key));
+                    NestingNode child = Objects.requireNonNull(children.get(key)).get(childPos);
                     child.collectConstituents(mapBuilder);
                 }
             }

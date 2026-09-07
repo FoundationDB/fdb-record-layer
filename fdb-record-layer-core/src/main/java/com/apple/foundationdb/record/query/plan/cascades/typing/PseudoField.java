@@ -24,12 +24,13 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Map;
 import java.util.function.Function;
 
@@ -40,23 +41,18 @@ public enum PseudoField {
     }),
     ;
 
-    @Nonnull
     private static final String PREFIX = "__";
 
-    @Nonnull
     private final String fieldName;
-    @Nonnull
     private final Type type;
-    @Nonnull
-    private final Function<FDBQueriedRecord<?>, Object> valueExtractor;
+    private final Function<FDBQueriedRecord<?>, @Nullable Object> valueExtractor;
 
-    PseudoField(@Nonnull Type type, @Nonnull Function<FDBQueriedRecord<?>, Object> valueExtractor) {
+    PseudoField(Type type, Function<FDBQueriedRecord<?>, @Nullable Object> valueExtractor) {
         this.fieldName = PREFIX + name();
         this.type = type;
         this.valueExtractor = valueExtractor;
     }
 
-    @Nonnull
     public String getFieldName() {
         return fieldName;
     }
@@ -69,12 +65,12 @@ public enum PseudoField {
         return valueExtractor.apply(queriedRecord);
     }
 
-    public void fillInIfApplicable(@Nonnull Type.Record desiredType, @Nullable FDBQueriedRecord<?> queriedRecord, @Nonnull Message.Builder targetBuilder) {
+    public void fillInIfApplicable(Type.Record desiredType, @Nullable FDBQueriedRecord<?> queriedRecord, Message.Builder targetBuilder) {
         if (queriedRecord == null) {
             return;
         }
         final Map<String, Type.Record.Field> fieldNameMap = desiredType.getFieldNameFieldMap();
-        @Nullable Type.Record.Field field = fieldNameMap.get(fieldName);
+        @Nullable Field field = fieldNameMap.get(fieldName);
         if (field == null || !field.getFieldType().equals(type)) {
             // Field not in desired type
             return;
@@ -99,7 +95,6 @@ public enum PseudoField {
         targetBuilder.setField(targetFieldDescriptor, value);
     }
 
-    @Nonnull
     public Type getType() {
         return type;
     }

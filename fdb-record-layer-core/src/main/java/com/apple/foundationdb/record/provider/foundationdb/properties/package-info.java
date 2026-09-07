@@ -21,4 +21,7 @@
 /**
  * Classes for a property mechanism that supports server-side configuration for Record Layer by its adopter.
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.foundationdb.properties;
+
+import org.jspecify.annotations.NullMarked;

@@ -44,12 +44,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -260,7 +261,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                         } else {
                             int currentAttempt = attempts.getAndIncrement();
                             assertEquals(1, recordsScanned.incrementAndGet());
-                            assertEquals(behavior.getLeft().longValue(), indexBuilder.getTotalRecordsScanned(),
+                            assertEquals(Objects.requireNonNull(behavior.getLeft()).longValue(), indexBuilder.getTotalRecordsScanned(),
                                     "Attempt " + currentAttempt);
                             if (behavior.getRight() != null) {
                                 throw behavior.getRight().get();
@@ -275,7 +276,6 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
     }
 
-    @Nonnull
     private Index runAsyncSetup() {
         Index index = new Index("newIndex", field("num_value_2"));
         openSimpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
@@ -400,11 +400,11 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.buildIndexAsync(false));
 
             // Do mark the the index as readable.
-            assertTrue(indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.markReadableIfBuilt()));
+            assertTrue(Objects.requireNonNull(indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.markReadableIfBuilt())));
 
             // When the index is readable:
-            assertFalse(indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.markReadable())); // The status is not modified by markReadable.
-            assertTrue(indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.markReadableIfBuilt()));
+            assertFalse(Objects.requireNonNull(indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.markReadable()))); // The status is not modified by markReadable.
+            assertTrue(Objects.requireNonNull(indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.markReadableIfBuilt())));
         }
     }
 
@@ -607,7 +607,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                 })
                 .build()) {
             IndexingBase.TimeLimitException e = assertThrows(IndexingBase.TimeLimitException.class, indexer::buildIndex);
-            assertTrue(e.getMessage().contains("Time Limit Exceeded"));
+            assertTrue(Objects.requireNonNull(e.getMessage()).contains("Time Limit Exceeded"));
         }
     }
 
@@ -847,7 +847,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
     }
 
-    void mayRetryAfterHandlingException(@Nonnull IndexingThrottle.Booker booker, @Nullable Throwable ex, int currTries, boolean shouldRetryExpected) {
+    void mayRetryAfterHandlingException(IndexingThrottle.Booker booker, @Nullable Throwable ex, int currTries, boolean shouldRetryExpected) {
         final FDBException fdbException = IndexingThrottle.getFDBException(ex);
         final boolean shouldRetry = booker.mayRetryAfterHandlingException(fdbException, Collections.emptyList(), currTries, true);
         assertEquals(shouldRetryExpected, shouldRetry);

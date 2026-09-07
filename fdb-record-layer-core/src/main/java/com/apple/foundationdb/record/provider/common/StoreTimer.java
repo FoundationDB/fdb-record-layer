@@ -29,8 +29,7 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.util.MapUtils;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -49,6 +48,8 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.provider.common.StoreTimerSnapshot.CounterSnapshot;
+
 /**
  * A context-wide accumulator of timing information.
  * <p>
@@ -59,15 +60,11 @@ import java.util.stream.Stream;
  */
 @API(API.Status.UNSTABLE)
 public class StoreTimer {
-    @Nonnull
     private static final Counter ZERO_COUNTER = new Counter(true);
 
-    @Nonnull
     protected final Map<Event, Counter> counters;
-    @Nonnull
     protected final Map<Event, Counter> timeoutCounters;
     protected long lastReset;
-    @Nonnull
     protected final UUID uuid;
 
     /**
@@ -75,7 +72,7 @@ public class StoreTimer {
      *
      * @param events a stream of events to check for duplicates
      */
-    public static void checkEventNameUniqueness(@Nonnull Stream<Event> events) {
+    public static void checkEventNameUniqueness(Stream<Event> events) {
         final Set<String> seen = new HashSet<>();
         final Set<String> duplicates = events.map(Event::name).filter(n -> !seen.add(n)).collect(Collectors.toSet());
         if (!duplicates.isEmpty()) {
@@ -97,8 +94,7 @@ public class StoreTimer {
      *
      * @return a snapshot of the provided timer
      */
-    @Nonnull
-    public static StoreTimer getDifference(@Nonnull StoreTimer timer, @Nonnull StoreTimerSnapshot timerSnapshot) {
+    public static StoreTimer getDifference(StoreTimer timer, StoreTimerSnapshot timerSnapshot) {
 
         if (!timerSnapshot.derivedFrom(timer)) {
             throw new RecordCoreArgumentException("Invalid to subtract a snapshot timer from a timer it was not derived from.");
@@ -117,14 +113,14 @@ public class StoreTimer {
         return resultTimer;
     }
 
-    private static void computeDifference(@Nonnull Map<Event, Counter> timerCounters,
-                                          @Nonnull Map<Event, StoreTimerSnapshot.CounterSnapshot> snapShotCounters,
-                                          @Nonnull Map<Event, Counter> differenceCounters) {
+    private static void computeDifference(Map<Event, Counter> timerCounters,
+                                          Map<Event, CounterSnapshot> snapShotCounters,
+                                          Map<Event, Counter> differenceCounters) {
         for (Map.Entry<Event, Counter> entry : timerCounters.entrySet()) {
             final Event event = entry.getKey();
             final Counter counter = entry.getValue();
 
-            @Nullable final StoreTimerSnapshot.CounterSnapshot snapShotCounter = snapShotCounters.get(event);
+            final @Nullable CounterSnapshot snapShotCounter = snapShotCounters.get(event);
 
             // Add events that appeared in the store timer since the snapshot
             if (snapShotCounter == null) {
@@ -147,7 +143,7 @@ public class StoreTimer {
      * @return the counter for the event or {@code null} if not counter exists
      */
     @Nullable
-    public Counter getCounter(@Nonnull Event event) {
+    public Counter getCounter(Event event) {
         return getCounter(event, false);
     }
 
@@ -163,7 +159,7 @@ public class StoreTimer {
      *   {@code createIfNotExists} was false
      */
     @Nullable
-    protected Counter getCounter(@Nonnull Event event, boolean createIfNotExists) {
+    protected Counter getCounter(Event event, boolean createIfNotExists) {
         if (event instanceof Aggregate) {
             @Nullable Counter counter = ((Aggregate) event).compute(this);
             if (counter == null && createIfNotExists) {
@@ -185,12 +181,12 @@ public class StoreTimer {
      * @return the counter for the event or {@code null} if there is no value present for the event
      */
     @Nullable
-    public Counter getTimeoutCounter(@Nonnull Event event) {
+    public Counter getTimeoutCounter(Event event) {
         return getTimeoutCounter(event, false);
     }
 
     @Nullable
-    protected Counter getTimeoutCounter(@Nonnull Event event, boolean createIfNotExists) {
+    protected Counter getTimeoutCounter(Event event, boolean createIfNotExists) {
         if (createIfNotExists) {
             return MapUtils.computeIfAbsent(timeoutCounters, event, evignore -> new Counter());
         }
@@ -251,7 +247,7 @@ public class StoreTimer {
          * @param suffix the suffix to append to the log key
          * @return the log key with suffix appended
          */
-        default String logKeyWithSuffix(@Nonnull String suffix) {
+        default String logKeyWithSuffix(String suffix) {
             return MapUtils.computeIfAbsent(MapUtils.computeIfAbsent(LOG_KEY_SUFFIX_CACHE, suffix, ignoredPostfix -> new ConcurrentHashMap<>()),
                     this, event -> event.logKey() + suffix);
         }
@@ -281,7 +277,7 @@ public class StoreTimer {
          * @throws RecordCoreArgumentException if the validation assumptions are violated
          */
         @SuppressWarnings("unchecked")
-        default <T extends Event> T[] validate(@Nonnull T... events) {
+        default <T extends Event> T[] validate(T... events) {
             return validate((a, b) -> { return; }, events);
         }
 
@@ -297,7 +293,7 @@ public class StoreTimer {
          * @throws RecordCoreArgumentException if the validation assumptions are violated
          */
         @SuppressWarnings("unchecked")
-        default <T extends Event> T[] validate(@Nonnull BiConsumer<T, T> extraCheck, @Nonnull T... events) {
+        default <T extends Event> T[] validate(BiConsumer<T, T> extraCheck, T... events) {
             if (events.length == 0) {
                 throw new RecordCoreArgumentException("At least one event must be supplied to aggregate");
             }
@@ -329,7 +325,7 @@ public class StoreTimer {
          * @return the computed result or null if none of the value that comprise this aggregate were available
          */
         @Nullable
-        Counter compute(@Nonnull StoreTimer storeTimer);
+        Counter compute(StoreTimer storeTimer);
 
         /**
          * Compute the value for this aggregate.
@@ -339,8 +335,8 @@ public class StoreTimer {
          * @return the computed result or null if none of the value that comprise this aggregate were available
          */
         @Nullable
-        default Counter compute(@Nonnull StoreTimer storeTimer, @Nonnull Set<? extends Event> events) {
-            @Nullable StoreTimer.Counter counter = null;
+        default Counter compute(StoreTimer storeTimer, Set<? extends Event> events) {
+            @Nullable Counter counter = null;
 
             for (Event event : events) {
                 @Nullable Counter value = storeTimer.counters.get(event);
@@ -491,7 +487,7 @@ public class StoreTimer {
          *
          * @param counter the other counter to add into this counter
          */
-        public void add(@Nonnull Counter counter) {
+        public void add(Counter counter) {
             checkImmutable();
             cumulativeValue.addAndGet(counter.getCumulativeValue());
             count.addAndGet(counter.getCount());
@@ -528,7 +524,6 @@ public class StoreTimer {
      *
      * @return the UUID of this timer
      */
-    @Nonnull
     public UUID geUUID() {
         return uuid;
     }
@@ -555,7 +550,7 @@ public class StoreTimer {
      * @param timeDifferenceNanos the time that instrumented event took to run
      */
     public void record(Event event, long timeDifferenceNanos) {
-        getCounter(event, true).record(timeDifferenceNanos);
+        Objects.requireNonNull(getCounter(event, true)).record(timeDifferenceNanos);
     }
 
     /**
@@ -567,7 +562,7 @@ public class StoreTimer {
      * @param size size of IO that instrumented event performed.
      */
     public void recordSize(SizeEvent event, long size) {
-        getCounter(event, true).record(size);
+        Objects.requireNonNull(getCounter(event, true)).record(size);
     }
 
     /**
@@ -576,7 +571,7 @@ public class StoreTimer {
      * @param event the event being recorded
      * @param startTime the {@code System.nanoTime()} when the event started
      */
-    public void recordSinceNanoTime(@Nonnull Event event, long startTime) {
+    public void recordSinceNanoTime(Event event, long startTime) {
         record(event, System.nanoTime() - startTime);
     }
 
@@ -587,7 +582,7 @@ public class StoreTimer {
      * @param startTime the {@code System.nanoTime()} when the event started
      */
     public void recordTimeout(Wait event, long startTime) {
-        getTimeoutCounter(event, true).record(System.nanoTime() - startTime);
+        Objects.requireNonNull(getTimeoutCounter(event, true)).record(System.nanoTime() - startTime);
     }
 
     /**
@@ -596,7 +591,7 @@ public class StoreTimer {
      *
      * @param events the set of events being recorded
      */
-    public void increment(@Nonnull Set<Count> events) {
+    public void increment(Set<Count> events) {
         for (Count event : events) {
             increment(event);
         }
@@ -608,7 +603,7 @@ public class StoreTimer {
      *
      * @param event the event being recorded
      */
-    public void increment(@Nonnull Count event) {
+    public void increment(Count event) {
         increment(event, 1);
     }
 
@@ -619,7 +614,7 @@ public class StoreTimer {
      * @param events the set of events being recorded
      * @param amount the number of times each event occurred
      */
-    public void increment(@Nonnull Set<Count> events, int amount) {
+    public void increment(Set<Count> events, int amount) {
         for (Count event : events) {
             increment(event, amount);
         }
@@ -632,8 +627,8 @@ public class StoreTimer {
      * @param event the event being recorded
      * @param amount the number of times the event occurred
      */
-    public void increment(@Nonnull Count event, int amount) {
-        getCounter(event, true).increment(amount);
+    public void increment(Count event, int amount) {
+        Objects.requireNonNull(getCounter(event, true)).increment(amount);
     }
 
     /**
@@ -705,7 +700,6 @@ public class StoreTimer {
      *
      * @return the set of aggregates that can be computed by this timer
      */
-    @Nonnull
     public Set<Aggregate> getAggregates() {
         return Collections.emptySet();
     }
@@ -812,7 +806,7 @@ public class StoreTimer {
      *
      * @return a new future that will be complete after also recording timing information
      */
-    public <T> CompletableFuture<T> instrument(Event event, CompletableFuture<T> future, Executor executor) {
+    public <T> CompletableFuture<T> instrument(Event event, CompletableFuture<T> future, @Nullable Executor executor) {
         if (future.isDone()) {
             record(event, 0);
             return future;
@@ -893,9 +887,9 @@ public class StoreTimer {
      */
     public <T> RecordCursor<T> instrument(Event event, RecordCursor<T> inner) {
         return new RecordCursor<T>() {
+            @Nullable
             RecordCursorResult<T> nextResult;
 
-            @Nonnull
             @Override
             public CompletableFuture<RecordCursorResult<T>> onNext() {
                 return instrument(event, inner.onNext(), inner.getExecutor()).thenApply(result -> {
@@ -914,14 +908,13 @@ public class StoreTimer {
                 return inner.isClosed();
             }
 
-            @Nonnull
             @Override
             public Executor getExecutor() {
                 return inner.getExecutor();
             }
 
             @Override
-            public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+            public boolean accept(RecordCursorVisitor visitor) {
                 if (visitor.visitEnter(this)) {
                     inner.accept(visitor);
                 }

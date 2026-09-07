@@ -32,7 +32,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -45,14 +44,13 @@ import java.util.function.Supplier;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class AndOrPredicate extends AbstractQueryPredicate {
-    @Nonnull
     private final List<QueryPredicate> children;
 
     @SuppressWarnings("this-escape")
     private final Supplier<Set<QueryPredicate>> childrenAsSetSupplier =
             Suppliers.memoize(() -> ImmutableSet.copyOf(getChildren()));
 
-    protected AndOrPredicate(@Nonnull final PlanSerializationContext serializationContext, @Nonnull PAndOrPredicate andOrPredicateProto) {
+    protected AndOrPredicate(final PlanSerializationContext serializationContext, PAndOrPredicate andOrPredicateProto) {
         super(serializationContext, Objects.requireNonNull(andOrPredicateProto.getSuper()));
         ImmutableList.Builder<QueryPredicate> childrenBuilder = ImmutableList.builder();
         for (int i = 0; i < andOrPredicateProto.getChildrenCount(); i ++) {
@@ -61,7 +59,7 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
         this.children = childrenBuilder.build();
     }
 
-    protected AndOrPredicate(@Nonnull final List<? extends QueryPredicate> children, final boolean isAtomic) {
+    protected AndOrPredicate(final List<? extends QueryPredicate> children, final boolean isAtomic) {
         super(isAtomic);
         if (children.size() < 2) {
             throw new RecordCoreException(getClass().getSimpleName() + " must have at least two children");
@@ -70,13 +68,11 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
         this.children = ImmutableList.copyOf(children);
     }
 
-    @Nonnull
     @Override
     public List<? extends QueryPredicate> getChildren() {
         return children;
     }
 
-    @Nonnull
     private Set<QueryPredicate> getChildrenAsSet() {
         return childrenAsSetSupplier.get();
     }
@@ -88,10 +84,9 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsForChildren(@Nonnull final QueryPredicate other,
-                                                @Nonnull final ValueEquivalence valueEquivalence) {
+    public ConstrainedBoolean equalsForChildren(final QueryPredicate other,
+                                                final ValueEquivalence valueEquivalence) {
         final var andOrPredicateOptional = other.narrowMaybe(AndOrPredicate.class);
         if (andOrPredicateOptional.isEmpty()) {
             return ConstrainedBoolean.falseValue();
@@ -111,8 +106,7 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
         return Objects.hash(hashCodeWithoutChildren(), ImmutableSet.copyOf(getChildren()));
     }
 
-    @Nonnull
-    public PAndOrPredicate toAndOrPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PAndOrPredicate toAndOrPredicateProto(final PlanSerializationContext serializationContext) {
         final PAndOrPredicate.Builder builder =
                 PAndOrPredicate.newBuilder()
                         .setSuper(toAbstractQueryPredicateProto(serializationContext));
@@ -122,8 +116,8 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
         return builder.build();
     }
     
-    protected static List<? extends QueryPredicate> toList(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,
-                                                           @Nonnull QueryPredicate... operands) {
+    protected static List<? extends QueryPredicate> toList(QueryPredicate first, QueryPredicate second,
+                                                           QueryPredicate... operands) {
         List<QueryPredicate> children = new ArrayList<>(operands.length + 2);
         children.add(first);
         children.add(second);

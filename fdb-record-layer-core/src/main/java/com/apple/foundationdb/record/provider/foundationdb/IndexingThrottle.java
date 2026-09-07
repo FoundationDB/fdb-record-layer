@@ -38,8 +38,8 @@ import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -61,26 +61,26 @@ import java.util.function.Function;
 @API(API.Status.INTERNAL)
 public class IndexingThrottle {
 
-    @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(IndexingThrottle.class);
-    @Nonnull private static final Set<Integer> lessenWorkCodes = new HashSet<>(Arrays.asList(
+    private static final Logger LOGGER = LoggerFactory.getLogger(IndexingThrottle.class);
+    private static final Set<Integer> lessenWorkCodes = new HashSet<>(Arrays.asList(
             FDBError.TIMED_OUT.code(),
             FDBError.TRANSACTION_TOO_OLD.code(),
             FDBError.NOT_COMMITTED.code(),
             FDBError.TRANSACTION_TIMED_OUT.code(),
             FDBError.COMMIT_READ_INCOMPLETE.code(),
             FDBError.TRANSACTION_TOO_LARGE.code()));
-    @Nonnull private final IndexingCommon common;
-    @Nonnull private final Booker booker;
+    private final IndexingCommon common;
+    private final Booker booker;
     private final boolean isScrubber;
-    @Nonnull private Set<Index> mergeRequiredIndexes = new HashSet<>();
-    @Nonnull private List<Index> drainRequiredIndexes = Collections.emptyList();
+    private Set<Index> mergeRequiredIndexes = new HashSet<>();
+    private List<Index> drainRequiredIndexes = Collections.emptyList();
 
     static class Booker {
         /**
          * Keep track of success/failures and adjust transactions' scanned records limit when needed.
          * Note that when adjustLimits=true, a single thread processing is assumed.
          */
-        @Nonnull private final IndexingCommon common;
+        private final IndexingCommon common;
         private long recordsLimit;
         private long lastFailureRecordsScanned;
         private long totalRecordsScannedSuccess = 0;
@@ -92,9 +92,10 @@ public class IndexingThrottle {
         private long forcedDelayTimestampMilliSeconds = 0;
         private long recordsScannedSinceForcedDelayMilliSeconds = 0;
         private long consecutiveFailureCount = 0;
+        @Nullable
         private StoreTimerSnapshot storeTimerSnapshot = null;
 
-        Booker(@Nonnull IndexingCommon common) {
+        Booker(IndexingCommon common) {
             this.common = common;
             this.recordsLimit = common.config.getInitialLimit();
         }
@@ -147,7 +148,7 @@ public class IndexingThrottle {
                                                @Nullable List<Object> additionalLogMessageKeyValues,
                                                int currTries,
                                                final boolean adjustLimits) {
-            if (currTries >= common.config.getMaxRetries() || !shouldLessenWork(fdbException)) {
+            if (currTries >= common.config.getMaxRetries() || fdbException == null || !shouldLessenWork(fdbException)) {
                 // Here: should not retry or no more retries. There is no real need to handle limits.
                 return false;
             }
@@ -167,7 +168,7 @@ public class IndexingThrottle {
             return lessenWorkCodes.contains(ex.getCode());
         }
 
-        void decreaseLimit(@Nonnull FDBException fdbException,
+        void decreaseLimit(FDBException fdbException,
                            @Nullable List<Object> additionalLogMessageKeyValues) {
             // TODO: decrease the limit only for certain errors
             countFailedTransactions++;
@@ -200,7 +201,7 @@ public class IndexingThrottle {
         }
 
         void handleLimitsPostRunnerTransaction(@Nullable Throwable exception,
-                                               @Nonnull final AtomicLong recordsScanned,
+                                               final AtomicLong recordsScanned,
                                                final boolean adjustLimits,
                                                final @Nullable List<Object> additionalLogMessageKeyValues) {
             final long recordsScannedThisTransaction = recordsScanned.get();
@@ -235,7 +236,7 @@ public class IndexingThrottle {
             }
         }
 
-        private void increaseLimit(final @Nonnull List<Object> additionalLogMessageKeyValues) {
+        private void increaseLimit(final List<Object> additionalLogMessageKeyValues) {
             final long maxLimit = common.config.getMaxLimit();
             if (recordsLimit >= maxLimit) {
                 return; // quietly
@@ -298,7 +299,7 @@ public class IndexingThrottle {
         }
     }
 
-    IndexingThrottle(@Nonnull IndexingCommon common, boolean isScrubber) {
+    IndexingThrottle(IndexingCommon common, boolean isScrubber) {
         this.common = common;
         this.isScrubber = isScrubber;
         this.booker = new Booker(common);
@@ -328,9 +329,8 @@ public class IndexingThrottle {
     }
 
     @SuppressWarnings("squid:S3776") // cognitive complexity is high, candidate for refactoring
-    @Nonnull
-    public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull final BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
-                                                          @Nullable final Function<FDBException, Optional<R>> shouldReturnQuietly,
+    public <R> CompletableFuture<R> buildCommitRetryAsync(final BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
+                                                          @Nullable final Function<@Nullable FDBException, Optional<R>> shouldReturnQuietly,
                                                           @Nullable final List<Object> additionalLogMessageKeyValues,
                                                           final boolean adjustLimits) {
         List<Object> onlineIndexerLogMessageKeyValues = new ArrayList<>(common.indexLogMessageKeyValues());
@@ -464,7 +464,7 @@ public class IndexingThrottle {
      * @param indexes candidate indexes (expected to be in a write-only-with-queue state)
      * @return a future of the indexes that have a non-empty pending writes queue
      */
-    private CompletableFuture<List<Index>> nonEmptyQueueIndexes(@Nonnull FDBRecordStore store, @Nonnull FDBRecordContext context, @Nonnull List<Index> indexes) {
+    private CompletableFuture<List<Index>> nonEmptyQueueIndexes(FDBRecordStore store, FDBRecordContext context, List<Index> indexes) {
         return AsyncUtil.getAll(indexes.stream()
                         .map(index ->
                                 IndexingPendingWriteQueue.hasPendingWrites(store, index, context)
@@ -491,14 +491,12 @@ public class IndexingThrottle {
         return booker.totalRecordsScannedSuccess;
     }
 
-    @Nonnull
     public synchronized Set<Index> getAndResetMergeRequiredIndexes() {
         Set<Index> indexSet = mergeRequiredIndexes;
         mergeRequiredIndexes = new HashSet<>();
         return indexSet;
     }
 
-    @Nonnull
     public List<Index> getAndResetDrainRequiredIndexes() {
         List<Index> indexesToDrain = drainRequiredIndexes;
         drainRequiredIndexes = Collections.emptyList();

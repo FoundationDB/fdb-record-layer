@@ -25,8 +25,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A record associated with the corresponding meta-data.
@@ -40,21 +39,18 @@ public interface FDBRecord<M extends Message> {
      * Get the primary key for this record.
      * @return primary key for this record
      */
-    @Nonnull
     Tuple getPrimaryKey();
 
     /**
      * Get the record type for this record.
      * @return record type for this record
      */
-    @Nonnull
     RecordType getRecordType();
 
     /**
      * Get the Protobuf message form of this record.
      * @return the Protobuf message for this record
      */
-    @Nonnull
     M getRecord();
 
     /**

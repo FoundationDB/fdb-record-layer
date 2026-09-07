@@ -36,8 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Regu
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Optional;
 
 /**
@@ -56,8 +55,8 @@ public final class ConstantPredicateFoldingUtil {
      * @return An {@code Optional} containing the simplified {@link QueryPredicate} if both the operand and comparison
      * evaluate to constant values. Returns an empty {@code Optional} otherwise.
      */
-    public static PredicateCategory foldComparisonMaybe(@Nonnull final Value operand,
-                                                        @Nonnull final Comparisons.Comparison comparison) {
+    public static PredicateCategory foldComparisonMaybe(final Value operand,
+                                                        final Comparisons.Comparison comparison) {
         final var comparisonType = comparison.getType();
         final var lhsOperand = EffectiveConstant.from(operand);
         if (comparisonType.isUnary()) {
@@ -133,7 +132,6 @@ public final class ConstantPredicateFoldingUtil {
     /**
      * Converts a {@link ConstantPredicate} to a {@link EffectiveConstant}.
      */
-    @Nonnull
     private static EffectiveConstant toEffectiveConstant(final ConstantPredicate constantPredicate) {
         if (constantPredicate.isTautology()) {
             return EffectiveConstant.TRUE;
@@ -174,9 +172,9 @@ public final class ConstantPredicateFoldingUtil {
      *
      * @return the determined {@link EffectiveConstant}
      */
-    public static EffectiveConstant foldPredicateAtNull(@Nonnull final QueryPredicate predicate,
-                                                        @Nonnull final CorrelationIdentifier alias,
-                                                        @Nonnull final EvaluationContext evaluationContext) {
+    public static EffectiveConstant foldPredicateAtNull(final QueryPredicate predicate,
+                                                        final CorrelationIdentifier alias,
+                                                        final EvaluationContext evaluationContext) {
         final RegularTranslationMap nullifyingMap = TranslationMap.regularBuilder()
                 .when(alias)
                 .then((sourceAlias, leafValue) -> new NullValue(leafValue.getResultType()))
@@ -200,9 +198,9 @@ public final class ConstantPredicateFoldingUtil {
      * Returns whether {@code predicate} provably rejects null at {@code alias}. This is a convenience
      * wrapper around {@link #foldPredicateAtNull}.
      */
-    public static boolean rejectsNull(@Nonnull final QueryPredicate predicate,
-                                      @Nonnull final CorrelationIdentifier alias,
-                                      @Nonnull final EvaluationContext evaluationContext) {
+    public static boolean rejectsNull(final QueryPredicate predicate,
+                                      final CorrelationIdentifier alias,
+                                      final EvaluationContext evaluationContext) {
         final EffectiveConstant outcome = foldPredicateAtNull(predicate, alias, evaluationContext);
         return outcome == EffectiveConstant.FALSE || outcome == EffectiveConstant.NULL;
     }
@@ -215,14 +213,12 @@ public final class ConstantPredicateFoldingUtil {
         ;
 
         @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-        @Nonnull
         private final Optional<ConstantPredicate> predicateMaybe;
 
         PredicateCategory(@Nullable ConstantPredicate predicate) {
             this.predicateMaybe = Optional.ofNullable(predicate);
         }
 
-        @Nonnull
         Optional<ConstantPredicate> getPredicateMaybe() {
             return predicateMaybe;
         }
@@ -279,7 +275,7 @@ public final class ConstantPredicateFoldingUtil {
             return EffectiveConstant.NOT_NULL;
         }
 
-        public static EffectiveConstant from(@Nonnull final Value value) {
+        public static EffectiveConstant from(final Value value) {
             if (value instanceof NullValue) {
                 return EffectiveConstant.NULL;
             }

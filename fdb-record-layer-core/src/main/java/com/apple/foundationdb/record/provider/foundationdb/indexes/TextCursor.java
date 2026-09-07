@@ -37,8 +37,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -57,13 +56,9 @@ import java.util.concurrent.Executor;
  */
 @API(API.Status.EXPERIMENTAL)
 class TextCursor implements BaseCursor<IndexEntry> {
-    @Nonnull
     private final BunchedMapMultiIterator<Tuple, List<Integer>, Tuple> underlying;
-    @Nonnull
     private final Executor executor;
-    @Nonnull
     private final Index index;
-    @Nonnull
     private final CursorLimitManager limitManager;
     @Nullable
     private final FDBStoreTimer timer;
@@ -72,11 +67,11 @@ class TextCursor implements BaseCursor<IndexEntry> {
     private RecordCursorResult<IndexEntry> nextResult;
     private boolean closed;
 
-    TextCursor(@Nonnull BunchedMapMultiIterator<Tuple, List<Integer>, Tuple> underlying,
-               @Nonnull Executor executor,
-               @Nonnull FDBRecordContext context,
-               @Nonnull ScanProperties scanProperties,
-               @Nonnull Index index) {
+    TextCursor(BunchedMapMultiIterator<Tuple, List<Integer>, Tuple> underlying,
+               Executor executor,
+               FDBRecordContext context,
+               ScanProperties scanProperties,
+               Index index) {
         this.underlying = underlying;
         this.executor = executor;
         this.limitManager = new CursorLimitManager(context, scanProperties);
@@ -87,7 +82,6 @@ class TextCursor implements BaseCursor<IndexEntry> {
         this.closed = false;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<IndexEntry>> onNext() {
         if (nextResult != null && !nextResult.hasNext()) {
@@ -133,7 +127,10 @@ class TextCursor implements BaseCursor<IndexEntry> {
         }
     }
 
-    @Nonnull
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters of
+    // ByteArrayContinuation#fromNullable (out of scope to fix here); underlying.getContinuation()
+    // is genuinely nullable, which is exactly what fromNullable is designed to accept.
+    @SuppressWarnings("NullAway")
     private RecordCursorContinuation continuationHelper() {
         return ByteArrayContinuation.fromNullable(underlying.getContinuation());
     }
@@ -149,14 +146,13 @@ class TextCursor implements BaseCursor<IndexEntry> {
         return closed;
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return executor;
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
         return visitor.visitLeave(this);
     }

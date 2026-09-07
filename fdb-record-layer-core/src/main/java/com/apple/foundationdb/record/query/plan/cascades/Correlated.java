@@ -24,8 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.base.Equivalence;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.Set;
 
@@ -102,7 +102,6 @@ public interface Correlated<S extends Correlated<S>> {
      * constituent parts, etc.
      * @return the set of {@link CorrelationIdentifier}s this entity is correlated to
      */
-    @Nonnull
     Set<CorrelationIdentifier> getCorrelatedTo();
 
     /**
@@ -110,7 +109,7 @@ public interface Correlated<S extends Correlated<S>> {
      * @param alias a {@link CorrelationIdentifier}
      * @return {@code true} if this object is correlated to {@code alias}, {@code false} otherwise
      */
-    default boolean isCorrelatedTo(@Nonnull final CorrelationIdentifier alias) {
+    default boolean isCorrelatedTo(final CorrelationIdentifier alias) {
         return getCorrelatedTo().contains(alias);
     }
 
@@ -123,8 +122,7 @@ public interface Correlated<S extends Correlated<S>> {
      *        contained in the translation map must remain unmodified by the rebase operation.
      * @return a new entity that has been rebased
      */
-    @Nonnull
-    S rebase(@Nonnull AliasMap translationMap);
+    S rebase(AliasMap translationMap);
 
     /**
      * Determine equality with respect to an equivalence map between {@link CorrelationIdentifier}s based on
@@ -160,7 +158,7 @@ public interface Correlated<S extends Correlated<S>> {
      * @return {@code true} if both entities are considered equal using the equivalences passed in, {@code false}
      *         otherwise
      */
-    boolean semanticEquals(@Nullable Object other, @Nonnull AliasMap aliasMap);
+    boolean semanticEquals(@Nullable Object other, AliasMap aliasMap);
 
     /**
      * Static helper to shorten boilerplate for callers that have to deal with nullable objects.
@@ -172,7 +170,7 @@ public interface Correlated<S extends Correlated<S>> {
      *         if {@code one} is {@code null} but {@code another} is not and defers to the instance-based semantic
      *         equality in any other case.
      */
-    static <S extends Correlated<S>> boolean semanticEquals(@Nullable Correlated<S> one, @Nullable Correlated<S> other, @Nonnull AliasMap aliasMap) {
+    static <S extends Correlated<S>> boolean semanticEquals(@Nullable Correlated<S> one, @Nullable Correlated<S> other, AliasMap aliasMap) {
         if (one == null && other == null) {
             return true;
         }
@@ -216,15 +214,14 @@ public interface Correlated<S extends Correlated<S>> {
      * @param <S> type parameter
      */
     class BoundEquivalence<S extends Correlated<S>> extends Equivalence<S> {
-        @Nonnull
         private final AliasMap aliasMap;
 
-        public BoundEquivalence(@Nonnull final AliasMap aliasMap) {
+        public BoundEquivalence(final AliasMap aliasMap) {
             this.aliasMap = aliasMap;
         }
 
         @Override
-        protected boolean doEquivalent(final S a, @Nonnull final S b) {
+        protected boolean doEquivalent(final S a, final S b) {
             return a.semanticEquals(b, aliasMap);
         }
 
@@ -234,7 +231,7 @@ public interface Correlated<S extends Correlated<S>> {
         }
 
         @Override
-        public boolean equals(final Object o) {
+        public boolean equals(@Nullable final Object o) {
             if (this == o) {
                 return true;
             }

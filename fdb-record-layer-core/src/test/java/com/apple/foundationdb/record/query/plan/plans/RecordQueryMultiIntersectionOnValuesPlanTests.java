@@ -34,7 +34,6 @@ import com.google.common.collect.ImmutableSet;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 public class RecordQueryMultiIntersectionOnValuesPlanTests {
@@ -71,7 +70,6 @@ public class RecordQueryMultiIntersectionOnValuesPlanTests {
                                 .isInstanceOf(UnsupportedOperationException.class));
     }
 
-    @Nonnull
     private static RecordQueryScanPlan scan() {
         return new RecordQueryScanPlan(ImmutableSet.of("someType"),
                 someRecordType(),
@@ -82,7 +80,6 @@ public class RecordQueryMultiIntersectionOnValuesPlanTests {
                 Optional.empty());
     }
 
-    @Nonnull
     private static Type.Record someRecordType() {
         return RuleTestHelper.TYPE_S;
     }

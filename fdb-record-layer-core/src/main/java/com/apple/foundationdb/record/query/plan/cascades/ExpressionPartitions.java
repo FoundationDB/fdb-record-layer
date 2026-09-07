@@ -26,11 +26,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -42,24 +42,21 @@ public class ExpressionPartitions {
         // do not instantiate
     }
 
-    @Nonnull
-    public static <E extends RelationalExpression> List<ExpressionPartition<E>> rollUpTo(@Nonnull final Collection<ExpressionPartition<E>> expressionPartitions,
-                                                                                         @Nonnull final ExpressionProperty<?> property) {
+    public static <E extends RelationalExpression> List<ExpressionPartition<E>> rollUpTo(final Collection<ExpressionPartition<E>> expressionPartitions,
+                                                                                         final ExpressionProperty<?> property) {
         return rollUpTo(expressionPartitions,
                 ImmutableSet.of(property),
                 (PartitionCreator<E, ExpressionPartition<E>>)ExpressionPartition::new);
     }
 
-    @Nonnull
-    protected static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> rollUpTo(@Nonnull final Collection<P> expressionPartitions,
-                                                                                                         @Nonnull final ExpressionProperty<?> property,
-                                                                                                         @Nonnull final PartitionCreator<E, P> partitionCreator) {
+    protected static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> rollUpTo(final Collection<P> expressionPartitions,
+                                                                                                         final ExpressionProperty<?> property,
+                                                                                                         final PartitionCreator<E, P> partitionCreator) {
         return rollUpTo(expressionPartitions, ImmutableSet.of(property), partitionCreator);
     }
 
-    @Nonnull
-    public static <E extends RelationalExpression> List<ExpressionPartition<E>> rollUpTo(@Nonnull final Collection<ExpressionPartition<E>> expressionPartitions,
-                                                                                         @Nonnull final Set<ExpressionProperty<?>> rollupProperties) {
+    public static <E extends RelationalExpression> List<ExpressionPartition<E>> rollUpTo(final Collection<ExpressionPartition<E>> expressionPartitions,
+                                                                                         final Set<ExpressionProperty<?>> rollupProperties) {
         return rollUpTo(expressionPartitions, rollupProperties,
                 (PartitionCreator<E, ExpressionPartition<E>>)ExpressionPartition::new);
     }
@@ -85,10 +82,9 @@ public class ExpressionPartitions {
      * @param partitionCreator factory for constructing result partitions
      * @return a list of rolled-up partitions, one per distinct projected key
      */
-    @Nonnull
-    static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> rollUpTo(@Nonnull final Collection<P> partitions,
-                                                                                               @Nonnull final Set<ExpressionProperty<?>> rollupProperties,
-                                                                                               @Nonnull final PartitionCreator<E, P> partitionCreator) {
+    static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> rollUpTo(final Collection<P> partitions,
+                                                                                               final Set<ExpressionProperty<?>> rollupProperties,
+                                                                                               final PartitionCreator<E, P> partitionCreator) {
         final Map<Map<ExpressionProperty<?>, ?>, Map<E, Map<ExpressionProperty<?>, ?>>> rolledUpMap =
                 new LinkedHashMap<>();
         for (final P partition : partitions) {
@@ -131,22 +127,19 @@ public class ExpressionPartitions {
         return resultsBuilder.build();
     }
 
-    @Nonnull
-    protected static <E extends RelationalExpression> List<ExpressionPartition<E>> toPartitions(@Nonnull final ExpressionPropertiesMap<E> propertiesMap) {
+    protected static <E extends RelationalExpression> List<ExpressionPartition<E>> toPartitions(final ExpressionPropertiesMap<E> propertiesMap) {
         return toPartitions(propertiesMap, (PartitionCreator<E, ExpressionPartition<E>>)ExpressionPartition::new);
     }
 
-    @Nonnull
-    protected static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> toPartitions(@Nonnull final ExpressionPropertiesMap<E> propertiesMap,
-                                                                                                             @Nonnull final PartitionCreator<E, P> partitionCreator) {
+    protected static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> toPartitions(final ExpressionPropertiesMap<E> propertiesMap,
+                                                                                                             final PartitionCreator<E, P> partitionCreator) {
         return toPartitions(propertiesMap.getPartitioningPropertiesExpressionsMap(),
                 propertiesMap.computeNonPartitioningPropertiesMap(), partitionCreator);
     }
 
-    @Nonnull
-    private static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> toPartitions(@Nonnull final Map<Map<ExpressionProperty<?>, ?>, ? extends Set<E>> partitioningPropertiesMap,
-                                                                                                           @Nonnull Map<E, Map<ExpressionProperty<?>, ?>> nonPartitioningPropertiesMap,
-                                                                                                           @Nonnull final PartitionCreator<E, P> partitionCreator) {
+    private static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> toPartitions(final Map<Map<ExpressionProperty<?>, ?>, ? extends Set<E>> partitioningPropertiesMap,
+                                                                                                           Map<E, Map<ExpressionProperty<?>, ?>> nonPartitioningPropertiesMap,
+                                                                                                           final PartitionCreator<E, P> partitionCreator) {
         return partitioningPropertiesMap
                 .entrySet()
                 .stream()
@@ -156,7 +149,7 @@ public class ExpressionPartitions {
                     final var nonPartitioningPropertyMap = new LinkedIdentityMap<E, Map<ExpressionProperty<?>, ?>>();
                     for (final var expression : expressions) {
                         final var propertiesMapForExpression =
-                                nonPartitioningPropertiesMap.get(expression);
+                                Objects.requireNonNull(nonPartitioningPropertiesMap.get(expression));
                         nonPartitioningPropertyMap.put(expression, ImmutableMap.copyOf(propertiesMapForExpression));
                     }
 
@@ -172,7 +165,7 @@ public class ExpressionPartitions {
 
     @FunctionalInterface
     protected interface PartitionCreator<E extends RelationalExpression, P extends ExpressionPartition<E>> {
-        P create(@Nonnull Map<ExpressionProperty<?>, ?> groupingPropertyMap,
-                 @Nonnull Map<E, Map<ExpressionProperty<?>, ?>> groupedPropertyMap);
+        P create(Map<ExpressionProperty<?>, ?> groupingPropertyMap,
+                 Map<E, Map<ExpressionProperty<?>, ?>> groupedPropertyMap);
     }
 }

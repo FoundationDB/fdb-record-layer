@@ -25,10 +25,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.StreamSupport;
@@ -51,9 +52,8 @@ public class DependencyUtils {
      * @param <T> element type
      * @return a set of aliases
      */
-    @Nonnull
-    public static <T> ImmutableSet<CorrelationIdentifier> computeAliases(@Nonnull final Iterable<? extends T> elements,
-                                                                         @Nonnull final Function<T, CorrelationIdentifier> elementToAliasFn) {
+    public static <T> ImmutableSet<CorrelationIdentifier> computeAliases(final Iterable<? extends T> elements,
+                                                                         final Function<T, CorrelationIdentifier> elementToAliasFn) {
         return StreamSupport.stream(elements.spliterator(), false)
                 .map(elementToAliasFn)
                 .collect(ImmutableSet.toImmutableSet());
@@ -68,9 +68,8 @@ public class DependencyUtils {
      * @return a map from {@link CorrelationIdentifier} to {@code T} representing the conceptual inverse of the
      *         element to alias function passed in
      */
-    @Nonnull
-    public static <T> ImmutableMap<CorrelationIdentifier, T> computeAliasToElementMap(@Nonnull final Iterable<? extends T> elements,
-                                                                                      @Nonnull final Function<T, CorrelationIdentifier> elementToAliasFn) {
+    public static <T> ImmutableMap<CorrelationIdentifier, T> computeAliasToElementMap(final Iterable<? extends T> elements,
+                                                                                      final Function<T, CorrelationIdentifier> elementToAliasFn) {
         return StreamSupport.stream(elements.spliterator(), false)
                 .collect(ImmutableMap.toImmutableMap(elementToAliasFn, Function.identity()));
     }
@@ -87,14 +86,13 @@ public class DependencyUtils {
      * @return a multimap from {@link CorrelationIdentifier} to {@link CorrelationIdentifier} where a contained
      *         {@code key, values} pair signifies that {@code key} depends on each value in {@code values}
      */
-    @Nonnull
-    public static <T> ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> computeDependsOnMap(@Nonnull Set<CorrelationIdentifier> aliases,
-                                                                                                             @Nonnull final Function<T, CorrelationIdentifier> elementToAliasFn,
-                                                                                                             @Nonnull final Map<CorrelationIdentifier, T> aliasToElementMap,
-                                                                                                             @Nonnull final Function<T, ? extends Collection<T>> dependsOnFn) {
+    public static <T> ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> computeDependsOnMap(Set<CorrelationIdentifier> aliases,
+                                                                                                             final Function<T, CorrelationIdentifier> elementToAliasFn,
+                                                                                                             final Map<CorrelationIdentifier, T> aliasToElementMap,
+                                                                                                             final Function<T, ? extends Collection<T>> dependsOnFn) {
         final ImmutableSetMultimap.Builder<CorrelationIdentifier, CorrelationIdentifier> builder = ImmutableSetMultimap.builder();
         for (final CorrelationIdentifier alias : aliases) {
-            final Collection<T> dependsOn = dependsOnFn.apply(aliasToElementMap.get(alias));
+            final Collection<T> dependsOn = dependsOnFn.apply(Objects.requireNonNull(aliasToElementMap.get(alias)));
             for (final T dependsOnElement : dependsOn) {
                 @Nullable final CorrelationIdentifier dependsOnAlias = elementToAliasFn.apply(dependsOnElement);
                 if (dependsOnAlias != null && aliases.contains(dependsOnAlias)) {
@@ -118,13 +116,12 @@ public class DependencyUtils {
      * @return a multimap from {@link CorrelationIdentifier} to {@link CorrelationIdentifier} where a contained
      *         {@code key, values} pair signifies that {@code key} depends on each value in {@code values}
      */
-    @Nonnull
-    public static <T> ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> computeDependsOnMapWithAliases(@Nonnull Set<CorrelationIdentifier> aliases,
-                                                                                                                        @Nonnull final Map<CorrelationIdentifier, T> aliasToElementMap,
-                                                                                                                        @Nonnull final Function<T, Set<CorrelationIdentifier>> dependsOnFn) {
+    public static <T> ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> computeDependsOnMapWithAliases(Set<CorrelationIdentifier> aliases,
+                                                                                                                        final Map<CorrelationIdentifier, T> aliasToElementMap,
+                                                                                                                        final Function<T, Set<CorrelationIdentifier>> dependsOnFn) {
         final ImmutableSetMultimap.Builder<CorrelationIdentifier, CorrelationIdentifier> builder = ImmutableSetMultimap.builder();
         for (final CorrelationIdentifier alias : aliases) {
-            final Set<CorrelationIdentifier> dependsOn = dependsOnFn.apply(aliasToElementMap.get(alias));
+            final Set<CorrelationIdentifier> dependsOn = dependsOnFn.apply(Objects.requireNonNull(aliasToElementMap.get(alias)));
             for (final CorrelationIdentifier dependsOnAlias : dependsOn) {
                 if (dependsOnAlias != null && aliases.contains(dependsOnAlias)) {
                     builder.put(alias, dependsOnAlias);

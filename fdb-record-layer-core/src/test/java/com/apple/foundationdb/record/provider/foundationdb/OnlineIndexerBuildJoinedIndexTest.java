@@ -50,8 +50,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -109,7 +109,6 @@ class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndexTest {
             return TestRecordsJoinIndexProto.getDescriptor();
         }
 
-        @Nonnull
         private FDBRecordStoreTestBase.RecordMetaDataHook setPrimaryKeyHook() {
             return metaDataBuilder -> {
                 metaDataBuilder.getRecordType("CustomerWithHeader").setPrimaryKey(field("___header").nest(concatenateFields("z_key", "rec_id")));
@@ -117,7 +116,6 @@ class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndexTest {
             };
         }
 
-        @Nonnull
         private FDBRecordStoreTestBase.RecordMetaDataHook addSimpleOtherJoinTypeHook() {
             return metaDataBuilder -> {
                 final JoinedRecordTypeBuilder joinedRecordTypeBuilder = metaDataBuilder.addJoinedRecordType(SIMPLE_OTHER_JOIN_TYPE);
@@ -131,7 +129,6 @@ class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndexTest {
             };
         }
 
-        @Nonnull
         @Override
         public FDBRecordStoreTestBase.RecordMetaDataHook baseHook(final boolean splitLongRecords, @Nullable final Index sourceIndex) {
             return setPrimaryKeyHook().andThen(addSimpleOtherJoinTypeHook()).andThen(metaDataBuilder -> {
@@ -140,15 +137,13 @@ class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndexTest {
             });
         }
 
-        @Nonnull
         @Override
-        public FDBRecordStoreTestBase.RecordMetaDataHook addIndexHook(@Nonnull final Index index) {
+        public FDBRecordStoreTestBase.RecordMetaDataHook addIndexHook(final Index index) {
             return metaDataBuilder -> metaDataBuilder.addIndex(SIMPLE_OTHER_JOIN_TYPE, index);
         }
 
-        @Nonnull
         @Override
-        public Tuple getPrimaryKey(@Nonnull final Message message) {
+        public Tuple getPrimaryKey(final Message message) {
             if (recNoDescriptors.contains(message.getDescriptorForType())) {
                 final Descriptors.FieldDescriptor recNoDescriptor = message.getDescriptorForType().findFieldByName("rec_no");
                 return Tuple.from(message.getField(recNoDescriptor));
@@ -176,8 +171,7 @@ class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndexTest {
         }
     }
 
-    @Nonnull
-    private List<IndexEntry> joinValueIndexEntries(@Nonnull Index index, @Nonnull final List<Message> messages) {
+    private List<IndexEntry> joinValueIndexEntries(Index index, final List<Message> messages) {
         final Map<Integer, Map<Long, TestRecordsJoinIndexProto.MyOtherRecord>> otherRecords = new HashMap<>();
         // Collect all of the other records. Sort by num_value and rec_no
         for (Message message : messages) {
@@ -209,7 +203,10 @@ class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndexTest {
         return indexEntries;
     }
 
-    void singleValueIndexRebuild(@Nonnull List<Message> records, @Nonnull List<Message> recordsWhileBuilding, @Nonnull List<Tuple> deleteWhileBuilding, int agents, boolean overlap) {
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call site below.
+    @SuppressWarnings("NullAway")
+    void singleValueIndexRebuild(List<Message> records, @Nullable List<Message> recordsWhileBuilding, @Nullable List<Tuple> deleteWhileBuilding, int agents, boolean overlap) {
         final OnlineIndexerJoinedRecordHandler recordHandler = OnlineIndexerJoinedRecordHandler.instance();
 
         final Index joinIndex = new Index("joinIndex", concat(field("simple").nest("num_value"), field("other").nest("num_value_3"), field("simple").nest("num_value_2")));
@@ -250,11 +247,11 @@ class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndexTest {
         singleRebuild(recordHandler, records, recordsWhileBuilding, deleteWhileBuilding, agents, overlap, true, joinIndex, null, beforeBuild, afterBuild, afterReadable);
     }
 
-    void singleValueIndexRebuild(@Nonnull List<Message> records, @Nullable List<Message> recordsWhileBuilding, @Nullable List<Tuple> deleteWhileBuilding) {
+    void singleValueIndexRebuild(List<Message> records, @Nullable List<Message> recordsWhileBuilding, @Nullable List<Tuple> deleteWhileBuilding) {
         singleValueIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding, 1, false);
     }
 
-    void singleCountIndexRebuild(@Nonnull List<Message> records, @Nullable List<Message> recordsWhileBuilding, @Nullable List<Tuple> deleteWhileBuilding, int agents, boolean overlap) {
+    void singleCountIndexRebuild(List<Message> records, @Nullable List<Message> recordsWhileBuilding, @Nullable List<Tuple> deleteWhileBuilding, int agents, boolean overlap) {
         final OnlineIndexerJoinedRecordHandler recordHandler = OnlineIndexerJoinedRecordHandler.instance();
         final Index joinIndex = new Index("joinIndex", new GroupingKeyExpression(field("simple").nest("num_value"), 0), IndexTypes.COUNT);
         final IndexAggregateFunction indexAggregateFunction = new IndexAggregateFunction(IndexTypes.COUNT, field("num_value"), joinIndex.getName());
@@ -294,12 +291,11 @@ class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndexTest {
         singleRebuild(recordHandler, records, recordsWhileBuilding, deleteWhileBuilding, agents, overlap, true, joinIndex, null, beforeBuild, afterBuild, afterReadable);
     }
 
-    void singleCountIndexRebuild(@Nonnull List<Message> records, @Nullable List<Message> recordsWhileBuilding, @Nullable List<Tuple> deleteWhileBuilding) {
+    void singleCountIndexRebuild(List<Message> records, @Nullable List<Message> recordsWhileBuilding, @Nullable List<Tuple> deleteWhileBuilding) {
         singleCountIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding, 1, false);
     }
 
-    @Nonnull
-    private TestRecordsJoinIndexProto.MySimpleRecord randomSimpleRecord(@Nonnull Random r, long recNo, int numValue, long otherRecNo) {
+    private TestRecordsJoinIndexProto.MySimpleRecord randomSimpleRecord(Random r, long recNo, int numValue, long otherRecNo) {
         return TestRecordsJoinIndexProto.MySimpleRecord.newBuilder()
                 .setRecNo(recNo)
                 .setNumValue(numValue)
@@ -308,23 +304,19 @@ class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndexTest {
                 .build();
     }
 
-    @Nonnull
-    private TestRecordsJoinIndexProto.MySimpleRecord randomSimpleRecord(@Nonnull Random r, long recNo) {
+    private TestRecordsJoinIndexProto.MySimpleRecord randomSimpleRecord(Random r, long recNo) {
         return randomSimpleRecord(r, recNo, r.nextInt(5), r.nextLong());
     }
 
-    @Nonnull
-    private TestRecordsJoinIndexProto.MySimpleRecord randomSimpleRecord(@Nonnull Random r) {
+    private TestRecordsJoinIndexProto.MySimpleRecord randomSimpleRecord(Random r) {
         return randomSimpleRecord(r, r.nextLong());
     }
 
-    @Nonnull
-    private TestRecordsJoinIndexProto.MySimpleRecord randomJoinedSimpleRecord(@Nonnull Random r, @Nonnull TestRecordsJoinIndexProto.MyOtherRecord otherRecord) {
+    private TestRecordsJoinIndexProto.MySimpleRecord randomJoinedSimpleRecord(Random r, TestRecordsJoinIndexProto.MyOtherRecord otherRecord) {
         return randomSimpleRecord(r, r.nextLong(), otherRecord.getNumValue(), otherRecord.getRecNo());
     }
 
-    @Nonnull
-    private TestRecordsJoinIndexProto.MyOtherRecord randomOtherRecord(@Nonnull Random r, int numValue, long recNo) {
+    private TestRecordsJoinIndexProto.MyOtherRecord randomOtherRecord(Random r, int numValue, long recNo) {
         return TestRecordsJoinIndexProto.MyOtherRecord.newBuilder()
                 .setRecNo(recNo)
                 .setNumValue3(r.nextInt(10))
@@ -332,17 +324,15 @@ class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndexTest {
                 .build();
     }
 
-    @Nonnull
-    private TestRecordsJoinIndexProto.MyOtherRecord randomOtherRecord(@Nonnull Random r) {
+    private TestRecordsJoinIndexProto.MyOtherRecord randomOtherRecord(Random r) {
         return randomOtherRecord(r, r.nextInt(5), r.nextLong());
     }
 
-    @Nonnull
-    private TestRecordsJoinIndexProto.MyOtherRecord randomJoinedOther(@Nonnull Random r, @Nonnull TestRecordsJoinIndexProto.MySimpleRecord simpleRecord) {
+    private TestRecordsJoinIndexProto.MyOtherRecord randomJoinedOther(Random r, TestRecordsJoinIndexProto.MySimpleRecord simpleRecord) {
         return randomOtherRecord(r, simpleRecord.getNumValue(), simpleRecord.getOtherRecNo());
     }
 
-    private void addRandomUpdate(@Nonnull Random r, @Nonnull Message rec, @Nonnull List<Message> recordsWhileBuilding, @Nonnull List<Tuple> deleteWhileBuilding) {
+    private void addRandomUpdate(Random r, Message rec, List<Message> recordsWhileBuilding, List<Tuple> deleteWhileBuilding) {
         double choice = r.nextDouble();
         if (choice < 0.1) {
             // Delete this record
@@ -408,6 +398,9 @@ class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndexTest {
 
     @ParameterizedTest
     @MethodSource("randomSeeds")
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call site below.
+    @SuppressWarnings("NullAway")
     void simpleJoinIsEmpty(long seed) {
         final Random r = new Random(seed);
         final List<Message> records = new ArrayList<>();
@@ -482,6 +475,9 @@ class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndexTest {
 
     @ParameterizedTest
     @MethodSource("randomSeeds")
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the scanIndex call site below.
+    @SuppressWarnings("NullAway")
     void simpleJoinCountIsEmpty(long seed) {
         final Random r = new Random(seed);
         final List<Message> records = new ArrayList<>();

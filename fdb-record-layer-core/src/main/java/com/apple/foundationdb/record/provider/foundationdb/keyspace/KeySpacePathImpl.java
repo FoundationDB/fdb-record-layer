@@ -38,8 +38,7 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -49,7 +48,6 @@ import java.util.stream.Collectors;
 
 class KeySpacePathImpl implements KeySpacePath {
 
-    @Nonnull
     protected final KeySpaceDirectory directory;
     @Nullable
     protected final KeySpacePath parent;
@@ -65,30 +63,27 @@ class KeySpacePathImpl implements KeySpacePath {
      *    in the tuple produced from the path
      */
     private KeySpacePathImpl(@Nullable KeySpacePath parent,
-                             @Nonnull KeySpaceDirectory directory,
+                             KeySpaceDirectory directory,
                              @Nullable Object value) {
         this.directory = directory;
         this.value = value;
         this.parent = parent;
     }
 
-    @Nonnull
     static KeySpacePath newPath(@Nullable KeySpacePath parent,
-                                @Nonnull KeySpaceDirectory directory,
+                                KeySpaceDirectory directory,
                                 @Nullable Object value) {
         return directory.wrap(new KeySpacePathImpl(parent, directory, value));
     }
 
-    @Nonnull
     static KeySpacePath newPath(@Nullable KeySpacePath parent,
-                                @Nonnull KeySpaceDirectory directory) {
+                                KeySpaceDirectory directory) {
         return directory.wrap(new KeySpacePathImpl(parent, directory, directory.getValue()));
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public KeySpacePath add(@Nonnull String dirName) {
+    public KeySpacePath add(String dirName) {
         KeySpaceDirectory nextDir = directory.getSubdirectory(dirName);
         if (!nextDir.isConstant()) {
             throw new RecordCoreArgumentException("Directory requires an explicit value",
@@ -98,16 +93,14 @@ class KeySpacePathImpl implements KeySpacePath {
         return add(dirName, nextDir.getValue());
     }
 
-    @Nonnull
     @Override
-    public KeySpacePath add(@Nonnull String dirName, @Nullable Object value) {
+    public KeySpacePath add(String dirName, @Nullable Object value) {
         KeySpaceDirectory subdir = directory.getSubdirectory(dirName);
         return subdir.wrap(new KeySpacePathImpl(self(), subdir, value));
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(@Nonnull FDBRecordContext context, @Nonnull String subdirName, @Nullable ValueRange<?> range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    public RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(FDBRecordContext context, String subdirName, @Nullable ValueRange<?> range, @Nullable byte[] continuation, ScanProperties scanProperties) {
         return directory.listSubdirectoryAsync(self(), context, subdirName, range, continuation, scanProperties);
     }
 
@@ -117,13 +110,11 @@ class KeySpacePathImpl implements KeySpacePath {
         return parent;
     }
 
-    @Nonnull
     @Override
     public String getDirectoryName() {
         return directory.getName();
     }
 
-    @Nonnull
     @Override
     public KeySpaceDirectory getDirectory() {
         return directory;
@@ -135,13 +126,11 @@ class KeySpacePathImpl implements KeySpacePath {
         return value;
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<PathValue> resolveAsync(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<PathValue> resolveAsync(FDBRecordContext context) {
         return getDirectory().toTupleValueAsync(context, getValue());
     }
 
-    @Nonnull
     @Override
     public List<KeySpacePath> flatten() {
         List<KeySpacePath> reversePath = new ArrayList<>();
@@ -154,9 +143,8 @@ class KeySpacePathImpl implements KeySpacePath {
         return Lists.reverse(reversePath);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Tuple> toTupleAsync(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<Tuple> toTupleAsync(FDBRecordContext context) {
         final List<CompletableFuture<Object>> work = flatten().stream()
                 .map(entry -> entry.resolveAsync(context).thenApply(PathValue::getResolvedValue))
                 .collect(Collectors.toList());
@@ -164,9 +152,8 @@ class KeySpacePathImpl implements KeySpacePath {
         return AsyncUtil.getAll(work).thenApply(Tuple::fromList);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(FDBRecordContext context) {
         final List<KeySpacePath> flatPath = flatten();
         final List<CompletableFuture<PathValue>> work = flatPath.stream()
                 .map(entry -> entry.resolveAsync(context))
@@ -182,9 +169,8 @@ class KeySpacePathImpl implements KeySpacePath {
         });
     }
 
-    @Nonnull
     @VisibleForTesting
-    CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(@Nonnull final FDBRecordContext context, final byte[] key) {
+    CompletableFuture<ResolvedKeySpacePath> toResolvedPathAsync(final FDBRecordContext context, final byte[] key) {
         final Tuple keyTuple = Tuple.fromBytes(key);
         return toResolvedPathAsync(context).thenCompose(resolvedPath -> {
             // Now use the resolved path to find the child for the key
@@ -216,9 +202,8 @@ class KeySpacePathImpl implements KeySpacePath {
         });
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Boolean> hasDataAsync(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<Boolean> hasDataAsync(FDBRecordContext context) {
         return toTupleAsync(context).thenCompose( tuple -> {
             final byte[] rangeStart = tuple.pack();
             final byte[] rangeEnd = ByteArrayUtil.strinc(rangeStart);
@@ -226,9 +211,8 @@ class KeySpacePathImpl implements KeySpacePath {
         });
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Void> deleteAllDataAsync(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<Void> deleteAllDataAsync(FDBRecordContext context) {
         context.setDirtyStoreState(true);
         context.setMetaDataVersionStamp();
         return toTupleAsync(context).thenApply( tuple -> {
@@ -298,11 +282,10 @@ class KeySpacePathImpl implements KeySpacePath {
         return toString(null);
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<DataInKeySpacePath> exportAllData(@Nonnull FDBRecordContext context,
+    public RecordCursor<DataInKeySpacePath> exportAllData(FDBRecordContext context,
                                                           @Nullable byte[] continuation,
-                                                          @Nonnull ScanProperties scanProperties) {
+                                                          ScanProperties scanProperties) {
         return new LazyCursor<>(toTupleAsync(context)
                 .thenApply(tuple -> KeyValueCursor.Builder.withSubspace(new Subspace(tuple))
                         .setContext(context)
@@ -317,10 +300,9 @@ class KeySpacePathImpl implements KeySpacePath {
                     1);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Void> importData(@Nonnull FDBRecordContext context,
-                                              @Nonnull Iterable<DataInKeySpacePath> dataToImport) {
+    public CompletableFuture<Void> importData(FDBRecordContext context,
+                                              Iterable<DataInKeySpacePath> dataToImport) {
         return toTupleAsync(context).thenCompose(targetTuple -> {
             // We use a mapPipelined here to help control the rate of insertions into the directory layer if those
             // are happening.
@@ -370,7 +352,6 @@ class KeySpacePathImpl implements KeySpacePath {
     /**
      * Returns this path properly wrapped in whatever implementation the directory the path is contained in dictates.
      */
-    @Nonnull
     private KeySpacePath self() {
         return directory.wrap(this);
     }

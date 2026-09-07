@@ -33,8 +33,8 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import com.google.protobuf.MessageOrBuilder;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -46,17 +46,16 @@ import java.util.function.Supplier;
 public class FieldWithComparison extends BaseField implements ComponentWithComparison {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-With-Comparison");
 
-    @Nonnull
     private final Comparisons.Comparison comparison;
 
-    public FieldWithComparison(@Nonnull String fieldName, @Nonnull Comparisons.Comparison comparison) {
+    public FieldWithComparison(String fieldName, Comparisons.Comparison comparison) {
         super(fieldName);
         this.comparison = comparison;
     }
 
     @Override
     @Nullable
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+    public <M extends Message> Boolean evalMessage(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                    @Nullable FDBRecord<M> rec, @Nullable Message message) {
         if (message == null) {
             getComparison().eval(store, context, null);
@@ -72,7 +71,7 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
     }
 
     @Override
-    public void validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public void validate(Descriptors.Descriptor descriptor) {
         final Descriptors.FieldDescriptor field = super.validateFieldExistence(descriptor);
         if (!allowWholeMessage()) {
             requirePrimitiveField(field);
@@ -86,7 +85,6 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
     }
 
     @Override
-    @Nonnull
     public Comparisons.Comparison getComparison() {
         return this.comparison;
     }
@@ -97,11 +95,10 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
     }
 
 
-    @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
-                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
-                                 @Nonnull final List<String> fieldNamePrefix) {
+    public GraphExpansion expand(final Quantifier.ForEach baseQuantifier,
+                                 final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
+                                 final List<String> fieldNamePrefix) {
         final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
@@ -130,7 +127,7 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return super.basePlanHash(mode, BASE_HASH) + getComparison().planHash(mode);

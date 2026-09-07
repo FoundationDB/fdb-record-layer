@@ -57,4 +57,7 @@
  * The fields of the primary key and of an index are specified by a {@link com.apple.foundationdb.record.metadata.expressions.KeyExpression}.
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.record.metadata;
+
+import org.jspecify.annotations.NullMarked;

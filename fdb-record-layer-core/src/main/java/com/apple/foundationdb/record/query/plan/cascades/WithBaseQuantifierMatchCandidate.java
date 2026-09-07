@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -33,10 +32,8 @@ import java.util.Set;
  */
 public interface WithBaseQuantifierMatchCandidate extends MatchCandidate {
 
-    @Nonnull
     Type.Record getBaseType();
 
-    @Nonnull
     @Override
     default Set<OrderingPart.MatchedOrderingPart> computeEqualityBoundImplicitOrderingParts() {
         if (isScopedToSingleType()) {

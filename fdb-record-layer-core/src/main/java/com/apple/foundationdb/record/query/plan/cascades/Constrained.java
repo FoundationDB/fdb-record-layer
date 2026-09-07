@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
-
 /**
  * A container that can carry a {@link QueryPlanConstraint}.
  * @param <T> type parameter of the type of object this container wraps.
@@ -34,16 +32,13 @@ public interface Constrained<T> {
      * Method that returns the wrapped object.
      * @return the wrapped object
      */
-    @Nonnull
     T get();
 
-    @Nonnull
     default T getUnconstrained() {
         Verify.verify(!getConstraint().isConstrained());
         return get();
     }
 
-    @Nonnull
     QueryPlanConstraint getConstraint();
 
     /**
@@ -54,16 +49,14 @@ public interface Constrained<T> {
      *         and that is {@code true} otherwise under the composed constraint from the constraint of {@code this} and
      *         the {@code constraint}
      */
-    @Nonnull
-    Constrained<T> composeWithConstraint(@Nonnull QueryPlanConstraint constraint);
+    Constrained<T> composeWithConstraint(QueryPlanConstraint constraint);
 
     /**
      * Helper method to create an unconstrained wrapper.
      * @param object object to wrap
      * @return a new unconditional {@link Constrained}
      */
-    @Nonnull
-    static <T> Constrained<T> unconstrained(@Nonnull final T object) {
+    static <T> Constrained<T> unconstrained(final T object) {
         return DefaultConstrained.of(object);
     }
 
@@ -73,9 +66,8 @@ public interface Constrained<T> {
      * @param queryPlanConstraint the query plan constraint
      * @return a new unconditional {@link Constrained}
      */
-    @Nonnull
-    static <T> Constrained<T> ofConstrainedObject(@Nonnull final T object,
-                                                  @Nonnull final QueryPlanConstraint queryPlanConstraint) {
+    static <T> Constrained<T> ofConstrainedObject(final T object,
+                                                  final QueryPlanConstraint queryPlanConstraint) {
         return DefaultConstrained.ofConstrainedObject(object, queryPlanConstraint);
     }
 }

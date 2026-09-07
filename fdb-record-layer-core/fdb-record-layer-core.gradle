@@ -25,6 +25,7 @@ import de.undercouch.gradle.tasks.download.Verify
 plugins {
     id 'java-test-fixtures'
     alias(libs.plugins.shadow)
+    alias(libs.plugins.errorprone)
 }
 apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
@@ -37,8 +38,12 @@ dependencies {
     implementation(libs.slf4j.api)
     implementation(libs.guava)
     compileOnly(libs.jsr305)
+    compileOnly(libs.jspecify)
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
+
+    errorprone(libs.errorprone.core)
+    errorprone(libs.nullaway)
 
     testImplementation project(':fdb-test-utils')
     // Guardiann structural-invariant assertions + SIFT dataset loaders/paths live in fdb-extensions' testFixtures
@@ -48,6 +53,7 @@ dependencies {
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
+    testCompileOnly(libs.jspecify)
     testImplementation(libs.jcommander)
     testImplementation(libs.apache.commonsMath3)
     testImplementation(libs.junit.platform)
@@ -67,12 +73,45 @@ dependencies {
     testFixturesImplementation(libs.snakeyaml)
     testFixturesImplementation(libs.protobuf.util)
     testFixturesCompileOnly(libs.jsr305)
+    testFixturesCompileOnly(libs.jspecify)
     testFixturesAnnotationProcessor(libs.autoService)
 }
 
 sourceSets {
     main {
         java.srcDir ".out/generated/sources/annotationProcessor/java/main/"
+    }
+}
+
+// jspecify + NullAway, scoped to this module. See @NullMarked package-info.java files under
+// com.apple.foundationdb.record (this module's single root package). Protobuf-generated
+// metadata/plan-serialization code that lives in its own dedicated generated-only subpackage is
+// carved out via UnannotatedSubPackages -- this also covers three test-sourceSet-only proto
+// packages (record.evolution, record.vector, record.slidingwindowvector) that contain no
+// hand-written sources in any source set. A larger set of generated proto outer classes are
+// instead emitted directly into packages that also contain hand-annotated source
+// (com.apple.foundationdb.record, com.apple.foundationdb.record.metadata, and
+// com.apple.foundationdb.record.provider.foundationdb.keyspace), so package-level exclusion
+// would also blind NullAway to the hand-written classes they share a package with; those are
+// carved out individually via ExcludedClasses instead (this list is tied 1:1 to the module's
+// main-sourceSet protos: record_metadata.proto, record_cursor.proto, index_build.proto,
+// record_metadata_options.proto, record_planner_config.proto, pending_writes_queue.proto,
+// time_window_leaderboard.proto, resolver_state.proto, record_sorting.proto,
+// string_interning_data.proto, tuple_fields.proto, keyspace.proto; the 14 testFixtures-only
+// test_records_*.proto files; and the ~65 test-sourceSet-only test_records_*.proto /
+// expression_tests.proto files whose java_package (or, absent an override, package) resolves to
+// com.apple.foundationdb.record or com.apple.foundationdb.record.metadata -- revisit if those
+// java_outer_classname/java_package values change).
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += ['-Xmaxerrs', '100000']
+    options.errorprone {
+        disableAllChecks = true
+        error("NullAway")
+        option("NullAway:AnnotatedPackages", "com.apple.foundationdb.record")
+        option("NullAway:UnannotatedSubPackages", "com.apple.foundationdb.record.planprotos,com.apple.foundationdb.record.expressions,com.apple.foundationdb.record.query.plan.cascades.events.eventprotos,com.apple.foundationdb.record.evolution,com.apple.foundationdb.record.vector,com.apple.foundationdb.record.slidingwindowvector")
+        option("NullAway:ExcludedClasses", "com.apple.foundationdb.record.RecordMetaDataProto,com.apple.foundationdb.record.RecordCursorProto,com.apple.foundationdb.record.IndexBuildProto,com.apple.foundationdb.record.RecordMetaDataOptionsProto,com.apple.foundationdb.record.RecordPlannerConfigurationProto,com.apple.foundationdb.record.PendingWritesQueueProto,com.apple.foundationdb.record.TimeWindowLeaderboardProto,com.apple.foundationdb.record.ResolverStateProto,com.apple.foundationdb.record.RecordSortingProto,com.apple.foundationdb.record.StringInterningProto,com.apple.foundationdb.record.TupleFieldsProto,com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceProto,com.apple.foundationdb.record.TestRecords1Proto,com.apple.foundationdb.record.TestRecords3Proto,com.apple.foundationdb.record.TestRecords4Proto,com.apple.foundationdb.record.TestRecords4WrapperProto,com.apple.foundationdb.record.TestRecords5Proto,com.apple.foundationdb.record.TestRecordsBytesProto,com.apple.foundationdb.record.TestRecordsEnumProto,com.apple.foundationdb.record.TestRecordsGroupedParentChildProto,com.apple.foundationdb.record.TestRecordsJoinIndexProto,com.apple.foundationdb.record.TestRecordsMultiProto,com.apple.foundationdb.record.TestRecordsTextProto,com.apple.foundationdb.record.TestRecordsTupleFieldsProto,com.apple.foundationdb.record.TestRecordsWithHeaderProto,com.apple.foundationdb.record.TestRecordsWithUnionProto,com.apple.foundationdb.record.metadata.ExpressionTestsProto,com.apple.foundationdb.record.PendingWritesQueueTestProto,com.apple.foundationdb.record.TestDataTypesProto,com.apple.foundationdb.record.TestHierarchiesProto,com.apple.foundationdb.record.TestNoIndexesProto,com.apple.foundationdb.record.TestNoRecordTypesProto,com.apple.foundationdb.record.TestNoUnionEvolvedIllegalProto,com.apple.foundationdb.record.TestNoUnionEvolvedProto,com.apple.foundationdb.record.TestNoUnionEvolvedRenamedRecordTypeProto,com.apple.foundationdb.record.TestNoUnionProto,com.apple.foundationdb.record.TestRecords1EvolvedAgainProto,com.apple.foundationdb.record.TestRecords1EvolvedProto,com.apple.foundationdb.record.TestRecords1EvolvedWithMapProto,com.apple.foundationdb.record.TestRecords2Proto,com.apple.foundationdb.record.TestRecords6Proto,com.apple.foundationdb.record.TestRecords7Proto,com.apple.foundationdb.record.TestRecords8Proto,com.apple.foundationdb.record.TestRecordsBadUnion1Proto,com.apple.foundationdb.record.TestRecordsBadUnion2Proto,com.apple.foundationdb.record.TestRecordsBitmapProto,com.apple.foundationdb.record.TestRecordsChained1Proto,com.apple.foundationdb.record.TestRecordsChained2Proto,com.apple.foundationdb.record.TestRecordsDoubleNestedProto,com.apple.foundationdb.record.TestRecordsDoublyImportedMapHelperProto,com.apple.foundationdb.record.TestRecordsDoublyImportedMapProto,com.apple.foundationdb.record.TestRecordsDuplicateUnionFields,com.apple.foundationdb.record.TestRecordsDuplicateUnionFieldsReordered,com.apple.foundationdb.record.TestRecordsIdenticalTypesProto,com.apple.foundationdb.record.TestRecordsImplicitUsageNoUnionProto,com.apple.foundationdb.record.TestRecordsImplicitUsageProto,com.apple.foundationdb.record.TestRecordsImportedAndNewProto,com.apple.foundationdb.record.TestRecordsImportedMapProto,com.apple.foundationdb.record.TestRecordsImportFlatProto,com.apple.foundationdb.record.TestRecordsImportProto,com.apple.foundationdb.record.TestRecordsIndexCompatProto,com.apple.foundationdb.record.TestRecordsIndexFilteringProto,com.apple.foundationdb.record.TestRecordsLeaderboardProto,com.apple.foundationdb.record.TestRecordsMapsProto,com.apple.foundationdb.record.TestRecordsMarkedUnmarkedProto,com.apple.foundationdb.record.TestRecordsMultidimensionalProto,com.apple.foundationdb.record.TestRecordsNameClashProto,com.apple.foundationdb.record.TestRecordsNestedAsRecord,com.apple.foundationdb.record.TestRecordsNestedMapProto,com.apple.foundationdb.record.TestRecordsNoPrimaryKeyProto,com.apple.foundationdb.record.TestRecordsNulls2Proto,com.apple.foundationdb.record.TestRecordsNulls3ExplicitProto,com.apple.foundationdb.record.TestRecordsNulls3Proto,com.apple.foundationdb.record.TestRecordsOneOfProto,com.apple.foundationdb.record.TestRecordsParentChildRelationshipProto,com.apple.foundationdb.record.TestRecordsRankProto,com.apple.foundationdb.record.TestRecordsSwapProto,com.apple.foundationdb.record.TestRecordsTransformProto,com.apple.foundationdb.record.TestRecordsUnionMissingRecordProto,com.apple.foundationdb.record.TestRecordsUnionWithImportedNestedProto,com.apple.foundationdb.record.TestRecordsUnionWithNestedProto,com.apple.foundationdb.record.TestRecordsUnsigned1Proto,com.apple.foundationdb.record.TestRecordsUnsigned2Proto,com.apple.foundationdb.record.TestRecordsUnsigned3Proto,com.apple.foundationdb.record.TestRecordsUnsigned4Proto,com.apple.foundationdb.record.TestRecordsUnsigned5Proto,com.apple.foundationdb.record.TestRecordsUuidProto,com.apple.foundationdb.record.TestRequiredNestedRecordProto,com.apple.foundationdb.record.TestTwoUnionsProto,com.apple.foundationdb.record.TestUnionDefaultNameProto,com.apple.foundationdb.record.TypeTestProto")
+        option("NullAway:JSpecifyMode", "true")
+        option("NullAway:AcknowledgeRestrictiveAnnotations", "true")
     }
 }
 

@@ -48,7 +48,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -96,6 +95,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchSimpleIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
+    // RemoteFetchTestBase#scanAndVerifyData declares its continuation parameter as a plain (non-@Nullable)
+    // byte[], even though null is the natural "start from the beginning" value and is passed throughout
+    // this test class; RemoteFetchTestBase is out of scope for this change.
+    @SuppressWarnings("NullAway")
     void indexPrefetchSimpleIndexTest(IndexFetchMethod fetchMethod) throws Exception {
         scanAndVerifyData("MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), ScanProperties.FORWARD_SCAN,
                 null, 100,
@@ -110,6 +113,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchSimpleIndexReverseTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
+    // RemoteFetchTestBase#scanAndVerifyData declares its continuation parameter as a plain (non-@Nullable)
+    // byte[], even though null is the natural "start from the beginning" value and is passed throughout
+    // this test class; RemoteFetchTestBase is out of scope for this change.
+    @SuppressWarnings("NullAway")
     void indexPrefetchSimpleIndexReverseTest(IndexFetchMethod fetchMethod) throws Exception {
         scanAndVerifyData("MySimpleRecord$num_value_unique", fetchMethod, scanBounds(), ScanProperties.REVERSE_SCAN,
                 null, 100,
@@ -124,6 +131,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchComplexIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
+    // RemoteFetchTestBase#scanAndVerifyData declares its continuation parameter as a plain (non-@Nullable)
+    // byte[], even though null is the natural "start from the beginning" value and is passed throughout
+    // this test class; RemoteFetchTestBase is out of scope for this change.
+    @SuppressWarnings("NullAway")
     void indexPrefetchComplexIndexTest(IndexFetchMethod fetchMethod) throws Exception {
         scanAndVerifyData("MySimpleRecord$str_value_indexed", fetchMethod, scanBounds(), ScanProperties.FORWARD_SCAN,
                 null, 100,
@@ -138,6 +149,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "indexPrefetchWithContinuationTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
+    // RemoteFetchTestBase#scanAndVerifyData declares its continuation parameter as a plain (non-@Nullable)
+    // byte[], even though null is the natural "start from the beginning" value used on the first call
+    // below; RemoteFetchTestBase is out of scope for this change.
+    @SuppressWarnings("NullAway")
     void indexPrefetchWithContinuationTest(IndexFetchMethod fetchMethod) throws Exception {
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(5)
@@ -181,6 +196,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
      * Test continuation where the continued plan uses a different prefetch mode than the original plan.
      */
     @Test
+    // RemoteFetchTestBase#scanAndVerifyData declares its continuation parameter as a plain (non-@Nullable)
+    // byte[], even though null is the natural "start from the beginning" value used on the first call
+    // below; RemoteFetchTestBase is out of scope for this change.
+    @SuppressWarnings("NullAway")
     void indexPrefetchWithMixedContinuationTest() throws Exception {
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(4)
@@ -223,6 +242,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "testScanLimit(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
+    // RemoteFetchTestBase#scanAndVerifyData declares its continuation parameter as a plain (non-@Nullable)
+    // byte[], even though null is the natural "start from the beginning" value used on the first call
+    // below; RemoteFetchTestBase is out of scope for this change.
+    @SuppressWarnings("NullAway")
     void testScanLimit(IndexFetchMethod useIndexPrefetch) throws Exception {
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setScannedRecordsLimit(3)
@@ -274,6 +297,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
      */
     @ParameterizedTest(name = "testReadYourWriteInRange(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
+    // RemoteFetchTestBase#scanToList/scanAndVerifyData declare their continuation parameter as a plain
+    // (non-@Nullable) byte[], even though null is the natural "start from the beginning" value used
+    // below; RemoteFetchTestBase is out of scope for this change.
+    @SuppressWarnings("NullAway")
     void testReadYourWriteInRange(IndexFetchMethod fetchMethod) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
@@ -312,6 +339,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
      */
     @ParameterizedTest(name = "failAfterRecordsReturnedTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
+    // RemoteFetchTestBase#scanToList/scanAndVerifyData declare their continuation parameter as a plain
+    // (non-@Nullable) byte[], even though null is the natural "start from the beginning" value used
+    // below; RemoteFetchTestBase is out of scope for this change.
+    @SuppressWarnings("NullAway")
     void failAfterRecordsReturnedTest(IndexFetchMethod fetchMethod) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
@@ -349,6 +380,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "failAfterRecordsReturnedReverseTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
+    // RemoteFetchTestBase#scanToList/scanAndVerifyData declare their continuation parameter as a plain
+    // (non-@Nullable) byte[], even though null is the natural "start from the beginning" value used
+    // below; RemoteFetchTestBase is out of scope for this change.
+    @SuppressWarnings("NullAway")
     void failAfterRecordsReturnedReverseTest(IndexFetchMethod fetchMethod) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
@@ -389,6 +424,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
      */
     @ParameterizedTest(name = "testScanFailsImmediately(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
+    // RemoteFetchTestBase#scanToList/scanAndVerifyData declare their continuation parameter as a plain
+    // (non-@Nullable) byte[], even though null is the natural "start from the beginning" value used
+    // below; RemoteFetchTestBase is out of scope for this change.
+    @SuppressWarnings("NullAway")
     void testScanFailsImmediately(IndexFetchMethod fetchMethod) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
@@ -424,6 +463,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
      */
     @ParameterizedTest(name = "testScanUnsupportedIndex(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
+    // RemoteFetchTestBase#scanToList declares its continuation parameter as a plain (non-@Nullable)
+    // byte[], even though null is the natural "start from the beginning" value used below;
+    // RemoteFetchTestBase is out of scope for this change.
+    @SuppressWarnings("NullAway")
     void testScanUnsupportedIndex(IndexFetchMethod fetchMethod) throws Exception {
         assumeTrue(recordStore.getContext().isAPIVersionAtLeast(APIVersion.API_VERSION_7_1));
 
@@ -514,6 +557,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
      */
     @ParameterizedTest(name = "testIntegerPkLength(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
+    // FDBRecordStoreBase#scanIndexRecords's continuation parameter is declared @Nullable byte[] (a
+    // position NullAway does not reliably recognize as nullable), so the null literal below still trips
+    // the checker.
+    @SuppressWarnings("NullAway")
     void testIntegerPkLength(IndexFetchMethod fetchMethod) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
@@ -535,6 +582,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "testIntegerPkLength(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
+    // FDBRecordStoreBase#scanIndexRecords's continuation parameter is declared @Nullable byte[] (a
+    // position NullAway does not reliably recognize as nullable), so the null literals below still trip
+    // the checker.
+    @SuppressWarnings("NullAway")
     void testInvalidIntegerPkLength(IndexFetchMethod fetchMethod) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
@@ -561,6 +612,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
 
     @ParameterizedTest(name = "testIntegerPkLength(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @EnumSource()
+    // FDBRecordStoreBase#scanIndexRecords's continuation parameter is declared @Nullable byte[] (a
+    // position NullAway does not reliably recognize as nullable), so the null literals below still trip
+    // the checker.
+    @SuppressWarnings("NullAway")
     void testTooLargeIntegerPkLength(IndexFetchMethod fetchMethod) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
@@ -586,6 +641,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
         }
     }
 
+    // FDBRecordStoreBase#scanIndexRecords's continuation parameter is declared @Nullable byte[] (a
+    // position NullAway does not reliably recognize as nullable), so the null literal below still trips
+    // the checker.
+    @SuppressWarnings("NullAway")
     private List<FDBIndexedRecord<Message>> scanIndex(final IndexFetchMethod fetchMethod,
                                                       final IndexOrphanBehavior orphanBehavior, final ScanProperties scanProperties) throws InterruptedException, ExecutionException {
         return recordStore.scanIndexRecords(recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_unique"), fetchMethod, scanBounds(),
@@ -615,12 +674,10 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
         return recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
     }
 
-    @Nonnull
     private IndexScanRange scanBounds() {
         return new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL);
     }
 
-    @Nonnull
     private final RecordMetaDataHook splitRecordsHook = metaDataBuilder -> {
         // UseSplitRecords can be set to different values to impact the way the store is opened
         metaDataBuilder.setSplitLongRecords(isUseSplitRecords());
@@ -629,7 +686,9 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
     };
 
     private void assertRecordWithPrimaryKeyIndex(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue, final int numValue, final String indexName, final Object indexedValue) {
-        IndexEntry indexEntry = rec.getIndexEntry();
+        // rec always comes from a plain (non-synthetic) index scan in this test, so both the index entry
+        // and the stored record are always present.
+        IndexEntry indexEntry = Objects.requireNonNull(rec.getIndexEntry());
         assertThat(indexEntry.getIndex().getName(), equalTo(indexName));
         List<Object> indexElements = indexEntry.getKey().getItems();
         assertThat(indexElements.size(), equalTo(1));
@@ -638,7 +697,7 @@ class RemoteFetchIndexScanTest extends RemoteFetchTestBase {
         assertThat(indexPrimaryKey.size(), equalTo(1));
         assertThat(indexPrimaryKey.get(0), equalTo(primaryKey));
 
-        FDBStoredRecord<Message> storedRecord = rec.getStoredRecord();
+        FDBStoredRecord<Message> storedRecord = Objects.requireNonNull(rec.getStoredRecord());
         assertThat(storedRecord.getPrimaryKey().get(0), equalTo(primaryKey));
         assertThat(storedRecord.getRecordType().getName(), equalTo("MySimpleRecord"));
 

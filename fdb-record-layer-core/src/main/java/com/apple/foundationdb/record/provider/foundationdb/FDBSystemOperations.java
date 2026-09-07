@@ -25,8 +25,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.system.SystemKeyspace;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
@@ -44,7 +44,11 @@ public class FDBSystemOperations {
         return bytes == null ? null : new String(bytes, StandardCharsets.UTF_8);
     }
 
-    private static <T> T asyncToSync(@Nonnull FDBDatabaseRunner runner, @Nonnull CompletableFuture<T> operation) {
+    // FDBDatabaseRunner#asyncToSync is declared @Nullable <T> T (blanket-nullable), and every caller of this
+    // wrapper (getPrimaryDatacenter/getConnectionString/getClusterFilePath) already expects a @Nullable result,
+    // so match that contract exactly rather than trying to narrow it.
+    @Nullable
+    private static <T> T asyncToSync(FDBDatabaseRunner runner, CompletableFuture<T> operation) {
         return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY, operation);
     }
 
@@ -63,8 +67,7 @@ public class FDBSystemOperations {
      * @param runner a runner to use to perform the operation
      * @return a future that will complete with the primary datacenter of the cluster for the database underlying {@code runner}
      */
-    @Nonnull
-    public static CompletableFuture<String> getPrimaryDatacenterAsync(@Nonnull FDBDatabaseRunner runner) {
+    public static CompletableFuture<String> getPrimaryDatacenterAsync(FDBDatabaseRunner runner) {
         return runner.runAsync(context -> {
             final Transaction tr = context.ensureActive();
             tr.options().setReadSystemKeys();
@@ -82,12 +85,11 @@ public class FDBSystemOperations {
      * @see #getPrimaryDatacenterAsync(FDBDatabaseRunner)
      */
     @Nullable
-    public static String getPrimaryDatacenter(@Nonnull FDBDatabaseRunner runner) {
+    public static String getPrimaryDatacenter(FDBDatabaseRunner runner) {
         return asyncToSync(runner, getPrimaryDatacenterAsync(runner));
     }
 
-    @Nonnull
-    private static CompletableFuture<String> getConnectionStringAsyncInternal(@Nonnull FDBRecordContext context) {
+    private static CompletableFuture<String> getConnectionStringAsyncInternal(FDBRecordContext context) {
         return context.ensureActive().get(SystemKeyspace.CONNECTION_STR_KEY).thenApply(FDBSystemOperations::nullableUtf8);
     }
 
@@ -107,8 +109,7 @@ public class FDBSystemOperations {
      * @param runner a runner to use to perform the operation
      * @return a future that will contain the current cluster connection string
      */
-    @Nonnull
-    public static CompletableFuture<String> getConnectionStringAsync(@Nonnull FDBDatabaseRunner runner) {
+    public static CompletableFuture<String> getConnectionStringAsync(FDBDatabaseRunner runner) {
         return runner.runAsync(FDBSystemOperations::getConnectionStringAsyncInternal,
                 Arrays.asList(LogMessageKeys.TRANSACTION_NAME, "FDBSystemOperations::getConnectionStringAsync"));
     }
@@ -122,11 +123,11 @@ public class FDBSystemOperations {
      * @see #getConnectionStringAsync(FDBDatabaseRunner)
      */
     @Nullable
-    public static String getConnectionString(@Nonnull FDBDatabaseRunner runner) {
+    public static String getConnectionString(FDBDatabaseRunner runner) {
         return asyncToSync(runner, getConnectionStringAsync(runner));
     }
 
-    private static CompletableFuture<String> getClusterFilePathAsyncInternal(@Nonnull FDBRecordContext context) {
+    private static CompletableFuture<String> getClusterFilePathAsyncInternal(FDBRecordContext context) {
         return context.ensureActive().get(SystemKeyspace.CLUSTER_FILE_PATH_KEY).thenApply(FDBSystemOperations::nullableUtf8);
     }
 
@@ -141,8 +142,7 @@ public class FDBSystemOperations {
      * @param runner a runner to use to perform the operation
      * @return a future that will contain the cluster file path
      */
-    @Nonnull
-    public static CompletableFuture<String> getClusterFilePathAsync(@Nonnull FDBDatabaseRunner runner) {
+    public static CompletableFuture<String> getClusterFilePathAsync(FDBDatabaseRunner runner) {
         return runner.runAsync(FDBSystemOperations::getClusterFilePathAsyncInternal,
                 Arrays.asList(LogMessageKeys.TRANSACTION_NAME, "FDBSystemOperations::getClusterFilePathAsync"));
     }
@@ -156,7 +156,7 @@ public class FDBSystemOperations {
      * @see #getClusterFilePathAsync(FDBDatabaseRunner)
      */
     @Nullable
-    public static String getClusterFilePath(@Nonnull FDBDatabaseRunner runner) {
+    public static String getClusterFilePath(FDBDatabaseRunner runner) {
         return asyncToSync(runner, getClusterFilePathAsync(runner));
     }
 

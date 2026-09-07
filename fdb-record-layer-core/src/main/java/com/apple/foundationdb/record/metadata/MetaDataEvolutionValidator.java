@@ -40,7 +40,6 @@ import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.EnumDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -94,10 +93,8 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public class MetaDataEvolutionValidator {
-    @Nonnull
     private static final MetaDataEvolutionValidator DEFAULT_INSTANCE = new MetaDataEvolutionValidator();
 
-    @Nonnull
     private final IndexValidatorRegistry indexValidatorRegistry;
     private final boolean allowNoVersionChange;
     private final boolean allowNoSinceVersion;
@@ -109,7 +106,6 @@ public class MetaDataEvolutionValidator {
     private final boolean allowOlderFormerIndexAddedVersions;
     private final boolean allowUnsplitToSplit;
     private final boolean disallowTypeRenames;
-    @Nonnull
     private final Set<String> ignoredIndexOptions;
 
     private MetaDataEvolutionValidator() {
@@ -127,7 +123,7 @@ public class MetaDataEvolutionValidator {
         this.ignoredIndexOptions = ImmutableSet.of();
     }
 
-    private MetaDataEvolutionValidator(@Nonnull Builder builder) {
+    private MetaDataEvolutionValidator(Builder builder) {
         this.indexValidatorRegistry = builder.indexValidatorRegistry;
         this.allowNoVersionChange = builder.allowNoVersionChange;
         this.allowNoSinceVersion = builder.allowNoSinceVersion;
@@ -150,7 +146,7 @@ public class MetaDataEvolutionValidator {
      * @param oldMetaData the current meta-data for one or more record stores
      * @param newMetaData the new meta-data for the same record stores
      */
-    public void validate(@Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData) {
+    public void validate(RecordMetaData oldMetaData, RecordMetaData newMetaData) {
         if (oldMetaData.getVersion() > newMetaData.getVersion() || !allowNoVersionChange && oldMetaData.getVersion() == newMetaData.getVersion()) {
             throw new MetaDataException("new meta-data does not have newer version than old meta-data",
                     LogMessageKeys.OLD_VERSION, oldMetaData.getVersion(),
@@ -163,7 +159,7 @@ public class MetaDataEvolutionValidator {
         validateCurrentAndFormerIndexes(oldMetaData, newMetaData, typeRenames);
     }
 
-    private void validateSchemaOptions(@Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData) {
+    private void validateSchemaOptions(RecordMetaData oldMetaData, RecordMetaData newMetaData) {
         if (!allowUnsplitToSplit && !oldMetaData.isSplitLongRecords() && newMetaData.isSplitLongRecords()) {
             // Going from unsplit to split is fine assuming the record store was created
             // after FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION. However, there's no way to check
@@ -186,7 +182,7 @@ public class MetaDataEvolutionValidator {
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @VisibleForTesting
-    public void validateUnion(@Nonnull Descriptor oldUnionDescriptor, @Nonnull Descriptor newUnionDescriptor) {
+    public void validateUnion(Descriptor oldUnionDescriptor, Descriptor newUnionDescriptor) {
         if (oldUnionDescriptor == newUnionDescriptor) {
             // Don't bother validating the record types if they are all the same.
             return;
@@ -220,7 +216,8 @@ public class MetaDataEvolutionValidator {
                 } else {
                     if (updatedDescriptors.containsValue(newRecord)) {
                         // A "merge" -- two different types in the old union point to the same type in the new union
-                        final Descriptor alreadySeenOldRecord = updatedDescriptors.inverse().get(newRecord);
+                        // Guaranteed non-null: containsValue(newRecord) being true means the inverse map has an entry.
+                        final Descriptor alreadySeenOldRecord = Objects.requireNonNull(updatedDescriptors.inverse().get(newRecord));
                         throw new MetaDataException("record type corresponds to multiple types in old meta-data",
                                 LogMessageKeys.OLD_RECORD_TYPE, oldRecord.getName() + " & " + alreadySeenOldRecord.getName(),
                                 LogMessageKeys.NEW_RECORD_TYPE, newRecord.getName());
@@ -237,8 +234,8 @@ public class MetaDataEvolutionValidator {
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private void validateMessage(@Nonnull Descriptor oldDescriptor, @Nonnull Descriptor newDescriptor,
-                                 @Nonnull Set<NonnullPair<Descriptor, Descriptor>> seenDescriptors) {
+    private void validateMessage(Descriptor oldDescriptor, Descriptor newDescriptor,
+                                 Set<NonnullPair<Descriptor, Descriptor>> seenDescriptors) {
         if (oldDescriptor == newDescriptor) {
             // Don't bother validating message types that are the same.
             return;
@@ -273,7 +270,7 @@ public class MetaDataEvolutionValidator {
         }
     }
 
-    private void validateProtoSyntax(@Nonnull Descriptors.Descriptor oldDescriptor, @Nonnull Descriptors.Descriptor newDescriptor) {
+    private void validateProtoSyntax(Descriptors.Descriptor oldDescriptor, Descriptors.Descriptor newDescriptor) {
         if (!oldDescriptor.getFile().toProto().getSyntax().equals(newDescriptor.getFile().toProto().getSyntax())
                 || !oldDescriptor.getFile().toProto().getEdition().equals(newDescriptor.getFile().toProto().getEdition())) {
             throw new MetaDataException("message descriptor proto syntax changed",
@@ -281,8 +278,8 @@ public class MetaDataEvolutionValidator {
         }
     }
 
-    private void validateField(@Nonnull FieldDescriptor oldFieldDescriptor, @Nonnull FieldDescriptor newFieldDescriptor,
-                               @Nonnull Set<NonnullPair<Descriptor, Descriptor>> seenDescriptors) {
+    private void validateField(FieldDescriptor oldFieldDescriptor, FieldDescriptor newFieldDescriptor,
+                               Set<NonnullPair<Descriptor, Descriptor>> seenDescriptors) {
         final boolean oldDeprecated = oldFieldDescriptor.getOptions().getDeprecated();
         final boolean newDeprecated = newFieldDescriptor.getOptions().getDeprecated();
         if (!oldFieldDescriptor.getName().equals(newFieldDescriptor.getName())) {
@@ -327,7 +324,7 @@ public class MetaDataEvolutionValidator {
         }
     }
 
-    private void validateTypeChange(@Nonnull FieldDescriptor oldFieldDescriptor, @Nonnull FieldDescriptor newFieldDescriptor) {
+    private void validateTypeChange(FieldDescriptor oldFieldDescriptor, FieldDescriptor newFieldDescriptor) {
         // Allowed changes: Going from a variable length 32 bit integer to a variable length 64 bit integer
         // Other changes either change the Protobuf or the Tuple serialization of the field or can lead to a loss of precision.
         if (!(oldFieldDescriptor.getType().equals(FieldDescriptor.Type.INT32) && newFieldDescriptor.getType().equals(FieldDescriptor.Type.INT64)) &&
@@ -339,7 +336,7 @@ public class MetaDataEvolutionValidator {
         }
     }
 
-    private void validateEnum(@Nonnull String fieldName, @Nonnull EnumDescriptor oldEnumDescriptor, @Nonnull EnumDescriptor newEnumDescriptor) {
+    private void validateEnum(String fieldName, EnumDescriptor oldEnumDescriptor, EnumDescriptor newEnumDescriptor) {
         for (Descriptors.EnumValueDescriptor oldEnumValue : oldEnumDescriptor.getValues()) {
             Descriptors.EnumValueDescriptor newEnumValue = newEnumDescriptor.findValueByNumber(oldEnumValue.getNumber());
             if (newEnumValue == null) {
@@ -350,8 +347,7 @@ public class MetaDataEvolutionValidator {
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    @Nonnull
-    private Map<String, String> getTypeRenames(@Nonnull Descriptor oldUnionDescriptor, @Nonnull Descriptor newUnionDescriptor) {
+    private Map<String, String> getTypeRenames(Descriptor oldUnionDescriptor, Descriptor newUnionDescriptor) {
         if (oldUnionDescriptor == newUnionDescriptor) {
             return Collections.emptyMap();
         }
@@ -379,8 +375,8 @@ public class MetaDataEvolutionValidator {
         return renames;
     }
 
-    private void validateRecordTypes(@Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData,
-                                     @Nonnull Map<String, String> typeRenames) {
+    private void validateRecordTypes(RecordMetaData oldMetaData, RecordMetaData newMetaData,
+                                     Map<String, String> typeRenames) {
         final Map<String, RecordType> oldRecordTypes = oldMetaData.getRecordTypes();
         final Map<String, RecordType> newRecordTypes = newMetaData.getRecordTypes();
         // Validate that all of the old record types are still in the new map
@@ -446,8 +442,7 @@ public class MetaDataEvolutionValidator {
         }
     }
 
-    @Nonnull
-    private Map<Object, FormerIndex> getFormerIndexMap(@Nonnull RecordMetaData metaData) {
+    private Map<Object, FormerIndex> getFormerIndexMap(RecordMetaData metaData) {
         Map<Object, FormerIndex> formerIndexMap;
         final List<FormerIndex> formerIndexes = metaData.getFormerIndexes();
         if (formerIndexes.isEmpty()) {
@@ -461,8 +456,7 @@ public class MetaDataEvolutionValidator {
         return formerIndexMap;
     }
 
-    @Nonnull
-    private Map<Object, Index> getIndexMap(@Nonnull RecordMetaData metaData) {
+    private Map<Object, Index> getIndexMap(RecordMetaData metaData) {
         Map<Object, Index> indexMap;
         final List<Index> allIndexes = metaData.getAllIndexes();
         if (allIndexes.isEmpty()) {
@@ -476,8 +470,8 @@ public class MetaDataEvolutionValidator {
         return indexMap;
     }
 
-    private void validateCurrentAndFormerIndexes(@Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData,
-                                                 @Nonnull Map<String, String> typeRenames) {
+    private void validateCurrentAndFormerIndexes(RecordMetaData oldMetaData, RecordMetaData newMetaData,
+                                                 Map<String, String> typeRenames) {
         final Map<Object, FormerIndex> oldFormerIndexMap = getFormerIndexMap(oldMetaData);
         final Map<Object, Index> oldIndexMap = getIndexMap(oldMetaData);
         final Map<Object, FormerIndex> newFormerIndexMap = getFormerIndexMap(newMetaData);
@@ -555,9 +549,9 @@ public class MetaDataEvolutionValidator {
         }
     }
 
-    private void validateFormerIndexFromIndex(@Nonnull Object subspaceKey,
-                                              @Nonnull Index oldIndex,
-                                              @Nonnull FormerIndex newFormerIndex) {
+    private void validateFormerIndexFromIndex(Object subspaceKey,
+                                              Index oldIndex,
+                                              FormerIndex newFormerIndex) {
         // Make sure the name is either dropped entirely or retained correctly
         if ((!allowMissingFormerIndexNames || newFormerIndex.getFormerName() != null) && !Objects.equals(newFormerIndex.getFormerName(), oldIndex.getName())) {
             throw new MetaDataException("former index has different name than old index",
@@ -592,9 +586,9 @@ public class MetaDataEvolutionValidator {
         }
     }
 
-    private void validateFormerIndex(@Nonnull Object subspaceKey,
-                                     @Nonnull FormerIndex oldFormerIndex,
-                                     @Nonnull FormerIndex newFormerIndex) {
+    private void validateFormerIndex(Object subspaceKey,
+                                     FormerIndex oldFormerIndex,
+                                     FormerIndex newFormerIndex) {
         // The removed version determines whether the subspace needs to be the same as the version in the old
         // meta-data. In theory, it would be acceptable if this version is newer, but if that information is
         // dropped, it can be a sign something else went wrong.
@@ -626,9 +620,9 @@ public class MetaDataEvolutionValidator {
         }
     }
 
-    private void validateIndex(@Nonnull RecordMetaData oldMetaData, @Nonnull Index oldIndex,
-                               @Nonnull RecordMetaData newMetaData, @Nonnull Index newIndex,
-                               @Nonnull Map<String, String> typeRenames) {
+    private void validateIndex(RecordMetaData oldMetaData, Index oldIndex,
+                               RecordMetaData newMetaData, Index newIndex,
+                               Map<String, String> typeRenames) {
         if (!oldIndex.getName().equals(newIndex.getName())) {
             // The index name is stored durably as part of the record store state.
             // If that were to use the subspace key, this check would probably be unnecessary.
@@ -685,7 +679,7 @@ public class MetaDataEvolutionValidator {
             if (!oldRecordTypeNames.contains(newRecordTypeName)) {
                 RecordType newRecordType = newMetaData.getRecordType(newRecordTypeName);
                 Integer sinceVersion = newRecordType.getSinceVersion();
-                if (sinceVersion == null || newRecordType.getSinceVersion() <= oldMetaData.getVersion()) {
+                if (sinceVersion == null || sinceVersion <= oldMetaData.getVersion()) {
                     throw new MetaDataException("new index adds record type that is not newer than old meta-data",
                             LogMessageKeys.INDEX_NAME, newIndex.getName(),
                             LogMessageKeys.RECORD_TYPE, newRecordTypeName);
@@ -731,8 +725,12 @@ public class MetaDataEvolutionValidator {
         // Make sure the primary key component positions are the same
         if (oldIndex.hasPrimaryKeyComponentPositions()) {
             if (newIndex.hasPrimaryKeyComponentPositions()) {
-                int[] oldPositions = oldIndex.getPrimaryKeyComponentPositions();
-                int[] newPositions = newIndex.getPrimaryKeyComponentPositions();
+                // NullAway does not reliably track @Nullable on array return types; hasPrimaryKeyComponentPositions()
+                // guarantees getPrimaryKeyComponentPositions() is non-null here.
+                @SuppressWarnings("NullAway")
+                final int[] oldPositions = oldIndex.getPrimaryKeyComponentPositions();
+                @SuppressWarnings("NullAway")
+                final int[] newPositions = newIndex.getPrimaryKeyComponentPositions();
                 if (!Arrays.equals(oldPositions, newPositions)) {
                     throw new MetaDataException("new index changes primary key component positions",
                             LogMessageKeys.INDEX_NAME, newIndex.getName());
@@ -771,8 +769,7 @@ public class MetaDataEvolutionValidator {
      * @param newIndex a newer version of the same index
      * @return a mutable set of option names that have had their value changed
      */
-    @Nonnull
-    private Set<String> getChangedOptions(@Nonnull Index oldIndex, @Nonnull Index newIndex) {
+    private Set<String> getChangedOptions(Index oldIndex, Index newIndex) {
         Set<String> changedOptions = new HashSet<>();
         for (Map.Entry<String, String> oldOptionEntry : oldIndex.getOptions().entrySet()) {
             final String optionName = oldOptionEntry.getKey();
@@ -803,7 +800,6 @@ public class MetaDataEvolutionValidator {
      * @return the index maintainer registry used to validate indexes
      * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.BaseBuilder#setIndexMaintainerRegistry(IndexMaintainerFactoryRegistry)
      */
-    @Nonnull
     public IndexValidatorRegistry getIndexValidatorRegistry() {
         return indexValidatorRegistry;
     }
@@ -1017,7 +1013,6 @@ public class MetaDataEvolutionValidator {
      * @see IndexValidator#validateChangedOptions(Index, Set)
      * @see #getIndexValidatorRegistry()
      */
-    @Nonnull
     public Set<String> getIgnoredIndexOptions() {
         return ignoredIndexOptions;
     }
@@ -1028,7 +1023,6 @@ public class MetaDataEvolutionValidator {
      *
      * @return a new {@link Builder MetaDataEvoluationValidator.Builder} with the same options as this validator
      */
-    @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
     }
@@ -1038,7 +1032,6 @@ public class MetaDataEvolutionValidator {
      *
      * @return a new {@link Builder MetaDataEvoluationValidator.Builder} with all options set to their defaults
      */
-    @Nonnull
     public static Builder newBuilder() {
         return new Builder(DEFAULT_INSTANCE);
     }
@@ -1048,7 +1041,6 @@ public class MetaDataEvolutionValidator {
      *
      * @return the default validator
      */
-    @Nonnull
     public static MetaDataEvolutionValidator getDefaultInstance() {
         return DEFAULT_INSTANCE;
     }
@@ -1059,7 +1051,6 @@ public class MetaDataEvolutionValidator {
      * allows the user to set those options.
      */
     public static class Builder {
-        @Nonnull
         private IndexValidatorRegistry indexValidatorRegistry;
         private boolean allowNoVersionChange;
         private boolean allowNoSinceVersion;
@@ -1071,10 +1062,9 @@ public class MetaDataEvolutionValidator {
         private boolean allowOlderFormerIndexAddedVersions;
         private boolean allowUnsplitToSplit;
         private boolean disallowTypeRenames;
-        @Nonnull
         private Set<String> ignoredIndexOptions;
 
-        private Builder(@Nonnull MetaDataEvolutionValidator validator) {
+        private Builder(MetaDataEvolutionValidator validator) {
             this.indexValidatorRegistry = validator.indexValidatorRegistry;
             this.allowNoVersionChange = validator.allowNoVersionChange;
             this.allowNoSinceVersion = validator.allowNoSinceVersion;
@@ -1098,8 +1088,7 @@ public class MetaDataEvolutionValidator {
          * @see MetaDataEvolutionValidator#getIndexValidatorRegistry()
          */
         @CanIgnoreReturnValue
-        @Nonnull
-        public Builder setIndexValidatorRegistry(@Nonnull IndexValidatorRegistry indexValidatorRegistry) {
+        public Builder setIndexValidatorRegistry(IndexValidatorRegistry indexValidatorRegistry) {
             this.indexValidatorRegistry = indexValidatorRegistry;
             return this;
         }
@@ -1111,7 +1100,6 @@ public class MetaDataEvolutionValidator {
          * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.BaseBuilder#setIndexMaintainerRegistry(IndexMaintainerFactoryRegistry)
          * @see MetaDataEvolutionValidator#getIndexValidatorRegistry()
          */
-        @Nonnull
         public IndexValidatorRegistry getIndexValidatorRegistry() {
             return indexValidatorRegistry;
         }
@@ -1123,7 +1111,6 @@ public class MetaDataEvolutionValidator {
          * @see MetaDataEvolutionValidator#allowsNoVersionChange()
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setAllowNoVersionChange(boolean allowNoVersionChange) {
             this.allowNoVersionChange = allowNoVersionChange;
             return this;
@@ -1146,7 +1133,6 @@ public class MetaDataEvolutionValidator {
          * @see MetaDataEvolutionValidator#allowsNoSinceVersion()
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setAllowNoSinceVersion(boolean allowNoSinceVersion) {
             this.allowNoSinceVersion = allowNoSinceVersion;
             return this;
@@ -1170,7 +1156,6 @@ public class MetaDataEvolutionValidator {
          * @see MetaDataEvolutionValidator#allowsFieldRenames()
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setAllowFieldRenames(boolean allowFieldRenames) {
             this.allowFieldRenames = allowFieldRenames;
             return this;
@@ -1194,7 +1179,6 @@ public class MetaDataEvolutionValidator {
          * @see MetaDataEvolutionValidator#allowsDeprecatedFieldRenames()
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setAllowDeprecatedFieldRenames(boolean allowDeprecatedFieldRenames) {
             this.allowDeprecatedFieldRenames = allowDeprecatedFieldRenames;
             return this;
@@ -1218,7 +1202,6 @@ public class MetaDataEvolutionValidator {
          * @see MetaDataEvolutionValidator#allowsUndeprecatingFields()
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setAllowUndeprecatingFields(boolean allowUndeprecatingFields) {
             this.allowUndeprecatingFields = allowUndeprecatingFields;
             return this;
@@ -1241,7 +1224,6 @@ public class MetaDataEvolutionValidator {
          * @see MetaDataEvolutionValidator#allowsIndexRebuilds()
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setAllowIndexRebuilds(boolean allowIndexRebuilds) {
             this.allowIndexRebuilds = allowIndexRebuilds;
             return this;
@@ -1263,7 +1245,6 @@ public class MetaDataEvolutionValidator {
          * @see MetaDataEvolutionValidator#allowsMissingFormerIndexNames()
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setAllowMissingFormerIndexNames(boolean allowMissingFormerIndexNames) {
             this.allowMissingFormerIndexNames = allowMissingFormerIndexNames;
             return this;
@@ -1287,7 +1268,6 @@ public class MetaDataEvolutionValidator {
          * @see MetaDataEvolutionValidator#allowsOlderFormerIndexAddedVersions()
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setAllowOlderFormerIndexAddedVerions(boolean allowOlderFormerIndexAddedVerions) {
             this.allowOlderFormerIndexAddedVersions = allowOlderFormerIndexAddedVerions;
             return this;
@@ -1312,7 +1292,6 @@ public class MetaDataEvolutionValidator {
          * @see MetaDataEvolutionValidator#allowsUnsplitToSplit()
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setAllowUnsplitToSplit(boolean allowUnsplitToSplit) {
             this.allowUnsplitToSplit = allowUnsplitToSplit;
             return this;
@@ -1336,7 +1315,6 @@ public class MetaDataEvolutionValidator {
          * @see MetaDataEvolutionValidator#disallowsTypeRenames()
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setDisallowTypeRenames(boolean disallowTypeRenames) {
             this.disallowTypeRenames = disallowTypeRenames;
             return this;
@@ -1362,8 +1340,7 @@ public class MetaDataEvolutionValidator {
          * @see MetaDataEvolutionValidator#getIgnoredIndexOptions()
          */
         @CanIgnoreReturnValue
-        @Nonnull
-        public Builder setIgnoredIndexOptions(@Nonnull Collection<String> ignoredIndexOptions) {
+        public Builder setIgnoredIndexOptions(Collection<String> ignoredIndexOptions) {
             this.ignoredIndexOptions = ImmutableSet.copyOf(ignoredIndexOptions);
             return this;
         }
@@ -1379,7 +1356,6 @@ public class MetaDataEvolutionValidator {
          * @return the set of index options that this validator ignores any changes to
          * @see MetaDataEvolutionValidator#getIgnoredIndexOptions()
          */
-        @Nonnull
         public Set<String> getIgnoredIndexOptions() {
             return ignoredIndexOptions;
         }
@@ -1390,7 +1366,6 @@ public class MetaDataEvolutionValidator {
          *
          * @return a new {@link MetaDataEvolutionValidator}
          */
-        @Nonnull
         public MetaDataEvolutionValidator build() {
             return new MetaDataEvolutionValidator(this);
         }

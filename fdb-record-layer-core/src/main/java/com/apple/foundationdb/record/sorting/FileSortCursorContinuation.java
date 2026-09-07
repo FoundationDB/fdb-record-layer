@@ -25,46 +25,44 @@ import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
-import com.apple.foundationdb.record.RecordSortingProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.File;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.apple.foundationdb.record.RecordSortingProto.FileSortContinuation;
+
 @API(API.Status.EXPERIMENTAL)
 class FileSortCursorContinuation<K, V> implements RecordCursorContinuation {
-    @Nonnull
     private final FileSortAdapter<K, V> adapter;
 
     private final boolean exhausted;
     private final boolean loading;
-    @Nonnull
     private final Collection<V> inMemoryRecords;
-    @Nonnull
     private final List<File> files;
-    @Nonnull
     private final RecordCursorContinuation childContinuation;
     private final int recordPosition;
     private final long filePosition;
     
     @Nullable
-    private RecordSortingProto.FileSortContinuation cachedProto;
+    private FileSortContinuation cachedProto;
     @Nullable
     private byte[] cachedBytes;
 
-    FileSortCursorContinuation(@Nonnull FileSortAdapter<K, V> adapter,
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably recognize that the already-@Nullable
+    // byte[] field cachedBytes needs no initialization here; it is lazily computed in toBytes().
+    FileSortCursorContinuation(FileSortAdapter<K, V> adapter,
                                boolean exhausted, boolean loading,
-                               @Nonnull Collection<V> inMemoryRecords,
-                               @Nonnull List<File> files, @Nonnull RecordCursorContinuation childContinuation,
+                               Collection<V> inMemoryRecords,
+                               List<File> files, RecordCursorContinuation childContinuation,
                                int recordPosition, long filePosition) {
         this.exhausted = exhausted;
         this.loading = loading;
@@ -76,10 +74,9 @@ class FileSortCursorContinuation<K, V> implements RecordCursorContinuation {
         this.filePosition = filePosition;
     }
 
-    @Nonnull
-    RecordSortingProto.FileSortContinuation toProto() {
+    FileSortContinuation toProto() {
         if (cachedProto == null) {
-            RecordSortingProto.FileSortContinuation.Builder builder = RecordSortingProto.FileSortContinuation.newBuilder();
+            FileSortContinuation.Builder builder = FileSortContinuation.newBuilder();
             if (loading) {
                 builder.setLoading(true);
             }
@@ -104,7 +101,6 @@ class FileSortCursorContinuation<K, V> implements RecordCursorContinuation {
         return cachedProto;
     }
 
-    @Nonnull
     @Override
     public ByteString toByteString() {
         if (isEnd()) {
@@ -115,6 +111,8 @@ class FileSortCursorContinuation<K, V> implements RecordCursorContinuation {
 
     @Override
     @Nullable
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably track @Nullable on byte[] return types;
+    // this method is correctly annotated @Nullable above.
     public byte[] toBytes() {
         if (isEnd()) {
             return null;
@@ -125,9 +123,8 @@ class FileSortCursorContinuation<K, V> implements RecordCursorContinuation {
         return cachedBytes;
     }
 
-    @Nonnull
-    static <K, V> FileSortCursorContinuation<K, V> from(@Nonnull RecordSortingProto.FileSortContinuation parsed,
-                                                        @Nonnull FileSortAdapter<K, V> adapter) {
+    static <K, V> FileSortCursorContinuation<K, V> from(FileSortContinuation parsed,
+                                                        FileSortAdapter<K, V> adapter) {
         FileSortCursorContinuation<K, V> result = new FileSortCursorContinuation<>(
                 adapter, false, parsed.getLoading(),
                 parsed.getInMemoryRecordsList().stream().map(bs -> adapter.deserializeValue(bs.toByteArray())).collect(Collectors.toList()),
@@ -139,15 +136,16 @@ class FileSortCursorContinuation<K, V> implements RecordCursorContinuation {
         return result;
     }
 
-    @Nonnull
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably narrow a @Nullable byte[] parameter
+    // after a null check (unparsed is provably non-null in the else branch below).
     static <K, V> FileSortCursorContinuation<K, V> from(@Nullable byte[] unparsed,
-                                                        @Nonnull FileSortAdapter<K, V> adapter) {
+                                                        FileSortAdapter<K, V> adapter) {
         FileSortCursorContinuation<K, V> result;
         if (unparsed == null) {
             result = new FileSortCursorContinuation<>(adapter, false, true, Collections.emptyList(), Collections.emptyList(), RecordCursorStartContinuation.START, 0, 0);
         } else {
             try {
-                result = from(RecordSortingProto.FileSortContinuation.parseFrom(unparsed), adapter);
+                result = from(FileSortContinuation.parseFrom(unparsed), adapter);
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("invalid continuation", ex)
                         .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(unparsed));
@@ -161,17 +159,14 @@ class FileSortCursorContinuation<K, V> implements RecordCursorContinuation {
         return loading;
     }
 
-    @Nonnull
     public Collection<V> getInMemoryRecords() {
         return inMemoryRecords;
     }
 
-    @Nonnull
     public List<File> getFiles() {
         return files;
     }
 
-    @Nonnull
     RecordCursorContinuation getChild() {
         return childContinuation;
     }

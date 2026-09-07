@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,7 +38,6 @@ import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.PlanPropertiesMap.allAttributesExcept;
 import static org.assertj.core.api.Assertions.assertThat;
-
 
 class PlanPartitionsTest {
     @Test
@@ -184,28 +183,30 @@ class PlanPartitionsTest {
                 });
     }
 
-    private static RecordQueryIndexPlan indexScan(@Nonnull final String indexName) {
+    private static RecordQueryIndexPlan indexScan(final String indexName) {
         return new RecordQueryIndexPlan(indexName, null, IndexScanComparisons.byValue(),
                 IndexFetchMethod.SCAN_AND_FETCH, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
                 false, false, Optional.empty(),
                 RuleTestHelper.TYPE_S, QueryPlanConstraint.noConstraint());
     }
 
-    private static <T> ExpressionProperty<T> newProperty() {
+    private static <T extends @Nullable Object> ExpressionProperty<T> newProperty() {
         return newProperty(null);
     }
 
-    private static <T> ExpressionProperty<T> newProperty(T propertyValue) {
+    private static <T extends @Nullable Object> ExpressionProperty<T> newProperty(@Nullable T propertyValue) {
         return new ExpressionProperty<>() {
-            @Nonnull
             @Override
             @SuppressWarnings("unchecked")
-            public T narrowAttribute(@Nonnull final Object object) {
+            public T narrowAttribute(final Object object) {
                 return (T)object;
             }
 
-            @Nonnull
             @Override
+            // RelationalExpressionVisitorWithDefaults is annotation-processor-generated (out of scope to
+            // annotate) with an unbounded, non-null-by-default type parameter, but this test's newProperty()
+            // deliberately allows a null propertyValue to represent "no value" for the zero-arg overload.
+            @SuppressWarnings("NullAway")
             public RelationalExpressionVisitor<T> createVisitor() {
                 return (RelationalExpressionVisitorWithDefaults<T>)element -> propertyValue;
             }

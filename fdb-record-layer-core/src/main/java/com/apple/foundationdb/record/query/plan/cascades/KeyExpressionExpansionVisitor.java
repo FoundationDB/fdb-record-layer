@@ -47,7 +47,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
@@ -111,22 +110,18 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
      * @param keyExpression key expression to visit
      * @return does not return a result but throws an exception of type {@link UnsupportedOperationException}
      */
-    @Nonnull
     @Override
-    public final GraphExpansion visitExpression(@Nonnull final KeyExpression keyExpression) {
+    public final GraphExpansion visitExpression(final KeyExpression keyExpression) {
         throw new UnsupportedOperationException("visitor method for this key expression is not implemented");
     }
 
-
-    @Nonnull
     @Override
-    public GraphExpansion visitExpression(@Nonnull final EmptyKeyExpression emptyKeyExpression) {
+    public GraphExpansion visitExpression(final EmptyKeyExpression emptyKeyExpression) {
         return GraphExpansion.ofResultColumn(Column.unnamedOf(EmptyValue.empty()));
     }
 
-    @Nonnull
     @Override
-    public GraphExpansion visitExpression(@Nonnull FieldKeyExpression fieldKeyExpression) {
+    public GraphExpansion visitExpression(FieldKeyExpression fieldKeyExpression) {
         final String fieldName = ProtoUtils.toUserIdentifier(fieldKeyExpression.getFieldName());
         final KeyExpression.FanType fanType = fieldKeyExpression.getFanType();
         final VisitorState state = getCurrentState();
@@ -182,9 +177,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         }
     }
 
-    @Nonnull
     @Override
-    public GraphExpansion visitExpression(@Nonnull final KeyExpressionWithValue keyExpressionWithValue) {
+    public GraphExpansion visitExpression(final KeyExpressionWithValue keyExpressionWithValue) {
         final VisitorState state = getCurrentState();
         final var baseQuantifier = state.getBaseQuantifier();
         final var value =
@@ -197,10 +191,9 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         return GraphExpansion.ofResultColumn(Column.unnamedOf(value));
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // false positive
-    public GraphExpansion visitExpression(@Nonnull final FunctionKeyExpression functionKeyExpression) {
+    public GraphExpansion visitExpression(final FunctionKeyExpression functionKeyExpression) {
         final VisitorState state = getCurrentState();
 
         final var arguments = functionKeyExpression.getArguments();
@@ -232,9 +225,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         return graphExpansionBuilder.build();
     }
 
-    @Nonnull
     @Override
-    public GraphExpansion visitExpression(@Nonnull final KeyWithValueExpression keyWithValueExpression) {
+    public GraphExpansion visitExpression(final KeyWithValueExpression keyWithValueExpression) {
         throw new RecordCoreException("expression should have been handled at top level");
     }
 
@@ -253,9 +245,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
      *     no sub-fields to nest into, so {@code field(…, Concatenate).nest(...)} is not a meaningful construct.</li>
      * </ul>
      */
-    @Nonnull
     @Override
-    public GraphExpansion visitExpression(@Nonnull final NestingKeyExpression nestingKeyExpression) {
+    public GraphExpansion visitExpression(final NestingKeyExpression nestingKeyExpression) {
         final VisitorState state = getCurrentState();
         final List<String> fieldNamePrefix = state.getFieldNamePrefix();
         final Quantifier.ForEach baseQuantifier = state.getBaseQuantifier();
@@ -365,10 +356,9 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         }
     }
 
-    @Nonnull
-    private static ImmutableList<Placeholder> pullUpPlaceholders(@Nonnull final GraphExpansion childExpansion,
-                                                                 @Nonnull final Value childResultValue,
-                                                                 @Nonnull final Quantifier childQuantifier) {
+    private static ImmutableList<Placeholder> pullUpPlaceholders(final GraphExpansion childExpansion,
+                                                                 final Value childResultValue,
+                                                                 final Quantifier childQuantifier) {
         final var childExpansionPlaceholderValuesMap =
                 childExpansion.getPlaceholders()
                         .stream()
@@ -400,10 +390,9 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 .collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
-    private static ImmutableList<Column<? extends Value>> pullUpResultColumns(@Nonnull final GraphExpansion childExpansion,
-                                                                              @Nonnull final Value childResultValue,
-                                                                              @Nonnull final Quantifier childQuantifier) {
+    private static ImmutableList<Column<? extends Value>> pullUpResultColumns(final GraphExpansion childExpansion,
+                                                                              final Value childResultValue,
+                                                                              final Quantifier childQuantifier) {
         final var childExpansionValues =
                 childExpansion.getResultColumns()
                         .stream()
@@ -424,9 +413,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 .collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
     @Override
-    public GraphExpansion visitExpression(@Nonnull final ThenKeyExpression thenKeyExpression) {
+    public GraphExpansion visitExpression(final ThenKeyExpression thenKeyExpression) {
         final ImmutableList.Builder<GraphExpansion> expandedPredicatesBuilder = ImmutableList.builder();
         final VisitorState state = getCurrentState();
         int currentOrdinal = state.getCurrentOrdinal();
@@ -438,9 +426,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         return GraphExpansion.ofOthers(expandedPredicatesBuilder.build());
     }
 
-    @Nonnull
     @Override
-    public GraphExpansion visitExpression(@Nonnull final ListKeyExpression listKeyExpression) {
+    public GraphExpansion visitExpression(final ListKeyExpression listKeyExpression) {
         throw new UnsupportedOperationException("visitor method for this key expression is not implemented");
     }
 
@@ -463,13 +450,11 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
          * Correlated input to operators using the current state. This quantifier usually refers to the global record type
          * input or an exploded field (an iteration) defining this state.
          */
-        @Nonnull
         private final Quantifier.ForEach baseQuantifier;
 
         /**
          * List of field names that form a nesting chain of non-repeated fields.
          */
-        @Nonnull
         private final List<String> fieldNamePrefix;
 
         /**
@@ -487,13 +472,11 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         /**
          * List of keys as expanded values form in the index.
          */
-        @Nonnull
         private final List<Value> keyValues;
 
         /**
          * List of values as expanded values form in the index.
          */
-        @Nonnull
         private final List<Value> valueValues;
 
         /**
@@ -506,10 +489,10 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
          */
         private final boolean isSelectStar;
 
-        private VisitorState(@Nonnull final List<Value> keyOrdinalMap,
-                             @Nonnull final List<Value> valueValues,
-                             @Nonnull final Quantifier.ForEach baseQuantifier,
-                             @Nonnull final List<String> fieldNamePrefix,
+        private VisitorState(final List<Value> keyOrdinalMap,
+                             final List<Value> valueValues,
+                             final Quantifier.ForEach baseQuantifier,
+                             final List<String> fieldNamePrefix,
                              final int splitPointForValues,
                              final int currentOrdinal,
                              final boolean isInternalExpansion,
@@ -524,22 +507,18 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             this.isSelectStar = isSelectStar;
         }
 
-        @Nonnull
         public List<Value> getKeyValues() {
             return keyValues;
         }
 
-        @Nonnull
         public List<Value> getValueValues() {
             return valueValues;
         }
 
-        @Nonnull
         public Quantifier.ForEach getBaseQuantifier() {
             return baseQuantifier;
         }
 
-        @Nonnull
         public List<String> getFieldNamePrefix() {
             return fieldNamePrefix;
         }
@@ -564,8 +543,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             return splitPointForValues < 0 || getCurrentOrdinal() < splitPointForValues;
         }
 
-        @Nonnull
-        public Value registerValue(@Nonnull final Value value) {
+        public Value registerValue(final Value value) {
             if (!isInternalExpansion()) {
                 if (isKey()) {
                     keyValues.add(value);
@@ -576,7 +554,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             return value;
         }
 
-        public VisitorState withBaseQuantifier(@Nonnull final Quantifier.ForEach baseQuantifier) {
+        public VisitorState withBaseQuantifier(final Quantifier.ForEach baseQuantifier) {
             return new VisitorState(this.keyValues,
                     this.valueValues,
                     baseQuantifier,
@@ -587,7 +565,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     this.isSelectStar);
         }
 
-        public VisitorState withFieldNamePrefix(@Nonnull final List<String> fieldNamePrefix) {
+        public VisitorState withFieldNamePrefix(final List<String> fieldNamePrefix) {
             return new VisitorState(this.keyValues,
                     this.valueValues,
                     this.baseQuantifier,
@@ -642,9 +620,9 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     false);
         }
 
-        public static VisitorState forQueries(@Nonnull final List<Value> valueValues,
-                                              @Nonnull final Quantifier.ForEach baseQuantifier,
-                                              @Nonnull final List<String> fieldNamePrefix) {
+        public static VisitorState forQueries(final List<Value> valueValues,
+                                              final Quantifier.ForEach baseQuantifier,
+                                              final List<String> fieldNamePrefix) {
             return new VisitorState(
                     Lists.newArrayList(),
                     valueValues,
@@ -656,10 +634,10 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     false);
         }
 
-        public static VisitorState of(@Nonnull final List<Value> keyValues,
-                                      @Nonnull final List<Value> valueValues,
-                                      @Nonnull final Quantifier.ForEach baseQuantifier,
-                                      @Nonnull final List<String> fieldNamePrefix,
+        public static VisitorState of(final List<Value> keyValues,
+                                      final List<Value> valueValues,
+                                      final Quantifier.ForEach baseQuantifier,
+                                      final List<String> fieldNamePrefix,
                                       final int splitPointForValues,
                                       final int currentOrdinal,
                                       final boolean isInternalExpansion,

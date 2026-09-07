@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -49,25 +48,21 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 public class AnyOfMatcher<T> implements BindingMatcher<T> {
-    @Nonnull
     private final Class<T> staticClassOfT;
-    @Nonnull
     private final List<BindingMatcher<?>> downstreams;
 
-    private AnyOfMatcher(@Nonnull final Class<T> staticClassOfT, @Nonnull final Collection<? extends BindingMatcher<?>> downstreams) {
+    private AnyOfMatcher(final Class<T> staticClassOfT, final Collection<? extends BindingMatcher<?>> downstreams) {
         this.staticClassOfT = staticClassOfT;
         this.downstreams = ImmutableList.copyOf(downstreams);
     }
 
-    @Nonnull
     @Override
     public Class<T> getRootClass() {
         return staticClassOfT;
     }
 
-    @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
+    public Stream<PlannerBindings> bindMatchesSafely(final RecordQueryPlannerConfiguration plannerConfiguration, final PlannerBindings outerBindings, final T in) {
         return downstreams
                 .stream()
                 .flatMap(extractingMatcher -> extractingMatcher.bindMatches(plannerConfiguration, outerBindings, in));
@@ -75,7 +70,7 @@ public class AnyOfMatcher<T> implements BindingMatcher<T> {
 
     @SuppressWarnings("UnstableApiUsage")
     @Override
-    public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+    public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
         final String nestedIndentation = indentation + INDENTATION;
         final ImmutableList<String> downstreamIds = Streams.mapWithIndex(downstreams.stream(), (downstream, index) -> downstream.identifierFromMatcher() + index)
                 .collect(ImmutableList.toImmutableList());
@@ -86,8 +81,8 @@ public class AnyOfMatcher<T> implements BindingMatcher<T> {
                        .collect(Collectors.joining(" && " + newLine(nestedIndentation))) + newLine(indentation) + "}";
     }
 
-    public static <T> AnyOfMatcher<T> matchingAnyOf(@Nonnull final Class<T> staticClassOfT,
-                                                    @Nonnull final Collection<? extends BindingMatcher<?>> matchingExtractors) {
+    public static <T> AnyOfMatcher<T> matchingAnyOf(final Class<T> staticClassOfT,
+                                                    final Collection<? extends BindingMatcher<?>> matchingExtractors) {
         return new AnyOfMatcher<>(staticClassOfT, matchingExtractors);
     }
 }

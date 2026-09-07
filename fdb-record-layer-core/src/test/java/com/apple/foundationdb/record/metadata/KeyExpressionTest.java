@@ -55,8 +55,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collections;
@@ -97,8 +96,17 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 public class KeyExpressionTest {
 
-    public static List<Key.Evaluated> evaluate(@Nonnull KeyExpression expression, @Nullable Message record) {
-        return expression.evaluate(new UnstoredRecord<>(record));
+    // UnstoredRecord (a shared test fixture outside this file's scope) declares its constructor
+    // parameter as non-null, but many tests here intentionally evaluate a KeyExpression against
+    // an absent record to exercise null-handling; wrapping keeps that behavior without fighting
+    // the fixture's declared (and here, overly strict) signature.
+    @SuppressWarnings("NullAway")
+    private static Message asMessage(@Nullable Message record) {
+        return record;
+    }
+
+    public static List<Key.Evaluated> evaluate(KeyExpression expression, @Nullable Message record) {
+        return expression.evaluate(new UnstoredRecord<>(asMessage(record)));
     }
 
     private static final TestScalarFieldAccess plantsBoxesAndBowls = TestScalarFieldAccess.newBuilder()
@@ -459,17 +467,16 @@ public class KeyExpressionTest {
 
     @FunctionalInterface
     private interface NestSingularSingularCase {
-        void verify(@Nonnull Key.Evaluated.NullStandin parentStandin,
-                    @Nonnull Key.Evaluated.NullStandin childStandin,
-                    @Nonnull List<Key.Evaluated> expected);
+        void verify(Key.Evaluated.NullStandin parentStandin,
+                    Key.Evaluated.NullStandin childStandin,
+                    List<Key.Evaluated> expected);
     }
 
     /**
      * Builds the key expression under test for {@link #testNestSingularSingular()}.
      */
-    @Nonnull
-    private KeyExpression buildNestSingularSingularExpr(@Nonnull Key.Evaluated.NullStandin parentStandin,
-                                                        @Nonnull Key.Evaluated.NullStandin childStandin) {
+    private KeyExpression buildNestSingularSingularExpr(Key.Evaluated.NullStandin parentStandin,
+                                                        Key.Evaluated.NullStandin childStandin) {
         final KeyExpression expression =
                 field("nesty", None, parentStandin)
                         .nest(field("regular_old_field", None, childStandin));
@@ -567,17 +574,16 @@ public class KeyExpressionTest {
 
     @FunctionalInterface
     private interface NestRepeatedSingularCase {
-        void verify(@Nonnull Key.Evaluated.NullStandin parentStandin,
-                    @Nonnull Key.Evaluated.NullStandin childStandin,
-                    @Nonnull List<Key.Evaluated> expected);
+        void verify(Key.Evaluated.NullStandin parentStandin,
+                    Key.Evaluated.NullStandin childStandin,
+                    List<Key.Evaluated> expected);
     }
 
     /**
      * Builds the key expression under test for {@link #testNestRepeatedSingular()}.
      */
-    @Nonnull
-    private KeyExpression buildNestRepeatedSingularExpr(@Nonnull Key.Evaluated.NullStandin parentStandin,
-                                                        @Nonnull Key.Evaluated.NullStandin childStandin) {
+    private KeyExpression buildNestRepeatedSingularExpr(Key.Evaluated.NullStandin parentStandin,
+                                                        Key.Evaluated.NullStandin childStandin) {
         final KeyExpression expression =
                 field("repeated_nesty", FanOut, parentStandin)
                         .nest(field("regular_old_field", None, childStandin));
@@ -672,19 +678,18 @@ public class KeyExpressionTest {
 
     @FunctionalInterface
     private interface NestSingularRepeatedCase {
-        void verify(@Nonnull Key.Evaluated.NullStandin parentStandin,
-                    @Nonnull Key.Evaluated.NullStandin childStandin,
-                    @Nonnull FanType childFanType,
-                    @Nonnull List<Key.Evaluated> expected);
+        void verify(Key.Evaluated.NullStandin parentStandin,
+                    Key.Evaluated.NullStandin childStandin,
+                    FanType childFanType,
+                    List<Key.Evaluated> expected);
     }
 
     /**
      * Builds the key expression under test for {@link #testNestSingularRepeated()}.
      */
-    @Nonnull
-    private KeyExpression buildNestSingularRepeatedExpr(@Nonnull Key.Evaluated.NullStandin parentStandin,
-                                                        @Nonnull Key.Evaluated.NullStandin childStandin,
-                                                        @Nonnull FanType childFanType) {
+    private KeyExpression buildNestSingularRepeatedExpr(Key.Evaluated.NullStandin parentStandin,
+                                                        Key.Evaluated.NullStandin childStandin,
+                                                        FanType childFanType) {
         final KeyExpression expression =
                 field("nesty", None, parentStandin)
                         .nest(field("repeated_field", childFanType, childStandin));
@@ -1199,7 +1204,7 @@ public class KeyExpressionTest {
 
     @ParameterizedTest
     @MethodSource("getPrefixKeyComparisons")
-    void testIsPrefixKey(@Nonnull KeyExpression prefix, @Nonnull KeyExpression key, boolean shouldBePrefix) {
+    void testIsPrefixKey(KeyExpression prefix, KeyExpression key, boolean shouldBePrefix) {
         assertEquals(shouldBePrefix, prefix.isPrefixKey(key));
     }
 
@@ -1250,7 +1255,7 @@ public class KeyExpressionTest {
 
     @ParameterizedTest(name = "testRecordTypePrefix[key={0}]")
     @MethodSource
-    void testRecordTypePrefix(@Nonnull KeyExpression key, boolean hasRecordTypePrefix) {
+    void testRecordTypePrefix(KeyExpression key, boolean hasRecordTypePrefix) {
         assertEquals(hasRecordTypePrefix, Key.Expressions.hasRecordTypePrefix(key),
                 () -> key + " should" + (hasRecordTypePrefix ? "" : " not") + " have a record type prefix");
     }
@@ -1275,7 +1280,7 @@ public class KeyExpressionTest {
 
     @ParameterizedTest(name = "testLosslessNormalization[key={0}]")
     @MethodSource("getLosslessNormalizationKeys")
-    void testLosslessNormalization(@Nonnull KeyExpression key, boolean lossless) {
+    void testLosslessNormalization(KeyExpression key, boolean lossless) {
         assertEquals(lossless, key.hasLosslessNormalization(),
                 () -> key + " should have " + (lossless ? "lossless" : "lossy") + " normalization");
     }
@@ -1285,7 +1290,6 @@ public class KeyExpressionTest {
      */
     @AutoService(FunctionKeyExpression.Factory.class)
     public static class TestFunctionRegistry implements FunctionKeyExpression.Factory {
-        @Nonnull
         @Override
         public List<FunctionKeyExpression.Builder> getBuilders() {
             return Lists.newArrayList(
@@ -1294,9 +1298,8 @@ public class KeyExpressionTest {
                     new FunctionKeyExpression.BiFunctionBuilder("two_min_three_max", TwoMinThreeMaxFunction::new),
                     new FunctionKeyExpression.BiFunctionBuilder("split_string", SplitStringFunction::new),
                     new FunctionKeyExpression.Builder("transpose") {
-                        @Nonnull
                         @Override
-                        public FunctionKeyExpression build(@Nonnull final KeyExpression arguments) {
+                        public FunctionKeyExpression build(final KeyExpression arguments) {
                             return new TransposeFunction(getName(), arguments);
                         }
                     }
@@ -1310,7 +1313,7 @@ public class KeyExpressionTest {
     public static class TwoMinThreeMaxFunction extends FunctionKeyExpression {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Two-Min-Three-Max-Function");
 
-        public TwoMinThreeMaxFunction(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public TwoMinThreeMaxFunction(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
@@ -1324,11 +1327,10 @@ public class KeyExpressionTest {
             return 3;
         }
 
-        @Nonnull
         @Override
         public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
                                                                         @Nullable Message message,
-                                                                        @Nonnull Key.Evaluated arguments) {
+                                                                        Key.Evaluated arguments) {
             return Collections.singletonList(arguments);
         }
 
@@ -1343,13 +1345,12 @@ public class KeyExpressionTest {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+        public int planHash(final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -1360,7 +1361,7 @@ public class KeyExpressionTest {
     public static class SubstrFunction extends FunctionKeyExpression implements QueryableKeyExpression {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Substr-Function");
 
-        public SubstrFunction(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public SubstrFunction(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
@@ -1374,11 +1375,10 @@ public class KeyExpressionTest {
             return 3;
         }
 
-        @Nonnull
         @Override
         public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
                                                                         @Nullable Message message,
-                                                                        @Nonnull Key.Evaluated arguments) {
+                                                                        Key.Evaluated arguments) {
             final String value = arguments.getString(0);
             final Number startIdx = arguments.getObject(1, Number.class);
             final Number endIdx = (arguments.size() > 2) ? arguments.getObject(2, Number.class) : null;
@@ -1401,20 +1401,18 @@ public class KeyExpressionTest {
             return 1;
         }
 
-        @Nonnull
         @Override
-        public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+        public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
             return visitor.visitExpression(this);
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+        public int planHash(final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
         }
 
@@ -1426,7 +1424,7 @@ public class KeyExpressionTest {
     public static class CharsFunction extends FunctionKeyExpression implements QueryableKeyExpression {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Chars-Function");
 
-        public CharsFunction(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public CharsFunction(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
@@ -1440,11 +1438,10 @@ public class KeyExpressionTest {
             return 1;
         }
 
-        @Nonnull
         @Override
         public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
                                                                         @Nullable Message message,
-                                                                        @Nonnull Key.Evaluated arguments) {
+                                                                        Key.Evaluated arguments) {
             final String value = arguments.getString(0);
             if (value == null) {
                 return Collections.singletonList(Key.Evaluated.NULL);
@@ -1462,20 +1459,18 @@ public class KeyExpressionTest {
             return 1;
         }
 
-        @Nonnull
         @Override
-        public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+        public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
             return visitor.visitExpression(this);
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+        public int planHash(final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
         }
 
@@ -1487,7 +1482,7 @@ public class KeyExpressionTest {
     public static class SplitStringFunction extends FunctionKeyExpression {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Split-String-Function");
 
-        public SplitStringFunction(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public SplitStringFunction(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
@@ -1501,11 +1496,10 @@ public class KeyExpressionTest {
             return 2;
         }
 
-        @Nonnull
         @Override
         public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
                                                                         @Nullable Message message,
-                                                                        @Nonnull Key.Evaluated arguments) {
+                                                                        Key.Evaluated arguments) {
             final String arg = arguments.getString(0);
             if (arg == null) {
                 return Collections.singletonList(concatenate(null, (Object)null));
@@ -1525,13 +1519,12 @@ public class KeyExpressionTest {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+        public int planHash(final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }
@@ -1542,7 +1535,7 @@ public class KeyExpressionTest {
     public static class TransposeFunction extends FunctionKeyExpression {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Transpose-Function");
 
-        public TransposeFunction(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public TransposeFunction(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
@@ -1556,11 +1549,10 @@ public class KeyExpressionTest {
             return Integer.MAX_VALUE;
         }
 
-        @Nonnull
         @Override
         public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
                                                                         @Nullable Message message,
-                                                                        @Nonnull Key.Evaluated arguments) {
+                                                                        Key.Evaluated arguments) {
             return Collections.singletonList(Key.Evaluated.concatenate(Lists.reverse(arguments.toList())));
         }
 
@@ -1575,13 +1567,12 @@ public class KeyExpressionTest {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+        public int planHash(final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }

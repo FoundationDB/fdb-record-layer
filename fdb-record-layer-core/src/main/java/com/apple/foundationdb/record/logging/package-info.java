@@ -43,4 +43,7 @@
  * {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabase#openContext} takes an optional MDC map, which will be maintained for all work done by the {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext}.
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.record.logging;
+
+import org.jspecify.annotations.NullMarked;

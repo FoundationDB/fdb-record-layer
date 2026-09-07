@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.explain;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Set;
 
@@ -205,37 +204,32 @@ public class NodeInfo {
     private final String name;
     private final String description;
 
-    public NodeInfo(@Nonnull final String id,
-                    @Nonnull final NodeIcon nodeIcon,
-                    @Nonnull final String name,
-                    @Nonnull final String description) {
+    public NodeInfo(final String id,
+                    final NodeIcon nodeIcon,
+                    final String name,
+                    final String description) {
         this.id = id;
         this.iconId = nodeIcon.getId();
         this.name = name;
         this.description = description;
     }
 
-    @Nonnull
     public String getId() {
         return id;
     }
 
-    @Nonnull
     public String getIconId() {
         return iconId;
     }
 
-    @Nonnull
     public String getName() {
         return name;
     }
 
-    @Nonnull
     public String getDescription() {
         return description;
     }
 
-    @Nonnull
     public static Set<NodeInfo> getNodeInfos() {
         return ImmutableSet.of(
                 BASE_DATA,
@@ -262,7 +256,6 @@ public class NodeInfo {
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    @Nonnull
     public static Map<String, Attribute> getInfoAttributeMap(final Set<NodeInfo> nodeInfos) {
         return nodeInfos
                 .stream()

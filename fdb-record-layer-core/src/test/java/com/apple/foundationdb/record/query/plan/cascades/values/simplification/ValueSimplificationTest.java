@@ -37,7 +37,6 @@ import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
 
@@ -311,7 +310,6 @@ class ValueSimplificationTest {
         Assertions.assertEquals(ImmutableList.of(bFieldPulledUp), pulledUpValuesMap.get(bField));
     }
 
-    @Nonnull
     private static Type.Record someRecordType() {
         final var aaType = Type.Record.fromFields(ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aaa")),
@@ -334,8 +332,7 @@ class ValueSimplificationTest {
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("z"))));
     }
 
-    @Nonnull
-    private static Value defaultSimplify(@Nonnull final Value toBeSimplified) {
+    private static Value defaultSimplify(final Value toBeSimplified) {
         return toBeSimplified.simplify(DefaultValueSimplificationRuleSet.instance(), EvaluationContext.empty(),
                 AliasMap.emptyMap(), ImmutableSet.of());
     }

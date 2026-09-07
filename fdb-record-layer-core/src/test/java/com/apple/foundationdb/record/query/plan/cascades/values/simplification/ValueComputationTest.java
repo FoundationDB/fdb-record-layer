@@ -44,7 +44,6 @@ import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
 
@@ -300,7 +299,6 @@ class ValueComputationTest {
         Assertions.assertEquals(expectedCompensatedComparison, compensatedComparisonMaybe.get());
     }
 
-    @Nonnull
     private static Type.Record someRecordType() {
         final var aaType = Type.Record.fromFields(ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aaa")),

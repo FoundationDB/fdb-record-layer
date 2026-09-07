@@ -28,8 +28,7 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecede
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -50,53 +49,47 @@ import java.util.stream.StreamSupport;
  */
 public abstract class UdfValue extends AbstractValue {
 
-    @Nonnull
     private final Iterable<? extends Value> children;
 
-    @Nonnull
     private final Type resultType;
 
-    public UdfValue(@Nonnull final Iterable<? extends Value> children, @Nonnull final Type resultType) {
+    public UdfValue(final Iterable<? extends Value> children, final Type resultType) {
         this.children = children;
         this.resultType = resultType;
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode hashKind) {
+    public int planHash(final PlanHashMode hashKind) {
         return PlanHashable.objectsPlanHash(hashKind, this.getClass().getCanonicalName(), children);
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return children;
     }
 
     @Override
-    @Nonnull
     public Type getResultType() {
         return resultType;
     }
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         return call(StreamSupport.stream(children.spliterator(), false).map(c -> c.eval(store, context)).collect(Collectors.toList()));
     }
 
-    @Nonnull
     @Override
     public abstract Value withChildren(Iterable<? extends Value> newChildren);
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall(getClass().getSimpleName(),
                 Value.explainFunctionArguments(explainSuppliers)));
     }
 
     @Nullable
-    public abstract Object call(@Nonnull List<Object> arguments);
+    public abstract Object call(List<Object> arguments);
 
     @Override
     public int hashCodeWithoutChildren() {

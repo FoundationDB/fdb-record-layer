@@ -27,7 +27,6 @@ import com.google.common.collect.Iterators;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -489,31 +488,27 @@ public class TreeLikeTest {
         private final String contents;
         private final List<TreeNode> children;
 
-        public TreeNode(@Nonnull final String contents, final Iterable<? extends TreeNode> children) {
+        public TreeNode(final String contents, final Iterable<? extends TreeNode> children) {
             this.contents = contents;
             this.children = ImmutableList.copyOf(children);
         }
 
-        @Nonnull
         public String getContents() {
             return contents;
         }
 
-        @Nonnull
         @Override
         public TreeNode getThis() {
             return this;
         }
 
-        @Nonnull
         @Override
         public Iterable<? extends TreeNode> getChildren() {
             return children;
         }
 
-        @Nonnull
         @Override
-        public TreeNode withChildren(@Nonnull final Iterable<? extends TreeNode> newChildren) {
+        public TreeNode withChildren(final Iterable<? extends TreeNode> newChildren) {
             return new TreeNode(this.contents, newChildren);
         }
 
@@ -540,7 +535,7 @@ public class TreeLikeTest {
         }
     }
     
-    private static TreeNode node(@Nonnull final String contents, final TreeNode... nodes) {
+    private static TreeNode node(final String contents, final TreeNode... nodes) {
         return new TreeNode(contents, ImmutableList.copyOf(nodes));
     }
 }

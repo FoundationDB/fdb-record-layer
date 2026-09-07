@@ -25,8 +25,8 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -62,7 +62,6 @@ import java.util.function.Supplier;
  * This class is mutable and not thread-safe.
  */
 public class ExplainTokens {
-    @Nonnull
     private final List<Token> tokens;
     private int[] tokenSizes;
     private int[] minLengths;
@@ -79,12 +78,10 @@ public class ExplainTokens {
         return tokens.isEmpty();
     }
 
-    @Nonnull
     public List<Token> getTokens() {
         return tokens;
     }
 
-    @Nonnull
     protected int[] getTokenSizes() {
         return tokenSizes;
     }
@@ -93,7 +90,6 @@ public class ExplainTokens {
         return explainLevel < tokenSizes.length ? tokenSizes[explainLevel] : 0;
     }
 
-    @Nonnull
     protected int[] getMinLengths() {
         return minLengths;
     }
@@ -102,7 +98,6 @@ public class ExplainTokens {
         return explainLevel < minLengths.length ? minLengths[explainLevel] : 0;
     }
 
-    @Nonnull
     protected int[] getMaxLengths() {
         return maxLengths;
     }
@@ -111,8 +106,7 @@ public class ExplainTokens {
         return explainLevel < maxLengths.length ? maxLengths[explainLevel] : 0;
     }
 
-    @Nonnull
-    public CharSequence render(@Nonnull final ExplainFormatter formatter) {
+    public CharSequence render(final ExplainFormatter formatter) {
         return render(ExplainLevel.ALL_DETAILS, formatter, Integer.MAX_VALUE);
     }
 
@@ -131,9 +125,8 @@ public class ExplainTokens {
      *         {@link CharSequence} allowing us to return un-built string builders without materializing them to
      *         strings.
      */
-    @Nonnull
     public CharSequence render(final int renderingExplainLevel,
-                               @Nonnull final ExplainFormatter formatter,
+                               final ExplainFormatter formatter,
                                int remainingCharacterBudget) {
         final StringBuilder stringBuilder = new StringBuilder();
         for (int i = 0; i < tokens.size(); i++) {
@@ -160,8 +153,7 @@ public class ExplainTokens {
         return stringBuilder;
     }
 
-    @Nonnull
-    public ExplainTokens add(@Nonnull final Token token) {
+    public ExplainTokens add(final Token token) {
         tokens.add(token);
         this.tokenSizes = vectorAdd(this.tokenSizes, token.getTokenSizes());
         this.minLengths = vectorAdd(this.minLengths, token.getMinLengths());
@@ -169,259 +161,210 @@ public class ExplainTokens {
         return this;
     }
 
-    @Nonnull
-    public ExplainTokens addNested(@Nonnull final ExplainTokens additionalExplainTokens) {
+    public ExplainTokens addNested(final ExplainTokens additionalExplainTokens) {
         return addNested(Token.DEFAULT_EXPLAIN_LEVEL, additionalExplainTokens);
     }
 
-    @Nonnull
     public ExplainTokens addNested(final int explainLevel,
-                                   @Nonnull final ExplainTokens additionalExplainTokens) {
+                                   final ExplainTokens additionalExplainTokens) {
         return add(new NestedToken(explainLevel, additionalExplainTokens,
                 new OptionalWhitespaceToken(Token.DEFAULT_EXPLAIN_LEVEL)));
     }
 
-    @Nonnull
     public ExplainTokens addNested(final int explainLevel,
-                                   @Nonnull final ExplainTokens additionalExplainTokens,
-                                   @Nonnull final String replacementTokenString) {
+                                   final ExplainTokens additionalExplainTokens,
+                                   final String replacementTokenString) {
         return addNested(explainLevel, additionalExplainTokens,
                 new ToStringToken(Token.DEFAULT_EXPLAIN_LEVEL, replacementTokenString));
     }
 
-    @Nonnull
     public ExplainTokens addNested(final int explainLevel,
-                                   @Nonnull final ExplainTokens additionalExplainTokens,
-                                   @Nonnull final Token replacementToken) {
+                                   final ExplainTokens additionalExplainTokens,
+                                   final Token replacementToken) {
         return add(new NestedToken(explainLevel, additionalExplainTokens, replacementToken));
     }
 
-    @Nonnull
-    public ExplainTokens addAll(@Nonnull final Collection<? extends Token> additionalTokens) {
+    public ExplainTokens addAll(final Collection<? extends Token> additionalTokens) {
         additionalTokens.forEach(this::add);
         return this;
     }
 
-    @Nonnull
     public ExplainTokens addPush() {
         return addPush(Token.DEFAULT_EXPLAIN_LEVEL);
     }
 
-    @Nonnull
     public ExplainTokens addPush(final int explainLevel) {
         return add(new PushToken(explainLevel));
     }
 
-    @Nonnull
     public ExplainTokens addPop() {
         return addPop(Token.DEFAULT_EXPLAIN_LEVEL);
     }
 
-    @Nonnull
     public ExplainTokens addPop(final int explainLevel) {
         return add(new PopToken(explainLevel));
     }
 
-    @Nonnull
     public ExplainTokens addWhitespace() {
         return addWhitespace(Token.DEFAULT_EXPLAIN_LEVEL);
     }
 
-    @Nonnull
     public ExplainTokens addWhitespace(final int explainLevel) {
         return add(new WhitespaceToken(explainLevel));
     }
 
-    @Nonnull
     public ExplainTokens addOptionalWhitespace() {
         return addOptionalWhitespace(Token.DEFAULT_EXPLAIN_LEVEL);
     }
 
-    @Nonnull
     public ExplainTokens addOptionalWhitespace(final int explainLevel) {
         return add(new OptionalWhitespaceToken(explainLevel));
     }
 
-    @Nonnull
     public ExplainTokens addLinebreakOrWhitespace() {
         return addLinebreakOrWhitespace(Token.DEFAULT_EXPLAIN_LEVEL);
     }
 
-    @Nonnull
     public ExplainTokens addLinebreakOrWhitespace(final int explainLevel) {
         return add(new LineBreakOrSpaceToken(explainLevel));
     }
 
-    @Nonnull
-    public ExplainTokens addIdentifier(@Nonnull final String identifier) {
+    public ExplainTokens addIdentifier(final String identifier) {
         return addIdentifier(Token.DEFAULT_EXPLAIN_LEVEL, identifier);
     }
 
-    @Nonnull
-    public ExplainTokens addIdentifier(final int explainLevel, @Nonnull final String identifier) {
+    public ExplainTokens addIdentifier(final int explainLevel, final String identifier) {
         return add(new IdentifierToken(explainLevel, identifier));
     }
 
-    @Nonnull
-    public ExplainTokens addKeyword(@Nonnull final String keyword) {
+    public ExplainTokens addKeyword(final String keyword) {
         return addKeyword(Token.DEFAULT_EXPLAIN_LEVEL, keyword);
     }
 
-    @Nonnull
-    public ExplainTokens addKeyword(final int explainLevel, @Nonnull final String keyword) {
+    public ExplainTokens addKeyword(final int explainLevel, final String keyword) {
         return add(new KeywordToken(explainLevel, keyword));
     }
 
-    @Nonnull
     public ExplainTokens addComma() {
         return addComma(Token.DEFAULT_EXPLAIN_LEVEL);
     }
 
-    @Nonnull
     public ExplainTokens addComma(final int explainLevel) {
         return add(new CommaLikeToken(explainLevel, ","));
     }
 
-    @Nonnull
     public ExplainTokens addCommaAndWhiteSpace() {
         return addCommaAndWhiteSpace(Token.DEFAULT_EXPLAIN_LEVEL);
     }
 
-    @Nonnull
     public ExplainTokens addCommaAndWhiteSpace(final int explainLevel) {
         return addComma(explainLevel).addWhitespace(explainLevel);
     }
 
-    @Nonnull
-    public ExplainTokens addAliasDefinition(@Nonnull final CorrelationIdentifier alias) {
+    public ExplainTokens addAliasDefinition(final CorrelationIdentifier alias) {
         return addAliasDefinition(Token.DEFAULT_EXPLAIN_LEVEL, alias);
     }
 
-    @Nonnull
     public ExplainTokens addAliasDefinition(final int explainLevel,
-                                            @Nonnull final CorrelationIdentifier alias) {
+                                            final CorrelationIdentifier alias) {
         return add(new AliasDefinitionToken(explainLevel, alias));
     }
 
-    @Nonnull
-    public ExplainTokens addCurrentAliasDefinition(@Nonnull final CorrelationIdentifier alias) {
+    public ExplainTokens addCurrentAliasDefinition(final CorrelationIdentifier alias) {
         return addCurrentAliasDefinition(Token.DEFAULT_EXPLAIN_LEVEL, alias);
     }
 
-    @Nonnull
     public ExplainTokens addCurrentAliasDefinition(final int explainLevel,
-                                                   @Nonnull final CorrelationIdentifier alias) {
+                                                   final CorrelationIdentifier alias) {
         return add(new CurrentAliasDefinitionToken(explainLevel, alias));
     }
 
-    @Nonnull
-    public ExplainTokens addAliasReference(@Nonnull final CorrelationIdentifier alias) {
+    public ExplainTokens addAliasReference(final CorrelationIdentifier alias) {
         return addAliasReference(Token.DEFAULT_EXPLAIN_LEVEL, alias);
     }
 
-    @Nonnull
     public ExplainTokens addAliasReference(final int explainLevel,
-                                           @Nonnull final CorrelationIdentifier alias) {
+                                           final CorrelationIdentifier alias) {
         return add(new AliasReferenceToken(explainLevel, alias));
     }
 
-    @Nonnull
     public ExplainTokens addOpeningParen() {
         return addOpeningParen(Token.DEFAULT_EXPLAIN_LEVEL);
     }
 
-    @Nonnull
     public ExplainTokens addOpeningParen(final int explainLevel) {
         return add(new BracketLikeToken(explainLevel, true, "("));
     }
 
-    @Nonnull
     public ExplainTokens addClosingParen() {
         return addClosingParen(Token.DEFAULT_EXPLAIN_LEVEL);
     }
 
-    @Nonnull
     public ExplainTokens addClosingParen(final int explainLevel) {
         return add(new BracketLikeToken(explainLevel, false, ")"));
     }
 
-    @Nonnull
     public ExplainTokens addOpeningSquareBracket() {
         return addOpeningSquareBracket(Token.DEFAULT_EXPLAIN_LEVEL);
     }
 
-    @Nonnull
     public ExplainTokens addOpeningSquareBracket(final int explainLevel) {
         return add(new BracketLikeToken(explainLevel, true, "["));
     }
 
-    @Nonnull
     public ExplainTokens addClosingSquareBracket() {
         return addClosingSquareBracket(Token.DEFAULT_EXPLAIN_LEVEL);
     }
 
-    @Nonnull
     public ExplainTokens addClosingSquareBracket(final int explainLevel) {
         return add(new BracketLikeToken(explainLevel, false, "]"));
     }
 
-    @Nonnull
     public ExplainTokens addOpeningBrace() {
         return addOpeningBrace(Token.DEFAULT_EXPLAIN_LEVEL);
     }
 
-    @Nonnull
     public ExplainTokens addOpeningBrace(final int explainLevel) {
         return add(new BracketLikeToken(explainLevel, true, "{"));
     }
 
-    @Nonnull
     public ExplainTokens addClosingBrace() {
         return addClosingBrace(Token.DEFAULT_EXPLAIN_LEVEL);
     }
 
-    @Nonnull
     public ExplainTokens addClosingBrace(final int explainLevel) {
         return add(new BracketLikeToken(explainLevel, false, "}"));
     }
 
-    @Nonnull
     public ExplainTokens addOpeningAngledBracket() {
         return addOpeningAngledBracket(Token.DEFAULT_EXPLAIN_LEVEL);
     }
 
-    @Nonnull
     public ExplainTokens addOpeningAngledBracket(final int explainLevel) {
         return add(new BracketLikeToken(explainLevel, true, "<"));
     }
 
-    @Nonnull
     public ExplainTokens addClosingAngledBracket() {
         return addClosingAngledBracket(Token.DEFAULT_EXPLAIN_LEVEL);
     }
 
-    @Nonnull
     public ExplainTokens addClosingAngledBracket(final int explainLevel) {
         return add(new BracketLikeToken(explainLevel, false, ">"));
     }
 
-    @Nonnull
     public ExplainTokens addToString(@Nullable final Object object) {
         return addToString(Token.DEFAULT_EXPLAIN_LEVEL, object);
     }
 
-    @Nonnull
     public ExplainTokens addToString(final int explainLevel, @Nullable final Object object) {
         return add(new ToStringToken(explainLevel, object));
     }
 
-    @Nonnull
-    public ExplainTokens addToStrings(@Nonnull final Iterable<?> objects) {
+    public ExplainTokens addToStrings(final Iterable<?> objects) {
         return addToStrings(Token.DEFAULT_EXPLAIN_LEVEL, objects);
     }
 
-    @Nonnull
-    public ExplainTokens addToStrings(final int explainLevel, @Nonnull final Iterable<?> objects) {
+    public ExplainTokens addToStrings(final int explainLevel, final Iterable<?> objects) {
         for (final var iterator = objects.iterator(); iterator.hasNext(); ) {
             final var object = iterator.next();
             addToString(explainLevel, object);
@@ -433,25 +376,21 @@ public class ExplainTokens {
         return this;
     }
 
-    @Nonnull
-    public ExplainTokens addFunctionCall(@Nonnull final String identifier) {
+    public ExplainTokens addFunctionCall(final String identifier) {
         return addFunctionCall(Token.DEFAULT_EXPLAIN_LEVEL, identifier);
     }
 
-    @Nonnull
-    public ExplainTokens addFunctionCall(final int explainLevel, @Nonnull final String identifier) {
+    public ExplainTokens addFunctionCall(final int explainLevel, final String identifier) {
         return addFunctionCall(explainLevel, identifier, null);
     }
 
-    @Nonnull
-    public ExplainTokens addFunctionCall(@Nonnull final String identifier,
+    public ExplainTokens addFunctionCall(final String identifier,
                                          @Nullable final ExplainTokens childExplainTokens) {
         return addFunctionCall(Token.DEFAULT_EXPLAIN_LEVEL, identifier, childExplainTokens);
     }
 
-    @Nonnull
     public ExplainTokens addFunctionCall(final int explainLevel,
-                                         @Nonnull final String identifier,
+                                         final String identifier,
                                          @Nullable final ExplainTokens childExplainTokens) {
         if (childExplainTokens == null || childExplainTokens.isEmpty()) {
             return addIdentifier(explainLevel, identifier).addOptionalWhitespace(explainLevel)
@@ -462,15 +401,13 @@ public class ExplainTokens {
                 .addClosingParen(explainLevel);
     }
 
-    @Nonnull
-    public ExplainTokens addSequence(@Nonnull final Supplier<ExplainTokens> delimiterSupplier,
-                                     @Nonnull final ExplainTokens... childrenExplainTokens) {
+    public ExplainTokens addSequence(final Supplier<ExplainTokens> delimiterSupplier,
+                                     final ExplainTokens... childrenExplainTokens) {
         return addSequence(delimiterSupplier, Arrays.asList(childrenExplainTokens));
     }
 
-    @Nonnull
-    public ExplainTokens addSequence(@Nonnull final Supplier<ExplainTokens> delimiterSupplier,
-                                     @Nonnull final Iterable<ExplainTokens> childrenExplainTokens) {
+    public ExplainTokens addSequence(final Supplier<ExplainTokens> delimiterSupplier,
+                                     final Iterable<ExplainTokens> childrenExplainTokens) {
         for (final var iterator = childrenExplainTokens.iterator(); iterator.hasNext(); ) {
             final var childExplainTokens = iterator.next();
             addNested(childExplainTokens);
@@ -481,13 +418,11 @@ public class ExplainTokens {
         return this;
     }
 
-    @Nonnull
-    private static int[] vectorAdd(@Nonnull final int[] left, @Nonnull final int[] right) {
+    private static int[] vectorAdd(final int[] left, final int[] right) {
         return vectorOp(left, right, Integer::sum);
     }
 
-    @Nonnull
-    private static int[] vectorCoalesce(@Nonnull final int[] left, @Nonnull final int[] right) {
+    private static int[] vectorCoalesce(final int[] left, final int[] right) {
         return vectorOp(left, right, (a, b) -> {
             if (a == 0) {
                 return b;
@@ -499,8 +434,7 @@ public class ExplainTokens {
         });
     }
 
-    @Nonnull
-    private static int[] vectorOp(@Nonnull final int[] left, @Nonnull final int[] right, IntBinaryOperator intBinaryOperator) {
+    private static int[] vectorOp(final int[] left, final int[] right, IntBinaryOperator intBinaryOperator) {
         final var maxSize = Math.max(left.length, right.length);
         final var result = new int[maxSize];
 
@@ -540,23 +474,19 @@ public class ExplainTokens {
         public static final int DEFAULT_EXPLAIN_LEVEL = ExplainLevel.STRUCTURE;
         private static final int MAX_ALIAS_LENGTH = 36; // MAX UUID LENGTH
 
-        @Nonnull
         private final TokenKind tokenKind;
-        @Nonnull
         private final int[] tokenSizes;
-        @Nonnull
         private final int[] minLengths;
-        @Nonnull
         private final int[] maxLengths;
 
-        public Token(@Nonnull final TokenKind tokenKind,
+        public Token(final TokenKind tokenKind,
                      final int explainLevel,
                      final int minLength,
                      final int maxLength) {
             this(tokenKind, explainLevel, 1, minLength, maxLength);
         }
 
-        public Token(@Nonnull final TokenKind tokenKind,
+        public Token(final TokenKind tokenKind,
                      final int explainLevel,
                      final int tokenSize,
                      final int minLength,
@@ -571,34 +501,30 @@ public class ExplainTokens {
                     vectorForExplainLevel(explainLevel + 1, maxLength));
         }
 
-        protected Token(@Nonnull final TokenKind tokenKind,
-                        @Nonnull final int[] tokenSizes,
-                        @Nonnull final int[] minLengths,
-                        @Nonnull final int[] maxLengths) {
+        protected Token(final TokenKind tokenKind,
+                        final int[] tokenSizes,
+                        final int[] minLengths,
+                        final int[] maxLengths) {
             this.tokenKind = tokenKind;
             this.tokenSizes = tokenSizes;
             this.minLengths = minLengths;
             this.maxLengths = maxLengths;
         }
 
-        @Nonnull
         public TokenKind getTokenKind() {
             return tokenKind;
         }
 
-        @Nonnull
         @SuppressWarnings("PMD.UnusedPrivateMethod") // PMD having hallucinations
         private int[] getTokenSizes() {
             return tokenSizes;
         }
 
-        @Nonnull
         @SuppressWarnings("PMD.UnusedPrivateMethod") // PMD having hallucinations
         private int[] getMinLengths() {
             return minLengths;
         }
 
-        @Nonnull
         @SuppressWarnings("PMD.UnusedPrivateMethod") // PMD having hallucinations
         private int[] getMaxLengths() {
             return maxLengths;
@@ -615,8 +541,8 @@ public class ExplainTokens {
 
         @SuppressWarnings("unchecked")
         protected <T extends Token> CharSequence renderIfEnabled(final int renderingExplainLevel,
-                                                                 @Nonnull final String stringedToken,
-                                                                 @Nonnull final BiFunction<T, CharSequence, CharSequence> renderFunction) {
+                                                                 final String stringedToken,
+                                                                 final BiFunction<T, CharSequence, CharSequence> renderFunction) {
             if (isRenderingEnabled(renderingExplainLevel)) {
                 return renderFunction.apply((T)this, stringedToken);
             }
@@ -624,7 +550,7 @@ public class ExplainTokens {
         }
 
         protected CharSequence cutOffIfNeeded(final int remainingCharacterBudget,
-                                              @Nonnull final CharSequence stringedToken) {
+                                              final CharSequence stringedToken) {
             Verify.verify(remainingCharacterBudget >= 0);
             if (remainingCharacterBudget >= stringedToken.length()) {
                 return stringedToken;
@@ -645,12 +571,10 @@ public class ExplainTokens {
             return explainLevel < maxLengths.length ? maxLengths[explainLevel] : 0;
         }
 
-        @Nonnull
         public abstract CharSequence render(int renderingExplainLevel,
-                                            @Nonnull ExplainFormatter explainFormatter,
+                                            ExplainFormatter explainFormatter,
                                             int remainingCharacterBudget);
 
-        @Nonnull
         private static int[] vectorForExplainLevel(final int explainLevelExclusive, int value) {
             final int[] result = new int[explainLevelExclusive];
             Arrays.fill(result, value);
@@ -667,9 +591,8 @@ public class ExplainTokens {
             super(TokenKind.PUSH, explainLevel, 0, 0);
         }
 
-        @Nonnull
         @Override
-        public String render(final int renderingExplainLevel, @Nonnull final ExplainFormatter explainFormatter, final int remainingCharacterBudget) {
+        public String render(final int renderingExplainLevel, final ExplainFormatter explainFormatter, final int remainingCharacterBudget) {
             if (isRenderingEnabled(renderingExplainLevel)) {
                 explainFormatter.pushScope();
             }
@@ -686,10 +609,9 @@ public class ExplainTokens {
             super(TokenKind.POP, explainLevel, 0, 0);
         }
 
-        @Nonnull
         @Override
         public String render(final int renderingExplainLevel,
-                             @Nonnull final ExplainFormatter explainFormatter, final int remainingCharacterBudget) {
+                             final ExplainFormatter explainFormatter, final int remainingCharacterBudget) {
             if (isRenderingEnabled(renderingExplainLevel)) {
                 explainFormatter.popScope();
             }
@@ -705,22 +627,20 @@ public class ExplainTokens {
     public static class NestedToken extends Token {
         final int explainLevel;
         final int explainLevelAdjustment;
-        @Nonnull
         private final ExplainTokens nestedExplainTokens;
-        @Nonnull
         private final Token replacementToken;
 
         public NestedToken(final int explainLevel,
-                           @Nonnull final ExplainTokens nestedExplainTokens,
-                           @Nonnull final Token replacementToken) {
+                           final ExplainTokens nestedExplainTokens,
+                           final Token replacementToken) {
             this(explainLevel, DEFAULT_EXPLAIN_LEVEL - explainLevel, nestedExplainTokens,
                     replacementToken);
         }
 
         private NestedToken(final int explainLevel,
                            final int explainLevelAdjustment,
-                           @Nonnull final ExplainTokens nestedExplainTokens,
-                           @Nonnull final Token replacementToken) {
+                           final ExplainTokens nestedExplainTokens,
+                           final Token replacementToken) {
             super(TokenKind.NESTED, nestedExplainTokens.getTokenSizes(),
                     vectorCoalesce(shiftLengthsDownBy(nestedExplainTokens.getMinLengths(), explainLevelAdjustment),
                             zeroOutLengthsUpTo(replacementToken.getMinLengths(), explainLevel + 1)),
@@ -739,10 +659,9 @@ public class ExplainTokens {
             return explainLevelAdjustment;
         }
 
-        @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final ExplainFormatter explainFormatter,
                                    final int remainingCharacterBudget) {
             final CharSequence renderedNested;
             if (explainLevel >= renderingExplainLevel) {
@@ -756,13 +675,13 @@ public class ExplainTokens {
                     explainFormatter.visitNested(this, renderedNested));
         }
 
-        private static int[] zeroOutLengthsUpTo(@Nonnull final int[] lengths, final int maxExplainLevelExclusive) {
+        private static int[] zeroOutLengthsUpTo(final int[] lengths, final int maxExplainLevelExclusive) {
             final var resultArray = Arrays.copyOf(lengths, lengths.length);
             Arrays.fill(resultArray, 0, maxExplainLevelExclusive, 0);
             return resultArray;
         }
 
-        private static int[] shiftLengthsDownBy(@Nonnull final int[] lengths, final int explainLevelAdjustment) {
+        private static int[] shiftLengthsDownBy(final int[] lengths, final int explainLevelAdjustment) {
             Verify.verify(explainLevelAdjustment >= 0);
             if (explainLevelAdjustment == 0) {
                 return lengths;
@@ -777,7 +696,7 @@ public class ExplainTokens {
             return new int[0];
         }
 
-        private static void validateNestedTokens(@Nonnull final List<Token> nestedTokens) {
+        private static void validateNestedTokens(final List<Token> nestedTokens) {
             for (final var token : nestedTokens) {
                 if (token instanceof NestedToken) {
                     Verify.verify(((NestedToken)token).getExplainLevelAdjustment() == 0);
@@ -797,10 +716,9 @@ public class ExplainTokens {
             super(TokenKind.WHITESPACE, explainLevel, 1, 1);
         }
 
-        @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final ExplainFormatter explainFormatter,
                                    final int remainingCharacterBudget) {
             return cutOffIfNeeded(remainingCharacterBudget,
                     renderIfEnabled(renderingExplainLevel, " ", explainFormatter::visitWhitespace));
@@ -815,10 +733,9 @@ public class ExplainTokens {
             super(TokenKind.OPTIONAL_WHITESPACE, explainLevel, 0, 1);
         }
 
-        @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final ExplainFormatter explainFormatter,
                                    final int remainingCharacterBudget) {
             return cutOffIfNeeded(remainingCharacterBudget,
                     renderIfEnabled(renderingExplainLevel, "", explainFormatter::visitOptionalWhitespace));
@@ -833,10 +750,9 @@ public class ExplainTokens {
             super(TokenKind.LINE_BREAK_OR_SPACE, explainLevel, 1, 1);
         }
 
-        @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final ExplainFormatter explainFormatter,
                                    final int remainingCharacterBudget) {
             return cutOffIfNeeded(remainingCharacterBudget,
                     renderIfEnabled(renderingExplainLevel, "", explainFormatter::visitLineBreakOrSpace));
@@ -847,23 +763,20 @@ public class ExplainTokens {
      * An identifier token.
      */
     public static class IdentifierToken extends Token {
-        @Nonnull
         private final String identifier;
 
-        public IdentifierToken(final int explainLevel, @Nonnull final String identifier) {
+        public IdentifierToken(final int explainLevel, final String identifier) {
             super(TokenKind.IDENTIFIER, explainLevel, identifier.length(), identifier.length());
             this.identifier = identifier;
         }
 
-        @Nonnull
         public String getIdentifier() {
             return identifier;
         }
 
-        @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final ExplainFormatter explainFormatter,
                                    final int remainingCharacterBudget) {
             return cutOffIfNeeded(remainingCharacterBudget,
                     renderIfEnabled(renderingExplainLevel, identifier, explainFormatter::visitIdentifier));
@@ -874,23 +787,20 @@ public class ExplainTokens {
      * A keyword token.
      */
     public static class KeywordToken extends Token {
-        @Nonnull
         private final String keyword;
 
-        public KeywordToken(final int explainLevel, @Nonnull final String keyword) {
+        public KeywordToken(final int explainLevel, final String keyword) {
             super(TokenKind.KEYWORD, explainLevel, keyword.length(), keyword.length());
             this.keyword = keyword;
         }
 
-        @Nonnull
         public String getKeyword() {
             return keyword;
         }
 
-        @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final ExplainFormatter explainFormatter,
                                    final int remainingCharacterBudget) {
             return cutOffIfNeeded(remainingCharacterBudget,
                     renderIfEnabled(renderingExplainLevel, keyword, explainFormatter::visitKeyword));
@@ -901,18 +811,16 @@ public class ExplainTokens {
      * A comma-like token. Can be {@code ,;:.} or similar.
      */
     public static class CommaLikeToken extends Token {
-        @Nonnull
         private final String commaLike;
 
-        public CommaLikeToken(final int explainLevel, @Nonnull final String commaLike) {
+        public CommaLikeToken(final int explainLevel, final String commaLike) {
             super(TokenKind.COMMA_LIKE, explainLevel, 1, 1);
             this.commaLike = commaLike;
         }
 
-        @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final ExplainFormatter explainFormatter,
                                    final int remainingCharacterBudget) {
             return cutOffIfNeeded(remainingCharacterBudget,
                     renderIfEnabled(renderingExplainLevel, commaLike, explainFormatter::visitCommaLike));
@@ -923,23 +831,20 @@ public class ExplainTokens {
      * An alias definition token. Registers the alias with the symbol table of the formatter and renders the symbol.
      */
     public static class AliasDefinitionToken extends Token {
-        @Nonnull
         private final CorrelationIdentifier alias;
 
-        public AliasDefinitionToken(final int explainLevel, @Nonnull final CorrelationIdentifier alias) {
+        public AliasDefinitionToken(final int explainLevel, final CorrelationIdentifier alias) {
             super(TokenKind.ALIAS_DEFINITION, explainLevel, 1, Token.MAX_ALIAS_LENGTH);
             this.alias = alias;
         }
 
-        @Nonnull
         public CorrelationIdentifier getAlias() {
             return alias;
         }
 
-        @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final ExplainFormatter explainFormatter,
                                    final int remainingCharacterBudget) {
             if (isRenderingEnabled(renderingExplainLevel)) {
                 explainFormatter.registerAlias(alias);
@@ -958,23 +863,20 @@ public class ExplainTokens {
      * symbol in some special way (e.g. {@code _}). This token renders into the empty string.
      */
     public static class CurrentAliasDefinitionToken extends Token {
-        @Nonnull
         private final CorrelationIdentifier alias;
 
-        public CurrentAliasDefinitionToken(final int explainLevel, @Nonnull final CorrelationIdentifier alias) {
+        public CurrentAliasDefinitionToken(final int explainLevel, final CorrelationIdentifier alias) {
             super(TokenKind.ALIAS_DEFINITION, explainLevel, 0, 0);
             this.alias = alias;
         }
 
-        @Nonnull
         public CorrelationIdentifier getAlias() {
             return alias;
         }
 
-        @Nonnull
         @Override
         public String render(final int renderingExplainLevel,
-                             @Nonnull final ExplainFormatter explainFormatter,
+                             final ExplainFormatter explainFormatter,
                              final int remainingCharacterBudget) {
             if (isRenderingEnabled(renderingExplainLevel)) {
                 explainFormatter.registerAliasExplicitly(alias, "_");
@@ -989,23 +891,20 @@ public class ExplainTokens {
      * alias has not been registered prior to this token.
      */
     public static class AliasReferenceToken extends Token {
-        @Nonnull
         private final CorrelationIdentifier alias;
 
-        public AliasReferenceToken(final int explainLevel, @Nonnull final CorrelationIdentifier alias) {
+        public AliasReferenceToken(final int explainLevel, final CorrelationIdentifier alias) {
             super(TokenKind.ALIAS_REFERENCE, explainLevel, 1, Token.MAX_ALIAS_LENGTH + 2);
             this.alias = alias;
         }
 
-        @Nonnull
         public CorrelationIdentifier getAlias() {
             return alias;
         }
 
-        @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final ExplainFormatter explainFormatter,
                                    final int remainingCharacterBudget) {
             final CharSequence result;
             final var symbolForAliasOptional = explainFormatter.getSymbolForAliasMaybe(alias);
@@ -1025,12 +924,11 @@ public class ExplainTokens {
      */
     public static class BracketLikeToken extends Token {
         private final boolean isOpen;
-        @Nonnull
         private final String bracket;
 
         public BracketLikeToken(final int explainLevel,
                                 final boolean isOpen,
-                                @Nonnull final String bracket) {
+                                final String bracket) {
             super(isOpen ? TokenKind.BRACKETS_OPEN : TokenKind.BRACKETS_CLOSE, explainLevel, 1, 1);
             this.isOpen = isOpen;
             this.bracket = bracket;
@@ -1040,10 +938,9 @@ public class ExplainTokens {
             return isOpen;
         }
 
-        @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter,
+                                   final ExplainFormatter explainFormatter,
                                    final int remainingCharacterBudget) {
             return cutOffIfNeeded(remainingCharacterBudget,
                     renderIfEnabled(renderingExplainLevel, bracket, explainFormatter::visitBracketLike));
@@ -1064,7 +961,7 @@ public class ExplainTokens {
 
         private ToStringToken(final int explainLevel,
                               @Nullable final Object object,
-                              @Nonnull final String objectAsString) {
+                              final String objectAsString) {
             super(TokenKind.TO_STRING, explainLevel, objectAsString.length(), objectAsString.length());
             this.object = object;
             this.objectAsString = objectAsString;
@@ -1075,10 +972,9 @@ public class ExplainTokens {
             return object;
         }
 
-        @Nonnull
         @Override
         public CharSequence render(final int renderingExplainLevel,
-                                   @Nonnull final ExplainFormatter explainFormatter, final int remainingCharacterBudget) {
+                                   final ExplainFormatter explainFormatter, final int remainingCharacterBudget) {
             return cutOffIfNeeded(remainingCharacterBudget,
                     renderIfEnabled(renderingExplainLevel, objectAsString, explainFormatter::visitToString));
         }

@@ -38,9 +38,10 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collection;
+
+import static com.apple.foundationdb.record.metadata.IndexPredicate.RowNumberWindowPredicate;
 
 /**
  * A decorator factory that wraps the {@link VectorIndexMaintainerFactory}'s output with a
@@ -68,7 +69,6 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
 
     private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(false);
 
-    @Nonnull
     private final IndexMaintainerFactory delegateFactory;
 
     /**
@@ -76,7 +76,7 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
      *
      * @param delegateFactory the underlying vector index factory
      */
-    public SlidingWindowIndexMaintainerFactory(@Nonnull IndexMaintainerFactory delegateFactory) {
+    public SlidingWindowIndexMaintainerFactory(IndexMaintainerFactory delegateFactory) {
         this.delegateFactory = delegateFactory;
     }
 
@@ -88,7 +88,7 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
      * @param index the index to check
      * @return {@code true} if the index is a vector index with a sliding window predicate
      */
-    public static boolean isSlidingWindowIndex(@Nonnull Index index) {
+    public static boolean isSlidingWindowIndex(Index index) {
         return IndexTypes.VECTOR.equals(index.getType()) && findRowNumberWindowPredicate(index.getPredicate()) != null;
     }
 
@@ -96,7 +96,6 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
      * Returns an empty list. This factory does not own any index type — it decorates
      * other factories and is wired in by the registry when a sliding window predicate is detected.
      */
-    @Nonnull
     @Override
     public Iterable<String> getIndexTypes() {
         return ImmutableList.of();
@@ -111,9 +110,8 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
      * @param index the index to validate
      * @return a composite validator
      */
-    @Nonnull
     @Override
-    public IndexValidator getIndexValidator(@Nonnull Index index) {
+    public IndexValidator getIndexValidator(Index index) {
         return new SlidingWindowIndexValidator(index);
     }
 
@@ -125,9 +123,8 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
      * @param state the state for the new index maintainer
      * @return a {@link SlidingWindowIndexMaintainer} wrapping the delegate
      */
-    @Nonnull
     @Override
-    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
         final IndexMaintainer delegate = delegateFactory.getIndexMaintainer(state);
         return new SlidingWindowIndexMaintainer(state, delegate);
     }
@@ -141,16 +138,14 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
      * @param reverse whether the index is scanned in reverse
      * @return match candidates from the delegate factory
      */
-    @Nonnull
     @Override
-    public Iterable<MatchCandidate> createMatchCandidates(@Nonnull RecordMetaData metaData,
-                                                           @Nonnull Index index, boolean reverse) {
+    public Iterable<MatchCandidate> createMatchCandidates(RecordMetaData metaData,
+                                                           Index index, boolean reverse) {
         return delegateFactory.createMatchCandidates(metaData, index, reverse);
     }
 
-    @Nonnull
     @Override
-    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+    public IndexGeneralAttributes getIndexGeneralAttributes(final Index index) {
         return GENERAL_ATTRIBUTES;
     }
 
@@ -161,18 +156,17 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
      * @param predicate the root predicate to search (may be {@code null})
      * @return the found predicate, or {@code null} if none exists
      */
-    @Nullable
-    private static IndexPredicate.RowNumberWindowPredicate findRowNumberWindowPredicate(
+    private static @Nullable RowNumberWindowPredicate findRowNumberWindowPredicate(
             @Nullable IndexPredicate predicate) {
         if (predicate == null) {
             return null;
         }
-        if (predicate instanceof IndexPredicate.RowNumberWindowPredicate) {
-            return (IndexPredicate.RowNumberWindowPredicate) predicate;
+        if (predicate instanceof RowNumberWindowPredicate) {
+            return (RowNumberWindowPredicate) predicate;
         }
         if (predicate instanceof IndexPredicate.AndPredicate) {
             for (IndexPredicate child : ((IndexPredicate.AndPredicate) predicate).getChildren()) {
-                IndexPredicate.RowNumberWindowPredicate found = findRowNumberWindowPredicate(child);
+                RowNumberWindowPredicate found = findRowNumberWindowPredicate(child);
                 if (found != null) {
                     return found;
                 }
@@ -196,20 +190,18 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
      */
     private final class SlidingWindowIndexValidator extends IndexValidator {
 
-        @Nonnull
         private final IndexValidator delegateIndexValidator;
 
-        @Nonnull
         private final Index index;
 
-        SlidingWindowIndexValidator(@Nonnull final Index index) {
+        SlidingWindowIndexValidator(final Index index) {
             super(index);
             this.delegateIndexValidator = delegateFactory.getIndexValidator(index);
             this.index = index;
         }
 
         @Override
-        public void validate(@Nonnull final MetaDataValidator metaDataValidator) {
+        public void validate(final MetaDataValidator metaDataValidator) {
             final RecordMetaData metaData = metaDataValidator.getRecordMetaData();
             final Collection<RecordType> delegateRecordTypes = metaData.recordTypesForIndex(index);
 
@@ -234,7 +226,7 @@ public class SlidingWindowIndexMaintainerFactory implements IndexMaintainerFacto
             if (index.getBooleanOption(IndexOptions.UNIQUE_OPTION, false)) {
                 throw new MetaDataException("sliding window index does not support unique indexes");
             }
-            IndexPredicate.validateRowNumberWindowPlacement(index.getPredicate());
+            IndexPredicate.validateRowNumberWindowPlacement(predicate);
             delegateIndexValidator.validate(metaDataValidator);
         }
     }

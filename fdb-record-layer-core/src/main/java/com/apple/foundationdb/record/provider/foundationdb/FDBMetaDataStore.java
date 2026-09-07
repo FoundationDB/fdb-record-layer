@@ -47,12 +47,15 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+
+import static com.google.protobuf.Descriptors.FileDescriptor;
 
 /**
  * Serialization of {@link RecordMetaData} into the database.
@@ -76,6 +79,10 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     // All keys in subspace are taken by SplitHelper.
     // Normally meta-data fits into UNSPLIT_RECORD (0).
+    // Tuple.from below intentionally accepts a null element here (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); this sentinel key is deliberately built
+    // from a single null tuple item.
+    @SuppressWarnings("NullAway")
     public static final Tuple CURRENT_KEY = Tuple.from((Object)null);
     public static final Tuple HISTORY_KEY_PREFIX = Tuple.from("H");
 
@@ -83,13 +90,11 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     //  This can be removed at some point after existing stores have been updated.
     public static final Tuple OLD_FORMAT_KEY = TupleHelpers.EMPTY;
 
-    @Nonnull
-    private Descriptors.FileDescriptor[] dependencies = new Descriptors.FileDescriptor[0];
+    private FileDescriptor[] dependencies = new FileDescriptor[0];
     @Nullable
-    private Descriptors.FileDescriptor localFileDescriptor;
+    private FileDescriptor localFileDescriptor;
     @Nullable
     private ExtensionRegistry extensionRegistry = DEFAULT_EXTENSION_REGISTRY;
-    @Nonnull
     private MetaDataEvolutionValidator evolutionValidator = MetaDataEvolutionValidator.getDefaultInstance();
     @Nullable
     private RecordMetaData recordMetaData;
@@ -101,13 +106,13 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
 
     // It is recommended to use {@link #FDBMetaDataStore(FDBRecordContext, KeySpacePath)} instead.
     @API(API.Status.UNSTABLE)
-    public FDBMetaDataStore(@Nonnull FDBRecordContext context, @Nonnull Subspace subspace,
+    public FDBMetaDataStore(FDBRecordContext context, Subspace subspace,
                             @Nullable MetaDataCache cache) {
         super(context, subspace);
         this.cache = cache;
     }
 
-    public FDBMetaDataStore(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath path) {
+    public FDBMetaDataStore(FDBRecordContext context, KeySpacePath path) {
         this(context, new Subspace(path.toTuple(context)), null);
     }
 
@@ -116,7 +121,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param dependencies array of descriptors that record descriptors might depend on
      */
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
-    public void setDependencies(@Nonnull Descriptors.FileDescriptor[] dependencies) {
+    public void setDependencies(FileDescriptor[] dependencies) {
         this.dependencies = dependencies;
     }
 
@@ -127,7 +132,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @see RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor)
      */
     @Nullable
-    public Descriptors.FileDescriptor getLocalFileDescriptor() {
+    public FileDescriptor getLocalFileDescriptor() {
         return localFileDescriptor;
     }
 
@@ -149,7 +154,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param localFileDescriptor the local descriptor of the meta-data
      * @see RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor)
      */
-    public void setLocalFileDescriptor(@Nullable Descriptors.FileDescriptor localFileDescriptor) {
+    public void setLocalFileDescriptor(@Nullable FileDescriptor localFileDescriptor) {
         this.localFileDescriptor = localFileDescriptor;
     }
 
@@ -164,7 +169,6 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @see #setEvolutionValidator(MetaDataEvolutionValidator)
      * @see MetaDataEvolutionValidator
      */
-    @Nonnull
     public MetaDataEvolutionValidator getEvolutionValidator() {
         return evolutionValidator;
     }
@@ -189,7 +193,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param evolutionValidator the validator used to ensure the new meta-data is a valid evolution of the existing meta-data
      * @see MetaDataEvolutionValidator
      */
-    public void setEvolutionValidator(@Nonnull MetaDataEvolutionValidator evolutionValidator) {
+    public void setEvolutionValidator(MetaDataEvolutionValidator evolutionValidator) {
         this.evolutionValidator = evolutionValidator;
     }
 
@@ -244,9 +248,11 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     public CompletableFuture<RecordMetaDataProto.MetaData> loadAndSetCurrent(boolean checkCache, int currentVersion) {
         final int cachedSerializedVersion;
         if (checkCache && cache != null) {
-            byte[] serialized = cache.getCachedSerialized();
+            @Nullable byte[] serialized = cache.getCachedSerialized();
             if (serialized != null) {
-                RecordMetaDataProto.MetaData metaDataProto = parseMetaDataProto(serialized);
+                // NullAway/JSpecify does not reliably narrow @Nullable byte[] locals through a null check when
+                // passed to another method, so re-assert non-null explicitly (a known array-type tracking gap).
+                RecordMetaDataProto.MetaData metaDataProto = parseMetaDataProto(Objects.requireNonNull(serialized));
                 cachedSerializedVersion = metaDataProto.getVersion();
                 if (currentVersion < 0 || currentVersion == cachedSerializedVersion) {
                     recordMetaData = buildMetaData(metaDataProto, false);
@@ -323,22 +329,22 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
                 });
     }
 
-    @Nonnull
-    protected RecordMetaDataProto.MetaData parseMetaDataProto(@Nonnull byte[] serialized) {
+    protected RecordMetaDataProto.MetaData parseMetaDataProto(byte[] serialized) {
         try {
-            return RecordMetaDataProto.MetaData.parseFrom(serialized, getExtensionRegistry());
+            // A null extension registry can result in NullPointerExceptions with proto3 (see getExtensionRegistry's
+            // javadoc), so substitute the empty registry, which is the documented synonym for null under proto2.
+            final ExtensionRegistry registry = getExtensionRegistry();
+            return RecordMetaDataProto.MetaData.parseFrom(serialized, registry != null ? registry : ExtensionRegistry.getEmptyRegistry());
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("Error parsing meta-data", ex);
         }
     }
 
-    @Nonnull
-    protected RecordMetaDataBuilder createMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
+    protected RecordMetaDataBuilder createMetaDataBuilder(RecordMetaDataProto.MetaData metaDataProto) {
         return createMetaDataBuilder(metaDataProto, true);
     }
 
-    @Nonnull
-    protected RecordMetaDataBuilder createMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto, boolean useLocalFileDescriptor) {
+    protected RecordMetaDataBuilder createMetaDataBuilder(RecordMetaDataProto.MetaData metaDataProto, boolean useLocalFileDescriptor) {
         RecordMetaDataBuilder builder = RecordMetaData.newBuilder()
                 .addDependencies(dependencies)
                 .setEvolutionValidator(evolutionValidator);
@@ -348,13 +354,11 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
         return builder.setRecords(metaDataProto);
     }
 
-    @Nonnull
-    protected RecordMetaData buildMetaData(@Nonnull RecordMetaDataProto.MetaData metaDataProto, boolean validate, boolean useLocalFileDescriptor) {
+    protected RecordMetaData buildMetaData(RecordMetaDataProto.MetaData metaDataProto, boolean validate, boolean useLocalFileDescriptor) {
         return createMetaDataBuilder(metaDataProto, useLocalFileDescriptor).build(validate);
     }
 
-    @Nonnull
-    protected RecordMetaData buildMetaData(@Nonnull RecordMetaDataProto.MetaData metaDataProto, boolean validate) {
+    protected RecordMetaData buildMetaData(RecordMetaDataProto.MetaData metaDataProto, boolean validate) {
         return buildMetaData(metaDataProto, validate, true);
     }
 
@@ -371,8 +375,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param metaDataProto the Protobuf form of the meta-data to save
      * @return a future that completes when the save is done
      */
-    @Nonnull
-    public CompletableFuture<Void> saveAndSetCurrent(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
+    public CompletableFuture<Void> saveAndSetCurrent(RecordMetaDataProto.MetaData metaDataProto) {
         RecordMetaData validatedMetaData = buildMetaData(metaDataProto, true);
 
         // Load even if not maintaining history so as to get compatibility upgrade before (over-)writing.
@@ -465,13 +468,14 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param metaDataProvider a provider for a seed meta-data to be used when this store is empty
      * @return a future that is complete when this store is ready for use
      */
-    @Nonnull
     public CompletableFuture<Void> preloadMetaData(@Nullable RecordMetaDataProvider metaDataProvider) {
         // Must exist in store if don't have a separate seed meta-data.
         return getRecordMetaDataAsync(metaDataProvider == null)
                 .thenCompose(metaData -> {
                     if (metaData == null) {
-                        RecordMetaData seedMetaData = metaDataProvider.getRecordMetaData();
+                        // errorIfMissing (above) was only false because metaDataProvider != null, so metaData == null
+                        // here implies metaDataProvider is non-null.
+                        RecordMetaData seedMetaData = Objects.requireNonNull(metaDataProvider).getRecordMetaData();
                         RecordMetaDataProto.MetaData metaDataProto = seedMetaData.toProto();
                         return saveAndSetCurrent(metaDataProto);
                     } else {
@@ -486,23 +490,32 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     @SuppressWarnings("serial")
     public static class MissingMetaDataException extends RecordCoreException {
 
-        public MissingMetaDataException(@Nonnull String msg) {
+        public MissingMetaDataException(String msg) {
             super(msg);
         }
 
     }
 
     class PendingCacheUpdate implements FDBRecordContext.AfterCommit {
+        @Nullable
         RecordMetaData metaData;
+        // NullAway/JSpecify does not reliably recognize @Nullable on byte[] fields for the field-initialization
+        // check, even though this field is correctly annotated @Nullable and is genuinely left unset (null) here.
+        @Nullable
+        @SuppressWarnings("NullAway")
         byte[] serialized;
 
         @Override
+        @SuppressWarnings("NullAway") // byte[] + @Nullable is not reliably tracked even through Objects.requireNonNull
         public void run() {
+            // addPendingCacheUpdate (below) is only ever called from within an "if (cache != null)" block, and
+            // cache is final, so if metaData/serialized were populated at all, cache is still non-null here.
+            final MetaDataCache nonNullCache = Objects.requireNonNull(cache);
             if (metaData != null) {
-                cache.setCachedMetaData(metaData);
+                nonNullCache.setCachedMetaData(metaData);
             }
             if (serialized != null) {
-                cache.setCachedSerialized(serialized);
+                nonNullCache.setCachedSerialized(serialized);
             }
         }
     }
@@ -515,15 +528,14 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
         return pendingCacheUpdate;
     }
 
-    private void addPendingCacheUpdate(@Nonnull RecordMetaData metaData) {
+    private void addPendingCacheUpdate(RecordMetaData metaData) {
         pendingCacheUpdate().metaData = metaData;
     }
 
-    private void addPendingCacheUpdate(@Nonnull byte[] serialized) {
+    private void addPendingCacheUpdate(byte[] serialized) {
         pendingCacheUpdate().serialized = serialized;
     }
 
-    @Nonnull
     @Override
     public RecordMetaData getRecordMetaData() {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_META_DATA, getRecordMetaDataAsync(true));
@@ -545,7 +557,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @see MetaDataProtoEditor#addDefaultUnionIfMissing(Descriptors.FileDescriptor)
      */
     @API(API.Status.UNSTABLE)
-    public void saveRecordMetaData(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+    public void saveRecordMetaData(FileDescriptor fileDescriptor) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_META_DATA, saveRecordMetaDataAsync(fileDescriptor));
     }
 
@@ -554,7 +566,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      *
      * @param metaDataProvider the meta-data provider
      */
-    public void saveRecordMetaData(@Nonnull RecordMetaDataProvider metaDataProvider) {
+    public void saveRecordMetaData(RecordMetaDataProvider metaDataProvider) {
         saveRecordMetaData(metaDataProvider.getRecordMetaData().toProto());
     }
 
@@ -563,7 +575,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      *
      * @param metaDataProto the serialized record meta-data
      */
-    public void saveRecordMetaData(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
+    public void saveRecordMetaData(RecordMetaDataProto.MetaData metaDataProto) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_META_DATA, saveAndSetCurrent(metaDataProto));
     }
 
@@ -584,7 +596,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @see MetaDataProtoEditor#addDefaultUnionIfMissing(Descriptors.FileDescriptor)
      */
     @API(API.Status.UNSTABLE)
-    public CompletableFuture<Void> saveRecordMetaDataAsync(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+    public CompletableFuture<Void> saveRecordMetaDataAsync(FileDescriptor fileDescriptor) {
         return getRecordMetaDataAsync(false).thenCompose(metaData -> {
             if (metaData == null ) {
                 return saveAndSetCurrent(RecordMetaData.build(MetaDataProtoEditor.addDefaultUnionIfMissing(fileDescriptor)).toProto());
@@ -595,7 +607,6 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     }
 
 
-    @Nonnull
     private CompletableFuture<RecordMetaDataProto.MetaData> loadCurrentProto() {
         return loadCurrentSerialized().thenApply(serialized -> {
             if (serialized == null) {
@@ -611,7 +622,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param indexName the name of the new index
      * @param fieldName the field to be indexed
      */
-    public void addIndex(@Nonnull String recordType, @Nonnull String indexName, @Nonnull String fieldName) {
+    public void addIndex(String recordType, String indexName, String fieldName) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADD_INDEX, addIndexAsync(recordType, indexName, fieldName));
     }
 
@@ -621,7 +632,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param indexName the name of the new index
      * @param indexExpression the root expression of the index
      */
-    public void addIndex(@Nonnull String recordType, @Nonnull String indexName, @Nonnull KeyExpression indexExpression) {
+    public void addIndex(String recordType, String indexName, KeyExpression indexExpression) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADD_INDEX, addIndexAsync(recordType, indexName, indexExpression));
     }
 
@@ -630,7 +641,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param recordType the name of the record type
      * @param index the new index to be added
      */
-    public void addIndex(@Nonnull String recordType, @Nonnull Index index) {
+    public void addIndex(String recordType, Index index) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADD_INDEX, addIndexAsync(recordType, index));
     }
 
@@ -641,8 +652,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param fieldName the field to be indexed
      * @return a future that completes when the index is added
      */
-    @Nonnull
-    public CompletableFuture<Void> addIndexAsync(@Nonnull String recordType, @Nonnull String indexName, @Nonnull String fieldName) {
+    public CompletableFuture<Void> addIndexAsync(String recordType, String indexName, String fieldName) {
         return addIndexAsync(recordType, new Index(indexName, fieldName));
     }
 
@@ -653,9 +663,8 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param indexExpression the root expression of the index
      * @return a future that completes when the index is added
      */
-    @Nonnull
-    public CompletableFuture<Void> addIndexAsync(@Nonnull String recordType, @Nonnull String indexName,
-                                                 @Nonnull KeyExpression indexExpression) {
+    public CompletableFuture<Void> addIndexAsync(String recordType, String indexName,
+                                                 KeyExpression indexExpression) {
         return addIndexAsync(recordType, new Index(indexName, indexExpression));
     }
 
@@ -665,8 +674,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param index the index to be added
      * @return a future that completes when the index is added
      */
-    @Nonnull
-    public CompletableFuture<Void> addIndexAsync(@Nonnull String recordType, @Nonnull Index index) {
+    public CompletableFuture<Void> addIndexAsync(String recordType, Index index) {
         return loadCurrentProto().thenCompose(metaDataProto -> {
             RecordMetaDataBuilder recordMetaDataBuilder = createMetaDataBuilder(metaDataProto);
             recordMetaDataBuilder.addIndex(recordType, index);
@@ -681,7 +689,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param recordTypes a list of record types that the index will include
      * @param index the index to be added
      */
-    public void addMultiTypeIndex(@Nullable List<String> recordTypes, @Nonnull Index index) {
+    public void addMultiTypeIndex(@Nullable List<String> recordTypes, Index index) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADD_INDEX, addMultiTypeIndexAsync(recordTypes, index));
     }
 
@@ -693,8 +701,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param index the index to be added
      * @return a future that completes when the index is added
      */
-    @Nonnull
-    public CompletableFuture<Void> addMultiTypeIndexAsync(@Nullable List<String> recordTypes, @Nonnull Index index) {
+    public CompletableFuture<Void> addMultiTypeIndexAsync(@Nullable List<String> recordTypes, Index index) {
         return loadCurrentProto().thenCompose(metaDataProto -> {
             RecordMetaDataBuilder recordMetaDataBuilder = createMetaDataBuilder(metaDataProto);
             List<RecordTypeBuilder> recordTypeBuilders = new ArrayList<>();
@@ -712,7 +719,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * Add a new index on all record types.
      * @param index the index to be added
      */
-    public void addUniversalIndex(@Nonnull Index index) {
+    public void addUniversalIndex(Index index) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADD_INDEX, addUniversalIndexAsync(index));
     }
 
@@ -721,8 +728,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param index the index to be added
      * @return a future that completes when the index is added
      */
-    @Nonnull
-    public CompletableFuture<Void> addUniversalIndexAsync(@Nonnull Index index) {
+    public CompletableFuture<Void> addUniversalIndexAsync(Index index) {
         return loadCurrentProto().thenCompose(metaDataProto -> {
             RecordMetaDataBuilder recordMetaDataBuilder = createMetaDataBuilder(metaDataProto);
             recordMetaDataBuilder.addUniversalIndex(index);
@@ -734,7 +740,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * Remove the given index from the record meta-data.
      * @param indexName the name of the index to be removed
      */
-    public void dropIndex(@Nonnull String indexName) {
+    public void dropIndex(String indexName) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_DROP_INDEX, dropIndexAsync(indexName));
     }
 
@@ -743,8 +749,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param indexName the name of the index to be removed
      * @return a future that is complete when the index is dropped
      */
-    @Nonnull
-    public CompletableFuture<Void> dropIndexAsync(@Nonnull String indexName) {
+    public CompletableFuture<Void> dropIndexAsync(String indexName) {
         return loadCurrentProto().thenCompose(metaDataProto -> {
             RecordMetaDataBuilder recordMetaDataBuilder = createMetaDataBuilder(metaDataProto);
             recordMetaDataBuilder.removeIndex(indexName);
@@ -774,7 +779,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param recordsDescriptor the new recordsDescriptor
      */
     @API(API.Status.UNSTABLE)
-    public void updateRecords(@Nonnull Descriptors.FileDescriptor recordsDescriptor) {
+    public void updateRecords(FileDescriptor recordsDescriptor) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_UPDATE_RECORDS_DESCRIPTOR, updateRecordsAsync(recordsDescriptor));
     }
 
@@ -799,9 +804,8 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param recordsDescriptor the new recordsDescriptor
      * @return a future that completes when the records descriptor is updated
      */
-    @Nonnull
     @API(API.Status.UNSTABLE)
-    public CompletableFuture<Void> updateRecordsAsync(@Nonnull Descriptors.FileDescriptor recordsDescriptor) {
+    public CompletableFuture<Void> updateRecordsAsync(FileDescriptor recordsDescriptor) {
         return loadCurrentProto().thenCompose(metaDataProto -> {
             // Update the records without using its local file descriptor. Let saveAndSetCurrent use the local file descriptor when saving the meta-data.
             RecordMetaDataBuilder recordMetaDataBuilder = createMetaDataBuilder(metaDataProto, false);
@@ -829,7 +833,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      *
      * @param mutateMetaDataProto a callback that mutates the meta-data proto
      */
-    public void mutateMetaData(@Nonnull Consumer<RecordMetaDataProto.MetaData.Builder> mutateMetaDataProto) {
+    public void mutateMetaData(Consumer<RecordMetaDataProto.MetaData.Builder> mutateMetaDataProto) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_MUTATE_METADATA, mutateMetaDataAsync(mutateMetaDataProto));
     }
 
@@ -853,7 +857,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param mutateMetaDataProto a callback that mutates the meta-data proto
      * @param mutateRecordMetaDataBuilder a callback that mutates the record meta-data builder after the meta-data proto is mutated
      */
-    public void mutateMetaData(@Nonnull Consumer<RecordMetaDataProto.MetaData.Builder> mutateMetaDataProto,
+    public void mutateMetaData(Consumer<RecordMetaDataProto.MetaData.Builder> mutateMetaDataProto,
                                @Nullable Consumer<RecordMetaDataBuilder> mutateRecordMetaDataBuilder) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_MUTATE_METADATA, mutateMetaDataAsync(mutateMetaDataProto, mutateRecordMetaDataBuilder));
     }
@@ -876,8 +880,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param mutateMetaDataProto a callback that mutates the meta-data proto
      * @return a future that completes when the meta-data is mutated
      */
-    @Nonnull
-    public CompletableFuture<Void> mutateMetaDataAsync(@Nonnull Consumer<RecordMetaDataProto.MetaData.Builder> mutateMetaDataProto) {
+    public CompletableFuture<Void> mutateMetaDataAsync(Consumer<RecordMetaDataProto.MetaData.Builder> mutateMetaDataProto) {
         return mutateMetaDataAsync(mutateMetaDataProto, null);
     }
 
@@ -902,8 +905,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param mutateRecordMetaDataBuilder a callback that mutates the record meta-data builder after the meta-data proto is mutated
      * @return a future that completes when the meta-data is mutated
      */
-    @Nonnull
-    public CompletableFuture<Void> mutateMetaDataAsync(@Nonnull Consumer<RecordMetaDataProto.MetaData.Builder> mutateMetaDataProto,
+    public CompletableFuture<Void> mutateMetaDataAsync(Consumer<RecordMetaDataProto.MetaData.Builder> mutateMetaDataProto,
                                                        @Nullable Consumer<RecordMetaDataBuilder> mutateRecordMetaDataBuilder) {
         return loadCurrentProto().thenCompose(metaDataProto -> {
             RecordMetaDataProto.MetaData.Builder metaDataBuilder = metaDataProto.toBuilder();
@@ -932,7 +934,6 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      * @param storeRecordVersions whether record versions should be stored
      * @return a future that completes when {@code storeRecordVersions} is updated
      */
-    @Nonnull
     public CompletableFuture<Void> updateStoreRecordVersionsAsync(boolean storeRecordVersions) {
         return loadCurrentProto().thenCompose(metaDataProto -> {
             RecordMetaDataBuilder recordMetaDataBuilder = createMetaDataBuilder(metaDataProto);
@@ -969,7 +970,6 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      *
      * @return a future that completes when {@code splitLongRecords} is set
      */
-    @Nonnull
     public CompletableFuture<Void> enableSplitLongRecordsAsync() {
         return loadCurrentProto().thenCompose(metaDataProto -> {
             RecordMetaDataBuilder recordMetaDataBuilder = createMetaDataBuilder(metaDataProto);

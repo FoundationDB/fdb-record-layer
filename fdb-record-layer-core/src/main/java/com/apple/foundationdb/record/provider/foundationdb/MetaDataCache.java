@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -67,6 +67,7 @@ public interface MetaDataCache {
      * @return any cached serialized form
      */
     @Nullable
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably track @Nullable on byte[] return types
     default byte[] getCachedSerialized() {
         return null;
     }
@@ -91,7 +92,7 @@ public interface MetaDataCache {
      * @param metaData the new cached meta-data
      * @see #getCachedMetaData
      */
-    default void setCachedMetaData(@Nonnull RecordMetaData metaData) {
+    default void setCachedMetaData(RecordMetaData metaData) {
     }
 
     /**
@@ -102,6 +103,6 @@ public interface MetaDataCache {
      * @param serialized the new cached serialized meta-data
      * @see #getCachedSerialized
      */
-    default void setCachedSerialized(@Nonnull byte[] serialized) {
+    default void setCachedSerialized(byte[] serialized) {
     }
 }

@@ -25,7 +25,6 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.subspace.Subspace;
 
-import javax.annotation.Nonnull;
 
 /**
  * Common state for an {@link IndexMaintainer}.
@@ -35,22 +34,16 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.UNSTABLE)
 public class IndexMaintainerState {
-    @Nonnull
     public final FDBRecordStore store;
-    @Nonnull
     public final FDBRecordContext context;
-    @Nonnull
     public final Index index;
-    @Nonnull
     public final Subspace indexSubspace;
-    @Nonnull
     public final Transaction transaction;
-    @Nonnull
     public final IndexMaintenanceFilter filter;
 
-    public IndexMaintainerState(@Nonnull FDBRecordStore store, @Nonnull FDBRecordContext context,
-                                @Nonnull Index index, @Nonnull Subspace indexSubspace, @Nonnull Transaction transaction,
-                                @Nonnull IndexMaintenanceFilter filter) {
+    public IndexMaintainerState(FDBRecordStore store, FDBRecordContext context,
+                                Index index, Subspace indexSubspace, Transaction transaction,
+                                IndexMaintenanceFilter filter) {
         this.store = store;
         this.context = context;
         this.index = index;
@@ -59,9 +52,9 @@ public class IndexMaintainerState {
         this.filter = filter;
     }
 
-    public IndexMaintainerState(@Nonnull FDBRecordStore store,
-                                @Nonnull Index index,
-                                @Nonnull IndexMaintenanceFilter filter) {
+    public IndexMaintainerState(FDBRecordStore store,
+                                Index index,
+                                IndexMaintenanceFilter filter) {
         this(store, store.getRecordContext(), index, store.indexSubspace(index), store.ensureContextActive(), filter);
     }
 }

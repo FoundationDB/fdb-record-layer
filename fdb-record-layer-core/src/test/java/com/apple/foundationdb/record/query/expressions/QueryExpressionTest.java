@@ -46,12 +46,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -74,11 +75,17 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 public class QueryExpressionTest {
 
-    private Boolean evaluate(@Nonnull QueryComponent component, @Nullable Message record) {
+    @Nullable
+    private Boolean evaluate(QueryComponent component, Message record) {
         return evaluate(component, Bindings.EMPTY_BINDINGS, record);
     }
 
-    private Boolean evaluate(@Nonnull QueryComponent component, @Nonnull Bindings bindings, @Nullable Message record) {
+    @Nullable
+    // NullAway/JSpecify does not track that QueryComponent.eval() genuinely accepts a null store
+    // when the component being evaluated never needs one (e.g. plain in-memory message
+    // comparisons, which is all that is exercised in this test class).
+    @SuppressWarnings("NullAway")
+    private Boolean evaluate(QueryComponent component, Bindings bindings, Message record) {
         return component.eval(null, EvaluationContext.forBindings(bindings), new UnstoredRecord<>(record));
     }
 
@@ -88,16 +95,16 @@ public class QueryExpressionTest {
 
     private abstract static class TestMessageComponent implements ComponentWithNoChildren {
         @Override
-        public void validate(@Nonnull Descriptors.Descriptor descriptor) {
+        public void validate(Descriptors.Descriptor descriptor) {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             return 0;
         }
 
         @Override
-        public @Nonnull GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier, @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier, @Nonnull final List<String> fieldNamePrefix) {
+        public GraphExpansion expand(final Quantifier.ForEach baseQuantifier, final Supplier<Quantifier.ForEach> outerQuantifierSupplier, final List<String> fieldNamePrefix) {
             throw new UnsupportedOperationException();
         }
     }
@@ -105,7 +112,7 @@ public class QueryExpressionTest {
     private static final QueryComponent TRUE = new TestMessageComponent() {
         @Nullable
         @Override
-        public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+        public <M extends Message> Boolean evalMessage(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                        @Nullable FDBRecord<M> rec, @Nullable Message message) {
             return true;
         }
@@ -113,7 +120,7 @@ public class QueryExpressionTest {
     private static final QueryComponent FALSE = new TestMessageComponent() {
         @Nullable
         @Override
-        public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+        public <M extends Message> Boolean evalMessage(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                        @Nullable FDBRecord<M> rec, @Nullable Message message) {
             return false;
         }
@@ -121,7 +128,7 @@ public class QueryExpressionTest {
     private static final QueryComponent NULL = new TestMessageComponent() {
         @Nullable
         @Override
-        public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+        public <M extends Message> Boolean evalMessage(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                        @Nullable FDBRecord<M> rec, @Nullable Message message) {
             return null;
         }
@@ -354,7 +361,7 @@ public class QueryExpressionTest {
                             return;
                         } catch (IllegalArgumentException e) {
                             // When run inside IntelliJ
-                            if (e.getMessage().contains("@Nonnull") && val2 == null) {
+                            if (Objects.requireNonNull(e.getMessage()).contains("") && val2 == null) {
                                 return;
                             } else {
                                 throw e;
@@ -393,7 +400,7 @@ public class QueryExpressionTest {
             final QueryComponent qc = new FieldWithComparison(field, comparison);
             assertEquals(expected, evaluate(qc, rec.build()), name);
         } catch (Exception e) {
-            if (type == Comparisons.Type.IN && !(val2 instanceof List) && e instanceof RecordCoreException && e.getMessage().contains("non-list")) {
+            if (type == Comparisons.Type.IN && !(val2 instanceof List) && e instanceof RecordCoreException && Objects.requireNonNull(e.getMessage()).contains("non-list")) {
                 return;
             }
             throw new AssertionError(name + " Threw: " + e.getMessage(), e);
@@ -423,7 +430,6 @@ public class QueryExpressionTest {
         }
     }
 
-    @Nonnull
     private TestScalarFieldAccess.Builder createRecord(String field, Object val1) {
         final TestScalarFieldAccess.Builder rec = TestScalarFieldAccess.newBuilder();
         if (val1 != null) {
@@ -448,14 +454,14 @@ public class QueryExpressionTest {
         final ExpressionTestsProto.NestedField.Builder rec = ExpressionTestsProto.NestedField.newBuilder();
         final QueryComponent isEmpty = new EmptyComparison("repeated_field", true);
         final QueryComponent notEmpty = new EmptyComparison("repeated_field", false);
-        assertTrue(evaluate(isEmpty, rec.build()));
-        assertFalse(evaluate(notEmpty, rec.build()));
+        assertTrue(Objects.requireNonNull(evaluate(isEmpty, rec.build())));
+        assertFalse(Objects.requireNonNull(evaluate(notEmpty, rec.build())));
 
         rec.addRepeatedField("one");
         rec.addRepeatedField("two");
 
-        assertFalse(evaluate(isEmpty, rec.build()));
-        assertTrue(evaluate(notEmpty, rec.build()));
+        assertFalse(Objects.requireNonNull(evaluate(isEmpty, rec.build())));
+        assertTrue(Objects.requireNonNull(evaluate(notEmpty, rec.build())));
     }
 
     @Test
@@ -475,14 +481,14 @@ public class QueryExpressionTest {
                 .set("p1", "abc")
                 .set("p2", "xyz")
                 .build();
-        assertTrue(evaluate(equalsP1, b1, rec));
-        assertTrue(evaluate(notEqualsP2, b1, rec));
+        assertTrue(Objects.requireNonNull(evaluate(equalsP1, b1, rec)));
+        assertTrue(Objects.requireNonNull(evaluate(notEqualsP2, b1, rec)));
         final Bindings b2 = Bindings.newBuilder()
                 .set("p1", "foo")
                 .set("p2", "bar")
                 .build();
-        assertFalse(evaluate(equalsP1, b2, rec));
-        assertTrue(evaluate(notEqualsP2, b2, rec));
+        assertFalse(Objects.requireNonNull(evaluate(equalsP1, b2, rec)));
+        assertTrue(Objects.requireNonNull(evaluate(notEqualsP2, b2, rec)));
     }
 
     @Test

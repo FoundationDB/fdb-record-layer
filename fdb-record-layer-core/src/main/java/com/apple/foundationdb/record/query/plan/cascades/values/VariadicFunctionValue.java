@@ -53,8 +53,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -72,14 +71,10 @@ import java.util.stream.Collectors;
 public class VariadicFunctionValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Variadic-Function-Value");
 
-    @Nonnull
     private final PhysicalOperator operator;
-    @Nonnull
     private final List<Value> children;
-    @Nonnull
     private final Type resultType;
 
-    @Nonnull
     private static final Supplier<Map<NonnullPair<ComparisonFunction, TypeCode>, PhysicalOperator>> operatorMapSupplier =
             Suppliers.memoize(VariadicFunctionValue::computeOperatorMap);
 
@@ -89,9 +84,9 @@ public class VariadicFunctionValue extends AbstractValue {
      * @param children The children.
      * @param resultType The result type, which must be consistent with the children's types.
      */
-    private VariadicFunctionValue(@Nonnull final PhysicalOperator operator,
-                                  @Nonnull final ImmutableList<Value> children,
-                                  @Nonnull final Type resultType) {
+    private VariadicFunctionValue(final PhysicalOperator operator,
+                                  final ImmutableList<Value> children,
+                                  final Type resultType) {
         this.operator = operator;
         this.children = children;
         this.resultType = resultType;
@@ -103,9 +98,8 @@ public class VariadicFunctionValue extends AbstractValue {
      * @param children The children, of which there must be at least two.
      * @return a new {@link VariadicFunctionValue}
      */
-    @Nonnull
-    public static VariadicFunctionValue of(@Nonnull final PhysicalOperator operator,
-                                           @Nonnull final Iterable<? extends Value> children) {
+    public static VariadicFunctionValue of(final PhysicalOperator operator,
+                                           final Iterable<? extends Value> children) {
         final ImmutableList<Value> childrenList = ImmutableList.copyOf(children);
         final Type resultType = computeResultType(operator, childrenList);
         return new VariadicFunctionValue(operator, childrenList, resultType);
@@ -114,19 +108,17 @@ public class VariadicFunctionValue extends AbstractValue {
     @Nullable
     @Override
     @SuppressWarnings("java:S6213")
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         return operator.eval(children.stream().map(c -> c.eval(store, context)).collect(Collectors.toList()));
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return resultType;
     }
 
-    @Nonnull
-    private static Type computeResultType(@Nonnull final PhysicalOperator operator,
-                                          @Nonnull final List<Value> children) {
+    private static Type computeResultType(final PhysicalOperator operator,
+                                          final List<Value> children) {
         // Verify that all children have a suitable common type, which is done by injecting promotions in
         // `encapsulate()`. The argument types may only differ in their nullability, which is combined into the
         // nullability of the result according to the semantics of the comparison function at hand.
@@ -141,18 +133,15 @@ public class VariadicFunctionValue extends AbstractValue {
         return maximumType.withNullability(operator.getComparisonFunction().isResultNullable(children));
     }
 
-    @Nonnull
     public ComparisonFunction getComparisonFunction() {
         return operator.getComparisonFunction();
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return children;
     }
 
-    @Nonnull
     @Override
     public VariadicFunctionValue withChildren(final Iterable<? extends Value> newChildren) {
         return VariadicFunctionValue.of(this.operator, newChildren);
@@ -164,13 +153,12 @@ public class VariadicFunctionValue extends AbstractValue {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, children);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         return ExplainTokensWithPrecedence.of(new ExplainTokens()
                 .addFunctionCall(operator.name().toLowerCase(Locale.ROOT),
                         Value.explainFunctionArguments(explainSuppliers)));
@@ -188,9 +176,8 @@ public class VariadicFunctionValue extends AbstractValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PVariadicFunctionValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PVariadicFunctionValue toProto(final PlanSerializationContext serializationContext) {
         final PVariadicFunctionValue.Builder builder = PVariadicFunctionValue.newBuilder();
 
         builder.setOperator(operator.toProto(serializationContext));
@@ -201,15 +188,13 @@ public class VariadicFunctionValue extends AbstractValue {
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setVariadicFunctionValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static VariadicFunctionValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final PVariadicFunctionValue variadicFunctionValueProto) {
+    public static VariadicFunctionValue fromProto(final PlanSerializationContext serializationContext,
+                                                  final PVariadicFunctionValue variadicFunctionValueProto) {
         final ImmutableList.Builder<Value> childrenBuilder = ImmutableList.builder();
         for (int i = 0; i < variadicFunctionValueProto.getChildrenCount(); i ++) {
             final Value child = Value.fromValueProto(serializationContext, variadicFunctionValueProto.getChildren(i));
@@ -222,14 +207,12 @@ public class VariadicFunctionValue extends AbstractValue {
         return VariadicFunctionValue.of(operator, children);
     }
 
-    @Nonnull
     private static Map<NonnullPair<ComparisonFunction, TypeCode>, PhysicalOperator> getOperatorMap() {
         return operatorMapSupplier.get();
     }
 
-    @Nonnull
-    private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction,
-                                     @Nonnull final CallSiteArguments callSiteArguments) {
+    private static Value encapsulate(BuiltInFunction<Value> builtInFunction,
+                                     final CallSiteArguments callSiteArguments) {
         // Determine the common type of the arguments, rejecting the call if they are mutually incompatible.
         //
         // All arguments must have a resolved type, with the exception that some (though not all) of them may be of
@@ -245,7 +228,8 @@ public class VariadicFunctionValue extends AbstractValue {
             Verify.verify(argType.isNull() || !argType.isUnresolved());
             final Type maximumType = Type.maximumType(commonType, argType);
             SemanticException.check(maximumType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
-            commonType = maximumType;
+            // check above guarantees the type is non-null.
+            commonType = Objects.requireNonNull(maximumType);
         }
 
         // Look up the physical operator implementing the comparison function for the common type of the arguments.
@@ -268,7 +252,8 @@ public class VariadicFunctionValue extends AbstractValue {
         }
         final ImmutableList<Value> children = promotedArguments.build();
 
-        return new VariadicFunctionValue(physicalOperator, children, resultType);
+        // check above guarantees the operator is non-null.
+        return new VariadicFunctionValue(Objects.requireNonNull(physicalOperator), children, resultType);
     }
 
     private static Map<NonnullPair<ComparisonFunction, TypeCode>, PhysicalOperator> computeOperatorMap() {
@@ -342,7 +327,6 @@ public class VariadicFunctionValue extends AbstractValue {
         COALESCE(Boolean::logicalAnd),
         ;
 
-        @Nonnull
         private final BinaryOperator<Boolean> nullabilityCombiner;
 
         /**
@@ -359,7 +343,7 @@ public class VariadicFunctionValue extends AbstractValue {
          * <p>The given {@code nullabilityCombiner} combines the nullabilities of the arguments to derive the
          * nullability of the result.
          */
-        ComparisonFunction(@Nonnull final BinaryOperator<Boolean> nullabilityCombiner) {
+        ComparisonFunction(final BinaryOperator<Boolean> nullabilityCombiner) {
             this.nullabilityCombiner = nullabilityCombiner;
         }
 
@@ -368,7 +352,7 @@ public class VariadicFunctionValue extends AbstractValue {
          * @param arguments the arguments this function is applied to
          * @return {@code true} if the result of this function is nullable, {@code false} otherwise
          */
-        public boolean isResultNullable(@Nonnull final Iterable<? extends Typed> arguments) {
+        public boolean isResultNullable(final Iterable<? extends Typed> arguments) {
             return Streams.stream(arguments)
                     .map(argument -> argument.getResultType().isNullable())
                     .reduce(nullabilityCombiner)
@@ -489,33 +473,27 @@ public class VariadicFunctionValue extends AbstractValue {
         COALESCE_RECORD(ComparisonFunction.COALESCE, TypeCode.RECORD, PhysicalOperator::coalesce),
         COALESCE_ARRAY(ComparisonFunction.COALESCE, TypeCode.ARRAY, PhysicalOperator::coalesce);
 
-        @Nonnull
         private static final Supplier<BiMap<PhysicalOperator, PPhysicalOperator>> protoEnumBiMapSupplier =
                 Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(PhysicalOperator.class, PPhysicalOperator.class));
 
-        @Nonnull
         private final ComparisonFunction comparisonFunction;
 
-        @Nonnull
         private final TypeCode type;
 
-        @Nonnull
-        private final transient Function<List<Object>, Object> evaluateFunction;
+        private final transient Function<List<Object>, @Nullable Object> evaluateFunction;
 
-        PhysicalOperator(@Nonnull final ComparisonFunction comparisonFunction,
-                         @Nonnull final TypeCode type,
-                         @Nonnull final Function<List<Object>, Object> evaluateFunction) {
+        PhysicalOperator(final ComparisonFunction comparisonFunction,
+                         final TypeCode type,
+                         final Function<List<Object>, @Nullable Object> evaluateFunction) {
             this.comparisonFunction = comparisonFunction;
             this.type = type;
             this.evaluateFunction = evaluateFunction;
         }
 
-        @Nonnull
         public ComparisonFunction getComparisonFunction() {
             return comparisonFunction;
         }
 
-        @Nonnull
         public TypeCode getResultType() {
             return type;
         }
@@ -525,24 +503,22 @@ public class VariadicFunctionValue extends AbstractValue {
             return evaluateFunction.apply(args);
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public PPhysicalOperator toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PPhysicalOperator toProto(final PlanSerializationContext serializationContext) {
             return Objects.requireNonNull(getProtoEnumBiMap().get(this));
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public static PhysicalOperator fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PPhysicalOperator physicalOperatorProto) {
+        public static PhysicalOperator fromProto(final PlanSerializationContext serializationContext,
+                                                 final PPhysicalOperator physicalOperatorProto) {
             return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(physicalOperatorProto));
         }
 
-        @Nonnull
         private static BiMap<PhysicalOperator, PPhysicalOperator> getProtoEnumBiMap() {
             return protoEnumBiMapSupplier.get();
         }
 
+        @Nullable
         private static Object coalesce(final List<Object> args) {
             for (Object i : args) {
                 if (i != null) {
@@ -558,16 +534,14 @@ public class VariadicFunctionValue extends AbstractValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PVariadicFunctionValue, VariadicFunctionValue> {
-        @Nonnull
         @Override
         public Class<PVariadicFunctionValue> getProtoMessageClass() {
             return PVariadicFunctionValue.class;
         }
 
-        @Nonnull
         @Override
-        public VariadicFunctionValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                               @Nonnull final PVariadicFunctionValue variadicFunctionValueProto) {
+        public VariadicFunctionValue fromProto(final PlanSerializationContext serializationContext,
+                                               final PVariadicFunctionValue variadicFunctionValueProto) {
             return VariadicFunctionValue.fromProto(serializationContext, variadicFunctionValueProto);
         }
     }

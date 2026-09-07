@@ -24,8 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.util.LoggableKeysAndValues;
 import com.apple.foundationdb.util.LoggableKeysAndValuesImpl;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
@@ -37,7 +36,6 @@ import java.util.concurrent.TimeoutException;
 @SuppressWarnings("serial")
 @API(API.Status.UNSTABLE)
 public final class LoggableTimeoutException extends TimeoutException implements LoggableKeysAndValues<LoggableTimeoutException> {
-    @Nonnull
     private final LoggableKeysAndValuesImpl loggableKeysAndValuesImpl = new LoggableKeysAndValuesImpl();
 
 
@@ -51,33 +49,29 @@ public final class LoggableTimeoutException extends TimeoutException implements 
      *
      * @see #addLogInfo(Object...)
      */
-    public LoggableTimeoutException(@Nonnull Throwable cause, @Nullable Object... keyValues) {
+    public LoggableTimeoutException(Throwable cause, @Nullable Object... keyValues) {
         super();
         super.initCause(cause);
         this.loggableKeysAndValuesImpl.addLogInfo(keyValues);
     }
 
-    @Nonnull
     @Override
     public Map<String, Object> getLogInfo() {
         return loggableKeysAndValuesImpl.getLogInfo();
     }
 
-    @Nonnull
     @Override
-    public LoggableTimeoutException addLogInfo(@Nonnull String description, Object object) {
+    public LoggableTimeoutException addLogInfo(String description, @Nullable Object object) {
         loggableKeysAndValuesImpl.addLogInfo(description, object);
         return this;
     }
 
-    @Nonnull
     @Override
-    public LoggableTimeoutException addLogInfo(@Nonnull Object... keyValue) {
+    public LoggableTimeoutException addLogInfo(Object... keyValue) {
         loggableKeysAndValuesImpl.addLogInfo(keyValue);
         return this;
     }
     
-    @Nonnull
     @Override
     public Object[] exportLogInfo() {
         return loggableKeysAndValuesImpl.exportLogInfo();

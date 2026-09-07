@@ -31,44 +31,43 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.RecordCursorProto.ProbableIntersectionContinuation;
 
 class ProbableIntersectionCursorContinuation extends MergeCursorContinuation<ProbableIntersectionContinuation.Builder, BloomFilterCursorContinuation> {
-    protected ProbableIntersectionCursorContinuation(@Nonnull List<BloomFilterCursorContinuation> continuations, @Nullable Message originalProto) {
+    protected ProbableIntersectionCursorContinuation(List<BloomFilterCursorContinuation> continuations, @Nullable Message originalProto) {
         super(continuations, originalProto);
     }
 
-    protected ProbableIntersectionCursorContinuation(@Nonnull List<BloomFilterCursorContinuation> continuations) {
+    protected ProbableIntersectionCursorContinuation(List<BloomFilterCursorContinuation> continuations) {
         this(continuations, null);
     }
 
-    private void addChild(@Nonnull ProbableIntersectionContinuation.Builder builder,
-                          @Nonnull BloomFilterCursorContinuation continuation) {
+    private void addChild(ProbableIntersectionContinuation.Builder builder,
+                          BloomFilterCursorContinuation continuation) {
         builder.addChildState(continuation.toProto());
     }
 
     @Override
-    protected void setFirstChild(@Nonnull ProbableIntersectionContinuation.Builder builder, @Nonnull BloomFilterCursorContinuation continuation) {
+    protected void setFirstChild(ProbableIntersectionContinuation.Builder builder, BloomFilterCursorContinuation continuation) {
         addChild(builder, continuation);
     }
 
     @Override
-    protected void setSecondChild(@Nonnull ProbableIntersectionContinuation.Builder builder, @Nonnull BloomFilterCursorContinuation continuation) {
+    protected void setSecondChild(ProbableIntersectionContinuation.Builder builder, BloomFilterCursorContinuation continuation) {
         addChild(builder, continuation);
     }
 
     @Override
-    protected void addOtherChild(@Nonnull ProbableIntersectionContinuation.Builder builder, @Nonnull BloomFilterCursorContinuation continuation) {
+    protected void addOtherChild(ProbableIntersectionContinuation.Builder builder, BloomFilterCursorContinuation continuation) {
         addChild(builder, continuation);
     }
 
-    @Nonnull
     @Override
     protected ProbableIntersectionContinuation.Builder newProtoBuilder() {
         return ProbableIntersectionContinuation.newBuilder();
@@ -82,8 +81,7 @@ class ProbableIntersectionCursorContinuation extends MergeCursorContinuation<Pro
         return getContinuations().stream().allMatch(BloomFilterCursorContinuation::isChildEnd);
     }
 
-    @Nonnull
-    static ProbableIntersectionCursorContinuation from(@Nonnull ProbableIntersectionCursor<?> cursor) {
+    static ProbableIntersectionCursorContinuation from(ProbableIntersectionCursor<?> cursor) {
         // This can't use getChildContinuations() because of the way the type system works
         List<BloomFilterCursorContinuation> childContinuations = cursor.getCursorStates().stream()
                 .map(ProbableIntersectionCursorState::getContinuation)
@@ -91,7 +89,7 @@ class ProbableIntersectionCursorContinuation extends MergeCursorContinuation<Pro
         return new ProbableIntersectionCursorContinuation(childContinuations);
     }
 
-    @Nonnull
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even across explicit null checks.
     static ProbableIntersectionCursorContinuation from(@Nullable byte[] bytes, int numberOfChildren) {
         if (bytes == null) {
             return new ProbableIntersectionCursorContinuation(Collections.nCopies(numberOfChildren,
@@ -101,12 +99,11 @@ class ProbableIntersectionCursorContinuation extends MergeCursorContinuation<Pro
             return ProbableIntersectionCursorContinuation.from(ProbableIntersectionContinuation.parseFrom(bytes), numberOfChildren);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid continuation", ex)
-                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(bytes)));
         }
     }
 
-    @Nonnull
-    static ProbableIntersectionCursorContinuation from(@Nonnull ProbableIntersectionContinuation parsed, int numberOfChildren) {
+    static ProbableIntersectionCursorContinuation from(ProbableIntersectionContinuation parsed, int numberOfChildren) {
         ImmutableList.Builder<BloomFilterCursorContinuation> builder = ImmutableList.builder();
         for (ProbableIntersectionContinuation.CursorState state : parsed.getChildStateList()) {
             if (state.getExhausted()) {

@@ -36,7 +36,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Supplier;
@@ -48,14 +48,12 @@ import java.util.function.Supplier;
 public abstract class WindowedValue extends AbstractValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Windowed-Value");
 
-    @Nonnull
     private final List<Value> partitioningValues;
 
-    @Nonnull
     private final List<Value> argumentValues;
 
-    protected WindowedValue(@Nonnull final PlanSerializationContext serializationContext,
-                            @Nonnull final PWindowedValue windowedValueProto) {
+    protected WindowedValue(final PlanSerializationContext serializationContext,
+                            final PWindowedValue windowedValueProto) {
         this(windowedValueProto.getPartitioningValuesList()
                         .stream()
                         .map(valueProto -> Value.fromValueProto(serializationContext, valueProto))
@@ -66,31 +64,27 @@ public abstract class WindowedValue extends AbstractValue {
                         .collect(ImmutableList.toImmutableList()));
     }
 
-    protected WindowedValue(@Nonnull Iterable<? extends Value> partitioningValues,
-                            @Nonnull Iterable<? extends Value> argumentValues) {
+    protected WindowedValue(Iterable<? extends Value> partitioningValues,
+                            Iterable<? extends Value> argumentValues) {
         Preconditions.checkArgument(!Iterables.isEmpty(argumentValues));
         this.partitioningValues = ImmutableList.copyOf(partitioningValues);
         this.argumentValues = ImmutableList.copyOf(argumentValues);
     }
 
-    @Nonnull
     public List<Value> getPartitioningValues() {
         return partitioningValues;
     }
 
-    @Nonnull
     public List<Value> getArgumentValues() {
         return argumentValues;
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.<Value>builder().addAll(partitioningValues).addAll(argumentValues).build();
     }
 
-    @Nonnull
-    protected NonnullPair<List<Value>, List<Value>> splitNewChildren(@Nonnull final Iterable<? extends Value> newChildren) {
+    protected NonnullPair<List<Value>, List<Value>> splitNewChildren(final Iterable<? extends Value> newChildren) {
         // We need to split the partitioning and the argument columns by position.
         final Iterator<? extends Value> newChildrenIterator = newChildren.iterator();
 
@@ -101,7 +95,6 @@ public abstract class WindowedValue extends AbstractValue {
         return NonnullPair.of(newPartitioningValues, newArgumentValues);
     }
 
-    @Nonnull
     public abstract String getName();
 
     @Override
@@ -116,10 +109,12 @@ public abstract class WindowedValue extends AbstractValue {
      * This implementation is meant to give subclasses common functionality for their own implementation.
      * @param mode the plan hash kind to use
      * @param baseHash the subclass' base hash (concrete identifier)
-     * @param hashables the rest of the subclass' hashable parameters (if any)
+     * @param hashables the rest of the subclass' hashable parameters (if any); individual elements may be
+     *        {@code null} (e.g. an unset optional parameter) since {@link PlanHashable#objectsPlanHash} treats a
+     *        {@code null} element as contributing a hash of {@code 0}.
      * @return the plan hash value calculated
      */
-    protected int basePlanHash(@Nonnull final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
+    protected int basePlanHash(final PlanHashMode mode, ObjectPlanHash baseHash, @Nullable Object... hashables) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -129,10 +124,9 @@ public abstract class WindowedValue extends AbstractValue {
         }
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.ForLoopCanBeForeach")
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         int i = 0;
         final var partitioningBuilder = ImmutableList.<ExplainTokens>builder();
         final var iterator = explainSuppliers.iterator();
@@ -161,9 +155,8 @@ public abstract class WindowedValue extends AbstractValue {
         return semanticHashCode();
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         return super.equalsWithoutChildren(other)
                 .filter(ignored -> getName().equals(((WindowedValue)other).getName()));
     }
@@ -175,8 +168,7 @@ public abstract class WindowedValue extends AbstractValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
-    PWindowedValue toWindowedValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    PWindowedValue toWindowedValueProto(final PlanSerializationContext serializationContext) {
         final PWindowedValue.Builder builder = PWindowedValue.newBuilder();
         for (final Value partitioningValue : partitioningValues) {
             builder.addPartitioningValues(partitioningValue.toValueProto(serializationContext));

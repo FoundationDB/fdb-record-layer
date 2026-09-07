@@ -22,8 +22,7 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -107,8 +106,7 @@ public interface PlanHashable {
     PlanHashMode CURRENT_LEGACY = PlanHashMode.VL0;
     PlanHashMode CURRENT_FOR_CONTINUATION = PlanHashMode.VC0;
 
-    @Nonnull
-    private static PlanHashMode currentHashMode(@Nonnull final PlanHashKind kind) {
+    private static PlanHashMode currentHashMode(final PlanHashKind kind) {
         switch (kind) {
             case LEGACY:
                 return CURRENT_LEGACY;
@@ -126,7 +124,7 @@ public interface PlanHashable {
      * the underlying plan objects evolve
      * @return a stable hash code
      */
-    int planHash(@Nonnull PlanHashMode hashMode);
+    int planHash(PlanHashMode hashMode);
 
     /**
      * Return a hash similar to <code>hashCode</code>, but with the additional guarantee that is is stable across JVMs.
@@ -134,7 +132,7 @@ public interface PlanHashable {
      * @return a stable hash code
      */
     @Deprecated(forRemoval = true)
-    default int planHash(@Nonnull final PlanHashKind kind) {
+    default int planHash(final PlanHashKind kind) {
         return planHash(currentHashMode(kind));
     }
 
@@ -156,11 +154,11 @@ public interface PlanHashable {
      * @return a stable hash code
      */
     @Deprecated(forRemoval = true)
-    static int planHash(@Nonnull final PlanHashKind kind, @Nonnull final Iterable<? extends PlanHashable> hashables) {
+    static int planHash(final PlanHashKind kind, final Iterable<? extends PlanHashable> hashables) {
         return planHash(currentHashMode(kind), hashables);
     }
 
-    static int planHash(@Nonnull final PlanHashMode mode, @Nonnull final Iterable<? extends PlanHashable> hashables) {
+    static int planHash(final PlanHashMode mode, final Iterable<? extends PlanHashable> hashables) {
         int result = 1;
         for (PlanHashable hashable : hashables) {
             result = 31 * result + (hashable != null ? hashable.planHash(mode) : 0);
@@ -175,11 +173,11 @@ public interface PlanHashable {
      * @return a stable hash code
      */
     @Deprecated(forRemoval = true)
-    static int planHash(@Nonnull final PlanHashKind kind, final PlanHashable... hashables) {
+    static int planHash(final PlanHashKind kind, final PlanHashable... hashables) {
         return planHash(currentHashMode(kind), Arrays.asList(hashables));
     }
 
-    static int planHash(@Nonnull final PlanHashMode mode, final PlanHashable... hashables) {
+    static int planHash(final PlanHashMode mode, final PlanHashable... hashables) {
         return planHash(mode, Arrays.asList(hashables));
     }
 
@@ -190,13 +188,13 @@ public interface PlanHashable {
      * @return a stable hash code
      */
     @Deprecated(forRemoval = true)
-    static int planHashUnordered(@Nonnull final PlanHashKind kind,
-                                 @Nonnull final Iterable<? extends PlanHashable> hashables) {
+    static int planHashUnordered(final PlanHashKind kind,
+                                 final Iterable<? extends PlanHashable> hashables) {
         return planHashUnordered(currentHashMode(kind), hashables);
     }
 
-    static int planHashUnordered(@Nonnull final PlanHashMode hashMode,
-                                 @Nonnull final Iterable<? extends PlanHashable> hashables) {
+    static int planHashUnordered(final PlanHashMode hashMode,
+                                 final Iterable<? extends PlanHashable> hashables) {
         final ArrayList<Integer> hashes = new ArrayList<>();
         for (PlanHashable hashable : hashables) {
             hashes.add(hashable != null ? hashable.planHash(hashMode) : 0);
@@ -211,7 +209,7 @@ public interface PlanHashable {
      * @return a stable hash code
      */
     @Deprecated(forRemoval = true)
-    static int stringHashUnordered(@Nonnull Iterable<String> strings) {
+    static int stringHashUnordered(Iterable<String> strings) {
         final ArrayList<Integer> hashes = new ArrayList<>();
         for (String str : strings) {
             hashes.add(str != null ? str.hashCode() : 0);
@@ -220,7 +218,7 @@ public interface PlanHashable {
         return combineHashes(hashes);
     }
 
-    static int combineHashes(@Nonnull List<Integer> hashes) {
+    static int combineHashes(List<Integer> hashes) {
         int result = 1;
         for (Integer hash : hashes) {
             result = 31 * result + hash;
@@ -235,11 +233,11 @@ public interface PlanHashable {
      * @return a stable hash code
      */
     @Deprecated(forRemoval = true)
-    static int objectPlanHash(@Nonnull final PlanHashKind kind, @Nullable Object obj) {
+    static int objectPlanHash(final PlanHashKind kind, @Nullable Object obj) {
         return objectPlanHash(currentHashMode(kind), obj);
     }
 
-    static int objectPlanHash(@Nonnull final PlanHashMode mode, @Nullable final Object obj) {
+    static int objectPlanHash(final PlanHashMode mode, @Nullable final Object obj) {
         if (obj == null) {
             return 0;
         }
@@ -275,11 +273,11 @@ public interface PlanHashable {
      * @return a stable hash code
      */
     @Deprecated(forRemoval = true)
-    static int iterablePlanHash(@Nonnull PlanHashKind kind, @Nonnull Iterable<?> objects) {
+    static int iterablePlanHash(PlanHashKind kind, Iterable<?> objects) {
         return iterablePlanHash(currentHashMode(kind), objects);
     }
 
-    static int iterablePlanHash(@Nonnull PlanHashMode mode, @Nonnull Iterable<?> objects) {
+    static int iterablePlanHash(PlanHashMode mode, Iterable<?> objects) {
         int result = 1;
         for (Object object : objects) {
             result = 31 * result + objectPlanHash(mode, object);
@@ -287,7 +285,7 @@ public interface PlanHashable {
         return result;
     }
 
-    static int setsPlanHash(@Nonnull final PlanHashMode mode, @Nonnull final Set<?> objects) {
+    static int setsPlanHash(final PlanHashMode mode, final Set<?> objects) {
         int result = 1;
         for (Object object : objects) {
             result += 31 * objectPlanHash(mode, object);
@@ -295,7 +293,7 @@ public interface PlanHashable {
         return result;
     }
 
-    static int mapsPlanHash(@Nonnull final PlanHashMode mode, @Nonnull final Map<?, ?> map) {
+    static int mapsPlanHash(final PlanHashMode mode, final Map<?, ?> map) {
         int result = 1;
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             result += 31 * objectsPlanHash(mode, entry.getKey(), entry.getValue());
@@ -310,11 +308,11 @@ public interface PlanHashable {
      * @return a stable hash code
      */
     @Deprecated(forRemoval = true)
-    static int objectsPlanHash(@Nonnull final PlanHashKind kind, final Object... objects) {
+    static int objectsPlanHash(final PlanHashKind kind, @Nullable final Object... objects) {
         return objectsPlanHash(currentHashMode(kind), Arrays.asList(objects));
     }
 
-    static int objectsPlanHash(@Nonnull final PlanHashMode mode, final Object... objects) {
+    static int objectsPlanHash(final PlanHashMode mode, @Nullable final Object... objects) {
         return objectPlanHash(mode, Arrays.asList(objects));
     }
 

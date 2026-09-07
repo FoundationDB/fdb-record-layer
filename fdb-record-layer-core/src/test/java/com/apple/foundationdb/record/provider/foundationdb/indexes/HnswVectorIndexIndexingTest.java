@@ -37,7 +37,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -55,7 +54,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class HnswVectorIndexIndexingTest extends VectorIndexTestBase {
 
-    @Nonnull
     @Override
     protected Map<String, String> indexOptions() {
         return ImmutableMap.of(IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.HNSW.name(),
@@ -174,7 +172,7 @@ class HnswVectorIndexIndexingTest extends VectorIndexTestBase {
     }
 
     private List<FDBStoredRecord<Message>> saveMoreRecords(Random random, int startRecNo, int numRecords,
-                                                           @Nonnull final RecordMetaDataHook hook) throws Exception {
+                                                           final RecordMetaDataHook hook) throws Exception {
         final var recordGenerator = getRecordGenerator(random, 0.0);
 
         return batch(hook, numRecords, 100,
@@ -182,8 +180,8 @@ class HnswVectorIndexIndexingTest extends VectorIndexTestBase {
     }
 
     private Index addAndBuildIndexOnline(
-            @Nonnull final String indexName,
-            @Nonnull final RecordMetaDataHook indexHook) throws Exception {
+            final String indexName,
+            final RecordMetaDataHook indexHook) throws Exception {
         // Add the index definition
         addIndexWithoutBuilding(indexName, indexHook);
 
@@ -192,8 +190,8 @@ class HnswVectorIndexIndexingTest extends VectorIndexTestBase {
     }
 
     private void addIndexWithoutBuilding(
-            @Nonnull final String indexName,
-            @Nonnull final RecordMetaDataHook indexHook) throws Exception {
+            final String indexName,
+            final RecordMetaDataHook indexHook) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, indexHook);
 
@@ -206,8 +204,8 @@ class HnswVectorIndexIndexingTest extends VectorIndexTestBase {
     }
 
     private Index buildIndexOnline(
-            @Nonnull final String indexName,
-            @Nonnull final RecordMetaDataHook indexHook) throws Exception {
+            final String indexName,
+            final RecordMetaDataHook indexHook) throws Exception {
         Index index;
 
         // Build the index using OnlineIndexer with the record store
@@ -239,10 +237,10 @@ class HnswVectorIndexIndexingTest extends VectorIndexTestBase {
     }
 
     private void verifyUngroupedIndexQuery(
-            @Nonnull final List<FDBStoredRecord<Message>> savedRecords,
-            @Nonnull final HalfRealVector queryVector,
+            final List<FDBStoredRecord<Message>> savedRecords,
+            final HalfRealVector queryVector,
             final int maxSize,
-            @Nonnull final Index index) throws Exception {
+            final Index index) throws Exception {
 
         final Set<Long> expectedResults =
                 sortByDistances(savedRecords, queryVector, Metric.EUCLIDEAN_METRIC).stream()
@@ -258,7 +256,11 @@ class HnswVectorIndexIndexingTest extends VectorIndexTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, this::addUngroupedVectorIndex);
 
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
+            // FDBRecordStoreQueryTestBase#executeQuery's continuation parameter is declared @Nullable byte[]
+            // (a position NullAway does not reliably recognize as nullable, even though the method itself is
+            // already locally suppressed for the same reason), so the null literal below still trips the
+            // checker here at the call site.
+            try (@SuppressWarnings("NullAway") RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
                          executeQuery(indexPlan, null, Bindings.EMPTY_BINDINGS, Integer.MAX_VALUE)) {
                 while (cursor.hasNext()) {
                     final FDBQueriedRecord<Message> rec = cursor.next();
@@ -278,10 +280,10 @@ class HnswVectorIndexIndexingTest extends VectorIndexTestBase {
     }
 
     private void verifyGroupedIndexQuery(
-            @Nonnull final List<FDBStoredRecord<Message>> savedRecords,
-            @Nonnull final HalfRealVector queryVector,
+            final List<FDBStoredRecord<Message>> savedRecords,
+            final HalfRealVector queryVector,
             final int maxSize,
-            @Nonnull final Index index) throws Exception {
+            final Index index) throws Exception {
 
         final var groupedExpected =
                 trueTopK(groupAndSortByDistances(savedRecords, queryVector), maxSize);
@@ -295,7 +297,11 @@ class HnswVectorIndexIndexingTest extends VectorIndexTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, this::addGroupedVectorIndex);
 
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
+            // FDBRecordStoreQueryTestBase#executeQuery's continuation parameter is declared @Nullable byte[]
+            // (a position NullAway does not reliably recognize as nullable, even though the method itself is
+            // already locally suppressed for the same reason), so the null literal below still trips the
+            // checker here at the call site.
+            try (@SuppressWarnings("NullAway") RecordCursorIterator<FDBQueriedRecord<Message>> cursor =
                          executeQuery(indexPlan, null, Bindings.EMPTY_BINDINGS, Integer.MAX_VALUE)) {
                 while (cursor.hasNext()) {
                     final FDBQueriedRecord<Message> rec = cursor.next();

@@ -27,8 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
 
@@ -41,7 +40,7 @@ public class IntWrappingFunction extends InvertibleFunctionKeyExpression {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Int-Wrapping-Function");
     private static final String PREFIX = "i:";
 
-    protected IntWrappingFunction(@Nonnull final String name, @Nonnull final KeyExpression arguments) {
+    protected IntWrappingFunction(final String name, final KeyExpression arguments) {
         super(name, arguments);
     }
 
@@ -51,7 +50,7 @@ public class IntWrappingFunction extends InvertibleFunctionKeyExpression {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return super.basePlanHash(mode, BASE_HASH, arguments);
     }
 
@@ -65,16 +64,15 @@ public class IntWrappingFunction extends InvertibleFunctionKeyExpression {
         return 1;
     }
 
-    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable final FDBRecord<M> record,
                                                                     @Nullable final Message message,
-                                                                    @Nonnull final Key.Evaluated arguments) {
+                                                                    final Key.Evaluated arguments) {
         return Collections.singletonList(Key.Evaluated.scalar(PREFIX + arguments.getLong(0)));
     }
 
     @Override
-    protected List<Key.Evaluated> evaluateInverseInternal(@Nonnull final Key.Evaluated result) {
+    protected List<Key.Evaluated> evaluateInverseInternal(final Key.Evaluated result) {
         String canonicalForm = result.getString(0);
         if (canonicalForm != null && canonicalForm.startsWith(PREFIX)) {
             return Collections.singletonList(Key.Evaluated.scalar(Long.parseLong(canonicalForm, PREFIX.length(), canonicalForm.length(), 10)));
@@ -93,9 +91,8 @@ public class IntWrappingFunction extends InvertibleFunctionKeyExpression {
         return 1;
     }
 
-    @Nonnull
     @Override
-    public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+    public Value toValue(final List<? extends Value> argumentValues) {
         throw new UnsupportedOperationException("not implemented");
     }
 
@@ -104,9 +101,8 @@ public class IntWrappingFunction extends InvertibleFunctionKeyExpression {
             super(NAME);
         }
 
-        @Nonnull
         @Override
-        public FunctionKeyExpression build(@Nonnull final KeyExpression arguments) {
+        public FunctionKeyExpression build(final KeyExpression arguments) {
             return new IntWrappingFunction(getName(), arguments);
         }
     }
@@ -116,7 +112,6 @@ public class IntWrappingFunction extends InvertibleFunctionKeyExpression {
      */
     @AutoService(FunctionKeyExpression.Factory.class)
     public static class Factory implements FunctionKeyExpression.Factory {
-        @Nonnull
         @Override
         public List<FunctionKeyExpression.Builder> getBuilders() {
             return List.of(new Builder());

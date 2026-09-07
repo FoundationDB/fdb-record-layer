@@ -26,9 +26,9 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.cursors.IllegalContinuationAccessChecker;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -41,7 +41,6 @@ import java.util.concurrent.ExecutionException;
  */
 @API(API.Status.UNSTABLE)
 public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable {
-    @Nonnull
     private final RecordCursor<T> cursor;
     @Nullable
     private CompletableFuture<Boolean> onHasNextFuture;
@@ -51,7 +50,7 @@ public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable 
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
 
-    RecordCursorIterator(@Nonnull RecordCursor<T> cursor) {
+    RecordCursorIterator(RecordCursor<T> cursor) {
         this.cursor = cursor;
     }
 
@@ -60,7 +59,6 @@ public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable 
      * @return a future that when complete will hold <code>true</code> if {@link #next()} would return a record.
      * @see com.apple.foundationdb.async.AsyncIterator#onHasNext()
      */
-    @Nonnull
     @Override
     public CompletableFuture<Boolean> onHasNext() {
         if (nextResult != null && !nextResult.hasNext()) {
@@ -88,7 +86,7 @@ public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable 
             throw new RecordCoreException(CompletionExceptionLogHelper.asCause(ex));
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            throw new RecordCoreInterruptedException(ex.getMessage(), ex);
+            throw new RecordCoreInterruptedException(Objects.requireNonNullElse(ex.getMessage(), "Interrupted"), ex);
         }
     }
 
@@ -99,13 +97,20 @@ public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable 
      */
     @Nullable
     @Override
+    // com.apple.foundationdb.async.AsyncIterator is an unannotated, external (fdb-java) interface; NullAway's
+    // default treatment of its unannotated next() as @NonNull for override-checking purposes is not a real,
+    // deliberate contract from that library. RecordCursorResult (and thus this iterator's next value, per
+    // T) is documented to allow a genuinely null value, so this override is intentionally wider.
+    @SuppressWarnings("NullAway")
     public T next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
         }
         onHasNextFuture = null;
         mayGetContinuation = true;
-        return nextResult.get();
+        // Guaranteed non-null by the class contract: next() may only be called after hasNext() returned true,
+        // which populates nextResult via onHasNext().
+        return Objects.requireNonNull(nextResult).get();
     }
 
     /**
@@ -127,7 +132,8 @@ public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable 
     @Nullable
     public byte[] getContinuation() {
         IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return nextResult.getContinuation().toBytes();
+        // Guaranteed non-null when accessed at a legal point, per the class contract described above.
+        return Objects.requireNonNull(nextResult).getContinuation().toBytes();
     }
 
     /**
@@ -136,9 +142,9 @@ public class RecordCursorIterator<T> implements AsyncIterator<T>, AutoCloseable 
      * may be an exception.
      * @return the reason that the cursor stopped
      */
-    @Nonnull
     public RecordCursor.NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
+        // Guaranteed non-null when accessed at a legal point, per the class contract described above.
+        return Objects.requireNonNull(nextResult).getNoNextReason();
     }
 
     @Override

@@ -50,8 +50,8 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -78,27 +78,21 @@ public class TextScan implements PlanHashable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Text-Scan");
 
     // Used by the text predicates that filter
-    @Nonnull
     private static final Set<StoreTimer.Count> inCounts = ImmutableSet.of(FDBStoreTimer.Counts.QUERY_FILTER_GIVEN, FDBStoreTimer.Counts.QUERY_TEXT_FILTER_PLAN_GIVEN);
-    @Nonnull
     private static final Set<StoreTimer.Event> duringEvents = Collections.singleton(FDBStoreTimer.Events.QUERY_TEXT_FILTER);
-    @Nonnull
     private static final Set<StoreTimer.Count> successCounts = ImmutableSet.of(FDBStoreTimer.Counts.QUERY_FILTER_PASSED, FDBStoreTimer.Counts.QUERY_TEXT_FILTER_PLAN_PASSED );
-    @Nonnull
     private static final Set<StoreTimer.Count> failureCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_DISCARDED);
 
-    @Nonnull
     private final Index index;
     @Nullable
     private final ScanComparisons groupingComparisons;
-    @Nonnull
     private final Comparisons.TextComparison textComparison;
     @Nullable
     private final ScanComparisons suffixComparisons;
 
-    public TextScan(@Nonnull Index index,
+    public TextScan(Index index,
                     @Nullable ScanComparisons groupingComparisons,
-                    @Nonnull Comparisons.TextComparison textComparison,
+                    Comparisons.TextComparison textComparison,
                     @Nullable ScanComparisons suffixComparisons) {
         this.index = index;
         this.groupingComparisons = groupingComparisons;
@@ -108,7 +102,7 @@ public class TextScan implements PlanHashable {
 
     // Get the comparand as a list of strings. This might involve tokenizing the
     // query string if the comparison didn't do that already.
-    private List<String> getTokenList(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, boolean removeStopWords) {
+    private List<String> getTokenList(FDBRecordStoreBase<?> store, EvaluationContext context, boolean removeStopWords) {
         final Object comparand = textComparison.getComparand(store, context);
         List<String> tokenList;
         if (comparand instanceof List<?>) {
@@ -127,7 +121,7 @@ public class TextScan implements PlanHashable {
         return tokenList;
     }
 
-    private List<String> getTokenList(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context) {
+    private List<String> getTokenList(FDBRecordStoreBase<?> store, EvaluationContext context) {
         return getTokenList(store, context, true);
     }
 
@@ -139,7 +133,6 @@ public class TextScan implements PlanHashable {
     // in which results are returned and so are necessary for determining equality. Within
     // those columns should be the primary key (in almost all cases), so this is sufficient
     // for making sure that the primary key at least must match.
-    @Nonnull
     private static Function<IndexEntry, List<Object>> suffixComparisonKeyFunction(int firstEntries) {
         return indexEntry -> {
             Tuple key = indexEntry.getKey();
@@ -157,24 +150,28 @@ public class TextScan implements PlanHashable {
      * @param <M> message type associated with the store and evaluation context
      * @return a cursor of index entries from the given scan
      */
-    @Nonnull
-    public <M extends Message> RecordCursor<IndexEntry> scan(@Nonnull FDBRecordStoreBase<M> store,
-                                                             @Nonnull EvaluationContext context,
+    public <M extends Message> RecordCursor<IndexEntry> scan(FDBRecordStoreBase<M> store,
+                                                             EvaluationContext context,
                                                              @Nullable byte[] continuation,
-                                                             @Nonnull ScanProperties scanProperties) {
+                                                             ScanProperties scanProperties) {
         final Tuple prefix = groupingComparisons != null ? groupingComparisons.toTupleRange(store, context).getHigh() : null;
         final TupleRange suffix = suffixComparisons != null ? suffixComparisons.toTupleRange(store, context) : null;
         final List<String> tokenList = getTokenList(store, context);
         return scan(store, context, prefix, suffix, index, tokenList, continuation, scanProperties);
     }
 
-    @Nonnull
-    @SuppressWarnings({"squid:S2095", "PMD.CloseResource"}) // try-with-resources - the two cursors returned cannot be closed because they are wrapped and returned
-    private <M extends Message> RecordCursor<IndexEntry> scan(@Nonnull FDBRecordStoreBase<M> store,
-                                                              @Nonnull EvaluationContext context,
+    // try-with-resources - the two cursors returned cannot be closed
+    // because they are wrapped and returned; the NullAway suppression is because
+    // scanTokenPrefix/scanToken's returned Function<byte[], ...> is declared with a
+    // plain (non-@Nullable) byte[] type argument to stay assignable to the
+    // List<Function<byte[], ...>> expected by ProbableIntersectionCursor/UnionCursor
+    // below, even though the lambdas they return genuinely accept a null continuation.
+    @SuppressWarnings({"squid:S2095", "PMD.CloseResource", "NullAway"})
+    private <M extends Message> RecordCursor<IndexEntry> scan(FDBRecordStoreBase<M> store,
+                                                              EvaluationContext context,
                                                               @Nullable Tuple prefix, @Nullable TupleRange suffix,
-                                                              @Nonnull Index index, @Nonnull List<String> tokenList,
-                                                              @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+                                                              Index index, List<String> tokenList,
+                                                              @Nullable byte[] continuation, ScanProperties scanProperties) {
         if (tokenList.isEmpty()) {
             return RecordCursor.empty();
         }
@@ -261,9 +258,8 @@ public class TextScan implements PlanHashable {
         }
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked")
-    private static List<List<Integer>> getPositionsLists(@Nonnull List<IndexEntry> entries) {
+    private static List<List<Integer>> getPositionsLists(List<IndexEntry> entries) {
         final List<List<Integer>> positionLists = new ArrayList<>(entries.size());
         for (IndexEntry entry : entries) {
             positionLists.add((List<Integer>) entry.getValue().get(0));
@@ -272,7 +268,7 @@ public class TextScan implements PlanHashable {
     }
 
     @Nullable
-    private static Boolean entriesContainAllWithin(@Nonnull List<IndexEntry> entries, int maxDistance) {
+    private static Boolean entriesContainAllWithin(List<IndexEntry> entries, int maxDistance) {
         if (entries.isEmpty()) {
             return null;
         }
@@ -321,9 +317,8 @@ public class TextScan implements PlanHashable {
         return Boolean.FALSE;
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.ForLoopCanBeForeach") // avoids an extra iterator allocation
-    private static List<List<Integer>> getPositionListsAndDeltas(@Nonnull List<IndexEntry> entries, @Nonnull List<String> tokensWithStopWords, @Nonnull List<Integer> deltas) {
+    private static List<List<Integer>> getPositionListsAndDeltas(List<IndexEntry> entries, List<String> tokensWithStopWords, List<Integer> deltas) {
         List<List<Integer>> positionLists = getPositionsLists(entries);
 
         // Construct an expected offset list between positions for each token list
@@ -359,7 +354,7 @@ public class TextScan implements PlanHashable {
     }
 
     @Nullable
-    private static Boolean entriesContainPhrase(@Nonnull List<IndexEntry> entries, @Nonnull List<String> tokensWithStopWords) {
+    private static Boolean entriesContainPhrase(List<IndexEntry> entries, List<String> tokensWithStopWords) {
         if (entries.isEmpty()) {
             return null;
         }
@@ -423,9 +418,8 @@ public class TextScan implements PlanHashable {
         return Boolean.FALSE;
     }
 
-    @Nonnull
-    private <M extends Message> Function<byte[], RecordCursor<IndexEntry>> scanTokenPrefix(@Nonnull FDBRecordStoreBase<M> store, @Nonnull String token, @Nullable Tuple prefix, @Nullable TupleRange suffix,
-                                                                                           @Nonnull Index index, @Nonnull ScanProperties scanProperties) {
+    private <M extends Message> Function<byte[], RecordCursor<IndexEntry>> scanTokenPrefix(FDBRecordStoreBase<M> store, String token, @Nullable Tuple prefix, @Nullable TupleRange suffix,
+                                                                                           Index index, ScanProperties scanProperties) {
         if (suffix != null) {
             // This is equivalent to having two inequality comparisons, and it is therefore disallowed.
             throw new RecordCoreException("text prefix comparison included inequality scan comparison");
@@ -439,9 +433,8 @@ public class TextScan implements PlanHashable {
         };
     }
 
-    @Nonnull
-    private <M extends Message> Function<byte[], RecordCursor<IndexEntry>> scanToken(@Nonnull FDBRecordStoreBase<M> store, @Nonnull String token, @Nullable Tuple prefix, @Nullable TupleRange suffix,
-                                                                                     @Nonnull Index index, @Nonnull ScanProperties scanProperties) {
+    private <M extends Message> Function<byte[], RecordCursor<IndexEntry>> scanToken(FDBRecordStoreBase<M> store, String token, @Nullable Tuple prefix, @Nullable TupleRange suffix,
+                                                                                     Index index, ScanProperties scanProperties) {
         return (byte[] continuation) -> {
             TupleRange scanRange;
             if (suffix != null) {
@@ -476,7 +469,6 @@ public class TextScan implements PlanHashable {
      *
      * @return the index being scanned
      */
-    @Nonnull
     public Index getIndex() {
         return index;
     }
@@ -502,7 +494,6 @@ public class TextScan implements PlanHashable {
      *
      * @return the comparison performed on the index's text field
      */
-    @Nonnull
     public Comparisons.TextComparison getTextComparison() {
         return textComparison;
     }
@@ -520,7 +511,6 @@ public class TextScan implements PlanHashable {
         return suffixComparisons;
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return "TextScan(" + index.getName() + " " + groupingComparisons + ", " + textComparison + ", " + suffixComparisons + ")";
@@ -546,7 +536,10 @@ public class TextScan implements PlanHashable {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    // PlanHashable.planHash/objectsPlanHash's varargs aren't annotated @Nullable, but
+    // each element is hashed via a null-safe helper (see PlanHashable.planHash(mode, Iterable)).
+    @SuppressWarnings("NullAway")
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return PlanHashable.planHash(mode, textComparison, groupingComparisons, suffixComparisons) + index.getName().hashCode();

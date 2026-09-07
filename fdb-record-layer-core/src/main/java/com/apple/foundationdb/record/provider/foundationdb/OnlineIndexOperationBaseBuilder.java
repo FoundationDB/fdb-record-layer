@@ -30,10 +30,13 @@ import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Map;
 import java.util.function.UnaryOperator;
+
+import static com.apple.foundationdb.record.provider.foundationdb.FDBDatabase.WeakReadSemantics;
+import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore.Builder;
 
 /**
  * Base class that the {@link OnlineIndexer.Builder} and the {@link OnlineIndexScrubber.Builder} can both inherit
@@ -46,11 +49,9 @@ import java.util.function.UnaryOperator;
 public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOperationBaseBuilder<B>> {
     @Nullable
     private FDBDatabaseRunner runner;
-    @Nullable
-    private FDBRecordStore.Builder recordStoreBuilder;
+    private @Nullable Builder recordStoreBuilder;
     @Nullable
     private UnaryOperator<OnlineIndexOperationConfig> configLoader = null;
-    @Nonnull
     private final OnlineIndexOperationConfig.Builder configBuilder = OnlineIndexOperationConfig.newBuilder();
     // Maybe the performance impact of this is low enough to be always enabled?
     private boolean trackProgress = true;
@@ -99,7 +100,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param database the target database
      * @return this builder
      */
-    public B setDatabase(@Nonnull FDBDatabase database) {
+    public B setDatabase(FDBDatabase database) {
         this.runner = database.newRunner();
         setRunnerDefaults();
         return self();
@@ -109,9 +110,8 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * Get the record store builder that will be used to open record store instances for indexing.
      * @return the record store builder
      */
-    @Nullable
     @SuppressWarnings("squid:S1452")
-    public FDBRecordStore.Builder getRecordStoreBuilder() {
+    public @Nullable Builder getRecordStoreBuilder() {
         return recordStoreBuilder;
     }
 
@@ -121,7 +121,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @return this builder
      * @see #setRecordStore
      */
-    public B setRecordStoreBuilder(@Nonnull FDBRecordStore.Builder recordStoreBuilder) {
+    public B setRecordStoreBuilder(Builder recordStoreBuilder) {
         this.recordStoreBuilder = recordStoreBuilder.copyBuilder().setContext(null);
         if (runner == null && recordStoreBuilder.getContext() != null) {
             runner = recordStoreBuilder.getContext().newRunner();
@@ -135,7 +135,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param recordStore the target record store
      * @return this builder
      */
-    public B setRecordStore(@Nonnull FDBRecordStore recordStore) {
+    public B setRecordStore(FDBRecordStore recordStore) {
         recordStoreBuilder = recordStore.asBuilder().setContext(null);
         if (runner == null) {
             runner = recordStore.getRecordContext().newRunner();
@@ -163,8 +163,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param configLoader the function
      * @return this builder
      */
-    @Nonnull
-    public B setConfigLoader(@Nonnull UnaryOperator<OnlineIndexOperationConfig> configLoader) {
+    public B setConfigLoader(UnaryOperator<OnlineIndexOperationConfig> configLoader) {
         this.configLoader = configLoader;
         return self();
     }
@@ -186,7 +185,6 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param limit the maximum number of records to process in one transaction
      * @return this builder
      */
-    @Nonnull
     public B setLimit(int limit) {
         configBuilder.setMaxLimit(limit);
         return self();
@@ -199,7 +197,6 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param limit the initial number of records to process in one transaction
      * @return this builder
      */
-    @Nonnull
     public B setInitialLimit(int limit) {
         configBuilder.setInitialLimit(limit);
         return self();
@@ -223,7 +220,6 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param max the desired max write size
      * @return this builder
      */
-    @Nonnull
     public B setMaxWriteLimitBytes(int max) {
         configBuilder.setWriteLimitBytes(max);
         return self();
@@ -250,7 +246,6 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param maxRetries the maximum number of times to retry a single range rebuild
      * @return this builder
      */
-    @Nonnull
     public B setMaxRetries(int maxRetries) {
         configBuilder.setMaxRetries(maxRetries);
         return self();
@@ -273,7 +268,6 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param recordsPerSecond the maximum number of records to process in a single second.
      * @return this builder
      */
-    @Nonnull
     public B setRecordsPerSecond(int recordsPerSecond) {
         configBuilder.setRecordsPerSecond(recordsPerSecond);
         return self();
@@ -287,7 +281,6 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param enforcedPostTransactionDelay the enforced post-transaction delay in milliseconds
      * @return this builder
      */
-    @Nonnull
     public B setEnforcedPostTransactionDelay(long enforcedPostTransactionDelay) {
         configBuilder.setEnforcedPostTransactionDelay(enforcedPostTransactionDelay);
         return self();
@@ -310,7 +303,6 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param timer timer to use
      * @return this builder
      */
-    @Nonnull
     public B setTimer(@Nullable FDBStoreTimer timer) {
         if (runner == null) {
             throw new MetaDataException("timer can only be set after runner has been set");
@@ -337,7 +329,6 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @return this builder
      * @see FDBDatabase#openContext(Map,FDBStoreTimer)
      */
-    @Nonnull
     public B setMdcContext(@Nullable Map<String, String> mdcContext) {
         if (runner == null) {
             throw new MetaDataException("logging context can only be set after runner has been set");
@@ -354,7 +345,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @see FDBRecordContext#getWeakReadSemantics()
      */
     @Nullable
-    public FDBDatabase.WeakReadSemantics getWeakReadSemantics() {
+    public WeakReadSemantics getWeakReadSemantics() {
         if (runner == null) {
             throw new MetaDataException("weak read semantics is only known after runner has been set");
         }
@@ -375,8 +366,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @see FDBRecordContext#getWeakReadSemantics()
      * @see FDBDatabase#setTrackLastSeenVersion(boolean)
      */
-    @Nonnull
-    public B setWeakReadSemantics(@Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
+    public B setWeakReadSemantics(@Nullable WeakReadSemantics weakReadSemantics) {
         if (runner == null) {
             throw new MetaDataException("weak read semantics can only be set after runner has been set");
         }
@@ -390,7 +380,6 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @return the priority of transactions used for this index build
      * @see FDBRecordContext#getPriority()
      */
-    @Nonnull
     public FDBTransactionPriority getPriority() {
         if (runner == null) {
             throw new MetaDataException("transaction priority is only known after runner has been set");
@@ -411,8 +400,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @return this builder
      * @see FDBRecordContext#getPriority()
      */
-    @Nonnull
-    public B setPriority(@Nonnull FDBTransactionPriority priority) {
+    public B setPriority(FDBTransactionPriority priority) {
         if (runner == null) {
             throw new MetaDataException("transaction priority can only be set after runner has been set");
         }
@@ -601,7 +589,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param indexMaintenanceFilter the index filter to use
      * @return this builder
      */
-    public B setIndexMaintenanceFilter(@Nonnull IndexMaintenanceFilter indexMaintenanceFilter) {
+    public B setIndexMaintenanceFilter(IndexMaintenanceFilter indexMaintenanceFilter) {
         if (recordStoreBuilder == null) {
             throw new MetaDataException("index filter can only be set after record store builder has been set");
         }
@@ -616,7 +604,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param serializer the serializer to use
      * @return this builder
      */
-    public B setSerializer(@Nonnull RecordSerializer<Message> serializer) {
+    public B setSerializer(RecordSerializer<Message> serializer) {
         if (recordStoreBuilder == null) {
             throw new MetaDataException("serializer can only be set after record store builder has been set");
         }
@@ -642,7 +630,6 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
         return self();
     }
 
-    @Nonnull
     protected RecordMetaData getRecordMetaData() {
         if (recordStoreBuilder == null) {
             throw new MetaDataException("record store must be set");
@@ -658,7 +645,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param metaDataProvider meta-data to use
      * @return this builder
      */
-    public B setMetaData(@Nonnull RecordMetaDataProvider metaDataProvider) {
+    public B setMetaData(RecordMetaDataProvider metaDataProvider) {
         if (recordStoreBuilder == null) {
             recordStoreBuilder = FDBRecordStore.newBuilder();
         }
@@ -671,7 +658,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param subspaceProvider subspace to use
      * @return this builder
      */
-    public B setSubspaceProvider(@Nonnull SubspaceProvider subspaceProvider) {
+    public B setSubspaceProvider(SubspaceProvider subspaceProvider) {
         if (recordStoreBuilder == null) {
             recordStoreBuilder = FDBRecordStore.newBuilder();
         }
@@ -684,7 +671,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param subspace subspace to use
      * @return this builder
      */
-    public B setSubspace(@Nonnull Subspace subspace) {
+    public B setSubspace(Subspace subspace) {
         if (recordStoreBuilder == null) {
             recordStoreBuilder = FDBRecordStore.newBuilder();
         }
@@ -698,7 +685,6 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param timeLimitMilliseconds the time limit in milliseconds
      * @return this builder
      */
-    @Nonnull
     public B setTimeLimitMilliseconds(long timeLimitMilliseconds) {
         configBuilder.setTimeLimitMilliseconds(timeLimitMilliseconds);
         return self();
@@ -715,7 +701,6 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param timeLimitMilliseconds the time limit, per transaction, in milliseconds
      * @return this builder
      */
-    @Nonnull
     public B setTransactionTimeLimitMilliseconds(long timeLimitMilliseconds) {
         configBuilder.setTransactionTimeLimitMilliseconds(timeLimitMilliseconds);
         return self();
@@ -756,7 +741,6 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     }
 
 
-    @Nonnull
     protected OnlineIndexOperationConfig getConfig() {
         return configBuilder.build();
     }

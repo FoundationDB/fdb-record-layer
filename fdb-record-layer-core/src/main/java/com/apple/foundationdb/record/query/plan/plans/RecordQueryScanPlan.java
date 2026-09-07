@@ -67,8 +67,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -90,17 +90,13 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
 
     @Nullable
     private final Set<String> recordTypes;
-    @Nonnull
     private final Type flowedType;
     @Nullable
     private final KeyExpression commonPrimaryKey;
-    @Nonnull
     private final ScanComparisons comparisons;
     private final boolean reverse;
     private final boolean strictlySorted;
-    @Nonnull
     private final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional;
-    @Nonnull
     private final Supplier<ComparisonRanges> comparisonRangesSupplier;
 
     /**
@@ -109,7 +105,7 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
      * @param comparisons comparisons to be applied by the operator
      * @param reverse indicator whether this scan is reverse
      */
-    public RecordQueryScanPlan(@Nonnull ScanComparisons comparisons, boolean reverse) {
+    public RecordQueryScanPlan(ScanComparisons comparisons, boolean reverse) {
         this(null, new Type.Any(), null, comparisons, reverse, false, Optional.empty());
     }
 
@@ -123,9 +119,9 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
      * @param strictlySorted whether scan is strictly sorted for original query
      */
     public RecordQueryScanPlan(@Nullable Set<String> recordTypes,
-                               @Nonnull Type flowedType,
+                               Type flowedType,
                                @Nullable KeyExpression commonPrimaryKey,
-                               @Nonnull ScanComparisons comparisons,
+                               ScanComparisons comparisons,
                                boolean reverse,
                                boolean strictlySorted) {
         this(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, strictlySorted, Optional.empty());
@@ -142,12 +138,12 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
      * @param matchCandidate a match candidate that was matched and resulted in this scan plan
      */
     public RecordQueryScanPlan(@Nullable Set<String> recordTypes,
-                               @Nonnull Type flowedType,
+                               Type flowedType,
                                @Nullable KeyExpression commonPrimaryKey,
-                               @Nonnull ScanComparisons comparisons,
+                               ScanComparisons comparisons,
                                boolean reverse,
                                boolean strictlySorted,
-                               @Nonnull final WithPrimaryKeyMatchCandidate matchCandidate) {
+                               final WithPrimaryKeyMatchCandidate matchCandidate) {
         this(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, strictlySorted, Optional.of(matchCandidate));
     }
 
@@ -164,12 +160,12 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
      */
     @VisibleForTesting
     public RecordQueryScanPlan(@Nullable Set<String> recordTypes,
-                               @Nonnull Type flowedType,
+                               Type flowedType,
                                @Nullable KeyExpression commonPrimaryKey,
-                               @Nonnull ScanComparisons comparisons,
+                               ScanComparisons comparisons,
                                boolean reverse,
                                boolean strictlySorted,
-                               @Nonnull final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional) {
+                               final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional) {
         this.recordTypes = recordTypes == null ? null : ImmutableSet.copyOf(recordTypes);
         this.flowedType = flowedType;
         this.commonPrimaryKey = commonPrimaryKey;
@@ -180,13 +176,12 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
         this.comparisonRangesSupplier = Suppliers.memoize(this::computeComparisonRanges);
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("resource")
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         final TupleRange range = comparisons.toTupleRange(store, context);
         return store.scanRecords(
                 range.getLow(), range.getHigh(), range.getLowEndpoint(), range.getHighEndpoint(), continuation,
@@ -208,19 +203,16 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
         return commonPrimaryKey;
     }
 
-    @Nonnull
     @Override
     public ScanComparisons getScanComparisons() {
         return comparisons;
     }
 
-    @Nonnull
     @Override
     public ComparisonRanges getComparisonRanges() {
         return comparisonRangesSupplier.get();
     }
 
-    @Nonnull
     private ComparisonRanges computeComparisonRanges() {
         return ComparisonRanges.from(comparisons);
     }
@@ -242,18 +234,17 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
     }
 
     @Override
-    public boolean hasIndexScan(@Nonnull String indexName) {
+    public boolean hasIndexScan(String indexName) {
         return false;
     }
 
-    @Nonnull
     @Override
     public Set<String> getUsedIndexes() {
         return new HashSet<>();
     }
 
     @Override
-    public int maxCardinality(@Nonnull RecordMetaData metaData) {
+    public int maxCardinality(RecordMetaData metaData) {
         if (comparisons.isEquality() &&
                 metaData.getRecordTypes().values().stream().allMatch(t -> t.getPrimaryKey().getColumnSize() <= comparisons.size())) {
             return 1;
@@ -268,17 +259,15 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
     }
 
     @Override
-    public RecordQueryScanPlan strictlySorted(@Nonnull FinalMemoizer memoizer) {
+    public RecordQueryScanPlan strictlySorted(FinalMemoizer memoizer) {
         return new RecordQueryScanPlan(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, true, matchCandidateOptional);
     }
 
-    @Nonnull
     @Override
     public Optional<? extends WithPrimaryKeyMatchCandidate> getMatchCandidateMaybe() {
         return matchCandidateOptional;
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.ALL_FIELDS;
@@ -289,24 +278,21 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
         return false;
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return comparisons.getCorrelatedTo();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public RecordQueryScanPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryScanPlan translateCorrelations(final TranslationMap translationMap,
                                                      final boolean shouldSimplifyValues,
-                                                     @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                     final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
         if (translationMap.definesOnlyIdentities()) {
             return this;
@@ -331,15 +317,13 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
         return matchCandidateOptional.isPresent();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
+    public RecordQueryPlan minimize(final List<Quantifier.Physical> newQuantifiers) {
         Verify.verify(newQuantifiers.isEmpty());
         return new RecordQueryScanPlan(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, strictlySorted,
                 Optional.empty());
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return new QueriedValue(flowedType);
@@ -347,8 +331,8 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -380,7 +364,10 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    // PlanHashable.objectsPlanHash's varargs aren't annotated @Nullable, but each
+    // element is hashed via objectPlanHash, which is explicitly null-safe.
+    @SuppressWarnings("NullAway")
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return comparisons.planHash(mode) + (reverse ? 1 : 0);
@@ -401,15 +388,13 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
         return 1;
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteExplainPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteExplainPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return rewritePlannerGraph(childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteInternalPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         Verify.verify(childGraphs.isEmpty());
 
         @Nullable final TupleRange tupleRange = comparisons.toTupleRangeWithoutContext();
@@ -471,9 +456,8 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
      * @return the rewritten planner graph that models scanned storage as a separate node that is connected to the
      *         actual scan plan node.
      */
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(List<? extends PlannerGraph> childGraphs) {
         Verify.verify(childGraphs.isEmpty());
 
         @Nullable final TupleRange tupleRange = comparisons.toTupleRangeWithoutContext();
@@ -518,9 +502,8 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
                         childGraphs)));
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryScanPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryScanPlan toProto(final PlanSerializationContext serializationContext) {
         final PRecordQueryScanPlan.Builder builder = PRecordQueryScanPlan.newBuilder();
         builder.setHasRecordTypes(recordTypes != null);
         if (recordTypes != null) {
@@ -538,15 +521,13 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setScanPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryScanPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PRecordQueryScanPlan recordQueryScanPlanProto) {
+    public static RecordQueryScanPlan fromProto(final PlanSerializationContext serializationContext,
+                                                final PRecordQueryScanPlan recordQueryScanPlanProto) {
         Verify.verify(recordQueryScanPlanProto.hasReverse());
         Verify.verify(recordQueryScanPlanProto.hasStrictlySorted());
         Verify.verify(recordQueryScanPlanProto.hasHasRecordTypes());
@@ -580,16 +561,14 @@ public class RecordQueryScanPlan extends AbstractRelationalExpressionWithoutChil
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryScanPlan, RecordQueryScanPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryScanPlan> getProtoMessageClass() {
             return PRecordQueryScanPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryScanPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final PRecordQueryScanPlan recordQueryScanPlanProto) {
+        public RecordQueryScanPlan fromProto(final PlanSerializationContext serializationContext,
+                                             final PRecordQueryScanPlan recordQueryScanPlanProto) {
             return RecordQueryScanPlan.fromProto(serializationContext, recordQueryScanPlanProto);
         }
     }

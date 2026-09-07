@@ -49,8 +49,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -73,7 +73,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 @Tag(Tags.RequiresFDB)
 public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
 
-    private void openRecordStore(@Nonnull FDBRecordContext context, @Nonnull RecordMetaDataHook hook) {
+    private void openRecordStore(FDBRecordContext context, RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecords8Proto.getDescriptor());
         hook.apply(metaData);
         createOrOpenRecordStore(context, metaData.getRecordMetaData());
@@ -285,6 +285,9 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     public void testCoveringIndexFunction() throws Exception {
         // This index parses each entry of str_array_field of the form "X:Y:Z" and produces a keyWithValue
         // index of the form X -> (Y, Z).
@@ -382,7 +385,6 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
      */
     @AutoService(FunctionKeyExpression.Factory.class)
     public static class TestFunctionRegistry implements FunctionKeyExpression.Factory {
-        @Nonnull
         @Override
         public List<FunctionKeyExpression.Builder> getBuilders() {
             return Collections.singletonList(new FunctionKeyExpression.BiFunctionBuilder("regex", RegexSplitter::new));
@@ -404,7 +406,7 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
         private final KeyExpression sourceExpression;
         private final Pattern pattern;
 
-        public RegexSplitter(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public RegexSplitter(String name, KeyExpression arguments) {
             super(name, arguments);
             if (!(arguments instanceof ThenKeyExpression)) {
                 throw new InvalidExpressionException("Expected concat() for arguments");
@@ -443,7 +445,7 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
                     .addLogInfo("argument_index", idx);
         }
 
-        private LiteralKeyExpression<?> getValue(@Nonnull List<KeyExpression> arguments, int idx) {
+        private LiteralKeyExpression<?> getValue(List<KeyExpression> arguments, int idx) {
             KeyExpression child = arguments.get(idx);
             if (!(child instanceof LiteralKeyExpression)) {
                 throw new InvalidExpressionException("Expected value() expression")
@@ -462,11 +464,10 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
             return Integer.MAX_VALUE;
         }
 
-        @Nonnull
         @Override
         public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
                                                                         @Nullable Message message,
-                                                                        @Nonnull Key.Evaluated arguments) {
+                                                                        Key.Evaluated arguments) {
             final String origValue = arguments.getString(0);
             final Matcher matcher  = pattern.matcher(origValue);
             if (! matcher.matches()) {
@@ -511,13 +512,12 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+        public int planHash(final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }

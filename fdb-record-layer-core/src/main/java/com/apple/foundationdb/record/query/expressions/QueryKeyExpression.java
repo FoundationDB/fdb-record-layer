@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.Bindings;
+import com.apple.foundationdb.record.Bindings.Internal;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -39,8 +40,8 @@ import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -49,10 +50,9 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class QueryKeyExpression {
-    @Nonnull
     protected final QueryableKeyExpression keyExpression;
 
-    public QueryKeyExpression(@Nonnull QueryableKeyExpression keyExpression) {
+    public QueryKeyExpression(QueryableKeyExpression keyExpression) {
         this.keyExpression = keyExpression;
     }
 
@@ -61,8 +61,7 @@ public class QueryKeyExpression {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent equalsValue(@Nonnull Object comparand) {
+    public QueryComponent equalsValue(Object comparand) {
         return simpleComparison(Comparisons.Type.EQUALS, comparand);
     }
 
@@ -71,8 +70,7 @@ public class QueryKeyExpression {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent notEquals(@Nonnull Object comparand) {
+    public QueryComponent notEquals(Object comparand) {
         return simpleComparison(Comparisons.Type.NOT_EQUALS, comparand);
     }
 
@@ -81,8 +79,7 @@ public class QueryKeyExpression {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent greaterThan(@Nonnull Object comparand) {
+    public QueryComponent greaterThan(Object comparand) {
         return simpleComparison(Comparisons.Type.GREATER_THAN, comparand);
     }
 
@@ -91,8 +88,7 @@ public class QueryKeyExpression {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent greaterThanOrEquals(@Nonnull Object comparand) {
+    public QueryComponent greaterThanOrEquals(Object comparand) {
         return simpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, comparand);
     }
 
@@ -101,8 +97,7 @@ public class QueryKeyExpression {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent lessThan(@Nonnull Object comparand) {
+    public QueryComponent lessThan(Object comparand) {
         return simpleComparison(Comparisons.Type.LESS_THAN, comparand);
     }
 
@@ -112,8 +107,7 @@ public class QueryKeyExpression {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent lessThanOrEquals(@Nonnull Object comparand) {
+    public QueryComponent lessThanOrEquals(Object comparand) {
         return simpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, comparand);
     }
 
@@ -122,8 +116,7 @@ public class QueryKeyExpression {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent startsWith(@Nonnull String comparand) {
+    public QueryComponent startsWith(String comparand) {
         return simpleComparison(Comparisons.Type.STARTS_WITH, comparand);
     }
 
@@ -131,7 +124,6 @@ public class QueryKeyExpression {
      * Returns true if the key expression evaluates to {@code null}.
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
     public QueryComponent isNull() {
         return nullComparison(Comparisons.Type.IS_NULL);
     }
@@ -140,7 +132,6 @@ public class QueryKeyExpression {
      * Returns true if the key expression does not evaluate to {@code null}.
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
     public QueryComponent notNull() {
         return nullComparison(Comparisons.Type.NOT_NULL);
     }
@@ -150,8 +141,7 @@ public class QueryKeyExpression {
      * @param param the name of the parameter
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent equalsParameter(@Nonnull String param) {
+    public QueryComponent equalsParameter(String param) {
         return parameterComparison(Comparisons.Type.EQUALS, param);
     }
 
@@ -159,7 +149,6 @@ public class QueryKeyExpression {
      * Add comparisons to one of the values returned by a multi-valued expression.
      * @return a builder for comparisons
      */
-    @Nonnull
     public OneOfThem oneOfThem() {
         return new OneOfThem();
     }
@@ -171,58 +160,47 @@ public class QueryKeyExpression {
         private OneOfThem() {
         }
 
-        @Nonnull
-        public QueryComponent equalsValue(@Nonnull Object comparand) {
+        public QueryComponent equalsValue(Object comparand) {
             return simpleComparison(Comparisons.Type.EQUALS, comparand);
         }
 
-        @Nonnull
-        public QueryComponent notEquals(@Nonnull Object comparand) {
+        public QueryComponent notEquals(Object comparand) {
             return simpleComparison(Comparisons.Type.NOT_EQUALS, comparand);
         }
 
-        @Nonnull
-        public QueryComponent greaterThan(@Nonnull Object comparand) {
+        public QueryComponent greaterThan(Object comparand) {
             return simpleComparison(Comparisons.Type.GREATER_THAN, comparand);
         }
 
-        @Nonnull
-        public QueryComponent greaterThanOrEquals(@Nonnull Object comparand) {
+        public QueryComponent greaterThanOrEquals(Object comparand) {
             return simpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, comparand);
         }
 
-        @Nonnull
-        public QueryComponent lessThan(@Nonnull Object comparand) {
+        public QueryComponent lessThan(Object comparand) {
             return simpleComparison(Comparisons.Type.LESS_THAN, comparand);
         }
 
-        @Nonnull
-        public QueryComponent lessThanOrEquals(@Nonnull Object comparand) {
+        public QueryComponent lessThanOrEquals(Object comparand) {
             return simpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, comparand);
         }
 
-        @Nonnull
-        public QueryComponent startsWith(@Nonnull String comparand) {
+        public QueryComponent startsWith(String comparand) {
             return simpleComparison(Comparisons.Type.STARTS_WITH, comparand);
         }
 
-        @Nonnull
         public QueryComponent isNull() {
             return nullComparison(Comparisons.Type.IS_NULL);
         }
 
-        @Nonnull
         public QueryComponent notNull() {
             return nullComparison(Comparisons.Type.NOT_NULL);
         }
 
-        @Nonnull
-        public QueryComponent equalsParameter(@Nonnull String param) {
+        public QueryComponent equalsParameter(String param) {
             return parameterComparison(Comparisons.Type.EQUALS, param);
         }
 
-        @Nonnull
-        private QueryKeyExpressionWithOneOfComparison simpleComparison(@Nonnull Comparisons.Type type, @Nonnull Object comparand) {
+        private QueryKeyExpressionWithOneOfComparison simpleComparison(Comparisons.Type type, Object comparand) {
             if (keyExpression.getComparandConversionFunction() != null) {
                 return new QueryKeyExpressionWithOneOfComparison(keyExpression, new ConversionSimpleComparison(type, comparand, keyExpression));
             } else {
@@ -230,13 +208,11 @@ public class QueryKeyExpression {
             }
         }
 
-        @Nonnull
-        private QueryKeyExpressionWithOneOfComparison nullComparison(@Nonnull Comparisons.Type type) {
+        private QueryKeyExpressionWithOneOfComparison nullComparison(Comparisons.Type type) {
             return new QueryKeyExpressionWithOneOfComparison(keyExpression, new Comparisons.NullComparison(type));
         }
 
-        @Nonnull
-        private QueryKeyExpressionWithOneOfComparison parameterComparison(@Nonnull Comparisons.Type type, @Nonnull String param) {
+        private QueryKeyExpressionWithOneOfComparison parameterComparison(Comparisons.Type type, String param) {
             if (keyExpression.getComparandConversionFunction() != null) {
                 return new QueryKeyExpressionWithOneOfComparison(keyExpression, new ConversionParameterComparison(type, param, keyExpression));
             } else {
@@ -245,8 +221,7 @@ public class QueryKeyExpression {
         }
     }
 
-    @Nonnull
-    protected QueryKeyExpressionWithComparison simpleComparison(@Nonnull Comparisons.Type type, @Nonnull Object comparand) {
+    protected QueryKeyExpressionWithComparison simpleComparison(Comparisons.Type type, Object comparand) {
         if (keyExpression.getComparandConversionFunction() != null) {
             return new QueryKeyExpressionWithComparison(keyExpression, new ConversionSimpleComparison(type, comparand, keyExpression));
         } else {
@@ -254,13 +229,11 @@ public class QueryKeyExpression {
         }
     }
 
-    @Nonnull
-    private QueryKeyExpressionWithComparison nullComparison(@Nonnull Comparisons.Type type) {
+    private QueryKeyExpressionWithComparison nullComparison(Comparisons.Type type) {
         return new QueryKeyExpressionWithComparison(keyExpression, new Comparisons.NullComparison(type));
     }
 
-    @Nonnull
-    protected QueryKeyExpressionWithComparison parameterComparison(@Nonnull Comparisons.Type type, @Nonnull String param) {
+    protected QueryKeyExpressionWithComparison parameterComparison(Comparisons.Type type, String param) {
         if (keyExpression.getComparandConversionFunction() != null) {
             return new QueryKeyExpressionWithComparison(keyExpression, new ConversionParameterComparison(type, param, keyExpression));
         } else {
@@ -270,24 +243,21 @@ public class QueryKeyExpression {
 
     private static final class ConversionSimpleComparison extends Comparisons.SimpleComparisonBase {
         private static final ObjectPlanHash CONVERSION_SIMPLE_COMPARISON_BASE_HASH = new ObjectPlanHash("Conversion-Simple-Comparison");
-        @Nonnull
         private final QueryableKeyExpression keyExpression;
-        @Nonnull
         private final Object unconvertedComparand;
 
-        public ConversionSimpleComparison(@Nonnull Comparisons.Type type, @Nonnull Object comparand,
-                                          @Nonnull QueryableKeyExpression keyExpression) {
-            super(type, keyExpression.getComparandConversionFunction().apply(comparand));
+        public ConversionSimpleComparison(Comparisons.Type type, Object comparand,
+                                          QueryableKeyExpression keyExpression) {
+            // Only ever constructed by call sites that have already checked getComparandConversionFunction() != null.
+            super(type, Objects.requireNonNull(keyExpression.getComparandConversionFunction()).apply(comparand));
             this.keyExpression = keyExpression;
             this.unconvertedComparand = comparand;
         }
 
-        @Nonnull
         private QueryableKeyExpression getKeyExpression() {
             return keyExpression;
         }
 
-        @Nonnull
         @Override
         public String typelessString() {
             return getKeyExpression().getName() + "(" + Comparisons.toPrintable(unconvertedComparand) + ")";
@@ -314,7 +284,7 @@ public class QueryKeyExpression {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                     return super.planHash(mode) + getKeyExpression().planHash(mode);
@@ -325,18 +295,16 @@ public class QueryKeyExpression {
             }
         }
 
-        @Nonnull
         @Override
-        public Comparisons.Comparison withType(@Nonnull final Comparisons.Type newType) {
+        public Comparisons.Comparison withType(final Comparisons.Type newType) {
             if (type == newType) {
                 return this;
             }
             return new ConversionSimpleComparison(newType, unconvertedComparand, keyExpression);
         }
 
-        @Nonnull
         @Override
-        public PConversionSimpleComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PConversionSimpleComparison toProto(final PlanSerializationContext serializationContext) {
             return PConversionSimpleComparison.newBuilder()
                     .setType(type.toProto(serializationContext))
                     .setObject(PlanSerialization.valueObjectToProto(unconvertedComparand))
@@ -344,15 +312,13 @@ public class QueryKeyExpression {
                     .build();
         }
 
-        @Nonnull
         @Override
-        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparison toComparisonProto(final PlanSerializationContext serializationContext) {
             return PComparison.newBuilder().setConversionSimpleComparison(toProto(serializationContext)).build();
         }
 
-        @Nonnull
-        public static ConversionSimpleComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                           @Nonnull final PConversionSimpleComparison simpleComparisonProto) {
+        public static ConversionSimpleComparison fromProto(final PlanSerializationContext serializationContext,
+                                                           final PConversionSimpleComparison simpleComparisonProto) {
             return new ConversionSimpleComparison(Comparisons.Type.fromProto(serializationContext, Objects.requireNonNull(simpleComparisonProto.getType())),
                     Objects.requireNonNull(PlanSerialization.protoToValueObject(Objects.requireNonNull(simpleComparisonProto.getObject()))),
                     (QueryableKeyExpression)KeyExpression.fromProto(simpleComparisonProto.getConversion()));
@@ -363,16 +329,14 @@ public class QueryKeyExpression {
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PConversionSimpleComparison, ConversionSimpleComparison> {
-            @Nonnull
             @Override
             public Class<PConversionSimpleComparison> getProtoMessageClass() {
                 return PConversionSimpleComparison.class;
             }
 
-            @Nonnull
             @Override
-            public ConversionSimpleComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                        @Nonnull final PConversionSimpleComparison conversionSimpleComparisonProto) {
+            public ConversionSimpleComparison fromProto(final PlanSerializationContext serializationContext,
+                                                        final PConversionSimpleComparison conversionSimpleComparisonProto) {
                 return ConversionSimpleComparison.fromProto(serializationContext, conversionSimpleComparisonProto);
             }
         }
@@ -380,42 +344,41 @@ public class QueryKeyExpression {
 
     private static final class ConversionParameterComparison extends Comparisons.ParameterComparisonBase {
         private static final ObjectPlanHash CONVERSION_PARAMETER_COMPARISON_BASE_HASH = new ObjectPlanHash("Conversion-Parameter-Comparison");
-        @Nonnull
         private final QueryableKeyExpression keyExpression;
-        @Nonnull
         private final Function<Object, Object> conversion;
 
-        protected ConversionParameterComparison(@Nonnull Comparisons.Type type, @Nonnull String parameter,
-                                                @Nullable Bindings.Internal internal,
-                                                @Nonnull ParameterRelationshipGraph parameterRelationshipGraph,
-                                                @Nonnull QueryableKeyExpression keyExpression) {
+        protected ConversionParameterComparison(Comparisons.Type type, String parameter,
+                                                @Nullable Internal internal,
+                                                ParameterRelationshipGraph parameterRelationshipGraph,
+                                                QueryableKeyExpression keyExpression) {
             super(type, parameter, internal, parameterRelationshipGraph);
             this.keyExpression = keyExpression;
             this.conversion = Objects.requireNonNull(keyExpression.getComparandConversionFunction());
         }
 
-        public ConversionParameterComparison(@Nonnull Comparisons.Type type,
-                                             @Nonnull String param,
-                                             @Nonnull ParameterRelationshipGraph parameterRelationshipGraph,
-                                             @Nonnull QueryableKeyExpression keyExpression) {
+        public ConversionParameterComparison(Comparisons.Type type,
+                                             String param,
+                                             ParameterRelationshipGraph parameterRelationshipGraph,
+                                             QueryableKeyExpression keyExpression) {
             this(type, param, null, parameterRelationshipGraph, keyExpression);
         }
 
-        public ConversionParameterComparison(@Nonnull Comparisons.Type type,
-                                             @Nonnull String param,
-                                             @Nonnull QueryableKeyExpression keyExpression) {
+        public ConversionParameterComparison(Comparisons.Type type,
+                                             String param,
+                                             QueryableKeyExpression keyExpression) {
             this(type, param, ParameterRelationshipGraph.unbound(), keyExpression);
-        }
-
-        @Nonnull
-        @Override
-        public Object getComparand(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context) {
-            return conversion.apply(super.getComparand(store, context));
         }
 
         @Nullable
         @Override
-        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
+            final Object comparand = super.getComparand(store, context);
+            return comparand == null ? null : conversion.apply(comparand);
+        }
+
+        @Nullable
+        @Override
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, EvaluationContext context, @Nullable Object value) {
             final Object comparand = context.getBinding(parameter);
             if (comparand == null) {
                 return null;
@@ -423,20 +386,17 @@ public class QueryKeyExpression {
             return Comparisons.evalComparison(getType(), value, conversion.apply(comparand));
         }
 
-        @Nonnull
         private QueryableKeyExpression getKeyExpression() {
             return keyExpression;
         }
 
-        @Nonnull
         @Override
         public String typelessString() {
             return getKeyExpression().getName() + "(" + super.typelessString() + ")";
         }
 
-        @Nonnull
         @Override
-        public Comparisons.Comparison withType(@Nonnull final Comparisons.Type newType) {
+        public Comparisons.Comparison withType(final Comparisons.Type newType) {
             if (type == newType) {
                 return this;
             }
@@ -464,7 +424,7 @@ public class QueryKeyExpression {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                     return super.planHash(mode) + getKeyExpression().planHash(mode);
@@ -475,9 +435,8 @@ public class QueryKeyExpression {
             }
         }
 
-        @Nonnull
         @Override
-        protected Comparisons.ParameterComparisonBase withTranslatedCorrelation(@Nonnull CorrelationIdentifier translatedAlias) {
+        protected Comparisons.ParameterComparisonBase withTranslatedCorrelation(CorrelationIdentifier translatedAlias) {
             return new ConversionParameterComparison(type,
                     Bindings.Internal.CORRELATION.bindingName(translatedAlias.getId()),
                     Bindings.Internal.CORRELATION,
@@ -485,16 +444,14 @@ public class QueryKeyExpression {
                     keyExpression);
         }
 
-        @Nonnull
         @Override
-        public Comparisons.Comparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
+        public Comparisons.Comparison withParameterRelationshipMap(final ParameterRelationshipGraph parameterRelationshipGraph) {
             Verify.verify(this.parameterRelationshipGraph.isUnbound());
             return new ConversionParameterComparison(type, parameter, internal, parameterRelationshipGraph, keyExpression);
         }
 
-        @Nonnull
         @Override
-        public PConversionParameterComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PConversionParameterComparison toProto(final PlanSerializationContext serializationContext) {
             final PConversionParameterComparison.Builder builder = PConversionParameterComparison.newBuilder()
                     .setType(type.toProto(serializationContext))
                     .setParameter(parameter)
@@ -505,15 +462,13 @@ public class QueryKeyExpression {
             return builder.build();
         }
 
-        @Nonnull
         @Override
-        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparison toComparisonProto(final PlanSerializationContext serializationContext) {
             return PComparison.newBuilder().setConversionParameterComparison(toProto(serializationContext)).build();
         }
 
-        @Nonnull
-        public static ConversionParameterComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                              @Nonnull final PConversionParameterComparison conversionParameterComparisonProto) {
+        public static ConversionParameterComparison fromProto(final PlanSerializationContext serializationContext,
+                                                              final PConversionParameterComparison conversionParameterComparisonProto) {
             final Bindings.Internal internal;
             if (conversionParameterComparisonProto.hasInternal()) {
                 internal = Bindings.Internal.fromProto(serializationContext, Objects.requireNonNull(conversionParameterComparisonProto.getInternal()));
@@ -533,16 +488,14 @@ public class QueryKeyExpression {
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PConversionParameterComparison, ConversionParameterComparison> {
-            @Nonnull
             @Override
             public Class<PConversionParameterComparison> getProtoMessageClass() {
                 return PConversionParameterComparison.class;
             }
 
-            @Nonnull
             @Override
-            public ConversionParameterComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                           @Nonnull final PConversionParameterComparison conversionParameterComparisonProto) {
+            public ConversionParameterComparison fromProto(final PlanSerializationContext serializationContext,
+                                                           final PConversionParameterComparison conversionParameterComparisonProto) {
                 return ConversionParameterComparison.fromProto(serializationContext, conversionParameterComparisonProto);
             }
         }

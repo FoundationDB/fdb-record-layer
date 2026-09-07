@@ -47,13 +47,14 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -82,7 +83,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 class FDBDatabaseTest {
-    @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseTest.class);
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
@@ -177,6 +177,9 @@ class FDBDatabaseTest {
 
     @ParameterizedTest(name = "cachedReadVersionWithRetryLoops [async = {0}]")
     @BooleanSource
+    // "return null;" below is the standard idiom for a Transaction -> Void lambda passed to
+    // Database.run; NullAway infers the lambda's type argument as non-null Void rather than @Nullable Void.
+    @SuppressWarnings("NullAway")
     void cachedReadVersionWithRetryLoops(boolean async) throws InterruptedException, ExecutionException {
         FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setTrackLastSeenVersion(true);
@@ -462,8 +465,11 @@ class FDBDatabaseTest {
         }
     }
 
-    private long getReadVersion(FDBDatabase database, Long minVersion, Long stalenessBoundMillis) {
-        FDBDatabase.WeakReadSemantics weakReadSemantics = minVersion == null ? null : new FDBDatabase.WeakReadSemantics(minVersion, stalenessBoundMillis, false);
+    private long getReadVersion(FDBDatabase database, @Nullable Long minVersion, @Nullable Long stalenessBoundMillis) {
+        // Every call site passes minVersion and stalenessBoundMillis together (both present or both absent);
+        // guard on both here so the constructor call below is never reached with one null and the other not.
+        FDBDatabase.WeakReadSemantics weakReadSemantics = minVersion == null || stalenessBoundMillis == null
+                ? null : new FDBDatabase.WeakReadSemantics(minVersion, stalenessBoundMillis, false);
         final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
                 .setWeakReadSemantics(weakReadSemantics)
                 .setMdcContext(MDC.getCopyOfContextMap())
@@ -490,7 +496,7 @@ class FDBDatabaseTest {
                 .addRepeater(5)
                 .build();
 
-        database.run(null, MDC.getCopyOfContextMap(), context -> {
+        try (FDBRecordContext context = database.openContext(MDC.getCopyOfContextMap(), null)) {
             FDBRecordStore store = FDBRecordStore.newBuilder()
                     .setMetaDataProvider(metaData)
                     .setContext(context)
@@ -498,23 +504,25 @@ class FDBDatabaseTest {
                     .createOrOpen();
             store.deleteAllRecords();
             store.saveRecord(simpleRecord);
-            return null;
-        });
+            context.commit();
+        }
         return simpleRecord;
     }
 
     private static TestRecords1Proto.MySimpleRecord retrieveSimpleRecord(FDBDatabase database, RecordMetaData metaData, KeySpacePath path, long recordNumber) {
         // Tests to make sure the database operations are run and committed.
-        return database.run(null, MDC.getCopyOfContextMap(), context -> {
+        try (FDBRecordContext context = database.openContext(MDC.getCopyOfContextMap(), null)) {
             FDBRecordStore store = FDBRecordStore.newBuilder()
                     .setMetaDataProvider(metaData)
                     .setContext(context)
                     .setKeySpacePath(path)
                     .build();
             TestRecords1Proto.MySimpleRecord.Builder builder = TestRecords1Proto.MySimpleRecord.newBuilder();
-            FDBStoredRecord<Message> rec = store.loadRecord(Tuple.from(recordNumber));
-            return builder.mergeFrom(rec.getRecord()).build();
-        });
+            FDBStoredRecord<Message> rec = Objects.requireNonNull(store.loadRecord(Tuple.from(recordNumber)));
+            TestRecords1Proto.MySimpleRecord result = builder.mergeFrom(rec.getRecord()).build();
+            context.commit();
+            return result;
+        }
     }
 
     @Test

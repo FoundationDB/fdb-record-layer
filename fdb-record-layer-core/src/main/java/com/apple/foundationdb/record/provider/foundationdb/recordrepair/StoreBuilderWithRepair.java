@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -44,9 +43,9 @@ public class StoreBuilderWithRepair extends FDBRecordStore.Builder {
      * @param userVersion the userVersion to use for repairing the header if necessary
      * @param minimumPossibleFormatVersion the minimumPossibleFormatVersion to use if necessary
      */
-    public StoreBuilderWithRepair(@Nonnull FDBRecordStore.Builder other,
+    public StoreBuilderWithRepair(FDBRecordStore.Builder other,
                                   final int userVersion,
-                                  @Nonnull FormatVersion minimumPossibleFormatVersion) {
+                                  FormatVersion minimumPossibleFormatVersion) {
         super(other);
         this.userVersion = userVersion;
         this.minimumPossibleFormatVersion = minimumPossibleFormatVersion;
@@ -59,7 +58,6 @@ public class StoreBuilderWithRepair extends FDBRecordStore.Builder {
      *
      * @return a future that will contain the opened store if successful
      */
-    @Nonnull
     @Override
     public CompletableFuture<FDBRecordStore> openAsync() {
         return repairMissingHeader(userVersion, minimumPossibleFormatVersion)

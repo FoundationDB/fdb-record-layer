@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitorWith
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 
@@ -62,7 +61,6 @@ public final class ContinuableWithoutDuplicatesProperty implements ExpressionPro
      * @return a visitor that returns {@code true} if the plan can be continued without producing duplicate records,
      *         {@code false} otherwise.
      */
-    @Nonnull
     @Override
     public RelationalExpressionVisitor<Boolean> createVisitor() {
         return ExpressionProperty.toExpressionVisitor(new ContinuableWithoutDuplicatesPropertyVisitor());
@@ -79,7 +77,7 @@ public final class ContinuableWithoutDuplicatesProperty implements ExpressionPro
      * @param recordQueryPlan the plan to evaluate.
      * @return {@code true} if the plan can be continued without producing duplicate records, {@code false} otherwise.
      */
-    public boolean evaluate(@Nonnull final RecordQueryPlan recordQueryPlan) {
+    public boolean evaluate(final RecordQueryPlan recordQueryPlan) {
         return createVisitor().visit(recordQueryPlan);
     }
 
@@ -88,7 +86,6 @@ public final class ContinuableWithoutDuplicatesProperty implements ExpressionPro
      *
      * @return the singleton {@link ContinuableWithoutDuplicatesProperty} instance.
      */
-    @Nonnull
     public static ContinuableWithoutDuplicatesProperty continuableWithoutDuplicates() {
         return CONTINUABLE_WITHOUT_DUPLICATES_PROPERTY;
     }
@@ -112,9 +109,8 @@ public final class ContinuableWithoutDuplicatesProperty implements ExpressionPro
          * @param unorderedPrimaryKeyDistinctPlan the plan to visit
          * @return {@code false} always
          */
-        @Nonnull
         @Override
-        public Boolean visitUnorderedPrimaryKeyDistinctPlan(@Nonnull final RecordQueryUnorderedPrimaryKeyDistinctPlan unorderedPrimaryKeyDistinctPlan) {
+        public Boolean visitUnorderedPrimaryKeyDistinctPlan(final RecordQueryUnorderedPrimaryKeyDistinctPlan unorderedPrimaryKeyDistinctPlan) {
             return false;
         }
 
@@ -125,9 +121,8 @@ public final class ContinuableWithoutDuplicatesProperty implements ExpressionPro
          * @param unorderedDistinctPlan the plan to visit
          * @return {@code false} always
          */
-        @Nonnull
         @Override
-        public Boolean visitUnorderedDistinctPlan(@Nonnull final RecordQueryUnorderedDistinctPlan unorderedDistinctPlan) {
+        public Boolean visitUnorderedDistinctPlan(final RecordQueryUnorderedDistinctPlan unorderedDistinctPlan) {
             return false;
         }
 
@@ -138,13 +133,12 @@ public final class ContinuableWithoutDuplicatesProperty implements ExpressionPro
          * @param recordQueryPlan the plan to visit
          * @return {@code true} if all children are continuable without duplicates, {@code false} otherwise
          */
-        @Nonnull
         @Override
-        public Boolean visitDefault(@Nonnull final RecordQueryPlan recordQueryPlan) {
+        public Boolean visitDefault(final RecordQueryPlan recordQueryPlan) {
             return fromChildren(recordQueryPlan.getChildren());
         }
 
-        private boolean fromChildren(@Nonnull final List<RecordQueryPlan> children) {
+        private boolean fromChildren(final List<RecordQueryPlan> children) {
             return children.stream().allMatch(this::visit);
         }
     }

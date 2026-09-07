@@ -38,6 +38,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -690,15 +692,15 @@ class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
         return createPlan(recordType, filter, null);
     }
 
-    private RecordQueryPlan createPlan(String recordType, QueryComponent filter, KeyExpression sort) {
+    private RecordQueryPlan createPlan(String recordType, QueryComponent filter, @Nullable KeyExpression sort) {
         return createPlan(recordType, filter, sort, null);
     }
 
-    private RecordQueryPlan createPlan(String recordType, QueryComponent filter, KeyExpression sort, List<KeyExpression> requiredResults) {
+    private RecordQueryPlan createPlan(String recordType, QueryComponent filter, @Nullable KeyExpression sort, @Nullable List<KeyExpression> requiredResults) {
         return createPlan(Collections.singletonList(recordType), filter, sort, requiredResults);
     }
 
-    private RecordQueryPlan createPlan(List<String> recordTypes, QueryComponent filter, KeyExpression sort, List<KeyExpression> requiredResults) {
+    private RecordQueryPlan createPlan(List<String> recordTypes, QueryComponent filter, @Nullable KeyExpression sort, @Nullable List<KeyExpression> requiredResults) {
         RecordQuery.Builder builder = RecordQuery.newBuilder()
                 .setRecordTypes(recordTypes)
                 .setFilter(filter);

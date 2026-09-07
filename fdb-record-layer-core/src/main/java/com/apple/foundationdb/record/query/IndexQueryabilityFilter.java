@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 
-import javax.annotation.Nonnull;
 
 /**
  * A filter used to determine whether an index should be considered when planning queries.
@@ -34,7 +33,7 @@ public interface IndexQueryabilityFilter {
 
     IndexQueryabilityFilter TRUE = new IndexQueryabilityFilter() {
         @Override
-        public boolean isQueryable(@Nonnull final Index index) {
+        public boolean isQueryable(final Index index) {
             return true;
         }
 
@@ -42,7 +41,7 @@ public interface IndexQueryabilityFilter {
 
     IndexQueryabilityFilter FALSE = new IndexQueryabilityFilter() {
         @Override
-        public boolean isQueryable(@Nonnull final Index index) {
+        public boolean isQueryable(final Index index) {
             return false;
         }
 
@@ -54,7 +53,7 @@ public interface IndexQueryabilityFilter {
      */
     IndexQueryabilityFilter DEFAULT = new IndexQueryabilityFilter() {
         @Override
-        public boolean isQueryable(@Nonnull final Index index) {
+        public boolean isQueryable(final Index index) {
             return index.getBooleanOption(IndexOptions.ALLOWED_FOR_QUERY_OPTION, true);
         }
 
@@ -66,6 +65,6 @@ public interface IndexQueryabilityFilter {
      * @param index an index
      * @return whether the given index should be considered by the planner
      */
-    boolean isQueryable(@Nonnull Index index);
+    boolean isQueryable(Index index);
 
 }

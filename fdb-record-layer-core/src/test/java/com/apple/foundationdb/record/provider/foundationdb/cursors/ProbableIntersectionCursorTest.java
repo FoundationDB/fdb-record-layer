@@ -38,12 +38,12 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -73,15 +73,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class ProbableIntersectionCursorTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(ProbableIntersectionCursorTest.class);
 
-    @Nonnull
-    private <T, C extends RecordCursor<T>> List<Function<byte[], RecordCursor<T>>> cursorsToFunctions(@Nonnull List<C> cursors) {
+    private <T, C extends RecordCursor<T>> List<Function<byte[], RecordCursor<T>>> cursorsToFunctions(List<C> cursors) {
         return cursors.stream()
                 .map(cursor -> (Function<byte[], RecordCursor<T>>)(bignore -> cursor))
                 .collect(Collectors.toList());
     }
 
-    @Nonnull
-    private <T, L extends List<T>> List<Function<byte[], RecordCursor<T>>> listsToFunctions(@Nonnull List<L> lists) {
+    private <T, L extends List<T>> List<Function<byte[], RecordCursor<T>>> listsToFunctions(List<L> lists) {
         return lists.stream()
                 .map(list -> (Function<byte[], RecordCursor<T>>)(continuation -> RecordCursor.fromList(list, continuation)))
                 .collect(Collectors.toList());
@@ -91,6 +89,9 @@ public class ProbableIntersectionCursorTest {
      * Show that a basic intersection succeeds.
      */
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     public void basicIntersection() {
         final FDBStoreTimer timer = new FDBStoreTimer();
         final Iterator<Integer> iterator1 = IntStream.iterate(0, x -> x + 2).limit(150).iterator();
@@ -109,7 +110,7 @@ public class ProbableIntersectionCursorTest {
         CompletableFuture<RecordCursorResult<Integer>> firstFuture = intersectionCursor.onNext();
         cursor2.fire();
         RecordCursorResult<Integer> firstResult = firstFuture.join();
-        assertEquals(0, (int)firstResult.get());
+        assertEquals(0, (int)Objects.requireNonNull(firstResult.get()));
         assertThat(firstResult.hasNext(), is(true));
         assertEquals(cursor1.getNext().getNoNextReason(), RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
         cursor2.fireAll(); // Intersection consumes second cursor as they come
@@ -117,7 +118,7 @@ public class ProbableIntersectionCursorTest {
         AtomicInteger falsePositives = new AtomicInteger();
         AsyncUtil.whileTrue(() -> intersectionCursor.onNext().thenApply(result -> {
             if (result.hasNext()) {
-                int value = result.get();
+                int value = Objects.requireNonNull(result.get());
                 assertEquals(0, value % 3); // every result *must* be divisible by 3
                 if (value % 2 != 0) {
                     falsePositives.incrementAndGet(); // most results should be divisible by 2
@@ -151,6 +152,10 @@ public class ProbableIntersectionCursorTest {
      * Test that the cursor can be resumed by deserializing its state from the continuation object.
      */
     @Test
+    // continuation is legitimately null on the first iteration below; Function<byte[], ...> does not
+    // declare its input as @Nullable, but ProbableIntersectionCursor.create() does accept a null
+    // continuation. NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     public void resumeFromContinuation() {
         final FDBStoreTimer timer = new FDBStoreTimer();
         final List<Integer> list1 = Arrays.asList(10, 2, 5, 6, 8, 19, 0);
@@ -193,6 +198,9 @@ public class ProbableIntersectionCursorTest {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     public void longLists() {
         final Random r = new Random(0xba5eba11);
 
@@ -222,7 +230,7 @@ public class ProbableIntersectionCursorTest {
                 AsyncUtil.whileTrue(() -> intersectionCursor.onNext().thenApply(result -> {
                     if (result.hasNext()) {
                         // Each value should be in at least one set and hopefully all
-                        int value = result.get();
+                        int value = Objects.requireNonNull(result.get());
                         assertThat(sets.stream().anyMatch(set -> set.contains(value)), is(true));
                         if (!actualIntersection.contains(value)) {
                             falsePositives.incrementAndGet();
@@ -250,11 +258,11 @@ public class ProbableIntersectionCursorTest {
         }
     }
 
-    private void verifyResults(@Nonnull RecordCursor<Integer> cursor, @Nonnull RecordCursor.NoNextReason expectedReason, int... expectedResults) {
+    private void verifyResults(RecordCursor<Integer> cursor, RecordCursor.NoNextReason expectedReason, int... expectedResults) {
         for (int expectedResult : expectedResults) {
             RecordCursorResult<Integer> result = cursor.getNext();
             assertThat(result.hasNext(), is(true));
-            assertEquals(expectedResult, (int)result.get());
+            assertEquals(expectedResult, (int)Objects.requireNonNull(result.get()));
             assertThat(result.getContinuation().isEnd(), is(false));
             assertNotNull(result.getContinuation().toBytes());
         }
@@ -270,6 +278,9 @@ public class ProbableIntersectionCursorTest {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     public void noNextReasons() {
         // Both one out of band limit reached
         RecordCursor<Integer> cursor = ProbableIntersectionCursor.create(Collections::singletonList,
@@ -333,6 +344,9 @@ public class ProbableIntersectionCursorTest {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     public void errorInChild() {
         CompletableFuture<Integer> future = new CompletableFuture<>();
         RecordCursor<Integer> cursor = ProbableIntersectionCursor.create(Collections::singletonList, Arrays.asList(
@@ -349,6 +363,9 @@ public class ProbableIntersectionCursorTest {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     public void errorAndLimitInChild() {
         CompletableFuture<Integer> future = new CompletableFuture<>();
         RecordCursor<Integer> cursor = ProbableIntersectionCursor.create(Collections::singletonList, Arrays.asList(
@@ -365,6 +382,9 @@ public class ProbableIntersectionCursorTest {
     }
 
     @Test
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     public void loopIterationWithLimit() throws ExecutionException, InterruptedException {
         FDBStoreTimer timer = new FDBStoreTimer();
         FirableCursor<Integer> secondCursor = new FirableCursor<>(RecordCursor.fromList(Arrays.asList(2, 1)));
@@ -378,7 +398,7 @@ public class ProbableIntersectionCursorTest {
         assertFalse(cursorResultFuture.isDone());
         secondCursor.fire();
         RecordCursorResult<Integer> cursorResult = cursorResultFuture.get();
-        assertEquals(1, (int)cursorResult.get());
+        assertEquals(1, (int)Objects.requireNonNull(cursorResult.get()));
 
         secondCursor.fire();
         cursorResult = cursor.getNext();

@@ -31,8 +31,8 @@ import com.google.common.base.Strings;
 import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
@@ -51,7 +51,6 @@ public class ValidationTestUtils {
     public static final int RECORD_ID_WITH_THREE_SPLITS = RECORD_INDEX_WITH_THREE_SPLITS + 1;
 
 
-    @Nonnull
     public static Stream<FormatVersion> formatVersions() {
         return Stream.of(
                 FormatVersion.RECORD_COUNT_KEY_ADDED, // 3
@@ -71,7 +70,6 @@ public class ValidationTestUtils {
      * bits 1-3 are the 1st (#1), 2nd (#2) or 3rd (#3) splits of a long (split) record
      * @return a stream of splits combinations
      */
-    @Nonnull
     public static Stream<BitSet> splitsToRemove() {
         return LongStream.range(1, 16).mapToObj(l -> toBitSet(l));
     }
@@ -157,12 +155,10 @@ public class ValidationTestUtils {
         return false;
     }
 
-    @Nonnull
     public static FDBRecordStoreTestBase.RecordMetaDataHook getRecordMetaDataHook(final boolean splitLongRecords) {
         return getRecordMetaDataHook(splitLongRecords, true);
     }
 
-    @Nonnull
     public static FDBRecordStoreTestBase.RecordMetaDataHook getRecordMetaDataHook(final boolean splitLongRecords, final boolean storeVersions) {
         return metaData -> {
             metaData.setSplitLongRecords(splitLongRecords);
@@ -220,11 +216,11 @@ public class ValidationTestUtils {
         assertRepairStats(stats, numValidResults, 0, null, 0, null);
     }
 
-    public static void assertRepairStats(RepairStatsResults stats, int numValidResults, int numResults1, String codeResults1) {
+    public static void assertRepairStats(RepairStatsResults stats, int numValidResults, int numResults1, @Nullable String codeResults1) {
         assertRepairStats(stats, numValidResults, numResults1, codeResults1, 0, null);
     }
 
-    public static void assertRepairStats(RepairStatsResults stats, int numValidResults, int numResults1, String codeResults1, int numResults2, String codeResults2) {
+    public static void assertRepairStats(RepairStatsResults stats, int numValidResults, int numResults1, @Nullable String codeResults1, int numResults2, @Nullable String codeResults2) {
         int numEntries = 0;
         if (numValidResults > 0) {
             Assertions.assertThat(stats.getStats()).containsEntry(RecordRepairResult.CODE_VALID, numValidResults);

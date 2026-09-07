@@ -32,13 +32,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -53,7 +54,12 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
  */
 class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuildIndexTest {
 
-    private void valueRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
+    // indexValue's lambda genuinely returns null when num_value_2 is absent, but it is passed to
+    // group() (declared in OnlineIndexerBuildIndexTest, outside this fix's scope) whose keyFunction
+    // parameter isn't annotated @Nullable; changing indexValue's declared type would mismatch that
+    // signature instead.
+    @SuppressWarnings("NullAway")
+    private void valueRebuild(List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                               int agents, boolean overlap, boolean splitLongRecords) {
         final OnlineIndexerTestRecordHandler<TestRecords1Proto.MySimpleRecord> recordHandler = OnlineIndexerTestSimpleRecordHandler.instance();
         Index index = new Index("newIndex", field("num_value_2"));
@@ -86,7 +92,7 @@ class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuildIndexTest {
                 for (int i = 0; i < queries.size(); i++) {
                     Integer value2 = (records.get(i).hasNumValue2()) ? records.get(i).getNumValue2() : null;
                     String planString = "SCAN(<,>) | TFILTER MySimpleRecord | QCFILTER " + ((value2 == null) ?  "num_value_2 IS_NULL" : "num_value_2 EQUALS " + value2);
-                    executeQuery(queries.get(i), planString, valueMap.get(value2));
+                    executeQuery(queries.get(i), planString, Objects.requireNonNull(valueMap.get(value2)));
                 }
                 context.commit();
             }
@@ -124,7 +130,7 @@ class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuildIndexTest {
                     for (int i = 0; i < updatedQueries.size(); i++) {
                         Integer value2 = (updatedRecords.get(i).hasNumValue2()) ? updatedRecords.get(i).getNumValue2() : null;
                         String planString = "SCAN(<,>) | TFILTER MySimpleRecord | QCFILTER " + ((value2 == null) ? "num_value_2 IS_NULL" : "num_value_2 EQUALS " + value2);
-                        executeQuery(updatedQueries.get(i), planString, updatedValueMap.get(value2));
+                        executeQuery(updatedQueries.get(i), planString, Objects.requireNonNull(updatedValueMap.get(value2)));
                     }
                 }
             }
@@ -134,7 +140,7 @@ class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuildIndexTest {
             try (FDBRecordContext context = openContext()) {
                 for (int i = 0; i < updatedQueries.size(); i++) {
                     Integer value2 = (updatedRecords.get(i).hasNumValue2()) ? updatedRecords.get(i).getNumValue2() : null;
-                    executeQuery(updatedQueries.get(i), "ISCAN(newIndex [[" + value2 + "],[" + value2 + "]])", updatedValueMap.get(value2));
+                    executeQuery(updatedQueries.get(i), "ISCAN(newIndex [[" + value2 + "],[" + value2 + "]])", Objects.requireNonNull(updatedValueMap.get(value2)));
                 }
                 RecordQuery sortQuery = RecordQuery.newBuilder()
                         .setRecordType("MySimpleRecord")
@@ -148,20 +154,20 @@ class OnlineIndexerBuildValueIndexTest extends OnlineIndexerBuildIndexTest {
         singleRebuild(recordHandler, records, recordsWhileBuilding, null, agents, overlap, splitLongRecords, index, null, beforeBuild, afterBuild, afterReadable);
     }
 
-    private void valueRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
+    private void valueRebuild(List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                               int agents, boolean overlap) {
         valueRebuild(records, recordsWhileBuilding, agents, overlap, false);
     }
 
-    private void valueRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding) {
+    private void valueRebuild(List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding) {
         valueRebuild(records, recordsWhileBuilding, 1, false);
     }
 
-    private void valueRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, boolean splitLongRecords) {
+    private void valueRebuild(List<TestRecords1Proto.MySimpleRecord> records, boolean splitLongRecords) {
         valueRebuild(records, null, 1, false, splitLongRecords);
     }
 
-    private void valueRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records) {
+    private void valueRebuild(List<TestRecords1Proto.MySimpleRecord> records) {
         valueRebuild(records, null);
     }
 

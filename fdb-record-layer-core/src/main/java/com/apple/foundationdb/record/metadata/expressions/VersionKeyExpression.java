@@ -37,8 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
 
@@ -60,7 +59,6 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
         // nothing to initialize
     }
 
-    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
         final Key.Evaluated version = record != null && record.hasVersion() ? Key.Evaluated.scalar(record.getVersion()) : Key.Evaluated.NULL;
@@ -73,7 +71,7 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
     }
 
     @Override
-    public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor descriptor) {
         return Collections.emptyList();
     }
 
@@ -86,37 +84,31 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
      * A <code>Version</code> expression with no grouping keys (mostly for evaluating record functions).
      * @return a {@link GroupingKeyExpression} with no grouping keys
      */
-    @Nonnull
     public GroupingKeyExpression ungrouped() {
         return UNGROUPED;
     }
 
-    @Nonnull
-    public GroupingKeyExpression groupBy(@Nonnull KeyExpression groupByFirst, @Nonnull KeyExpression... groupByRest) {
+    public GroupingKeyExpression groupBy(KeyExpression groupByFirst, KeyExpression... groupByRest) {
         return GroupingKeyExpression.of(this, groupByFirst, groupByRest);
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.Version toProto() throws SerializationException {
         return RecordKeyExpressionProto.Version.getDefaultInstance();
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
         return VERSION_PROTO;
     }
 
-    @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 
-    @Nonnull
     @Override
-    public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final Type baseType) {
+    public Value toValue(final CorrelationIdentifier baseAlias, final Type baseType) {
         return FieldValue.ofFieldName(QuantifiedObjectValue.of(baseAlias, baseType), PseudoField.ROW_VERSION.getFieldName());
     }
 
@@ -136,7 +128,7 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return 1;

@@ -30,10 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
-import com.google.common.collect.Iterables;
-
-import javax.annotation.Nonnull;
-import java.util.Objects;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.anyObject;
@@ -49,17 +45,13 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificationRule<FieldValue> {
-    @Nonnull
     private static final BindingMatcher<RecordConstructorValue> recordConstructorMatcher =
             recordConstructorValue(all(anyValue()));
 
-    @Nonnull
     private static final CollectionMatcher<Integer> fieldPathOrdinalsMatcher = all(anyObject());
 
-    @Nonnull
     private static final CollectionMatcher<Type> fieldPathTypesMatcher = all(anyObject());
 
-    @Nonnull
     private static final BindingMatcher<FieldValue> rootMatcher =
             ValueMatchers.fieldValueWithFieldPath(recordConstructorMatcher, fieldPathOrdinalsMatcher, fieldPathTypesMatcher);
 
@@ -68,7 +60,7 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
+    public void onMatch(final ValueSimplificationRuleCall call) {
         final var bindings = call.getBindings();
 
         final var fieldPathOrdinals = bindings.get(fieldPathOrdinalsMatcher);
@@ -77,8 +69,8 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
         Verify.verify(!fieldPathTypes.isEmpty());
         final var recordConstructor = bindings.get(recordConstructorMatcher);
 
-        final var firstFieldOrdinal = Objects.requireNonNull(Iterables.getFirst(fieldPathOrdinals, null));
-        final var fieldFieldType = Objects.requireNonNull(Iterables.getFirst(fieldPathTypes, null));
+        final var firstFieldOrdinal = fieldPathOrdinals.iterator().next();
+        final var fieldFieldType = fieldPathTypes.iterator().next();
         final var column = findColumn(recordConstructor, firstFieldOrdinal, fieldFieldType);
 
         final var root = bindings.get(rootMatcher);
@@ -93,8 +85,7 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
         }
     }
 
-    @Nonnull
-    private static Column<? extends Value> findColumn(@Nonnull final RecordConstructorValue recordConstructorValue, final int fieldOrdinal, @Nonnull Type fieldType) {
+    private static Column<? extends Value> findColumn(final RecordConstructorValue recordConstructorValue, final int fieldOrdinal, Type fieldType) {
         final var result = recordConstructorValue.getColumns().get(fieldOrdinal);
         Verify.verify(result.getField().getFieldType().equals(fieldType));
         return result;

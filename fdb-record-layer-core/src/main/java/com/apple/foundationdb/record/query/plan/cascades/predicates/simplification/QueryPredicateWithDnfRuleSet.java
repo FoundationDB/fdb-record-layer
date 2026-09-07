@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -58,12 +57,11 @@ public class QueryPredicateWithDnfRuleSet extends DefaultQueryPredicateRuleSet {
         this(COMPUTATION_WITH_DNF_RULES, COMPUTATION_WITH_DNF_DEPENDS_ON);
     }
 
-    protected QueryPredicateWithDnfRuleSet(@Nonnull final Set<? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>> abstractQueryPredicateRules,
-                                           @Nonnull final SetMultimap<? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>, ? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>> dependsOn) {
+    protected QueryPredicateWithDnfRuleSet(final Set<? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>> abstractQueryPredicateRules,
+                                           final SetMultimap<? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>, ? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>> dependsOn) {
         super(abstractQueryPredicateRules, dependsOn);
     }
 
-    @Nonnull
     public static QueryPredicateWithDnfRuleSet ofSimplificationRules() {
         return new QueryPredicateWithDnfRuleSet();
     }

@@ -58,9 +58,9 @@ import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
@@ -86,7 +86,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests for {@link RecordMetaDataBuilder}.
  */
 public class RecordMetaDataBuilderTest {
-    private RecordMetaDataBuilder createBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor,
+    private RecordMetaDataBuilder createBuilder(Descriptors.FileDescriptor fileDescriptor,
                                                 boolean useCounterBasedSubspaceKey) {
         RecordMetaDataBuilder builder = RecordMetaData.newBuilder();
         if (useCounterBasedSubspaceKey) {
@@ -331,6 +331,10 @@ public class RecordMetaDataBuilderTest {
     @Test
     public void localMetaData() throws Descriptors.DescriptorValidationException {
         // Record type moved from being imported to being present in the local descriptor
+        // RecordMetaData#toProto's excludedDependencies parameter is declared @Nullable FileDescriptor[]
+        // (a position NullAway does not reliably recognize as nullable), so the null literal below
+        // still trips the checker.
+        @SuppressWarnings("NullAway")
         RecordMetaDataProto.MetaData previouslyImportedMetaData = RecordMetaData.build(TestRecordsImportProto.getDescriptor()).toProto(null);
         RecordMetaDataBuilder nowFlatMetaData = RecordMetaData.newBuilder()
                 .setLocalFileDescriptor(TestRecordsImportFlatProto.getDescriptor())
@@ -342,6 +346,10 @@ public class RecordMetaDataBuilderTest {
         nowFlatMetaData.build(true);
 
         // Record type moved from the descriptor to being in an imported file
+        // RecordMetaData#toProto's excludedDependencies parameter is declared @Nullable FileDescriptor[]
+        // (a position NullAway does not reliably recognize as nullable), so the null literal below
+        // still trips the checker.
+        @SuppressWarnings("NullAway")
         RecordMetaDataProto.MetaData previouslyFlatMetaData = RecordMetaData.build(TestRecordsImportFlatProto.getDescriptor()).toProto(null);
         RecordMetaDataBuilder nowImportedMetaData = RecordMetaData.newBuilder()
                 .setLocalFileDescriptor(TestRecordsImportProto.getDescriptor())
@@ -353,6 +361,10 @@ public class RecordMetaDataBuilderTest {
         nowImportedMetaData.build(true);
 
         // The original meta-data
+        // RecordMetaData#toProto's excludedDependencies parameter is declared @Nullable FileDescriptor[]
+        // (a position NullAway does not reliably recognize as nullable), so the null literal below
+        // still trips the checker.
+        @SuppressWarnings("NullAway")
         RecordMetaDataProto.MetaData originalMetaData = RecordMetaData.build(TestRecords1Proto.getDescriptor()).toProto(null);
 
         // Evolve the local file descriptor by adding a record type to the union
@@ -490,7 +502,8 @@ public class RecordMetaDataBuilderTest {
         assertSame(TestRecords1EvolvedProto.getDescriptor(), recordMetaData.getRecordType("MySimpleRecord").getDescriptor().getFile());
         assertSame(TestRecords1EvolvedProto.getDescriptor(), recordMetaData.getRecordType("MyOtherRecord").getDescriptor().getFile());
         assertSame(TestRecords1EvolvedProto.getDescriptor(), recordMetaData.getRecordType("AnotherRecord").getDescriptor().getFile());
-        assertEquals(recordMetaData.getVersion(), recordMetaData.getRecordType("AnotherRecord").getSinceVersion().intValue());
+        // AnotherRecord was just added by updateRecords() above, so it is always stamped with a since-version
+        assertEquals(recordMetaData.getVersion(), Objects.requireNonNull(recordMetaData.getRecordType("AnotherRecord").getSinceVersion()).intValue());
         assertThat(recordMetaData.getRecordType("AnotherRecord").getSinceVersion(), greaterThan(prevVersion));
 
         MetaDataException e = assertThrows(MetaDataException.class, () -> RecordMetaData.newBuilder()
@@ -664,7 +677,8 @@ public class RecordMetaDataBuilderTest {
         Object formerSubspaceKey = formerIndexBuilder.getIndex("MySimpleRecord$num_value_3_indexed").getSubspaceKey();
         formerIndexBuilder.removeIndex("MySimpleRecord$num_value_3_indexed");
         final RecordMetaData metaDataWithFormerIndex = formerIndexBuilder.build(true);
-        FormerIndex formerIndex = metaDataWithFormerIndex.getFormerIndexes().stream().filter(index -> index.getFormerName().equals("MySimpleRecord$num_value_3_indexed")).findFirst().get();
+        // Only one index was removed, so it is the only former index and is guaranteed to have a former name
+        FormerIndex formerIndex = metaDataWithFormerIndex.getFormerIndexes().stream().filter(index -> Objects.requireNonNull(index.getFormerName()).equals("MySimpleRecord$num_value_3_indexed")).findFirst().get();
         assertEquals(formerSubspaceKey, formerIndex.getSubspaceKey());
 
         // A common case that user had some existing meta-data in which all indexes had implicit subspace keys, and the user now decides to enable this feature.

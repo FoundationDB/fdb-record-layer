@@ -21,4 +21,7 @@
 /**
  * Classes relating to bitmap operations over {@code BITMAP_VALUE} index entries.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.bitmap;
+
+import org.jspecify.annotations.NullMarked;

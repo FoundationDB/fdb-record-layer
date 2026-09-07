@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -76,15 +75,14 @@ public interface FDBRecordStoreStateCache {
      * @return a future that will complete with the cached store state
      */
     @API(API.Status.INTERNAL)
-    @Nonnull
-    CompletableFuture<FDBRecordStoreStateCacheEntry> get(@Nonnull FDBRecordStore recordStore,
-                                                         @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck);
+    CompletableFuture<FDBRecordStoreStateCacheEntry> get(FDBRecordStore recordStore,
+                                                         FDBRecordStoreBase.StoreExistenceCheck existenceCheck);
 
     @API(API.Status.INTERNAL)
-    void validateDatabase(@Nonnull FDBDatabase database);
+    void validateDatabase(FDBDatabase database);
 
     @API(API.Status.INTERNAL)
-    default void validateContext(@Nonnull FDBRecordContext context) {
+    default void validateContext(FDBRecordContext context) {
         validateDatabase(context.getDatabase());
     }
 

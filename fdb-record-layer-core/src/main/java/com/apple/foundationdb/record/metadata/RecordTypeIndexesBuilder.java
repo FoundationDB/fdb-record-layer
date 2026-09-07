@@ -20,8 +20,7 @@
 
 package com.apple.foundationdb.record.metadata;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,34 +36,29 @@ import java.util.List;
  */
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
 public abstract class RecordTypeIndexesBuilder {
-    @Nonnull
     protected final String name;
-    @Nonnull
     protected final List<Index> indexes;
-    @Nonnull
     protected final List<Index> multiTypeIndexes;
     @Nullable
     protected Object recordTypeKey;
 
-    protected RecordTypeIndexesBuilder(@Nonnull String name) {
+    protected RecordTypeIndexesBuilder(String name) {
         this.name = name;
         this.indexes = new ArrayList<>();
         this.multiTypeIndexes = new ArrayList<>();
     }
 
-    protected RecordTypeIndexesBuilder(@Nonnull String name, @Nonnull RecordTypeIndexesBuilder other) {
+    protected RecordTypeIndexesBuilder(String name, RecordTypeIndexesBuilder other) {
         this.name = name;
         this.indexes = new ArrayList<>(other.indexes);
         this.multiTypeIndexes = new ArrayList<>(other.multiTypeIndexes);
         this.recordTypeKey = other.recordTypeKey;
     }
 
-    @Nonnull
     public String getName() {
         return name;
     }
 
-    @Nonnull
     public List<Index> getIndexes() {
         return indexes;
     }
@@ -73,7 +67,6 @@ public abstract class RecordTypeIndexesBuilder {
      * The {@link Index}es that this record type is on that also contain other record types.
      * @return a list of all indexes that include this record type along with other types.
      */
-    @Nonnull
     public List<Index> getMultiTypeIndexes() {
         return multiTypeIndexes;
     }

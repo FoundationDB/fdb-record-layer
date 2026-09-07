@@ -38,14 +38,14 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.Descriptors;
+import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.Optional;
 
@@ -104,7 +104,6 @@ public class QueryResult implements ProtoSerializable {
      * @param <M> Protobuf class for the record message type
      * @return an optional that potentially contains the object narrowed to the requested class
      */
-    @Nonnull
     public <M extends Message> Optional<FDBQueriedRecord<M>> getQueriedRecordMaybe() {
         return Optional.ofNullable(getQueriedRecord());
     }
@@ -124,8 +123,8 @@ public class QueryResult implements ProtoSerializable {
      * @param clazz class object for target type
      * @return the object narrowed to the requested class
      */
-    @Nonnull
-    public <T> T get(@Nonnull final Class<? extends T> clazz) {
+    @Nullable
+    public <T> T get(final Class<? extends T> clazz) {
         return clazz.cast(datum);
     }
 
@@ -135,10 +134,9 @@ public class QueryResult implements ProtoSerializable {
      * @param clazz class object for target type
      * @return an optional that potentially contains the object narrowed to the requested class
      */
-    @Nonnull
-    public <T> Optional<T> getMaybe(@Nonnull final Class<? extends T> clazz) {
+    public <T> Optional<T> getMaybe(final Class<? extends T> clazz) {
         if (clazz.isInstance(datum)) {
-            return Optional.of(get(clazz));
+            return Optional.ofNullable(get(clazz));
         }
         return Optional.empty();
     }
@@ -184,13 +182,11 @@ public class QueryResult implements ProtoSerializable {
         return null;
     }
 
-    @Nonnull
     public QueryResult withComputed(@Nullable final Object computed) {
         return new QueryResult(computed, queriedRecord, primaryKey);
     }
 
-    @Nonnull
-    public static QueryResult from(@Nullable final Descriptors.Descriptor descriptor, @Nonnull final PQueryResult parsed) {
+    public static QueryResult from(@Nullable final Descriptor descriptor, final PQueryResult parsed) {
         try {
             if (parsed.hasPrimitive()) {
                 return QueryResult.ofComputed(PlanSerialization.protoToValueObject(parsed.getPrimitive()));
@@ -198,24 +194,24 @@ public class QueryResult implements ProtoSerializable {
                 return QueryResult.ofComputed(DynamicMessage.parseFrom(Verify.verifyNotNull(descriptor), parsed.getComplex()));
             }
         } catch (InvalidProtocolBufferException ex) {
+            // toByteArray() never returns null, so loggable() (only null for a null array) can't either.
             throw new RecordCoreException("invalid bytes", ex)
-                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(parsed.toByteArray()));
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(parsed.toByteArray())));
         }
     }
 
 
-    @Nonnull
-    public static QueryResult from(@Nullable final Descriptors.Descriptor descriptor, @Nonnull final ByteString byteString) {
+    public static QueryResult from(@Nullable final Descriptor descriptor, final ByteString byteString) {
         try {
             return from(descriptor, PQueryResult.parseFrom(byteString));
         } catch (InvalidProtocolBufferException ex) {
+            // toByteArray() never returns null, so loggable() (only null for a null array) can't either.
             throw new RecordCoreException("invalid bytes", ex)
-                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(byteString.toByteArray()));
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(byteString.toByteArray())));
         }
     }
 
-    @Nonnull
-    public static QueryResult from(@Nullable final Descriptors.Descriptor descriptor, @Nonnull final byte[] unparsed) {
+    public static QueryResult from(@Nullable final Descriptor descriptor, final byte[] unparsed) {
         return from(descriptor, ZeroCopyByteString.wrap(unparsed));
     }
 
@@ -224,7 +220,6 @@ public class QueryResult implements ProtoSerializable {
      * @param computed the given computed result
      * @return the newly created query result
      */
-    @Nonnull
     public static QueryResult ofComputed(@Nullable final Object computed) {
         return new QueryResult(computed, null, null);
     }
@@ -235,7 +230,6 @@ public class QueryResult implements ProtoSerializable {
      * @param primaryKey a primary key (if available) or {@code null}
      * @return the newly created query result
      */
-    @Nonnull
     public static QueryResult ofComputed(@Nullable final Object computed, @Nullable final Tuple primaryKey) {
         return new QueryResult(computed, null, primaryKey);
     }
@@ -252,8 +246,7 @@ public class QueryResult implements ProtoSerializable {
      * @see PseudoField for information on the fields that are copied out of the queried record but are not in the
      *    main definition
      */
-    @Nonnull
-    public static QueryResult fromQueriedRecord(@Nonnull Type resultType, @Nonnull EvaluationContext evaluationContext, @Nullable final FDBQueriedRecord<?> queriedRecord) {
+    public static QueryResult fromQueriedRecord(Type resultType, EvaluationContext evaluationContext, @Nullable final FDBQueriedRecord<?> queriedRecord) {
         if (queriedRecord == null) {
             return new QueryResult(null, null, null);
         }
@@ -280,7 +273,6 @@ public class QueryResult implements ProtoSerializable {
         return new QueryResult(datum, queriedRecord, queriedRecord.getPrimaryKey());
     }
 
-    @Nonnull
     @Override
     public PQueryResult toProto() {
         if (cachedProto == null) {

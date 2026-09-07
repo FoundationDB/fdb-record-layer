@@ -37,8 +37,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.BitSet;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -124,7 +124,6 @@ public class RecordValidatorTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
     public static Stream<Arguments> splitNumberAndFormatVersion() {
         return ParameterizedTestUtils.cartesianProduct(
                 Stream.of(0, 1, 2),
@@ -399,11 +398,11 @@ public class RecordValidatorTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void validateRecordVersion(final FDBRecordStore store, final Tuple primaryKey, final @Nonnull String expectedValidationCode, final String expectedRepairCode) {
+    private void validateRecordVersion(final FDBRecordStore store, final Tuple primaryKey, final String expectedValidationCode, @Nullable final String expectedRepairCode) {
         validate(expectedValidationCode, expectedRepairCode, new RecordVersionValidator(store), primaryKey);
     }
 
-    private void validateRecordValue(final FDBRecordStore store, final Tuple primaryKey, final @Nonnull String expectedValidationCode, final String expectedRepairCode) {
+    private void validateRecordValue(final FDBRecordStore store, final Tuple primaryKey, final String expectedValidationCode, @Nullable final String expectedRepairCode) {
         validate(expectedValidationCode, expectedRepairCode, new RecordValueValidator(store), primaryKey);
     }
 
@@ -425,7 +424,6 @@ public class RecordValidatorTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
     private List<FDBStoredRecord<Message>> saveRecords(final boolean splitLongRecords, FormatVersion formatVersion, final RecordMetaDataHook hook) throws Exception {
         List<FDBStoredRecord<Message>> result;
         try (FDBRecordContext context = openContext()) {

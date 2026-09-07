@@ -26,8 +26,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -40,15 +40,15 @@ public abstract class AndOrComponent extends SimpleComponentWithChildren impleme
 
     protected abstract boolean isOr();
 
-    public AndOrComponent(@Nonnull List<QueryComponent> operands) {
+    public AndOrComponent(List<QueryComponent> operands) {
         super(operands);
     }
 
     @Nullable
-    private Boolean evalInternal(@Nonnull Function<QueryComponent, Boolean> evalChildFunction) {
-        Boolean retVal = !isOr();
+    private Boolean evalInternal(Function<QueryComponent, @Nullable Boolean> evalChildFunction) {
+        @Nullable Boolean retVal = !isOr();
         for (QueryComponent child : getChildren()) {
-            final Boolean val = evalChildFunction.apply(child);
+            @Nullable final Boolean val = evalChildFunction.apply(child);
             if (val == null) {
                 retVal = null;
             } else if (val) {
@@ -66,14 +66,13 @@ public abstract class AndOrComponent extends SimpleComponentWithChildren impleme
 
     @Nullable
     @Override
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+    public <M extends Message> Boolean evalMessage(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                    @Nullable FDBRecord<M> rec, @Nullable Message message) {
         return evalInternal(child -> (child.evalMessage(store, context, rec, message)));
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
+    public <M extends Message> CompletableFuture<Boolean> evalMessageAsync(FDBRecordStoreBase<M> store, EvaluationContext context,
                                                                            @Nullable FDBRecord<M> rec, @Nullable Message message) {
         return new AsyncBoolean<>(isOr(),
                 getChildren(),

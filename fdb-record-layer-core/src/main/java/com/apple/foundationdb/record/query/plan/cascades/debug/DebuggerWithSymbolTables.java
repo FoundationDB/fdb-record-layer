@@ -40,8 +40,8 @@ import com.google.common.collect.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -57,6 +57,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
 
@@ -75,6 +76,7 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     private final boolean isSane;
     private final boolean isRecordEvents;
+    @Nullable
     private final Iterable<PPlannerEvent> prerecordedEventProtoIterable;
     private final Deque<RegisteredEntities> registeredEntitiesStack;
 
@@ -82,7 +84,6 @@ public class DebuggerWithSymbolTables implements Debugger {
     private String queryAsString;
     @Nullable
     private PlanContext planContext;
-    @Nonnull
     private final Map<Object, Integer> singletonToIndexMap;
 
     private DebuggerWithSymbolTables(final boolean isSane, final boolean isRecordEvents,
@@ -96,7 +97,6 @@ public class DebuggerWithSymbolTables implements Debugger {
         this.singletonToIndexMap = Maps.newHashMap();
     }
 
-    @Nonnull
     RegisteredEntities getCurrentRegisteredEntities() {
         return Objects.requireNonNull(registeredEntitiesStack.peek());
     }
@@ -117,32 +117,32 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     @Override
-    public int onGetIndex(@Nonnull final Class<?> clazz) {
+    public int onGetIndex(final Class<?> clazz) {
         return getCurrentRegisteredEntities().getIndex(clazz);
     }
 
     @Override
-    public int onUpdateIndex(@Nonnull final Class<?> clazz, @Nonnull final IntUnaryOperator updateFn) {
+    public int onUpdateIndex(final Class<?> clazz, final IntUnaryOperator updateFn) {
         return getCurrentRegisteredEntities().updateIndex(clazz, updateFn);
     }
 
     @Override
-    public void onRegisterExpression(@Nonnull final RelationalExpression expression) {
+    public void onRegisterExpression(final RelationalExpression expression) {
         getCurrentRegisteredEntities().registerExpression(expression);
     }
 
     @Override
-    public void onRegisterReference(@Nonnull final Reference reference) {
+    public void onRegisterReference(final Reference reference) {
         getCurrentRegisteredEntities().registerReference(reference);
     }
 
     @Override
-    public void onRegisterQuantifier(@Nonnull final Quantifier quantifier) {
+    public void onRegisterQuantifier(final Quantifier quantifier) {
         getCurrentRegisteredEntities().registerQuantifier(quantifier);
     }
 
     @Override
-    public int onGetOrRegisterSingleton(@Nonnull final Object singleton) {
+    public int onGetOrRegisterSingleton(final Object singleton) {
         final var size = singletonToIndexMap.size();
         return singletonToIndexMap.computeIfAbsent(singleton, s -> size);
     }
@@ -158,12 +158,12 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     @Override
-    public void onShow(@Nonnull final Reference ref) {
+    public void onShow(final Reference ref) {
         // do nothing
     }
 
     @Override
-    public void onQuery(@Nonnull final String recordQuery, @Nonnull final PlanContext planContext) {
+    public void onQuery(final String recordQuery, final PlanContext planContext) {
         this.registeredEntitiesStack.push(RegisteredEntities.copyOf(getCurrentRegisteredEntities()));
         this.queryAsString = recordQuery;
         this.planContext = planContext;
@@ -220,12 +220,11 @@ public class DebuggerWithSymbolTables implements Debugger {
         }
     }
 
-    @Nonnull
-    String nameForObjectOrNotInCache(@Nonnull final Object object) {
+    String nameForObjectOrNotInCache(final Object object) {
         return Optional.ofNullable(nameForObject(object)).orElse("not in cache");
     }
 
-    boolean isValidEntityName(@Nonnull final String identifier) {
+    boolean isValidEntityName(final String identifier) {
         final String lowerCase = identifier.toLowerCase(Locale.ROOT);
         if (!lowerCase.startsWith("exp") &&
                 !lowerCase.startsWith("ref") &&
@@ -238,7 +237,7 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     @Nullable
     @Override
-    public String nameForObject(@Nonnull final Object object) {
+    public String nameForObject(final Object object) {
         final RegisteredEntities registeredEntities = getCurrentRegisteredEntities();
         if (object instanceof RelationalExpression) {
             @Nullable final Integer id = registeredEntities.getInvertedExpressionsCache().getIfPresent(object);
@@ -292,14 +291,12 @@ public class DebuggerWithSymbolTables implements Debugger {
         }
     }
 
-    @Nonnull
-    private static Iterable<PPlannerEvent> eventProtosFromFile(@Nonnull final String fileName) {
+    private static Iterable<PPlannerEvent> eventProtosFromFile(final String fileName) {
         return () -> readEventsDelimitedFromFile(fileName);
     }
 
     @SuppressWarnings({"resource", "PMD.CloseResource"})
-    @Nonnull
-    private static Iterator<PPlannerEvent> readEventsDelimitedFromFile(@Nonnull final String fileName) {
+    private static Iterator<PPlannerEvent> readEventsDelimitedFromFile(final String fileName) {
         final var file = new File(fileName);
         final FileInputStream fis;
         try {
@@ -339,9 +336,8 @@ public class DebuggerWithSymbolTables implements Debugger {
         }
     }
 
-    @Nonnull
     @SuppressWarnings({"PMD.AvoidPrintStackTrace", "unused", "CallToPrintStackTrace"})
-    private <T> Optional<T> getSilently(@Nonnull final String actionName, @Nonnull final SupplierWithException<T> supplier) {
+    private <T> Optional<T> getSilently(final String actionName, final SupplierWithException<T> supplier) {
         try {
             return Optional.ofNullable(supplier.get());
         } catch (final RestartException rE) {
@@ -355,35 +351,33 @@ public class DebuggerWithSymbolTables implements Debugger {
         }
     }
 
-    @Nonnull
     public static DebuggerWithSymbolTables withoutSanityChecks() {
         return new DebuggerWithSymbolTables(true, false, null);
     }
 
-    @Nonnull
     public static DebuggerWithSymbolTables withSanityChecks() {
         return new DebuggerWithSymbolTables(false, false, null);
     }
 
-    @Nonnull
     public static DebuggerWithSymbolTables withEventRecording() {
         return new DebuggerWithSymbolTables(true, true, null);
     }
 
-    @Nonnull
-    public static DebuggerWithSymbolTables withPrerecordedEvents(@Nonnull final String fileName) {
+    public static DebuggerWithSymbolTables withPrerecordedEvents(final String fileName) {
         return new DebuggerWithSymbolTables(true, true, fileName);
     }
 
-    public static void printForEachExpression(@Nonnull final Reference root) {
+    public static void printForEachExpression(final Reference root) {
         forEachExpression(root, expression -> {
             System.out.println("expression: " +
-                    Debugger.mapDebugger(debugger -> debugger.nameForObject(expression)).orElseThrow() + "; " +
+                    Debugger.mapDebugger(debugger -> Optional.ofNullable(debugger.nameForObject(expression)))
+                            .flatMap(Function.identity())
+                            .orElseThrow() + "; " +
                     "hashCodeWithoutChildren: " + expression.hashCodeWithoutChildren() + "explain: " + expression);
         });
     }
 
-    public static void forEachExpression(@Nonnull final Reference root, @Nonnull final Consumer<RelationalExpression> consumer) {
+    public static void forEachExpression(final Reference root, final Consumer<RelationalExpression> consumer) {
         final var references = referencesAndDependencies().evaluate(root);
         final var referenceList = TopologicalSort.anyTopologicalOrderPermutation(references).orElseThrow();
         for (final var reference : referenceList) {
@@ -392,7 +386,6 @@ public class DebuggerWithSymbolTables implements Debugger {
             }
         }
     }
-
 
     @FunctionalInterface
     private interface SupplierWithException<T> {

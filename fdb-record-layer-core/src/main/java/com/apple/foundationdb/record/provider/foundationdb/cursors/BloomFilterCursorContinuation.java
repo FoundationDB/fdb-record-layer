@@ -23,32 +23,30 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.google.protobuf.ByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
-import static com.apple.foundationdb.record.RecordCursorProto.ProbableIntersectionContinuation;
+import static com.apple.foundationdb.record.RecordCursorProto.ProbableIntersectionContinuation.CursorState;
 
 class BloomFilterCursorContinuation implements RecordCursorContinuation {
-    @Nonnull
     private final RecordCursorContinuation childContinuation;
     @Nullable
     private final ByteString bloomBytes;
     @Nullable
-    private ProbableIntersectionContinuation.CursorState cachedProto;
+    private CursorState cachedProto;
     @Nullable
     private byte[] cachedBytes;
     @Nullable
     private ByteString cachedByteString;
 
-    BloomFilterCursorContinuation(@Nonnull RecordCursorContinuation childContinuation, @Nullable ByteString bloomBytes) {
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
+    BloomFilterCursorContinuation(RecordCursorContinuation childContinuation, @Nullable ByteString bloomBytes) {
         this.childContinuation = childContinuation;
         this.bloomBytes = bloomBytes;
     }
 
-    @Nonnull
-    ProbableIntersectionContinuation.CursorState toProto() {
+    CursorState toProto() {
         if (cachedProto == null) {
-            ProbableIntersectionContinuation.CursorState.Builder builder = ProbableIntersectionContinuation.CursorState.newBuilder();
+            CursorState.Builder builder = CursorState.newBuilder();
             if (childContinuation.isEnd()) {
                 builder.setExhausted(true);
             } else {
@@ -75,7 +73,6 @@ class BloomFilterCursorContinuation implements RecordCursorContinuation {
     }
 
     @Override
-    @Nonnull
     public ByteString toByteString() {
         if (cachedByteString == null) {
             cachedByteString = toProto().toByteString();
@@ -83,7 +80,6 @@ class BloomFilterCursorContinuation implements RecordCursorContinuation {
         return cachedByteString;
     }
 
-    @Nonnull
     RecordCursorContinuation getChild() {
         return childContinuation;
     }

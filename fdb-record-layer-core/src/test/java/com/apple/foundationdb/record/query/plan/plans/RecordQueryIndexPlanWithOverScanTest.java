@@ -50,9 +50,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.stream.Stream;
 
@@ -85,6 +86,9 @@ class RecordQueryIndexPlanWithOverScanTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "basicScanTest[reverse={0}]")
     @BooleanSource
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     void basicScanTest(boolean reverse) throws Exception {
         setupSimpleRecordStore(NO_HOOK, (i, builder) ->
                 builder.setRecNo(i).setStrValueIndexed((char)('a' + (i % 26)) + "_suffix"));
@@ -116,6 +120,9 @@ class RecordQueryIndexPlanWithOverScanTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "coveringIndexScanTest[reverse={0}]")
     @BooleanSource
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     void coveringIndexScanTest(boolean reverse) throws Exception {
         setupSimpleRecordStore(NO_HOOK, (i, builder) ->
                 builder.setRecNo(i).setStrValueIndexed(i % 2 == 0 ? "foo" : "bar"));
@@ -154,6 +161,9 @@ class RecordQueryIndexPlanWithOverScanTest extends FDBRecordStoreQueryTestBase {
      */
     @ParameterizedTest(name = "evaluateMultipleParameters[reverse={0}]")
     @BooleanSource
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     void evaluateMultipleParameters(boolean reverse) throws Exception {
         final Index compoundIndex = new Index("compoundIndex", Key.Expressions.concat(Key.Expressions.field("str_value_indexed"), Key.Expressions.field("num_value_3_indexed")));
         RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", compoundIndex);
@@ -232,11 +242,14 @@ class RecordQueryIndexPlanWithOverScanTest extends FDBRecordStoreQueryTestBase {
     }
 
     // Validates that the index plan and the overscan index plan return identical results, including continuations
-    private static RecordCursorContinuation assertSameResults(@Nonnull FDBRecordStore recordStore,
-                                                              @Nonnull RecordQueryPlan indexPlan,
-                                                              @Nonnull RecordQueryPlan overscanIndexPlan,
-                                                              @Nonnull EvaluationContext evaluationContext,
-                                                              @Nonnull ExecuteProperties executeProperties,
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters, even when the plan's
+    // execute() overload already declares its continuation parameter @Nullable.
+    @SuppressWarnings("NullAway")
+    private static RecordCursorContinuation assertSameResults(FDBRecordStore recordStore,
+                                                              RecordQueryPlan indexPlan,
+                                                              RecordQueryPlan overscanIndexPlan,
+                                                              EvaluationContext evaluationContext,
+                                                              ExecuteProperties executeProperties,
                                                               @Nullable byte[] continuation) {
         // Ensure the scan properties for each have their own execute state
         ExecuteProperties indexExecuteProperties = executeProperties.setState(new ExecuteState());
@@ -253,7 +266,7 @@ class RecordQueryIndexPlanWithOverScanTest extends FDBRecordStoreQueryTestBase {
 
                 assertEquals(indexResult.hasNext(), overscanResult.hasNext(), "Overscan cursor should have next if index result has next");
                 if (indexResult.hasNext()) {
-                    assertEquals(indexResult.get().getRecord(), overscanResult.get().getRecord(), "Result returned via overscan cursor should match regular cursor");
+                    assertEquals(Objects.requireNonNull(indexResult.get()).getRecord(), Objects.requireNonNull(overscanResult.get()).getRecord(), "Result returned via overscan cursor should match regular cursor");
                 } else {
                     assertEquals(indexResult.getNoNextReason(), overscanResult.getNoNextReason(), "Overscan cursor should have same no next reason as index result");
                 }

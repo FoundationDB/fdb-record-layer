@@ -53,8 +53,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -68,15 +68,12 @@ import java.util.Set;
 public class RecordQueryFirstOrDefaultPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-First-Or-Default-Plan");
 
-    @Nonnull
     private final Quantifier.Physical inner;
-    @Nonnull
     private final Value onEmptyResultValue;
-    @Nonnull
     private final Value resultValue;
 
-    public RecordQueryFirstOrDefaultPlan(@Nonnull final Quantifier.Physical inner,
-                                         @Nonnull final Value onEmptyResultValue) {
+    public RecordQueryFirstOrDefaultPlan(final Quantifier.Physical inner,
+                                         final Value onEmptyResultValue) {
         final var innerType = inner.getFlowedObjectType();
         Verify.verify(innerType.nullable().equals(onEmptyResultValue.getResultType().nullable()));
         this.inner = inner;
@@ -85,18 +82,18 @@ public class RecordQueryFirstOrDefaultPlan extends AbstractRelationalExpressionW
                 innerType.withNullability(onEmptyResultValue.getResultType().isNullable()));
     }
 
-    @Nonnull
     public Value getOnEmptyResultValue() {
         return onEmptyResultValue;
     }
 
-    @SuppressWarnings("resource")
-    @Nonnull
+    // NullAway doesn't reliably track @Nullable on byte[] parameters;
+    // the executePlan continuation parameter is declared @Nullable.
+    @SuppressWarnings({"resource", "NullAway"})
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         // Note that a null child continuation is always handed to the child cursor below.
         // This is because the returned FutureCursor only ever returns a single value, and so if
         // that lambda is called, it indicates that the original continuation is null, and we
@@ -115,23 +112,20 @@ public class RecordQueryFirstOrDefaultPlan extends AbstractRelationalExpressionW
         return inner.getRangesOverPlan();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
+    public RecordQueryPlanWithChild withChild(final Reference childRef) {
         return new RecordQueryFirstOrDefaultPlan(Quantifier.physical(childRef, inner.getAlias()), onEmptyResultValue);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return onEmptyResultValue.getCorrelatedTo();
     }
 
-    @Nonnull
     @Override
-    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RelationalExpression translateCorrelations(final TranslationMap translationMap,
                                                       final boolean shouldSimplifyValues,
-                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                      final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 1);
         final Value rebasedOnEmptyResultValue =
                 onEmptyResultValue.translateCorrelations(translationMap, shouldSimplifyValues);
@@ -150,17 +144,15 @@ public class RecordQueryFirstOrDefaultPlan extends AbstractRelationalExpressionW
     }
 
     @Override
-    public RecordQueryFirstOrDefaultPlan strictlySorted(@Nonnull FinalMemoizer memoizer) {
+    public RecordQueryFirstOrDefaultPlan strictlySorted(FinalMemoizer memoizer) {
         return this;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
@@ -168,8 +160,8 @@ public class RecordQueryFirstOrDefaultPlan extends AbstractRelationalExpressionW
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap aliasMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap aliasMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -206,7 +198,7 @@ public class RecordQueryFirstOrDefaultPlan extends AbstractRelationalExpressionW
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -216,15 +208,13 @@ public class RecordQueryFirstOrDefaultPlan extends AbstractRelationalExpressionW
         }
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.VALUE_COMPUTATION_OPERATOR,
@@ -234,24 +224,21 @@ public class RecordQueryFirstOrDefaultPlan extends AbstractRelationalExpressionW
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryFirstOrDefaultPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryFirstOrDefaultPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryFirstOrDefaultPlan.newBuilder()
                 .setInner(inner.toProto(serializationContext))
                 .setOnEmptyResultValue(onEmptyResultValue.toValueProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setFirstOrDefaultPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryFirstOrDefaultPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                          @Nonnull final PRecordQueryFirstOrDefaultPlan recordQueryFirstOrDefaultPlanProto) {
+    public static RecordQueryFirstOrDefaultPlan fromProto(final PlanSerializationContext serializationContext,
+                                                          final PRecordQueryFirstOrDefaultPlan recordQueryFirstOrDefaultPlanProto) {
         return new RecordQueryFirstOrDefaultPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryFirstOrDefaultPlanProto.getInner())),
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryFirstOrDefaultPlanProto.getOnEmptyResultValue())));
     }
@@ -261,16 +248,14 @@ public class RecordQueryFirstOrDefaultPlan extends AbstractRelationalExpressionW
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryFirstOrDefaultPlan, RecordQueryFirstOrDefaultPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryFirstOrDefaultPlan> getProtoMessageClass() {
             return PRecordQueryFirstOrDefaultPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryFirstOrDefaultPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                       @Nonnull final PRecordQueryFirstOrDefaultPlan recordQueryFirstOrDefaultPlanProto) {
+        public RecordQueryFirstOrDefaultPlan fromProto(final PlanSerializationContext serializationContext,
+                                                       final PRecordQueryFirstOrDefaultPlan recordQueryFirstOrDefaultPlanProto) {
             return RecordQueryFirstOrDefaultPlan.fromProto(serializationContext, recordQueryFirstOrDefaultPlanProto);
         }
     }

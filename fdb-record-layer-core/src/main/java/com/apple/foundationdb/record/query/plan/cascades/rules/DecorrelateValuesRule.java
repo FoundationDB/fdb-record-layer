@@ -52,7 +52,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -141,7 +140,6 @@ public class DecorrelateValuesRule extends AbstractCascadesRule<SelectExpression
     // We currently use a predicate over the expressions in the reference rather than a matcher here because we don't
     // want to create multiple matches if there happens to be a reference containing multiple range(1) values. Doing
     // so would result in the rule being run multiple times with the same input
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> rangeOneMatcher = forEachQuantifierWithoutDefaultOnEmptyOverRef(
             typedMatcherWithPredicate(Reference.class,
                     ref -> ref.getAllMemberExpressions().stream().anyMatch(expr -> expr instanceof TableFunctionExpression && CardinalitiesProperty.Cardinalities.exactlyOne().equals(CardinalitiesProperty.cardinalities().evaluate(expr))))
@@ -158,7 +156,6 @@ public class DecorrelateValuesRule extends AbstractCascadesRule<SelectExpression
     // Note: this currently matches each values box. That means that if we have multiple variations,
     // we'll end up pushing down the values box for each variation. We may want to have this
     // choose the "best" variation to avoid over-exploration
-    @Nonnull
     private static final BindingMatcher<SelectExpression> valuesExpressionMatcher =
             selectExpression(empty(), only(rangeOneMatcher)).where(typedMatcherWithPredicate(SelectExpression.class,
                     expr -> {
@@ -168,33 +165,31 @@ public class DecorrelateValuesRule extends AbstractCascadesRule<SelectExpression
                         return !resultValue.isCorrelatedTo(childQun.getAlias());
                     }));
 
-    @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> valuesQunMatcher = forEachQuantifierWithoutDefaultOnEmptyOverRef(exploratoryMember(valuesExpressionMatcher));
 
     // Match a select expression over the values boxes. Ideally, we'd also check each box's correlation sets to validate that
     // we don't match any that have references out to sibling quantifiers in the SelectExpression's root. However,
     // that's difficult to express with quantifiers, so in onMatch, we'll only select the subset without such correlations
-    @Nonnull
     private static final BindingMatcher<SelectExpression> root = selectExpression(some(valuesQunMatcher)).where(isExploratoryExpression());
 
     public DecorrelateValuesRule() {
         super(root);
     }
 
-    private static <T> boolean emptyIntersection(@Nonnull Set<? extends T> set1, @Nonnull Set<? super T> set2) {
+    private static <T> boolean emptyIntersection(Set<? extends T> set1, Set<? super T> set2) {
         return set1.stream().noneMatch(set2::contains);
     }
 
-    private static boolean correlatedToNone(@Nonnull RelationalExpression expression, @Nonnull Set<CorrelationIdentifier> aliases) {
+    private static boolean correlatedToNone(RelationalExpression expression, Set<CorrelationIdentifier> aliases) {
         return emptyIntersection(expression.getCorrelatedTo(), aliases);
     }
 
-    private static boolean correlatedToNone(@Nonnull Quantifier qun, @Nonnull Set<CorrelationIdentifier> aliases) {
+    private static boolean correlatedToNone(Quantifier qun, Set<CorrelationIdentifier> aliases) {
         return emptyIntersection(qun.getCorrelatedTo(), aliases);
     }
 
     @Override
-    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
+    public void onMatch(final ExplorationCascadesRuleCall call) {
         final List<? extends Quantifier.ForEach> valueQunCandidates = call.getBindings().getAll(valuesQunMatcher);
         if (valueQunCandidates.isEmpty()) {
             return;
@@ -303,8 +298,7 @@ public class DecorrelateValuesRule extends AbstractCascadesRule<SelectExpression
         call.yieldExploratoryExpression(exprToYield);
     }
 
-    @Nonnull
-    private TranslationMap createTranslationMapFromSelects(@Nonnull Map<CorrelationIdentifier, SelectExpression> valuesById) {
+    private TranslationMap createTranslationMapFromSelects(Map<CorrelationIdentifier, SelectExpression> valuesById) {
         RegularTranslationMap.Builder translationBuilder = TranslationMap.regularBuilder();
         valuesById.forEach((id, childSelect) ->
                 translationBuilder
@@ -314,26 +308,22 @@ public class DecorrelateValuesRule extends AbstractCascadesRule<SelectExpression
     }
 
     private static final class PushValuesIntoVisitor implements RelationalExpressionVisitorWithDefaults<RelationalExpression> {
-        @Nonnull
         private final Map<CorrelationIdentifier, Quantifier> qunsToPushDown;
-        @Nonnull
         private final TranslationMap translationMap;
-        @Nonnull
         private final ExploratoryMemoizer memoizer;
 
-        public PushValuesIntoVisitor(@Nonnull Map<CorrelationIdentifier, Quantifier> qunsToPushDown,
-                                     @Nonnull TranslationMap translationMap,
-                                     @Nonnull ExploratoryMemoizer memoizer) {
+        public PushValuesIntoVisitor(Map<CorrelationIdentifier, Quantifier> qunsToPushDown,
+                                     TranslationMap translationMap,
+                                     ExploratoryMemoizer memoizer) {
             this.qunsToPushDown = qunsToPushDown;
             this.translationMap = translationMap;
             this.memoizer = memoizer;
         }
 
-        @Nonnull
-        private SelectExpression selectWithQuantifiersPushed(@Nonnull Set<CorrelationIdentifier> correlatedTo,
-                                                             @Nonnull Value resultValue,
-                                                             @Nonnull Collection<? extends Quantifier> quantifierBase,
-                                                             @Nonnull List<? extends QueryPredicate> predicates) {
+        private SelectExpression selectWithQuantifiersPushed(Set<CorrelationIdentifier> correlatedTo,
+                                                             Value resultValue,
+                                                             Collection<? extends Quantifier> quantifierBase,
+                                                             List<? extends QueryPredicate> predicates) {
             final ImmutableList.Builder<Quantifier> newQuantifiers = ImmutableList.builderWithExpectedSize(quantifierBase.size() + qunsToPushDown.size());
             for (Quantifier qun : qunsToPushDown.values()) {
                 if (correlatedTo.contains(qun.getAlias())) {
@@ -344,9 +334,8 @@ public class DecorrelateValuesRule extends AbstractCascadesRule<SelectExpression
             return new SelectExpression(resultValue, newQuantifiers.build(), predicates);
         }
 
-        @Nonnull
         @Override
-        public SelectExpression visitSelectExpression(@Nonnull final SelectExpression select) {
+        public SelectExpression visitSelectExpression(final SelectExpression select) {
             return selectWithQuantifiersPushed(
                     select.getCorrelatedTo(),
                     select.getResultValue(),
@@ -355,9 +344,8 @@ public class DecorrelateValuesRule extends AbstractCascadesRule<SelectExpression
             );
         }
 
-        @Nonnull
         @Override
-        public SelectExpression visitLogicalFilterExpression(@Nonnull final LogicalFilterExpression filter) {
+        public SelectExpression visitLogicalFilterExpression(final LogicalFilterExpression filter) {
             return selectWithQuantifiersPushed(
                     filter.getCorrelatedTo(),
                     filter.getResultValue(),
@@ -366,8 +354,7 @@ public class DecorrelateValuesRule extends AbstractCascadesRule<SelectExpression
             );
         }
 
-        @Nonnull
-        private Quantifier pushOnTopOfQuantifier(@Nonnull final Quantifier childQun) {
+        private Quantifier pushOnTopOfQuantifier(final Quantifier childQun) {
             //
             // First, check if there are any correlations that need to be pushed down. If not,
             // return the original quantifier
@@ -393,9 +380,8 @@ public class DecorrelateValuesRule extends AbstractCascadesRule<SelectExpression
             return childQun.overNewReference(ref);
         }
 
-        @Nonnull
         @Override
-        public RelationalExpression visitDefault(@Nonnull final RelationalExpression expression) {
+        public RelationalExpression visitDefault(final RelationalExpression expression) {
             //
             // By default, we rewrite all the child quantifiers so that the pushed down values
             // boxes are incorporated on top of their children. We only push the ones that are

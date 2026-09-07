@@ -35,7 +35,6 @@ import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -47,49 +46,44 @@ import java.util.stream.Collectors;
 @HeuristicPlanner
 public class RecordQueryIntersectionOnKeyExpressionPlan extends RecordQueryIntersectionPlan {
 
-    protected RecordQueryIntersectionOnKeyExpressionPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                                         @Nonnull final PRecordQueryIntersectionOnKeyExpressionPlan recordQueryIntersectionOnKeyExpressionPlanProto) {
+    protected RecordQueryIntersectionOnKeyExpressionPlan(final PlanSerializationContext serializationContext,
+                                                         final PRecordQueryIntersectionOnKeyExpressionPlan recordQueryIntersectionOnKeyExpressionPlanProto) {
         super(serializationContext, Objects.requireNonNull(recordQueryIntersectionOnKeyExpressionPlanProto.getSuper()));
     }
 
-    public RecordQueryIntersectionOnKeyExpressionPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                                      @Nonnull final KeyExpression comparisonKey,
+    public RecordQueryIntersectionOnKeyExpressionPlan(final List<Quantifier.Physical> quantifiers,
+                                                      final KeyExpression comparisonKey,
                                                       final boolean reverse) {
         super(quantifiers,
                 new ComparisonKeyFunction.OnKeyExpression(comparisonKey),
                 reverse);
     }
 
-    @Nonnull
     @Override
     public ComparisonKeyFunction.OnKeyExpression getComparisonKeyFunction() {
         return (ComparisonKeyFunction.OnKeyExpression)super.getComparisonKeyFunction();
     }
 
-    @Nonnull
     @Override
     public Set<KeyExpression> getRequiredFields() {
         return ImmutableSet.copyOf(getComparisonKeyExpression().normalizeKeyForPositions());
     }
 
-    @Nonnull
     public KeyExpression getComparisonKeyExpression() {
         return getComparisonKeyFunction().getComparisonKey();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryIntersectionOnKeyExpressionPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryIntersectionOnKeyExpressionPlan translateCorrelations(final TranslationMap translationMap,
                                                                             final boolean shouldSimplifyValues,
-                                                                            @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                                            final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryIntersectionOnKeyExpressionPlan(
                 Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers), getComparisonKeyExpression(),
                 isReverse());
     }
 
-    @Nonnull
     @Override
-    public RecordQueryIntersectionOnKeyExpressionPlan withChildrenReferences(@Nonnull final List<? extends Reference> newChildren) {
+    public RecordQueryIntersectionOnKeyExpressionPlan withChildrenReferences(final List<? extends Reference> newChildren) {
         return new RecordQueryIntersectionOnKeyExpressionPlan(
                 newChildren.stream()
                         .map(Quantifier::physical)
@@ -99,7 +93,7 @@ public class RecordQueryIntersectionOnKeyExpressionPlan extends RecordQueryInter
     }
 
     @Override
-    public RecordQueryIntersectionOnKeyExpressionPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
+    public RecordQueryIntersectionOnKeyExpressionPlan strictlySorted(final FinalMemoizer memoizer) {
         final var quantifiers =
                 Quantifiers.fromPlans(getChildren()
                         .stream()
@@ -107,21 +101,18 @@ public class RecordQueryIntersectionOnKeyExpressionPlan extends RecordQueryInter
         return new RecordQueryIntersectionOnKeyExpressionPlan(quantifiers, getComparisonKeyExpression(), reverse);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryIntersectionOnKeyExpressionPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryIntersectionOnKeyExpressionPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryIntersectionOnKeyExpressionPlan.newBuilder().setSuper(toRecordQueryIntersectionPlan(serializationContext)).build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setIntersectionOnKeyExpressionPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryIntersectionOnKeyExpressionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                                       @Nonnull final PRecordQueryIntersectionOnKeyExpressionPlan recordQueryIntersectionOnKeyExpressionPlanProto) {
+    public static RecordQueryIntersectionOnKeyExpressionPlan fromProto(final PlanSerializationContext serializationContext,
+                                                                       final PRecordQueryIntersectionOnKeyExpressionPlan recordQueryIntersectionOnKeyExpressionPlanProto) {
         return new RecordQueryIntersectionOnKeyExpressionPlan(serializationContext, recordQueryIntersectionOnKeyExpressionPlanProto);
     }
 
@@ -130,16 +121,14 @@ public class RecordQueryIntersectionOnKeyExpressionPlan extends RecordQueryInter
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryIntersectionOnKeyExpressionPlan, RecordQueryIntersectionOnKeyExpressionPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryIntersectionOnKeyExpressionPlan> getProtoMessageClass() {
             return PRecordQueryIntersectionOnKeyExpressionPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryIntersectionOnKeyExpressionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                                    @Nonnull final PRecordQueryIntersectionOnKeyExpressionPlan recordQueryIntersectionOnKeyExpressionPlanProto) {
+        public RecordQueryIntersectionOnKeyExpressionPlan fromProto(final PlanSerializationContext serializationContext,
+                                                                    final PRecordQueryIntersectionOnKeyExpressionPlan recordQueryIntersectionOnKeyExpressionPlanProto) {
             return RecordQueryIntersectionOnKeyExpressionPlan.fromProto(serializationContext, recordQueryIntersectionOnKeyExpressionPlanProto);
         }
     }

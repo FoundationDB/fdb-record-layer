@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
-import javax.annotation.Nonnull;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -36,23 +35,20 @@ import java.util.stream.Stream;
  */
 @API(API.Status.EXPERIMENTAL)
 public class TypedMatcherWithPredicate<T> extends TypedMatcher<T> {
-    @Nonnull
     private final Predicate<T> predicate;
 
-    protected TypedMatcherWithPredicate(@Nonnull final Class<T> bindableClass,
-                                        @Nonnull final Predicate<T> predicate) {
+    protected TypedMatcherWithPredicate(final Class<T> bindableClass,
+                                        final Predicate<T> predicate) {
         super(bindableClass);
         this.predicate = predicate;
     }
 
-    @Nonnull
     public Predicate<T> getPredicate() {
         return predicate;
     }
 
-    @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
+    public Stream<PlannerBindings> bindMatchesSafely(final RecordQueryPlannerConfiguration plannerConfiguration, final PlannerBindings outerBindings, final T in) {
         if (predicate.test(in)) {
             return Stream.of(PlannerBindings.from(this, in));
         } else {
@@ -61,7 +57,7 @@ public class TypedMatcherWithPredicate<T> extends TypedMatcher<T> {
     }
 
     @Override
-    public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+    public String explainMatcher(final Class<?> atLeastType, final String boundId, final String indentation) {
         if (getRootClass().isAssignableFrom(atLeastType)) {
             return "case _ if predicate => success ";
         } else {
@@ -69,9 +65,8 @@ public class TypedMatcherWithPredicate<T> extends TypedMatcher<T> {
         }
     }
 
-    @Nonnull
-    public static <S, T extends S> TypedMatcherWithPredicate<T> typedMatcherWithPredicate(@Nonnull final Class<T> bindableClass,
-                                                                                          @Nonnull final Predicate<T> predicate) {
+    public static <S, T extends S> TypedMatcherWithPredicate<T> typedMatcherWithPredicate(final Class<T> bindableClass,
+                                                                                          final Predicate<T> predicate) {
         return new TypedMatcherWithPredicate<>(bindableClass, predicate);
     }
 }

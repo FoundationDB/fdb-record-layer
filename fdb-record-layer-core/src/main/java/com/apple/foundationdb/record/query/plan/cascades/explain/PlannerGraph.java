@@ -38,8 +38,8 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
 import com.google.common.graph.Network;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,8 +52,8 @@ import java.util.stream.Collectors;
 @SuppressWarnings("UnstableApiUsage")
 public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, PlannerGraph.Edge> {
 
-    public static PlannerGraph fromNodeAndChildGraphs(@Nonnull final Node node,
-                                                      @Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public static PlannerGraph fromNodeAndChildGraphs(final Node node,
+                                                      final List<? extends PlannerGraph> childGraphs) {
         final List<? extends Quantifier> quantifiers = tryGetQuantifiers(node);
         if (quantifiers.isEmpty() || quantifiers.size() != childGraphs.size()) {
             return fromNodeAndChildGraphs(node, childGraphs, null);
@@ -104,8 +104,8 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         return plannerGraphBuilder.build();
     }
 
-    public static PlannerGraph fromNodeAndChildGraphs(@Nonnull final Node node,
-                                                      @Nonnull final List<? extends PlannerGraph> sortedChildGraphs,
+    public static PlannerGraph fromNodeAndChildGraphs(final Node node,
+                                                      final List<? extends PlannerGraph> sortedChildGraphs,
                                                       @Nullable final List<? extends Quantifier> sortedQuantifiers) {
         // quantifiers are either not given or are of the same cardinality as child graphs
         Preconditions.checkArgument(sortedQuantifiers == null || sortedQuantifiers.size() == sortedChildGraphs.size());
@@ -143,9 +143,9 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         return plannerGraphBuilder.build();
     }
 
-    public static PlannerGraph fromNodeInnerAndTargetForModifications(@Nonnull final Node node,
-                                                                      @Nonnull final PlannerGraph innerGraph,
-                                                                      @Nonnull final PlannerGraph targetGraph) {
+    public static PlannerGraph fromNodeInnerAndTargetForModifications(final Node node,
+                                                                      final PlannerGraph innerGraph,
+                                                                      final PlannerGraph targetGraph) {
         final InternalPlannerGraphBuilder plannerGraphBuilder =
                 builder(node);
 
@@ -161,8 +161,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         return plannerGraphBuilder.build();
     }
 
-    @Nonnull
-    static Optional<? extends RelationalExpression> tryGetExpression(@Nonnull final Node node) {
+    static Optional<? extends RelationalExpression> tryGetExpression(final Node node) {
         if (node instanceof WithExpression) {
             @Nullable final RelationalExpression expression = ((WithExpression)node).getExpression();
             if (expression != null) {
@@ -172,8 +171,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         return Optional.empty();
     }
 
-    @Nonnull
-    static List<? extends Quantifier> tryGetQuantifiers(@Nonnull final Node node) {
+    static List<? extends Quantifier> tryGetQuantifiers(final Node node) {
         if (node instanceof WithExpression) {
             @Nullable final RelationalExpression expression = ((WithExpression)node).getExpression();
             if (expression != null) {
@@ -191,11 +189,10 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             super(root);
         }
 
-        public InternalPlannerGraphBuilder(@Nonnull final AbstractPlannerGraph<Node, Edge> original) {
+        public InternalPlannerGraphBuilder(final AbstractPlannerGraph<Node, Edge> original) {
             super(original);
         }
 
-        @Nonnull
         @Override
         public PlannerGraph build() {
             return new PlannerGraph(getRoot(), getNetwork());
@@ -207,30 +204,28 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
      */
     @SuppressWarnings("squid:S2160")
     public static class Node extends AbstractPlannerGraph.AbstractNode {
-        @Nonnull
         private final Map<String, Attribute> additionalAttributes;
 
-        public Node(@Nonnull final Object identity, @Nonnull final String name) {
+        public Node(final Object identity, final String name) {
             this(identity, name, null);
         }
 
-        public Node(@Nonnull final Object identity, @Nonnull final String name, @Nullable final List<String> details) {
+        public Node(final Object identity, final String name, @Nullable final List<String> details) {
             this(identity, name, details, ImmutableMap.of());
         }
 
-        public Node(@Nonnull final Object identity, @Nonnull final String name, @Nullable final List<String> details, @Nonnull final Map<String, Attribute> additionalAttributes) {
+        public Node(final Object identity, final String name, @Nullable final List<String> details, final Map<String, Attribute> additionalAttributes) {
             super(identity, name, details);
             this.additionalAttributes = ImmutableMap.copyOf(additionalAttributes);
         }
 
-        @Nonnull
         @Override
         public Map<String, Attribute> getAttributes() {
             final ImmutableMap.Builder<String, Attribute> builder = ImmutableMap.builder();
             Optional.ofNullable(getDetails())
                     .ifPresent(details -> builder.put("details",
                             Attribute.invisible(
-                                    getDetails().stream()
+                                    details.stream()
                                             .map(Attribute::common)
                                             .collect(Collectors.toList()))));
             builder.putAll(additionalAttributes);
@@ -246,39 +241,33 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     .build();
         }
 
-        @Nonnull
         public String getColor() {
             return "black";
         }
 
-        @Nonnull
         public String getShape() {
             return "plain";
         }
 
-        @Nonnull
         public String getStyle() {
             return "solid";
         }
 
-        @Nonnull
         public String getFillColor() {
             return "black";
         }
 
-        @Nonnull
         public String getFontName() {
             return "courier";
         }
 
-        @Nonnull
         public String getFontSize() {
             return getDetails() == null || getDetails().isEmpty()
                    ? "12"
                    : "8";
         }
 
-        @Nonnull String getToolTip() {
+        String getToolTip() {
             return getClass().getSimpleName();
         }
     }
@@ -288,7 +277,6 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
      * information such as names and descriptions.
      */
     public interface WithInfoId {
-        @Nonnull
         String getInfoId();
     }
 
@@ -306,35 +294,31 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
      */
     @SuppressWarnings("squid:S2160")
     public static class NodeWithInfo extends Node implements WithInfoId {
-        @Nonnull
         private final NodeInfo nodeInfo;
 
         @SuppressWarnings("unused")
-        public NodeWithInfo(@Nonnull final Object identity, @Nonnull final NodeInfo nodeInfo) {
+        public NodeWithInfo(final Object identity, final NodeInfo nodeInfo) {
             this(identity, nodeInfo, null);
         }
 
-        public NodeWithInfo(@Nonnull final Object identity, @Nonnull final NodeInfo nodeInfo, @Nullable final List<String> details) {
+        public NodeWithInfo(final Object identity, final NodeInfo nodeInfo, @Nullable final List<String> details) {
             this(identity, nodeInfo, details, ImmutableMap.of());
         }
 
-        public NodeWithInfo(@Nonnull final Object identity, @Nonnull final NodeInfo nodeInfo, @Nullable final List<String> details, @Nonnull final Map<String, Attribute> additionalAttributes) {
+        public NodeWithInfo(final Object identity, final NodeInfo nodeInfo, @Nullable final List<String> details, final Map<String, Attribute> additionalAttributes) {
             super(identity, nodeInfo.getName(), details, additionalAttributes);
             this.nodeInfo = nodeInfo;
         }
 
-        @Nonnull
         public NodeInfo getNodeInfo() {
             return nodeInfo;
         }
 
-        @Nonnull
         @Override
         public String getInfoId() {
             return getNodeInfo().getId();
         }
 
-        @Nonnull
         @Override
         public Map<String, Attribute> getAttributes() {
             final Map<String, Attribute> attributes = super.getAttributes();
@@ -351,19 +335,17 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
      */
     @SuppressWarnings("squid:S2160")
     public static class DataNodeWithInfo extends NodeWithInfo {
-        @Nonnull
         private final Type type;
 
-        public DataNodeWithInfo(@Nonnull final NodeInfo nodeInfo, @Nonnull Type type, @Nullable final List<String> sources) {
+        public DataNodeWithInfo(final NodeInfo nodeInfo, Type type, @Nullable final List<String> sources) {
             this(nodeInfo, type, sources, ImmutableMap.of());
         }
 
-        public DataNodeWithInfo(@Nonnull final NodeInfo nodeInfo, @Nonnull Type type, @Nullable final List<String> sources, @Nonnull final Map<String, Attribute> additionalAttributes) {
+        public DataNodeWithInfo(final NodeInfo nodeInfo, Type type, @Nullable final List<String> sources, final Map<String, Attribute> additionalAttributes) {
             super(new Object(), nodeInfo, sources, additionalAttributes);
             this.type = type;
         }
 
-        @Nonnull
         @Override
         public Map<String, Attribute> getAttributes() {
             final Map<String, Attribute> attributes = super.getAttributes();
@@ -374,25 +356,21 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     .build();
         }
 
-        @Nonnull
         @Override
         public String getColor() {
             return "black";
         }
 
-        @Nonnull
         @Override
         public String getStyle() {
             return "filled";
         }
 
-        @Nonnull
         @Override
         public String getFillColor() {
             return "lightblue";
         }
 
-        @Nonnull
         @Override
         String getToolTip() {
             return type.describe().render(DefaultExplainFormatter.forDebugging()).toString();
@@ -404,15 +382,14 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
      */
     public static class TemporaryDataNodeWithInfo extends DataNodeWithInfo {
 
-        public TemporaryDataNodeWithInfo(@Nonnull final Type type, @Nullable final List<String> sources) {
+        public TemporaryDataNodeWithInfo(final Type type, @Nullable final List<String> sources) {
             super(NodeInfo.TEMPORARY_BUFFER_DATA, type, sources);
         }
 
-        public TemporaryDataNodeWithInfo(@Nonnull Type type, @Nullable final List<String> sources, @Nonnull final Map<String, Attribute> additionalAttributes) {
+        public TemporaryDataNodeWithInfo(Type type, @Nullable final List<String> sources, final Map<String, Attribute> additionalAttributes) {
             super(NodeInfo.TEMPORARY_BUFFER_DATA, type, sources, additionalAttributes);
         }
 
-        @Nonnull
         @Override
         public String getFillColor() {
             return "goldenrod2";
@@ -427,26 +404,25 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Nullable
         private final RecordQueryPlan expression;
 
-        public OperatorNodeWithInfo(@Nonnull final RecordQueryPlan recordQueryPlan,
-                                    @Nonnull final NodeInfo nodeInfo) {
+        public OperatorNodeWithInfo(final RecordQueryPlan recordQueryPlan,
+                                    final NodeInfo nodeInfo) {
             this(recordQueryPlan, nodeInfo, null);
         }
 
-        public OperatorNodeWithInfo(@Nonnull final RecordQueryPlan recordQueryPlan,
-                                    @Nonnull final NodeInfo nodeInfo,
+        public OperatorNodeWithInfo(final RecordQueryPlan recordQueryPlan,
+                                    final NodeInfo nodeInfo,
                                     @Nullable final List<String> details) {
             this(recordQueryPlan, nodeInfo, details, ImmutableMap.of());
         }
 
-        public OperatorNodeWithInfo(@Nonnull final RecordQueryPlan recordQueryPlan,
-                                    @Nonnull final NodeInfo nodeInfo,
+        public OperatorNodeWithInfo(final RecordQueryPlan recordQueryPlan,
+                                    final NodeInfo nodeInfo,
                                     @Nullable final List<String> details,
-                                    @Nonnull final Map<String, Attribute> additionalAttributes) {
+                                    final Map<String, Attribute> additionalAttributes) {
             super(new Object(), nodeInfo, details, additionalAttributes);
             this.expression = recordQueryPlan;
         }
         
-        @Nonnull
         @Override
         public Map<String, Attribute> getAttributes() {
             final Map<String, Attribute> attributes = super.getAttributes();
@@ -457,7 +433,6 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     .build();
         }
 
-        @Nonnull
         @Override
         String getToolTip() {
             return expression == null
@@ -477,31 +452,29 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
      */
     @SuppressWarnings("squid:S2160")
     public static class ModificationOperatorNodeWithInfo extends OperatorNodeWithInfo {
-        public ModificationOperatorNodeWithInfo(@Nonnull final RecordQueryPlan recordQueryPlan,
-                                                @Nonnull final NodeInfo nodeInfo) {
+        public ModificationOperatorNodeWithInfo(final RecordQueryPlan recordQueryPlan,
+                                                final NodeInfo nodeInfo) {
             this(recordQueryPlan, nodeInfo, null);
         }
 
-        public ModificationOperatorNodeWithInfo(@Nonnull final RecordQueryPlan recordQueryPlan,
-                                                @Nonnull final NodeInfo nodeInfo,
+        public ModificationOperatorNodeWithInfo(final RecordQueryPlan recordQueryPlan,
+                                                final NodeInfo nodeInfo,
                                                 @Nullable final List<String> details) {
             this(recordQueryPlan, nodeInfo, details, ImmutableMap.of());
         }
 
-        public ModificationOperatorNodeWithInfo(@Nonnull final RecordQueryPlan recordQueryPlan,
-                                                @Nonnull final NodeInfo nodeInfo,
+        public ModificationOperatorNodeWithInfo(final RecordQueryPlan recordQueryPlan,
+                                                final NodeInfo nodeInfo,
                                                 @Nullable final List<String> details,
-                                                @Nonnull final Map<String, Attribute> additionalAttributes) {
+                                                final Map<String, Attribute> additionalAttributes) {
             super(recordQueryPlan, nodeInfo, details, additionalAttributes);
         }
 
-        @Nonnull
         @Override
         public String getStyle() {
             return "filled";
         }
 
-        @Nonnull
         @Override
         public String getFillColor() {
             return "lightcoral";
@@ -524,7 +497,6 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             this.expression = expression;
         }
 
-        @Nonnull
         @Override
         public Map<String, Attribute> getAttributes() {
             final Map<String, Attribute> attributes = super.getAttributes();
@@ -535,19 +507,16 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     .build();
         }
 
-        @Nonnull
         @Override
         public String getStyle() {
             return "filled";
         }
 
-        @Nonnull
         @Override
         public String getFillColor() {
             return "darkseagreen2";
         }
 
-        @Nonnull
         @Override
         String getToolTip() {
             return expression == null
@@ -578,7 +547,6 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             this.expression = expression;
         }
 
-        @Nonnull
         @Override
         public Map<String, Attribute> getAttributes() {
             final Map<String, Attribute> attributes = super.getAttributes();
@@ -589,19 +557,16 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     .build();
         }
 
-        @Nonnull
         @Override
         public String getStyle() {
             return "filled";
         }
 
-        @Nonnull
         @Override
         public String getFillColor() {
             return "darkseagreen2";
         }
 
-        @Nonnull
         @Override
         String getToolTip() {
             return expression == null
@@ -627,7 +592,6 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             super(expression, nodeInfo, details, additionalAttributes);
         }
 
-        @Nonnull
         @Override
         public String getFillColor() {
             return "darkseagreen4";
@@ -643,7 +607,6 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             super(ref, Reference.class.getSimpleName());
         }
 
-        @Nonnull
         @Override
         public Map<String, Attribute> getAttributes() {
             final Map<String, Attribute> attributes = super.getAttributes();
@@ -657,31 +620,26 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     .build();
         }
 
-        @Nonnull
         @Override
         public String getName() {
             return "r";
         }
 
-        @Nonnull
         @Override
         public String getShape() {
             return "circle";
         }
 
-        @Nonnull
         @Override
         public String getStyle() {
             return "filled";
         }
 
-        @Nonnull
         @Override
         public String getFillColor() {
             return "white";
         }
 
-        @Nonnull
         @Override
         public String getFontSize() {
             return "6";
@@ -700,7 +658,6 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             super(new Object(), "m");
         }
 
-        @Nonnull
         @Override
         public Map<String, Attribute> getAttributes() {
             final Map<String, Attribute> attributes = super.getAttributes();
@@ -714,25 +671,21 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     .build();
         }
 
-        @Nonnull
         @Override
         public String getShape() {
             return "circle";
         }
 
-        @Nonnull
         @Override
         public String getStyle() {
             return "filled";
         }
 
-        @Nonnull
         @Override
         public String getFillColor() {
             return "white";
         }
 
-        @Nonnull
         @Override
         public String getFontSize() {
             return "6";
@@ -755,11 +708,10 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             this(null, dependsOn);
         }
 
-        public Edge(@Nullable final String label, @Nonnull final Set<? extends AbstractEdge> dependsOn) {
+        public Edge(@Nullable final String label, final Set<? extends AbstractEdge> dependsOn) {
             super(label, dependsOn);
         }
 
-        @Nonnull
         @Override
         public Map<String, Attribute> getAttributes() {
             final ImmutableMap.Builder<String, Attribute> builder = ImmutableMap.builder();
@@ -779,32 +731,26 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     .build();
         }
 
-        @Nonnull
         public String getColor() {
             return "black";
         }
 
-        @Nonnull
         public String getStyle() {
             return "solid";
         }
 
-        @Nonnull
         public String getFontName() {
             return "courier";
         }
 
-        @Nonnull
         public String getFontSize() {
             return "8";
         }
 
-        @Nonnull
         public String getArrowHead() {
             return "normal";
         }
 
-        @Nonnull
         public String getArrowTail() {
             return "none";
         }
@@ -826,7 +772,6 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             super(label, dependsOn);
         }
 
-        @Nonnull
         @Override
         public String getColor() {
             return "gray20";
@@ -857,7 +802,6 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             this.isNullIsEmpty = isNullIfEmpty;
         }
 
-        @Nonnull
         @Override
         public String getColor() {
             return isNullIsEmpty ? "khaki3" : super.getColor();
@@ -880,13 +824,11 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             super(label, dependsOn);
         }
 
-        @Nonnull
         @Override
         public String getColor() {
             return "gray70";
         }
 
-        @Nonnull
         @Override
         public String getArrowHead() {
             return "diamond";
@@ -909,7 +851,6 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             super(label, dependsOn);
         }
 
-        @Nonnull
         @Override
         public String getStyle() {
             return "bold";
@@ -932,13 +873,11 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             super(label, dependsOn);
         }
 
-        @Nonnull
         @Override
         public String getArrowHead() {
             return "none";
         }
 
-        @Nonnull
         @Override
         public String getArrowTail() {
             return "normal";
@@ -949,7 +888,6 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
      * Edge class for {@link Reference}.
      */
     public static class ReferenceInternalEdge extends Edge {
-        @Nonnull
         @Override
         public Map<String, Attribute> getAttributes() {
             final Map<String, Attribute> attributes = super.getAttributes();
@@ -960,7 +898,6 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     .build();
         }
 
-        @Nonnull
         @Override
         public String getStyle() {
             return "invis";
@@ -979,7 +916,6 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             super(label);
         }
 
-        @Nonnull
         @Override
         public Map<String, Attribute> getAttributes() {
             final Map<String, Attribute> attributes = super.getAttributes();
@@ -990,14 +926,12 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     .build();
         }
 
-        @Nonnull
         @Override
         public String getStyle() {
             return "dashed";
         }
 
     }
-
 
     public static InternalPlannerGraphBuilder builder(final Node root) {
         return new InternalPlannerGraphBuilder(root);

@@ -47,8 +47,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -56,6 +56,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -99,6 +100,15 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     private Subspace subspace;
     private SplitHelperTestConfig testConfig = SplitHelperTestConfig.getDefault();
 
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters, even for a
+    // functional interface declared in this same file (see LoadRecordFunction below), so a
+    // literal null in a byte[]-typed argument position gets flagged as a mismatch. Declaring the
+    // return type here as plain (non-null) byte[] sidesteps that.
+    @SuppressWarnings("NullAway")
+    private static byte[] noBytes() {
+        return null;
+    }
+
     static {
         ByteBuffer mediumBuffer = ByteBuffer.allocate(MEDIUM_LEGNTH);
         for (int i = 0; i < MEDIUM_COPIES; i++) {
@@ -128,7 +138,6 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         return SplitHelperTestConfig.getConfigsNoVersionInKey().map(Arguments::of);
     }
 
-    @Nonnull
     public static Stream<Arguments> limitsAndReverseArgs() {
         List<Integer> limits = Arrays.asList(1, 2, 7, Integer.MAX_VALUE);
         return limits.stream()
@@ -141,11 +150,11 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         return testConfig.setProps(super.addDefaultProps(props));
     }
 
-    private <E extends Throwable> SplitHelper.SizeInfo saveUnsuccessfully(@Nonnull FDBRecordContext context, @Nonnull Tuple key, byte[] serialized,
+    private <E extends Throwable> SplitHelper.SizeInfo saveUnsuccessfully(FDBRecordContext context, Tuple key, byte[] serialized,
                                                                           @Nullable FDBRecordVersion version,
-                                                                          @Nonnull SplitHelperTestConfig testConfig,
+                                                                          SplitHelperTestConfig testConfig,
                                                                           @Nullable FDBStoredSizes previousSizeInfo,
-                                                                          @Nonnull Class<E> errClazz, @Nonnull String errMessage) {
+                                                                          Class<E> errClazz, String errMessage) {
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
         E e = assertThrows(errClazz,
                 () -> SplitHelper.saveWithSplit(context, subspace, key, serialized, version, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix, previousSizeInfo != null, previousSizeInfo, sizeInfo));
@@ -167,9 +176,9 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         return sizeInfo;
     }
 
-    private SplitHelper.SizeInfo saveSuccessfully(@Nonnull FDBRecordContext context, @Nonnull Tuple key, byte[] serialized,
+    private SplitHelper.SizeInfo saveSuccessfully(FDBRecordContext context, Tuple key, byte[] serialized,
                                                   @Nullable FDBRecordVersion version,
-                                                  @Nonnull SplitHelperTestConfig testConfig,
+                                                  SplitHelperTestConfig testConfig,
                                                   @Nullable FDBStoredSizes previousSizeInfo) {
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
         SplitHelper.saveWithSplit(context, subspace, key, serialized, version, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix, previousSizeInfo != null, previousSizeInfo, sizeInfo);
@@ -208,7 +217,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         byte[] versionBytes = null;
         byte[] valueBytes = null;
         while (kvCursor.hasNext()) {
-            KeyValue kv = kvCursor.next();
+            KeyValue kv = Objects.requireNonNull(kvCursor.next());
             Tuple suffix = keySubspace.unpack(kv.getKey());
             if (testConfig.omitUnsplitSuffix) {
                 assertThat(suffix.isEmpty(), is(true));
@@ -261,9 +270,9 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         return sizeInfo;
     }
 
-    private SplitHelper.SizeInfo dryRunSetSizeInfo(@Nonnull FDBRecordContext context, @Nonnull Tuple key, byte[] serialized,
+    private SplitHelper.SizeInfo dryRunSetSizeInfo(FDBRecordContext context, Tuple key, byte[] serialized,
                                                    @Nullable FDBRecordVersion version,
-                                                   @Nonnull SplitHelperTestConfig testConfig,
+                                                   SplitHelperTestConfig testConfig,
                                                    @Nullable FDBStoredSizes previousSizeInfo) {
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
         SplitHelper.dryRunSaveWithSplitOnlySetSizeInfo(subspace, key, serialized, version, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix, sizeInfo);
@@ -304,9 +313,9 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         return sizeInfo;
     }
 
-    private SplitHelper.SizeInfo saveWithSplit(@Nonnull FDBRecordContext context, @Nonnull Tuple key, byte[] serialized,
+    private SplitHelper.SizeInfo saveWithSplit(FDBRecordContext context, Tuple key, byte[] serialized,
                                                @Nullable FDBRecordVersion version,
-                                               @Nonnull SplitHelperTestConfig testConfig,
+                                               SplitHelperTestConfig testConfig,
                                                @Nullable FDBStoredSizes previousSizeInfo) {
         if (testConfig.omitUnsplitSuffix && version != null) {
             return saveUnsuccessfully(context, key, serialized, version, testConfig, previousSizeInfo,
@@ -321,23 +330,23 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private SplitHelper.SizeInfo saveWithSplit(@Nonnull FDBRecordContext context, @Nonnull Tuple key, byte[] serialized,
-                                               @Nullable FDBRecordVersion version, @Nonnull SplitHelperTestConfig testConfig) {
+    private SplitHelper.SizeInfo saveWithSplit(FDBRecordContext context, Tuple key, byte[] serialized,
+                                               @Nullable FDBRecordVersion version, SplitHelperTestConfig testConfig) {
         return saveWithSplit(context, key, serialized, version, testConfig, null);
     }
 
-    private SplitHelper.SizeInfo saveWithSplit(@Nonnull FDBRecordContext context, @Nonnull Tuple key, byte[] serialized, @Nonnull SplitHelperTestConfig testConfig,
+    private SplitHelper.SizeInfo saveWithSplit(FDBRecordContext context, Tuple key, byte[] serialized, SplitHelperTestConfig testConfig,
                                                @Nullable FDBStoredSizes previousSizeInfo) {
         return saveWithSplit(context, key, serialized, null, testConfig, previousSizeInfo);
     }
 
-    private SplitHelper.SizeInfo saveWithSplit(@Nonnull FDBRecordContext context, @Nonnull Tuple key, byte[] serialized, @Nonnull SplitHelperTestConfig testConfig) {
+    private SplitHelper.SizeInfo saveWithSplit(FDBRecordContext context, Tuple key, byte[] serialized, SplitHelperTestConfig testConfig) {
         return saveWithSplit(context, key, serialized, null, testConfig);
     }
 
     @MethodSource("testConfigsNoVersionInKey")
     @ParameterizedTest(name = "saveWithSplit[{0}]")
-    public void saveWithSplit(@Nonnull SplitHelperTestConfig testConfig) {
+    public void saveWithSplit(SplitHelperTestConfig testConfig) {
         this.testConfig = testConfig;
         try (FDBRecordContext context = openContext()) {
             // No version
@@ -384,7 +393,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                 );
 
                 for (int i = 0; i < keys.size(); i++) {
-                    Tuple key = keys.get(i).getLeft();
+                    Tuple key = Objects.requireNonNull(keys.get(i).getLeft());
                     FDBRecordVersion version = keys.get(i).getRight();
                     byte[] versionBytes = context.ensureActive().get(subspace.pack(key.add(SplitHelper.RECORD_VERSION))).join();
                     if (i % 3 == 0 || testConfig.splitLongRecords) {
@@ -428,8 +437,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
-    private FDBStoredSizes writeDummyRecord(@Nonnull FDBRecordContext context, @Nonnull Tuple key, @Nullable FDBRecordVersion version, int splits, boolean omitUnsplitSuffix) {
+    private FDBStoredSizes writeDummyRecord(FDBRecordContext context, Tuple key, @Nullable FDBRecordVersion version, int splits, boolean omitUnsplitSuffix) {
         final Transaction tr = context.ensureActive();
         SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
         if (version != null) {
@@ -462,18 +470,16 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         return sizeInfo;
     }
 
-    @Nonnull
-    private FDBStoredSizes writeDummyRecord(@Nonnull FDBRecordContext context, @Nonnull Tuple key, int splits, boolean omitUnsplitSuffix) {
+    private FDBStoredSizes writeDummyRecord(FDBRecordContext context, Tuple key, int splits, boolean omitUnsplitSuffix) {
         return writeDummyRecord(context, key, null, splits, omitUnsplitSuffix);
     }
 
-    @Nonnull
-    private FDBStoredSizes writeDummyRecord(@Nonnull FDBRecordContext context, @Nonnull Tuple key, @Nonnull FDBRecordVersion version, int splits) {
+    private FDBStoredSizes writeDummyRecord(FDBRecordContext context, Tuple key, FDBRecordVersion version, int splits) {
         return writeDummyRecord(context, key, version, splits, false);
     }
 
-    private void deleteSplit(@Nonnull FDBRecordContext context, @Nonnull Tuple key,
-                             @Nonnull SplitHelperTestConfig testConfig,
+    private void deleteSplit(FDBRecordContext context, Tuple key,
+                             SplitHelperTestConfig testConfig,
                              @Nullable FDBStoredSizes sizeInfo) {
         SplitHelper.deleteSplit(context, subspace, key, testConfig.splitLongRecords, testConfig.omitUnsplitSuffix, sizeInfo != null, sizeInfo);
         int count = KeyValueCursor.Builder.withSubspace(subspace.subspace(key))
@@ -545,18 +551,20 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
 
     @FunctionalInterface
     private interface LoadRecordFunction {
-        FDBRawRecord load(@Nonnull FDBRecordContext context, @Nonnull Tuple key, @Nullable FDBStoredSizes sizes, @Nullable byte[] expectedContents, @Nullable FDBRecordVersion version);
+        @Nullable
+        FDBRawRecord load(FDBRecordContext context, Tuple key, @Nullable FDBStoredSizes sizes, @Nullable byte[] expectedContents, @Nullable FDBRecordVersion version);
 
-        default FDBRawRecord load(@Nonnull FDBRecordContext context, @Nonnull Tuple key, @Nullable FDBStoredSizes sizes, @Nullable byte[] expectedContents) {
+        @Nullable
+        default FDBRawRecord load(FDBRecordContext context, Tuple key, @Nullable FDBStoredSizes sizes, @Nullable byte[] expectedContents) {
             return load(context, key, sizes, expectedContents, null);
         }
     }
 
-    private void loadSingleRecords(SplitHelperTestConfig testConfig, @Nonnull LoadRecordFunction loadRecordFunction) {
+    private void loadSingleRecords(SplitHelperTestConfig testConfig, LoadRecordFunction loadRecordFunction) {
         final byte[] globalVersion = "-hastings-".getBytes(StandardCharsets.US_ASCII);
         try (FDBRecordContext context = openContext()) {
             // No record
-            loadRecordFunction.load(context, Tuple.from(1042L), null, null);
+            loadRecordFunction.load(context, Tuple.from(1042L), null, noBytes());
 
             // One unsplit record
             FDBStoredSizes sizes1 = writeDummyRecord(context, Tuple.from(1066L), 1, testConfig.omitUnsplitSuffix);
@@ -575,7 +583,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                 writeDummyRecord(context, Tuple.from(1100L), version3, 1);
                 context.ensureActive().clear(subspace.pack(Tuple.from(1100L, SplitHelper.UNSPLIT_RECORD)));
                 assertThrows(SplitHelper.FoundSplitWithoutStartException.class,
-                        () -> loadRecordFunction.load(context, Tuple.from(1100L), null, null, version3));
+                        () -> loadRecordFunction.load(context, Tuple.from(1100L), null, noBytes(), version3));
             }
 
             if (testConfig.splitLongRecords) {
@@ -593,24 +601,24 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                 writeDummyRecord(context, Tuple.from(1189L), MEDIUM_COPIES, false);
                 context.ensureActive().clear(subspace.pack(Tuple.from(1189L, SplitHelper.START_SPLIT_RECORD)));
                 if (testConfig.loadViaGets) {
-                    loadRecordFunction.load(context, Tuple.from(1189L), null, null);
+                    loadRecordFunction.load(context, Tuple.from(1189L), null, noBytes());
                 } else {
                     assertThrows(SplitHelper.FoundSplitWithoutStartException.class,
-                            () -> loadRecordFunction.load(context, Tuple.from(1189L), null, null));
+                            () -> loadRecordFunction.load(context, Tuple.from(1189L), null, noBytes()));
                 }
 
                 // One split record then delete the a middle split point
                 writeDummyRecord(context, Tuple.from(1199L), MEDIUM_COPIES, false);
                 context.ensureActive().clear(subspace.pack(Tuple.from(1199L, SplitHelper.START_SPLIT_RECORD + 2)));
                 RecordCoreException err7 = assertThrows(RecordCoreException.class,
-                        () -> loadRecordFunction.load(context, Tuple.from(1199L), null, null));
+                        () -> loadRecordFunction.load(context, Tuple.from(1199L), null, noBytes()));
                 assertThat(err7.getMessage(), containsString("Split record segments out of order"));
 
                 // One split record then add an extra key in the middle
                 writeDummyRecord(context, Tuple.from(1216L), MEDIUM_COPIES, false);
                 context.ensureActive().set(subspace.pack(Tuple.from(1216L, SplitHelper.START_SPLIT_RECORD + 2, 0L)), HUMPTY_DUMPTY);
                 RecordCoreException err8 = assertThrows(RecordCoreException.class,
-                        () -> loadRecordFunction.load(context, Tuple.from(1216L), null, null));
+                        () -> loadRecordFunction.load(context, Tuple.from(1216L), null, noBytes()));
                 assertThat(err8.getMessage(), anyOf(
                         containsString("Expected only a single key extension"),
                         containsString("Split record segments out of order")
@@ -621,7 +629,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                 writeDummyRecord(context, Tuple.from(1272L), version9, MEDIUM_COPIES);
                 context.ensureActive().clear(subspace.pack(Tuple.from(1272L, SplitHelper.START_SPLIT_RECORD)));
                 assertThrows(SplitHelper.FoundSplitWithoutStartException.class,
-                        () -> loadRecordFunction.load(context, Tuple.from(1272L), null, null, version9));
+                        () -> loadRecordFunction.load(context, Tuple.from(1272L), null, noBytes(), version9));
             }
 
             commit(context);
@@ -629,7 +637,11 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     }
 
     @Nullable
-    private FDBRawRecord loadWithSplit(@Nonnull FDBRecordContext context, @Nonnull Tuple key, @Nonnull SplitHelperTestConfig testConfig,
+    // NullAway/JSpecify does not reliably track @Nullable byte[] parameters; it flags
+    // assertArrayEquals(expectedContents, rawRecord.getRawRecord()) below as a mismatch even
+    // though expectedContents is narrowed non-null and getRawRecord() is declared non-null.
+    @SuppressWarnings("NullAway")
+    private FDBRawRecord loadWithSplit(FDBRecordContext context, Tuple key, SplitHelperTestConfig testConfig,
                                        @Nullable FDBStoredSizes expectedSizes, @Nullable byte[] expectedContents, @Nullable FDBRecordVersion expectedVersion) {
         final ReadTransaction tr = context.ensureActive();
         SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
@@ -644,7 +656,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
             assertNull(rawRecord);
         } else {
             assertNotNull(rawRecord);
-            assertArrayEquals(expectedContents, rawRecord.getRawRecord());
+            assertArrayEquals(Objects.requireNonNull(expectedContents), Objects.requireNonNull(rawRecord.getRawRecord()));
             int valueSize = expectedContents.length;
             if (expectedVersion != null) {
                 valueSize += 1 + FDBRecordVersion.VERSION_LENGTH;
@@ -686,7 +698,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     }
 
     @Nullable
-    private FDBRawRecord loadWithSplit(@Nonnull FDBRecordContext context, @Nonnull Tuple key, SplitHelperTestConfig testConfig,
+    private FDBRawRecord loadWithSplit(FDBRecordContext context, Tuple key, SplitHelperTestConfig testConfig,
                                        @Nullable FDBStoredSizes expectedSizes, @Nullable byte[] expectedContents) {
         return loadWithSplit(context, key, testConfig, expectedSizes, expectedContents, null);
     }
@@ -705,7 +717,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
                 writeDummyRecord(context, Tuple.from(1307L), 1, false);
                 writeDummyRecord(context, Tuple.from(1307L), MEDIUM_COPIES, false);
                 RecordCoreException err = assertThrows(RecordCoreException.class,
-                        () -> loadWithSplit(context, Tuple.from(1307L), testConfig, null, null));
+                        () -> loadWithSplit(context, Tuple.from(1307L), testConfig, null, noBytes()));
                 assertThat(err.getMessage(), containsString("Unsplit value followed by split"));
 
                 commit(context);
@@ -713,7 +725,12 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private FDBRawRecord scanSingleRecord(@Nonnull FDBRecordContext context, boolean reverse, @Nonnull Tuple key, @Nullable FDBStoredSizes expectedSizes, @Nullable byte[] expectedContents, @Nullable FDBRecordVersion version) {
+    @Nullable
+    // NullAway/JSpecify does not reliably track @Nullable byte[] parameters; it flags
+    // assertArrayEquals(expectedContents, rawRecord.getRawRecord()) below as a mismatch even
+    // though expectedContents is narrowed non-null and getRawRecord() is declared non-null.
+    @SuppressWarnings("NullAway")
+    private FDBRawRecord scanSingleRecord(FDBRecordContext context, boolean reverse, Tuple key, @Nullable FDBStoredSizes expectedSizes, @Nullable byte[] expectedContents, @Nullable FDBRecordVersion version) {
         final ScanProperties scanProperties = reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN;
         KeyValueCursor kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
                 .setContext(context)
@@ -736,7 +753,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
 
             assertNotNull(rawRecord);
             assertEquals(key, rawRecord.getPrimaryKey());
-            assertArrayEquals(expectedContents, rawRecord.getRawRecord());
+            assertArrayEquals(Objects.requireNonNull(expectedContents), Objects.requireNonNull(rawRecord.getRawRecord()));
             assertEquals(expectedSizes.getKeyCount(), rawRecord.getKeyCount());
             assertEquals(expectedSizes.getKeySize(), rawRecord.getKeySize());
             assertEquals(expectedSizes.getValueSize(), rawRecord.getValueSize());
@@ -751,7 +768,7 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
     @ParameterizedTest(name = "scan[reverse = {0}]")
     @BooleanSource
     public void scanSingleRecords(boolean reverse) {
-        loadSingleRecords(new SplitHelperTestConfig(true, false, FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue(), false, false, false),
+        loadSingleRecords(new SplitHelperTestConfig(true, false, Objects.requireNonNull(FDBRecordStoreProperties.UNROLL_SINGLE_RECORD_DELETES.getDefaultValue()), false, false, false),
                 (context, key, expectedSizes, expectedContents, version) -> scanSingleRecord(context, reverse, key, expectedSizes, expectedContents, version));
     }
 
@@ -810,6 +827,10 @@ public class SplitHelperTest extends FDBRecordStoreTestBase {
 
     @MethodSource("limitsAndReverseArgs")
     @ParameterizedTest(name = "scanContinuations [returnLimit = {0}, readLimit = {1}, reverse = {2}]")
+    // NullAway/JSpecify does not reliably track @Nullable byte[] continuation across this loop's
+    // reassignment of `continuation` from a previous scan; this is the normal "no continuation yet"
+    // / "no more continuation" convention, not a real bug.
+    @SuppressWarnings("NullAway")
     public void scanContinuations(final int returnLimit, final int readLimit, final boolean reverse) {
         List<FDBRawRecord> rawRecords = writeDummyRecords();
         if (reverse) {

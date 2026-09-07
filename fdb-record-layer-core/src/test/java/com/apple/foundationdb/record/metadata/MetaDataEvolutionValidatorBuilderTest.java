@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.metadata;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -44,11 +43,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class MetaDataEvolutionValidatorBuilderTest {
 
-    private <T> void testSettingOption(@Nonnull String name,
-                                       @Nonnull BiConsumer<MetaDataEvolutionValidator.Builder, ? super T> setter,
-                                       @Nonnull Function<MetaDataEvolutionValidator.Builder, ? extends T> getterFromBuilder,
-                                       @Nonnull Function<MetaDataEvolutionValidator, ? extends T> getterFromValidator,
-                                       @Nonnull List<? extends T> values) {
+    private <T> void testSettingOption(String name,
+                                       BiConsumer<MetaDataEvolutionValidator.Builder, ? super T> setter,
+                                       Function<MetaDataEvolutionValidator.Builder, ? extends T> getterFromBuilder,
+                                       Function<MetaDataEvolutionValidator, ? extends T> getterFromValidator,
+                                       List<? extends T> values) {
         final MetaDataEvolutionValidator.Builder builder = MetaDataEvolutionValidator.newBuilder();
         T defaultValue = values.get(0);
         assertThat(getterFromBuilder.apply(builder))
@@ -73,10 +72,10 @@ class MetaDataEvolutionValidatorBuilderTest {
         }
     }
 
-    private void testSettingBooleanOption(@Nonnull String name,
-                                          @Nonnull BiConsumer<MetaDataEvolutionValidator.Builder, Boolean> setter,
-                                          @Nonnull Function<MetaDataEvolutionValidator.Builder, Boolean> getterFromBuilder,
-                                          @Nonnull Function<MetaDataEvolutionValidator, Boolean> getterFromValidator) {
+    private void testSettingBooleanOption(String name,
+                                          BiConsumer<MetaDataEvolutionValidator.Builder, Boolean> setter,
+                                          Function<MetaDataEvolutionValidator.Builder, Boolean> getterFromBuilder,
+                                          Function<MetaDataEvolutionValidator, Boolean> getterFromValidator) {
         testSettingOption(name, setter, getterFromBuilder, getterFromValidator, List.of(false, true));
     }
 

@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import javax.annotation.Nonnull;
-
 /**
  * Interface to represent an access hint. An access hint can be of type INDEX and PRIMARY.
  */
@@ -31,7 +29,6 @@ public interface AccessHint {
      * Gets the type of the access hint.
      * @return the type of the access hint
      */
-    @Nonnull
     String getAccessHintType();
 }
 

@@ -34,8 +34,8 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -53,48 +53,43 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Recor
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
 public class MetaDataPlanContext implements PlanContext {
-    @Nonnull
     private final RecordQueryPlannerConfiguration plannerConfiguration;
 
-    @Nonnull
     private final Set<MatchCandidate> matchCandidates;
 
-    private MetaDataPlanContext(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
-                                @Nonnull final Set<MatchCandidate> matchCandidates) {
+    private MetaDataPlanContext(final RecordQueryPlannerConfiguration plannerConfiguration,
+                                final Set<MatchCandidate> matchCandidates) {
         this.plannerConfiguration = plannerConfiguration;
         this.matchCandidates = ImmutableSet.copyOf(matchCandidates);
     }
 
-    @Nonnull
     @Override
     public RecordQueryPlannerConfiguration getPlannerConfiguration() {
         return plannerConfiguration;
     }
 
     @Nullable
-    private static KeyExpression commonPrimaryKey(@Nonnull Iterable<RecordType> recordTypes) {
+    private static KeyExpression commonPrimaryKey(Iterable<RecordType> recordTypes) {
         KeyExpression common = null;
         boolean first = true;
         for (RecordType recordType : recordTypes) {
             if (first) {
                 common = recordType.getPrimaryKey();
                 first = false;
-            } else if (!common.equals(recordType.getPrimaryKey())) {
+            } else if (!Objects.requireNonNull(common).equals(recordType.getPrimaryKey())) {
                 return null;
             }
         }
         return common;
     }
     
-    @Nonnull
     @Override
     public Set<MatchCandidate> getMatchCandidates() {
         return matchCandidates;
     }
 
-    @Nonnull
-    private static List<Index> readableOf(@Nonnull RecordStoreState recordStoreState,
-                                          @Nonnull List<Index> indexes) {
+    private static List<Index> readableOf(RecordStoreState recordStoreState,
+                                          List<Index> indexes) {
         if (recordStoreState.allIndexesReadable()) {
             return indexes;
         } else {
@@ -102,12 +97,11 @@ public class MetaDataPlanContext implements PlanContext {
         }
     }
 
-    @Nonnull
-    public static PlanContext forRecordQuery(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration,
-                                             @Nonnull RecordMetaData metaData,
-                                             @Nonnull RecordStoreState recordStoreState,
-                                             @Nonnull IndexMatchCandidateRegistry matchCandidateRegistry,
-                                             @Nonnull RecordQuery query) {
+    public static PlanContext forRecordQuery(RecordQueryPlannerConfiguration plannerConfiguration,
+                                             RecordMetaData metaData,
+                                             RecordStoreState recordStoreState,
+                                             IndexMatchCandidateRegistry matchCandidateRegistry,
+                                             RecordQuery query) {
         final Optional<Collection<String>> queriedRecordTypeNamesOptional = query.getRecordTypes().isEmpty() ? Optional.empty() : Optional.of(query.getRecordTypes());
         final Optional<Collection<String>> allowedIndexesOptional = query.hasAllowedIndexes() ? Optional.of(Objects.requireNonNull(query.getAllowedIndexes())) : Optional.empty();
         final var indexQueryabilityFilter = query.getIndexQueryabilityFilter();
@@ -166,13 +160,13 @@ public class MetaDataPlanContext implements PlanContext {
         return new MetaDataPlanContext(plannerConfiguration, matchCandidatesBuilder.build());
     }
 
-    public static PlanContext forRootReference(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
-                                               @Nonnull final RecordMetaData metaData,
-                                               @Nonnull final RecordStoreState recordStoreState,
-                                               @Nonnull final IndexMatchCandidateRegistry matchCandidateRegistry,
-                                               @Nonnull final Reference rootReference,
-                                               @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
-                                               @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter) {
+    public static PlanContext forRootReference(final RecordQueryPlannerConfiguration plannerConfiguration,
+                                               final RecordMetaData metaData,
+                                               final RecordStoreState recordStoreState,
+                                               final IndexMatchCandidateRegistry matchCandidateRegistry,
+                                               final Reference rootReference,
+                                               final Optional<Collection<String>> allowedIndexesOptional,
+                                               final IndexQueryabilityFilter indexQueryabilityFilter) {
         final var queriedRecordTypeNames = recordTypes().evaluate(rootReference);
 
         if (queriedRecordTypeNames.isEmpty()) {

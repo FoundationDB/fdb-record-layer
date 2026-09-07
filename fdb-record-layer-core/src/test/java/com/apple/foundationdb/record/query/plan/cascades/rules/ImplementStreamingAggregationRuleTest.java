@@ -42,15 +42,12 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimar
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 class ImplementStreamingAggregationRuleTest {
-    @Nonnull
     private static final ImplementStreamingAggregationRule rule = new ImplementStreamingAggregationRule();
-    @Nonnull
     private static final RuleTestHelper testHelper = new RuleTestHelper(rule, PlannerPhase.PLANNING);
 
     @Test

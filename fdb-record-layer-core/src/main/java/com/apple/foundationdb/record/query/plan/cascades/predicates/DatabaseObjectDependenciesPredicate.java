@@ -48,8 +48,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -64,19 +63,17 @@ import java.util.function.Supplier;
 public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate implements LeafQueryPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Database-Object-Dependencies-Predicate");
 
-    @Nonnull
     private final Set<UsedIndex> usedIndexes;
 
     /**
      * Constructs a new {@link DatabaseObjectDependenciesPredicate} instance.
      * @param usedIndexes a set of used indexes
      */
-    private DatabaseObjectDependenciesPredicate(@Nonnull final Set<UsedIndex> usedIndexes) {
+    private DatabaseObjectDependenciesPredicate(final Set<UsedIndex> usedIndexes) {
         super(true);
         this.usedIndexes = ImmutableSet.copyOf(usedIndexes);
     }
 
-    @Nonnull
     public Set<UsedIndex> getUsedIndexes() {
         return usedIndexes;
     }
@@ -85,7 +82,7 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
     public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store,
-                                            @Nonnull final EvaluationContext context) {
+                                            final EvaluationContext context) {
         final RecordMetaData recordMetaData = Objects.requireNonNull(store).getRecordMetaData();
         for (final UsedIndex usedIndex : usedIndexes) {
             if (!recordMetaData.hasIndex(usedIndex.getName())) {
@@ -116,13 +113,12 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
     }
     
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, isAtomic(), usedIndexes);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         Verify.verify(Iterables.isEmpty(explainSuppliers));
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("databaseObjectDependencies"));
     }
@@ -139,10 +135,9 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final QueryPredicate other,
-                                                    @Nonnull final ValueEquivalence valueEquivalence) {
+    public ConstrainedBoolean equalsWithoutChildren(final QueryPredicate other,
+                                                    final ValueEquivalence valueEquivalence) {
         return super.equalsWithoutChildren(other, valueEquivalence)
                 .filter(ignored -> {
                     final DatabaseObjectDependenciesPredicate otherDatabaseObjectDependenciesPredicate =
@@ -152,9 +147,8 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
     }
 
 
-    @Nonnull
     @Override
-    public PDatabaseObjectDependenciesPredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PDatabaseObjectDependenciesPredicate toProto(final PlanSerializationContext serializationContext) {
         final PDatabaseObjectDependenciesPredicate.Builder builder = PDatabaseObjectDependenciesPredicate.newBuilder();
         for (final UsedIndex usedIndex : usedIndexes) {
             builder.addUsedIndexes(usedIndex.toProto(serializationContext));
@@ -162,15 +156,13 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PQueryPredicate toQueryPredicateProto(final PlanSerializationContext serializationContext) {
         return PQueryPredicate.newBuilder().setDatabaseObjectDependenciesPredicate(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static DatabaseObjectDependenciesPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                                @Nonnull final PDatabaseObjectDependenciesPredicate databaseObjectDependenciesPredicateProto) {
+    public static DatabaseObjectDependenciesPredicate fromProto(final PlanSerializationContext serializationContext,
+                                                                final PDatabaseObjectDependenciesPredicate databaseObjectDependenciesPredicateProto) {
         final ImmutableSet.Builder<UsedIndex> usedIndexesBuilder = ImmutableSet.builder();
         for (int i = 0; i < databaseObjectDependenciesPredicateProto.getUsedIndexesCount(); i ++) {
             final PUsedIndex usedIndexProto = databaseObjectDependenciesPredicateProto.getUsedIndexes(i);
@@ -179,9 +171,8 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
         return new DatabaseObjectDependenciesPredicate(usedIndexesBuilder.build());
     }
 
-    @Nonnull
-    public static DatabaseObjectDependenciesPredicate fromPlan(@Nonnull final RecordMetaData recordMetaData,
-                                                               @Nonnull final RecordQueryPlan plan) {
+    public static DatabaseObjectDependenciesPredicate fromPlan(final RecordMetaData recordMetaData,
+                                                               final RecordQueryPlan plan) {
         final List<String> usedIndexesNamesList = Lists.newArrayList(plan.getUsedIndexes());
         // we have to do this to get a proper stable order
         Collections.sort(usedIndexesNamesList);
@@ -198,16 +189,14 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PDatabaseObjectDependenciesPredicate, DatabaseObjectDependenciesPredicate> {
-        @Nonnull
         @Override
         public Class<PDatabaseObjectDependenciesPredicate> getProtoMessageClass() {
             return PDatabaseObjectDependenciesPredicate.class;
         }
 
-        @Nonnull
         @Override
-        public DatabaseObjectDependenciesPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                             @Nonnull final PDatabaseObjectDependenciesPredicate databaseObjectDependenciesPredicateProto) {
+        public DatabaseObjectDependenciesPredicate fromProto(final PlanSerializationContext serializationContext,
+                                                             final PDatabaseObjectDependenciesPredicate databaseObjectDependenciesPredicateProto) {
             return DatabaseObjectDependenciesPredicate.fromProto(serializationContext, databaseObjectDependenciesPredicateProto);
         }
     }
@@ -218,16 +207,14 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
     public static class UsedIndex implements PlanHashable, PlanSerializable {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Used-Index");
 
-        @Nonnull
         private final String name;
         private final int lastModifiedVersion;
 
-        public UsedIndex(@Nonnull final String name, final int lastModifiedVersion) {
+        public UsedIndex(final String name, final int lastModifiedVersion) {
             this.name = name;
             this.lastModifiedVersion = lastModifiedVersion;
         }
 
-        @Nonnull
         public String getName() {
             return name;
         }
@@ -255,23 +242,21 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode hashMode) {
+        public int planHash(final PlanHashMode hashMode) {
             return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, name, lastModifiedVersion);
         }
 
-        @Nonnull
         @Override
-        public PUsedIndex toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PUsedIndex toProto(final PlanSerializationContext serializationContext) {
             return PUsedIndex.newBuilder()
                     .setName(name)
                     .setLastModifiedVersion(lastModifiedVersion)
                     .build();
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public static UsedIndex fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                          @Nonnull final PUsedIndex usedIndexProto) {
+        public static UsedIndex fromProto(final PlanSerializationContext serializationContext,
+                                          final PUsedIndex usedIndexProto) {
             return new UsedIndex(usedIndexProto.getName(), usedIndexProto.getLastModifiedVersion());
         }
     }

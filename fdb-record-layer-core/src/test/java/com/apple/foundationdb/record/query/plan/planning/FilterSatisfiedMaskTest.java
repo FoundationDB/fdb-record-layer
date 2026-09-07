@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -43,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public class FilterSatisfiedMaskTest {
 
-    private void validateMask(@Nonnull QueryComponent filter, @Nonnull List<QueryComponent> children) {
+    private void validateMask(QueryComponent filter, List<QueryComponent> children) {
         final FilterSatisfiedMask mask = FilterSatisfiedMask.of(filter);
         assertSame(filter, mask.getFilter());
         assertThat(mask.isSatisfied(), is(false));

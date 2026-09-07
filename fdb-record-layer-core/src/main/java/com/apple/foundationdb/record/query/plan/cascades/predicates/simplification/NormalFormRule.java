@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
@@ -36,17 +35,14 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class NormalFormRule extends QueryPredicateSimplificationRule<QueryPredicate> {
-    @Nonnull
     private static final BindingMatcher<QueryPredicate> anyPredicateMatcher = anyPredicate();
-    @Nonnull
     private final BooleanPredicateNormalizer normalizer;
 
-    public NormalFormRule(@Nonnull final BooleanPredicateNormalizer normalizer) {
+    public NormalFormRule(final BooleanPredicateNormalizer normalizer) {
         super(anyPredicateMatcher);
         this.normalizer = normalizer;
     }
 
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         // always-rule
@@ -54,7 +50,7 @@ public class NormalFormRule extends QueryPredicateSimplificationRule<QueryPredic
     }
 
     @Override
-    public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
+    public void onMatch(final QueryPredicateSimplificationRuleCall call) {
         if (!call.isRoot()) {
             return;
         }

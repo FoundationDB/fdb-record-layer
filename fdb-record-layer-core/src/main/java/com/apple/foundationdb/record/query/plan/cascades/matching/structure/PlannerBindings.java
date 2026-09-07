@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -39,13 +38,11 @@ import java.util.NoSuchElementException;
  */
 @API(API.Status.EXPERIMENTAL)
 public class PlannerBindings {
-    @Nonnull
     private static final PlannerBindings EMPTY = new PlannerBindings(ImmutableListMultimap.of());
 
-    @Nonnull
     private final ImmutableListMultimap<BindingMatcher<?>, ?> bindings;
 
-    private PlannerBindings(@Nonnull ImmutableListMultimap<BindingMatcher<?>, ?> bindings) {
+    private PlannerBindings(ImmutableListMultimap<BindingMatcher<?>, ?> bindings) {
         this.bindings = bindings;
     }
 
@@ -54,7 +51,7 @@ public class PlannerBindings {
      * @param key a matcher
      * @return whether there is an object bound to {@code key}
      */
-    public boolean containsKey(@Nonnull BindingMatcher<?> key) {
+    public boolean containsKey(BindingMatcher<?> key) {
         return bindings.containsKey(key);
     }
 
@@ -67,9 +64,8 @@ public class PlannerBindings {
      * @return the bindable object bound to key
      * @throws NoSuchElementException if the number of bindables bound to this key is not exactly one
      */
-    @Nonnull
     @SuppressWarnings("unchecked")
-    public <T> T get(@Nonnull BindingMatcher<T> key) {
+    public <T> T get(BindingMatcher<T> key) {
         if (bindings.containsKey(key)) {
             List<?> bindingsForKey = bindings.get(key);
             if (bindingsForKey.size() == 1) {
@@ -89,9 +85,8 @@ public class PlannerBindings {
      * @param <T> the type of objects that was bound to {@code key}
      * @return a list of bindable objects bound to the key
      */
-    @Nonnull
     @SuppressWarnings("unchecked")
-    public <T> List<T> getAll(@Nonnull BindingMatcher<T> key) {
+    public <T> List<T> getAll(BindingMatcher<T> key) {
         if (bindings.containsKey(key)) {
             return (List<T>)bindings.get(key);
         }
@@ -106,8 +101,7 @@ public class PlannerBindings {
      * @param other a set of bindings, which may share keys with this set of bindings
      * @return a new set of bindings that contains the bindings from both both sets of bindings
      */
-    @Nonnull
-    public PlannerBindings mergedWith(@Nonnull PlannerBindings other) {
+    public PlannerBindings mergedWith(PlannerBindings other) {
         ImmutableListMultimap.Builder<BindingMatcher<?>, Object> combined = ImmutableListMultimap.builder();
         combined.putAll(this.bindings);
         combined.putAll(other.bindings);
@@ -120,7 +114,6 @@ public class PlannerBindings {
      * show the contents of all bindings without the knowledge of the existence of particular matchers.
      * @return the backing immutable multi map
      */
-    @Nonnull
     public ImmutableListMultimap<BindingMatcher<?>, ?> asMultiMap() {
         return bindings;
     }
@@ -137,8 +130,7 @@ public class PlannerBindings {
      * @param <T> type of object
      * @return a new set of bindings containing a single binding from {@code key} to {@code bindable}
      */
-    @Nonnull
-    public static <T> PlannerBindings from(@Nonnull BindingMatcher<T> key, @Nonnull T object) {
+    public static <T> PlannerBindings from(BindingMatcher<T> key, T object) {
         return new PlannerBindings(ImmutableListMultimap.of(key, object));
     }
 
@@ -146,7 +138,6 @@ public class PlannerBindings {
      * Return an empty set of bindings.
      * @return an empty set of bindings
      */
-    @Nonnull
     public static PlannerBindings empty() {
         return EMPTY;
     }
@@ -164,27 +155,23 @@ public class PlannerBindings {
      * bindings without repeatedly calling {@link #mergedWith(PlannerBindings)}, which is less efficient.
      */
     public static class Builder {
-        @Nonnull
         private final ImmutableListMultimap.Builder<BindingMatcher<?>, Object> map;
 
         public Builder() {
             this.map = ImmutableListMultimap.builder();
         }
 
-        @Nonnull
-        public <T> Builder put(@Nonnull BindingMatcher<? extends T> key, @Nonnull T bindable) {
+        public <T> Builder put(BindingMatcher<? extends T> key, T bindable) {
             map.put(key, bindable);
             return this;
         }
 
-        @Nonnull
-        public <T> Builder putAll(@Nonnull BindingMatcher<? extends T> key, @Nonnull Iterable<? extends T> bindables) {
+        public <T> Builder putAll(BindingMatcher<? extends T> key, Iterable<? extends T> bindables) {
             map.putAll(key, bindables);
             return this;
         }
 
-        @Nonnull
-        public Builder putAll(@Nonnull PlannerBindings plannerBindings) {
+        public Builder putAll(PlannerBindings plannerBindings) {
             map.putAll(plannerBindings.bindings);
             return this;
         }

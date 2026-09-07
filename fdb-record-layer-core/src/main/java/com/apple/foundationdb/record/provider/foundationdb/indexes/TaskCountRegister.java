@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-
 /**
  * A {@link VectorIndexTaskCounts} handle bound to a single partition {@code prefix}. It is handed to a vector engine's
  * write listener so that, as deferred tasks are enqueued and executed during an insert/delete, the engine can bump the
@@ -34,13 +32,13 @@ import javax.annotation.Nonnull;
  * @param counts the register to update
  * @param prefix the partition prefix this handle counts against (empty for an unpartitioned index)
  */
-record TaskCountRegister(@Nonnull VectorIndexTaskCounts counts, @Nonnull Tuple prefix) implements TaskEventRegister {
+record TaskCountRegister(VectorIndexTaskCounts counts, Tuple prefix) implements TaskEventRegister {
     /**
      * Records that a task was enqueued for this prefix.
      * @param transaction the transaction the enqueue happened in
      */
     @Override
-    public void onTaskEnqueued(@Nonnull final Transaction transaction) {
+    public void onTaskEnqueued(final Transaction transaction) {
         counts.increment(transaction, prefix);
     }
 
@@ -49,7 +47,7 @@ record TaskCountRegister(@Nonnull VectorIndexTaskCounts counts, @Nonnull Tuple p
      * @param transaction the transaction the execution happened in
      */
     @Override
-    public void onTaskExecuted(@Nonnull final Transaction transaction) {
+    public void onTaskExecuted(final Transaction transaction) {
         counts.decrement(transaction, prefix);
     }
 }

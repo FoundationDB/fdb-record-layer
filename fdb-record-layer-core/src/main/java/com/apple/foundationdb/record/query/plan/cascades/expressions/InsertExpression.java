@@ -40,7 +40,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -53,19 +52,15 @@ import java.util.Set;
  */
 public class InsertExpression extends AbstractRelationalExpressionWithChildren implements PlannerGraphRewritable {
 
-    @Nonnull
     private final Quantifier.ForEach inner;
-    @Nonnull
     private final String targetRecordType;
-    @Nonnull
     private final Type.Record targetType;
 
-    @Nonnull
     private final Value resultValue;
 
-    public InsertExpression(@Nonnull final Quantifier.ForEach inner,
-                            @Nonnull final String targetRecordType,
-                            @Nonnull final Type.Record targetType) {
+    public InsertExpression(final Quantifier.ForEach inner,
+                            final String targetRecordType,
+                            final Type.Record targetType) {
         this.inner = inner;
         this.targetRecordType = targetRecordType;
         this.targetType = targetType;
@@ -77,36 +72,31 @@ public class InsertExpression extends AbstractRelationalExpressionWithChildren i
         return 1;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
     }
 
-    @Nonnull
     @Override
-    public InsertExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public InsertExpression translateCorrelations(final TranslationMap translationMap,
                                                   final boolean shouldSimplifyValues,
-                                                  @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                  final List<? extends Quantifier> translatedQuantifiers) {
         return new InsertExpression(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.ForEach.class),
                 targetRecordType, targetType);
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
     }
 
-    @Nonnull
-    public RecordQueryInsertPlan toPlan(@Nonnull final Quantifier.Physical physicalInner) {
+    public RecordQueryInsertPlan toPlan(final Quantifier.Physical physicalInner) {
         Verify.verify(inner.getAlias().equals(physicalInner.getAlias()));
         return RecordQueryInsertPlan.insertPlan(physicalInner,
                 targetRecordType,
@@ -116,8 +106,8 @@ public class InsertExpression extends AbstractRelationalExpressionWithChildren i
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -155,9 +145,8 @@ public class InsertExpression extends AbstractRelationalExpressionWithChildren i
      * @return the rewritten planner graph that models the target as a separate node that is connected to the
      *         insert expression node.
      */
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         Verify.verify(!childGraphs.isEmpty());
 
         final var graphForTarget =
@@ -175,8 +164,7 @@ public class InsertExpression extends AbstractRelationalExpressionWithChildren i
                 Iterables.getOnlyElement(childGraphs), graphForTarget);
     }
 
-    @Nonnull
-    private static Value makeComputationValue(@Nonnull final Type targetType) {
+    private static Value makeComputationValue(final Type targetType) {
         return ObjectValue.of(RecordQueryAbstractDataModificationPlan.currentModifiedRecordAlias(), targetType);
     }
 }

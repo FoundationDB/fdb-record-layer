@@ -23,8 +23,6 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-
 /**
  * Interface that needs to be implemented separately for every class that is {@link PlanSerializable}.
  * @param <M> the message that serializes {@code T}
@@ -36,7 +34,6 @@ public interface PlanDeserializer<M extends Message, T> {
      * Returns {@code M.class}.
      * @return {@code M.class}
      */
-    @Nonnull
     Class<M> getProtoMessageClass();
 
     /**
@@ -47,6 +44,5 @@ public interface PlanDeserializer<M extends Message, T> {
      * @param message the protobuf message of type {@code M}
      * @return an instance of type {@code T}
      */
-    @Nonnull
-    T fromProto(@Nonnull PlanSerializationContext serializationContext, @Nonnull M message);
+    T fromProto(PlanSerializationContext serializationContext, M message);
 }

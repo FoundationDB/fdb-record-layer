@@ -33,8 +33,8 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -71,19 +71,15 @@ public class BooleanPredicateNormalizer {
         DNF(OrPredicate.class, OrPredicate::or, AndPredicate.class, AndPredicate::and),
         CNF(AndPredicate.class, AndPredicate::and, OrPredicate.class, OrPredicate::or);
 
-        @Nonnull
         private final Class<? extends AndOrPredicate> majorClass;
-        @Nonnull
         private final Function<Collection<? extends QueryPredicate>, QueryPredicate> majorGenerator;
-        @Nonnull
         private final Class<? extends AndOrPredicate> minorClass;
-        @Nonnull
         private final Function<Collection<? extends QueryPredicate>, QueryPredicate> minorGenerator;
 
-        Mode(@Nonnull final Class<? extends AndOrPredicate> majorClass,
-                 @Nonnull final Function<Collection<? extends QueryPredicate>, QueryPredicate> majorGenerator,
-                 @Nonnull final Class<? extends AndOrPredicate> minorClass,
-                 @Nonnull final Function<Collection<? extends QueryPredicate>, QueryPredicate> minorGenerator) {
+        Mode(final Class<? extends AndOrPredicate> majorClass,
+                 final Function<Collection<? extends QueryPredicate>, QueryPredicate> majorGenerator,
+                 final Class<? extends AndOrPredicate> minorClass,
+                 final Function<Collection<? extends QueryPredicate>, QueryPredicate> minorGenerator) {
             this.majorClass = majorClass;
             this.majorGenerator = majorGenerator;
             this.minorClass = minorClass;
@@ -98,13 +94,11 @@ public class BooleanPredicateNormalizer {
             return minorClass.isInstance(andOrPredicate);
         }
 
-        @Nonnull
-        public QueryPredicate majorWithChildren(@Nonnull Collection<? extends QueryPredicate> children) {
+        public QueryPredicate majorWithChildren(Collection<? extends QueryPredicate> children) {
             return majorGenerator.apply(children);
         }
 
-        @Nonnull
-        public QueryPredicate minorWithChildren(@Nonnull Collection<? extends QueryPredicate> children) {
+        public QueryPredicate minorWithChildren(Collection<? extends QueryPredicate> children) {
             return minorGenerator.apply(children);
         }
     }
@@ -116,11 +110,10 @@ public class BooleanPredicateNormalizer {
     private static final BooleanPredicateNormalizer DEFAULT_DNF = new BooleanPredicateNormalizer(Mode.DNF, DEFAULT_SIZE_LIMIT);
     private static final BooleanPredicateNormalizer DEFAULT_CNF = new BooleanPredicateNormalizer(Mode.CNF, DEFAULT_SIZE_LIMIT);
 
-    @Nonnull
     private final Mode mode;
     private final int sizeLimit;
 
-    private BooleanPredicateNormalizer(@Nonnull final Mode mode, int sizeLimit) {
+    private BooleanPredicateNormalizer(final Mode mode, int sizeLimit) {
         this.mode = mode;
         this.sizeLimit = sizeLimit;
     }
@@ -129,7 +122,6 @@ public class BooleanPredicateNormalizer {
      * Obtain a (dnf-) normalizer with the default size limit {@link BooleanPredicateNormalizer#DEFAULT_SIZE_LIMIT}.
      * @return a normalizer with the default size limit
      */
-    @Nonnull
     public static BooleanPredicateNormalizer getDefaultInstanceForDnf() {
         return DEFAULT_DNF;
     }
@@ -138,7 +130,6 @@ public class BooleanPredicateNormalizer {
      * Obtain a (cnf-) normalizer with the default size limit {@link BooleanPredicateNormalizer#DEFAULT_SIZE_LIMIT}.
      * @return a normalizer with the default size limit
      */
-    @Nonnull
     public static BooleanPredicateNormalizer getDefaultInstanceForCnf() {
         return DEFAULT_CNF;
     }
@@ -149,16 +140,14 @@ public class BooleanPredicateNormalizer {
      * @param sizeLimit a limit on the size of normalized form that this normalizer will produce
      * @return a normalizer with the given size limit
      */
-    @Nonnull
-    public static BooleanPredicateNormalizer withLimit(@Nonnull Mode mode, int sizeLimit) {
+    public static BooleanPredicateNormalizer withLimit(Mode mode, int sizeLimit) {
         if (sizeLimit == DEFAULT_SIZE_LIMIT) {
             return getDefaultInstance(mode);
         }
         return new BooleanPredicateNormalizer(mode, sizeLimit);
     }
 
-    @Nonnull
-    private static BooleanPredicateNormalizer getDefaultInstance(@Nonnull final Mode mode) {
+    private static BooleanPredicateNormalizer getDefaultInstance(final Mode mode) {
         return mode == Mode.CNF
                ? DEFAULT_CNF
                : DEFAULT_DNF;
@@ -170,7 +159,7 @@ public class BooleanPredicateNormalizer {
      * @param configuration a a planner configuration specifying the normalization limit that this normalizer will produce
      * @return a normalizer for the given planner configuration
      */
-    public static BooleanPredicateNormalizer forConfiguration(@Nonnull Mode mode, @Nonnull final RecordQueryPlannerConfiguration configuration) {
+    public static BooleanPredicateNormalizer forConfiguration(Mode mode, final RecordQueryPlannerConfiguration configuration) {
         if (configuration.getComplexityThreshold() == DEFAULT_SIZE_LIMIT) {
             return getDefaultInstance(mode);
         }
@@ -181,7 +170,6 @@ public class BooleanPredicateNormalizer {
      * Get the mode of this normalizer.
      * @return the mode used by this normalizer
      */
-    @Nonnull
     public Mode getMode() {
         return mode;
     }
@@ -203,7 +191,6 @@ public class BooleanPredicateNormalizer {
      * @return the predicate in normal form
      * @throws NormalFormTooLargeException if the normal form would exceed the size limit
      */
-    @Nonnull
     public Optional<QueryPredicate> normalizeAndSimplify(@Nullable final QueryPredicate predicate, boolean failIfTooLarge) {
         return normalizeInternal(predicate, failIfTooLarge)
                 .map(majorOfMinor -> {
@@ -221,7 +208,6 @@ public class BooleanPredicateNormalizer {
      * @return the predicate in normal form
      * @throws NormalFormTooLargeException if the normal form would exceed the size limit
      */
-    @Nonnull
     public Optional<QueryPredicate> normalize(@Nullable final QueryPredicate predicate, boolean failIfTooLarge) {
         return normalizeInternal(predicate, failIfTooLarge)
                 .map(majorOfMinor -> mode.majorWithChildren(majorOfMinor.stream().map(mode::minorWithChildren).collect(Collectors.toList())));
@@ -236,7 +222,6 @@ public class BooleanPredicateNormalizer {
      * @return the predicate in normal form
      * @throws NormalFormTooLargeException if the normal form would exceed the size limit
      */
-    @Nonnull
     private Optional<List<Collection<? extends QueryPredicate>>> normalizeInternal(@Nullable final QueryPredicate predicate, boolean failIfTooLarge) {
         if (isInNormalForm(predicate)) {
             return Optional.empty();
@@ -306,7 +291,6 @@ public class BooleanPredicateNormalizer {
         return getMetrics(predicate).getNormalFormSize();
     }
 
-    @Nonnull
     public PredicateMetrics getMetrics(@Nullable QueryPredicate predicate) {
         if (predicate == null) {
             return new PredicateMetrics(0, 0, 0);
@@ -314,7 +298,7 @@ public class BooleanPredicateNormalizer {
         return getMetrics(predicate, false);
     }
 
-    private PredicateMetrics getMetrics(@Nonnull final QueryPredicate predicate, final boolean negate) {
+    private PredicateMetrics getMetrics(final QueryPredicate predicate, final boolean negate) {
         if (mode.instanceOfMinorClass(predicate)) {
             final List<? extends QueryPredicate> children = ((AndOrPredicate)predicate).getChildren();
             final PredicateMetrics metricsFromChildren = negate ? getMetricsForMajor(children, true) : getMetricsForMinor(children, false);
@@ -331,7 +315,7 @@ public class BooleanPredicateNormalizer {
         }
     }
 
-    private PredicateMetrics getMetricsForMajor(@Nonnull final List<? extends QueryPredicate> children, final boolean negate) {
+    private PredicateMetrics getMetricsForMajor(final List<? extends QueryPredicate> children, final boolean negate) {
         long normalFormSize = 0L;
         long normalFormFullSize = 0L;
         int normalFormMaximumNumMinors = 0;
@@ -344,7 +328,7 @@ public class BooleanPredicateNormalizer {
         return new PredicateMetrics(normalFormSize, normalFormFullSize, normalFormMaximumNumMinors);
     }
 
-    private PredicateMetrics getMetricsForMinor(@Nonnull final List<? extends QueryPredicate> children, final boolean negate) {
+    private PredicateMetrics getMetricsForMinor(final List<? extends QueryPredicate> children, final boolean negate) {
         long normalFormSize = 1L;
         long normalFormFullSize = 1L;
         int normalFormMaximumNumMinors = 0;
@@ -364,8 +348,7 @@ public class BooleanPredicateNormalizer {
      * @param negate whether this subtree is negated
      * @return a list (to be major'ed) of lists (to be minor'ed)
      */
-    @Nonnull
-    private List<Collection<? extends QueryPredicate>> toNormalized(@Nonnull final QueryPredicate predicate, final boolean negate) {
+    private List<Collection<? extends QueryPredicate>> toNormalized(final QueryPredicate predicate, final boolean negate) {
         if (!predicate.isAtomic()) {
             if (mode.instanceOfMinorClass(predicate)) {
                 final List<? extends QueryPredicate> children = ((AndOrPredicate)predicate).getChildren();
@@ -386,8 +369,7 @@ public class BooleanPredicateNormalizer {
      * @param negate whether the major is negated
      * @return a list (to be major'ed) of lists (to be minor'ed)
      */
-    @Nonnull
-    private List<Collection<? extends QueryPredicate>> majorToNormalized(@Nonnull final List<? extends QueryPredicate> children, final boolean negate) {
+    private List<Collection<? extends QueryPredicate>> majorToNormalized(final List<? extends QueryPredicate> children, final boolean negate) {
         final List<Collection<? extends QueryPredicate>> result = new ArrayList<>();
         children.stream().map(p -> toNormalized(p, negate)).forEach(result::addAll);
         return result;
@@ -399,15 +381,13 @@ public class BooleanPredicateNormalizer {
      * @param negate whether the major is negated
      * @return a list (to be major'ed) of lists (to be minor'ed)
      */
-    @Nonnull
-    private List<Collection<? extends QueryPredicate>> minorToNormalized(@Nonnull final List<? extends QueryPredicate> children, final boolean negate) {
+    private List<Collection<? extends QueryPredicate>> minorToNormalized(final List<? extends QueryPredicate> children, final boolean negate) {
         return minorToNormalized(children, 0, negate, Collections.singletonList(Collections.emptyList()));
     }
 
-    @Nonnull
-    private List<Collection<? extends QueryPredicate>> minorToNormalized(@Nonnull final List<? extends QueryPredicate> children, int index,
+    private List<Collection<? extends QueryPredicate>> minorToNormalized(final List<? extends QueryPredicate> children, int index,
                                                                          final boolean negate,
-                                                                         @Nonnull final List<Collection<? extends QueryPredicate>> crossProductSoFar) {
+                                                                         final List<Collection<? extends QueryPredicate>> crossProductSoFar) {
         if (index >= children.size()) {
             return crossProductSoFar;
         }
@@ -478,18 +458,18 @@ public class BooleanPredicateNormalizer {
     class NormalFormTooLargeException extends RecordCoreException {
         private static final long serialVersionUID = 1L;
 
-        public NormalFormTooLargeException(@Nonnull final QueryPredicate predicate) {
+        public NormalFormTooLargeException(final QueryPredicate predicate) {
             super("tried to normalize to a normal form but the size would have been too big");
             addLogInfo(LogMessageKeys.FILTER, predicate);
             addLogInfo(LogMessageKeys.DNF_SIZE_LIMIT, sizeLimit);
         }
     }
 
-    private static boolean isNormalFormVariable(@Nonnull final QueryPredicate queryPredicate) {
+    private static boolean isNormalFormVariable(final QueryPredicate queryPredicate) {
         return queryPredicate.isAtomic() || queryPredicate instanceof LeafQueryPredicate;
     }
 
-    private static boolean isNormalFormVariableOrNotPredicate(@Nonnull final QueryPredicate queryPredicate) {
+    private static boolean isNormalFormVariableOrNotPredicate(final QueryPredicate queryPredicate) {
         if (isNormalFormVariable(queryPredicate)) {
             return true;
         }

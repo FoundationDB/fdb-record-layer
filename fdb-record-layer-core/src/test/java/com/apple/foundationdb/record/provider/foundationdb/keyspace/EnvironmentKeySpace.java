@@ -26,7 +26,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -74,8 +76,7 @@ class EnvironmentKeySpace {
                                         .addSubdirectory(new KeySpaceDirectory(METADATA_KEY, KeySpaceDirectory.KeyType.LONG, METADATA_VALUE, MetadataPath::new)))));
     }
 
-    @Nonnull
-    static EnvironmentKeySpace setupSampleData(@Nonnull final FDBDatabase database) {
+    static EnvironmentKeySpace setupSampleData(final FDBDatabase database) {
         EnvironmentKeySpace keySpace = new EnvironmentKeySpace(UUID.randomUUID().toString());
 
         // Store test data at different levels of the hierarchy
@@ -132,6 +133,7 @@ class EnvironmentKeySpace {
             super(path);
         }
 
+        @Nullable
         public KeySpacePath parent() {
             return null;
         }
@@ -151,7 +153,8 @@ class EnvironmentKeySpace {
         }
 
         public EnvironmentRoot parent() {
-            return (EnvironmentRoot) inner.getParent();
+            // UserPath is never the root of the environment, so its parent is always present.
+            return (EnvironmentRoot) Objects.requireNonNull(inner.getParent());
         }
     }
 
@@ -169,7 +172,8 @@ class EnvironmentKeySpace {
         }
 
         public UserPath parent() {
-            return (UserPath) inner.getParent();
+            // ApplicationPath is never the root of the environment, so its parent is always present.
+            return (UserPath) Objects.requireNonNull(inner.getParent());
         }
     }
 
@@ -179,7 +183,8 @@ class EnvironmentKeySpace {
         }
 
         public ApplicationPath parent() {
-            return (ApplicationPath) inner.getParent();
+            // DataPath is never the root of the environment, so its parent is always present.
+            return (ApplicationPath) Objects.requireNonNull(inner.getParent());
         }
     }
 
@@ -189,7 +194,8 @@ class EnvironmentKeySpace {
         }
 
         public ApplicationPath parent() {
-            return (ApplicationPath) inner.getParent();
+            // MetadataPath is never the root of the environment, so its parent is always present.
+            return (ApplicationPath) Objects.requireNonNull(inner.getParent());
         }
     }
 }

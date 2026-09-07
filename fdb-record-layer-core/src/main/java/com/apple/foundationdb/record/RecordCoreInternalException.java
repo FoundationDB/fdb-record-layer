@@ -22,8 +22,7 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Exception thrown when an inconsistency in core record layer behavior is detected.
@@ -32,7 +31,7 @@ import javax.annotation.Nullable;
 @SuppressWarnings("serial")
 public class RecordCoreInternalException extends RecordCoreException {
 
-    public RecordCoreInternalException(@Nonnull final String msg, @Nullable final Object... keyValues) {
+    public RecordCoreInternalException(final String msg, @Nullable final Object... keyValues) {
         super(msg, keyValues);
     }
 }

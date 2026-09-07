@@ -21,4 +21,7 @@
 /**
  * Package to contain logic to simplify a tree of {@link com.apple.foundationdb.record.query.plan.cascades.values.Value}s.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
+
+import org.jspecify.annotations.NullMarked;

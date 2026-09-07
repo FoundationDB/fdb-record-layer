@@ -42,7 +42,6 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchCandidateExpansion
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 
@@ -52,22 +51,19 @@ import java.util.List;
 @AutoService(IndexMaintainerFactory.class)
 @API(API.Status.EXPERIMENTAL)
 public class BitmapValueIndexMaintainerFactory implements IndexMaintainerFactory {
-    @Nonnull
     private static final List<String> TYPES = Collections.singletonList(IndexTypes.BITMAP_VALUE);
     private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Override
-    @Nonnull
     public Iterable<String> getIndexTypes() {
         return TYPES;
     }
 
     @Override
-    @Nonnull
     public IndexValidator getIndexValidator(Index index) {
         return new IndexValidator(index) {
             @Override
-            public void validate(@Nonnull MetaDataValidator metaDataValidator) {
+            public void validate(MetaDataValidator metaDataValidator) {
                 super.validate(metaDataValidator);
                 validateGrouping(1);
                 final GroupingKeyExpression group = (GroupingKeyExpression)index.getRootExpression();
@@ -82,7 +78,7 @@ public class BitmapValueIndexMaintainerFactory implements IndexMaintainerFactory
 
             @Override
             @SuppressWarnings("fallthrough")
-            public void validateIndexForRecordType(@Nonnull RecordType recordType, @Nonnull MetaDataValidator metaDataValidator) {
+            public void validateIndexForRecordType(RecordType recordType, MetaDataValidator metaDataValidator) {
                 final List<Descriptors.FieldDescriptor> fields = metaDataValidator.validateIndexForRecordType(index, recordType);
                 switch (fields.get(fields.size() - 1).getType()) {
                     case INT64:
@@ -108,23 +104,20 @@ public class BitmapValueIndexMaintainerFactory implements IndexMaintainerFactory
     }
 
     @Override
-    @Nonnull
-    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
         return new BitmapValueIndexMaintainer(state);
     }
 
-    @Nonnull
     @Override
-    public Iterable<MatchCandidate> createMatchCandidates(@Nonnull final RecordMetaData metaData, @Nonnull final Index index, final boolean reverse) {
+    public Iterable<MatchCandidate> createMatchCandidates(final RecordMetaData metaData, final Index index, final boolean reverse) {
         final IndexExpansionInfo info = IndexExpansionInfo.createInfo(metaData, index, reverse);
         final ExpansionVisitor<?> expansionVisitor = new BitmapAggregateIndexExpansionVisitor(info.getIndex(), info.getIndexedRecordTypes());
         return MatchCandidateExpansion.optionalToIterable(
                 MatchCandidateExpansion.expandIndexMatchCandidate(info, false, null, expansionVisitor));
     }
 
-    @Nonnull
     @Override
-    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+    public IndexGeneralAttributes getIndexGeneralAttributes(final Index index) {
         return GENERAL_ATTRIBUTES;
     }
 }

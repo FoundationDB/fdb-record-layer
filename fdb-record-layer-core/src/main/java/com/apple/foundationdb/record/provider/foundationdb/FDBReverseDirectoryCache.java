@@ -42,11 +42,12 @@ import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -92,11 +93,11 @@ public class FDBReverseDirectoryCache {
     private int maxRowsPerTransaction;
     private long maxMillisPerTransaction;
 
-    public FDBReverseDirectoryCache(@Nonnull FDBDatabase fdb) {
+    public FDBReverseDirectoryCache(FDBDatabase fdb) {
         this(fdb, MAX_ROWS_PER_TRANSACTION, MAX_MILLIS_PER_TRANSACTION);
     }
 
-    public FDBReverseDirectoryCache(@Nonnull FDBDatabase fdb, int maxRowsPerTransaction, long maxMillisPerTransaction) {
+    public FDBReverseDirectoryCache(FDBDatabase fdb, int maxRowsPerTransaction, long maxMillisPerTransaction) {
         this.fdb = fdb;
         this.maxRowsPerTransaction = maxRowsPerTransaction;
         this.maxMillisPerTransaction = maxMillisPerTransaction;
@@ -176,9 +177,8 @@ public class FDBReverseDirectoryCache {
      * @return an Optional of the key (path) associated with the provided directory layer value, if no such value exists
      * the Optional is empty
      */
-    @Nonnull
     @SuppressWarnings({"squid:S2095", "PMD.CloseResource"}) // Don't realize that the context is closed in the returned future
-    public CompletableFuture<Optional<String>> getInReverseDirectoryCacheSubspace(@Nullable FDBStoreTimer timer, @Nonnull ScopedValue<Long> scopedReverseDirectoryKey) {
+    public CompletableFuture<Optional<String>> getInReverseDirectoryCacheSubspace(@Nullable FDBStoreTimer timer, ScopedValue<Long> scopedReverseDirectoryKey) {
         FDBRecordContext context = fdb.openContext(null, timer);
         return getReverseCacheSubspace(scopedReverseDirectoryKey.getScope())
                 .thenCompose(subspace -> getFromSubspace(context, subspace, scopedReverseDirectoryKey))
@@ -196,8 +196,7 @@ public class FDBReverseDirectoryCache {
      * @return an Optional of the key (path) associated with the provided directory layer value, if no such value exists
      * the Optional is empty
      */
-    @Nonnull
-    public CompletableFuture<Optional<String>> get(@Nonnull final ScopedValue<Long> scopedReverseDirectoryKey) {
+    public CompletableFuture<Optional<String>> get(final ScopedValue<Long> scopedReverseDirectoryKey) {
         return get((FDBStoreTimer)null, scopedReverseDirectoryKey);
     }
 
@@ -213,16 +212,14 @@ public class FDBReverseDirectoryCache {
      * @return an Optional of the key (path) associated with the provided directory layer value, if no such value exists
      * the Optional is empty
      */
-    @Nonnull
     @SuppressWarnings({"squid:S2095", "PMD.CloseResource"}) // Don't realize that the context is closed in the returned future
-    public CompletableFuture<Optional<String>> get(@Nullable FDBStoreTimer timer, @Nonnull final ScopedValue<Long> scopedReverseDirectoryKey) {
+    public CompletableFuture<Optional<String>> get(@Nullable FDBStoreTimer timer, final ScopedValue<Long> scopedReverseDirectoryKey) {
         FDBRecordContext context = fdb.openContext(null, timer);
         return get(context, scopedReverseDirectoryKey)
                 .whenComplete((result, exception) -> context.close());
     }
 
-    @Nonnull
-    public CompletableFuture<Optional<String>> get(@Nonnull FDBRecordContext context, @Nonnull final ScopedValue<Long> scopedReverseDirectoryKey) {
+    public CompletableFuture<Optional<String>> get(FDBRecordContext context, final ScopedValue<Long> scopedReverseDirectoryKey) {
         CompletableFuture<Subspace> reverseCacheSubspaceFuture = getReverseCacheSubspace(scopedReverseDirectoryKey.getScope());
         return reverseCacheSubspaceFuture
                 .thenCompose(subspace -> getFromSubspace(context, subspace, scopedReverseDirectoryKey));
@@ -233,16 +230,16 @@ public class FDBReverseDirectoryCache {
      * @param context the FDB record context
      * @param event the event to log
      */
-    private void logStatsToStoreTimer(@Nonnull final FDBRecordContext context,
-                                      @Nonnull FDBStoreTimer.Count event) {
+    private void logStatsToStoreTimer(final FDBRecordContext context,
+                                      FDBStoreTimer.Count event) {
         if (context.getTimer() != null) {
             context.getTimer().increment(event);
         }
     }
 
-    private CompletableFuture<Optional<String>> getFromSubspace(@Nonnull final FDBRecordContext context,
-                                                                @Nonnull final Subspace reverseCacheSubspace,
-                                                                @Nonnull final ScopedValue<Long> scopedReverseDirectoryKey) {
+    private CompletableFuture<Optional<String>> getFromSubspace(final FDBRecordContext context,
+                                                                final Subspace reverseCacheSubspace,
+                                                                final ScopedValue<Long> scopedReverseDirectoryKey) {
         Long reverseDirectoryKeyData = scopedReverseDirectoryKey.getData();
         return context.ensureActive().snapshot().get(reverseCacheSubspace.pack(reverseDirectoryKeyData)).thenApply(valueBytes -> {
             if (valueBytes != null) {
@@ -270,7 +267,7 @@ public class FDBReverseDirectoryCache {
      * @return a future that performs the action
      * @throws NoSuchElementException will be thrown by this future if the <code>name</code> provided does not exist in the directory layer.
      */
-    public CompletableFuture<Void> put(@Nonnull FDBRecordContext context, @Nonnull ScopedValue<String> pathKey) {
+    public CompletableFuture<Void> put(FDBRecordContext context, ScopedValue<String> pathKey) {
         final LocatableResolver scope = pathKey.getScope();
         final String key = pathKey.getData();
 
@@ -297,8 +294,8 @@ public class FDBReverseDirectoryCache {
      * @return a future that, when completed, will have removed the mapping entry
      */
     @VisibleForTesting
-    public CompletableFuture<Void> deleteForTesting(@Nonnull FDBRecordContext context,
-                                                    @Nonnull ScopedValue<Long> value) {
+    public CompletableFuture<Void> deleteForTesting(FDBRecordContext context,
+                                                    ScopedValue<Long> value) {
         final LocatableResolver scope = value.getScope();
         return getReverseCacheSubspace(scope)
                 .thenApply(subspace -> {
@@ -319,9 +316,9 @@ public class FDBReverseDirectoryCache {
      * @return a future that, when completed, will have written the entry
      */
     @VisibleForTesting
-    public CompletableFuture<Void> putOrReplaceForTesting(@Nonnull FDBRecordContext context,
-                                                          @Nonnull ScopedValue<String> scopedPathString,
-                                                          @Nonnull Long value) {
+    public CompletableFuture<Void> putOrReplaceForTesting(FDBRecordContext context,
+                                                          ScopedValue<String> scopedPathString,
+                                                          Long value) {
         final LocatableResolver scope = scopedPathString.getScope();
         final String pathString = scopedPathString.getData();
 
@@ -346,9 +343,9 @@ public class FDBReverseDirectoryCache {
      * @throws IllegalStateException if the <code>pathkey</code> provided already exists in the reverse directory
      *                               layer and the <code>pathValue</code> provided does not match that value
      */
-    public CompletableFuture<Void> putIfNotExists(@Nonnull FDBRecordContext context,
-                                                  @Nonnull ScopedValue<String> scopedPathString,
-                                                  @Nonnull Long pathValue) {
+    public CompletableFuture<Void> putIfNotExists(FDBRecordContext context,
+                                                  ScopedValue<String> scopedPathString,
+                                                  Long pathValue) {
         LocatableResolver scope = scopedPathString.getScope();
         String pathString = scopedPathString.getData();
         String cachedString = context.getDatabase().getReverseDirectoryInMemoryCache().getIfPresent(scope.wrap(pathValue));
@@ -375,10 +372,10 @@ public class FDBReverseDirectoryCache {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<Void> putToSubspace(@Nonnull FDBRecordContext context,
-                                                  @Nonnull Subspace reverseCacheSubspace,
-                                                  @Nonnull ScopedValue<String> scopedPathString,
-                                                  @Nonnull Long pathValue) {
+    private CompletableFuture<Void> putToSubspace(FDBRecordContext context,
+                                                  Subspace reverseCacheSubspace,
+                                                  ScopedValue<String> scopedPathString,
+                                                  Long pathValue) {
         String pathString = scopedPathString.getData();
         Transaction transaction = context.ensureActive();
         return transaction.snapshot().get(reverseCacheSubspace.pack(pathValue)).thenApply(valueBytes -> {
@@ -419,7 +416,10 @@ public class FDBReverseDirectoryCache {
     @VisibleForTesting
     public void rebuild(LocatableResolver scope) {
         try (FDBRecordContext context = fdb.openContext()) {
-            Subspace reverseCacheSubspace = fdb.asyncToSync(null, null, getReverseCacheSubspace(scope));
+            // Previously called fdb.asyncToSync(null, null, ...), passing null for the required Wait event
+            // (and skipping timer instrumentation entirely); use context.asyncToSync with a real Wait event,
+            // consistent with how subspace resolution is instrumented elsewhere (e.g. SubspaceProviderByKeySpacePath).
+            Subspace reverseCacheSubspace = context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, getReverseCacheSubspace(scope));
             context.ensureActive().clear(reverseCacheSubspace.range());
             context.getDatabase().clearForwardDirectoryCache();
             persistentCacheMissCount.set(0L);
@@ -449,13 +449,21 @@ public class FDBReverseDirectoryCache {
         final Subspace subdirs = new Subspace(Tuple.from(prefix, 0L), prefix);
 
         fdb.asyncToSync(initialContext.getTimer(), FDBStoreTimer.Waits.WAIT_REVERSE_DIRECTORY_SCAN,
-                populate(initialContext, subdirs, directory, null));
+                populate(initialContext, subdirs, directory, noContinuation()));
     }
 
-    @Nonnull
-    private CompletableFuture<byte[]> populate(@Nonnull FDBRecordContext context,
-                                               @Nonnull Subspace directorySubspace,
-                                               @Nonnull Subspace reverseDirectorySubspace,
+    // The continuation parameter of populate()/populateRegion() below is already correctly declared
+    // @Nullable byte[], but NullAway does not reliably recognize a null literal as matching a @Nullable byte[]
+    // parameter (a known array-type tracking gap).
+    @Nullable
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
+    }
+
+    private CompletableFuture<byte[]> populate(FDBRecordContext context,
+                                               Subspace directorySubspace,
+                                               Subspace reverseDirectorySubspace,
                                                @Nullable byte[] continuation) {
         return populateRegion(context, directorySubspace, reverseDirectorySubspace, continuation)
                 .thenCompose( nextContinuation -> context.commitAsync().thenCompose( ignored -> {
@@ -468,11 +476,10 @@ public class FDBReverseDirectoryCache {
                 } ));
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<byte[]> populateRegion(@Nonnull FDBRecordContext context,
-                                                     @Nonnull Subspace directorySubspace,
-                                                     @Nonnull Subspace reverseDirectorySubspace,
+    private CompletableFuture<byte[]> populateRegion(FDBRecordContext context,
+                                                     Subspace directorySubspace,
+                                                     Subspace reverseDirectorySubspace,
                                                      @Nullable byte[] continuation) {
         final RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(directorySubspace)
                 .setContext(context)
@@ -485,7 +492,8 @@ public class FDBReverseDirectoryCache {
                 .build();
 
         return cursor.forEachResult(result -> {
-            final KeyValue kv = result.get();
+            // forEachResult only invokes this consumer for results that have a next value.
+            final KeyValue kv = Objects.requireNonNull(result.get());
             final String dirName = directorySubspace.unpack(kv.getKey()).getString(0);
             final Object dirValue = Tuple.fromBytes(kv.getValue()).get(0);
 

@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
@@ -41,7 +40,8 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -50,22 +50,24 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.apple.foundationdb.record.IndexBuildProto.IndexBuildIndexingStamp;
+
 /**
  * This indexer scans records by a source index.
  */
 @API(API.Status.INTERNAL)
 public class IndexingByIndex extends IndexingBase {
     // LOGGER here?
-    private IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = null;
+    @Nullable
+    private IndexBuildIndexingStamp myIndexingTypeStamp = null;
 
-    IndexingByIndex(@Nonnull IndexingCommon common,
-                    @Nonnull OnlineIndexer.IndexingPolicy policy) {
+    IndexingByIndex(IndexingCommon common,
+                    OnlineIndexer.IndexingPolicy policy) {
         super(common, policy);
     }
 
     @Override
-    @Nonnull
-    IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp(FDBRecordStore store) {
+    IndexBuildIndexingStamp getIndexingTypeStamp(FDBRecordStore store) {
         if ( myIndexingTypeStamp == null) {
             Index srcIndex = getSourceIndex(store.getRecordMetaData());
             myIndexingTypeStamp = compileIndexingTypeStamp(srcIndex);
@@ -73,10 +75,9 @@ public class IndexingByIndex extends IndexingBase {
         return myIndexingTypeStamp;
     }
 
-    @Nonnull
-    private static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp(Index srcIndex) {
-        return IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
-                .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX)
+    private static IndexBuildIndexingStamp compileIndexingTypeStamp(Index srcIndex) {
+        return IndexBuildIndexingStamp.newBuilder()
+                .setMethod(IndexBuildIndexingStamp.Method.BY_INDEX)
                 .setSourceIndexSubspaceKey(ZeroCopyByteString.wrap(Tuple.from(srcIndex.getSubspaceKey()).pack()))
                 .setSourceIndexLastModifiedVersion(srcIndex.getLastModifiedVersion())
                 .build();
@@ -91,7 +92,6 @@ public class IndexingByIndex extends IndexingBase {
         );
     }
 
-    @Nonnull
     private Index getSourceIndex(RecordMetaData metaData) {
         if (policy.getSourceIndexSubspaceKey() != null) {
             return metaData.getIndexFromSubspaceKey(policy.getSourceIndexSubspaceKey());
@@ -105,7 +105,6 @@ public class IndexingByIndex extends IndexingBase {
                 LogMessageKeys.INDEXER_ID, common.getIndexerId());
     }
 
-    @Nonnull
     @Override
     CompletableFuture<Void> buildIndexInternalAsync() {
         return getRunner().runAsync(context -> openRecordStore(context)
@@ -117,15 +116,16 @@ public class IndexingByIndex extends IndexingBase {
                 }), common.indexLogMessageKeyValues("IndexingByIndex::buildIndexInternalAsync"));
     }
 
-    @Nonnull
     private CompletableFuture<Void> buildIndexFromIndex() {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildIndexFromIndex");
         return iterateAllRanges(additionalLogMessageKeyValues,
                 this::buildRangeOnly);
     }
 
-    @Nonnull
-    private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store, @Nonnull AtomicLong recordsScanned) {
+    // NullAway does not reliably track @Nullable on byte[] parameters, so it flags the (legitimate) null
+    // continuation argument to scanIndexRecords below even though that method declares it @Nullable.
+    @SuppressWarnings("NullAway")
+    private CompletableFuture<Boolean> buildRangeOnly(FDBRecordStore store, AtomicLong recordsScanned) {
         // return false when done
 
         validateSameMetadataOrThrow(store);
@@ -164,28 +164,26 @@ public class IndexingByIndex extends IndexingBase {
 
     private CompletableFuture<Boolean> postIterateRangeOnly(IndexingRangeSet rangeSet, boolean hasMore,
                                                             AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult,
-                                                            Tuple rangeStart, Tuple rangeEnd, boolean isReverse) {
+                                                            @Nullable Tuple rangeStart, @Nullable Tuple rangeEnd, boolean isReverse) {
         if (isReverse) {
-            Tuple continuation = hasMore ? lastResult.get().get().getIndexEntry().getKey() : rangeStart;
+            Tuple continuation = hasMore ? requireLastResultValue(lastResult).getIndexEntry().getKey() : rangeStart;
             return rangeSet.insertRangeAsync(packOrNull(continuation), packOrNull(rangeEnd), true)
                     .thenApply(ignore -> hasMore || rangeStart != null);
         } else {
-            Tuple continuation = hasMore ? lastResult.get().get().getIndexEntry().getKey() : rangeEnd;
+            Tuple continuation = hasMore ? requireLastResultValue(lastResult).getIndexEntry().getKey() : rangeEnd;
             return rangeSet.insertRangeAsync(packOrNull(rangeStart), packOrNull(continuation), true)
                     .thenApply(ignore -> hasMore || rangeEnd != null);
         }
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    private  CompletableFuture<FDBStoredRecord<Message>> getRecordIfTypeMatch(FDBRecordStore store, @Nonnull RecordCursorResult<FDBIndexedRecord<Message>> cursorResult) {
+    private  CompletableFuture<FDBStoredRecord<Message>> getRecordIfTypeMatch(FDBRecordStore store, RecordCursorResult<FDBIndexedRecord<Message>> cursorResult) {
         FDBIndexedRecord<Message> indexResult = cursorResult.get();
         FDBStoredRecord<Message> rec = indexResult == null ? null : indexResult.getStoredRecord();
         return recordIfInIndexedTypes(rec);
     }
 
     // support rebuildIndexAsync
-    @Nonnull
     @Override
     CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
         AtomicReference<Tuple> nextResultCont = new AtomicReference<>();
@@ -202,9 +200,8 @@ public class IndexingByIndex extends IndexingBase {
         }, store.getExecutor());
     }
 
-    @Nonnull
-    @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<Tuple> rebuildRangeOnly(@Nonnull FDBRecordStore store, Tuple cont, @Nonnull AtomicLong recordsScanned) {
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"}) // NullAway: byte[] nullability of scanIndexRecords' continuation isn't tracked reliably; see buildRangeOnly.
+    private CompletableFuture<Tuple> rebuildRangeOnly(FDBRecordStore store, @Nullable Tuple cont, AtomicLong recordsScanned) {
         validateSameMetadataOrThrow(store);
         final Index index = common.getIndex();
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
@@ -230,7 +227,7 @@ public class IndexingByIndex extends IndexingBase {
                 this::getRecordIfTypeMatch,
                 lastResult, hasMore, recordsScanned, maintainer.isIdempotent()
         ).thenApply(vignore -> hasMore.get() ?
-                               lastResult.get().get().getIndexEntry().getKey() :
+                               requireLastResultValue(lastResult).getIndexEntry().getKey() :
                                null );
     }
 
@@ -248,7 +245,7 @@ public class IndexingByIndex extends IndexingBase {
         validateOrThrowEx(common.getAllRecordTypes().containsAll(srcRecordTypes), "source index's type is not equal to target index's");
     }
 
-    private void validateIdempotenceIfNecessary(@Nonnull FDBRecordStore store, @Nonnull IndexMaintainer maintainer) {
+    private void validateIdempotenceIfNecessary(FDBRecordStore store, IndexMaintainer maintainer) {
         // idempotence - Non-idempotent indexes can only be built from a source if the store format version supports it
         // Prior to this format version, record updates to non-idempotent indexes would check to see if the record
         // had been built already by looking for its primary key in the range set, which is incorrect for most source

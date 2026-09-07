@@ -44,8 +44,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -74,19 +74,22 @@ public abstract class OnlineIndexerTest {
     RecordMetaData metaData;
     RecordQueryPlanner planner;
     FDBRecordStore recordStore;
-    private IndexMaintenanceFilter indexMaintenanceFilter;
+    private @Nullable IndexMaintenanceFilter indexMaintenanceFilter;
     FormatVersion formatVersion = FormatVersion.getMaximumSupportedVersion();
 
     public void setIndexMaintenanceFilter(@Nullable IndexMaintenanceFilter indexMaintenanceFilter) {
         this.indexMaintenanceFilter = indexMaintenanceFilter;
     }
 
-    @Nonnull
     public IndexMaintenanceFilter getIndexMaintenanceFilter() {
         return Objects.requireNonNullElse(indexMaintenanceFilter, IndexMaintenanceFilter.NORMAL);
     }
 
     @BeforeEach
+    // NullAway.Init is suppressed here because metaData, planner, and recordStore are not
+    // populated by setUp() itself, but by openMetaData() (and its overloads), which every test
+    // method calls before touching those fields.
+    @SuppressWarnings("NullAway.Init")
     public void setUp() {
         final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         factory.setInitialDelayMillis(2L);
@@ -98,13 +101,13 @@ public abstract class OnlineIndexerTest {
         path = pathManager.createPath(TestKeySpace.RECORD_STORE);
     }
 
-    void openMetaData(@Nonnull Descriptors.FileDescriptor descriptor, @Nonnull RecordMetaDataHook hook) {
+    void openMetaData(Descriptors.FileDescriptor descriptor, RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(descriptor);
         hook.apply(metaDataBuilder);
         metaData = metaDataBuilder.getRecordMetaData();
     }
 
-    void openMetaData(@Nonnull Descriptors.FileDescriptor descriptor) {
+    void openMetaData(Descriptors.FileDescriptor descriptor) {
         openMetaData(descriptor, (metaDataBuilder) -> {
         });
     }
@@ -113,7 +116,7 @@ public abstract class OnlineIndexerTest {
         openMetaData(TestRecords1Proto.getDescriptor());
     }
 
-    void openSimpleMetaData(@Nonnull RecordMetaDataHook hook) {
+    void openSimpleMetaData(RecordMetaDataHook hook) {
         openMetaData(TestRecords1Proto.getDescriptor(), hook);
     }
 
@@ -131,7 +134,6 @@ public abstract class OnlineIndexerTest {
         return context;
     }
 
-    @Nonnull
     FDBRecordStore.Builder createStoreBuilder() {
         return FDBRecordStore.newBuilder()
                 .setMetaDataProvider(metaData)
@@ -144,7 +146,6 @@ public abstract class OnlineIndexerTest {
         return openContext(true);
     }
 
-    @Nonnull
     OnlineIndexer.Builder newIndexerBuilder() {
         return OnlineIndexer.newBuilder()
                 .setDatabase(fdb)
@@ -167,7 +168,6 @@ public abstract class OnlineIndexerTest {
         return newIndexerBuilder(index).setTimer(timer);
     }
 
-    @Nonnull
     OnlineIndexScrubber.Builder newScrubberBuilder() {
         return OnlineIndexScrubber.newBuilder()
                 .setDatabase(fdb)
@@ -234,7 +234,6 @@ public abstract class OnlineIndexerTest {
         }
     }
 
-    @Nonnull
     protected List<Message> populateNestedMapData(final long numRecords) {
         assertNotNull(metaData, "meta-data must be opened to populate data");
         final List<Message> data = new ArrayList<>();
@@ -269,7 +268,6 @@ public abstract class OnlineIndexerTest {
         return data;
     }
 
-    @Nonnull
     protected List<Message> populateJoinedData(final long numRecords) {
         assertNotNull(metaData, "meta-data must be opened to populate data");
         final List<Message> data = new ArrayList<>();

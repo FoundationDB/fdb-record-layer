@@ -32,10 +32,11 @@ import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.function.Function;
 
 /**
@@ -62,20 +63,18 @@ public enum BindingFunction {
     }),
     TUPLE(tuple -> tuple.get(0));
 
-    @Nonnull
-    private Function<Tuple, Object> function;
+    private Function<Tuple, @Nullable Object> function;
 
-    BindingFunction(@Nonnull final Function<Tuple, Object> function) {
+    BindingFunction(final Function<Tuple, @Nullable Object> function) {
         this.function = function;
     }
 
     @Nullable
-    public Object apply(@Nonnull final Tuple tuple) {
+    public Object apply(final Tuple tuple) {
         return function.apply(tuple);
     }
 
-    @Nonnull
-    public PBindingFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PBindingFunction toProto(final PlanSerializationContext serializationContext) {
         switch (this) {
             case INT:
                 return PBindingFunction.INT;
@@ -98,10 +97,9 @@ public enum BindingFunction {
         }
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    public static BindingFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                            @Nonnull final PBindingFunction bindingFunctionProto) {
+    public static BindingFunction fromProto(final PlanSerializationContext serializationContext,
+                                            final PBindingFunction bindingFunctionProto) {
         switch (bindingFunctionProto) {
             case INT:
                 return INT;
@@ -129,9 +127,8 @@ public enum BindingFunction {
      * being compared. The most important case this covers is a <code>Long</code> tuple element that needs to
      * be compared with an <code>int32</code> field.
      */
-    @Nonnull
-    static BindingFunction comparisonBindingFunction(@Nonnull final QueryComponent fieldComparison,
-                                                     @Nonnull final Index index, @Nonnull final RecordMetaData metaData) {
+    static BindingFunction comparisonBindingFunction(final QueryComponent fieldComparison,
+                                                     final Index index, final RecordMetaData metaData) {
         final Descriptors.FieldDescriptor.JavaType javaType = javaComparisonType(fieldComparison, index, metaData);
         if (javaType != null) {
             switch (javaType) {
@@ -157,8 +154,8 @@ public enum BindingFunction {
     }
 
     @Nullable
-    private static Descriptors.FieldDescriptor.JavaType javaComparisonType(@Nonnull QueryComponent fieldComparison,
-                                                                           @Nonnull Index index, @Nonnull RecordMetaData metaData) {
+    private static JavaType javaComparisonType(QueryComponent fieldComparison,
+                                                                           Index index, RecordMetaData metaData) {
         Descriptors.FieldDescriptor.JavaType javaType = null;
         for (RecordType recordType : metaData.recordTypesForIndex(index)) {
             Descriptors.Descriptor descriptor = recordType.getDescriptor();

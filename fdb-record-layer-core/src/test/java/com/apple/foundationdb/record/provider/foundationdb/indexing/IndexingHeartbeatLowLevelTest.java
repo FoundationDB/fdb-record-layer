@@ -48,7 +48,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -61,6 +60,10 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 
+// NullAway.Init is suppressed here because recordStore/metaData follow the standard JUnit
+// test-fixture lifecycle: they are left unset by setUp() and are always populated by individual
+// test methods (via openRecordStore/buildMetaData-style helpers) before they are used.
+@SuppressWarnings("NullAway.Init")
 class IndexingHeartbeatLowLevelTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
@@ -92,20 +95,19 @@ class IndexingHeartbeatLowLevelTest {
         return context;
     }
 
-    @Nonnull
     private FDBRecordStore.Builder createStoreBuilder() {
         return FDBRecordStore.newBuilder()
                 .setMetaDataProvider(metaData)
                 .setKeySpacePath(path);
     }
 
-    void openMetaData(@Nonnull Descriptors.FileDescriptor descriptor, @Nonnull FDBRecordStoreTestBase.RecordMetaDataHook hook) {
+    void openMetaData(Descriptors.FileDescriptor descriptor, FDBRecordStoreTestBase.RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(descriptor);
         hook.apply(metaDataBuilder);
         metaData = metaDataBuilder.getRecordMetaData();
     }
 
-    void openSimpleMetaData(@Nonnull FDBRecordStoreTestBase.RecordMetaDataHook hook) {
+    void openSimpleMetaData(FDBRecordStoreTestBase.RecordMetaDataHook hook) {
         openMetaData(TestRecords1Proto.getDescriptor(), hook);
     }
 

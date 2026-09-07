@@ -42,10 +42,10 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -69,23 +69,20 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.DEPRECATED)
 public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatisticsCollectorCursor.SizeStatisticsResults> {
-    @Nonnull
     private final SubspaceProvider subspaceProvider;
-    @Nonnull
     private final FDBRecordContext context;
-    @Nonnull
     private final ScanProperties scanProperties;
     @Nullable
     private RecordCursorResult<SizeStatisticsResults> nextStatsResult;
     private boolean finalResultsEmitted;
     @Nullable
     private byte[] kvCursorContinuation;
-    @Nonnull
     private SizeStatisticsResults sizeStatisticsResults;  //the final output of the cursor
     private boolean closed;
 
-    private SizeStatisticsCollectorCursor(@Nonnull SubspaceProvider subspaceProvider, @Nonnull FDBRecordContext context,
-                                          @Nonnull ScanProperties scanProperties, @Nullable byte[] continuation) {
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields/parameters, even across explicit null checks.
+    private SizeStatisticsCollectorCursor(SubspaceProvider subspaceProvider, FDBRecordContext context,
+                                          ScanProperties scanProperties, @Nullable byte[] continuation) {
         this.subspaceProvider = subspaceProvider;
         this.sizeStatisticsResults = new SizeStatisticsResults();
         this.context = context;
@@ -109,12 +106,11 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
                 }
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("Error parsing SizeStatisticsCollectorCursor continuation", ex)
-                        .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuation));
+                        .addLogInfo("raw_bytes", Objects.requireNonNull(ByteArrayUtil2.loggable(continuation)));
             }
         }
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<SizeStatisticsResults>> onNext() {
         //Each time this method is called it instantiates the underlying KV cursor, aggregates as much of its input as it can provide, and closes it
@@ -133,7 +129,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         return subspaceProvider.getSubspaceAsync(context).thenCompose(subspace -> {
             KeyValueCursor kvCursor = KeyValueCursor.Builder.withSubspace(subspace).setContext(context).setContinuation(kvCursorContinuation).setScanProperties(scanProperties).build();
             return kvCursor.forEachResult(nextKv -> {
-                sizeStatisticsResults.updateStatistics(nextKv.get());
+                sizeStatisticsResults.updateStatistics(Objects.requireNonNull(nextKv.get()));
             }).thenApply(resultKv -> {
                 //resultKV.hasNext() is false and so determine whether this is because of in-band reason or a continuable out-of-band reason
                 if (resultKv.getNoNextReason() == NoNextReason.SOURCE_EXHAUSTED) {
@@ -149,14 +145,13 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         });
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return context.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
         return visitor.visitLeave(this);
     }
@@ -174,11 +169,8 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
     //form a continuation that allows us to restart statistics aggregation from where we left off
     // Note that this continuation SHOULD NOT be used to represent an end continuation
     private static class SizeStatisticsCollectorCursorContinuation implements RecordCursorContinuation {
-        @Nonnull
         private final RecordCursorResult<KeyValue> currentKvResult;
-        @Nonnull
         private final Function<ByteString, RecordCursorProto.SizeStatisticsContinuation> continuationFunction;
-        @Nonnull
         private final SizeStatisticsResults sizeStatisticsResults;
         @Nullable
         private byte[] cachedBytes;
@@ -186,6 +178,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         private ByteString cachedByteString;
         private boolean finalResultsEmitted;
 
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
         private SizeStatisticsCollectorCursorContinuation(RecordCursorResult<KeyValue> currentKvResult, SizeStatisticsResults sizeStatisticsResults, boolean finalResultsEmitted) {
             this.cachedBytes = null;
             this.currentKvResult = currentKvResult;
@@ -214,7 +207,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         }
 
         @Override
-        @Nonnull
         public ByteString toByteString() {
             if (this.cachedByteString == null) {
                 this.cachedByteString = continuationFunction.apply(this.currentKvResult.getContinuation().toByteString()).toByteString();
@@ -242,8 +234,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      *
      * @return a cursor for collecting statistics of that store
      */
-    @Nonnull
-    public static SizeStatisticsCollectorCursor ofStore(@Nonnull FDBRecordStore store, @Nonnull FDBRecordContext context, @Nonnull ScanProperties scanProperties, @Nullable byte[] continuation) {
+    public static SizeStatisticsCollectorCursor ofStore(FDBRecordStore store, FDBRecordContext context, ScanProperties scanProperties, @Nullable byte[] continuation) {
         return new SizeStatisticsCollectorCursor(store.getSubspaceProvider(), context, scanProperties, continuation);
     }
 
@@ -258,9 +249,8 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      *
      * @return a statistics collector of the records of that store
      */
-    @Nonnull
-    public static SizeStatisticsCollectorCursor ofRecords(@Nonnull FDBRecordStore store, @Nonnull FDBRecordContext context,
-                                                          @Nonnull ScanProperties scanProperties, @Nullable byte[] continuation) {
+    public static SizeStatisticsCollectorCursor ofRecords(FDBRecordStore store, FDBRecordContext context,
+                                                          ScanProperties scanProperties, @Nullable byte[] continuation) {
         return new SizeStatisticsCollectorCursor(new SubspaceProviderBySubspace(store.recordsSubspace()), context, scanProperties, continuation);
     }
 
@@ -276,9 +266,8 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      *
      * @return a statistics collector of the given index
      */
-    @Nonnull
-    public static SizeStatisticsCollectorCursor ofIndex(@Nonnull FDBRecordStore store, @Nonnull String indexName, @Nonnull FDBRecordContext context,
-                                                        @Nonnull ScanProperties scanProperties, @Nullable byte[] continuation) {
+    public static SizeStatisticsCollectorCursor ofIndex(FDBRecordStore store, String indexName, FDBRecordContext context,
+                                                        ScanProperties scanProperties, @Nullable byte[] continuation) {
         final RecordMetaData metaData = store.getRecordMetaData();
         return ofIndex(store, metaData.getIndex(indexName), context, scanProperties, continuation);
     }
@@ -295,9 +284,8 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      *
      * @return a statistics collector of the given index
      */
-    @Nonnull
-    public static SizeStatisticsCollectorCursor ofIndex(@Nonnull FDBRecordStore store, @Nonnull Index index, @Nonnull FDBRecordContext context,
-                                                        @Nonnull ScanProperties scanProperties, @Nullable byte[] continuation) {
+    public static SizeStatisticsCollectorCursor ofIndex(FDBRecordStore store, Index index, FDBRecordContext context,
+                                                        ScanProperties scanProperties, @Nullable byte[] continuation) {
         return new SizeStatisticsCollectorCursor(new SubspaceProviderBySubspace(store.indexSubspace(index)), context, scanProperties, continuation);
     }
 
@@ -311,9 +299,8 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
      *
      * @return a statistics collector of the given subspace
      */
-    @Nonnull
-    public static SizeStatisticsCollectorCursor ofSubspace(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context,
-                                                           @Nonnull ScanProperties scanProperties, @Nullable byte[] continuation) {
+    public static SizeStatisticsCollectorCursor ofSubspace(Subspace subspace, FDBRecordContext context,
+                                                           ScanProperties scanProperties, @Nullable byte[] continuation) {
         return new SizeStatisticsCollectorCursor(new SubspaceProviderBySubspace(subspace), context, scanProperties, continuation);
     }
 
@@ -344,7 +331,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
          *
          * @param kv latest key and value for partial stats update
          */
-        private void updateStatistics(@Nonnull KeyValue kv) {
+        private void updateStatistics(KeyValue kv) {
             this.keyCount += 1;
             this.keySize += kv.getKey().length;
             this.maxKeySize = Math.max(this.maxKeySize, kv.getKey().length);
@@ -552,7 +539,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
          *
          * @return an array with a distribution of the sizes of key-value pairs
          */
-        @Nonnull
         public long[] getSizeBuckets() {
             // Defensively copy this array. It is only 8 * 32 = 256 bytes anyway and this
             // is not performance critical.

@@ -25,16 +25,16 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Formatting for {@link Value#explain}.
  */
 public class ExplainSelfContainedSymbolMap implements ExplainSymbolMap {
-    @Nonnull private final AtomicInteger quantifierNumber;
-    @Nonnull private final BiMap<CorrelationIdentifier, String> aliasToFormattingNameMap;
+    private final AtomicInteger quantifierNumber;
+    private final BiMap<CorrelationIdentifier, String> aliasToFormattingNameMap;
 
     public ExplainSelfContainedSymbolMap() {
         this.quantifierNumber = new AtomicInteger(0);
@@ -42,19 +42,19 @@ public class ExplainSelfContainedSymbolMap implements ExplainSymbolMap {
     }
 
     @Override
-    public void registerAlias(@Nonnull final CorrelationIdentifier alias) {
+    public void registerAlias(final CorrelationIdentifier alias) {
         registerAliasWithExplicitSymbol(alias, "q" + quantifierNumber.getAndIncrement());
     }
 
     @Override
-    public void registerAliasWithExplicitSymbol(@Nonnull final CorrelationIdentifier alias, @Nonnull final String symbol) {
+    public void registerAliasWithExplicitSymbol(final CorrelationIdentifier alias, final String symbol) {
         aliasToFormattingNameMap.putIfAbsent(alias, symbol);
     }
 
 
     @Nullable
     @Override
-    public String getSymbolForAlias(@Nonnull final CorrelationIdentifier alias) {
+    public String getSymbolForAlias(final CorrelationIdentifier alias) {
         return aliasToFormattingNameMap.get(alias);
     }
 }

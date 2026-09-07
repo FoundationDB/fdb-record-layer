@@ -34,9 +34,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -52,13 +52,10 @@ import java.util.stream.Stream;
  */
 public class LockRegistryTest {
 
-    @Nonnull
     private final ExecutorService executorService = Executors.newFixedThreadPool(8);
 
-    @Nonnull
     final LockRegistry registry = new LockRegistry(null);
 
-    @Nonnull
     final LockIdentifier identifier = new LockIdentifier(new Subspace(Tuple.from(1, 2, 3)));
 
     static Stream<Arguments> argumentsForTests() {
@@ -153,7 +150,7 @@ public class LockRegistryTest {
         // check that the write waits
         checkWaiting(ImmutableList.of(writeLockAndWait.getRight()));
         // complete the read and check that the write don't wait now
-        readLockAndWait.getLeft().get().release();
+        Objects.requireNonNull(readLockAndWait.getLeft().get()).release();
         checkAllCompletedNormally(ImmutableList.of(writeLockAndWait.getRight()));
     }
 
@@ -170,10 +167,10 @@ public class LockRegistryTest {
         // check that the write waits
         checkWaiting(ImmutableList.of(writeLockAndWait.getRight()));
         // complete one read and check that the write still waits
-        readLockAndWait1.getLeft().get().release();
+        Objects.requireNonNull(readLockAndWait1.getLeft().get()).release();
         checkWaiting(ImmutableList.of(writeLockAndWait.getRight()));
         // complete other read and check that write don't wait
-        readLockAndWait2.getLeft().get().release();
+        Objects.requireNonNull(readLockAndWait2.getLeft().get()).release();
         checkAllCompletedNormally(ImmutableList.of(writeLockAndWait.getRight()));
     }
 
@@ -187,7 +184,7 @@ public class LockRegistryTest {
         // check that the other write waits
         checkWaiting(ImmutableList.of(writeLockAndWait2.getRight()));
         // complete first write and check that the other write don't wait now
-        writeLockAndWait1.getLeft().get().release();
+        Objects.requireNonNull(writeLockAndWait1.getLeft().get()).release();
         checkAllCompletedNormally(ImmutableList.of(writeLockAndWait2.getRight()));
     }
 
@@ -203,7 +200,7 @@ public class LockRegistryTest {
         // check that the reads wait
         checkWaiting(ImmutableList.of(readLockAndWait1.getRight(), readLockAndWait2.getRight()));
         // complete the write and check that the reads don't wait now
-        writeLockAndWait.getLeft().get().release();
+        Objects.requireNonNull(writeLockAndWait.getLeft().get()).release();
         checkAllCompletedNormally(ImmutableList.of(readLockAndWait1.getRight(), readLockAndWait2.getRight()));
     }
 
@@ -219,7 +216,7 @@ public class LockRegistryTest {
         checkWaiting(ImmutableList.of(read));
         checkWaiting(ImmutableList.of(writeLockAndWait2.getRight()));
         // complete first write, check that the read and other write don't wait
-        writeLockAndWait1.getLeft().get().release();
+        Objects.requireNonNull(writeLockAndWait1.getLeft().get()).release();
         checkAllCompletedNormally(ImmutableList.of(read));
         Assertions.assertEquals(1, (int)read.get());
         checkAllCompletedNormally(ImmutableList.of(writeLockAndWait2.getRight()));
@@ -271,16 +268,16 @@ public class LockRegistryTest {
                 }));
     }
 
-    private CompletableFuture<Void> runWithLock(@Nonnull Runnable runCheck, @Nonnull NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> lockAndWait) {
+    private CompletableFuture<Void> runWithLock(Runnable runCheck, NonnullPair<AtomicReference<AsyncLock>, CompletableFuture<Void>> lockAndWait) {
         return lockAndWait.getRight().thenRunAsync(runCheck, executorService).whenComplete((ignore, throwable) -> {
-            lockAndWait.getLeft().get().release();
+            Objects.requireNonNull(lockAndWait.getLeft().get()).release();
             if (throwable != null) {
                 throw new RuntimeException("wrapped throwable");
             }
         });
     }
 
-    public static <T> void checkAllCompletedNormally(@Nonnull List<CompletableFuture<T>> futures) {
+    public static <T> void checkAllCompletedNormally(List<CompletableFuture<T>> futures) {
         try {
             AsyncUtil.whenAll(futures).orTimeout(1, TimeUnit.SECONDS).get();
         } catch (Exception e) {
@@ -292,7 +289,7 @@ public class LockRegistryTest {
         }
     }
 
-    public static <T> void checkWaiting(@Nonnull List<CompletableFuture<T>> futures) throws InterruptedException {
+    public static <T> void checkWaiting(List<CompletableFuture<T>> futures) throws InterruptedException {
         Thread.sleep(1000);
         for (CompletableFuture<T> f: futures) {
             Assertions.assertFalse(f.isDone());

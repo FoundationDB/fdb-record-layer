@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
@@ -37,7 +36,6 @@ import java.util.ListIterator;
 @API(API.Status.UNSTABLE)
 public abstract class BaseKeyExpression implements KeyExpression {
     @Override
-    @Nonnull
     public final KeyExpression getSubKey(int start, int end) {
         final int columnSize = getColumnSize();
         if (start < 0 || end > columnSize || start > end) {
@@ -51,7 +49,6 @@ public abstract class BaseKeyExpression implements KeyExpression {
         return getSubKeyImpl(start, end);
     }
 
-    @Nonnull
     protected KeyExpression getSubKeyImpl(int start, int end) {
         throw new UnsplittableKeyExpressionException(this);
     }
@@ -70,7 +67,7 @@ public abstract class BaseKeyExpression implements KeyExpression {
     }
 
     @Override
-    public boolean isPrefixKey(@Nonnull KeyExpression key) {
+    public boolean isPrefixKey(KeyExpression key) {
         if (this instanceof EmptyKeyExpression || this.equals(key)) {
             return true;        // Fast check for common cases.
         }
@@ -138,7 +135,7 @@ public abstract class BaseKeyExpression implements KeyExpression {
     public static class UnsplittableKeyExpressionException extends RecordCoreException {
         public static final long serialVersionUID = 1L;
 
-        public UnsplittableKeyExpressionException(@Nonnull BaseKeyExpression keyExpression) {
+        public UnsplittableKeyExpressionException(BaseKeyExpression keyExpression) {
             super("Cannot split " + keyExpression);
         }
     }

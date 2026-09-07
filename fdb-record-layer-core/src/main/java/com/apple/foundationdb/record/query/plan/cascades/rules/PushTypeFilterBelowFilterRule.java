@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilte
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 
@@ -97,7 +96,7 @@ public class PushTypeFilterBelowFilterRule extends AbstractCascadesRule<RecordQu
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final Reference inner = bindings.get(innerMatcher);
         final Quantifier.Physical qun = bindings.get(qunMatcher);

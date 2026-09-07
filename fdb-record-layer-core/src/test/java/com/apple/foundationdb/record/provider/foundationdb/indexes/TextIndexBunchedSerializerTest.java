@@ -27,7 +27,6 @@ import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.tuple.Versionstamp;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -60,7 +59,7 @@ public class TextIndexBunchedSerializerTest {
                 ), serialized);
     }
 
-    static <K, V> Map.Entry<K, V> entryOf(@Nonnull K key, @Nonnull V value) {
+    static <K, V> Map.Entry<K, V> entryOf(K key, V value) {
         return new AbstractMap.SimpleEntry<>(key, value);
     }
 
@@ -76,6 +75,9 @@ public class TextIndexBunchedSerializerTest {
     }
 
     @Test
+    // Tuple.from below intentionally accepts null elements as test data (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
     public void serializeEntryList() {
         final List<Map.Entry<Tuple, List<Integer>>> entries = Arrays.asList(
                 entryOf(Tuple.from(0L), Collections.emptyList()),

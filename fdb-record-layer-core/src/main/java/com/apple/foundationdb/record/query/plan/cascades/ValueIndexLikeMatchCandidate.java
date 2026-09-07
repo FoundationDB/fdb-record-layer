@@ -34,8 +34,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 
@@ -58,10 +58,9 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
      * @return a list of bound key parts that express the order of the outgoing data stream and their respective mappings
      *         between query and match candidate
      */
-    @Nonnull
     @Override
-    default List<MatchedOrderingPart> computeMatchedOrderingParts(@Nonnull MatchInfo matchInfo,
-                                                                  @Nonnull List<CorrelationIdentifier> sortParameterIds,
+    default List<MatchedOrderingPart> computeMatchedOrderingParts(MatchInfo matchInfo,
+                                                                  List<CorrelationIdentifier> sortParameterIds,
                                                                   boolean isReverse) {
         final var parameterBindingMap =
                 matchInfo.getRegularMatchInfo().getParameterBindingMap();
@@ -80,7 +79,7 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
 
             Objects.requireNonNull(parameterId);
             Objects.requireNonNull(normalizedKeyExpression);
-            @Nullable final var comparisonRange = parameterBindingMap.get(parameterId);
+            @Nullable final ComparisonRange comparisonRange = parameterBindingMap.get(parameterId);
 
             if (normalizedKeyExpression.createsDuplicates()) {
                 if (comparisonRange != null) {
@@ -116,9 +115,8 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    default Ordering computeOrderingFromScanComparisons(@Nonnull final ScanComparisons scanComparisons,
+    default Ordering computeOrderingFromScanComparisons(final ScanComparisons scanComparisons,
                                                         final boolean isReverse,
                                                         final boolean isDistinct) {
         final var bindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();

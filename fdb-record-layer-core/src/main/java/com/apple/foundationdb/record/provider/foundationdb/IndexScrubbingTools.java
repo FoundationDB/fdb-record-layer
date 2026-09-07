@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
@@ -102,7 +104,7 @@ public interface IndexScrubbingTools<T> {
      * @param result an item that was returned by a cursor provided by {@link #getCursor}
      * @return null if the result valid, an {@link Issue} if not.
      */
-    CompletableFuture<Issue> handleOneItem(FDBRecordStore store, RecordCursorResult<T> result);
+    CompletableFuture<@Nullable Issue> handleOneItem(FDBRecordStore store, RecordCursorResult<T> result);
 
     /**
      * This function should be called prior to any other operation to set common parameters. For a given scrubbing tool

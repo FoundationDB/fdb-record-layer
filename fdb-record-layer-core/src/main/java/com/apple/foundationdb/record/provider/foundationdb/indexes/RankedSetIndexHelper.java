@@ -45,8 +45,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -61,7 +60,7 @@ public class RankedSetIndexHelper {
      * @param index the index definition to get options from
      * @return parsed config options
      */
-    public static RankedSet.Config getConfig(@Nonnull Index index) {
+    public static RankedSet.Config getConfig(Index index) {
         RankedSet.ConfigBuilder builder = RankedSet.newConfigBuilder();
         String hashFunctionOption = index.getOption(IndexOptions.RANK_HASH_FUNCTION);
         if (hashFunctionOption != null) {
@@ -89,7 +88,7 @@ public class RankedSetIndexHelper {
         private final String title;
         private final String logKey;
 
-        Events(String title, String logKey) {
+        Events(String title, @Nullable String logKey) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : StoreTimer.DetailEvent.super.logKey();
         }
@@ -104,7 +103,6 @@ public class RankedSetIndexHelper {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }
@@ -113,12 +111,11 @@ public class RankedSetIndexHelper {
     private RankedSetIndexHelper() {
     }
 
-    @Nonnull
-    public static CompletableFuture<TupleRange> rankRangeToScoreRange(@Nonnull IndexMaintainerState state,
+    public static CompletableFuture<TupleRange> rankRangeToScoreRange(IndexMaintainerState state,
                                                                       int groupPrefixSize,
-                                                                      @Nonnull Subspace rankSubspace,
-                                                                      @Nonnull RankedSet.Config config,
-                                                                      @Nonnull TupleRange rankRange) {
+                                                                      Subspace rankSubspace,
+                                                                      RankedSet.Config config,
+                                                                      TupleRange rankRange) {
         final Tuple prefix = groupPrefix(groupPrefixSize, rankRange, rankSubspace);
         if (prefix != null) {
             rankSubspace = rankSubspace.subspace(prefix);
@@ -167,8 +164,7 @@ public class RankedSetIndexHelper {
         });
     }
 
-    @Nonnull
-    private static CompletableFuture<Void> init(@Nonnull IndexMaintainerState state, @Nonnull RankedSet rankedSet) {
+    private static CompletableFuture<Void> init(IndexMaintainerState state, RankedSet rankedSet) {
         // The reads that init does can conflict with the atomic mutations that are done to those same keys by add / remove
         // when the key is far enough to the left, as it almost always is for sparser levels.
         // So, check with snapshot read whether it needs to be done first.
@@ -177,7 +173,7 @@ public class RankedSetIndexHelper {
     }
 
     @Nullable
-    private static Tuple groupPrefix(int groupPrefixSize, @Nonnull TupleRange rankRange, @Nonnull Subspace rankSubspace) {
+    private static Tuple groupPrefix(int groupPrefixSize, TupleRange rankRange, Subspace rankSubspace) {
         if (groupPrefixSize > 0) {
             Tuple lowRank = rankRange.getLow();
             Tuple highRank = rankRange.getHigh();
@@ -215,8 +211,8 @@ public class RankedSetIndexHelper {
         }
     }
 
-    public static CompletableFuture<Tuple> scoreForRank(@Nonnull IndexMaintainerState state,
-                                                        @Nonnull RankedSet rankedSet,
+    public static CompletableFuture<Tuple> scoreForRank(IndexMaintainerState state,
+                                                        RankedSet rankedSet,
                                                         @Nullable Number rank,
                                                         @Nullable Tuple outOfRange) {
         if (rank == null) {
@@ -232,8 +228,8 @@ public class RankedSetIndexHelper {
         }
     }
 
-    public static CompletableFuture<Long> rankForScore(@Nonnull IndexMaintainerState state,
-                                                       @Nonnull RankedSet rankedSet,
+    public static CompletableFuture<Long> rankForScore(IndexMaintainerState state,
+                                                       RankedSet rankedSet,
                                                        @Nullable Tuple score,
                                                        boolean nullIfMissing) {
         if (score == null) {
@@ -245,12 +241,11 @@ public class RankedSetIndexHelper {
         }
     }
 
-    @Nonnull
-    public static CompletableFuture<Void> updateRankedSet(@Nonnull IndexMaintainerState state,
-                                                          @Nonnull Subspace rankSubspace,
-                                                          @Nonnull RankedSet.Config config,
-                                                          @Nonnull Tuple valueKey,
-                                                          @Nonnull Tuple scoreKey,
+    public static CompletableFuture<Void> updateRankedSet(IndexMaintainerState state,
+                                                          Subspace rankSubspace,
+                                                          RankedSet.Config config,
+                                                          Tuple valueKey,
+                                                          Tuple scoreKey,
                                                           boolean remove) {
         final RankedSet rankedSet = new InstrumentedRankedSet(state, rankSubspace, config);
         final byte[] score = scoreKey.pack();
@@ -271,7 +266,7 @@ public class RankedSetIndexHelper {
         return state.store.instrument(Events.RANKED_SET_UPDATE, result);
     }
 
-    private static CompletableFuture<Void> removeFromRankedSet(@Nonnull IndexMaintainerState state, @Nonnull RankedSet rankedSet, @Nonnull byte[] score) {
+    private static CompletableFuture<Void> removeFromRankedSet(IndexMaintainerState state, RankedSet rankedSet, byte[] score) {
         return rankedSet.remove(state.transaction, score).thenApply(exists -> {
             // It is okay if the score isn't in the ranked set yet if the index is
             // write only because this means that the score just hasn't yet
@@ -291,9 +286,9 @@ public class RankedSetIndexHelper {
         private static final Logger LOGGER = LoggerFactory.getLogger(InstrumentedRankedSet.class);
         private final FDBTransactionContext context;
 
-        public InstrumentedRankedSet(@Nonnull IndexMaintainerState state,
-                                     @Nonnull Subspace rankSubspace,
-                                     @Nonnull Config config) {
+        public InstrumentedRankedSet(IndexMaintainerState state,
+                                     Subspace rankSubspace,
+                                     Config config) {
             super(rankSubspace, state.context.getExecutor(), config);
             this.context = state.context;
         }

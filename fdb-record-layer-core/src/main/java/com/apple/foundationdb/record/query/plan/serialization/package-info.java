@@ -21,4 +21,7 @@
 /**
  * Classes related to plan serialization/deserialization.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.serialization;
+
+import org.jspecify.annotations.NullMarked;

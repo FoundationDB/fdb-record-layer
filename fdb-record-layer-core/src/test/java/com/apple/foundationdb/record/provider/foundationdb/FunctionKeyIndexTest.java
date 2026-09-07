@@ -58,12 +58,13 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedExactly;
@@ -114,7 +115,7 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
             add(intValue, null, strList);
         }
 
-        public void add(int intValue, String strValue, List<String> strListValue) {
+        public void add(int intValue, @Nullable String strValue, @Nullable List<String> strListValue) {
             TypesRecord.Builder builder = TypesRecord.newBuilder()
                     .setLongValue(recordId)
                     .setIntValue(intValue);
@@ -165,12 +166,18 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanIndexRecords's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     protected List<FDBIndexedRecord<Message>> getIndexRecords(FDBRecordStore store, String indexName) {
         return store.getRecordContext().asyncToSync(FDBStoreTimer.Waits.WAIT_SCAN_INDEX_RECORDS,
                 store.scanIndexRecords(indexName, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
                         .asList());
     }
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanIndex's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     protected List<IndexEntry> getIndexKeyValues(FDBRecordStore store, Index index, IndexScanType scanType) {
         return store.getRecordContext().asyncToSync(FDBStoreTimer.Waits.WAIT_SCAN_INDEX_RECORDS,
                 store.scanIndex(index, scanType, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
@@ -194,6 +201,9 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, index);
             TupleRange range = new TupleRange(Tuple.from("abd"), Tuple.from("abg_5"), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // scanIndexRecords's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
             List<FDBIndexedRecord<Message>> results = recordStore.getRecordContext().asyncToSync(FDBStoreTimer.Waits.WAIT_SCAN_INDEX_RECORDS,
                     recordStore.scanIndexRecords(index.getName(), IndexScanType.BY_VALUE, range, null, ScanProperties.FORWARD_SCAN).asList());
             assertEquals(4, results.size());
@@ -323,7 +333,7 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
             int count = 0;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> queriedRecord = cursor.next();
+                    FDBQueriedRecord<Message> queriedRecord = Objects.requireNonNull(cursor.next());
                     TypesRecord record = fromMessage(queriedRecord.getRecord());
                     assertTrue(records.contains(record));
                     String str = functionQuery ? record.getStrValue().substring(0, 3) : record.getStrValue();
@@ -365,7 +375,7 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
             int count = 0;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> queriedRecord = cursor.next();
+                    FDBQueriedRecord<Message> queriedRecord = Objects.requireNonNull(cursor.next());
                     TypesRecord record = fromMessage(queriedRecord.getRecord());
                     assertTrue(records.contains(record));
                     String str = record.getStrValue();
@@ -478,7 +488,6 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
      */
     @AutoService(FunctionKeyExpression.Factory.class)
     public static class TestFunctionRegistry implements FunctionKeyExpression.Factory {
-        @Nonnull
         @Override
         public List<FunctionKeyExpression.Builder> getBuilders() {
             return Collections.singletonList(new FunctionKeyExpression.BiFunctionBuilder("indexStrFields", IndexStrFields::new));
@@ -492,7 +501,7 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
     public static class IndexStrFields extends FunctionKeyExpression {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Str-Fields");
 
-        public IndexStrFields(@Nonnull String name, @Nonnull KeyExpression arguments) {
+        public IndexStrFields(String name, KeyExpression arguments) {
             super(name, arguments);
         }
 
@@ -506,11 +515,10 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
             return 0;
         }
 
-        @Nonnull
         @Override
         public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
                                                                         @Nullable Message message,
-                                                                        @Nonnull Key.Evaluated arguments) {
+                                                                        Key.Evaluated arguments) {
             if (message == null) {
                 return Collections.emptyList();
             }
@@ -528,7 +536,7 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
             return keys;
         }
 
-        private Key.Evaluated toKey(@Nonnull String value) {
+        private Key.Evaluated toKey(String value) {
             String[] values = value.split(",");
             if (values.length < 3) {
                 throw new InvalidResultException(
@@ -548,13 +556,12 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+        public int planHash(final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
         }
 
-        @Nonnull
         @Override
-        public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+        public Value toValue(final List<? extends Value> argumentValues) {
             throw new UnsupportedOperationException("not implemented");
         }
     }

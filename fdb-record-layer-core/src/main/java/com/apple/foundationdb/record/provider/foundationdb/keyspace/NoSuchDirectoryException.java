@@ -24,8 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 
-import javax.annotation.Nonnull;
-
 /**
  * Exception thrown when a {@link KeySpaceDirectory} does not have the named directory component.
  */
@@ -33,7 +31,7 @@ import javax.annotation.Nonnull;
 public final class NoSuchDirectoryException extends RecordCoreException {
     private static final long serialVersionUID = 1L;
 
-    public NoSuchDirectoryException(@Nonnull KeySpaceDirectory rootDirectory, @Nonnull String subdir) {
+    public NoSuchDirectoryException(KeySpaceDirectory rootDirectory, String subdir) {
         super("No such directory");
 
         addLogInfo(

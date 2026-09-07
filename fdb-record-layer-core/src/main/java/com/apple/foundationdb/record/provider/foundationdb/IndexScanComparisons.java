@@ -42,8 +42,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.Set;
 
@@ -52,41 +52,35 @@ import java.util.Set;
  */
 @API(API.Status.UNSTABLE)
 public class IndexScanComparisons implements IndexScanParameters {
-    @Nonnull
     private final IndexScanType scanType;
-    @Nonnull
     private final ScanComparisons scanComparisons;
 
-    protected IndexScanComparisons(@Nonnull final PlanSerializationContext serializationContext,
-                                   @Nonnull final PIndexScanComparisons indexScanComparisonsProto) {
+    protected IndexScanComparisons(final PlanSerializationContext serializationContext,
+                                   final PIndexScanComparisons indexScanComparisonsProto) {
         this(IndexScanType.fromProto(serializationContext, Objects.requireNonNull(indexScanComparisonsProto.getScanType())),
                 ScanComparisons.fromProto(serializationContext, Objects.requireNonNull(indexScanComparisonsProto.getScanComparisons())));
     }
 
-    public IndexScanComparisons(@Nonnull final IndexScanType scanType, @Nonnull final ScanComparisons scanComparisons) {
+    public IndexScanComparisons(final IndexScanType scanType, final ScanComparisons scanComparisons) {
         this.scanType = scanType;
         this.scanComparisons = scanComparisons;
     }
 
-    @Nonnull
     public static IndexScanComparisons byValue() {
         return byValue(null);
     }
 
-    @Nonnull
     public static IndexScanComparisons byValue(@Nullable ScanComparisons scanComparisons) {
         return byValue(scanComparisons, IndexScanType.BY_VALUE);
     }
 
-    @Nonnull
-    public static IndexScanComparisons byValue(@Nullable ScanComparisons scanComparisons, @Nonnull IndexScanType scanType) {
+    public static IndexScanComparisons byValue(@Nullable ScanComparisons scanComparisons, IndexScanType scanType) {
         if (scanComparisons == null) {
             scanComparisons = ScanComparisons.EMPTY;
         }
         return new IndexScanComparisons(scanType, scanComparisons);
     }
 
-    @Nonnull
     @Override
     public IndexScanType getScanType() {
         return scanType;
@@ -97,29 +91,26 @@ public class IndexScanComparisons implements IndexScanParameters {
         return true;
     }
 
-    @Nonnull
     @Override
     public ScanComparisons getScanComparisons() {
         return scanComparisons;
     }
 
-    @Nonnull
     @Override
-    public IndexScanRange bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+    public IndexScanRange bind(FDBRecordStoreBase<?> store, Index index, EvaluationContext context) {
         return new IndexScanRange(scanType, scanComparisons.toTupleRange(store, context));
     }
 
     @Override
-    public int planHash(@Nonnull PlanHashMode mode) {
+    public int planHash(PlanHashMode mode) {
         return scanType.planHash(mode) + scanComparisons.planHash(mode);
     }
 
     @Override
-    public boolean isUnique(@Nonnull Index index) {
+    public boolean isUnique(Index index) {
         return scanComparisons.isEquality() && scanComparisons.size() == index.getColumnSize();
     }
 
-    @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain() {
         @Nullable final TupleRange tupleRange = scanComparisons.toTupleRangeWithoutContext();
@@ -127,7 +118,7 @@ public class IndexScanComparisons implements IndexScanParameters {
     }
 
     @Override
-    public void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
+    public void getPlannerGraphDetails(ImmutableList.Builder<String> detailsBuilder, ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         if (!scanType.equals(IndexScanType.BY_VALUE)) {
             detailsBuilder.add("scan type: {{scanType}}");
             attributeMapBuilder.put("scanType", Attribute.gml(scanType.toString()));
@@ -144,21 +135,19 @@ public class IndexScanComparisons implements IndexScanParameters {
         }
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         return scanComparisons.getCorrelatedTo();
     }
 
-    @Nonnull
     @Override
-    public IndexScanParameters rebase(@Nonnull final AliasMap translationMap) {
+    public IndexScanParameters rebase(final AliasMap translationMap) {
         return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap), false);
     }
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+    public boolean semanticEquals(@Nullable final Object other, final AliasMap aliasMap) {
         if (this == other) {
             return true;
         }
@@ -181,10 +170,9 @@ public class IndexScanComparisons implements IndexScanParameters {
         return result;
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public IndexScanParameters translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public IndexScanParameters translateCorrelations(final TranslationMap translationMap,
                                                      final boolean shouldSimplifyValues) {
         final var translatedScanComparisons =
                 scanComparisons.translateCorrelations(translationMap, shouldSimplifyValues);
@@ -194,8 +182,7 @@ public class IndexScanComparisons implements IndexScanParameters {
         return this;
     }
 
-    @Nonnull
-    protected IndexScanParameters withScanComparisons(@Nonnull final ScanComparisons newScanComparisons) {
+    protected IndexScanParameters withScanComparisons(final ScanComparisons newScanComparisons) {
         return new IndexScanComparisons(scanType, newScanComparisons);
     }
 
@@ -216,29 +203,25 @@ public class IndexScanComparisons implements IndexScanParameters {
         return semanticHashCode();
     }
 
-    @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public Message toProto(final PlanSerializationContext serializationContext) {
         return toIndexScanComparisonsProto(serializationContext);
     }
 
-    @Nonnull
-    public PIndexScanComparisons toIndexScanComparisonsProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PIndexScanComparisons toIndexScanComparisonsProto(final PlanSerializationContext serializationContext) {
         return PIndexScanComparisons.newBuilder()
                 .setScanType(scanType.toProto(serializationContext))
                 .setScanComparisons(scanComparisons.toProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PIndexScanParameters toIndexScanParametersProto(final PlanSerializationContext serializationContext) {
         return PIndexScanParameters.newBuilder().setIndexScanComparisons(toIndexScanComparisonsProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static IndexScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PIndexScanComparisons indexScanComparisonsProto) {
+    public static IndexScanComparisons fromProto(final PlanSerializationContext serializationContext,
+                                                 final PIndexScanComparisons indexScanComparisonsProto) {
         return new IndexScanComparisons(serializationContext, indexScanComparisonsProto);
     }
 
@@ -247,16 +230,14 @@ public class IndexScanComparisons implements IndexScanParameters {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PIndexScanComparisons, IndexScanComparisons> {
-        @Nonnull
         @Override
         public Class<PIndexScanComparisons> getProtoMessageClass() {
             return PIndexScanComparisons.class;
         }
 
-        @Nonnull
         @Override
-        public IndexScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final PIndexScanComparisons indexScanComparisonsProto) {
+        public IndexScanComparisons fromProto(final PlanSerializationContext serializationContext,
+                                              final PIndexScanComparisons indexScanComparisonsProto) {
             return IndexScanComparisons.fromProto(serializationContext, indexScanComparisonsProto);
         }
     }

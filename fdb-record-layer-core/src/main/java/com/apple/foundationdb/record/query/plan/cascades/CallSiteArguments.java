@@ -26,8 +26,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +41,6 @@ public sealed interface CallSiteArguments {
 
     CallSiteArguments EMPTY = new PositionalArguments(List.of(), Options.empty(), WindowSpecification.NONE);
 
-    @Nonnull
     Iterable<Value> getArguments();
 
     /**
@@ -50,28 +49,21 @@ public sealed interface CallSiteArguments {
      * positional invocations.
      * @return the arguments as a list
      */
-    @Nonnull
     default List<Value> getArgumentsList() {
         return ImmutableList.copyOf(getArguments());
     }
 
-    @Nonnull
     Options getOptions();
 
-    @Nonnull
     WindowSpecification getWindowSpecification();
 
-    @Nonnull
-    CallSiteArguments withArguments(@Nonnull Iterable<Value> newValues);
+    CallSiteArguments withArguments(Iterable<Value> newValues);
 
-    @Nonnull
-    CallSiteArguments withNamedArguments(@Nonnull Map<String, Value> newNamedValues);
+    CallSiteArguments withNamedArguments(Map<String, Value> newNamedValues);
 
-    @Nonnull
-    CallSiteArguments withOptions(@Nonnull Options newOptions);
+    CallSiteArguments withOptions(Options newOptions);
 
-    @Nonnull
-    CallSiteArguments withWindowSpecification(@Nonnull WindowSpecification newWindowSpecification);
+    CallSiteArguments withWindowSpecification(WindowSpecification newWindowSpecification);
 
     /**
      * Reads a call-site option. This is the typed way to get at an option: the value is handed back as the option's
@@ -80,8 +72,7 @@ public sealed interface CallSiteArguments {
      * @param <T> the option's value type
      * @return the option's value, or {@link Optional#empty()} if the option was not supplied at this call site
      */
-    @Nonnull
-    default <T> Optional<T> getOption(@Nonnull final Option<T> option) {
+    default <T> Optional<T> getOption(final Option<T> option) {
         return getOptions().get(option);
     }
 
@@ -92,8 +83,7 @@ public sealed interface CallSiteArguments {
      * @param <T> the option's value type
      * @return a new {@link CallSiteArguments} with the given option set
      */
-    @Nonnull
-    default <T> CallSiteArguments withOption(@Nonnull final Option<T> option, @Nonnull final T value) {
+    default <T> CallSiteArguments withOption(final Option<T> option, final T value) {
         return withOptions(getOptions().toBuilder().put(option, value).build());
     }
 
@@ -137,38 +127,31 @@ public sealed interface CallSiteArguments {
         return Iterables.size(getArguments());
     }
 
-    @Nonnull
     static CallSiteArguments empty() {
         return EMPTY;
     }
 
-    @Nonnull
-    static CallSiteArguments ofPositional(@Nonnull final List<? extends Value> values) {
+    static CallSiteArguments ofPositional(final List<? extends Value> values) {
         return new PositionalArguments(ImmutableList.copyOf(values), Options.empty(), WindowSpecification.NONE);
     }
 
-    @Nonnull
-    static CallSiteArguments ofPositional(@Nonnull final Value value) {
+    static CallSiteArguments ofPositional(final Value value) {
         return new PositionalArguments(ImmutableList.of(value), Options.empty(), WindowSpecification.NONE);
     }
 
-    @Nonnull
-    static CallSiteArguments ofPositional(@Nonnull final Value... values) {
+    static CallSiteArguments ofPositional(final Value... values) {
         return new PositionalArguments(ImmutableList.copyOf(values), Options.empty(), WindowSpecification.NONE);
     }
 
-    @Nonnull
-    static CallSiteArguments ofPositional(@Nonnull final Iterable<? extends Value> values) {
+    static CallSiteArguments ofPositional(final Iterable<? extends Value> values) {
         return new PositionalArguments(ImmutableList.copyOf(values), Options.empty(), WindowSpecification.NONE);
     }
 
-    @Nonnull
-    static CallSiteArguments ofNamed(@Nonnull final Map<String, ? extends Value> namedValues) {
+    static CallSiteArguments ofNamed(final Map<String, ? extends Value> namedValues) {
         return new NamedArguments(ImmutableMap.copyOf(namedValues), Options.empty(), WindowSpecification.NONE);
     }
 
-    @Nonnull
-    static CallSiteArguments ofNamed(@Nonnull final String argumentName, Value argumentValue) {
+    static CallSiteArguments ofNamed(final String argumentName, Value argumentValue) {
         return new NamedArguments(ImmutableMap.of(argumentName, argumentValue), Options.empty(), WindowSpecification.NONE);
     }
 
@@ -191,14 +174,11 @@ public sealed interface CallSiteArguments {
      * @param <T> the value type of the option
      */
     final class Option<T> {
-        @Nonnull
         private final String name;
-        @Nonnull
         private final Class<T> type;
-        @Nonnull
         private final Coercer<T> coercer;
 
-        private Option(@Nonnull final String name, @Nonnull final Class<T> type, @Nonnull final Coercer<T> coercer) {
+        private Option(final String name, final Class<T> type, final Coercer<T> coercer) {
             this.name = name;
             this.type = type;
             this.coercer = coercer;
@@ -208,7 +188,6 @@ public sealed interface CallSiteArguments {
          * The name this option is supplied under at a call site.
          * @return the option name
          */
-        @Nonnull
         public String getName() {
             return name;
         }
@@ -217,7 +196,6 @@ public sealed interface CallSiteArguments {
          * The value type of the option.
          * @return the value type
          */
-        @Nonnull
         public Class<T> getType() {
             return type;
         }
@@ -233,7 +211,6 @@ public sealed interface CallSiteArguments {
          * @param rawValue the raw value supplied at the call site
          * @return the value converted to this option's type
          */
-        @Nonnull
         public T coerce(@Nullable final Object rawValue) {
             if (rawValue == null) {
                 throw nullOptionValue(name);
@@ -265,34 +242,28 @@ public sealed interface CallSiteArguments {
             return name;
         }
 
-        @Nonnull
-        public static Option<Integer> ofInteger(@Nonnull final String name) {
+        public static Option<Integer> ofInteger(final String name) {
             return new Option<>(name, Integer.class, Option::coerceInteger);
         }
 
-        @Nonnull
-        public static Option<Long> ofLong(@Nonnull final String name) {
+        public static Option<Long> ofLong(final String name) {
             return new Option<>(name, Long.class, (optionName, rawValue) -> toLong(optionName, Long.class, rawValue));
         }
 
-        @Nonnull
-        public static Option<Double> ofDouble(@Nonnull final String name) {
+        public static Option<Double> ofDouble(final String name) {
             return new Option<>(name, Double.class, Option::coerceDouble);
         }
 
-        @Nonnull
-        public static Option<Boolean> ofBoolean(@Nonnull final String name) {
+        public static Option<Boolean> ofBoolean(final String name) {
             return new Option<>(name, Boolean.class, Option::coerceBoolean);
         }
 
-        @Nonnull
-        public static Option<String> ofString(@Nonnull final String name) {
+        public static Option<String> ofString(final String name) {
             return new Option<>(name, String.class, Option::coerceString);
         }
 
-        @Nonnull
-        public static <E extends Enum<E>> Option<E> ofEnum(@Nonnull final String name,
-                                                           @Nonnull final Class<E> enumType) {
+        public static <E extends Enum<E>> Option<E> ofEnum(final String name,
+                                                           final Class<E> enumType) {
             return new Option<>(name, enumType, (optionName, rawValue) -> coerceEnum(optionName, enumType, rawValue));
         }
 
@@ -304,14 +275,12 @@ public sealed interface CallSiteArguments {
          * @param <T> the option's value type
          * @return a new option
          */
-        @Nonnull
-        public static <T> Option<T> of(@Nonnull final String name, @Nonnull final Class<T> type,
-                                       @Nonnull final Coercer<T> coercer) {
+        public static <T> Option<T> of(final String name, final Class<T> type,
+                                       final Coercer<T> coercer) {
             return new Option<>(name, type, coercer);
         }
 
-        @Nonnull
-        private static Integer coerceInteger(@Nonnull final String optionName, @Nonnull final Object rawValue) {
+        private static Integer coerceInteger(final String optionName, final Object rawValue) {
             final long valueAsLong = toLong(optionName, Integer.class, rawValue);
             if (valueAsLong < Integer.MIN_VALUE || valueAsLong > Integer.MAX_VALUE) {
                 throw optionValueOutOfRange(optionName, Integer.class, rawValue);
@@ -319,8 +288,8 @@ public sealed interface CallSiteArguments {
             return (int)valueAsLong;
         }
 
-        private static long toLong(@Nonnull final String optionName, @Nonnull final Class<?> expectedType,
-                                   @Nonnull final Object rawValue) {
+        private static long toLong(final String optionName, final Class<?> expectedType,
+                                   final Object rawValue) {
             //
             // Only exactly-representable integral values are accepted; a fractional literal is a different option
             // value, not an invitation to round.
@@ -332,32 +301,28 @@ public sealed interface CallSiteArguments {
             throw unexpectedOptionValueType(optionName, expectedType, rawValue);
         }
 
-        @Nonnull
-        private static Double coerceDouble(@Nonnull final String optionName, @Nonnull final Object rawValue) {
+        private static Double coerceDouble(final String optionName, final Object rawValue) {
             if (rawValue instanceof Number) {
                 return ((Number)rawValue).doubleValue();
             }
             throw unexpectedOptionValueType(optionName, Double.class, rawValue);
         }
 
-        @Nonnull
-        private static Boolean coerceBoolean(@Nonnull final String optionName, @Nonnull final Object rawValue) {
+        private static Boolean coerceBoolean(final String optionName, final Object rawValue) {
             // a boolean option only accepts an actual boolean; Boolean.parseBoolean() would map any garbage to false
             throw unexpectedOptionValueType(optionName, Boolean.class, rawValue);
         }
 
-        @Nonnull
-        private static String coerceString(@Nonnull final String optionName, @Nonnull final Object rawValue) {
+        private static String coerceString(final String optionName, final Object rawValue) {
             if (rawValue instanceof CharSequence) {
                 return rawValue.toString();
             }
             throw unexpectedOptionValueType(optionName, String.class, rawValue);
         }
 
-        @Nonnull
-        private static <E extends Enum<E>> E coerceEnum(@Nonnull final String optionName,
-                                                        @Nonnull final Class<E> enumType,
-                                                        @Nonnull final Object rawValue) {
+        private static <E extends Enum<E>> E coerceEnum(final String optionName,
+                                                        final Class<E> enumType,
+                                                        final Object rawValue) {
             if (rawValue instanceof CharSequence) {
                 final var rawValueAsString = rawValue.toString();
                 for (final E enumConstant : enumType.getEnumConstants()) {
@@ -369,18 +334,16 @@ public sealed interface CallSiteArguments {
             throw unexpectedOptionValueType(optionName, enumType, rawValue);
         }
 
-        @Nonnull
-        private static SemanticException nullOptionValue(@Nonnull final String optionName) {
+        private static SemanticException nullOptionValue(final String optionName) {
             final var semanticException = SemanticException.newException(SemanticException.ErrorCode.INCOMPATIBLE_TYPE,
                     "option value must not be null");
             semanticException.addLogInfo(LogMessageKeys.OPTION_NAME, optionName);
             return semanticException;
         }
 
-        @Nonnull
-        private static SemanticException unexpectedOptionValueType(@Nonnull final String optionName,
-                                                                   @Nonnull final Class<?> expectedType,
-                                                                   @Nonnull final Object rawValue) {
+        private static SemanticException unexpectedOptionValueType(final String optionName,
+                                                                   final Class<?> expectedType,
+                                                                   final Object rawValue) {
             final var semanticException = SemanticException.newException(SemanticException.ErrorCode.INCOMPATIBLE_TYPE,
                     "option value is of an unexpected type");
             semanticException.addLogInfo(LogMessageKeys.OPTION_NAME, optionName,
@@ -390,10 +353,9 @@ public sealed interface CallSiteArguments {
             return semanticException;
         }
 
-        @Nonnull
-        private static SemanticException optionValueOutOfRange(@Nonnull final String optionName,
-                                                               @Nonnull final Class<?> expectedType,
-                                                               @Nonnull final Object rawValue) {
+        private static SemanticException optionValueOutOfRange(final String optionName,
+                                                               final Class<?> expectedType,
+                                                               final Object rawValue) {
             final var semanticException = SemanticException.newException(SemanticException.ErrorCode.INCOMPATIBLE_TYPE,
                     "option value is out of range for the option's type");
             semanticException.addLogInfo(LogMessageKeys.OPTION_NAME, optionName,
@@ -414,8 +376,7 @@ public sealed interface CallSiteArguments {
              * @param rawValue the raw value supplied at the call site
              * @return the converted value
              */
-            @Nonnull
-            T coerce(@Nonnull String optionName, @Nonnull Object rawValue);
+            T coerce(String optionName, Object rawValue);
         }
     }
 
@@ -435,10 +396,9 @@ public sealed interface CallSiteArguments {
     final class Options {
         private static final Options EMPTY_OPTIONS = new Options(ImmutableMap.of());
 
-        @Nonnull
         private final Map<String, Object> optionsByName;
 
-        private Options(@Nonnull final Map<String, Object> optionsByName) {
+        private Options(final Map<String, Object> optionsByName) {
             this.optionsByName = optionsByName;
         }
 
@@ -446,7 +406,6 @@ public sealed interface CallSiteArguments {
          * The empty set of options.
          * @return options with nothing set
          */
-        @Nonnull
         public static Options empty() {
             return EMPTY_OPTIONS;
         }
@@ -455,7 +414,6 @@ public sealed interface CallSiteArguments {
          * Creates a builder for a new set of options.
          * @return a new builder
          */
-        @Nonnull
         public static Builder builder() {
             return new Builder();
         }
@@ -464,7 +422,6 @@ public sealed interface CallSiteArguments {
          * Creates a builder pre-populated with these options.
          * @return a new builder
          */
-        @Nonnull
         public Builder toBuilder() {
             final var builder = new Builder();
             builder.putAll(optionsByName);
@@ -484,7 +441,6 @@ public sealed interface CallSiteArguments {
          * options a function declares.
          * @return the option names
          */
-        @Nonnull
         public Set<String> names() {
             return optionsByName.keySet();
         }
@@ -494,7 +450,7 @@ public sealed interface CallSiteArguments {
          * @param option the option to look for
          * @return {@code true} if the option is set
          */
-        public boolean contains(@Nonnull final Option<?> option) {
+        public boolean contains(final Option<?> option) {
             return optionsByName.containsKey(option.getName());
         }
 
@@ -504,8 +460,7 @@ public sealed interface CallSiteArguments {
          * @param <T> the option's value type
          * @return the option's value, or {@link Optional#empty()} if the option is not set
          */
-        @Nonnull
-        public <T> Optional<T> get(@Nonnull final Option<T> option) {
+        public <T> Optional<T> get(final Option<T> option) {
             final var value = optionsByName.get(option.getName());
             return value == null ? Optional.empty() : Optional.of(option.coerce(value));
         }
@@ -517,8 +472,7 @@ public sealed interface CallSiteArguments {
          * @param <T> the option's value type
          * @return the option's value, or {@code defaultValue}
          */
-        @Nonnull
-        public <T> T getOrDefault(@Nonnull final Option<T> option, @Nonnull final T defaultValue) {
+        public <T> T getOrDefault(final Option<T> option, final T defaultValue) {
             return get(option).orElse(defaultValue);
         }
 
@@ -531,9 +485,8 @@ public sealed interface CallSiteArguments {
          * @param functionName the called function's name, for diagnostics
          * @return equivalent options whose values are of their declared types
          */
-        @Nonnull
-        Options resolve(@Nonnull final Map<String, Option<?>> supportedOptionsByName,
-                        @Nonnull final String functionName) {
+        Options resolve(final Map<String, Option<?>> supportedOptionsByName,
+                        final String functionName) {
             if (optionsByName.isEmpty()) {
                 return this;
             }
@@ -573,9 +526,8 @@ public sealed interface CallSiteArguments {
                     .collect(Collectors.joining(", ", "[", "]"));
         }
 
-        @Nonnull
-        private static SemanticException unsupportedOption(@Nonnull final String functionName,
-                                                           @Nonnull final String optionName) {
+        private static SemanticException unsupportedOption(final String functionName,
+                                                           final String optionName) {
             final var semanticException = SemanticException.newException(
                     SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES,
                     "unsupported option for function");
@@ -588,7 +540,6 @@ public sealed interface CallSiteArguments {
          * Builder for {@link Options}.
          */
         public static final class Builder {
-            @Nonnull
             private final Map<String, Object> optionsByName = new LinkedHashMap<>();
 
             private Builder() {
@@ -601,8 +552,7 @@ public sealed interface CallSiteArguments {
              * @param <T> the option's value type
              * @return this builder
              */
-            @Nonnull
-            public <T> Builder put(@Nonnull final Option<T> option, @Nonnull final T value) {
+            public <T> Builder put(final Option<T> option, final T value) {
                 return putInternal(option.getName(), option.coerce(value));
             }
 
@@ -614,8 +564,7 @@ public sealed interface CallSiteArguments {
              * @param rawValue the raw option value
              * @return this builder
              */
-            @Nonnull
-            public Builder putRaw(@Nonnull final String name, @Nullable final Object rawValue) {
+            public Builder putRaw(final String name, @Nullable final Object rawValue) {
                 if (rawValue == null) {
                     throw Option.nullOptionValue(name);
                 }
@@ -626,25 +575,22 @@ public sealed interface CallSiteArguments {
              * Builds the options.
              * @return the options
              */
-            @Nonnull
             public Options build() {
                 return optionsByName.isEmpty() ? empty() : new Options(ImmutableMap.copyOf(optionsByName));
             }
 
-            private void putAll(@Nonnull final Map<String, Object> otherOptionsByName) {
+            private void putAll(final Map<String, Object> otherOptionsByName) {
                 optionsByName.putAll(otherOptionsByName);
             }
 
-            @Nonnull
-            private Builder putInternal(@Nonnull final String name, @Nonnull final Object value) {
+            private Builder putInternal(final String name, final Object value) {
                 if (optionsByName.putIfAbsent(name, value) != null) {
                     throw duplicateOption(name);
                 }
                 return this;
             }
 
-            @Nonnull
-            private static SemanticException duplicateOption(@Nonnull final String optionName) {
+            private static SemanticException duplicateOption(final String optionName) {
                 final var semanticException = SemanticException.newException(
                         SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES,
                         "option specified more than once");
@@ -668,8 +614,8 @@ public sealed interface CallSiteArguments {
      * @param partitioningValues the {@code PARTITION BY} columns
      * @param orderingParts the {@code ORDER BY} columns paired with their sort directions
      */
-    record WindowSpecification(@Nonnull List<Value> partitioningValues,
-                               @Nonnull List<WindowOrderingPart> orderingParts) {
+    record WindowSpecification(List<Value> partitioningValues,
+                               List<WindowOrderingPart> orderingParts) {
         public static final WindowSpecification NONE = new WindowSpecification(List.of(), List.of());
 
         public boolean isNone() {
@@ -677,94 +623,80 @@ public sealed interface CallSiteArguments {
         }
     }
 
-    record PositionalArguments(@Nonnull Iterable<Value> values,
-                               @Nonnull Options options,
-                               @Nonnull WindowSpecification windowSpecification) implements CallSiteArguments {
-        @Nonnull
+    record PositionalArguments(Iterable<Value> values,
+                               Options options,
+                               WindowSpecification windowSpecification) implements CallSiteArguments {
         @Override
         public Iterable<Value> getArguments() {
             return values;
         }
 
-        @Nonnull
         @Override
         public Options getOptions() {
             return options;
         }
 
-        @Nonnull
         @Override
         public WindowSpecification getWindowSpecification() {
             return windowSpecification;
         }
 
-        @Nonnull
         @Override
-        public CallSiteArguments withArguments(@Nonnull final Iterable<Value> newValues) {
+        public CallSiteArguments withArguments(final Iterable<Value> newValues) {
             return new PositionalArguments(newValues, options, windowSpecification);
         }
 
-        @Nonnull
         @Override
-        public CallSiteArguments withNamedArguments(@Nonnull final Map<String, Value> newNamedValues) {
+        public CallSiteArguments withNamedArguments(final Map<String, Value> newNamedValues) {
             return new NamedArguments(newNamedValues, options, windowSpecification);
         }
 
-        @Nonnull
         @Override
-        public CallSiteArguments withOptions(@Nonnull final Options newOptions) {
+        public CallSiteArguments withOptions(final Options newOptions) {
             return new PositionalArguments(values, newOptions, windowSpecification);
         }
 
-        @Nonnull
         @Override
-        public CallSiteArguments withWindowSpecification(@Nonnull final WindowSpecification newWindowSpecification) {
+        public CallSiteArguments withWindowSpecification(final WindowSpecification newWindowSpecification) {
             return new PositionalArguments(values, options, newWindowSpecification);
         }
     }
 
-    record NamedArguments(@Nonnull Map<String, Value> namedArguments,
-                          @Nonnull Options options,
-                          @Nonnull WindowSpecification windowSpecification) implements CallSiteArguments {
-        @Nonnull
+    record NamedArguments(Map<String, Value> namedArguments,
+                          Options options,
+                          WindowSpecification windowSpecification) implements CallSiteArguments {
         @Override
         public List<Value> getArguments() {
             return List.copyOf(namedArguments.values());
         }
 
-        @Nonnull
         @Override
         public Options getOptions() {
             return options;
         }
 
-        @Nonnull
         @Override
         public WindowSpecification getWindowSpecification() {
             return windowSpecification;
         }
 
-        @Nonnull
         @Override
-        public CallSiteArguments withArguments(@Nonnull final Iterable<Value> newValues) {
+        public CallSiteArguments withArguments(final Iterable<Value> newValues) {
             return new PositionalArguments(newValues, options, windowSpecification);
         }
 
-        @Nonnull
         @Override
-        public CallSiteArguments withNamedArguments(@Nonnull final Map<String, Value> newNamedValues) {
+        public CallSiteArguments withNamedArguments(final Map<String, Value> newNamedValues) {
             return new NamedArguments(newNamedValues, options, windowSpecification);
         }
 
-        @Nonnull
         @Override
-        public CallSiteArguments withOptions(@Nonnull final Options newOptions) {
+        public CallSiteArguments withOptions(final Options newOptions) {
             return new NamedArguments(namedArguments, newOptions, windowSpecification);
         }
 
-        @Nonnull
         @Override
-        public CallSiteArguments withWindowSpecification(@Nonnull final WindowSpecification newWindowSpecification) {
+        public CallSiteArguments withWindowSpecification(final WindowSpecification newWindowSpecification) {
             return new NamedArguments(namedArguments, options, newWindowSpecification);
         }
     }

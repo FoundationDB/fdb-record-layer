@@ -24,8 +24,10 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.OrderFunctionKeyExpression;
 import com.apple.foundationdb.record.util.pair.Pair;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Objects;
+import java.util.function.Function;
 
 /**
  * Handle {@link OrderFunctionKeyExpression} in a query.
@@ -33,7 +35,7 @@ import javax.annotation.Nullable;
 @API(API.Status.EXPERIMENTAL)
 public class OrderQueryKeyExpression extends QueryKeyExpression {
 
-    public OrderQueryKeyExpression(@Nonnull OrderFunctionKeyExpression keyExpression) {
+    public OrderQueryKeyExpression(OrderFunctionKeyExpression keyExpression) {
         super(keyExpression);
     }
 
@@ -46,7 +48,7 @@ public class OrderQueryKeyExpression extends QueryKeyExpression {
      * or {@code null} if not supported
      */
     @Nullable
-    public Pair<Comparisons.Comparison, Comparisons.Comparison> adjustComparison(@Nonnull Comparisons.Comparison comparison) {
+    public Pair<Comparisons.Comparison, Comparisons.Comparison> adjustComparison(Comparisons.Comparison comparison) {
         final boolean inverted = ((OrderFunctionKeyExpression)keyExpression).getDirection().isInverted();
         Comparisons.Type type = comparison.getType();
         switch (type) {
@@ -84,7 +86,9 @@ public class OrderQueryKeyExpression extends QueryKeyExpression {
         if (comparison instanceof Comparisons.ComparisonWithParameter) {
             adjustedComponent = parameterComparison(type, ((Comparisons.ComparisonWithParameter)comparison).getParameter());
         } else {
-            adjustedComponent = simpleComparison(type, comparison.getComparand());
+            // IS_NULL/NOT_NULL were already returned above, so comparison isn't a null-comparison here;
+            // every other non-parameter Comparison implementation carries a non-null comparand.
+            adjustedComponent = simpleComparison(type, Objects.requireNonNull(comparison.getComparand()));
         }
         final Comparisons.Comparison adjustedComparison = adjustedComponent.getComparison();
         Comparisons.Comparison nullComparison = null;
@@ -109,9 +113,14 @@ public class OrderQueryKeyExpression extends QueryKeyExpression {
         return Pair.of(adjustedComparison, nullComparison);
     }
 
-    @Nonnull
-    private Comparisons.SimpleComparison adjustedNullComparison(@Nonnull Comparisons.Type type) {
+    private Comparisons.SimpleComparison adjustedNullComparison(Comparisons.Type type) {
         // super.nullComparison doesn't deal with getComparandConversionFunction.
-        return new Comparisons.SimpleComparison(type, keyExpression.getComparandConversionFunction().apply(null));
+        final Function<Object, Object> conversion = Objects.requireNonNull(keyExpression.getComparandConversionFunction());
+        // OrderFunctionKeyExpression's conversion function specifically supports a null comparand (it
+        // packs it into the ordering-appropriate byte representation for null), even though the
+        // interface's general contract declares a @NonNull Function<Object, Object>.
+        @SuppressWarnings("NullAway")
+        final Object convertedNull = conversion.apply(null);
+        return new Comparisons.SimpleComparison(type, convertedNull);
     }
 }

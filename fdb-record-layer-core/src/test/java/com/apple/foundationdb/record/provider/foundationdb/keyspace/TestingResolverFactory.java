@@ -33,7 +33,6 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-import javax.annotation.Nonnull;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -42,6 +41,10 @@ import java.util.Set;
  * each test, any resolver created through the factory automatically has integrity validation
  * performed.
  */
+// NullAway.Init is suppressed here because database follows the standard JUnit test-fixture
+// lifecycle: it is left unset by the constructor and is always populated by beforeEach() before
+// any test method that uses it runs.
+@SuppressWarnings("NullAway.Init")
 public class TestingResolverFactory implements BeforeEachCallback, AfterEachCallback {
     /**
      * The type of resolver.
@@ -58,13 +61,13 @@ public class TestingResolverFactory implements BeforeEachCallback, AfterEachCall
     private final FDBDatabaseExtension dbExtension;
     private FDBDatabase database;
 
-    public TestingResolverFactory(@Nonnull final FDBDatabaseExtension dbExtension, @Nonnull final ResolverType defaultResolverType) {
+    public TestingResolverFactory(final FDBDatabaseExtension dbExtension, final ResolverType defaultResolverType) {
         this.dbExtension = dbExtension;
         this.defaultResolverType = defaultResolverType;
     }
 
     @Override
-    public void beforeEach(@Nonnull final ExtensionContext context) {
+    public void beforeEach(final ExtensionContext context) {
         resolvers.clear();
         knownBadEntries.clear();
 
@@ -81,29 +84,25 @@ public class TestingResolverFactory implements BeforeEachCallback, AfterEachCall
     }
 
     @Override
-    public void afterEach(@Nonnull final ExtensionContext context) {
+    public void afterEach(final ExtensionContext context) {
         for (LocatableResolver resolver : resolvers) {
             validate(resolver);
         }
         resolvers.clear();
     }
 
-    @Nonnull
     public FDBDatabase getDatabase() {
         return database;
     }
 
-    @Nonnull
     public CacheStats getDirectoryCacheStats() {
         return database.getDirectoryCacheStats();
     }
 
-    @Nonnull
     public LocatableResolver getGlobalScope() {
         return getGlobalScope(this.database);
     }
 
-    @Nonnull
     public LocatableResolver getGlobalScope(FDBDatabase database) {
         switch (defaultResolverType) {
             case EXTENDED_DIRECTORY_LAYER:
@@ -117,7 +116,6 @@ public class TestingResolverFactory implements BeforeEachCallback, AfterEachCall
         }
     }
 
-    @Nonnull
     public LocatableResolver create(ResolvedKeySpacePath path) {
         switch (defaultResolverType) {
             case EXTENDED_DIRECTORY_LAYER:
@@ -185,6 +183,9 @@ public class TestingResolverFactory implements BeforeEachCallback, AfterEachCall
         return locatableResolver;
     }
 
+    // FDBDatabase#run's unbounded <T> type parameter is treated as @NonNull, so the implicit Void
+    // "return null" trips NullAway even though there is no real value to return.
+    @SuppressWarnings("NullAway")
     public void wipeFDB() {
         database.run((context -> {
             context.clear(new Range(new byte[] {(byte)0x00}, new byte[] {(byte)0xFF}));

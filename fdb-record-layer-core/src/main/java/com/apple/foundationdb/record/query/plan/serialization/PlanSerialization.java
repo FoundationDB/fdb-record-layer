@@ -48,8 +48,8 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.google.protobuf.ProtocolMessageEnum;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -72,12 +72,10 @@ public class PlanSerialization {
      * @param object object that also happens to be a plan fragment
      * @return a {@link PComparableObject} that can be serialized.
      */
-    @Nonnull
     public static PComparableObject valueObjectToProto(@Nullable final Object object) {
         return valueObjectToProto(object, null);
     }
 
-    @Nonnull
     public static PComparableObject valueObjectToProto(@Nullable final Object object, @Nullable PType typeProto) {
         final PComparableObject.Builder builder = PComparableObject.newBuilder();
         if (object instanceof Internal.EnumLite) {
@@ -118,7 +116,7 @@ public class PlanSerialization {
      * @return a value object
      */
     @Nullable
-    public static Object protoToValueObject(@Nonnull final PComparableObject proto) {
+    public static Object protoToValueObject(final PComparableObject proto) {
         if (proto.hasType()) {
             // the only implementation that leverages the presence of the type field is Vector.
             // this can be extended in the future to cover other types as well, such as
@@ -153,8 +151,7 @@ public class PlanSerialization {
      * @param proto a message
      * @return a new {@link Any} that holds {@code proto}
      */
-    @Nonnull
-    public static Any protoObjectToAny(@Nonnull final PlanSerializationContext serializationContext, @Nonnull final Message proto) {
+    public static Any protoObjectToAny(final PlanSerializationContext serializationContext, final Message proto) {
         return Any.pack(proto, serializationContext.getRegistry().getTypeUrlPrefix());
     }
 
@@ -166,17 +163,15 @@ public class PlanSerialization {
      * @param message the message to deserialize
      * @return a new object that is the plan fragment corresponding to the message passed in
      */
-    @Nonnull
-    public static Object dispatchFromProtoContainer(@Nonnull PlanSerializationContext serializationContext, @Nonnull final Message message) {
+    public static Object dispatchFromProtoContainer(PlanSerializationContext serializationContext, final Message message) {
         final Map<Descriptors.FieldDescriptor, Object> allFields = message.getAllFields();
         Verify.verify(allFields.size() == 1);
         final Message field = (Message)Iterables.getOnlyElement(allFields.values());
         return PlanSerialization.dispatchFromProto(serializationContext, field);
     }
 
-    @Nonnull
-    private static Object dispatchFromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                            @Nonnull Message message) {
+    private static Object dispatchFromProto(final PlanSerializationContext serializationContext,
+                                            Message message) {
         final PlanSerializationRegistry registry = serializationContext.getRegistry();
         if (message instanceof Any) {
             final Any any = (Any)message;
@@ -191,8 +186,8 @@ public class PlanSerialization {
     }
 
     @SuppressWarnings("unchecked")
-    private static <M extends Message> Object invokeDeserializer(@Nonnull final PlanSerializationContext serializationContext,
-                                                                 @Nonnull final M message) {
+    private static <M extends Message> Object invokeDeserializer(final PlanSerializationContext serializationContext,
+                                                                 final M message) {
         final PlanDeserializer<M, ?> deserializer =
                 serializationContext.getRegistry().lookUpFromProto((Class<M>)message.getClass());
         return deserializer.fromProto(serializationContext, message);
@@ -211,10 +206,9 @@ public class PlanSerialization {
      * @param <T> the specific field's type
      * @return the field's value
      */
-    @Nonnull
-    public static <M extends Message, T> T getFieldOrThrow(@Nonnull M message,
-                                                           @Nonnull final Predicate<M> fieldSetPredicate,
-                                                           @Nonnull final Function<M, T> fieldExtractor) {
+    public static <M extends Message, T> T getFieldOrThrow(M message,
+                                                           final Predicate<M> fieldSetPredicate,
+                                                           final Function<M, T> fieldExtractor) {
         if (fieldSetPredicate.test(message)) {
             return fieldExtractor.apply(message);
         }
@@ -234,9 +228,9 @@ public class PlanSerialization {
      * @return the field's value
      */
     @Nullable
-    public static <M extends Message, T> T getFieldOrNull(@Nonnull M message,
-                                                          @Nonnull final Predicate<M> fieldSetPredicate,
-                                                          @Nonnull final Function<M, T> fieldExtractor) {
+    public static <M extends Message, T> T getFieldOrNull(M message,
+                                                          final Predicate<M> fieldSetPredicate,
+                                                          final Function<M, T> fieldExtractor) {
         if (fieldSetPredicate.test(message)) {
             return fieldExtractor.apply(message);
         }
@@ -253,9 +247,8 @@ public class PlanSerialization {
      * @param <E2> proto enum type parameter
      * @return a {@link BiMap} that can be used to look up the <em>other</em> enum value for a given enum value
      */
-    @Nonnull
-    public static <E1 extends Enum<E1>, E2 extends Enum<E2> & ProtocolMessageEnum> BiMap<E1, E2> protoEnumBiMap(@Nonnull final Class<E1> domainEnumClass,
-                                                                                                                @Nonnull final Class<E2> protoEnumClass) {
+    public static <E1 extends Enum<E1>, E2 extends Enum<E2> & ProtocolMessageEnum> BiMap<E1, E2> protoEnumBiMap(final Class<E1> domainEnumClass,
+                                                                                                                final Class<E2> protoEnumClass) {
         Verify.verify(domainEnumClass.isEnum());
         Verify.verify(protoEnumClass.isEnum());
         final E1[] javaEnumConstants = domainEnumClass.getEnumConstants();

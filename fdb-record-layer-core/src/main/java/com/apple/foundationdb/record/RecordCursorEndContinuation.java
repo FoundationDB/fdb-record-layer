@@ -23,8 +23,7 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.google.protobuf.ByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A concrete continuation representing that a {@link RecordCursor} has returned all of the records that it ever will.
@@ -37,7 +36,6 @@ public class RecordCursorEndContinuation implements RecordCursorContinuation {
     private RecordCursorEndContinuation() {
     }
 
-    @Nonnull
     @Override
     public ByteString toByteString() {
         return ByteString.EMPTY;
@@ -45,6 +43,8 @@ public class RecordCursorEndContinuation implements RecordCursorContinuation {
 
     @Nullable
     @Override
+    @SuppressWarnings("NullAway") // NullAway does not reliably track @Nullable on byte[] return types, even on this
+    // correctly-annotated override.
     public byte[] toBytes() {
         return null;
     }

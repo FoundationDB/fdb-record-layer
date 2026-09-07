@@ -31,8 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -67,22 +66,20 @@ import java.util.stream.Collectors;
 public class ListKeyExpression extends BaseKeyExpression implements KeyExpressionWithChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("List-Key-Expression");
 
-    @Nonnull
     private final List<KeyExpression> children;
 
-    public ListKeyExpression(@Nonnull List<KeyExpression> exprs) {
+    public ListKeyExpression(List<KeyExpression> exprs) {
         children = exprs;
     }
 
-    private ListKeyExpression(@Nonnull ListKeyExpression orig, int start, int end) {
+    private ListKeyExpression(ListKeyExpression orig, int start, int end) {
         children = orig.children.subList(start, end);
     }
 
-    public ListKeyExpression(@Nonnull RecordKeyExpressionProto.List list) throws DeserializationException {
+    public ListKeyExpression(RecordKeyExpressionProto.List list) throws DeserializationException {
         children = list.getChildList().stream().map(KeyExpression::fromProto).collect(Collectors.toList());
     }
 
-    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
         final List<List<Key.Evaluated>> childrenValues = new ArrayList<>(children.size());
@@ -95,15 +92,15 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
         return combine(childrenValues, totalCount);
     }
 
-    private List<Key.Evaluated> combine(@Nonnull List<List<Key.Evaluated>> childrenValues, int totalCount) {
+    private List<Key.Evaluated> combine(List<List<Key.Evaluated>> childrenValues, int totalCount) {
         final List<Key.Evaluated> combined = new ArrayList<>(totalCount);
         combine(combined, Collections.emptyList(), 0, childrenValues);
         validateColumnCounts(combined);
         return combined;
     }
 
-    private void combine(@Nonnull List<Key.Evaluated> combined, @Nonnull List<Object> listSoFar, int valuesIndex,
-                         @Nonnull List<List<Key.Evaluated>> childrenValues) {
+    private void combine(List<Key.Evaluated> combined, List<Object> listSoFar, int valuesIndex,
+                         List<List<Key.Evaluated>> childrenValues) {
         if (valuesIndex == childrenValues.size()) {
             combined.add(Key.Evaluated.concatenate(listSoFar));
         } else {
@@ -122,7 +119,7 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
     }
 
     @Override
-    public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor descriptor) {
         return children.stream().flatMap(child -> child.validate(descriptor).stream()).collect(Collectors.toList());
     }
 
@@ -137,7 +134,6 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
         return children.size();
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.List toProto() throws SerializationException {
         final RecordKeyExpressionProto.List.Builder builder = RecordKeyExpressionProto.List.newBuilder();
@@ -148,18 +144,15 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
     }
 
     @Override
-    @Nonnull
     public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
         return RecordKeyExpressionProto.KeyExpression.newBuilder().setList(toProto()).build();
     }
 
-    @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 
-    @Nonnull
     @Override
     public List<KeyExpression> normalizeKeyForPositions() {
         // The list key expression places each child (regardless of the number of columns) into a
@@ -205,7 +198,6 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
         return new ListKeyExpression(this, start, end);
     }
 
-    @Nonnull
     @Override
     public List<KeyExpression> getChildren() {
         return children;
@@ -242,7 +234,7 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return PlanHashable.planHash(mode, getChildren());

@@ -24,8 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 /**
@@ -40,7 +39,6 @@ public interface RecordTypeOrBuilder {
      * message type.
      * @return the message type name
      */
-    @Nonnull
     String getName();
 
     /**
@@ -48,7 +46,6 @@ public interface RecordTypeOrBuilder {
      * the record will have and what their types should be.
      * @return the message type descriptor
      */
-    @Nonnull
     Descriptors.Descriptor getDescriptor();
 
     /**
@@ -56,7 +53,6 @@ public interface RecordTypeOrBuilder {
      * indexes that are on multiple types even if one of them is on this type.
      * @return the list of indexes only on this type
      */
-    @Nonnull
     List<Index> getIndexes();
 
     /**
@@ -65,7 +61,6 @@ public interface RecordTypeOrBuilder {
      * metadata configuration.
      * @return the list of indexes on multiple types including this type
      */
-    @Nonnull
     List<Index> getMultiTypeIndexes();
 
     /**

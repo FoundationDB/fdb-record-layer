@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -35,7 +34,6 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
 public class RequestedOrderingValueSimplificationRuleSet extends AbstractValueRuleSet<Value, ValueSimplificationRuleCall> {
-    @Nonnull
     protected static final ValueSimplificationRule<? extends Value> elminateArithmeticValueWithConstantRule =
             new EliminateArithmeticValueWithConstantRule();
 

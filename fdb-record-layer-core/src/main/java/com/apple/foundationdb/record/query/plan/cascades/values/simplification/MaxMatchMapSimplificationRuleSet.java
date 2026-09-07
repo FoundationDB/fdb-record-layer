@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -44,18 +43,13 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
 public class MaxMatchMapSimplificationRuleSet extends AbstractValueRuleSet<Value, ValueSimplificationRuleCall> {
-    @Nonnull
     protected static final ValueSimplificationRule<? extends Value> expandRecordRule = new ExpandRecordRule();
-    @Nonnull
     protected static final ValueSimplificationRule<? extends FieldValue> expandFusedFieldValueRule = new ExpandFusedFieldValueRule();
-    @Nonnull
     protected static final Set<ValueSimplificationRule<? extends Value>> SIMPLIFICATION_RULES =
             ImmutableSet.of(expandRecordRule, expandFusedFieldValueRule);
-    @Nonnull
     protected static final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> SIMPLIFICATION_DEPENDS_ON =
             ImmutableSetMultimap.of();
 
-    @Nonnull
     private static final MaxMatchMapSimplificationRuleSet INSTANCE = new MaxMatchMapSimplificationRuleSet();
 
     private MaxMatchMapSimplificationRuleSet() {

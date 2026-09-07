@@ -24,7 +24,6 @@ import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
-import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -42,8 +41,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -57,6 +56,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import static com.apple.foundationdb.record.IndexBuildProto.IndexBuildIndexingStamp;
 
 /**
  * This indexer supports mutual concurrent multi-target indexing by multiple processes or hosts. To do it, each indexer
@@ -87,8 +88,8 @@ import java.util.stream.Collectors;
  *   - Stop when the indexes are readable, convert to readable if there are no more missing ranges to build.
  */
 public class IndexingMutuallyByRecords extends IndexingBase {
-    private IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = null;
-    @Nonnull
+    @Nullable
+    private IndexBuildIndexingStamp myIndexingTypeStamp = null;
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexingMutuallyByRecords.class);
 
     private List<Tuple> fragmentBoundaries;
@@ -96,12 +97,17 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     private int fragmentStep;
     private int fragmentFirst;
     private int fragmentCurrent;
-    private FragmentIterationType fragmentIterationType;
+    // Defaults to FULL (rather than left uninitialized/nullable) because setFragmentationData() always
+    // overwrites it before any indexing operation reads it; the default is never actually observed.
+    private FragmentIterationType fragmentIterationType = FragmentIterationType.FULL;
     private int loopProtectionCounter = 0;
     private String loopProtectionToken = "";
 
+    @Nullable
     private FDBException anyJumperEx = null;
     private int anyJumperCurrent;
+    // Always set together with anyJumperEx (in anyJumperCallback) and only ever read while anyJumperEx != null.
+    @Nullable
     private Range anyJumperRange;
 
     enum FragmentIterationType {
@@ -111,34 +117,35 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     }
 
     @SuppressWarnings("this-escape")
-    public IndexingMutuallyByRecords(@Nonnull final IndexingCommon common, @Nonnull final OnlineIndexer.IndexingPolicy policy,
+    public IndexingMutuallyByRecords(final IndexingCommon common, final OnlineIndexer.IndexingPolicy policy,
                                      @Nullable List<Tuple> fragmentBoundaries) {
         super(common, policy);
-        this.fragmentBoundaries = fragmentBoundaries;
+        // An absent set of pre-computed boundaries is represented as an empty list rather than null, so that
+        // the fragmentBoundaries field itself can stay non-null; setFragmentationData() treats "empty" and
+        // "not yet supplied" identically (it (re)computes the boundaries whenever the list is empty).
+        this.fragmentBoundaries = fragmentBoundaries == null ? new ArrayList<>() : fragmentBoundaries;
         validateOrThrowEx(!policy.isReverseScanOrder(), "Mutual indexing does not support reverse scan order");
     }
 
     @Override
-    @Nonnull
-    IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp(FDBRecordStore store) {
+    IndexBuildIndexingStamp getIndexingTypeStamp(FDBRecordStore store) {
         if (myIndexingTypeStamp == null) {
             myIndexingTypeStamp = compileIndexingTypeStamp(common.getTargetIndexesNames());
         }
         return myIndexingTypeStamp;
     }
 
-    @Nonnull
-    private static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp(List<String> targetIndexes) {
+    private static IndexBuildIndexingStamp compileIndexingTypeStamp(List<String> targetIndexes) {
         if (targetIndexes.isEmpty()) {
             throw new ValidationException("No target index was set");
         }
-        return IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
-                .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS)
+        return IndexBuildIndexingStamp.newBuilder()
+                .setMethod(IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS)
                 .addAllTargetIndex(targetIndexes)
                 .build();
     }
 
-    private static boolean areTheyAllIdempotent(@Nonnull FDBRecordStore store, List<Index> targetIndexes) {
+    private static boolean areTheyAllIdempotent(FDBRecordStore store, List<Index> targetIndexes) {
         return targetIndexes.stream()
                 .allMatch(targetIndex -> store.getIndexMaintainer(targetIndex).isIdempotent());
     }
@@ -153,7 +160,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         return list;
     }
 
-    private List<Tuple> getPrimaryKeyBoundaries(@Nonnull FDBRecordStore store) {
+    private List<Tuple> getPrimaryKeyBoundaries(FDBRecordStore store) {
         TupleRange tupleRange = common.computeRecordsRange();
         store.getContext().getReadVersion(); // for instrumentation reasons
         List<Tuple> boundaries;
@@ -206,7 +213,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         return 1;
     }
 
-    private void setFragmentationData(@Nonnull FDBRecordStore store) {
+    private void setFragmentationData(FDBRecordStore store) {
         if (fragmentBoundaries == null || fragmentBoundaries.isEmpty()) {
             fragmentBoundaries = getPrimaryKeyBoundaries(store);
         }
@@ -262,7 +269,6 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         }
     }
 
-    @Nonnull
     @Override
     CompletableFuture<Void> buildIndexInternalAsync() {
         return getRunner().runAsync(context -> openRecordStore(context)
@@ -277,7 +283,6 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                         fragmentLogMessageKeyValues()));
     }
 
-    @Nonnull
     private CompletableFuture<Void> buildMultiTargetIndex() {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "mutualMultiTargetIndex-wrapper");
         return maybePresetRecordsRangeAsync().thenCompose(ignore ->
@@ -285,8 +290,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                         (store, recordsScanned) -> buildRangeOnly(store)));
     }
 
-    @Nonnull
-    private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store) {
+    private CompletableFuture<Boolean> buildRangeOnly(FDBRecordStore store) {
         // return false when done
         /* Mutual indexing:
          * 1. detects missing ranges
@@ -331,6 +335,10 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                                  partlyUnBuiltRange(missingRanges, fragmentRange);
 
             if (anyJumperSaysBuild(rangeToBuild)) {
+                // anyJumperSaysBuild returning true guarantees rangeToBuild is non-null (it returns false
+                // immediately when passed null); NullAway can't see that contract, so it's asserted here.
+                final Range nonNullRangeToBuild = Objects.requireNonNull(rangeToBuild,
+                        "anyJumperSaysBuild returning true implies rangeToBuild is non-null");
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info(KeyValueLogMessage.build("fragment/range to build",
                                     LogMessageKeys.SCAN_TYPE, fragmentIterationType,
@@ -342,15 +350,15 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                 timerIncrement(isFull ?
                                FDBStoreTimer.Counts.MUTUAL_INDEXER_FULL_START :
                                FDBStoreTimer.Counts.MUTUAL_INDEXER_ANY_START);
-                infiniteLoopProtection(rangeToBuild, missingRanges);
+                infiniteLoopProtection(nonNullRangeToBuild, missingRanges);
                 final List<Object> additionalLogMessageKeyValues = new ArrayList<>(
                         Arrays.asList(LogMessageKeys.CALLING_METHOD, "mutualMultiTargetIndex",
                                 LogMessageKeys.RANGE, rangeToBuild,
                                 LogMessageKeys.ORIGINAL_RANGE, fragmentRange));
                 additionalLogMessageKeyValues.addAll(fragmentLogMessageKeyValues());
                 return iterateAllRanges(additionalLogMessageKeyValues,
-                        (store, recordsScanned) -> buildThisRangeOnly(store, recordsScanned, rangeToBuild),
-                        anyJumperCallback(rangeToBuild)
+                        (store, recordsScanned) -> buildThisRangeOnly(store, recordsScanned, nonNullRangeToBuild),
+                        anyJumperCallback(nonNullRangeToBuild)
                 ).thenCompose(ignore -> AsyncUtil.READY_TRUE);
             }
             if (anyJumperEx == null) {
@@ -362,7 +370,10 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         }
     }
 
-    private CompletableFuture<Boolean> buildThisRangeOnly(@Nonnull FDBRecordStore store, @Nonnull AtomicLong recordsScanned,
+    // NullAway does not reliably track @Nullable on byte[] parameters, so it flags the (legitimate) null
+    // continuation argument to scanRecords below even though that method declares it @Nullable.
+    @SuppressWarnings("NullAway")
+    private CompletableFuture<Boolean> buildThisRangeOnly(FDBRecordStore store, AtomicLong recordsScanned,
                                                           Range thisRange) {
 
         final List<Index> targetIndexes = common.getTargetIndexes();
@@ -391,7 +402,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
                     this::getRecordIfTypeMatch,
                     lastResult, hasMore, recordsScanned, isIdempotent)
                     .thenApply(vignore -> hasMore.get() ?
-                                          lastResult.get().get().getPrimaryKey().pack() :
+                                          requireLastResultValue(lastResult).getPrimaryKey().pack() :
                                           rangeEnd)
                     .thenCompose(cont -> insertRanges(targetRangeSets, rangeStart, cont)
                             .thenApply(ignore -> rangesAreNotExhausted(cont != null, rangeEnd)));
@@ -517,7 +528,8 @@ public class IndexingMutuallyByRecords extends IndexingBase {
             anyJumperEx = null;
             return true;
         }
-        if (anyJumperRange.equals(rangeToBuild)) {
+        if (Objects.requireNonNull(anyJumperRange, "anyJumperRange is always set together with anyJumperEx")
+                .equals(rangeToBuild)) {
             // Here: in hindsight, this exception was not caused by a rangeSet conflict. Rethrow it.
             throw anyJumperEx;
         }
@@ -527,7 +539,7 @@ public class IndexingMutuallyByRecords extends IndexingBase {
         return false;
     }
 
-    private Function<FDBException, Optional<Boolean>> anyJumperCallback(final Range rangeToBuild) {
+    private Function<@Nullable FDBException, Optional<Boolean>> anyJumperCallback(final Range rangeToBuild) {
         return ex -> {
             if (ex == null || anyJumperEx != null) {
                 // Here: Either not an fdb error or anyJumperSaysBuild is re-throwing. Do not interrupt.
@@ -544,14 +556,13 @@ public class IndexingMutuallyByRecords extends IndexingBase {
     }
 
     @SuppressWarnings("unused")
-    private  CompletableFuture<FDBStoredRecord<Message>> getRecordIfTypeMatch(FDBRecordStore store, @Nonnull RecordCursorResult<FDBStoredRecord<Message>> cursorResult) {
+    private  CompletableFuture<FDBStoredRecord<Message>> getRecordIfTypeMatch(FDBRecordStore store, RecordCursorResult<FDBStoredRecord<Message>> cursorResult) {
         // No need to "translate" rec, so store is unused
         FDBStoredRecord<Message> rec = cursorResult.get();
         return recordIfInIndexedTypes(rec);
     }
 
     // support rebuildIndexAsync
-    @Nonnull
     @Override
     CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
         throw new ValidationException("Mutual inline rebuild doesn't make any sense");

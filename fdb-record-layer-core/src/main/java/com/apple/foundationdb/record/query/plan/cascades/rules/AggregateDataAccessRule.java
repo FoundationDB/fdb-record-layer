@@ -51,7 +51,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.BitSet;
 import java.util.HashSet;
 import java.util.List;
@@ -109,13 +108,12 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule {
      * @param requestedOrderings a set of ordering that have been requested by consuming expressions/plan operators
      * @return a new {@link IntersectionResult}
      */
-    @Nonnull
     @Override
-    protected IntersectionResult createIntersectionAndCompensation(@Nonnull final Memoizer memoizer,
-                                                                   @Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
-                                                                   @Nonnull final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
-                                                                   @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
-                                                                   @Nonnull final Set<RequestedOrdering> requestedOrderings) {
+    protected IntersectionResult createIntersectionAndCompensation(final Memoizer memoizer,
+                                                                   final Map<BitSet, IntersectionInfo> intersectionInfoMap,
+                                                                   final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
+                                                                   final List<Vectored<SingleMatchedAccess>> partition,
+                                                                   final Set<RequestedOrdering> requestedOrderings) {
         Verify.verify(partition.size() > 1);
 
         final var partitionAccesses =
@@ -245,8 +243,7 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule {
                 expressionsBuilder.build());
     }
 
-    @Nonnull
-    protected static Optional<List<Value>> commonGroupingKeyValuesMaybe(@Nonnull Iterable<? extends PartialMatch> partialMatches) {
+    protected static Optional<List<Value>> commonGroupingKeyValuesMaybe(Iterable<? extends PartialMatch> partialMatches) {
         List<Value> common = null;
         var first = true;
         for (final var partialMatch : partialMatches) {
@@ -269,15 +266,15 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule {
             if (first) {
                 common = key;
                 first = false;
-            } else if (!common.equals(key)) {
+            } else if (!Objects.requireNonNull(common).equals(key)) {
                 return Optional.empty();
             }
         }
         return Optional.ofNullable(common); // common can only be null if we didn't have any match candidates to start with
     }
 
-    private static boolean isConsistentComparisonKeyDerivations(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
-                                                                @Nonnull final List<Value> comparisonKeyValues) {
+    private static boolean isConsistentComparisonKeyDerivations(final List<Vectored<SingleMatchedAccess>> partition,
+                                                                final List<Value> comparisonKeyValues) {
         for (final var comparisonKeyValue : comparisonKeyValues) {
             if (consistentQueryValueForGroupingValueMaybe(partition, comparisonKeyValue).isEmpty()) {
                 return false;
@@ -286,9 +283,8 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule {
         return true;
     }
 
-    @Nonnull
-    private static Optional<Value> consistentQueryValueForGroupingValueMaybe(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
-                                                                             @Nonnull final Value comparisonKeyValue) {
+    private static Optional<Value> consistentQueryValueForGroupingValueMaybe(final List<Vectored<SingleMatchedAccess>> partition,
+                                                                             final Value comparisonKeyValue) {
         Value queryComparisonKeyValue = null;
         for (final var singleMatchedAccessWithIndex : partition) {
             final var singledMatchedAccess = singleMatchedAccessWithIndex.getElement();
@@ -317,8 +313,7 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule {
         return Optional.of(Objects.requireNonNull(queryComparisonKeyValue));
     }
 
-    @Nonnull
-    private static NonnullPair<List<Value>, List<Value>> computeCommonAndPickUpValues(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
+    private static NonnullPair<List<Value>, List<Value>> computeCommonAndPickUpValues(final List<Vectored<SingleMatchedAccess>> partition,
                                                                                       final int numGroupings) {
         final var commonValuesAndPickUpValueByAccess =
                 partition
@@ -341,10 +336,9 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule {
         return NonnullPair.of(commonValuesAndPickUpValueByAccess.get(0).getLeft(), pickUpValuesBuilder.build());
     }
 
-    @Nonnull
-    private static Value computeIntersectionResultValue(@Nonnull final List<? extends Quantifier> quantifiers,
-                                                        @Nonnull final List<Value> commonValues,
-                                                        @Nonnull final List<Value> pickUpValues) {
+    private static Value computeIntersectionResultValue(final List<? extends Quantifier> quantifiers,
+                                                        final List<Value> commonValues,
+                                                        final List<Value> pickUpValues) {
         final var columnBuilder = ImmutableList.<Column<? extends Value>>builder();
 
         // grab the common values from the first quantifier
@@ -364,11 +358,10 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule {
         return RecordConstructorValue.ofColumns(columnBuilder.build());
     }
 
-    @Nonnull
-    private static TranslationMap computeTranslationMap(@Nonnull final CorrelationIdentifier intersectionAlias,
-                                                        @Nonnull final List<? extends Quantifier> quantifiers,
-                                                        @Nonnull final List<CorrelationIdentifier> candidateTopAliases,
-                                                        @Nonnull final Type.Record intersectionResultType,
+    private static TranslationMap computeTranslationMap(final CorrelationIdentifier intersectionAlias,
+                                                        final List<? extends Quantifier> quantifiers,
+                                                        final List<CorrelationIdentifier> candidateTopAliases,
+                                                        final Type.Record intersectionResultType,
                                                         final int numGrouped) {
         final var builder = RegularTranslationMap.builder();
         final var deconstructedIntersectionValues =

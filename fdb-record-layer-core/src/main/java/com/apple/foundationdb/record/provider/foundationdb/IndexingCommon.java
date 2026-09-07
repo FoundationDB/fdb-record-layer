@@ -31,14 +31,15 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -52,19 +53,19 @@ import java.util.function.UnaryOperator;
 public class IndexingCommon {
     private final UUID indexerId = UUID.randomUUID();
 
-    @Nonnull private final FDBDatabaseRunner runner;
+    private final FDBDatabaseRunner runner;
 
-    @Nonnull private final FDBRecordStore.Builder recordStoreBuilder;
-    @Nonnull private final AtomicLong totalRecordsScanned;
+    private final FDBRecordStore.Builder recordStoreBuilder;
+    private final AtomicLong totalRecordsScanned;
     private final boolean trackProgress;
 
-    @Nonnull OnlineIndexOperationConfig config; // this item may be modified on the fly
+    OnlineIndexOperationConfig config; // this item may be modified on the fly
     @Nullable private final Function<OnlineIndexOperationConfig, OnlineIndexOperationConfig> configLoader;
     private int configLoaderInvocationCount = 0;
 
-    @Nonnull private Collection<RecordType> allRecordTypes;
-    @Nonnull private final List<IndexContext> targetIndexContexts;
-    @Nonnull private List<Index> queuedIndexes = Collections.emptyList();
+    private Collection<RecordType> allRecordTypes;
+    private final List<IndexContext> targetIndexContexts;
+    private List<Index> queuedIndexes = Collections.emptyList();
     /**
      * Constant indicating that there should be no limit to some usually limited operation.
      */
@@ -75,12 +76,12 @@ public class IndexingCommon {
      */
     // TODO: Make a Java record when available.
     public static class IndexContext {
-        @Nonnull public final Index index;
-        @Nonnull public final Collection<RecordType> recordTypes;
+        public final Index index;
+        public final Collection<RecordType> recordTypes;
         public final boolean isSynthetic;
 
-        IndexContext(@Nonnull Index index,
-                     @Nonnull Collection<RecordType> recordTypes,
+        IndexContext(Index index,
+                     Collection<RecordType> recordTypes,
                      boolean isSynthetic) {
             this.index = index;
             this.recordTypes = recordTypes;
@@ -88,12 +89,12 @@ public class IndexingCommon {
         }
     }
 
-    IndexingCommon(@Nonnull FDBDatabaseRunner runner,
-                   @Nonnull FDBRecordStore.Builder recordStoreBuilder,
-                   @Nonnull List<Index> targetIndexes,
+    IndexingCommon(FDBDatabaseRunner runner,
+                   FDBRecordStore.Builder recordStoreBuilder,
+                   List<Index> targetIndexes,
                    @Nullable Collection<RecordType> allRecordTypes,
                    @Nullable UnaryOperator<OnlineIndexOperationConfig> configLoader,
-                   @Nonnull OnlineIndexOperationConfig config,
+                   OnlineIndexOperationConfig config,
                    boolean trackProgress) {
         this.runner = runner;
         this.configLoader = configLoader;
@@ -108,13 +109,9 @@ public class IndexingCommon {
         fillTargetIndexers(targetIndexes, allRecordTypes);
     }
 
-    private void fillTargetIndexers(@Nonnull List<Index> targetIndexes, @Nullable Collection<RecordType> recordTypes) {
-        boolean presetTypes = false;
-        if (recordTypes != null) {
-            if (targetIndexes.size() > 1) {
-                throw new IndexingBase.ValidationException("Can't use preset record types with multi target indexing");
-            }
-            presetTypes = true;
+    private void fillTargetIndexers(List<Index> targetIndexes, @Nullable Collection<RecordType> recordTypes) {
+        if (recordTypes != null && targetIndexes.size() > 1) {
+            throw new IndexingBase.ValidationException("Can't use preset record types with multi target indexing");
         }
         if (recordStoreBuilder.getMetaDataProvider() == null) {
             throw new MetaDataException("record store builder must include metadata");
@@ -122,7 +119,7 @@ public class IndexingCommon {
         final RecordMetaData metaData = recordStoreBuilder.getMetaDataProvider().getRecordMetaData();
         for (Index targetIndex: targetIndexes) {
             Collection<RecordType> types;
-            if (presetTypes) {
+            if (recordTypes != null) {
                 types = recordTypes;
             } else {
                 types = metaData.recordTypesForIndex(targetIndex);
@@ -174,18 +171,16 @@ public class IndexingCommon {
     }
 
     @SuppressWarnings("varargs")
-    private void logIf(boolean condition, List<Object> list, @Nonnull Object... a) {
+    private void logIf(boolean condition, List<Object> list, @Nullable Object... a) {
         if (condition) {
             list.addAll(Arrays.asList(a));
         }
     }
 
-    @Nonnull
     public FDBDatabaseRunner getRunner() {
         return runner;
     }
 
-    @Nonnull
     IndexContext getIndexContext() {
         if (isMultiTarget()) {
             // backward compatibility safeguard - modules that do not support multi targets (yet) will continue calling
@@ -195,17 +190,14 @@ public class IndexingCommon {
         return targetIndexContexts.get(0);
     }
 
-    @Nonnull
     public Index getIndex() {
         return getIndexContext().index;
     }
 
-    @Nonnull
     public Index getPrimaryIndex() {
         return targetIndexContexts.get(0).index;
     }
 
-    @Nonnull
     public Collection<RecordType> getAllRecordTypes() {
         return allRecordTypes;
     }
@@ -224,19 +216,17 @@ public class IndexingCommon {
                 low = high = prefix;
             } else if (low.compareTo(prefix) > 0) {
                 low = prefix;
-            } else if (high.compareTo(prefix) < 0) {
+            } else if (Objects.requireNonNull(high, "high is always set together with low").compareTo(prefix) < 0) {
                 high = prefix;
             }
         }
         return low == null ? null : TupleRange.betweenInclusive(low, high);
     }
 
-    @Nonnull
     public List<IndexContext> getTargetIndexContexts() {
         return targetIndexContexts;
     }
 
-    @Nonnull
     public List<Index> getTargetIndexes() {
         return targetIndexContexts.stream().map(targetIndexContext -> targetIndexContext.index).toList();
     }
@@ -246,7 +236,6 @@ public class IndexingCommon {
      * indexes may require special handling (queue drain) during the indexing process.
      * @return list of indexes
      */
-    @Nonnull
     public List<Index> getQueuedIndexes() {
         return queuedIndexes;
     }
@@ -255,11 +244,10 @@ public class IndexingCommon {
      * Cache a list of indexes that are in {@link IndexState#WRITE_ONLY_WITH_QUEUE} state. These
      * indexes may require special handling (queue drain) during the indexing process.
      */
-    public void setQueuedIndexes(@Nonnull List<Index> queuedIndexes) {
+    public void setQueuedIndexes(List<Index> queuedIndexes) {
         this.queuedIndexes = queuedIndexes;
     }
 
-    @Nonnull
     public List<String> getTargetIndexesNames() {
         return getTargetIndexes().stream().map(Index::getName).toList();
     }
@@ -272,12 +260,10 @@ public class IndexingCommon {
         return trackProgress;
     }
 
-    @Nonnull
     public FDBRecordStore.Builder getRecordStoreBuilder() {
         return recordStoreBuilder;
     }
 
-    @Nonnull
     public AtomicLong getTotalRecordsScanned() {
         return totalRecordsScanned;
     }

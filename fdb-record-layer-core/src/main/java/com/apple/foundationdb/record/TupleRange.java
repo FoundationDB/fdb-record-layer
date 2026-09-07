@@ -30,8 +30,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -45,13 +44,11 @@ public class TupleRange {
     private final Tuple low;
     @Nullable
     private final Tuple high;
-    @Nonnull
     private final EndpointType lowEndpoint;
-    @Nonnull
     private final EndpointType highEndpoint;
 
     public TupleRange(@Nullable Tuple low, @Nullable Tuple high,
-                      @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint) {
+                      EndpointType lowEndpoint, EndpointType highEndpoint) {
         this.low = low;
         this.high = high;
         this.lowEndpoint = lowEndpoint;
@@ -68,12 +65,10 @@ public class TupleRange {
         return high;
     }
 
-    @Nonnull
     public EndpointType getLowEndpoint() {
         return lowEndpoint;
     }
 
-    @Nonnull
     public EndpointType getHighEndpoint() {
         return highEndpoint;
     }
@@ -89,10 +84,10 @@ public class TupleRange {
 
         TupleRange that = (TupleRange) o;
 
-        if (low != null ? !low.equals(that.low) : that.low != null) {
+        if (!Objects.equals(low, that.low)) {
             return false;
         }
-        if (high != null ? !high.equals(that.high) : that.high != null) {
+        if (!Objects.equals(high, that.high)) {
             return false;
         }
         if (lowEndpoint != that.lowEndpoint) {
@@ -117,7 +112,6 @@ public class TupleRange {
                 "," + tupleToString(high) + highEndpoint.toString(true);
     }
 
-    @Nonnull
     protected static String tupleToString(@Nullable Tuple t) {
         if (t == null) {
             return "";
@@ -155,9 +149,8 @@ public class TupleRange {
      * @param beginning a {@link Tuple} to prepend to the beginning of this range
      * @return a new <code>TupleRange</code> over all keys in this range but prepended with <code>beginning</code>
      */
-    @Nonnull
     @SuppressWarnings("PMD.UnusedNullCheckInEquals") // uses TupleHelpers::equals for efficiency reasons
-    public TupleRange prepend(@Nonnull Tuple beginning) {
+    public TupleRange prepend(Tuple beginning) {
         Tuple newLow;
         EndpointType newLowEndpoint;
         if (low == null) {
@@ -195,7 +188,6 @@ public class TupleRange {
      * @param prefixCount the number of prefix parts to consider
      * @return a new {@link TupleRange} of a prefix of {@code predixCount} parts of this tuple range
      */
-    @Nonnull
     public TupleRange prefix(final int prefixCount) {
         final Tuple newLow;
         final EndpointType newLowEndpoint;
@@ -238,7 +230,7 @@ public class TupleRange {
      * @param highTuple high tuple
      * @return {@code true} if and only if the range {@code [lowTuple, highTuple]} overlaps this tuple range
      */
-    public boolean overlaps(@Nonnull final Tuple lowTuple, @Nonnull final Tuple highTuple) {
+    public boolean overlaps(final Tuple lowTuple, final Tuple highTuple) {
         switch (getLowEndpoint()) {
             case TREE_START:
                 break;
@@ -290,7 +282,7 @@ public class TupleRange {
      * @param tuple tuple
      * @return {@code true} if and only if {@code tuple} is contained within this tuple range
      */
-    public boolean contains(@Nonnull final Tuple tuple) {
+    public boolean contains(final Tuple tuple) {
         switch (getLowEndpoint()) {
             case TREE_START:
                 break;
@@ -347,8 +339,7 @@ public class TupleRange {
      * @param tuple {@link Tuple} to trim
      * @return the trimmed {@link Tuple} if necessary or the original {@link Tuple} if no adjustments were necessary.
      */
-    @Nonnull
-    private Tuple trimTupleForHighComparison(@Nonnull final Tuple tuple) {
+    private Tuple trimTupleForHighComparison(final Tuple tuple) {
         Verify.verify(high != null);
         Verify.verify(highEndpoint == EndpointType.RANGE_INCLUSIVE);
 
@@ -367,7 +358,6 @@ public class TupleRange {
      * @param prefix the {@link Tuple} all keys in the returned range should begin with
      * @return a <code>TupleRange</code> corresponding to keys prefixed by <code>prefix</code>
      */
-    @Nonnull
     public static TupleRange allOf(@Nullable Tuple prefix) {
         if (prefix == null) {
             return ALL;
@@ -409,8 +399,7 @@ public class TupleRange {
      * @param prefixString the string that the keys in the returned range will have as a prefix
      * @return a <code>TupleRange</code> corresponding to keys prefixed by <code>prefixString</code>
      */
-    @Nonnull
-    public static TupleRange prefixedBy(@Nonnull String prefixString) {
+    public static TupleRange prefixedBy(String prefixString) {
         return new TupleRange(Tuple.from(prefixString), Tuple.from(prefixString), EndpointType.PREFIX_STRING, EndpointType.PREFIX_STRING);
     }
 
@@ -424,7 +413,8 @@ public class TupleRange {
      *
      * @return a FoundationDB {@link Range} over the same keys as this <code>TupleRange</code>
      */
-    @Nonnull
+    @SuppressWarnings("NullAway") // NullAway does not reliably track nullability through byte[] ternaries;
+    // toRange(byte[], byte[], ...) below accepts @Nullable byte[] for both parameters.
     public Range toRange() {
         return toRange(
                 low == null ? null : low.pack(),
@@ -445,8 +435,7 @@ public class TupleRange {
      * @param subspace the {@link Subspace} this range should be prefixed by
      * @return a FoundationDB {@link Range} over the same keys as this <code>TupleRange</code>
      */
-    @Nonnull
-    public Range toRange(@Nonnull Subspace subspace) {
+    public Range toRange(Subspace subspace) {
         return toRange(
                 low == null ? subspace.pack() : subspace.pack(low),
                 high == null ? subspace.pack() : subspace.pack(high),
@@ -467,9 +456,12 @@ public class TupleRange {
      * @param highEndpoint the type (inclusive, exclusive, etc.) of the high endpoint
      * @return a FoundationDB {@link Range} over the same keys as the provided parameters
      */
-    @Nonnull
+    // NullAway does not reliably track @Nullable on byte[] locals/parameters across calls into
+    // ByteArrayUtil.strinc/join below, even where lowBytes/highBytes are non-null by construction
+    // (either checked explicitly or non-null by contract of the calling endpoint type).
+    @SuppressWarnings("NullAway")
     public static Range toRange(@Nullable byte[] lowBytes, @Nullable byte[] highBytes,
-                                @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint) {
+                                EndpointType lowEndpoint, EndpointType highEndpoint) {
         // Ensure that PREFIX_STRING semantics are honored
         if (lowEndpoint == EndpointType.PREFIX_STRING || highEndpoint == EndpointType.PREFIX_STRING) {
             verifyPrefixStringSemantics(lowBytes, highBytes, lowEndpoint, highEndpoint);
@@ -528,11 +520,16 @@ public class TupleRange {
             default:
                 throw new RecordCoreException("Incorrect high endpoint: " + highEndpoint);
         }
+        // lowBytes/highBytes are non-null by this point on every reachable path (the null-yielding branches above throw).
         return new Range(lowBytes == null ? new byte[0] : lowBytes, highBytes == null ? new byte[]{(byte)0xff} : highBytes);
     }
 
+    // NullAway does not reliably track @Nullable on byte[] locals/parameters across calls into
+    // ByteArrayUtil2.hasCommonPrefix/loggable below, even though lowBytes/highBytes are narrowed
+    // to non-null by the explicit null check that throws at the top of this method.
+    @SuppressWarnings("NullAway")
     private static void verifyPrefixStringSemantics(@Nullable byte[] lowBytes, @Nullable byte[] highBytes,
-                                @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint) {
+                                EndpointType lowEndpoint, EndpointType highEndpoint) {
         if (lowBytes == null || highBytes == null) {
             throw new RecordCoreException("PREFIX_STRING must specify non-null endpoints",
                     LogMessageKeys.LOW_BYTES, ByteArrayUtil2.loggable(lowBytes),
@@ -580,6 +577,9 @@ public class TupleRange {
      */
     @SuppressWarnings("serial")
     public static class ByteStringBoundException extends RecordCoreException {
+        // NullAway does not reliably track @Nullable on the byte[] parameter across this call into
+        // ByteArrayUtil2.loggable, even though loggable's own parameter is declared @Nullable byte[].
+        @SuppressWarnings("NullAway")
         public ByteStringBoundException(@Nullable byte[] rangeBytes) {
             super("Expected a [byte] string bound", LogMessageKeys.RANGE_BYTES, ByteArrayUtil2.loggable(rangeBytes));
         }

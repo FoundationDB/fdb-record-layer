@@ -26,8 +26,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -49,8 +48,8 @@ import java.util.concurrent.Executor;
  */
 @API(API.Status.UNSTABLE)
 public class LazyCursor<T> implements RecordCursor<T> {
-    @Nonnull
     private final CompletableFuture<RecordCursor<T>> futureCursor;
+    @Nullable
     private final Executor executor;
     @Nullable
     private RecordCursor<T> inner;
@@ -58,7 +57,7 @@ public class LazyCursor<T> implements RecordCursor<T> {
     @Nullable
     private RecordCursorResult<T> nextResult;
 
-    public LazyCursor(@Nonnull CompletableFuture<RecordCursor<T>> futureCursor) {
+    public LazyCursor(CompletableFuture<RecordCursor<T>> futureCursor) {
         this(futureCursor, null);
     }
 
@@ -70,12 +69,11 @@ public class LazyCursor<T> implements RecordCursor<T> {
      *    been materialized. It is advisable to provide this value when chaining cursors in the event that
      *    another wrapping cursor may depend on the executor from this cursor before the cursor is used.
      */
-    public LazyCursor(@Nonnull CompletableFuture<RecordCursor<T>> futureCursor, @Nullable Executor executor) {
+    public LazyCursor(CompletableFuture<RecordCursor<T>> futureCursor, @Nullable Executor executor) {
         this.futureCursor = futureCursor;
         this.executor = executor;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (nextResult != null && !nextResult.hasNext()) {
@@ -103,7 +101,6 @@ public class LazyCursor<T> implements RecordCursor<T> {
         return inner == null || inner.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         if (this.executor == null) {
@@ -120,7 +117,7 @@ public class LazyCursor<T> implements RecordCursor<T> {
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             getInner().accept(visitor);
         }

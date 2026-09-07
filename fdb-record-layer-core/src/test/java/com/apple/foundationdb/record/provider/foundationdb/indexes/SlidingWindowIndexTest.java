@@ -75,8 +75,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Semaphore;
@@ -117,17 +116,17 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
      * Opens a store with a sliding window HNSW index. No grouping.
      * Window key = relevance, index key = vector_data.
      */
-    private void openStore(@Nonnull FDBRecordContext context, int windowSize,
-                           @Nonnull Direction direction) throws Exception {
+    private void openStore(FDBRecordContext context, int windowSize,
+                           Direction direction) throws Exception {
         openStore(context, windowSize, direction, ImmutableList.of());
     }
 
     /**
      * Opens a store with a grouped sliding window HNSW index.
      */
-    private void openStore(@Nonnull FDBRecordContext context, int windowSize,
-                           @Nonnull Direction direction,
-                           @Nonnull List<List<String>> groupingFields) throws Exception {
+    private void openStore(FDBRecordContext context, int windowSize,
+                           Direction direction,
+                           List<List<String>> groupingFields) throws Exception {
         createOrOpenRecordStore(context,
                 SlidingWindowTestHelpers.buildSlidingWindowVectorMetaData(
                         INDEX_NAME, windowSize, VECTOR_DIMS, direction, groupingFields, primaryKey));
@@ -159,7 +158,6 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
      * Builds a stored record without saving it, for driving an index maintainer directly (e.g. a stub-backed
      * {@link SlidingWindowIndexMaintainer}) without the real maintainer touching the same subspace.
      */
-    @Nonnull
     private FDBStoredRecord<Message> storedRec(final long recNo, final long relevance) {
         final Message msg = SlidingWindowVectorRecord.newBuilder()
                 .setRecNo(recNo).setZone("z").setCategory("c").setRelevance(relevance).setScore(0)
@@ -174,7 +172,6 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     /**
      * Probe: snapshot of the sliding-window state for the ungrouped index.
      */
-    @Nonnull
     private SlidingWindow slidingWindow() {
         return SlidingWindowTestHelpers.slidingWindow(recordStore, INDEX_NAME);
     }
@@ -182,7 +179,6 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     /**
      * Probe: snapshot of the sliding-window state for the given group.
      */
-    @Nonnull
     private SlidingWindow groupedSlidingWindow(@Nullable final Tuple groupingKey) {
         return SlidingWindowTestHelpers.groupedSlidingWindow(recordStore, INDEX_NAME, groupingKey);
     }
@@ -1750,50 +1746,48 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
      */
     private static class StubIndexMaintainer extends IndexMaintainer {
         private static final Tuple SENTINEL_TUPLE = Tuple.from(42L);
+        // The null Index is intentional: this sentinel is only used to verify that StubIndexMaintainer's
+        // delegate methods forward their return value unchanged (via equals()); the index field itself
+        // is never read by any test using this sentinel.
+        @SuppressWarnings("NullAway")
         private static final IndexEntry SENTINEL_ENTRY =
                 new IndexEntry(null, Tuple.from(1L), Tuple.from());
         private static final IndexOperationResult SENTINEL_OP_RESULT = new IndexOperationResult() { };
 
-        StubIndexMaintainer(@Nonnull IndexMaintainerState state) {
+        StubIndexMaintainer(IndexMaintainerState state) {
             super(state);
         }
 
-        @Nonnull
         @Override
-        public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType, @Nonnull TupleRange range,
-                                              @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+        public RecordCursor<IndexEntry> scan(IndexScanType scanType, TupleRange range,
+                                              @Nullable byte[] continuation, ScanProperties scanProperties) {
             return RecordCursor.fromList(List.of(SENTINEL_ENTRY));
         }
 
-        @Nonnull
         @Override
         public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> o,
                                                                    @Nullable FDBIndexableRecord<M> n) {
             return AsyncUtil.DONE;
         }
 
-        @Nonnull
         @Override
         public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> o,
                                                                                  @Nullable FDBIndexableRecord<M> n) {
             return AsyncUtil.DONE;
         }
 
-        @Nonnull
         @Override
-        public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range,
+        public RecordCursor<IndexEntry> scanUniquenessViolations(TupleRange range,
                                                                   @Nullable byte[] continuation,
-                                                                  @Nonnull ScanProperties scanProperties) {
+                                                                  ScanProperties scanProperties) {
             return RecordCursor.fromList(List.of(SENTINEL_ENTRY));
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<Void> clearUniquenessViolations() {
             return AsyncUtil.DONE;
         }
 
-        @Nonnull
         @Override
         public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
                                                                 @Nullable ScanProperties scanProperties) {
@@ -1801,13 +1795,13 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         }
 
         @Override
-        public boolean canEvaluateRecordFunction(@Nonnull IndexRecordFunction<?> function) {
+        public boolean canEvaluateRecordFunction(IndexRecordFunction<?> function) {
             return true;
         }
 
         @Nullable
         @Override
-        public <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull FDBRecord<M> record) {
+        public <M extends Message> List<IndexEntry> evaluateIndex(FDBRecord<M> record) {
             return List.of(SENTINEL_ENTRY);
         }
 
@@ -1817,25 +1811,23 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             return List.of(SENTINEL_ENTRY);
         }
 
-        @Nonnull
         @Override
         @SuppressWarnings("unchecked")
         public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(
-                @Nonnull EvaluationContext ctx, @Nonnull IndexRecordFunction<T> function,
-                @Nonnull FDBRecord<M> record) {
+                EvaluationContext ctx, IndexRecordFunction<T> function,
+                FDBRecord<M> record) {
             return CompletableFuture.completedFuture((T) SENTINEL_TUPLE);
         }
 
         @Override
-        public boolean canEvaluateAggregateFunction(@Nonnull IndexAggregateFunction function) {
+        public boolean canEvaluateAggregateFunction(IndexAggregateFunction function) {
             return true;
         }
 
-        @Nonnull
         @Override
-        public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
-                                                                   @Nonnull TupleRange range,
-                                                                   @Nonnull IsolationLevel isolationLevel) {
+        public CompletableFuture<Tuple> evaluateAggregateFunction(IndexAggregateFunction function,
+                                                                   TupleRange range,
+                                                                   IsolationLevel isolationLevel) {
             return CompletableFuture.completedFuture(SENTINEL_TUPLE);
         }
 
@@ -1849,39 +1841,34 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             return true;
         }
 
-        @Nonnull
         @Override
-        public CompletableFuture<Boolean> addedRangeWithKey(@Nonnull Tuple primaryKey) {
+        public CompletableFuture<Boolean> addedRangeWithKey(Tuple primaryKey) {
             return CompletableFuture.completedFuture(true);
         }
 
         @Override
-        public boolean canDeleteWhere(@Nonnull QueryToKeyMatcher matcher, @Nonnull Key.Evaluated evaluated) {
+        public boolean canDeleteWhere(QueryToKeyMatcher matcher, Key.Evaluated evaluated) {
             return true;
         }
 
-        @Nonnull
         @Override
-        public CompletableFuture<Void> deleteWhere(@Nonnull Transaction tr, @Nonnull Tuple prefix) {
+        public CompletableFuture<Void> deleteWhere(Transaction tr, Tuple prefix) {
             return AsyncUtil.DONE;
         }
 
-        @Nonnull
         @Override
-        public CompletableFuture<IndexOperationResult> performOperation(@Nonnull IndexOperation operation) {
+        public CompletableFuture<IndexOperationResult> performOperation(IndexOperation operation) {
             return CompletableFuture.completedFuture(SENTINEL_OP_RESULT);
         }
 
-        @Nonnull
         @Override
-        public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(@Nonnull IndexScanBounds scanBounds,
+        public RecordCursor<FDBIndexedRawRecord> scanRemoteFetch(IndexScanBounds scanBounds,
                                                                   @Nullable byte[] continuation,
-                                                                  @Nonnull ScanProperties scanProperties,
+                                                                  ScanProperties scanProperties,
                                                                   int commonPrimaryKeyLength) {
             return RecordCursor.empty();
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<Void> mergeIndex() {
             return AsyncUtil.DONE;
@@ -1896,11 +1883,10 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         private int inserts;
         private int deletes;
 
-        CountingDelegate(@Nonnull IndexMaintainerState state) {
+        CountingDelegate(IndexMaintainerState state) {
             super(state);
         }
 
-        @Nonnull
         @Override
         public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                   @Nullable FDBIndexableRecord<M> newRecord) {
@@ -1914,13 +1900,15 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         }
 
         @Override
-        @Nonnull
         public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable final FDBIndexableRecord<M> o, @Nullable final FDBIndexableRecord<M> n) {
             return update(o, n);
         }
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // these delegate methods' continuation parameters are declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void delegateMethodsWithMock() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC);
@@ -2529,12 +2517,12 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     /**
      * Drains the pending write queue and finishes the index build via the online indexer, then commits.
      */
-    private void drainQueue(int windowSize, @Nonnull Direction direction) throws Exception {
+    private void drainQueue(int windowSize, Direction direction) throws Exception {
         drainQueue(windowSize, direction, ImmutableList.of());
     }
 
-    private void drainQueue(int windowSize, @Nonnull Direction direction,
-                            @Nonnull List<List<String>> groupingFields) throws Exception {
+    private void drainQueue(int windowSize, Direction direction,
+                            List<List<String>> groupingFields) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStore(context, windowSize, direction, groupingFields);
             final Index index = index();
@@ -2551,18 +2539,16 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
     private Index index() {
         return recordStore.getRecordMetaData().getIndex(INDEX_NAME);
     }
 
-    @Nonnull
     private IndexMaintainer maintainer() {
         return recordStore.getIndexMaintainer(index());
     }
 
     @Nullable
-    private Long queueSize(@Nonnull FDBRecordContext context, @Nonnull Index index) {
+    private Long queueSize(FDBRecordContext context, Index index) {
         final PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> queue =
                 IndexingPendingWriteQueue.getIndexingQueue(recordStore, index);
         return queue.getQueueSizeNoConflict(context).join();

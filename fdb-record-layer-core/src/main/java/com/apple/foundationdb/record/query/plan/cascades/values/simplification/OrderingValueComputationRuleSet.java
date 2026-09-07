@@ -40,7 +40,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
@@ -54,32 +53,29 @@ import java.util.function.Function;
 @SuppressWarnings("java:S1452")
 public class OrderingValueComputationRuleSet<O extends SortOrder, P extends OrderingPart<O>> extends ValueComputationRuleSet<OrderingPartCreator<O, P>, P> {
 
-    private OrderingValueComputationRuleSet(@Nonnull final Set<? extends AbstractValueRule<NonnullPair<Value, P>, ValueComputationRuleCall<OrderingPartCreator<O, P>, P>, ? extends Value>> rules,
-                                            @Nonnull final SetMultimap<? extends AbstractValueRule<NonnullPair<Value, P>, ValueComputationRuleCall<OrderingPartCreator<O, P>, P>, ? extends Value>, ? extends AbstractValueRule<NonnullPair<Value, P>, ValueComputationRuleCall<OrderingPartCreator<O, P>, P>, ? extends Value>> dependsOn) {
+    private OrderingValueComputationRuleSet(final Set<? extends AbstractValueRule<NonnullPair<Value, P>, ValueComputationRuleCall<OrderingPartCreator<O, P>, P>, ? extends Value>> rules,
+                                            final SetMultimap<? extends AbstractValueRule<NonnullPair<Value, P>, ValueComputationRuleCall<OrderingPartCreator<O, P>, P>, ? extends Value>, ? extends AbstractValueRule<NonnullPair<Value, P>, ValueComputationRuleCall<OrderingPartCreator<O, P>, P>, ? extends Value>> dependsOn) {
         super(rules, dependsOn);
     }
 
-    @Nonnull
-    protected static <O extends SortOrder, P extends OrderingPart<O>> ValueComputationRule<OrderingPartCreator<O, P>, P, ArithmeticValue> eliminateArithmeticValueWithConstantRule(@Nonnull final O sortOrder) {
+    protected static <O extends SortOrder, P extends OrderingPart<O>> ValueComputationRule<OrderingPartCreator<O, P>, P, ArithmeticValue> eliminateArithmeticValueWithConstantRule(final O sortOrder) {
         return ValueComputationRule.fromSimplificationRule(
                 new EliminateArithmeticValueWithConstantRule(),
                 (creator, value, ignored) -> Objects.requireNonNull(creator).create(value, sortOrder));
     }
 
-    @Nonnull
-    protected static <O extends SortOrder, P extends OrderingPart<O>> ValueComputationRule<OrderingPartCreator<O, P>, P, ToOrderedBytesValue> computeToOrderedBytesValueRule(@Nonnull final Function<Direction, O> directionToSortOrderFunction) {
+    protected static <O extends SortOrder, P extends OrderingPart<O>> ValueComputationRule<OrderingPartCreator<O, P>, P, ToOrderedBytesValue> computeToOrderedBytesValueRule(final Function<Direction, O> directionToSortOrderFunction) {
         return new ComputeToOrderedBytesValueRule<>(directionToSortOrderFunction);
     }
 
-    @Nonnull
-    protected static <O extends SortOrder, P extends OrderingPart<O>> ValueComputationRule<OrderingPartCreator<O, P>, P, Value> defaultOrderingPartRule(@Nonnull final O sortOrder) {
+    protected static <O extends SortOrder, P extends OrderingPart<O>> ValueComputationRule<OrderingPartCreator<O, P>, P, Value> defaultOrderingPartRule(final O sortOrder) {
         return new DefaultOrderingPartRule<>(sortOrder);
     }
 
-    private static <O extends SortOrder, P extends OrderingPart<O>> OrderingValueComputationRuleSet<O, P> ruleSet(@Nonnull final O sortOrder,
-                                                                                                                  @Nonnull final ValueComputationRule<OrderingPartCreator<O, P>, P, ArithmeticValue> eliminateArithmeticValueWithConstantRule,
-                                                                                                                  @Nonnull final ValueComputationRule<OrderingPartCreator<O, P>, P, ToOrderedBytesValue> computeToOrderedBytesValueRule,
-                                                                                                                  @Nonnull final ValueComputationRule<OrderingPartCreator<O, P>, P, Value> defaultOrderingPartRule) {
+    private static <O extends SortOrder, P extends OrderingPart<O>> OrderingValueComputationRuleSet<O, P> ruleSet(final O sortOrder,
+                                                                                                                  final ValueComputationRule<OrderingPartCreator<O, P>, P, ArithmeticValue> eliminateArithmeticValueWithConstantRule,
+                                                                                                                  final ValueComputationRule<OrderingPartCreator<O, P>, P, ToOrderedBytesValue> computeToOrderedBytesValueRule,
+                                                                                                                  final ValueComputationRule<OrderingPartCreator<O, P>, P, Value> defaultOrderingPartRule) {
         final var transformedRules =
                 ValueComputationRuleSet.<OrderingPartCreator<O, P>, P>fromSimplificationRules(DefaultValueSimplificationRuleSet.SIMPLIFICATION_RULES,
                         DefaultValueSimplificationRuleSet.SIMPLIFICATION_DEPENDS_ON,
@@ -119,9 +115,8 @@ public class OrderingValueComputationRuleSet<O extends SortOrder, P extends Orde
             CacheBuilder.newBuilder()
                     .maximumSize(OrderingPart.ProvidedSortOrder.values().length)
                     .build(new CacheLoader<>() {
-                        @Nonnull
                         @Override
-                        public OrderingValueComputationRuleSet<OrderingPart.ProvidedSortOrder, OrderingPart.ProvidedOrderingPart> load(@Nonnull final OrderingPart.ProvidedSortOrder providedSortOrder) throws Exception {
+                        public OrderingValueComputationRuleSet<OrderingPart.ProvidedSortOrder, OrderingPart.ProvidedOrderingPart> load(final OrderingPart.ProvidedSortOrder providedSortOrder) throws Exception {
                             return computeUsingProvidedOrderingParts(providedSortOrder);
                         }
                     });
@@ -130,9 +125,8 @@ public class OrderingValueComputationRuleSet<O extends SortOrder, P extends Orde
             CacheBuilder.newBuilder()
                     .maximumSize(OrderingPart.ProvidedSortOrder.values().length)
                     .build(new CacheLoader<>() {
-                        @Nonnull
                         @Override
-                        public OrderingValueComputationRuleSet<OrderingPart.MatchedSortOrder, OrderingPart.MatchedOrderingPart> load(@Nonnull final OrderingPart.MatchedSortOrder matchedSortOrder) {
+                        public OrderingValueComputationRuleSet<OrderingPart.MatchedSortOrder, OrderingPart.MatchedOrderingPart> load(final OrderingPart.MatchedSortOrder matchedSortOrder) {
                             return computeUsingMatchedOrderingParts(matchedSortOrder);
                         }
                     });
@@ -141,64 +135,54 @@ public class OrderingValueComputationRuleSet<O extends SortOrder, P extends Orde
             CacheBuilder.newBuilder()
                     .maximumSize(OrderingPart.ProvidedSortOrder.values().length)
                     .build(new CacheLoader<>() {
-                        @Nonnull
                         @Override
-                        public OrderingValueComputationRuleSet<OrderingPart.RequestedSortOrder, OrderingPart.RequestedOrderingPart> load(@Nonnull final OrderingPart.RequestedSortOrder requestedSortOrder) {
+                        public OrderingValueComputationRuleSet<OrderingPart.RequestedSortOrder, OrderingPart.RequestedOrderingPart> load(final OrderingPart.RequestedSortOrder requestedSortOrder) {
                             return computeUsingRequestedOrderingParts(requestedSortOrder);
                         }
                     });
 
-    @Nonnull
-    private static OrderingValueComputationRuleSet<OrderingPart.ProvidedSortOrder, OrderingPart.ProvidedOrderingPart> computeUsingProvidedOrderingParts(@Nonnull final OrderingPart.ProvidedSortOrder providedSortOrder) {
+    private static OrderingValueComputationRuleSet<OrderingPart.ProvidedSortOrder, OrderingPart.ProvidedOrderingPart> computeUsingProvidedOrderingParts(final OrderingPart.ProvidedSortOrder providedSortOrder) {
         return ruleSet(providedSortOrder,
                 eliminateArithmeticValueWithConstantRule(providedSortOrder),
                 computeToOrderedBytesValueRule(OrderingPart.ProvidedSortOrder::fromDirection),
                 defaultOrderingPartRule(providedSortOrder));
     }
 
-    @Nonnull
     public static OrderingValueComputationRuleSet<OrderingPart.ProvidedSortOrder, OrderingPart.ProvidedOrderingPart> usingProvidedOrderingParts() {
         return usingProvidedOrderingParts(OrderingPart.ProvidedSortOrder.ASCENDING);
     }
 
-    @Nonnull
-    public static OrderingValueComputationRuleSet<OrderingPart.ProvidedSortOrder, OrderingPart.ProvidedOrderingPart> usingProvidedOrderingParts(@Nonnull final OrderingPart.ProvidedSortOrder providedSortOrder) {
+    public static OrderingValueComputationRuleSet<OrderingPart.ProvidedSortOrder, OrderingPart.ProvidedOrderingPart> usingProvidedOrderingParts(final OrderingPart.ProvidedSortOrder providedSortOrder) {
         return providedOrderingComputationRuleSetCache.getUnchecked(providedSortOrder);
     }
 
-    @Nonnull
-    public static OrderingValueComputationRuleSet<MatchedSortOrder, MatchedOrderingPart> computeUsingMatchedOrderingParts(@Nonnull final MatchedSortOrder matchedSortOrder) {
+    public static OrderingValueComputationRuleSet<MatchedSortOrder, MatchedOrderingPart> computeUsingMatchedOrderingParts(final MatchedSortOrder matchedSortOrder) {
         return ruleSet(matchedSortOrder,
                 eliminateArithmeticValueWithConstantRule(matchedSortOrder),
                 computeToOrderedBytesValueRule(MatchedSortOrder::fromDirection),
                 defaultOrderingPartRule(matchedSortOrder));
     }
 
-    @Nonnull
     public static OrderingValueComputationRuleSet<OrderingPart.MatchedSortOrder, OrderingPart.MatchedOrderingPart> usingMatchedOrderingParts() {
         return usingMatchedOrderingParts(OrderingPart.MatchedSortOrder.ASCENDING);
     }
 
-    @Nonnull
-    public static OrderingValueComputationRuleSet<OrderingPart.MatchedSortOrder, OrderingPart.MatchedOrderingPart> usingMatchedOrderingParts(@Nonnull final OrderingPart.MatchedSortOrder matchedSortOrder) {
+    public static OrderingValueComputationRuleSet<OrderingPart.MatchedSortOrder, OrderingPart.MatchedOrderingPart> usingMatchedOrderingParts(final OrderingPart.MatchedSortOrder matchedSortOrder) {
         return matchedOrderingComputationRuleSetCache.getUnchecked(matchedSortOrder);
     }
 
-    @Nonnull
-    public static OrderingValueComputationRuleSet<RequestedSortOrder, RequestedOrderingPart> computeUsingRequestedOrderingParts(@Nonnull final RequestedSortOrder requestedSortOrder) {
+    public static OrderingValueComputationRuleSet<RequestedSortOrder, RequestedOrderingPart> computeUsingRequestedOrderingParts(final RequestedSortOrder requestedSortOrder) {
         return ruleSet(requestedSortOrder,
                 eliminateArithmeticValueWithConstantRule(requestedSortOrder),
                 computeToOrderedBytesValueRule(RequestedSortOrder::fromDirection),
                 defaultOrderingPartRule(requestedSortOrder));
     }
 
-    @Nonnull
     public static OrderingValueComputationRuleSet<OrderingPart.RequestedSortOrder, OrderingPart.RequestedOrderingPart> usingRequestedOrderingParts() {
         return usingRequestedOrderingParts(OrderingPart.RequestedSortOrder.ASCENDING);
     }
 
-    @Nonnull
-    public static OrderingValueComputationRuleSet<OrderingPart.RequestedSortOrder, OrderingPart.RequestedOrderingPart> usingRequestedOrderingParts(@Nonnull final OrderingPart.RequestedSortOrder requestedSortOrder) {
+    public static OrderingValueComputationRuleSet<OrderingPart.RequestedSortOrder, OrderingPart.RequestedOrderingPart> usingRequestedOrderingParts(final OrderingPart.RequestedSortOrder requestedSortOrder) {
         return requestedOrderingComputationRuleSetCache.getUnchecked(requestedSortOrder);
     }
 }

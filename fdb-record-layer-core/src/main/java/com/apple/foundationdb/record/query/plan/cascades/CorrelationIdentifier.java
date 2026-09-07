@@ -25,8 +25,8 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.Locale;
@@ -41,7 +41,6 @@ import java.util.UUID;
 @API(API.Status.EXPERIMENTAL)
 public class CorrelationIdentifier {
 
-    @Nonnull
     private final String id;
 
     /**
@@ -50,8 +49,7 @@ public class CorrelationIdentifier {
      * @param id the identifier string
      * @return a new {@link CorrelationIdentifier}
      */
-    @Nonnull
-    public static CorrelationIdentifier of(@Nonnull final String id) {
+    public static CorrelationIdentifier of(final String id) {
         return new CorrelationIdentifier(id);
     }
 
@@ -60,7 +58,6 @@ public class CorrelationIdentifier {
      * to be unique.
      * @return a new unique {@link CorrelationIdentifier}
      */
-    @Nonnull
     public static CorrelationIdentifier uniqueId() {
         return uniqueId(CorrelationIdentifier.class);
     }
@@ -72,8 +69,7 @@ public class CorrelationIdentifier {
      *        if a {@link Debugger} is set.
      * @return a new unique {@link CorrelationIdentifier}
      */
-    @Nonnull
-    public static CorrelationIdentifier uniqueId(@Nonnull final Class<?> clazz) {
+    public static CorrelationIdentifier uniqueId(final Class<?> clazz) {
         return uniqueId(clazz, clazz.getSimpleName().substring(0, 1).toLowerCase(Locale.ROOT));
     }
 
@@ -85,8 +81,7 @@ public class CorrelationIdentifier {
      * @param prefix a prefix for the returned identifier
      * @return a new unique {@link CorrelationIdentifier}
      */
-    @Nonnull
-    public static CorrelationIdentifier uniqueId(@Nonnull final Class<?> clazz, @Nonnull final String prefix) {
+    public static CorrelationIdentifier uniqueId(final Class<?> clazz, final String prefix) {
         final CorrelationIdentifier id =
                 Debugger.getIndexOptional(clazz)
                         .map(i -> CorrelationIdentifier.of(prefix + i))
@@ -104,18 +99,16 @@ public class CorrelationIdentifier {
      * @param prefix a prefix for the returned identifier
      * @return a new unique {@link CorrelationIdentifier}
      */
-    @Nonnull
-    public static CorrelationIdentifier uniqueSingletonID(@Nonnull final UUID singleton, @Nonnull final String prefix) {
+    public static CorrelationIdentifier uniqueSingletonID(final UUID singleton, final String prefix) {
         return Debugger.getOrRegisterSingleton(singleton)
                 .map(index -> new CorrelationIdentifier(prefix + index))
                 .orElseGet(() -> new CorrelationIdentifier(singleton.toString()));
     }
 
-    private CorrelationIdentifier(@Nonnull final String id) {
+    private CorrelationIdentifier(final String id) {
         this.id = id;
     }
 
-    @Nonnull
     public String getId() {
         return id;
     }
@@ -151,7 +144,7 @@ public class CorrelationIdentifier {
      * @param aliases set to compute the identity mappings for
      * @return a view on the set that maps each element in {@code aliases} to itself.
      */
-    public static Map<CorrelationIdentifier, CorrelationIdentifier> identityMappingMap(@Nonnull final Set<CorrelationIdentifier> aliases) {
+    public static Map<CorrelationIdentifier, CorrelationIdentifier> identityMappingMap(final Set<CorrelationIdentifier> aliases) {
         return new Map<CorrelationIdentifier, CorrelationIdentifier>() {
             @Override
             public int size() {
@@ -196,7 +189,7 @@ public class CorrelationIdentifier {
             }
 
             @Override
-            public void putAll(@Nonnull final Map<? extends CorrelationIdentifier, ? extends CorrelationIdentifier> m) {
+            public void putAll(final Map<? extends CorrelationIdentifier, ? extends CorrelationIdentifier> m) {
                 throw new UnsupportedOperationException("mutation is not allowed");
             }
 
@@ -205,19 +198,16 @@ public class CorrelationIdentifier {
                 throw new UnsupportedOperationException("mutation is not allowed");
             }
 
-            @Nonnull
             @Override
             public Set<CorrelationIdentifier> keySet() {
                 return aliases;
             }
 
-            @Nonnull
             @Override
             public Collection<CorrelationIdentifier> values() {
                 return aliases;
             }
 
-            @Nonnull
             @Override
             public Set<Entry<CorrelationIdentifier, CorrelationIdentifier>> entrySet() {
                 return aliases.stream()

@@ -33,7 +33,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -67,23 +66,18 @@ import java.util.stream.Collectors;
  * @param <T> the type of elements
  */
 public class PartiallyOrderedSet<T> {
-    @Nonnull
     private final ImmutableSet<T> set;
-    @Nonnull
     private final ImmutableSetMultimap<T, T> dependencyMap;
-    @Nonnull
     private final Supplier<PartiallyOrderedSet<T>> dualSupplier;
-    @Nonnull
     private final Supplier<ImmutableSetMultimap<T, T>> transitiveClosureSupplier;
 
-    private PartiallyOrderedSet(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
+    private PartiallyOrderedSet(final Set<T> set, final SetMultimap<T, T> dependencyMap) {
         this.set = ImmutableSet.copyOf(set);
         this.dependencyMap = ImmutableSetMultimap.copyOf(dependencyMap);
         this.dualSupplier = Suppliers.memoize(() -> PartiallyOrderedSet.of(set, this.dependencyMap.inverse()));
         this.transitiveClosureSupplier = Suppliers.memoize(() -> TransitiveClosure.transitiveClosure(set, this.dependencyMap));
     }
 
-    @Nonnull
     public ImmutableSet<T> getSet() {
         return set;
     }
@@ -92,12 +86,10 @@ public class PartiallyOrderedSet<T> {
         return getSet().isEmpty();
     }
 
-    @Nonnull
     public ImmutableSetMultimap<T, T> getDependencyMap() {
         return dependencyMap;
     }
 
-    @Nonnull
     public ImmutableSetMultimap<T, T> getTransitiveClosure() {
         return transitiveClosureSupplier.get();
     }
@@ -106,12 +98,10 @@ public class PartiallyOrderedSet<T> {
         return set.size();
     }
 
-    @Nonnull
     public PartiallyOrderedSet<T> dualOrder() {
         return dualSupplier.get();
     }
 
-    @Nonnull
     public EligibleSet<T> eligibleSet() {
         return new EligibleSet<>(this);
     }
@@ -141,8 +131,7 @@ public class PartiallyOrderedSet<T> {
                "}";
     }
 
-    @Nonnull
-    public <R> PartiallyOrderedSet<R> mapEach(@Nonnull final Function<T, R> mapFunction) {
+    public <R> PartiallyOrderedSet<R> mapEach(final Function<T, R> mapFunction) {
         final var resultMapBuilder = ImmutableBiMap.<T, R>builder();
         for (final var element : getSet()) {
             resultMapBuilder.put(element, mapFunction.apply(element));
@@ -162,8 +151,7 @@ public class PartiallyOrderedSet<T> {
         return PartiallyOrderedSet.of(elementsToMappedElementsMap.values(), resultDependencyMapBuilder.build());
     }
 
-    @Nonnull
-    public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Function<Iterable<? extends T>, Map<T, R>> mapFunction) {
+    public <R> PartiallyOrderedSet<R> mapAll(final Function<Iterable<? extends T>, Map<T, R>> mapFunction) {
         return mapAll(mapFunction.apply(getSet()));
     }
 
@@ -217,8 +205,7 @@ public class PartiallyOrderedSet<T> {
      * @return a new partially-ordered set over the domain {@code R} as specified by {@code map} that maintains the
      *         dependencies of this partially-ordered set in the way outlined above.
      */
-    @Nonnull
-    public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Map<T, R> map) {
+    public <R> PartiallyOrderedSet<R> mapAll(final Map<T, R> map) {
         final var allRemovedBuilder = ImmutableSet.<T>builder();
         final var leftToRemove = new HashSet<>(Sets.difference(set, map.keySet()));
 
@@ -272,8 +259,7 @@ public class PartiallyOrderedSet<T> {
      * @param multimap a multimap specifying the mapping between source and target
      * @return a new partially-ordered set over the domain {@code R} as specified by {@code multimap}
      */
-    @Nonnull
-    public <R> PartiallyOrderedSet<R> mapAll(@Nonnull final Multimap<T, R> multimap) {
+    public <R> PartiallyOrderedSet<R> mapAll(final Multimap<T, R> multimap) {
         final var identityMapped = this.filterElements(multimap::containsKey);
 
         final var resultSet = identityMapped.getSet().stream()
@@ -298,8 +284,7 @@ public class PartiallyOrderedSet<T> {
      * @param predicate a predicate that can decide whether an independent element is removed or retained
      * @return a new {@link PartiallyOrderedSet}
      */
-    @Nonnull
-    public PartiallyOrderedSet<T> filterElements(@Nonnull final Predicate<T> predicate) {
+    public PartiallyOrderedSet<T> filterElements(final Predicate<T> predicate) {
         final var translationMap = ImmutableMap.<T, T>builder();
         for (final var t : getSet()) {
             if (predicate.test(t)) {
@@ -309,14 +294,12 @@ public class PartiallyOrderedSet<T> {
         return mapAll(translationMap.build());
     }
 
-    @Nonnull
     public static <T> PartiallyOrderedSet<T> empty() {
         return new PartiallyOrderedSet<>(ImmutableSet.of(), ImmutableSetMultimap.of());
     }
 
-    @Nonnull
-    private static <T> SetMultimap<T, T> cleanseDependencyMap(@Nonnull final Set<T> set,
-                                                              @Nonnull final SetMultimap<T, T> dependencyMap) {
+    private static <T> SetMultimap<T, T> cleanseDependencyMap(final Set<T> set,
+                                                              final SetMultimap<T, T> dependencyMap) {
         boolean needsCopy = false;
         final ImmutableSetMultimap.Builder<T, T> cleanDependencyMapBuilder = ImmutableSetMultimap.builder();
 
@@ -354,22 +337,18 @@ public class PartiallyOrderedSet<T> {
      * @param <T> type
      */
     public static class EligibleSet<T> {
-        @Nonnull
         private final PartiallyOrderedSet<T> partiallyOrderedSet;
 
-        @Nonnull
         private final Map<T, Integer> inDegreeMap;
 
-        @Nonnull
         private final Supplier<Set<T>> eligibleElementsSupplier;
 
-        private EligibleSet(@Nonnull final PartiallyOrderedSet<T> partiallyOrderedSet) {
+        private EligibleSet(final PartiallyOrderedSet<T> partiallyOrderedSet) {
             this.partiallyOrderedSet = partiallyOrderedSet;
             this.inDegreeMap = computeInDegreeMap(partiallyOrderedSet);
             this.eligibleElementsSupplier = Suppliers.memoize(this::computeEligibleElements);
         }
 
-        @Nonnull
         public PartiallyOrderedSet<T> getPartialOrder() {
             return partiallyOrderedSet;
         }
@@ -378,12 +357,10 @@ public class PartiallyOrderedSet<T> {
             return eligibleElements().isEmpty();
         }
 
-        @Nonnull
         public Set<T> eligibleElements() {
             return eligibleElementsSupplier.get();
         }
 
-        @Nonnull
         private Set<T> computeEligibleElements() {
             return this.inDegreeMap
                     .entrySet()
@@ -393,7 +370,7 @@ public class PartiallyOrderedSet<T> {
                     .collect(ImmutableSet.toImmutableSet());
         }
 
-        public EligibleSet<T> removeEligibleElements(@Nonnull final Set<T> toBeRemovedEligibleElements) {
+        public EligibleSet<T> removeEligibleElements(final Set<T> toBeRemovedEligibleElements) {
             Debugger.sanityCheck(() -> Preconditions.checkArgument(eligibleElements().containsAll(toBeRemovedEligibleElements)));
 
             final var set = partiallyOrderedSet.getSet();
@@ -417,9 +394,8 @@ public class PartiallyOrderedSet<T> {
             return new EligibleSet<>(PartiallyOrderedSet.of(newSetBuilder.build(), newDependencies.build()));
         }
 
-        @Nonnull
         @SuppressWarnings("java:S3398")
-        private static <T> Map<T, Integer> computeInDegreeMap(@Nonnull final PartiallyOrderedSet<T> partiallyOrderedSet) {
+        private static <T> Map<T, Integer> computeInDegreeMap(final PartiallyOrderedSet<T> partiallyOrderedSet) {
             final HashMap<T, Integer> result = Maps.newLinkedHashMapWithExpectedSize(partiallyOrderedSet.size());
             partiallyOrderedSet.getSet().forEach(element -> result.put(element, 0));
 
@@ -440,8 +416,7 @@ public class PartiallyOrderedSet<T> {
      *        in the dependency set that are not in {@code set} are simply ignored.
      * @return a multi map containing the transitive closure
      */
-    @Nonnull
-    static <T> ImmutableSetMultimap<T, T> fromFunctionalDependencies(@Nonnull final Set<T> set, @Nonnull final Function<T, Set<T>> dependsOnFn) {
+    static <T> ImmutableSetMultimap<T, T> fromFunctionalDependencies(final Set<T> set, final Function<T, Set<T>> dependsOnFn) {
         final ImmutableSetMultimap.Builder<T, T> builder = ImmutableSetMultimap.builder();
 
         for (final T element : set) {
@@ -455,8 +430,7 @@ public class PartiallyOrderedSet<T> {
         return builder.build();
     }
 
-    @Nonnull
-    static <T> ImmutableSetMultimap<T, T> invertFromFunctionalDependencies(@Nonnull final Set<T> set, @Nonnull final Function<T, Set<T>> dependsOnFn) {
+    static <T> ImmutableSetMultimap<T, T> invertFromFunctionalDependencies(final Set<T> set, final Function<T, Set<T>> dependsOnFn) {
         // invert the dependencies
         final ImmutableSetMultimap.Builder<T, T> builder = ImmutableSetMultimap.builder();
 
@@ -471,22 +445,19 @@ public class PartiallyOrderedSet<T> {
         return builder.build();
     }
 
-    public static <T> PartiallyOrderedSet<T> of(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
+    public static <T> PartiallyOrderedSet<T> of(final Set<T> set, final SetMultimap<T, T> dependencyMap) {
         return new PartiallyOrderedSet<>(set, cleanseDependencyMap(set, dependencyMap));
     }
 
-    @Nonnull
-    public static <T> PartiallyOrderedSet<T> of(@Nonnull final Set<T> set, @Nonnull final Function<T, Set<T>> dependsOnFn) {
+    public static <T> PartiallyOrderedSet<T> of(final Set<T> set, final Function<T, Set<T>> dependsOnFn) {
         return of(set, fromFunctionalDependencies(set, dependsOnFn));
     }
 
-    @Nonnull
-    public static <T> PartiallyOrderedSet<T> ofInverted(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
+    public static <T> PartiallyOrderedSet<T> ofInverted(final Set<T> set, final SetMultimap<T, T> dependencyMap) {
         return ofInverted(set, dependencyMap::get);
     }
 
-    @Nonnull
-    public static <T> PartiallyOrderedSet<T> ofInverted(@Nonnull final Set<T> set, @Nonnull final Function<T, Set<T>> dependsOnFn) {
+    public static <T> PartiallyOrderedSet<T> ofInverted(final Set<T> set, final Function<T, Set<T>> dependsOnFn) {
         return of(set, invertFromFunctionalDependencies(set, dependsOnFn));
     }
 
@@ -499,9 +470,7 @@ public class PartiallyOrderedSet<T> {
      * @param <T> the type of elements
      */
     public static class Builder<T> {
-        @Nonnull
         private final ImmutableSet.Builder<T> setBuilder;
-        @Nonnull
         private final ImmutableSetMultimap.Builder<T, T> dependencyMapBuilder;
 
         private Builder() {
@@ -509,24 +478,24 @@ public class PartiallyOrderedSet<T> {
             this.dependencyMapBuilder = ImmutableSetMultimap.builder();
         }
 
-        public Builder<T> add(@Nonnull final T element) {
+        public Builder<T> add(final T element) {
             setBuilder.add(element);
             return this;
         }
 
-        public Builder<T> addDependency(@Nonnull final T targetElement, final T sourceElement) {
+        public Builder<T> addDependency(final T targetElement, final T sourceElement) {
             setBuilder.add(sourceElement);
             setBuilder.add(targetElement);
             dependencyMapBuilder.put(targetElement, sourceElement);
             return this;
         }
 
-        public Builder<T> addAll(@Nonnull final Iterable<? extends T> additionalElements) {
+        public Builder<T> addAll(final Iterable<? extends T> additionalElements) {
             setBuilder.addAll(additionalElements);
             return this;
         }
 
-        public Builder<T> addListWithDependencies(@Nonnull final List<? extends T> additionalElements) {
+        public Builder<T> addListWithDependencies(final List<? extends T> additionalElements) {
             setBuilder.addAll(additionalElements);
 
             final var iterator = additionalElements.iterator();

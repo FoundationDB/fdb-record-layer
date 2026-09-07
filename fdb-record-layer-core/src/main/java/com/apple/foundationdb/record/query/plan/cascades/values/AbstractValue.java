@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -37,36 +36,29 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 public abstract class AbstractValue implements Value {
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Integer> semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Integer> heightSupplier = Suppliers.memoize(Value.super::height);
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Iterable<? extends Value>> childrenSupplier = Suppliers.memoize(this::computeChildren);
 
-    @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<Boolean> isIndexOnlySupplier = Suppliers.memoize(this::computeIsIndexOnly);
 
     protected AbstractValue() {
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         return correlatedToSupplier.get();
     }
 
-    @Nonnull
     private Set<CorrelationIdentifier> computeCorrelatedTo() {
         return fold(Value::getCorrelatedToWithoutChildren,
                 (correlatedToWithoutChildren, childrenCorrelatedTo) -> {
@@ -77,7 +69,6 @@ public abstract class AbstractValue implements Value {
                 });
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
@@ -107,13 +98,11 @@ public abstract class AbstractValue implements Value {
         return isIndexOnlySupplier.get();
     }
 
-    @Nonnull
     @Override
     public Iterable<? extends Value> getChildren() {
         return childrenSupplier.get();
     }
 
-    @Nonnull
     protected abstract Iterable<? extends Value> computeChildren();
 
     @Override

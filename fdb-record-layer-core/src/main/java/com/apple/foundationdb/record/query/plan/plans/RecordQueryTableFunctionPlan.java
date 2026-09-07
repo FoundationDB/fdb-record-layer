@@ -57,8 +57,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -70,34 +70,30 @@ import java.util.Set;
 public class RecordQueryTableFunctionPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Table-Function-Plan");
 
-    @Nonnull
     private final StreamingValue value;
 
-    public RecordQueryTableFunctionPlan(@Nonnull final StreamingValue collectionValue) {
+    public RecordQueryTableFunctionPlan(final StreamingValue collectionValue) {
         this.value = collectionValue;
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         return value.evalAsStream(store, context, continuation, executeProperties);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return value.getCorrelatedTo();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public RecordQueryTableFunctionPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryTableFunctionPlan translateCorrelations(final TranslationMap translationMap,
                                                               final boolean shouldSimplifyValues,
-                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                              final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
         if (translationMap.definesOnlyIdentities()) {
             return this;
@@ -115,7 +111,7 @@ public class RecordQueryTableFunctionPlan extends AbstractRelationalExpressionWi
     }
 
     @Override
-    public RecordQueryTableFunctionPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
+    public RecordQueryTableFunctionPlan strictlySorted(final FinalMemoizer memoizer) {
         return this;
     }
 
@@ -130,11 +126,10 @@ public class RecordQueryTableFunctionPlan extends AbstractRelationalExpressionWi
     }
 
     @Override
-    public boolean hasIndexScan(@Nonnull final String indexName) {
+    public boolean hasIndexScan(final String indexName) {
         return false;
     }
 
-    @Nonnull
     @Override
     public Set<String> getUsedIndexes() {
         return ImmutableSet.of();
@@ -145,31 +140,26 @@ public class RecordQueryTableFunctionPlan extends AbstractRelationalExpressionWi
         return false;
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.NO_FIELDS;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return new QueriedValue(value.getResultType());
     }
 
-    @Nonnull
     public StreamingValue getValue() {
         return value;
     }
 
-    @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
         return value.getDynamicTypes();
     }
 
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
@@ -177,8 +167,8 @@ public class RecordQueryTableFunctionPlan extends AbstractRelationalExpressionWi
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(final RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -217,7 +207,7 @@ public class RecordQueryTableFunctionPlan extends AbstractRelationalExpressionWi
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -227,9 +217,8 @@ public class RecordQueryTableFunctionPlan extends AbstractRelationalExpressionWi
         }
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.VALUE_COMPUTATION_OPERATOR,
@@ -238,23 +227,20 @@ public class RecordQueryTableFunctionPlan extends AbstractRelationalExpressionWi
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryTableFunctionPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryTableFunctionPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryTableFunctionPlan.newBuilder()
                 .setValue(value.toValueProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setTableFunctionPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryTableFunctionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                         @Nonnull final PRecordQueryTableFunctionPlan recordQueryTableFunctionPlanProto) {
+    public static RecordQueryTableFunctionPlan fromProto(final PlanSerializationContext serializationContext,
+                                                         final PRecordQueryTableFunctionPlan recordQueryTableFunctionPlanProto) {
         final var value = Value.fromValueProto(serializationContext,
                 Objects.requireNonNull(recordQueryTableFunctionPlanProto.getValue()));
         if (!(value instanceof StreamingValue)) {
@@ -268,16 +254,14 @@ public class RecordQueryTableFunctionPlan extends AbstractRelationalExpressionWi
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryTableFunctionPlan, RecordQueryTableFunctionPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryTableFunctionPlan> getProtoMessageClass() {
             return PRecordQueryTableFunctionPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryTableFunctionPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                      @Nonnull final PRecordQueryTableFunctionPlan message) {
+        public RecordQueryTableFunctionPlan fromProto(final PlanSerializationContext serializationContext,
+                                                      final PRecordQueryTableFunctionPlan message) {
             return RecordQueryTableFunctionPlan.fromProto(serializationContext, message);
         }
     }

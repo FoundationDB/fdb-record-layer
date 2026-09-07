@@ -53,8 +53,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -66,7 +66,6 @@ import java.util.stream.Collectors;
  * Interface for query plans that represent set-based operators such as union or intersection.
  */
 public interface RecordQuerySetPlan extends RecordQueryPlan {
-    @Nonnull
     Set<KeyExpression> getRequiredFields();
 
     /**
@@ -80,12 +79,10 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      * @param inputType type as the base of expansion
      * @return a list of values where each value is required to be evaluable by the set base operation
      */
-    @Nonnull
-    default List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull Type inputType) {
+    default List<? extends Value> getRequiredValues(final CorrelationIdentifier baseAlias, Type inputType) {
         return Value.fromKeyExpressions(getRequiredFields(), baseAlias, inputType);
     }
 
-    @Nonnull
     default TranslateValueFunction pushValueFunction(final List<TranslateValueFunction> dependentFunctions) {
         Verify.verify(!dependentFunctions.isEmpty());
         return (value, sourceAlias, targetAlias) -> {
@@ -100,7 +97,9 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                     previousPushedValue = pushedValueOptional.get();
                     equivalencesMap = AliasMap.emptyMap();
                 } else {
-                    if (!previousPushedValue.semanticEquals(pushedValueOptional.get(), equivalencesMap)) {
+                    // previousPushedValue and equivalencesMap are always set together above, so
+                    // equivalencesMap is non-null here too.
+                    if (!previousPushedValue.semanticEquals(pushedValueOptional.get(), Objects.requireNonNull(equivalencesMap))) {
                         return Optional.empty();
                     }
                 }
@@ -109,12 +108,11 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
         };
     }
 
-    @Nonnull
     @SuppressWarnings("java:S135")
-    default Set<CorrelationIdentifier> tryPushValues(@Nonnull final List<TranslateValueFunction> dependentFunctions,
-                                                     @Nonnull final List<? extends Quantifier> quantifiers,
-                                                     @Nonnull final Iterable<? extends Value> values,
-                                                     @Nonnull final CorrelationIdentifier sourceAlias) {
+    default Set<CorrelationIdentifier> tryPushValues(final List<TranslateValueFunction> dependentFunctions,
+                                                     final List<? extends Quantifier> quantifiers,
+                                                     final Iterable<? extends Value> values,
+                                                     final CorrelationIdentifier sourceAlias) {
         Verify.verify(!dependentFunctions.isEmpty());
         Verify.verify(dependentFunctions.size() == quantifiers.size());
 
@@ -167,8 +165,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      * @param newChildren a list of new children
      * @return a new set-based plan
      */
-    @Nonnull
-    RecordQuerySetPlan withChildrenReferences(@Nonnull List<? extends Reference> newChildren);
+    RecordQuerySetPlan withChildrenReferences(List<? extends Reference> newChildren);
 
     /**
      * Returns whether the set operation is dynamic if it only has exactly one leg, i.e., the leg of the plan can be
@@ -187,7 +184,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      * @return {@code false} if there are more directional sort orders are not descending;
      *         {@code true} if there more directional sort orders are descending
      */
-    static boolean resolveComparisonDirection(@Nonnull final Iterable<ProvidedOrderingPart> providedOrderingParts) {
+    static boolean resolveComparisonDirection(final Iterable<ProvidedOrderingPart> providedOrderingParts) {
         int numAscending = 0;
         int numDescending = 0;
 
@@ -225,7 +222,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      * @return {@code false} if there are more directional sort orders are not descending;
      *         {@code true} if there more directional sort orders are descending
      */
-    static List<ProvidedOrderingPart> adjustFixedBindings(@Nonnull final Iterable<ProvidedOrderingPart> providedOrderingParts,
+    static List<ProvidedOrderingPart> adjustFixedBindings(final Iterable<ProvidedOrderingPart> providedOrderingParts,
                                                           final boolean isReverse) {
         return Streams.stream(providedOrderingParts)
                 .map(providedOrderingPart -> {
@@ -249,7 +246,7 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      * @param quantifiers an {@link Iterable} of {@link Quantifier}s.
      * @return a new {@link DerivedValue} across all incoming data streams.
      */
-    static Value mergeValues(@Nonnull final Iterable<? extends Quantifier> quantifiers) {
+    static Value mergeValues(final Iterable<? extends Quantifier> quantifiers) {
         // TODO let's just pick the first result type for now
         final var resultType = Streams.stream(quantifiers)
                 .filter(quantifier -> !(quantifier instanceof Quantifier.Existential))
@@ -267,18 +264,14 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      */
     interface ComparisonKeyFunction extends PlanHashable, PlanSerializable {
 
-        @Nonnull
-        <M extends Message> Function<QueryResult, List<Object>> apply(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext evaluationContext);
+        <M extends Message> Function<QueryResult, List<Object>> apply(FDBRecordStoreBase<M> store, EvaluationContext evaluationContext);
 
-        @Nonnull
         ExplainTokensWithPrecedence explain();
 
-        @Nonnull
-        PComparisonKeyFunction toComparisonKeyFunctionProto(@Nonnull PlanSerializationContext serializationContext);
+        PComparisonKeyFunction toComparisonKeyFunctionProto(PlanSerializationContext serializationContext);
 
-        @Nonnull
-        static ComparisonKeyFunction fromComparisonKeyFunctionProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                                    @Nonnull final PComparisonKeyFunction comparisonKeyFunctionProto) {
+        static ComparisonKeyFunction fromComparisonKeyFunctionProto(final PlanSerializationContext serializationContext,
+                                                                    final PComparisonKeyFunction comparisonKeyFunctionProto) {
             return (ComparisonKeyFunction)PlanSerialization.dispatchFromProtoContainer(serializationContext, comparisonKeyFunctionProto);
         }
 
@@ -287,20 +280,17 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
          * also providing comparability and the ability to compute a stable plan hash.
          */
         class OnKeyExpression implements ComparisonKeyFunction {
-            @Nonnull
             private final KeyExpression comparisonKeyExpression;
 
-            protected OnKeyExpression(@Nonnull final KeyExpression comparisonKeyExpression) {
+            protected OnKeyExpression(final KeyExpression comparisonKeyExpression) {
                 this.comparisonKeyExpression = comparisonKeyExpression;
             }
 
-            @Nonnull
             @Override
-            public final <M extends Message> Function<QueryResult, List<Object>> apply(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext evaluationContext) {
+            public final <M extends Message> Function<QueryResult, List<Object>> apply(final FDBRecordStoreBase<M> store, final EvaluationContext evaluationContext) {
                 return queryResult -> comparisonKeyExpression.evaluateMessageSingleton(null, queryResult.getMessage()).toTupleAppropriateList();
             }
 
-            @Nonnull
             public KeyExpression getComparisonKey() {
                 return comparisonKeyExpression;
             }
@@ -333,33 +323,29 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                 return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
             }
 
-            @Nonnull
             @Override
             public ExplainTokensWithPrecedence explain() {
                 return ExplainTokensWithPrecedence.of(new ExplainTokens().addToString(comparisonKeyExpression));
             }
 
             @Override
-            public int planHash(@Nonnull final PlanHashMode mode) {
+            public int planHash(final PlanHashMode mode) {
                 return comparisonKeyExpression.planHash(mode);
             }
 
-            @Nonnull
             @Override
-            public POnKeyExpression toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            public POnKeyExpression toProto(final PlanSerializationContext serializationContext) {
                 return POnKeyExpression.newBuilder().setComparisonKeyExpression(comparisonKeyExpression.toKeyExpression()).build();
             }
 
-            @Nonnull
             @Override
-            public PComparisonKeyFunction toComparisonKeyFunctionProto(@Nonnull final PlanSerializationContext serializationContext) {
+            public PComparisonKeyFunction toComparisonKeyFunctionProto(final PlanSerializationContext serializationContext) {
                 return PComparisonKeyFunction.newBuilder().setOnKeyExpression(toProto(serializationContext)).build();
             }
 
-            @Nonnull
             @SuppressWarnings("unused")
-            public static OnKeyExpression fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                    @Nonnull final POnKeyExpression onKeyExpressionProto) {
+            public static OnKeyExpression fromProto(final PlanSerializationContext serializationContext,
+                                                    final POnKeyExpression onKeyExpressionProto) {
                 return new OnKeyExpression(KeyExpression.fromProto(onKeyExpressionProto.getComparisonKeyExpression()));
             }
 
@@ -368,16 +354,14 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
              */
             @AutoService(PlanDeserializer.class)
             public static class Deserializer implements PlanDeserializer<POnKeyExpression, OnKeyExpression> {
-                @Nonnull
                 @Override
                 public Class<POnKeyExpression> getProtoMessageClass() {
                     return POnKeyExpression.class;
                 }
 
-                @Nonnull
                 @Override
-                public OnKeyExpression fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final POnKeyExpression onKeyExpressionProto) {
+                public OnKeyExpression fromProto(final PlanSerializationContext serializationContext,
+                                                 final POnKeyExpression onKeyExpressionProto) {
                     return OnKeyExpression.fromProto(serializationContext, onKeyExpressionProto);
                 }
             }
@@ -388,25 +372,21 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
          * also providing comparability and the ability to compute a stable plan hash.
          */
         class OnValues implements ComparisonKeyFunction {
-            @Nonnull
             private final CorrelationIdentifier baseAlias;
-            @Nonnull
             private final List<? extends Value> comparisonKeyValues;
 
-            protected OnValues(@Nonnull final CorrelationIdentifier baseAlias,
-                               @Nonnull final List<? extends Value> comparisonKeyValues) {
+            protected OnValues(final CorrelationIdentifier baseAlias,
+                               final List<? extends Value> comparisonKeyValues) {
                 this.baseAlias = baseAlias;
                 this.comparisonKeyValues = ImmutableList.copyOf(comparisonKeyValues);
             }
 
-            @Nonnull
             public List<? extends Value> getComparisonKeyValues() {
                 return comparisonKeyValues;
             }
 
-            @Nonnull
             @Override
-            public final <M extends Message> Function<QueryResult, List<Object>> apply(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext evaluationContext) {
+            public final <M extends Message> Function<QueryResult, List<Object>> apply(final FDBRecordStoreBase<M> store, final EvaluationContext evaluationContext) {
                 return queryResult -> {
                     final var nestedContext = evaluationContext.withBinding(Bindings.Internal.CORRELATION, baseAlias, queryResult);
                     final var resultList = Lists.newArrayList();
@@ -445,7 +425,6 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                 return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
             }
 
-            @Nonnull
             @Override
             public ExplainTokensWithPrecedence explain() {
                 return ExplainTokensWithPrecedence.of(new ExplainTokens().addOpeningParen().addOptionalWhitespace()
@@ -456,13 +435,12 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
             }
 
             @Override
-            public int planHash(@Nonnull final PlanHashMode mode) {
+            public int planHash(final PlanHashMode mode) {
                 return PlanHashable.planHash(mode, comparisonKeyValues);
             }
 
-            @Nonnull
             @Override
-            public POnValues toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            public POnValues toProto(final PlanSerializationContext serializationContext) {
                 final POnValues.Builder builder = POnValues.newBuilder().setBaseAlias(baseAlias.getId());
                 for (final Value comparisonKeyValue : comparisonKeyValues) {
                     builder.addComparisonKeyValues(comparisonKeyValue.toValueProto(serializationContext));
@@ -470,15 +448,13 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
                 return builder.build();
             }
 
-            @Nonnull
             @Override
-            public PComparisonKeyFunction toComparisonKeyFunctionProto(@Nonnull final PlanSerializationContext serializationContext) {
+            public PComparisonKeyFunction toComparisonKeyFunctionProto(final PlanSerializationContext serializationContext) {
                 return PComparisonKeyFunction.newBuilder().setOnValues(toProto(serializationContext)).build();
             }
 
-            @Nonnull
-            public static OnValues fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final POnValues onValuesProto) {
+            public static OnValues fromProto(final PlanSerializationContext serializationContext,
+                                             final POnValues onValuesProto) {
                 final ImmutableList.Builder<Value> comparisonKeyValuesBuilder = ImmutableList.builder();
                 for (int i = 0; i < onValuesProto.getComparisonKeyValuesCount(); i ++) {
                     comparisonKeyValuesBuilder.add(Value.fromValueProto(serializationContext, onValuesProto.getComparisonKeyValues(i)));
@@ -492,16 +468,14 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
              */
             @AutoService(PlanDeserializer.class)
             public static class Deserializer implements PlanDeserializer<POnValues, OnValues> {
-                @Nonnull
                 @Override
                 public Class<POnValues> getProtoMessageClass() {
                     return POnValues.class;
                 }
 
-                @Nonnull
                 @Override
-                public OnValues fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                          @Nonnull final POnValues onValuesProto) {
+                public OnValues fromProto(final PlanSerializationContext serializationContext,
+                                          final POnValues onValuesProto) {
                     return OnValues.fromProto(serializationContext, onValuesProto);
                 }
             }

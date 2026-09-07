@@ -21,4 +21,7 @@
 /**
  * A package for {@link com.apple.foundationdb.record.query.plan.cascades.values.Value} translation algorithms.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.cascades.values.translation;
+
+import org.jspecify.annotations.NullMarked;

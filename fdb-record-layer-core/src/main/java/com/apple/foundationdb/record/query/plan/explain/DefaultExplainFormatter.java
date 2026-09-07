@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.explain;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Objects;
@@ -34,13 +33,11 @@ import java.util.function.Supplier;
  * A formatter for tokens.
  */
 public class DefaultExplainFormatter implements ExplainFormatter {
-    @Nonnull
     private final Supplier<ExplainSymbolMap> symbolMapSupplier;
 
-    @Nonnull
     private final Deque<ExplainSymbolMap> scopes;
 
-    protected DefaultExplainFormatter(@Nonnull final Supplier<ExplainSymbolMap> symbolMapSupplier) {
+    protected DefaultExplainFormatter(final Supplier<ExplainSymbolMap> symbolMapSupplier) {
         this.symbolMapSupplier = symbolMapSupplier;
         this.scopes = new ArrayDeque<>();
     }
@@ -50,25 +47,24 @@ public class DefaultExplainFormatter implements ExplainFormatter {
         registerAliasExplicitly(Quantifier.current(), "_");
     }
 
-    public static DefaultExplainFormatter create(@Nonnull final Supplier<ExplainSymbolMap> symbolMapSupplier) {
+    public static DefaultExplainFormatter create(final Supplier<ExplainSymbolMap> symbolMapSupplier) {
         final DefaultExplainFormatter formatter = new DefaultExplainFormatter(symbolMapSupplier);
         formatter.register();
         return formatter;
     }
 
     @Override
-    public void registerAlias(@Nonnull final CorrelationIdentifier alias) {
+    public void registerAlias(final CorrelationIdentifier alias) {
         Objects.requireNonNull(scopes.peek()).registerAlias(alias);
     }
 
     @Override
-    public void registerAliasExplicitly(@Nonnull final CorrelationIdentifier alias, @Nonnull final String symbol) {
+    public void registerAliasExplicitly(final CorrelationIdentifier alias, final String symbol) {
         Objects.requireNonNull(scopes.peek()).registerAliasWithExplicitSymbol(alias, symbol);
     }
 
-    @Nonnull
     @Override
-    public Optional<String> getSymbolForAliasMaybe(@Nonnull final CorrelationIdentifier alias) {
+    public Optional<String> getSymbolForAliasMaybe(final CorrelationIdentifier alias) {
         for (final var scope : scopes) {
             final var resolvedSymbol = scope.getSymbolForAlias(alias);
             if (resolvedSymbol != null) {
@@ -88,21 +84,18 @@ public class DefaultExplainFormatter implements ExplainFormatter {
         scopes.pop();
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitLineBreakOrSpace(@Nonnull final ExplainTokens.LineBreakOrSpaceToken lineBreakOrSpaceToken,
-                                              @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitLineBreakOrSpace(final ExplainTokens.LineBreakOrSpaceToken lineBreakOrSpaceToken,
+                                              final CharSequence stringedToken) {
         return " ";
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitError(@Nonnull final ExplainTokens.Token token,
-                                   @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitError(final ExplainTokens.Token token,
+                                   final CharSequence stringedToken) {
         return "?" + stringedToken + "?";
     }
 
-    @Nonnull
     public static DefaultExplainFormatter forDebugging() {
         return DefaultExplainFormatter.create(DefaultExplainSymbolMap::new);
     }

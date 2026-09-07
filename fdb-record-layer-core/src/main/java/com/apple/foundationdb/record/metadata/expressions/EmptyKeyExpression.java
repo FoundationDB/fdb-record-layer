@@ -30,8 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
 
@@ -51,7 +50,6 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
         // nothing to initialize
     }
 
-    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
         return Collections.singletonList(Key.Evaluated.EMPTY);
@@ -63,7 +61,7 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
     }
 
     @Override
-    public List<Descriptors.FieldDescriptor> validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public List<Descriptors.FieldDescriptor> validate(Descriptors.Descriptor descriptor) {
         return Collections.emptyList();
     }
 
@@ -72,26 +70,22 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
         return 0;
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.Empty toProto() throws SerializationException {
         return RecordKeyExpressionProto.Empty.getDefaultInstance();
     }
 
-    @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 
-    @Nonnull
     @Override
     public RecordKeyExpressionProto.KeyExpression toKeyExpression() {
         return EMPTY_PROTO;
     }
 
-    @Nonnull
-    public GroupingKeyExpression groupBy(@Nonnull KeyExpression groupByFirst, @Nonnull KeyExpression... groupByRest) {
+    public GroupingKeyExpression groupBy(KeyExpression groupByFirst, KeyExpression... groupByRest) {
         return GroupingKeyExpression.of(this, groupByFirst, groupByRest);
     }
 
@@ -123,7 +117,7 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return 0;

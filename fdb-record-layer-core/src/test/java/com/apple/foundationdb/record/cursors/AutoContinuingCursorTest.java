@@ -35,9 +35,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -126,7 +126,7 @@ public class AutoContinuingCursorTest {
                             failedFuture.completeExceptionally(new FDBException("transaction_too_old", FDBError.TRANSACTION_TOO_OLD.code()));
                             return failedFuture;
                         }), 3, list));
-        assertTrue(e.getMessage().contains("transaction_too_old"));
+        assertTrue(Objects.requireNonNull(e.getMessage()).contains("transaction_too_old"));
         // We requested at most 3 retries on a retriable exception, so the fourth exception thrown
         // was the one that caused the cursor to abort.
         assertEquals(exceptionCount.get(), 4);
@@ -135,13 +135,12 @@ public class AutoContinuingCursorTest {
     private static class TestingListCursor<T> extends ListCursor<T> {
         private final Supplier<CompletableFuture<Void>> pollOnNext;
 
-        public TestingListCursor(@Nonnull final List<T> list, final byte[] continuation,
+        public TestingListCursor(final List<T> list, final byte[] continuation,
                                  Supplier<CompletableFuture<Void>> pollOnNext) {
             super(list, continuation);
             this.pollOnNext = pollOnNext;
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<RecordCursorResult<T>> onNext() {
             return pollOnNext.get().thenCompose(vignore -> super.onNext());

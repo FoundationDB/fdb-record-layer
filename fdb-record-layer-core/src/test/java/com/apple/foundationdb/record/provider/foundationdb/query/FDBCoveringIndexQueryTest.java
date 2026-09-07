@@ -106,6 +106,9 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that a covering index is used when possible.
      */
     @DualPlannerTest
+    // complexQuerySetup's hook parameter is missing @Nullable in the shared FDBRecordStoreQueryTestBase
+    // fixture, even though it forwards straight to openSimpleRecordStore's @Nullable hook parameter.
+    @SuppressWarnings("NullAway")
     void coveringSimple() throws Exception {
         complexQuerySetup(null);
 
@@ -147,7 +150,9 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that a covering index is used when possible.
      */
-    @SuppressWarnings("unchecked")
+    // complexQuerySetup's hook parameter is missing @Nullable in the shared FDBRecordStoreQueryTestBase
+    // fixture, even though it forwards straight to openSimpleRecordStore's @Nullable hook parameter.
+    @SuppressWarnings({"unchecked", "NullAway"})
     @DualPlannerTest
     void coveringOff() throws Exception {
         complexQuerySetup(null);
@@ -206,6 +211,9 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that a covering index is used with a compatible sort on the query.
      */
     @DualPlannerTest
+    // complexQuerySetup's hook parameter is missing @Nullable in the shared FDBRecordStoreQueryTestBase
+    // fixture, even though it forwards straight to openSimpleRecordStore's @Nullable hook parameter.
+    @SuppressWarnings("NullAway")
     void coveringSortNoFilter() throws Exception {
         complexQuerySetup(null);
 
@@ -230,6 +238,9 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that a covering index is not used when it does not include enough fields; a regular index is used instead.
      */
     @DualPlannerTest
+    // complexQuerySetup's hook parameter is missing @Nullable in the shared FDBRecordStoreQueryTestBase
+    // fixture, even though it forwards straight to openSimpleRecordStore's @Nullable hook parameter.
+    @SuppressWarnings("NullAway")
     void coveringSimpleInsufficient() throws Exception {
         complexQuerySetup(null);
 
@@ -266,6 +277,9 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that some other index scan is used when there is no appropriate index for the returned fields.
      */
     @DualPlannerTest
+    // complexQuerySetup's hook parameter is missing @Nullable in the shared FDBRecordStoreQueryTestBase
+    // fixture, even though it forwards straight to openSimpleRecordStore's @Nullable hook parameter.
+    @SuppressWarnings("NullAway")
     void notCoveringRecordScan() throws Exception {
         complexQuerySetup(null);
 
@@ -299,6 +313,9 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
      * covering index that it is not used.
      */
     @DualPlannerTest
+    // complexQuerySetup's hook parameter is missing @Nullable in the shared FDBRecordStoreQueryTestBase
+    // fixture, even though it forwards straight to openSimpleRecordStore's @Nullable hook parameter.
+    @SuppressWarnings("NullAway")
     void notCoveringWithAdditionalFilter() throws Exception {
         complexQuerySetup(null);
 

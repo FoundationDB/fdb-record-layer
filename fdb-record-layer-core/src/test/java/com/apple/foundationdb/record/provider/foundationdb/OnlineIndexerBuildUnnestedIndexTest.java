@@ -53,12 +53,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.TreeMap;
 import java.util.function.Function;
@@ -79,15 +80,10 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for building indexes on an unnested record type.
  */
 class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
-    @Nonnull
     public static final String UNNESTED = "UnnestedMapType";
-    @Nonnull
     private static final String PARENT_CONSTITUENT = "parent";
-    @Nonnull
     private static final String ENTRY_CONSTITUENT = "entry";
-    @Nonnull
     private static final String KEY_PARAM = "key";
-    @Nonnull
     private static final RecordQuery UNNESTED_KEY_QUERY = RecordQuery.newBuilder()
             .setRecordType(UNNESTED)
             .setFilter(Query.field(ENTRY_CONSTITUENT).matches(Query.field("key").equalsParameter(KEY_PARAM)))
@@ -95,11 +91,9 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
             .setSort(field(PARENT_CONSTITUENT).nest("other_id"))
             .build();
 
-    @Nonnull
     private static final List<String> KEYS = List.of("foo", "bar", "baz", "qux", "zop", "zork");
 
     public static class OnlineIndexerTestUnnestedRecordHandler implements OnlineIndexerTestRecordHandler<Message> {
-        @Nonnull
         private static OnlineIndexerTestUnnestedRecordHandler INSTANCE = new OnlineIndexerTestUnnestedRecordHandler();
 
         private OnlineIndexerTestUnnestedRecordHandler() {
@@ -120,7 +114,6 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
             };
         }
 
-        @Nonnull
         @Override
         public FDBRecordStoreTestBase.RecordMetaDataHook baseHook(final boolean splitLongRecords, @Nullable final Index sourceIndex) {
             return addUnnestedType().andThen(metaDataBuilder -> {
@@ -132,15 +125,13 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
             });
         }
 
-        @Nonnull
         @Override
-        public FDBRecordStoreTestBase.RecordMetaDataHook addIndexHook(@Nonnull final Index index) {
+        public FDBRecordStoreTestBase.RecordMetaDataHook addIndexHook(final Index index) {
             return metaDataBuilder -> metaDataBuilder.addIndex(UNNESTED, index);
         }
 
-        @Nonnull
         @Override
-        public Tuple getPrimaryKey(@Nonnull final Message message) {
+        public Tuple getPrimaryKey(final Message message) {
             if (message instanceof TestRecordsNestedMapProto.OuterRecord) {
                 return Tuple.from(((TestRecordsNestedMapProto.OuterRecord)message).getRecId());
             } else if (message instanceof TestRecordsNestedMapProto.OtherRecord) {
@@ -150,13 +141,11 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
             }
         }
 
-        @Nonnull
         static OnlineIndexerTestUnnestedRecordHandler instance() {
             return INSTANCE;
         }
     }
 
-    @Nonnull
     private static Stream<Arguments> overlapAndRandomSeeds() {
         return Stream.concat(
                 Stream.of(false, true)
@@ -177,8 +166,7 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
         }
     }
 
-    @Nonnull
-    private TestRecordsNestedMapProto.OuterRecord randomOuterRecord(@Nonnull Random r, long recId, double keyInclusion) {
+    private TestRecordsNestedMapProto.OuterRecord randomOuterRecord(Random r, long recId, double keyInclusion) {
         final TestRecordsNestedMapProto.OuterRecord.Builder builder = TestRecordsNestedMapProto.OuterRecord.newBuilder()
                 .setRecId(recId)
                 .setOtherId(r.nextInt(50));
@@ -193,18 +181,15 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
         return builder.build();
     }
 
-    @Nonnull
-    private TestRecordsNestedMapProto.OuterRecord randomOuterRecord(@Nonnull Random r, long recId) {
+    private TestRecordsNestedMapProto.OuterRecord randomOuterRecord(Random r, long recId) {
         return randomOuterRecord(r, recId, 0.5);
     }
 
-    @Nonnull
-    private TestRecordsNestedMapProto.OuterRecord randomOuterRecord(@Nonnull Random r) {
+    private TestRecordsNestedMapProto.OuterRecord randomOuterRecord(Random r) {
         return randomOuterRecord(r, r.nextLong());
     }
 
-    @Nonnull
-    private TestRecordsNestedMapProto.OtherRecord randomOtherRecord(@Nonnull Random r, long recId) {
+    private TestRecordsNestedMapProto.OtherRecord randomOtherRecord(Random r, long recId) {
         return TestRecordsNestedMapProto.OtherRecord.newBuilder()
                 .setRecId(recId)
                 .setOtherId(r.nextInt(5))
@@ -212,12 +197,11 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
                 .build();
     }
 
-    @Nonnull
-    private TestRecordsNestedMapProto.OtherRecord randomOtherRecord(@Nonnull Random r) {
+    private TestRecordsNestedMapProto.OtherRecord randomOtherRecord(Random r) {
         return randomOtherRecord(r, r.nextLong());
     }
 
-    private void addRandomUpdate(@Nonnull Random r, @Nonnull Message rec, @Nonnull List<Message> recordsWhileBuilding, @Nonnull List<Tuple> deleteWhileBuilding) {
+    private void addRandomUpdate(Random r, Message rec, List<Message> recordsWhileBuilding, List<Tuple> deleteWhileBuilding) {
         final OnlineIndexerTestUnnestedRecordHandler recordHandler = OnlineIndexerTestUnnestedRecordHandler.instance();
         Tuple primaryKey = recordHandler.getPrimaryKey(rec);
         long recId = primaryKey.getLong(0);
@@ -240,9 +224,8 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
         }
     }
 
-    @Nonnull
-    private List<IndexEntry> unnestedEntriesForOuterRecords(@Nonnull Index index,
-                                                            @Nonnull List<? extends Message> records) {
+    private List<IndexEntry> unnestedEntriesForOuterRecords(Index index,
+                                                            List<? extends Message> records) {
         List<IndexEntry> indexEntries = new ArrayList<>();
         final RecordType unnestedType = metaData.getSyntheticRecordType(UNNESTED);
         for (Message rec : records) {
@@ -260,9 +243,8 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
         return indexEntries;
     }
 
-    @Nonnull
-    private List<IndexEntry> sumEntriesByGroup(@Nonnull Index index,
-                                               @Nonnull List<? extends Message> records) {
+    private List<IndexEntry> sumEntriesByGroup(Index index,
+                                               List<? extends Message> records) {
         Map<Tuple, Long> sumMap = new TreeMap<>();
         for (Message rec : records) {
             if (rec instanceof TestRecordsNestedMapProto.OuterRecord) {
@@ -280,7 +262,7 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
         return entries;
     }
 
-    void singleValueIndexRebuild(@Nonnull List<Message> records,
+    void singleValueIndexRebuild(List<Message> records,
                                  @Nullable List<Message> recordsWhileBuilding,
                                  @Nullable List<Tuple> deleteWhileBuilding,
                                  int agents, boolean overlap,
@@ -297,7 +279,10 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
 
                 final List<Message> updatedRecords = updated(recordHandler, records, recordsWhileBuilding, deleteWhileBuilding);
                 final List<IndexEntry> expectedEntries = unnestedEntriesForOuterRecords(index, updatedRecords);
-                try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                // FDBRecordStoreBase#scanIndex's continuation parameter is declared @Nullable byte[] (a
+                // position NullAway does not reliably recognize as nullable), so the null literal below
+                // still trips the checker.
+                try (@SuppressWarnings("NullAway") RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
                     final List<IndexEntry> scannedEntries = cursor.asList().join();
                     assertEquals(expectedEntries, scannedEntries);
                 }
@@ -308,7 +293,8 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
                             .collect(Collectors.toList());
                     final EvaluationContext evaluationContext = EvaluationContext.forBinding(KEY_PARAM, key);
                     try (RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(recordStore, evaluationContext)) {
-                        final List<IndexEntry> queriedEntries = cursor.map(FDBQueriedRecord::getIndexEntry).asList().join();
+                        // this is a direct index scan, so every queried record has an index entry
+                        final List<IndexEntry> queriedEntries = cursor.map(rec -> Objects.requireNonNull(rec.getIndexEntry())).asList().join();
                         assertEquals(expectedEntriesForKey, queriedEntries);
                     }
                 }
@@ -321,20 +307,20 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
                 index, sourceIndex, beforeBuild, afterBuild, afterReadable);
     }
 
-    void singleValueIndexRebuild(@Nonnull List<Message> records,
+    void singleValueIndexRebuild(List<Message> records,
                                  @Nullable List<Message> recordsWhileBuilding,
                                  @Nullable List<Tuple> deleteWhileBuilding,
                                  int agents, boolean overlap) {
         singleValueIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding, agents, overlap, null);
     }
 
-    void singleValueIndexRebuild(@Nonnull List<Message> records,
+    void singleValueIndexRebuild(List<Message> records,
                                  @Nullable List<Message> recordsWhileBuilding,
                                  @Nullable List<Tuple> deleteWhileBuilding) {
         singleValueIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding, 1, false);
     }
 
-    void singleSumIndexRebuild(@Nonnull List<Message> records, @Nullable List<Message> recordsWhileBuilding, @Nullable List<Tuple> deleteWhileBuilding,
+    void singleSumIndexRebuild(List<Message> records, @Nullable List<Message> recordsWhileBuilding, @Nullable List<Tuple> deleteWhileBuilding,
                                int agents, boolean overlap, @Nullable Index sourceIndex) {
         final OnlineIndexerTestRecordHandler<Message> recordHandler = OnlineIndexerTestUnnestedRecordHandler.instance();
         final Index index = new Index("keyOtherSumIntValueIndex",
@@ -361,7 +347,10 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
             try (FDBRecordContext context = openContext()) {
                 final List<Message> updatedRecords = updated(recordHandler, records, recordsWhileBuilding, deleteWhileBuilding);
                 final List<IndexEntry> expectedEntries = sumEntriesByGroup(index, updatedRecords);
-                try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
+                // FDBRecordStoreBase#scanIndex's continuation parameter is declared @Nullable byte[] (a
+                // position NullAway does not reliably recognize as nullable), so the null literal below
+                // still trips the checker.
+                try (@SuppressWarnings("NullAway") RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)) {
                     final List<IndexEntry> scannedEntries = cursor.asList().join();
                     assertEquals(expectedEntries, scannedEntries);
                 }
@@ -383,14 +372,14 @@ class OnlineIndexerBuildUnnestedIndexTest extends OnlineIndexerBuildIndexTest {
                 index, sourceIndex, beforeBuild, afterBuild, afterReadable);
     }
 
-    void singleSumIndexRebuild(@Nonnull List<Message> records,
+    void singleSumIndexRebuild(List<Message> records,
                                @Nullable List<Message> recordsWhileBuilding,
                                @Nullable List<Tuple> deleteWhileBuilding,
                                int agents, boolean overlap) {
         singleSumIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding, agents, overlap, null);
     }
 
-    void singleSumIndexRebuild(@Nonnull List<Message> records,
+    void singleSumIndexRebuild(List<Message> records,
                                @Nullable List<Message> recordsWhileBuilding,
                                @Nullable List<Tuple> deleteWhileBuilding) {
         singleSumIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding, 1, false);

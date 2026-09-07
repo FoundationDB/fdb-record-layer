@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.explain;
 
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens.ToStringToken;
 
-import javax.annotation.Nonnull;
 import java.util.function.Supplier;
 
 /**
@@ -34,55 +33,49 @@ public class PrettyExplainFormatter extends DefaultExplainFormatter {
     private final boolean useOptionalLineBreaks;
     private int indentationLevel;
 
-    private PrettyExplainFormatter(@Nonnull final Supplier<ExplainSymbolMap> symbolMapSupplier,
+    private PrettyExplainFormatter(final Supplier<ExplainSymbolMap> symbolMapSupplier,
                                   final boolean useOptionalLineBreaks) {
         super(symbolMapSupplier);
         this.useOptionalLineBreaks = useOptionalLineBreaks;
         this.indentationLevel = 0;
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitLineBreakOrSpace(@Nonnull final ExplainTokens.LineBreakOrSpaceToken lineBreakOrSpaceToken,
-                                              @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitLineBreakOrSpace(final ExplainTokens.LineBreakOrSpaceToken lineBreakOrSpaceToken,
+                                              final CharSequence stringedToken) {
         if (useOptionalLineBreaks) {
             return "\n" + " ".repeat(indentationLevel * TAB_SIZE);
         }
         return " ";
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitIdentifier(@Nonnull final ExplainTokens.IdentifierToken identifierToken,
-                                  @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitIdentifier(final ExplainTokens.IdentifierToken identifierToken,
+                                  final CharSequence stringedToken) {
         return new StringBuilder().append(Color.BRIGHT_YELLOW).append(stringedToken).append(Color.RESET);
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitKeyword(@Nonnull final ExplainTokens.KeywordToken keywordToken,
-                                     @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitKeyword(final ExplainTokens.KeywordToken keywordToken,
+                                     final CharSequence stringedToken) {
         return new StringBuilder().append(Color.BRIGHT_WHITE).append(stringedToken).append(Color.RESET);
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitAliasDefinition(@Nonnull final ExplainTokens.AliasDefinitionToken aliasDefinitionToken,
-                                  @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitAliasDefinition(final ExplainTokens.AliasDefinitionToken aliasDefinitionToken,
+                                  final CharSequence stringedToken) {
         return new StringBuilder().append(Color.BRIGHT_GREEN).append(stringedToken).append(Color.RESET);
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitAliasReference(@Nonnull final ExplainTokens.AliasReferenceToken aliasReferenceToken,
-                                            @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitAliasReference(final ExplainTokens.AliasReferenceToken aliasReferenceToken,
+                                            final CharSequence stringedToken) {
         return new StringBuilder().append(Color.GREEN).append(stringedToken).append(Color.RESET);
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitBracketLike(@Nonnull final ExplainTokens.BracketLikeToken bracketLikeToken,
-                                         @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitBracketLike(final ExplainTokens.BracketLikeToken bracketLikeToken,
+                                         final CharSequence stringedToken) {
         if (bracketLikeToken.isOpen()) {
             indentationLevel ++;
         } else {
@@ -91,27 +84,23 @@ public class PrettyExplainFormatter extends DefaultExplainFormatter {
         return new StringBuilder().append(Color.BRIGHT_WHITE).append(stringedToken).append(Color.RESET);
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitToString(@Nonnull final ToStringToken toStringToken,
-                                      @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitToString(final ToStringToken toStringToken,
+                                      final CharSequence stringedToken) {
         return new StringBuilder().append(Color.WHITE).append(stringedToken).append(Color.RESET);
     }
 
-    @Nonnull
     @Override
-    public CharSequence visitError(@Nonnull final ExplainTokens.Token token, @Nonnull final CharSequence stringedToken) {
+    public CharSequence visitError(final ExplainTokens.Token token, final CharSequence stringedToken) {
         return new StringBuilder().append(Color.BRIGHT_RED).append(stringedToken).append(Color.RESET);
     }
 
-    @Nonnull
     public static PrettyExplainFormatter forExplainPlan() {
         final PrettyExplainFormatter formatter = new PrettyExplainFormatter(ExplainSelfContainedSymbolMap::new, true);
         formatter.register();
         return formatter;
     }
 
-    @Nonnull
     public static PrettyExplainFormatter forDebugging() {
         final PrettyExplainFormatter formatter = new PrettyExplainFormatter(DefaultExplainSymbolMap::new, false);
         formatter.register();
@@ -143,10 +132,9 @@ public class PrettyExplainFormatter extends DefaultExplainFormatter {
         BRIGHT_CYAN("\u001B[96;1m"),
         BRIGHT_WHITE("\u001B[97;1m");
 
-        @Nonnull
         private final String ansi;
 
-        Color(@Nonnull final String ansi) {
+        Color(final String ansi) {
             this.ansi = ansi;
         }
 

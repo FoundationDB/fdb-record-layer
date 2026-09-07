@@ -37,8 +37,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.Serial;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -68,10 +67,9 @@ final class VectorIndexTaskCounts {
     // operand that drops a per-prefix entry the instant its count returns to zero.
     private static final byte[] ZERO_COUNT = new byte[Long.BYTES];
 
-    @Nonnull
     private final Subspace perPrefixSubspace;
 
-    VectorIndexTaskCounts(@Nonnull final Subspace indexSecondarySubspace) {
+    VectorIndexTaskCounts(final Subspace indexSecondarySubspace) {
         this.perPrefixSubspace =
                 indexSecondarySubspace.subspace(Tuple.from(VectorIndexSecondarySubspaceKeys.TASK_COUNTS));
     }
@@ -82,8 +80,7 @@ final class VectorIndexTaskCounts {
      * @param prefix the partition prefix (empty for an unpartitioned index)
      * @return a register handle for {@code prefix}
      */
-    @Nonnull
-    TaskCountRegister registerFor(@Nonnull final Tuple prefix) {
+    TaskCountRegister registerFor(final Tuple prefix) {
         return new TaskCountRegister(this, prefix);
     }
 
@@ -92,7 +89,7 @@ final class VectorIndexTaskCounts {
      * @param transaction the transaction the enqueue happened in
      * @param prefix the partition prefix
      */
-    void increment(@Nonnull final Transaction transaction, @Nonnull final Tuple prefix) {
+    void increment(final Transaction transaction, final Tuple prefix) {
         adjust(transaction, prefix, FDBRecordStore.LITTLE_ENDIAN_INT64_ONE);
     }
 
@@ -101,12 +98,12 @@ final class VectorIndexTaskCounts {
      * @param transaction the transaction the execution happened in
      * @param prefix the partition prefix
      */
-    void decrement(@Nonnull final Transaction transaction, @Nonnull final Tuple prefix) {
+    void decrement(final Transaction transaction, final Tuple prefix) {
         adjust(transaction, prefix, FDBRecordStore.LITTLE_ENDIAN_INT64_MINUS_ONE);
     }
 
-    private void adjust(@Nonnull final Transaction transaction, @Nonnull final Tuple prefix,
-                        @Nonnull final byte[] delta) {
+    private void adjust(final Transaction transaction, final Tuple prefix,
+                        final byte[] delta) {
         final byte[] key = perPrefixSubspace.pack(prefix);
         // ADD the delta, then drop the key if the result is exactly zero, so a count that returns to zero leaves no
         // lingering entry. COMPARE_AND_CLEAR sees the post-ADD value (same key, same transaction, mutations applied in
@@ -123,7 +120,7 @@ final class VectorIndexTaskCounts {
      * @param transaction the transaction to clear in
      * @param prefix the (possibly partial) prefix whose counts to remove
      */
-    void clearPrefix(@Nonnull final Transaction transaction, @Nonnull final Tuple prefix) {
+    void clearPrefix(final Transaction transaction, final Tuple prefix) {
         transaction.clear(Range.startsWith(perPrefixSubspace.pack(prefix)));
     }
 
@@ -136,9 +133,8 @@ final class VectorIndexTaskCounts {
      * @param executor the executor to advance the filtering iterator on
      * @return an iterator over the prefixes with outstanding tasks and their counts
      */
-    @Nonnull
-    CloseableAsyncIterator<PrefixTaskCount> prefixesWithOutstandingWork(@Nonnull final ReadTransaction snapshot,
-                                                                        @Nonnull final Executor executor) {
+    CloseableAsyncIterator<PrefixTaskCount> prefixesWithOutstandingWork(final ReadTransaction snapshot,
+                                                                        final Executor executor) {
         final AsyncIterator<PrefixTaskCount> counts =
                 AsyncUtil.mapIterator(snapshot.getRange(range()).iterator(),
                         keyValue -> new PrefixTaskCount(perPrefixSubspace.unpack(keyValue.getKey()),
@@ -170,21 +166,19 @@ final class VectorIndexTaskCounts {
      * @param snapshot a snapshot read view
      * @return whether any prefix has outstanding tasks
      */
-    @Nonnull
-    CompletableFuture<Boolean> hasOutstandingWork(@Nonnull final ReadTransaction snapshot) {
+    CompletableFuture<Boolean> hasOutstandingWork(final ReadTransaction snapshot) {
         // Ask FDB for at most one entry (not the whole, unbounded map) and test the resulting list for emptiness.
         return snapshot.getRange(range(), 1).asList()
                 .thenApply(keyValues -> !keyValues.isEmpty());
     }
 
-    @Nonnull
     private Range range() {
         // startsWith(getKey()) rather than range(): range() begins at getKey()+0x00 and would skip the empty-prefix
         // entry of an unpartitioned index (whose key is the subspace key itself).
         return Range.startsWith(perPrefixSubspace.getKey());
     }
 
-    private static long decodeCount(@Nullable final byte[] value) {
+    private static long decodeCount(final byte @Nullable [] value) {
         return value == null ? 0L : AtomicMutation.Standard.decodeUnsignedLong(value);
     }
 
@@ -197,8 +191,7 @@ final class VectorIndexTaskCounts {
      * @param prefix the partition prefix
      * @return a future of the current outstanding count for {@code prefix} ({@code 0} if the entry is absent)
      */
-    @Nonnull
-    CompletableFuture<Long> countFor(@Nonnull final ReadTransaction snapshot, @Nonnull final Tuple prefix) {
+    CompletableFuture<Long> countFor(final ReadTransaction snapshot, final Tuple prefix) {
         return snapshot.get(perPrefixSubspace.pack(prefix)).thenApply(value -> {
             final long count = decodeCount(value);
             // A strictly-negative count cannot arise while the count stays coupled to the task space (each enqueue/
@@ -227,7 +220,7 @@ final class VectorIndexTaskCounts {
         @Serial
         private static final long serialVersionUID = 1L;
 
-        NegativeTaskCountException(@Nonnull final Tuple prefix, final long count) {
+        NegativeTaskCountException(final Tuple prefix, final long count) {
             super("vector index deferred-task count is negative",
                     LogMessageKeys.DEFERRED_TASK_COUNT, count,
                     LogMessageKeys.PARTITION_ID, prefix);

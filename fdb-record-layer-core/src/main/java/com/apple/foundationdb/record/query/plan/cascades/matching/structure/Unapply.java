@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
-import javax.annotation.Nonnull;
 
 /**
  * Interface for the unapply function used in a variety of matchers.
@@ -35,6 +34,5 @@ public interface Unapply<T, U> {
      * @param t the function argument
      * @return the function result
      */
-    @Nonnull
-    U unapply(@Nonnull T t);
+    U unapply(T t);
 }

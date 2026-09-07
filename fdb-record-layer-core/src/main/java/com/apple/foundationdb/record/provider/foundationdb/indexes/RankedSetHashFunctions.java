@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Known hash functions available as index options.
@@ -50,7 +50,7 @@ public class RankedSetHashFunctions {
             .put(MURMUR3, MURMUR3_HASH_FUNCTION)
             .build();
 
-    public static RankedSet.HashFunction getHashFunction(@Nonnull String name) {
+    public static RankedSet.HashFunction getHashFunction(String name) {
         RankedSet.HashFunction result = extent.get(name);
         if (result != null) {
             return result;
@@ -58,7 +58,8 @@ public class RankedSetHashFunctions {
         throw new RecordCoreArgumentException("hash function not found: " + name);
     }
 
-    public static String getHashFunctionName(@Nonnull RankedSet.HashFunction hashFunction) {
+    @Nullable
+    public static String getHashFunctionName(RankedSet.HashFunction hashFunction) {
         return extent.inverse().get(hashFunction);
     }
 
@@ -69,7 +70,6 @@ public class RankedSetHashFunctions {
      * Use {@code com.google.common.hash.HashFunction}s as {@code RankedSet.HashFunction}s.
      */
     private static class GuavaHashFunction implements RankedSet.HashFunction {
-        @Nonnull
         private final HashFunction guava;
 
         public GuavaHashFunction(HashFunction guava) {

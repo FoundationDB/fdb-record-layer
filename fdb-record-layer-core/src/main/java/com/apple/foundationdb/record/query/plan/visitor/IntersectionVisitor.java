@@ -26,13 +26,14 @@ import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -64,21 +65,20 @@ import java.util.Set;
  *
  */
 public class IntersectionVisitor extends RecordQueryPlannerSubstitutionVisitor {
-    public IntersectionVisitor(@Nonnull final RecordMetaData recordMetadata, @Nonnull final PlannableIndexTypes indexTypes, @Nullable final KeyExpression commonPrimaryKey) {
+    public IntersectionVisitor(final RecordMetaData recordMetadata, final PlannableIndexTypes indexTypes, @Nullable final KeyExpression commonPrimaryKey) {
         super(recordMetadata, indexTypes, commonPrimaryKey);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlan postVisit(@Nonnull final RecordQueryPlan recordQueryPlan) {
+    public RecordQueryPlan postVisit(final RecordQueryPlan recordQueryPlan) {
         if (recordQueryPlan instanceof RecordQueryIntersectionPlan) {
             RecordQueryIntersectionOnKeyExpressionPlan intersectionPlan = (RecordQueryIntersectionOnKeyExpressionPlan) recordQueryPlan;
             Set<KeyExpression> requiredFields = intersectionPlan.getRequiredFields();
 
             List<RecordQueryPlan> newChildren = new ArrayList<>(intersectionPlan.getChildren().size());
-            @Nullable RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords fetchIndexRecords = null;
+            @Nullable FetchIndexRecords fetchIndexRecords = null;
             for (RecordQueryPlan plan : intersectionPlan.getChildren()) {
-                @Nullable RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords currentFetchIndexRecords = resolveFetchIndexRecordsFromPlan(plan);
+                @Nullable FetchIndexRecords currentFetchIndexRecords = resolveFetchIndexRecordsFromPlan(plan);
                 if (currentFetchIndexRecords == null) {
                     return recordQueryPlan;
                 }

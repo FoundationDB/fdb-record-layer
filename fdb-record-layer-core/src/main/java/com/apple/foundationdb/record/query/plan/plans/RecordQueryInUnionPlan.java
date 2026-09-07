@@ -57,8 +57,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -74,19 +74,15 @@ import java.util.stream.Collectors;
 public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressionWithChildren implements RecordQueryPlanWithChild, RecordQuerySetPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("In-Union-Plan");
 
-    @Nonnull
     protected final Quantifier.Physical inner;
-    @Nonnull
     private final List<? extends InSource> inSources;
-    @Nonnull
     private final ComparisonKeyFunction comparisonKeyFunction;
     protected final boolean reverse;
     protected final int maxNumberOfValuesAllowed;
-    @Nonnull
     protected final Bindings.Internal internal;
 
-    protected RecordQueryInUnionPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final PRecordQueryInUnionPlan recordQueryInUnionPlanProto) {
+    protected RecordQueryInUnionPlan(final PlanSerializationContext serializationContext,
+                                     final PRecordQueryInUnionPlan recordQueryInUnionPlanProto) {
         Verify.verify(recordQueryInUnionPlanProto.hasReverse());
         Verify.verify(recordQueryInUnionPlanProto.hasMaxNumberOfValuesAllowed());
 
@@ -106,12 +102,12 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
         this.internal = internal;
     }
 
-    protected RecordQueryInUnionPlan(@Nonnull final Quantifier.Physical inner,
-                                     @Nonnull final List<? extends InSource> inSources,
-                                     @Nonnull final ComparisonKeyFunction comparisonKeyFunction,
+    protected RecordQueryInUnionPlan(final Quantifier.Physical inner,
+                                     final List<? extends InSource> inSources,
+                                     final ComparisonKeyFunction comparisonKeyFunction,
                                      final boolean reverse,
                                      final int maxNumberOfValuesAllowed,
-                                     @Nonnull final Bindings.Internal internal) {
+                                     final Bindings.Internal internal) {
         Verify.verify(internal == Bindings.Internal.IN || internal == Bindings.Internal.CORRELATION);
         this.inner = inner;
         this.inSources = inSources;
@@ -121,7 +117,6 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
         this.internal = internal;
     }
 
-    @Nonnull
     public ComparisonKeyFunction getComparisonKeyFunction() {
         return comparisonKeyFunction;
     }
@@ -131,23 +126,20 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
         return true;
     }
 
-    @Nonnull
     public List<? extends InSource> getInSources() {
         return inSources;
     }
 
-    @Nonnull
-    public CorrelationIdentifier getInAlias(@Nonnull final InSource inSource) {
+    public CorrelationIdentifier getInAlias(final InSource inSource) {
         return CorrelationIdentifier.of(internal.identifier(inSource.getBindingName()));
     }
 
     @SuppressWarnings("resource")
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         int size = getValuesSize(context);
         if (size > maxNumberOfValuesAllowed) {
             throw new RecordCoreException("too many IN values").addLogInfo("size", size);
@@ -174,13 +166,11 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
-    @Nonnull
     public RecordQueryPlan getInnerPlan() {
         return inner.getRangesOverPlan();
     }
 
     @Override
-    @Nonnull
     public RecordQueryPlan getChild() {
         return getInnerPlan();
     }
@@ -196,13 +186,11 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
         getInnerPlan().logPlanStructure(timer);
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return inner.getFlowedObjectValue();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
@@ -220,7 +208,6 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
         return builder.build();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
@@ -231,9 +218,8 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
         return true;
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         final PlannerGraph.Node root =
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.IN_UNION_OPERATOR,
@@ -258,25 +244,22 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
                 .build();
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
     }
 
-    @Nonnull
     public Quantifier.Physical getInner() {
         return inner;
     }
 
-    @Nonnull
     @Override
-    public abstract RecordQueryInUnionPlan withChild(@Nonnull Reference childRef);
+    public abstract RecordQueryInUnionPlan withChild(Reference childRef);
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -307,11 +290,10 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
     }
 
     @Override
-    public int planHash(@Nonnull PlanHashMode mode) {
+    public int planHash(PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInnerPlan(), inSources, comparisonKeyFunction);
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
@@ -328,7 +310,7 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
         return complexity;
     }
 
-    protected int getValuesSize(@Nonnull EvaluationContext context) {
+    protected int getValuesSize(EvaluationContext context) {
         int size = 1;
         for (InSource values : inSources) {
             size *= values.size(context);
@@ -336,8 +318,7 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
         return size;
     }
 
-    @Nonnull
-    protected List<EvaluationContext> getValuesContexts(@Nonnull EvaluationContext context) {
+    protected List<EvaluationContext> getValuesContexts(EvaluationContext context) {
         List<EvaluationContext> parents = Collections.singletonList(context);
         for (InSource values : inSources) {
             final List<EvaluationContext> children = new ArrayList<>();
@@ -352,8 +333,7 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
         return parents;
     }
 
-    @Nonnull
-    protected PRecordQueryInUnionPlan toRecordQueryInUnionPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    protected PRecordQueryInUnionPlan toRecordQueryInUnionPlanProto(final PlanSerializationContext serializationContext) {
         final PRecordQueryInUnionPlan.Builder builder = PRecordQueryInUnionPlan.newBuilder()
                 .setInner(inner.toProto(serializationContext));
         for (final InSource inSource : inSources) {
@@ -376,12 +356,11 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
      * @param internal indicator if bindings are modelled using correlation or old-style in-bindings
      * @return a new plan that will return the union of all results from both child plans
      */
-    @Nonnull
-    public static RecordQueryInUnionOnKeyExpressionPlan from(@Nonnull final Quantifier.Physical inner,
-                                                             @Nonnull final List<? extends InSource> inSources,
-                                                             @Nonnull KeyExpression comparisonKey,
+    public static RecordQueryInUnionOnKeyExpressionPlan from(final Quantifier.Physical inner,
+                                                             final List<? extends InSource> inSources,
+                                                             KeyExpression comparisonKey,
                                                              final int maxNumberOfValuesAllowed,
-                                                             @Nonnull final Bindings.Internal internal) {
+                                                             final Bindings.Internal internal) {
         return new RecordQueryInUnionOnKeyExpressionPlan(inner,
                 inSources,
                 comparisonKey,
@@ -401,13 +380,12 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
      * @param internal indicator if bindings are modelled using correlation or old-style in-bindings
      * @return a new plan that will return the union of all results from both child plans
      */
-    @Nonnull
-    public static RecordQueryInUnionOnValuesPlan from(@Nonnull final Quantifier.Physical inner,
-                                                      @Nonnull final List<? extends InSource> inSources,
-                                                      @Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
+    public static RecordQueryInUnionOnValuesPlan from(final Quantifier.Physical inner,
+                                                      final List<? extends InSource> inSources,
+                                                      final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
                                                       final boolean isReverse,
                                                       final int maxNumberOfValuesAllowed,
-                                                      @Nonnull final Bindings.Internal internal) {
+                                                      final Bindings.Internal internal) {
         return RecordQueryInUnionOnValuesPlan.inUnion(inner,
                 inSources,
                 comparisonKeyOrderingParts,
@@ -428,13 +406,12 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
      * @return a new plan that will return the union of all results from both child plans
      */
     @HeuristicPlanner
-    @Nonnull
-    public static RecordQueryInUnionOnKeyExpressionPlan from(@Nonnull RecordQueryPlan inner,
-                                                             @Nonnull final List<? extends InSource> inSources,
-                                                             @Nonnull KeyExpression comparisonKey,
+    public static RecordQueryInUnionOnKeyExpressionPlan from(RecordQueryPlan inner,
+                                                             final List<? extends InSource> inSources,
+                                                             KeyExpression comparisonKey,
                                                              final boolean isReverse,
                                                              final int maxNumberOfValuesAllowed,
-                                                             @Nonnull final Bindings.Internal internal) {
+                                                             final Bindings.Internal internal) {
         return new RecordQueryInUnionOnKeyExpressionPlan(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(inner))),
                 inSources,
                 comparisonKey,

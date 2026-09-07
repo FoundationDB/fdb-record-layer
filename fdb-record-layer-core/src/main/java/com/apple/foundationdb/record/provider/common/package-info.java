@@ -49,4 +49,7 @@
  * It accumulates timing information for all the operations performed by the context on the store, classified by {@link com.apple.foundationdb.record.provider.common.StoreTimer.Event} type.
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.common;
+
+import org.jspecify.annotations.NullMarked;

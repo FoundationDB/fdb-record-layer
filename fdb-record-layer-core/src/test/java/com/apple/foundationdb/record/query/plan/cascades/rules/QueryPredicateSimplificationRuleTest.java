@@ -43,7 +43,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.Stream;
@@ -90,12 +89,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.b
  */
 public class QueryPredicateSimplificationRuleTest {
 
-    @Nonnull
     private static final QueryPredicateSimplificationRule rule = new QueryPredicateSimplificationRule();
-    @Nonnull
     private static final RuleTestHelper testHelper = new RuleTestHelper(rule, PlannerPhase.REWRITING);
 
-    @Nonnull
     public static Stream<Arguments> randomPredicateProvider() {
         final var firstStream = RandomizedTestUtils.randomSeeds(123943, 92789234, 3498204, 20374023, 787234234, 89712321,
                         8971293, 87912321, 87123912, 789435, 98743534, 897432973, 879237492, 7197231, 871297831, 8781923)
@@ -192,36 +188,30 @@ public class QueryPredicateSimplificationRuleTest {
 
     public static class RandomPredicateGenerator {
         public static class PredicateTest {
-            @Nonnull
             private final QueryPredicate expectedPredicate;
 
-            @Nonnull
             private final QueryPredicate predicateUnderTest;
 
-            @Nonnull
             private final EvaluationContext evaluationContext;
 
-            PredicateTest(@Nonnull final QueryPredicate expectedPredicate, @Nonnull final QueryPredicate predicateUnderTest,
-                          @Nonnull final EvaluationContext evaluationContext) {
+            PredicateTest(final QueryPredicate expectedPredicate, final QueryPredicate predicateUnderTest,
+                          final EvaluationContext evaluationContext) {
                 this.expectedPredicate = expectedPredicate;
                 this.predicateUnderTest = predicateUnderTest;
                 this.evaluationContext = evaluationContext;
             }
 
-            @Nonnull
             public QueryPredicate getPredicateUnderTest() {
                 return predicateUnderTest;
             }
         }
 
-        @Nonnull
         private final Random random;
 
-        public RandomPredicateGenerator(@Nonnull Random random) {
+        public RandomPredicateGenerator(Random random) {
             this.random = random;
         }
 
-        @Nonnull
         public PredicateTest generate() {
             final var isTrue = random.nextInt(3);
             if (isTrue == 0) {
@@ -236,7 +226,6 @@ public class QueryPredicateSimplificationRuleTest {
             }
         }
 
-        @Nonnull
         public static List<QueryPredicate> getNonConstantPredicates() {
             return nonConstantPredicates;
         }
@@ -244,7 +233,6 @@ public class QueryPredicateSimplificationRuleTest {
         /**
          * List of predicates that can not be evaluated at query compile time.
          */
-        @Nonnull
         private static final List<QueryPredicate> nonConstantPredicates = ImmutableList.of(
                 fieldPredicate(baseT(), "a", new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)),
                 fieldPredicate(baseT(), "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, litString("foo").value())),
@@ -253,7 +241,6 @@ public class QueryPredicateSimplificationRuleTest {
                 new NullValue(Type.primitiveType(Type.TypeCode.INT)).withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(baseT(), "a")))
         );
 
-        @Nonnull
         private static final List<NonnullPair<QueryPredicate, EvaluationContext>> nullConstantPredicates;
 
         static {
@@ -302,7 +289,6 @@ public class QueryPredicateSimplificationRuleTest {
             nullConstantPredicates = nullConstantPredicatesBuilder.build();
         }
 
-        @Nonnull
         private static final List<NonnullPair<QueryPredicate, EvaluationContext>> trueConstantPredicates;
 
         static  {
@@ -347,7 +333,6 @@ public class QueryPredicateSimplificationRuleTest {
             trueConstantPredicates = nullConstantPredicatesBuilder.build();
         }
 
-        @Nonnull
         private static final List<QueryPredicate> trueConstantLiteralPredicates;
 
         static {
@@ -393,7 +378,6 @@ public class QueryPredicateSimplificationRuleTest {
             trueConstantLiteralPredicates = trueConstantLiteralPredicatesBuilder.build();
         }
 
-        @Nonnull
         private static final List<NonnullPair<QueryPredicate, EvaluationContext>> falseConstantPredicates;
 
         static {
@@ -449,7 +433,6 @@ public class QueryPredicateSimplificationRuleTest {
             falseConstantPredicates = nullConstantPredicatesBuilder.build();
         }
 
-        @Nonnull
         private static final List<QueryPredicate> falseConstantLiteralPredicates;
 
         static {
@@ -525,7 +508,6 @@ public class QueryPredicateSimplificationRuleTest {
             falseConstantLiteralPredicates = nullConstantPredicatesBuilder.build();
         }
 
-        @Nonnull
         private List<QueryPredicate> generateRandomPredicates(QueryPredicate needle, List<QueryPredicate> otherPredicates) {
             final int listSize = 2 + random.nextInt(8);
             final int needlePosition = random.nextInt(listSize);
@@ -541,17 +523,14 @@ public class QueryPredicateSimplificationRuleTest {
             return predicateBuilder.build();
         }
 
-        @Nonnull
         private QueryPredicate generateRandomOrPredicate(QueryPredicate needle, List<QueryPredicate> otherPredicates) {
             return OrPredicate.or(generateRandomPredicates(needle, otherPredicates));
         }
 
-        @Nonnull
         private QueryPredicate generateRandomAndPredicate(QueryPredicate constantPredicate, List<QueryPredicate> otherPredicates) {
             return AndPredicate.and(generateRandomPredicates(constantPredicate, otherPredicates));
         }
 
-        @Nonnull
         private QueryPredicate randomOrTree(QueryPredicate needleAtLeaf, List<QueryPredicate> otherPredicates) {
             final var depth = 2 + random.nextInt(4);
             var currentLevel = generateRandomOrPredicate(needleAtLeaf, otherPredicates);
@@ -561,12 +540,10 @@ public class QueryPredicateSimplificationRuleTest {
             return currentLevel;
         }
 
-        @Nonnull
         private QueryPredicate randomOrTree(QueryPredicate needleAtLeaf) {
             return randomOrTree(needleAtLeaf, nonConstantPredicates);
         }
 
-        @Nonnull
         private QueryPredicate randomAndTree(QueryPredicate needleAtLeaf, List<QueryPredicate> otherPredicates) {
             final var depth = 2 + random.nextInt(4);
             var currentLevel = generateRandomAndPredicate(needleAtLeaf, otherPredicates);
@@ -576,12 +553,10 @@ public class QueryPredicateSimplificationRuleTest {
             return currentLevel;
         }
 
-        @Nonnull
         private QueryPredicate randomAndTree(QueryPredicate needleAtLeaf) {
             return randomAndTree(needleAtLeaf, nonConstantPredicates);
         }
 
-        @Nonnull
         public QueryPredicate randomTreeForNull(QueryPredicate needleAtLeaf) {
             final var depth = 2 + random.nextInt(4);
             var isAnd = random.nextBoolean();

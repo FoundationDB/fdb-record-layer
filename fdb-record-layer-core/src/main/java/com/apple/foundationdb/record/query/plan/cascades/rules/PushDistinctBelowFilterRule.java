@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilte
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
@@ -77,13 +76,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * where pred' is rebased along the translation from qun to newQun.
  */
 public class PushDistinctBelowFilterRule extends AbstractCascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> implements ImplementationCascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
-    @Nonnull
     private static final BindingMatcher<? extends Reference> innerRefMatcher = anyRefOverOnlyPlans();
-    @Nonnull
     private static final BindingMatcher<Quantifier.Physical> innerQuantifierMatcher = physicalQuantifierOverRef(innerRefMatcher);
-    @Nonnull
     private static final BindingMatcher<RecordQueryPredicatesFilterPlan> filterPlanMatcher = RecordQueryPlanMatchers.predicatesFilter(exactly(innerQuantifierMatcher));
-    @Nonnull
     private static final BindingMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> root =
             RecordQueryPlanMatchers.unorderedPrimaryKeyDistinct(exactly(physicalQuantifier(filterPlanMatcher)));
 
@@ -92,7 +87,7 @@ public class PushDistinctBelowFilterRule extends AbstractCascadesRule<RecordQuer
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final Reference inner = call.get(innerRefMatcher);
         final Quantifier.Physical qun = call.get(innerQuantifierMatcher);
         final RecordQueryPredicatesFilterPlan filterPlan = call.get(filterPlanMatcher);

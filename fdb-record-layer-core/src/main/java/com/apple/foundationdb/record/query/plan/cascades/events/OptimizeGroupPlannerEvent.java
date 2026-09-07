@@ -26,44 +26,38 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.POptimizeGroupPlannerEvent;
 
-import javax.annotation.Nonnull;
 import java.util.Deque;
 
 /**
  * Events of this class are generated when the planner optimizes a group.
  */
 public class OptimizeGroupPlannerEvent extends AbstractPlannerEventWithState implements PlannerEventWithCurrentGroupReference {
-    @Nonnull
     private final Reference currentGroupReference;
 
-    public OptimizeGroupPlannerEvent(@Nonnull final PlannerPhase plannerPhase,
-                                     @Nonnull final Reference rootReference,
-                                     @Nonnull final Deque<CascadesPlanner.Task> taskStack,
-                                     @Nonnull final Location location,
-                                     @Nonnull final Reference currentGroupReference) {
+    public OptimizeGroupPlannerEvent(final PlannerPhase plannerPhase,
+                                     final Reference rootReference,
+                                     final Deque<CascadesPlanner.Task> taskStack,
+                                     final Location location,
+                                     final Reference currentGroupReference) {
         super(plannerPhase, rootReference, taskStack, location);
         this.currentGroupReference = currentGroupReference;
     }
 
     @Override
-    @Nonnull
     public String getDescription() {
         return "optimizing group";
     }
 
-    @Nonnull
     @Override
     public Shorthand getShorthand() {
         return Shorthand.OPTGROUP;
     }
 
     @Override
-    @Nonnull
     public Reference getCurrentReference() {
         return currentGroupReference;
     }
 
-    @Nonnull
     @Override
     public POptimizeGroupPlannerEvent toProto() {
         return POptimizeGroupPlannerEvent.newBuilder()
@@ -72,7 +66,6 @@ public class OptimizeGroupPlannerEvent extends AbstractPlannerEventWithState imp
                 .build();
     }
 
-    @Nonnull
     @Override
     public PPlannerEvent.Builder toEventBuilder() {
         return PPlannerEvent.newBuilder()

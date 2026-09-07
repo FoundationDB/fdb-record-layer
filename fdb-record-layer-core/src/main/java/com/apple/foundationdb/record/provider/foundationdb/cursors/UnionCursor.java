@@ -33,11 +33,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -63,22 +63,23 @@ import java.util.function.Function;
 public class UnionCursor<T> extends UnionCursorBase<T, KeyedMergeCursorState<T>> {
     private final boolean reverse;
 
-    private UnionCursor(boolean reverse, @Nonnull List<KeyedMergeCursorState<T>> cursorStates,
+    private UnionCursor(boolean reverse, List<KeyedMergeCursorState<T>> cursorStates,
                         @Nullable FDBStoreTimer timer) {
         super(cursorStates, timer);
         this.reverse = reverse;
     }
 
-    @Nonnull
     @Override
     protected CompletableFuture<List<KeyedMergeCursorState<T>>> computeNextResultStates() {
         final List<KeyedMergeCursorState<T>> cursorStates = getCursorStates();
         return whenAll(cursorStates).thenApply(vignore -> {
             boolean anyHasNext = false;
             for (KeyedMergeCursorState<T> cursorState : cursorStates) {
-                if (cursorState.getResult().hasNext()) {
+                // whenAll() has completed, so getResult() is guaranteed to return something non-null here.
+                final RecordCursorResult<T> result = Objects.requireNonNull(cursorState.getResult());
+                if (result.hasNext()) {
                     anyHasNext = true;
-                } else if (cursorState.getResult().getNoNextReason().isLimitReached()) {
+                } else if (result.getNoNextReason().isLimitReached()) {
                     // If any side stopped due to limit reached, need to stop completely,
                     // since might otherwise duplicate ones after that, if other side still available.
                     return Collections.emptyList();
@@ -98,10 +99,12 @@ public class UnionCursor<T> extends UnionCursorBase<T, KeyedMergeCursorState<T>>
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    private void chooseStates(@Nonnull List<KeyedMergeCursorState<T>> allStates, @Nonnull List<KeyedMergeCursorState<T>> chosenStates, @Nonnull List<KeyedMergeCursorState<T>> otherStates) {
+    private void chooseStates(List<KeyedMergeCursorState<T>> allStates, List<KeyedMergeCursorState<T>> chosenStates, List<KeyedMergeCursorState<T>> otherStates) {
         List<Object> nextKey = null;
         for (KeyedMergeCursorState<T> cursorState : allStates) {
-            final RecordCursorResult<T> result = cursorState.getResult();
+            // computeNextResultStates() only calls chooseStates() after whenAll() has completed, so getResult()
+            // is guaranteed to return something non-null here.
+            final RecordCursorResult<T> result = Objects.requireNonNull(cursorState.getResult());
             if (result.hasNext()) {
                 int compare;
                 final List<Object> resultKey = cursorState.getComparisonKey();
@@ -130,7 +133,7 @@ public class UnionCursor<T> extends UnionCursorBase<T, KeyedMergeCursorState<T>>
         }
     }
 
-    private void logDuplicates(@Nonnull List<?> chosenStates, long startTime) {
+    private void logDuplicates(List<?> chosenStates, long startTime) {
         if (chosenStates.isEmpty()) {
             throw new RecordCoreException("union with additional items had no next states");
         }
@@ -146,21 +149,19 @@ public class UnionCursor<T> extends UnionCursorBase<T, KeyedMergeCursorState<T>>
         }
     }
 
-    @Nonnull
-    protected static <T> List<KeyedMergeCursorState<T>> createCursorStates(@Nonnull Function<byte[], RecordCursor<T>> left,
-                                                                           @Nonnull Function<byte[], RecordCursor<T>> right,
+    protected static <T> List<KeyedMergeCursorState<T>> createCursorStates(Function<byte[], RecordCursor<T>> left,
+                                                                           Function<byte[], RecordCursor<T>> right,
                                                                            @Nullable byte[] byteContinuation,
-                                                                           @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction) {
+                                                                           Function<? super T, ? extends List<Object>> comparisonKeyFunction) {
         final UnionCursorContinuation continuation = UnionCursorContinuation.from(byteContinuation, 2);
         return ImmutableList.of(
                 KeyedMergeCursorState.from(left, continuation.getContinuations().get(0), comparisonKeyFunction),
                 KeyedMergeCursorState.from(right, continuation.getContinuations().get(1), comparisonKeyFunction));
     }
 
-    @Nonnull
-    protected static <T> List<KeyedMergeCursorState<T>> createCursorStates(@Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
+    protected static <T> List<KeyedMergeCursorState<T>> createCursorStates(List<Function<byte[], RecordCursor<T>>> cursorFunctions,
                                                                            @Nullable byte[] byteContinuation,
-                                                                           @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction) {
+                                                                           Function<? super T, ? extends List<Object>> comparisonKeyFunction) {
         final List<KeyedMergeCursorState<T>> cursorStates = new ArrayList<>(cursorFunctions.size());
         final UnionCursorContinuation continuation = UnionCursorContinuation.from(byteContinuation, cursorFunctions.size());
         int i = 0;
@@ -188,12 +189,11 @@ public class UnionCursor<T> extends UnionCursorBase<T, KeyedMergeCursorState<T>>
      * @return a cursor containing any records in any child cursors
      * @see #create(FDBRecordStoreBase, KeyExpression, boolean, List, byte[])
      */
-    @Nonnull
     public static <M extends Message, S extends FDBRecord<M>> UnionCursor<S> create(
-            @Nonnull FDBRecordStoreBase<M> store,
-            @Nonnull KeyExpression comparisonKey, boolean reverse,
-            @Nonnull Function<byte[], RecordCursor<S>> left,
-            @Nonnull Function<byte[], RecordCursor<S>> right,
+            FDBRecordStoreBase<M> store,
+            KeyExpression comparisonKey, boolean reverse,
+            Function<byte[], RecordCursor<S>> left,
+            Function<byte[], RecordCursor<S>> right,
             @Nullable byte[] continuation) {
         return create(
                 (S record) -> comparisonKey.evaluateSingleton(record).toTupleAppropriateList(),
@@ -215,12 +215,11 @@ public class UnionCursor<T> extends UnionCursorBase<T, KeyedMergeCursorState<T>>
      * @param <T> the type of elements returned by the cursor
      * @return a cursor containing all elements in both child cursors
      */
-    @Nonnull
     public static <T> UnionCursor<T> create(
-            @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
+            Function<? super T, ? extends List<Object>> comparisonKeyFunction,
             boolean reverse,
-            @Nonnull Function<byte[], RecordCursor<T>> left,
-            @Nonnull Function<byte[], RecordCursor<T>> right,
+            Function<byte[], RecordCursor<T>> left,
+            Function<byte[], RecordCursor<T>> right,
             @Nullable byte[] byteContinuation,
             @Nullable FDBStoreTimer timer) {
         final List<KeyedMergeCursorState<T>> cursorStates = createCursorStates(left, right, byteContinuation, comparisonKeyFunction);
@@ -244,11 +243,10 @@ public class UnionCursor<T> extends UnionCursorBase<T, KeyedMergeCursorState<T>>
      * @return a cursor containing any records in any child cursors
      * @see #create(Function, boolean, List, byte[], FDBStoreTimer)
      */
-    @Nonnull
     public static <M extends Message, S extends FDBRecord<M>> UnionCursor<S> create(
-            @Nonnull FDBRecordStoreBase<M> store,
-            @Nonnull KeyExpression comparisonKey, boolean reverse,
-            @Nonnull List<Function<byte[], RecordCursor<S>>> cursorFunctions,
+            FDBRecordStoreBase<M> store,
+            KeyExpression comparisonKey, boolean reverse,
+            List<Function<byte[], RecordCursor<S>>> cursorFunctions,
             @Nullable byte[] continuation) {
         return create(
                 (S record) -> comparisonKey.evaluateSingleton(record).toTupleAppropriateList(),
@@ -286,11 +284,10 @@ public class UnionCursor<T> extends UnionCursorBase<T, KeyedMergeCursorState<T>>
      * @param <T> the type of elements returned by this cursor
      * @return a cursor containing any records in any child cursors
      */
-    @Nonnull
     public static <T> UnionCursor<T> create(
-            @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
+            Function<? super T, ? extends List<Object>> comparisonKeyFunction,
             boolean reverse,
-            @Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
+            List<Function<byte[], RecordCursor<T>>> cursorFunctions,
             @Nullable byte[] byteContinuation,
             @Nullable FDBStoreTimer timer) {
         if (cursorFunctions.size() < 2) {

@@ -38,8 +38,8 @@ import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecede
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -54,26 +54,24 @@ import java.util.Set;
  */
 @API(API.Status.INTERNAL)
 public class InComparandSource extends InSource {
-    @Nonnull
     private static final ObjectPlanHash OBJECT_PLAN_HASH_IN_COMPARAND_SOURCE = new ObjectPlanHash("In-Comparand");
 
-    @Nonnull
     private final Comparisons.Comparison comparison;
 
-    protected InComparandSource(@Nonnull final PlanSerializationContext serializationContext,
-                                @Nonnull final PInComparandSource inComparandSource) {
+    protected InComparandSource(final PlanSerializationContext serializationContext,
+                                final PInComparandSource inComparandSource) {
         super(serializationContext, Objects.requireNonNull(inComparandSource.getSuper()));
         this.comparison = Comparisons.Comparison.fromComparisonProto(serializationContext,
                 Objects.requireNonNull(inComparandSource.getComparison()));
     }
 
-    public InComparandSource(@Nonnull final String bindingName, @Nonnull Comparisons.Comparison comparison) {
+    public InComparandSource(final String bindingName, Comparisons.Comparison comparison) {
         super(bindingName);
         this.comparison = comparison;
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, baseHash(mode, OBJECT_PLAN_HASH_IN_COMPARAND_SOURCE), comparison);
     }
 
@@ -87,7 +85,6 @@ public class InComparandSource extends InSource {
         return false;
     }
 
-    @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain() {
         return ExplainTokensWithPrecedence.of(
@@ -96,29 +93,27 @@ public class InComparandSource extends InSource {
     }
 
     @Override
-    protected int size(@Nonnull final EvaluationContext context) {
+    protected int size(final EvaluationContext context) {
         return getValues(context).size();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("unchecked")
     protected List<Object> getValues(@Nullable final EvaluationContext context) {
-        return (List<Object>)comparison.getComparand(null, context);
+        // comparison is always a list-valued comparison (e.g. ListComparison) for an IN source, whose
+        // getComparand() never actually returns null (only unbound parameter comparisons can).
+        return (List<Object>)Objects.requireNonNull(comparison.getComparand(null, context));
     }
 
-    @Nonnull
     @Override
-    public RecordQueryInJoinPlan toInJoinPlan(@Nonnull final Quantifier.Physical innerQuantifier) {
+    public RecordQueryInJoinPlan toInJoinPlan(final Quantifier.Physical innerQuantifier) {
         return new RecordQueryInComparandJoinPlan(innerQuantifier, this, Bindings.Internal.CORRELATION);
     }
 
-    @Nonnull
     public Comparisons.Comparison getComparison() {
         return comparison;
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return getBindingName() + " " + comparison;
@@ -145,39 +140,33 @@ public class InComparandSource extends InSource {
         return comparison.hashCode();
     }
 
-    @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public Message toProto(final PlanSerializationContext serializationContext) {
         return toInComparandSourceProto(serializationContext);
     }
 
-    @Nonnull
-    protected PInComparandSource toInComparandSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+    protected PInComparandSource toInComparandSourceProto(final PlanSerializationContext serializationContext) {
         return PInComparandSource.newBuilder()
                 .setSuper(toInSourceSuperProto(serializationContext))
                 .setComparison(comparison.toComparisonProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    protected PInSource toInSourceProto(@Nonnull final PlanSerializationContext serializationContext) {
+    protected PInSource toInSourceProto(final PlanSerializationContext serializationContext) {
         return PInSource.newBuilder().setInComparandSource(toInComparandSourceProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static InComparandSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final PInComparandSource inComparandSourceProto) {
+    public static InComparandSource fromProto(final PlanSerializationContext serializationContext,
+                                              final PInComparandSource inComparandSourceProto) {
         return new InComparandSource(serializationContext, inComparandSourceProto);
     }
 
-    @Nonnull
     @Override
     public Type getResultType() {
         return Objects.requireNonNull(comparison.getValue()).getResultType();
     }
 
-    @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
         return Objects.requireNonNull(comparison.getValue()).getDynamicTypes();
@@ -188,16 +177,14 @@ public class InComparandSource extends InSource {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PInComparandSource, InComparandSource> {
-        @Nonnull
         @Override
         public Class<PInComparandSource> getProtoMessageClass() {
             return PInComparandSource.class;
         }
 
-        @Nonnull
         @Override
-        public InComparandSource fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                           @Nonnull final PInComparandSource inComparandSourceProto) {
+        public InComparandSource fromProto(final PlanSerializationContext serializationContext,
+                                           final PInComparandSource inComparandSourceProto) {
             return InComparandSource.fromProto(serializationContext, inComparandSourceProto);
         }
     }

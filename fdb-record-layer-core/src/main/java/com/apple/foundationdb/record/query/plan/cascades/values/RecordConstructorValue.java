@@ -55,8 +55,7 @@ import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -73,26 +72,21 @@ import java.util.stream.StreamSupport;
 @API(API.Status.EXPERIMENTAL)
 public class RecordConstructorValue extends AbstractValue implements AggregateValue, CreatesDynamicTypesValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Constructor-Value");
-    @Nonnull
     private final Type.Record resultType;
-    @Nonnull
     protected final List<Column<? extends Value>> columns;
-    @Nonnull
     private final Supplier<Integer> hashCodeWithoutChildrenSupplier;
 
-    private RecordConstructorValue(@Nonnull final Collection<Column<? extends Value>> columns,
-                                   @Nonnull final Type.Record resultType) {
+    private RecordConstructorValue(final Collection<Column<? extends Value>> columns,
+                                   final Type.Record resultType) {
         this.resultType = resultType;
         this.columns = ImmutableList.copyOf(columns);
         this.hashCodeWithoutChildrenSupplier = Suppliers.memoize(this::computeHashCodeWithoutChildren);
     }
 
-    @Nonnull
     public List<Column<? extends Value>> getColumns() {
         return columns;
     }
 
-    @Nonnull
     @Override
     protected List<? extends Value> computeChildren() {
         return columns
@@ -101,7 +95,6 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                 .collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
     @Override
     public Type.Record getResultType() {
         return resultType;
@@ -109,7 +102,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         final var typeRepository = context.getTypeRepository();
         final var resultMessageBuilder = newMessageBuilderForType(typeRepository);
         final var descriptorForType = resultMessageBuilder.getDescriptorForType();
@@ -133,8 +126,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         return resultMessageBuilder.build();
     }
 
-    @Nonnull
-    private DynamicMessage.Builder newMessageBuilderForType(@Nonnull TypeRepository typeRepository) {
+    private DynamicMessage.Builder newMessageBuilderForType(TypeRepository typeRepository) {
         return Objects.requireNonNull(typeRepository.newMessageBuilder(getResultType()));
     }
 
@@ -156,8 +148,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
      */
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public static Object deepCopyIfNeeded(@Nonnull TypeRepository typeRepository,
-                                          @Nonnull final Type fieldType,
+    public static Object deepCopyIfNeeded(TypeRepository typeRepository,
+                                          final Type fieldType,
                                           @Nullable final Object field) {
         if (field == null) {
             return null;
@@ -210,7 +202,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         return MessageHelpers.deepCopyMessageIfNeeded(declaredDescriptor, message);
     }
 
-    private static Object protoObjectForPrimitive(@Nonnull Type type, @Nonnull Object field) {
+    private static Object protoObjectForPrimitive(Type type, Object field) {
         if (type.getTypeCode() == Type.TypeCode.BYTES) {
             if (field instanceof byte[]) {
                 // todo: we're a little inconsistent about whether the field should be byte[] or ByteString for BYTES fields
@@ -238,7 +230,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     }
     
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, columns);
     }
 
@@ -247,10 +239,9 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         return semanticHashCode();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.ForLoopCanBeForeach")
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var arguments = new ExplainTokens();
         int i = 0;
         for (final var iterator = explainSuppliers.iterator();
@@ -281,9 +272,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         if (hashCodeWithoutChildren() != other.hashCodeWithoutChildren()) { // as the hashcode is memoized
             return ConstrainedBoolean.falseValue();
         }
@@ -307,7 +297,6 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         return superEqualsWithoutChildren;
     }
 
-    @Nonnull
     @Override
     public RecordConstructorValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(columns.size() == Iterables.size(newChildren));
@@ -322,7 +311,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nullable
     @Override
-    public <M extends Message> Object evalToPartial(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object evalToPartial(final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         final List<Object> listOfPartials = Lists.newArrayList();
         for (final var child : getChildren()) {
             Verify.verify(child instanceof AggregateValue);
@@ -332,12 +321,10 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         return Collections.unmodifiableList(listOfPartials);
     }
 
-    @Nonnull
     @Override
-    public Accumulator createAccumulatorWithInitialState(final @Nonnull TypeRepository typeRepository, final @Nullable List<RecordCursorProto.AccumulatorState> initialState) {
+    public Accumulator createAccumulatorWithInitialState(final TypeRepository typeRepository, final @Nullable List<RecordCursorProto.AccumulatorState> initialState) {
         return new Accumulator() {
 
-            @Nonnull
             private final List<Accumulator> childAccumulators = buildAccumulators(initialState);
 
             @Override
@@ -355,7 +342,6 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                 }
             }
 
-            @Nonnull
             @Override
             public Object finish() {
                 final var resultMessageBuilder = newMessageBuilderForType(typeRepository);
@@ -379,7 +365,6 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                 return resultMessageBuilder.build();
             }
 
-            @Nonnull
             private List<Accumulator> buildAccumulators(@Nullable List<RecordCursorProto.AccumulatorState> initialState) {
                 List<Value> childrenAsList = new ArrayList<>();
                 getChildren().forEach(childrenAsList::add);
@@ -400,7 +385,6 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                 return childAccumulatorsBuilder.build();
             }
 
-            @Nonnull
             @Override
             public List<RecordCursorProto.AccumulatorState> getAccumulatorStates() {
                 List<RecordCursorProto.AccumulatorState> accumulatorStates = new ArrayList<>();
@@ -412,9 +396,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         };
     }
 
-    @Nonnull
     @Override
-    public PRecordConstructorValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordConstructorValue toProto(final PlanSerializationContext serializationContext) {
         PRecordConstructorValue.Builder builder = PRecordConstructorValue.newBuilder();
         for (final Column<? extends Value> column : columns) {
             builder.addColumns(column.toProto(serializationContext));
@@ -423,16 +406,14 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
+    public PValue toValueProto(PlanSerializationContext serializationContext) {
         final var specificValueProto = toProto(serializationContext);
         return PValue.newBuilder().setRecordConstructorValue(specificValueProto).build();
     }
 
-    @Nonnull
-    public static RecordConstructorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                   @Nonnull final PRecordConstructorValue recordConstructorValueProto) {
+    public static RecordConstructorValue fromProto(final PlanSerializationContext serializationContext,
+                                                   final PRecordConstructorValue recordConstructorValueProto) {
         final ImmutableList.Builder<Column<? extends Value>> columnsBuilder = ImmutableList.builder();
         for (int i = 0; i < recordConstructorValueProto.getColumnsCount(); i ++) {
             final PRecordConstructorValue.PColumn columnProto = recordConstructorValueProto.getColumns(i);
@@ -443,8 +424,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                 (Type.Record)Type.fromTypeProto(serializationContext, Objects.requireNonNull(recordConstructorValueProto.getResultType())));
     }
 
-    @Nonnull
-    private static Type.Record computeResultType(@Nonnull final Collection<Column<? extends Value>> columns,
+    private static Type.Record computeResultType(final Collection<Column<? extends Value>> columns,
                                                  final boolean isNullable) {
         final var fields = columns.stream()
                 .map(Column::getField)
@@ -452,9 +432,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         return Type.Record.fromFields(isNullable, fields);
     }
 
-    @Nonnull
-    private static List<Column<? extends Value>> resolveColumns(@Nonnull final Type.Record recordType,
-                                                                @Nonnull final Collection<Column<? extends Value>> columns) {
+    private static List<Column<? extends Value>> resolveColumns(final Type.Record recordType,
+                                                                final Collection<Column<? extends Value>> columns) {
         final var fields = recordType.getFields();
         Verify.verify(fields.size() == columns.size());
 
@@ -468,31 +447,26 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         return resolvedColumnsBuilder.build();
     }
 
-    @Nonnull
-    public static RecordConstructorValue ofColumns(@Nonnull final Collection<Column<? extends Value>> columns) {
+    public static RecordConstructorValue ofColumns(final Collection<Column<? extends Value>> columns) {
         return ofColumnsAndResolvedType(columns, computeResultType(columns, false));
     }
 
-    @Nonnull
-    public static RecordConstructorValue ofColumns(@Nonnull final Collection<Column<? extends Value>> columns,
+    public static RecordConstructorValue ofColumns(final Collection<Column<? extends Value>> columns,
                                                    final boolean isNullable) {
         return ofColumnsAndResolvedType(columns, computeResultType(columns, isNullable));
     }
 
-    @Nonnull
-    public static RecordConstructorValue ofColumnsAndName(@Nonnull final Collection<Column<? extends Value>> columns,
-                                                          @Nonnull final String name) {
+    public static RecordConstructorValue ofColumnsAndName(final Collection<Column<? extends Value>> columns,
+                                                          final String name) {
         return ofColumnsAndResolvedType(columns, computeResultType(columns, false).withName(name));
     }
 
-    @Nonnull
-    private static RecordConstructorValue ofColumnsAndResolvedType(@Nonnull final Collection<Column<? extends Value>> columns,
-                                                                   @Nonnull final Type.Record resolvedResultType) {
+    private static RecordConstructorValue ofColumnsAndResolvedType(final Collection<Column<? extends Value>> columns,
+                                                                   final Type.Record resolvedResultType) {
         return new RecordConstructorValue(resolveColumns(resolvedResultType, columns), resolvedResultType);
     }
 
-    @Nonnull
-    public static RecordConstructorValue ofUnnamed(@Nonnull final Collection<? extends Value> arguments) {
+    public static RecordConstructorValue ofUnnamed(final Collection<? extends Value> arguments) {
         final List<Column<? extends Value>> columns =
                 arguments.stream()
                         .map(Column::unnamedOf)
@@ -510,8 +484,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                     ImmutableList.of(), new Type.Any(), (builtInFunction, arguments) -> encapsulateInternal(arguments.getArgumentsList()));
         }
 
-        @Nonnull
-        private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
+        private static Value encapsulateInternal(final List<? extends Typed> arguments) {
             final List<Column<? extends Value>> namedArguments =
                     arguments.stream()
                             .map(typed -> (Value)typed)
@@ -526,16 +499,14 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordConstructorValue, RecordConstructorValue> {
-        @Nonnull
         @Override
         public Class<PRecordConstructorValue> getProtoMessageClass() {
             return PRecordConstructorValue.class;
         }
 
-        @Nonnull
         @Override
-        public RecordConstructorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PRecordConstructorValue recordConstructorValueProto) {
+        public RecordConstructorValue fromProto(final PlanSerializationContext serializationContext,
+                                                final PRecordConstructorValue recordConstructorValueProto) {
             return RecordConstructorValue.fromProto(serializationContext, recordConstructorValueProto);
         }
     }

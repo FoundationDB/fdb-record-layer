@@ -24,8 +24,7 @@ import com.apple.foundationdb.Transaction;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -55,6 +54,9 @@ class TaskEventRegisterTest {
     }
 
     @Test
+    // null transaction is intentional here (see class javadoc): the composed register only forwards
+    // whatever it is given, so this test never touches the transaction itself.
+    @SuppressWarnings("NullAway")
     void varargsComposeForwardsToFirstThenAdditionalInOrder() {
         final List<String> log = new ArrayList<>();
         final TaskEventRegister a = new RecordingRegister("a", log);
@@ -71,6 +73,9 @@ class TaskEventRegisterTest {
     }
 
     @Test
+    // null transaction is intentional here (see class javadoc): the composed register only forwards
+    // whatever it is given, so this test never touches the transaction itself.
+    @SuppressWarnings("NullAway")
     void listComposeForwardsToEveryRegisterInOrder() {
         final List<String> log = new ArrayList<>();
         final TaskEventRegister composed = TaskEventRegister.compose(
@@ -84,12 +89,10 @@ class TaskEventRegisterTest {
 
     /** A register that appends {@code label:enqueued}/{@code label:executed} to a shared log as it is notified. */
     private static final class RecordingRegister implements TaskEventRegister {
-        @Nonnull
         private final String label;
-        @Nonnull
         private final List<String> log;
 
-        RecordingRegister(@Nonnull final String label, @Nonnull final List<String> log) {
+        RecordingRegister(final String label, final List<String> log) {
             this.label = label;
             this.log = log;
         }

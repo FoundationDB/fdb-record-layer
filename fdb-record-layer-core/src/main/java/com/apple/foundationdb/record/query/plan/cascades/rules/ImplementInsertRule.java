@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
@@ -45,17 +44,14 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementInsertRule extends AbstractCascadesRule<InsertExpression> implements ImplementationCascadesRule<InsertExpression> {
-    @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = anyPlanPartition();
 
-    @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
             planPartitions(any(innerPlanPartitionMatcher));
 
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher =
             forEachQuantifierOverRef(innerReferenceMatcher);
 
-    @Nonnull
     private static final BindingMatcher<InsertExpression> root =
             insertExpression(innerQuantifierMatcher);
 
@@ -64,7 +60,7 @@ public class ImplementInsertRule extends AbstractCascadesRule<InsertExpression> 
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
         final var innerReference = call.get(innerReferenceMatcher);
         final var innerQuantifier = call.get(innerQuantifierMatcher);

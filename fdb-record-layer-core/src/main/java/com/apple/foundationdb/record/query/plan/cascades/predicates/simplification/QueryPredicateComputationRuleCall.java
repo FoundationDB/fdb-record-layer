@@ -31,8 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -47,19 +46,18 @@ public class QueryPredicateComputationRuleCall<ARGUMENT, RESULT> extends Abstrac
     @Nullable
     private final ARGUMENT argument;
 
-    @Nonnull
     private final Function<QueryPredicate, NonnullPair<QueryPredicate, RESULT>> retrieveResultFunction;
 
-    public QueryPredicateComputationRuleCall(@Nonnull final PlannerRule<QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, ? extends QueryPredicate> rule,
-                                             @Nonnull final QueryPredicate root,
-                                             @Nonnull final QueryPredicate current,
-                                             @Nonnull final EvaluationContext evaluationContext,
+    public QueryPredicateComputationRuleCall(final PlannerRule<QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, ? extends QueryPredicate> rule,
+                                             final QueryPredicate root,
+                                             final QueryPredicate current,
+                                             final EvaluationContext evaluationContext,
                                              @Nullable final ARGUMENT argument,
-                                             @Nonnull final PlannerBindings bindings,
-                                             @Nonnull final AliasMap aliasMap,
-                                             @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                             @Nonnull final Function<QueryPredicate, QueryPlanConstraint> retrieveQueryPlanConstraintFunction,
-                                             @Nonnull final Function<QueryPredicate, NonnullPair<QueryPredicate, RESULT>> retrieveResultFunction) {
+                                             final PlannerBindings bindings,
+                                             final AliasMap aliasMap,
+                                             final Set<CorrelationIdentifier> constantAliases,
+                                             final Function<QueryPredicate, QueryPlanConstraint> retrieveQueryPlanConstraintFunction,
+                                             final Function<QueryPredicate, NonnullPair<QueryPredicate, RESULT>> retrieveResultFunction) {
         super(rule, root, current, evaluationContext, bindings, aliasMap, constantAliases,
                 retrieveQueryPlanConstraintFunction);
         this.argument = argument;
@@ -72,7 +70,7 @@ public class QueryPredicateComputationRuleCall<ARGUMENT, RESULT> extends Abstrac
     }
 
     @Nullable
-    public Pair<QueryPredicate, RESULT> getResult(@Nonnull final QueryPredicate predicate) {
+    public Pair<QueryPredicate, RESULT> getResult(final QueryPredicate predicate) {
         return retrieveResultFunction.apply(predicate);
     }
 }

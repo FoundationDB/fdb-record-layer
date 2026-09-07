@@ -31,8 +31,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexFunctionHelper;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -46,29 +46,26 @@ import java.util.concurrent.CompletableFuture;
 public class QueryRecordFunction<T> implements PlanHashable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Query-Record-Function");
 
-    @Nonnull
     private final RecordFunction<T> function;
     @Nullable
     private final QueryComponent additionalCondition;
     @Nullable
     private RecordFunction<T> evalFunction;
 
-    public QueryRecordFunction(@Nonnull RecordFunction<T> function, @Nullable final QueryComponent additionalCondition) {
+    public QueryRecordFunction(RecordFunction<T> function, @Nullable final QueryComponent additionalCondition) {
         this.function = function;
         this.additionalCondition = additionalCondition;
     }
 
-    public QueryRecordFunction(@Nonnull RecordFunction<T> function) {
+    public QueryRecordFunction(RecordFunction<T> function) {
         this(function, null);
     }
 
-    @Nonnull
     public RecordFunction<T> getFunction() {
         return function;
     }
 
-    @Nonnull
-    public QueryRecordFunction<T> withFunction(@Nonnull RecordFunction<T> function) {
+    public QueryRecordFunction<T> withFunction(RecordFunction<T> function) {
         return new QueryRecordFunction<>(function, additionalCondition);
     }
 
@@ -77,13 +74,11 @@ public class QueryRecordFunction<T> implements PlanHashable {
         return additionalCondition;
     }
 
-    @Nonnull
-    public QueryRecordFunction<T> withAdditionalCondition(@Nonnull QueryComponent additionalCondition) {
+    public QueryRecordFunction<T> withAdditionalCondition(QueryComponent additionalCondition) {
         return new QueryRecordFunction<>(function, and(additionalCondition));
     }
 
-    @Nonnull
-    private  QueryComponent and(@Nonnull QueryComponent condition) {
+    private  QueryComponent and(QueryComponent condition) {
         if (additionalCondition == null) {
             return condition;
         } else if (additionalCondition instanceof AndComponent) {
@@ -102,8 +97,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
      * @param comparand the object to compare with the value in the calculated value
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent equalsValue(@Nonnull Object comparand) {
+    public QueryComponent equalsValue(Object comparand) {
         return withComparison(Comparisons.Type.EQUALS, comparand);
     }
 
@@ -112,8 +106,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
      * @param comparand the object to compare with the value in the calculated value
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent notEquals(@Nonnull Object comparand) {
+    public QueryComponent notEquals(Object comparand) {
         return withComparison(Comparisons.Type.NOT_EQUALS, comparand);
     }
 
@@ -122,8 +115,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
      * @param comparand the object to compare with the value in the calculated value
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent greaterThan(@Nonnull Object comparand) {
+    public QueryComponent greaterThan(Object comparand) {
         return withComparison(Comparisons.Type.GREATER_THAN, comparand);
     }
 
@@ -132,8 +124,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
      * @param comparand the object to compare with the value in the calculated value
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent greaterThanOrEquals(@Nonnull Object comparand) {
+    public QueryComponent greaterThanOrEquals(Object comparand) {
         return withComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, comparand);
     }
 
@@ -142,8 +133,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
      * @param comparand the object to compare with the value in the calculated value
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent lessThan(@Nonnull Object comparand) {
+    public QueryComponent lessThan(Object comparand) {
         return withComparison(Comparisons.Type.LESS_THAN, comparand);
     }
 
@@ -152,8 +142,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
      * @param comparand the object to compare with the value in the calculated value
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent lessThanOrEquals(@Nonnull Object comparand) {
+    public QueryComponent lessThanOrEquals(Object comparand) {
         return withComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, comparand);
     }
 
@@ -163,8 +152,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
      * @param comparand a list of elements
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent in(@Nonnull List<?> comparand) {
+    public QueryComponent in(List<?> comparand) {
         return withComparison(new Comparisons.ListComparison(Comparisons.Type.IN, comparand));
     }
 
@@ -173,27 +161,23 @@ public class QueryRecordFunction<T> implements PlanHashable {
      * @param param a param that will be bound to a list in the execution context
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent in(@Nonnull String param) {
+    public QueryComponent in(String param) {
         return withParameterComparison(Comparisons.Type.IN, param);
     }
 
-    @Nonnull
-    public QueryComponent withComparison(@Nonnull Comparisons.Comparison comparison) {
+    public QueryComponent withComparison(Comparisons.Comparison comparison) {
         return and(new QueryRecordFunctionWithComparison(function, comparison));
     }
 
-    @Nonnull
-    public QueryComponent withComparison(@Nonnull Comparisons.Type type, @Nonnull Object comparand) {
+    public QueryComponent withComparison(Comparisons.Type type, Object comparand) {
         return withComparison(new Comparisons.SimpleComparison(type, comparand));
     }
 
-    @Nonnull
-    public QueryComponent withParameterComparison(@Nonnull Comparisons.Type type, String parameter) {
+    public QueryComponent withParameterComparison(Comparisons.Type type, String parameter) {
         return withComparison(new Comparisons.ParameterComparison(type, parameter));
     }
 
-    public <M extends Message> CompletableFuture<T> eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBStoredRecord<M> record) {
+    public <M extends Message> CompletableFuture<T> eval(FDBRecordStoreBase<M> store, EvaluationContext context, @Nullable FDBStoredRecord<M> record) {
         if (record == null) {
             return CompletableFuture.completedFuture(null);
         }
@@ -227,7 +211,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return function.planHash(mode);

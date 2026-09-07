@@ -31,8 +31,8 @@ import com.google.common.graph.MutableNetwork;
 import com.google.common.graph.Network;
 import com.google.common.graph.NetworkBuilder;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayDeque;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -55,13 +55,11 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
     /**
      * The root of this graph.
      */
-    @Nonnull
     private final N root;
 
     /**
      * The underlying network graph representation.
      */
-    @Nonnull
     private final ImmutableNetwork<N, E> network;
 
     /**
@@ -78,12 +76,10 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
      * @param <B> self type for subclass builders
      */
     public abstract static class PlannerGraphBuilder<N extends AbstractNode, E extends AbstractEdge, B extends AbstractPlannerGraph<N, E>> {
-        @Nonnull
         final N root;
-        @Nonnull
         final MutableNetwork<N, E> network;
 
-        protected PlannerGraphBuilder(@Nonnull final N root) {
+        protected PlannerGraphBuilder(final N root) {
             this.root = root;
             this.network =
                     NetworkBuilder.directed()
@@ -93,37 +89,32 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
             network.addNode(root);
         }
 
-        protected PlannerGraphBuilder(@Nonnull final AbstractPlannerGraph<N, E> original) {
+        protected PlannerGraphBuilder(final AbstractPlannerGraph<N, E> original) {
             this.root = original.getRoot();
             this.network = Graphs.copyOf(original.getNetwork());
         }
 
-        @Nonnull
         public N getRoot() {
             return root;
         }
 
-        @Nonnull
         public MutableNetwork<N, E> getNetwork() {
             return network;
         }
 
-        @Nonnull
-        public PlannerGraphBuilder<N, E, B> addNode(@Nonnull final N node) {
+        public PlannerGraphBuilder<N, E, B> addNode(final N node) {
             network.addNode(node);
             return this;
         }
 
-        @Nonnull
-        public PlannerGraphBuilder<N, E, B> addEdge(@Nonnull final N source,
-                                                    @Nonnull final N target,
-                                                    @Nonnull final E edge) {
+        public PlannerGraphBuilder<N, E, B> addEdge(final N source,
+                                                    final N target,
+                                                    final E edge) {
             network.addEdge(source, target, edge);
             return this;
         }
 
-        @Nonnull
-        public PlannerGraphBuilder<N, E, B> addGraph(@Nonnull final AbstractPlannerGraph<N, E> other) {
+        public PlannerGraphBuilder<N, E, B> addGraph(final AbstractPlannerGraph<N, E> other) {
             final ImmutableNetwork<N, E> otherNetwork = other.network;
 
             // Starting from the root node, stop at any edge that leads to a node that is already in this network using
@@ -150,7 +141,6 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
             return this;
         }
 
-        @Nonnull
         public abstract B build();
     }
 
@@ -158,16 +148,14 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
      * Node class functioning as parent for all nodes in the network.
      */
     public abstract static class AbstractNode {
-        @Nonnull
         final Object identity;
 
-        @Nonnull
         final String name;
         @Nullable
         final List<String> details;
 
         @SuppressWarnings("unused") // used in clients
-        protected AbstractNode(@Nonnull final Object identity, @Nonnull final String name) {
+        protected AbstractNode(final Object identity, final String name) {
             this(identity, name, null);
         }
 
@@ -180,7 +168,7 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
          *        to construct the label of the node depending on the exporter. This parameter is {@code Nullable}. If
          *        null, the label is omitted. If empty, it creates an empty list if the target format supports lists.
          */
-        protected AbstractNode(@Nonnull final Object identity, @Nonnull final String name, @Nullable final List<String> details) {
+        protected AbstractNode(final Object identity, final String name, @Nullable final List<String> details) {
             this.identity = identity;
             this.name = name;
             this.details = details == null
@@ -188,12 +176,10 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
                            : ImmutableList.copyOf(details);
         }
 
-        @Nonnull
         public Object getIdentity() {
             return identity;
         }
 
-        @Nonnull
         public String getName() {
             return name;
         }
@@ -203,7 +189,6 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
             return details;
         }
 
-        @Nonnull
         public abstract Map<String, Attribute> getAttributes();
 
         @Override
@@ -239,15 +224,14 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
          * The dependsOn set is the set of other sibling edges of this edge this edge depends on. This
          * is important for modelling things like join-order.
          */
-        @Nonnull
         private final ImmutableSet<? extends AbstractEdge> dependsOn;
 
         @SuppressWarnings("unused")
-        protected AbstractEdge(@Nonnull final Set<? extends AbstractEdge> dependsOn) {
+        protected AbstractEdge(final Set<? extends AbstractEdge> dependsOn) {
             this(null, dependsOn);
         }
 
-        protected AbstractEdge(@Nullable final String label, @Nonnull final Set<? extends AbstractEdge> dependsOn) {
+        protected AbstractEdge(@Nullable final String label, final Set<? extends AbstractEdge> dependsOn) {
             this.label = label;
             this.dependsOn = ImmutableSet.copyOf(dependsOn);
         }
@@ -257,12 +241,10 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
             return label;
         }
 
-        @Nonnull
         public Set<? extends AbstractEdge> getDependsOn() {
             return dependsOn;
         }
 
-        @Nonnull
         public abstract Map<String, Attribute> getAttributes();
     }
 
@@ -271,8 +253,8 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
      * @param root root of this graph
      * @param network a network describing the query execution plan rooted at {@code root}
      */
-    protected AbstractPlannerGraph(@Nonnull final N root,
-                                   @Nonnull final Network<N, E> network) {
+    protected AbstractPlannerGraph(final N root,
+                                   final Network<N, E> network) {
         this.root = root;
         final MutableNetwork<AbstractNode, AbstractEdge> mutableNetwork =
                 NetworkBuilder.directed()
@@ -291,12 +273,10 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
                 });
     }
 
-    @Nonnull
     public N getRoot() {
         return root;
     }
 
-    @Nonnull
     public ImmutableNetwork<N, E> getNetwork() {
         return network;
     }

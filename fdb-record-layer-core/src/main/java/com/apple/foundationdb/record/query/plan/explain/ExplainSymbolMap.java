@@ -22,18 +22,17 @@ package com.apple.foundationdb.record.query.plan.explain;
 
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Interface for simple symbol maps for the purpose of mapping an alias as supplied by the planner to a human-readable
  * string symbol.
  */
 public interface ExplainSymbolMap {
-    void registerAlias(@Nonnull CorrelationIdentifier alias);
+    void registerAlias(CorrelationIdentifier alias);
 
-    void registerAliasWithExplicitSymbol(@Nonnull CorrelationIdentifier alias, @Nonnull String symbol);
+    void registerAliasWithExplicitSymbol(CorrelationIdentifier alias, String symbol);
 
     @Nullable
-    String getSymbolForAlias(@Nonnull CorrelationIdentifier alias);
+    String getSymbolForAlias(CorrelationIdentifier alias);
 }

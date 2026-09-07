@@ -36,8 +36,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -161,10 +160,8 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
      * contain a nested message field that has one field for all of the constituents (except for the parent constituent)
      * containing the index of that constituent within the nesting from its parent.
      */
-    @Nonnull
     public static final String POSITIONS_FIELD = "__positions";
 
-    @Nonnull
     private final NestedConstituent parentConstituent;
 
     /**
@@ -176,12 +173,11 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
     public static class NestedConstituent extends SyntheticRecordType.Constituent {
         @Nullable
         private final NestedConstituent parent;
-        @Nonnull
         private final KeyExpression nestingExpression;
 
-        NestedConstituent(@Nonnull final String name, @Nonnull final RecordType recordType,
+        NestedConstituent(final String name, final RecordType recordType,
                                     @Nullable final NestedConstituent parent,
-                                    @Nonnull KeyExpression nestingExpression) {
+                                    KeyExpression nestingExpression) {
             super(name, recordType);
             this.parent = parent;
             this.nestingExpression = nestingExpression;
@@ -215,7 +211,6 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
          *
          * @return an expression linking the parent constituent to this constituent
          */
-        @Nonnull
         public KeyExpression getNestingExpression() {
             return nestingExpression;
         }
@@ -234,13 +229,13 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
     }
 
     @SuppressWarnings("squid:S107") // allow more constructor parameters as builder for type exists
-    protected UnnestedRecordType(@Nonnull final RecordMetaData metaData,
-                                 @Nonnull final Descriptors.Descriptor descriptor,
-                                 @Nonnull final KeyExpression primaryKey,
-                                 @Nonnull final Object recordTypeKey,
-                                 @Nonnull final List<Index> indexes,
-                                 @Nonnull final List<Index> multiTypeIndexes,
-                                 @Nonnull final List<NestedConstituent> constituents) {
+    protected UnnestedRecordType(final RecordMetaData metaData,
+                                 final Descriptors.Descriptor descriptor,
+                                 final KeyExpression primaryKey,
+                                 final Object recordTypeKey,
+                                 final List<Index> indexes,
+                                 final List<Index> multiTypeIndexes,
+                                 final List<NestedConstituent> constituents) {
         super(metaData, descriptor, primaryKey, recordTypeKey, indexes, multiTypeIndexes, constituents);
         this.parentConstituent = constituents.stream()
                 .filter(NestedConstituent::isParent)
@@ -255,15 +250,13 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
      *
      * @return the parent constituent of this type
      */
-    @Nonnull
     public NestedConstituent getParentConstituent() {
         return parentConstituent;
     }
 
     @Override
-    @Nonnull
     @API(API.Status.INTERNAL)
-    public CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(@Nonnull final FDBRecordStore store, @Nonnull final Tuple primaryKey, IndexOrphanBehavior orphanBehavior) {
+    public CompletableFuture<FDBSyntheticRecord> loadByPrimaryKeyAsync(final FDBRecordStore store, final Tuple primaryKey, IndexOrphanBehavior orphanBehavior) {
         Tuple parentPrimaryKey = primaryKey.getNestedTuple(1);
         return store.loadRecordAsync(parentPrimaryKey).thenApply(storedRecord -> {
             if (storedRecord == null) {
@@ -309,7 +302,7 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
                             }
                         }
                         Key.Evaluated childElem = childElems.get(childElemIndex);
-                        Message childMessage = childElem.getObject(0, Message.class);
+                        Message childMessage = Objects.requireNonNull(childElem.getObject(0, Message.class));
                         FDBStoredRecord<?> childRecord = FDBStoredRecord.newBuilder()
                                 .setRecordType(constituent.getRecordType())
                                 .setRecord(childMessage)
@@ -330,7 +323,6 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
      *
      * @return a protobuf serialization of this type
      */
-    @Nonnull
     public RecordMetaDataProto.UnnestedRecordType toProto() {
         var builder = RecordMetaDataProto.UnnestedRecordType.newBuilder()
                 .setName(getName())

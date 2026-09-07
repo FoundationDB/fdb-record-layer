@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.provider.common.text;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexMaintainer;
 
-import javax.annotation.Nonnull;
-
 /**
  * Each implementation of {@link TextTokenizer} should have its own implementation
  * of this factory interface to provide instances of the tokenizer to a
@@ -42,7 +40,6 @@ public interface TextTokenizerFactory {
      *
      * @return the name of the tokenizer that this factory creates
      */
-    @Nonnull
     String getName();
 
     /**
@@ -51,6 +48,5 @@ public interface TextTokenizerFactory {
      *
      * @return an instance of the tokenizer that this factory creates
      */
-    @Nonnull
     TextTokenizer getTokenizer();
 }

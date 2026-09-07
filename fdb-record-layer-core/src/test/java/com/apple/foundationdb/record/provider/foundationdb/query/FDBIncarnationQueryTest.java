@@ -128,21 +128,21 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
             AtomicReference<RecordCursorContinuation> continuation = new AtomicReference<>(null);
 
             assertEquals(List.of(100, 100, 100), selectAndAssertIncarnations(plan, evalContext, continuation, 3));
-            assertFalse(continuation.get().isEnd());
+            assertFalse(Objects.requireNonNull(continuation.get()).isEnd());
 
             // Change incarnation before second batch
             recordStore.updateIncarnation(current -> 200).join();
 
             assertEquals(List.of(200, 200, 200), selectAndAssertIncarnations(plan, evalContext, continuation, 3));
-            assertFalse(continuation.get().isEnd());
+            assertFalse(Objects.requireNonNull(continuation.get()).isEnd());
 
             assertEquals(List.of(200, 200, 200), selectAndAssertIncarnations(plan, evalContext, continuation, 3));
-            assertFalse(continuation.get().isEnd());
+            assertFalse(Objects.requireNonNull(continuation.get()).isEnd());
 
             recordStore.updateIncarnation(current -> 300).join();
 
             assertEquals(List.of(300), selectAndAssertIncarnations(plan, evalContext, continuation, 5));
-            assertTrue(continuation.get().isEnd());
+            assertTrue(Objects.requireNonNull(continuation.get()).isEnd());
         }
     }
 
@@ -191,6 +191,9 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the executePlan call site below.
+    @SuppressWarnings("NullAway")
     void updateWithIncarnation() {
         try (FDBRecordContext context = openContext()) {
             openStore(context);
@@ -230,7 +233,7 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
                 }
                 for (int i = 0; i < 3; i++) {
                     final MySimpleRecord rec = MySimpleRecord.newBuilder()
-                            .mergeFrom(recordStore.loadRecord(Tuple.from(i)).getRecord())
+                            .mergeFrom(Objects.requireNonNull(recordStore.loadRecord(Tuple.from(i))).getRecord())
                             .build();
                     assertEquals((int)incarnation, rec.getNumValue2());
                 }
@@ -311,6 +314,9 @@ public class FDBIncarnationQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
+    // NullAway/JSpecify does not reliably track @Nullable on the byte[] result of the ternary
+    // below, even though it is already null-checked, when passed as executePlan()'s continuation.
+    @SuppressWarnings("NullAway")
     private List<Integer> selectAndAssertIncarnations(final RecordQueryPlan plan,
                                                       final EvaluationContext evalContext,
                                                       final AtomicReference<RecordCursorContinuation> continuation,

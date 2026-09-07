@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Set;
 
@@ -40,15 +39,14 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
 public abstract class ValueComputationRuleSet<A, R> extends AbstractValueRuleSet<NonnullPair<Value, R>, ValueComputationRuleCall<A, R>> {
-    public ValueComputationRuleSet(@Nonnull final Set<? extends AbstractValueRule<NonnullPair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>> abstractValueSimplificationRules,
-                                   @Nonnull final SetMultimap<? extends AbstractValueRule<NonnullPair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>, ? extends AbstractValueRule<NonnullPair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>> dependsOn) {
+    public ValueComputationRuleSet(final Set<? extends AbstractValueRule<NonnullPair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>> abstractValueSimplificationRules,
+                                   final SetMultimap<? extends AbstractValueRule<NonnullPair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>, ? extends AbstractValueRule<NonnullPair<Value, R>, ValueComputationRuleCall<A, R>, ? extends Value>> dependsOn) {
         super(abstractValueSimplificationRules, dependsOn);
     }
 
-    @Nonnull
-    static <A, R> TransformedRules<A, R> fromSimplificationRules(@Nonnull final Set<ValueSimplificationRule<? extends Value>> simplificationRules,
-                                                                 @Nonnull final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> simplificationDependsOn,
-                                                                 @Nonnull final ValueComputationRule.OnMatchComputationFunction<A, R> computationFunction) {
+    static <A, R> TransformedRules<A, R> fromSimplificationRules(final Set<ValueSimplificationRule<? extends Value>> simplificationRules,
+                                                                 final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> simplificationDependsOn,
+                                                                 final ValueComputationRule.OnMatchComputationFunction<A, R> computationFunction) {
         final var simplificationToComputationRulesMap =
                 new LinkedIdentityMap<ValueSimplificationRule<? extends Value>, ValueComputationRule<A, R, ? extends Value>>();
         for (final var simplificationRule : simplificationRules) {
@@ -77,23 +75,18 @@ public abstract class ValueComputationRuleSet<A, R> extends AbstractValueRuleSet
      * @param <R> result type parameter
      */
     public static class TransformedRules<A, R> {
-        @Nonnull
         private final Set<ValueSimplificationRule<? extends Value>> simplificationRules;
-        @Nonnull
         private final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> simplificationDependsOn;
-        @Nonnull
         private final Set<ValueComputationRule<A, R, ? extends Value>> computationRules;
-        @Nonnull
         private final SetMultimap<ValueComputationRule<A, R, ? extends Value>, ValueComputationRule<A, R, ? extends Value>> computationDependsOn;
 
-        @Nonnull
         private final LinkedIdentityMap<ValueSimplificationRule<? extends Value>, ValueComputationRule<A, R, ? extends Value>> simplificationToComputationRulesMap;
 
-        public TransformedRules(@Nonnull final Set<ValueSimplificationRule<? extends Value>> simplificationRules,
-                                @Nonnull final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> simplificationDependsOn,
-                                @Nonnull final Set<ValueComputationRule<A, R, ? extends Value>> computationRules,
-                                @Nonnull final SetMultimap<ValueComputationRule<A, R, ? extends Value>, ValueComputationRule<A, R, ? extends Value>> computationDependsOn,
-                                @Nonnull final LinkedIdentityMap<ValueSimplificationRule<? extends Value>, ValueComputationRule<A, R, ? extends Value>> simplificationToComputationRulesMap) {
+        public TransformedRules(final Set<ValueSimplificationRule<? extends Value>> simplificationRules,
+                                final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> simplificationDependsOn,
+                                final Set<ValueComputationRule<A, R, ? extends Value>> computationRules,
+                                final SetMultimap<ValueComputationRule<A, R, ? extends Value>, ValueComputationRule<A, R, ? extends Value>> computationDependsOn,
+                                final LinkedIdentityMap<ValueSimplificationRule<? extends Value>, ValueComputationRule<A, R, ? extends Value>> simplificationToComputationRulesMap) {
             this.simplificationRules = simplificationRules;
             this.simplificationDependsOn = simplificationDependsOn;
             this.computationRules = computationRules;
@@ -101,22 +94,18 @@ public abstract class ValueComputationRuleSet<A, R> extends AbstractValueRuleSet
             this.simplificationToComputationRulesMap = simplificationToComputationRulesMap;
         }
 
-        @Nonnull
         public Set<ValueSimplificationRule<? extends Value>> getSimplificationRules() {
             return simplificationRules;
         }
 
-        @Nonnull
         public SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> getSimplificationDependsOn() {
             return simplificationDependsOn;
         }
 
-        @Nonnull
         public Set<ValueComputationRule<A, R, ? extends Value>> getComputationRules() {
             return computationRules;
         }
 
-        @Nonnull
         public SetMultimap<ValueComputationRule<A, R, ? extends Value>, ValueComputationRule<A, R, ? extends Value>> getComputationDependsOn() {
             return computationDependsOn;
         }

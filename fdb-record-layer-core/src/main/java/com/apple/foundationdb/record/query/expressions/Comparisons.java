@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.record.Bindings;
+import com.apple.foundationdb.record.Bindings.Internal;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -86,12 +87,12 @@ import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
-import com.google.protobuf.Internal;
+import com.google.protobuf.Internal.EnumLite;
 import com.google.protobuf.Message;
 import com.google.protobuf.ProtocolMessageEnum;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -124,15 +125,14 @@ public class Comparisons {
     // other instances of UnsignedBytes, which is useful for comparisons consistent
     // with those done on byte arrays by the underlying database.
     private static class UnsignedBytes implements Comparable<UnsignedBytes> {
-        @Nonnull
         private byte[] data;
 
-        public UnsignedBytes(@Nonnull byte[] data) {
+        public UnsignedBytes(byte[] data) {
             this.data = data;
         }
 
         @Override
-        public int compareTo(@Nonnull UnsignedBytes other) {
+        public int compareTo(UnsignedBytes other) {
             return ByteArrayUtil.compareUnsigned(data, other.data);
         }
 
@@ -185,7 +185,7 @@ public class Comparisons {
         }
 
         @Override
-        public int compareTo(@Nonnull UnsignedUUID that) {
+        public int compareTo(UnsignedUUID that) {
             int msbCompare = Long.compareUnsigned(this.mostSignificantBits, that.mostSignificantBits);
             if (msbCompare != 0) {
                 return msbCompare;
@@ -195,18 +195,16 @@ public class Comparisons {
     }
 
     @SuppressWarnings("rawtypes")
-    private static Comparable toComparable(@Nullable Object obj) {
-        if (obj == null) {
-            return null;
-        } else if (obj instanceof ByteString) {
+    private static Comparable toComparable(Object obj) {
+        if (obj instanceof ByteString) {
             return new UnsignedBytes(((ByteString) obj).toByteArray());
         } else if (obj instanceof byte[]) {
             return new UnsignedBytes((byte[])obj);
         } else if (obj instanceof UUID) {
             UUID uuid = (UUID)obj;
             return new UnsignedUUID(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
-        } else if (obj instanceof Internal.EnumLite) {
-            return ((Internal.EnumLite)obj).getNumber();
+        } else if (obj instanceof EnumLite) {
+            return ((EnumLite)obj).getNumber();
         } else if (obj instanceof Comparable) {
             return (Comparable) obj;
         } else {
@@ -214,14 +212,13 @@ public class Comparisons {
         }
     }
 
-    @Nonnull
-    public static Object toClassWithRealEquals(@Nonnull Object obj) {
+    public static Object toClassWithRealEquals(Object obj) {
         if (obj instanceof ByteString) {
             return obj;
         } else if (obj instanceof byte[]) {
             return ByteString.copyFrom((byte[])obj);
-        } else if (obj instanceof Internal.EnumLite) {
-            return ((Internal.EnumLite)obj).getNumber();
+        } else if (obj instanceof EnumLite) {
+            return ((EnumLite)obj).getNumber();
         } else if (obj instanceof Comparable) {
             return obj;
         } else if (obj instanceof List) {
@@ -234,11 +231,11 @@ public class Comparisons {
     }
 
     @SuppressWarnings("unchecked")
-    public static int compare(@Nonnull Object fieldValue, @Nonnull Object comparand) {
+    public static int compare(Object fieldValue, Object comparand) {
         return toComparable(fieldValue).compareTo(toComparable(comparand));
     }
 
-    private static boolean compareEquals(@Nonnull Object value, @Nonnull Object comparand) {
+    private static boolean compareEquals(Object value, Object comparand) {
         if (value instanceof Message) {
             return MessageHelpers.compareMessageEquals(value, comparand);
         } else {
@@ -294,7 +291,7 @@ public class Comparisons {
         return LikeOperatorValue.likeOperation((String)value, (Message)pattern);
     }
 
-    public static Boolean compareListEquals(@Nullable Object value, @Nonnull List<?> comparand) {
+    public static Boolean compareListEquals(@Nullable Object value, List<?> comparand) {
         if (value instanceof List<?>) {
             List<?> list = (List<?>) value;
             if (list.size() != comparand.size()) {
@@ -306,7 +303,7 @@ public class Comparisons {
         }
     }
 
-    private static Boolean compareListStartsWith(@Nullable Object value, @Nonnull List<?> comparand) {
+    private static Boolean compareListStartsWith(@Nullable Object value, List<?> comparand) {
         if (value instanceof List<?>) {
             List<?> list = (List<?>) value;
             for (int i = 0; i < comparand.size(); i++) {
@@ -356,7 +353,7 @@ public class Comparisons {
     }
 
     @Nullable
-    private static Boolean compareTextContainsSingle(@Nonnull Iterator<? extends CharSequence> valueIterator, @Nonnull String comparandToken) {
+    private static Boolean compareTextContainsSingle(Iterator<? extends CharSequence> valueIterator, String comparandToken) {
         if (comparandToken.isEmpty()) {
             // The comparand is a stop word. We cannot make a determination
             // one way or the other.
@@ -372,7 +369,7 @@ public class Comparisons {
     }
 
     @Nullable
-    private static Boolean compareTextContainsPrefix(@Nonnull Iterator<? extends CharSequence> valueIterator, @Nonnull String comparandToken) {
+    private static Boolean compareTextContainsPrefix(Iterator<? extends CharSequence> valueIterator, String comparandToken) {
         if (comparandToken.isEmpty()) {
             // The comparand is a stop word. We cannot make a determination
             // one way or the other.
@@ -387,8 +384,7 @@ public class Comparisons {
         return Boolean.FALSE;
     }
 
-    @Nonnull
-    private static Set<String> getComparandSet(@Nonnull List<String> comparandList) {
+    private static Set<String> getComparandSet(List<String> comparandList) {
         if (comparandList.isEmpty()) {
             return Collections.emptySet();
         } else if (comparandList.size() == 1) {
@@ -406,7 +402,7 @@ public class Comparisons {
     }
 
     @Nullable
-    private static Boolean compareTextContainsAll(@Nonnull Iterator<? extends CharSequence> valueIterator, @Nonnull List<String> comparand) {
+    private static Boolean compareTextContainsAll(Iterator<? extends CharSequence> valueIterator, List<String> comparand) {
         final Set<String> comparandSet = getComparandSet(comparand);
         if (comparandSet.isEmpty()) {
             return null;
@@ -431,7 +427,7 @@ public class Comparisons {
     }
 
     @Nullable
-    private static Boolean compareTextContainsAllWithin(@Nonnull Iterator<? extends CharSequence> valueIterator, @Nonnull List<String> comparand, int maxDistance) {
+    private static Boolean compareTextContainsAllWithin(Iterator<? extends CharSequence> valueIterator, List<String> comparand, int maxDistance) {
         final Set<String> comparandSet = getComparandSet(comparand);
         if (comparandSet.isEmpty()) {
             return null;
@@ -478,7 +474,7 @@ public class Comparisons {
     }
 
     @Nullable
-    private static Boolean compareTextContainsAny(@Nonnull Iterator<? extends CharSequence> valueIterator, @Nonnull List<String> comparand) {
+    private static Boolean compareTextContainsAny(Iterator<? extends CharSequence> valueIterator, List<String> comparand) {
         final Set<String> comparandSet = getComparandSet(comparand);
         if (comparandSet.isEmpty()) {
             return null;
@@ -498,7 +494,7 @@ public class Comparisons {
     }
 
     @Nullable
-    private static Boolean compareTextContainsAllPrefixes(@Nonnull Iterator<? extends CharSequence> valueIterator, @Nonnull List<String> comparand) {
+    private static Boolean compareTextContainsAllPrefixes(Iterator<? extends CharSequence> valueIterator, List<String> comparand) {
         final Set<String> comparandSet = getComparandSet(comparand);
         if (comparandSet.isEmpty()) {
             return null;
@@ -527,7 +523,7 @@ public class Comparisons {
     }
 
     @Nullable
-    private static Boolean compareTextContainsAnyPrefix(@Nonnull Iterator<? extends CharSequence> valueIterator, @Nonnull List<String> comparand) {
+    private static Boolean compareTextContainsAnyPrefix(Iterator<? extends CharSequence> valueIterator, List<String> comparand) {
         final Set<String> comparandSet = getComparandSet(comparand);
         if (comparandSet.isEmpty()) {
             return null;
@@ -551,7 +547,7 @@ public class Comparisons {
     }
 
     @Nullable
-    private static Boolean compareTextContainsPhrase(@Nonnull Iterator<? extends CharSequence> valueIterator, @Nonnull List<String> comparand) {
+    private static Boolean compareTextContainsPhrase(Iterator<? extends CharSequence> valueIterator, List<String> comparand) {
         // Remove any leading or trailing stop words from the phrase search.
         int firstNonStopWord = 0;
         while (firstNonStopWord < comparand.size() && comparand.get(firstNonStopWord).isEmpty()) {
@@ -649,7 +645,6 @@ public class Comparisons {
         @API(API.Status.EXPERIMENTAL)
         DISTANCE_RANK_LESS_THAN_OR_EQUAL;
 
-        @Nonnull
         private static final Supplier<BiMap<Type, PComparisonType>> protoEnumBiMapSupplier =
                 Suppliers.memoize(() -> PlanSerialization.protoEnumBiMap(Type.class, PComparisonType.class));
 
@@ -677,27 +672,24 @@ public class Comparisons {
             return isUnary;
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public PComparisonType toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparisonType toProto(final PlanSerializationContext serializationContext) {
             return Objects.requireNonNull(getProtoEnumBiMap().get(this));
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public static Type fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final PComparisonType physicalOperatorProto) {
+        public static Type fromProto(final PlanSerializationContext serializationContext,
+                                     final PComparisonType physicalOperatorProto) {
             return Objects.requireNonNull(getProtoEnumBiMap().inverse().get(physicalOperatorProto));
         }
 
-        @Nonnull
         private static BiMap<Type, PComparisonType> getProtoEnumBiMap() {
             return protoEnumBiMapSupplier.get();
         }
     }
 
     @Nullable
-    public static Type invertComparisonType(@Nonnull final Type type) {
+    public static Type invertComparisonType(final Type type) {
         if (type.isUnary()) {
             return null;
         }
@@ -718,7 +710,7 @@ public class Comparisons {
     }
 
     @Nullable
-    public static Boolean evalComparison(@Nonnull Type type, @Nullable Object value, @Nullable Object comparand) {
+    public static Boolean evalComparison(Type type, @Nullable Object value, @Nullable Object comparand) {
         switch (type) {
             case STARTS_WITH:
                 return compareStartsWith(value, comparand);
@@ -767,7 +759,7 @@ public class Comparisons {
 
     @Nullable
     @SuppressWarnings("rawtypes")
-    public static Boolean evalListComparison(@Nonnull Type type, @Nullable Object value, @Nullable List comparand) {
+    public static Boolean evalListComparison(Type type, @Nullable Object value, @Nullable List comparand) {
         if (value == null) {
             return null;
         }
@@ -798,24 +790,22 @@ public class Comparisons {
          * @return the tri-valued logic result of the comparison
          */
         @Nullable
-        Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value);
+        Boolean eval(@Nullable FDBRecordStoreBase<?> store, EvaluationContext context, @Nullable Object value);
 
         /**
          * Validate that this comparison is compatible with a given record field.
          * @param descriptor the Protobuf descriptor for the proposed comparison field
          * @param fannedOut whether a repeated field fans out into multiple comparisons or is treated as a single list value
          */
-        void validate(@Nonnull Descriptors.FieldDescriptor descriptor, boolean fannedOut);
+        void validate(Descriptors.FieldDescriptor descriptor, boolean fannedOut);
 
         /**
          * Get the comparison type.
          * @return the comparison type
          */
-        @Nonnull
         Type getType();
 
-        @Nonnull
-        Comparison withType(@Nonnull Type newType);
+        Comparison withType(Type newType);
 
         @Nullable
         @Override
@@ -823,14 +813,12 @@ public class Comparisons {
             return null;
         }
 
-        @Nonnull
         @Override
-        default Comparison withValue(@Nonnull Value value) {
+        default Comparison withValue(Value value) {
             throw new RecordCoreException("withValue is not implemented");
         }
 
-        @Nonnull
-        Optional<Comparison> replaceValuesMaybe(@Nonnull Function<Value, Optional<Value>> replacementFunction);
+        Optional<Comparison> replaceValuesMaybe(Function<Value, Optional<Value>> replacementFunction);
 
         /**
          * Get the comparison value without any bindings.
@@ -863,39 +851,33 @@ public class Comparisons {
          * Get the printed representation of the comparison less the comparison operator itself.
          * @return the typeless string
          */
-        @Nonnull
         String typelessString();
 
-        @Nonnull
-        default Comparison withParameterRelationshipMap(@Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+        default Comparison withParameterRelationshipMap(ParameterRelationshipGraph parameterRelationshipGraph) {
             return this;
         }
 
-        @Nonnull
         @Override
         default Set<CorrelationIdentifier> getCorrelatedTo() {
             return ImmutableSet.of();
         }
 
-        @Nonnull
         @Override
-        default Comparison rebase(@Nonnull AliasMap translationMap) {
+        default Comparison rebase(AliasMap translationMap) {
             return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap), false);
         }
 
-        @Nonnull
-        Comparison translateCorrelations(@Nonnull TranslationMap translationMap, boolean shouldSimplifyValues);
+        Comparison translateCorrelations(TranslationMap translationMap, boolean shouldSimplifyValues);
 
         @Override
-        default boolean semanticEquals(@Nullable Object other, @Nonnull AliasMap aliasMap) {
+        default boolean semanticEquals(@Nullable Object other, AliasMap aliasMap) {
             return semanticEquals(other, ValueEquivalence.fromAliasMap(aliasMap)).isTrue();
         }
 
-        @Nonnull
         @Override
         @SuppressWarnings("unused")
-        default ConstrainedBoolean semanticEqualsTyped(@Nonnull final Comparison other,
-                                                       @Nonnull final ValueEquivalence valueEquivalence) {
+        default ConstrainedBoolean semanticEqualsTyped(final Comparison other,
+                                                       final ValueEquivalence valueEquivalence) {
             return this.equals(other) ? ConstrainedBoolean.alwaysTrue() : ConstrainedBoolean.falseValue();
         }
 
@@ -904,17 +886,14 @@ public class Comparisons {
             return hashCode();
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        PComparison toComparisonProto(@Nonnull PlanSerializationContext serializationContext);
+        PComparison toComparisonProto(PlanSerializationContext serializationContext);
 
-        @Nonnull
-        static Comparison fromComparisonProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final PComparison comparisonProto) {
+        static Comparison fromComparisonProto(final PlanSerializationContext serializationContext,
+                                              final PComparison comparisonProto) {
             return (Comparison)PlanSerialization.dispatchFromProtoContainer(serializationContext, comparisonProto);
         }
 
-        @Nonnull
         ExplainTokensWithPrecedence explain();
     }
 
@@ -922,7 +901,8 @@ public class Comparisons {
         if (value instanceof ByteString) {
             return toPrintable(((ByteString)value).toByteArray());
         } else if (value instanceof byte[]) {
-            return ByteArrayUtil2.loggable((byte[])value);
+            // loggable() only returns null when given a null array; value is non-null here.
+            return Objects.requireNonNull(ByteArrayUtil2.loggable((byte[])value));
         } else {
             return Objects.toString(value);
         }
@@ -934,18 +914,16 @@ public class Comparisons {
     public abstract static class SimpleComparisonBase implements Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Simple-Comparison");
 
-        @Nonnull
         protected final Type type;
-        @Nonnull
         protected final Object comparand;
 
-        protected SimpleComparisonBase(@Nonnull Type type, @Nonnull Object comparand) {
+        protected SimpleComparisonBase(Type type, Object comparand) {
             this.type = type;
             this.comparand = comparand;
         }
 
         @Override
-        public void validate(@Nonnull Descriptors.FieldDescriptor fieldDescriptor, boolean fannedOut) {
+        public void validate(Descriptors.FieldDescriptor fieldDescriptor, boolean fannedOut) {
             if (!fannedOut && fieldDescriptor.isRepeated()) {
                 throw new RecordCoreException("Scalar comparison on repeated field",
                         "fieldName", fieldDescriptor.getFullName(),
@@ -960,7 +938,7 @@ public class Comparisons {
         }
 
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        private boolean validForComparand(@Nonnull Descriptors.FieldDescriptor fieldDescriptor) {
+        private boolean validForComparand(Descriptors.FieldDescriptor fieldDescriptor) {
             switch (fieldDescriptor.getJavaType()) {
                 case BOOLEAN:
                     return comparand instanceof Boolean;
@@ -995,13 +973,11 @@ public class Comparisons {
             }
         }
 
-        @Nonnull
         @Override
         public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             return comparand;
         }
 
-        @Nonnull
         @Override
         public Type getType() {
             return type;
@@ -1010,12 +986,14 @@ public class Comparisons {
         @Nullable
         @Override
         public Value getValue() {
-            return LiteralValue.ofScalar(getComparand());
+            // Use the 2-arg overload directly: this class's override of it is statically known to be
+            // non-null (it just returns the non-null comparand field), unlike the inherited no-arg
+            // default which is declared @Nullable for implementors whose comparand can be absent.
+            return LiteralValue.ofScalar(getComparand(null, null));
         }
 
-        @Nonnull
         @Override
-        public Comparison withValue(@Nonnull final Value value) {
+        public Comparison withValue(final Value value) {
             if (value instanceof LiteralValue<?>) {
                 return new SimpleComparison(getType(),
                         Objects.requireNonNull(((LiteralValue<?>)value).getLiteralValue()));
@@ -1023,19 +1001,17 @@ public class Comparisons {
             return new ValueComparison(getType(), value);
         }
 
-        @Nonnull
         @Override
-        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+        public Optional<Comparison> replaceValuesMaybe(final Function<Value, Optional<Value>> replacementFunction) {
             return Optional.of(this);
         }
 
         @Nullable
         @Override
-        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, EvaluationContext context, @Nullable Object value) {
             return evalComparison(type, value, getComparand(store, context));
         }
 
-        @Nonnull
         @Override
         public String typelessString() {
             return toPrintable(comparand);
@@ -1046,7 +1022,6 @@ public class Comparisons {
             return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
-        @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
@@ -1072,7 +1047,7 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                     return type.name().hashCode() + PlanHashable.objectPlanHash(mode, comparand);
@@ -1083,9 +1058,8 @@ public class Comparisons {
             }
         }
 
-        @Nonnull
         @Override
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+        public Comparison translateCorrelations(final TranslationMap translationMap,
                                                 final boolean shouldSimplifyValues) {
             return this;
         }
@@ -1095,37 +1069,33 @@ public class Comparisons {
      * A comparison with a constant value.
      */
     public static class SimpleComparison extends SimpleComparisonBase {
-        public SimpleComparison(@Nonnull Type type, @Nonnull Object comparand) {
+        public SimpleComparison(Type type, Object comparand) {
             super(type, comparand);
         }
 
-        @Nonnull
         @Override
-        public Comparison withType(@Nonnull final Type newType) {
+        public Comparison withType(final Type newType) {
             if (type == newType) {
                 return this;
             }
             return new SimpleComparison(newType, comparand);
         }
 
-        @Nonnull
         @Override
-        public PSimpleComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PSimpleComparison toProto(final PlanSerializationContext serializationContext) {
             return PSimpleComparison.newBuilder()
                     .setType(type.toProto(serializationContext))
                     .setObject(PlanSerialization.valueObjectToProto(comparand))
                     .build();
         }
 
-        @Nonnull
         @Override
-        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparison toComparisonProto(final PlanSerializationContext serializationContext) {
             return PComparison.newBuilder().setSimpleComparison(toProto(serializationContext)).build();
         }
 
-        @Nonnull
-        public static SimpleComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PSimpleComparison simpleComparisonProto) {
+        public static SimpleComparison fromProto(final PlanSerializationContext serializationContext,
+                                                 final PSimpleComparison simpleComparisonProto) {
             return new SimpleComparison(Type.fromProto(serializationContext, Objects.requireNonNull(simpleComparisonProto.getType())),
                     Objects.requireNonNull(PlanSerialization.protoToValueObject(Objects.requireNonNull(simpleComparisonProto.getObject()))));
         }
@@ -1135,16 +1105,14 @@ public class Comparisons {
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PSimpleComparison, SimpleComparison> {
-            @Nonnull
             @Override
             public Class<PSimpleComparison> getProtoMessageClass() {
                 return PSimpleComparison.class;
             }
 
-            @Nonnull
             @Override
-            public SimpleComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final PSimpleComparison simpleComparisonProto) {
+            public SimpleComparison fromProto(final PlanSerializationContext serializationContext,
+                                              final PSimpleComparison simpleComparisonProto) {
                 return SimpleComparison.fromProto(serializationContext, simpleComparisonProto);
             }
         }
@@ -1158,11 +1126,14 @@ public class Comparisons {
         private static final Supplier<EvaluationContextRequiredException> INSTANCE_SUPPLIER =
                 Suppliers.memoize(() -> new EvaluationContextRequiredException("unable to evaluate comparison without context and/or store"));
 
+        // RecordCoreException(String, Throwable, boolean, boolean) mirrors Throwable's own
+        // constructor, which legitimately allows a null cause; that 4-arg constructor just
+        // isn't annotated @Nullable yet (owned outside this change's scope).
+        @SuppressWarnings("NullAway")
         private EvaluationContextRequiredException(String msg) {
             super(msg, null, false, false);
         }
 
-        @Nonnull
         public static EvaluationContextRequiredException instance() {
             return INSTANCE_SUPPLIER.get();
         }
@@ -1179,7 +1150,6 @@ public class Comparisons {
      * A comparison against a parameter.
      */
     public interface ComparisonWithParameter extends Comparison {
-        @Nonnull
         String getParameter();
     }
 
@@ -1189,21 +1159,16 @@ public class Comparisons {
     public abstract static class ParameterComparisonBase implements ComparisonWithParameter {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Parameter-Comparison");
 
-        @Nonnull
         protected final Type type;
-        @Nonnull
         protected final String parameter;
-        @Nullable
-        protected final Bindings.Internal internal;
-        @Nonnull
+        protected final @Nullable Internal internal;
         protected final ParameterRelationshipGraph parameterRelationshipGraph;
-        @Nonnull
         @SuppressWarnings("this-escape")
         protected final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
-        protected ParameterComparisonBase(@Nonnull Type type, @Nonnull String parameter,
-                                          @Nullable Bindings.Internal internal,
-                                          @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+        protected ParameterComparisonBase(Type type, String parameter,
+                                          @Nullable Internal internal,
+                                          ParameterRelationshipGraph parameterRelationshipGraph) {
             checkInternalBinding(parameter, internal);
             this.type = type;
             this.parameter = parameter;
@@ -1216,11 +1181,10 @@ public class Comparisons {
 
         @Override
         @SuppressWarnings("PMD.EmptyMethodInAbstractClassShouldBeAbstract")
-        public void validate(@Nonnull Descriptors.FieldDescriptor descriptor, boolean fannedOut) {
+        public void validate(Descriptors.FieldDescriptor descriptor, boolean fannedOut) {
             // No additional validation.
         }
 
-        @Nonnull
         @Override
         public Type getType() {
             return type;
@@ -1231,7 +1195,7 @@ public class Comparisons {
         }
 
         @Override
-        public boolean isCorrelatedTo(@Nonnull final CorrelationIdentifier alias) {
+        public boolean isCorrelatedTo(final CorrelationIdentifier alias) {
             if (!isCorrelation()) {
                 return false;
             }
@@ -1251,19 +1215,17 @@ public class Comparisons {
             }
         }
 
-        @Nonnull
         @Override
-        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+        public Optional<Comparison> replaceValuesMaybe(final Function<Value, Optional<Value>> replacementFunction) {
             if (isCorrelation()) {
                 return Optional.empty();
             }
             return Optional.of(this);
         }
 
-        @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
+        public Comparison translateCorrelations(final TranslationMap translationMap, final boolean shouldSimplifyValues) {
             if (isCorrelation()) {
                 final var alias = CorrelationIdentifier.of(Bindings.Internal.CORRELATION.identifier(parameter));
                 final var quantifiedObjectValue = QuantifiedObjectValue.of(alias,
@@ -1284,10 +1246,8 @@ public class Comparisons {
             }
         }
 
-        @Nonnull
-        protected abstract ParameterComparisonBase withTranslatedCorrelation(@Nonnull CorrelationIdentifier translatedAlias);
+        protected abstract ParameterComparisonBase withTranslatedCorrelation(CorrelationIdentifier translatedAlias);
 
-        @Nonnull
         @Override
         public Set<CorrelationIdentifier> getCorrelatedTo() {
             if (!isCorrelation()) {
@@ -1296,9 +1256,8 @@ public class Comparisons {
             return ImmutableSet.of(getAlias());
         }
 
-        @Nonnull
         @Override
-        public ConstrainedBoolean semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
+        public ConstrainedBoolean semanticEqualsTyped(final Comparison other, final ValueEquivalence valueEquivalence) {
             ParameterComparisonBase that = (ParameterComparisonBase) other;
             if (type != that.type) {
                 return ConstrainedBoolean.falseValue();
@@ -1328,7 +1287,7 @@ public class Comparisons {
         @Nullable
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, EvaluationContext context, @Nullable Object value) {
             // this is at evaluation time --> always use the context binding
             final Object comparand = getComparand(store, context);
             if (comparand == COMPARISON_SKIPPED_BINDING) {
@@ -1338,7 +1297,6 @@ public class Comparisons {
             }
         }
 
-        @Nonnull
         @Override
         public String typelessString() {
             return "$" + parameter;
@@ -1349,20 +1307,17 @@ public class Comparisons {
             return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
-        @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
                     .addWhitespace().addIdentifier(typelessString()));
         }
 
-        @Nonnull
         @Override
         public String getParameter() {
             return parameter;
         }
 
-        @Nonnull
         public CorrelationIdentifier getAlias() {
             if (!isCorrelation()) {
                 throw new IllegalStateException("caller should check for type of binding before calling this method");
@@ -1397,7 +1352,7 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                     return type.name().hashCode() + (isCorrelation() ? 0 : parameter.hashCode());
@@ -1412,8 +1367,7 @@ public class Comparisons {
             }
         }
 
-        @Nonnull
-        private static String checkInternalBinding(@Nonnull String parameter, @Nullable Bindings.Internal internal) {
+        private static String checkInternalBinding(String parameter, @Nullable Internal internal) {
             if (internal == null && Bindings.Internal.isInternal(parameter)) {
                 throw new RecordCoreException(
                         "Parameter is internal, parameters cannot start with \"" + Bindings.Internal.PREFIX + "\"");
@@ -1426,48 +1380,44 @@ public class Comparisons {
      * A comparison with a bound parameter, as opposed to a literal constant in the query.
      */
     public static class ParameterComparison extends ParameterComparisonBase {
-        protected ParameterComparison(@Nonnull Type type, @Nonnull String parameter,
-                                      @Nullable Bindings.Internal internal,
-                                      @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+        protected ParameterComparison(Type type, String parameter,
+                                      @Nullable Internal internal,
+                                      ParameterRelationshipGraph parameterRelationshipGraph) {
             super(type, parameter, internal, parameterRelationshipGraph);
         }
 
-        public ParameterComparison(@Nonnull Type type, @Nonnull String parameter) {
+        public ParameterComparison(Type type, String parameter) {
             this(type, parameter, null, ParameterRelationshipGraph.unbound());
         }
 
-        public ParameterComparison(@Nonnull Type type, @Nonnull String parameter, @Nullable Bindings.Internal internal) {
+        public ParameterComparison(Type type, String parameter, @Nullable Internal internal) {
             this(type, parameter, internal, ParameterRelationshipGraph.unbound());
         }
 
-        @Nonnull
         @Override
-        public Comparison withType(@Nonnull final Type newType) {
+        public Comparison withType(final Type newType) {
             if (type == newType) {
                 return this;
             }
             return new ParameterComparison(newType, parameter, internal, parameterRelationshipGraph);
         }
 
-        @Nonnull
         @Override
-        protected ParameterComparisonBase withTranslatedCorrelation(@Nonnull CorrelationIdentifier translatedAlias) {
+        protected ParameterComparisonBase withTranslatedCorrelation(CorrelationIdentifier translatedAlias) {
             return new ParameterComparison(type,
                                            Bindings.Internal.CORRELATION.bindingName(translatedAlias.getId()),
                                            Bindings.Internal.CORRELATION,
                                            parameterRelationshipGraph);
         }
 
-        @Nonnull
         @Override
-        public Comparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
+        public Comparison withParameterRelationshipMap(final ParameterRelationshipGraph parameterRelationshipGraph) {
             Verify.verify(this.parameterRelationshipGraph.isUnbound());
             return new ParameterComparison(type, parameter, internal, parameterRelationshipGraph);
         }
 
-        @Nonnull
         @Override
-        public PParameterComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PParameterComparison toProto(final PlanSerializationContext serializationContext) {
             final PParameterComparison.Builder builder = PParameterComparison.newBuilder()
                     .setType(type.toProto(serializationContext))
                     .setParameter(parameter);
@@ -1478,15 +1428,13 @@ public class Comparisons {
             return builder.build();
         }
 
-        @Nonnull
         @Override
-        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparison toComparisonProto(final PlanSerializationContext serializationContext) {
             return PComparison.newBuilder().setParameterComparison(toProto(serializationContext)).build();
         }
 
-        @Nonnull
-        public static ParameterComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                    @Nonnull final PParameterComparison parameterComparisonProto) {
+        public static ParameterComparison fromProto(final PlanSerializationContext serializationContext,
+                                                    final PParameterComparison parameterComparisonProto) {
             final Bindings.Internal internal;
             if (parameterComparisonProto.hasInternal()) {
                 internal = Bindings.Internal.fromProto(serializationContext, Objects.requireNonNull(parameterComparisonProto.getInternal()));
@@ -1503,16 +1451,14 @@ public class Comparisons {
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PParameterComparison, ParameterComparison> {
-            @Nonnull
             @Override
             public Class<PParameterComparison> getProtoMessageClass() {
                 return PParameterComparison.class;
             }
 
-            @Nonnull
             @Override
-            public ParameterComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PParameterComparison parameterComparisonProto) {
+            public ParameterComparison fromProto(final PlanSerializationContext serializationContext,
+                                                 final PParameterComparison parameterComparisonProto) {
                 return ParameterComparison.fromProto(serializationContext, parameterComparisonProto);
             }
         }
@@ -1523,30 +1469,26 @@ public class Comparisons {
      */
     public static class ValueComparison implements Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Value-Comparison");
-        @Nonnull
         private final Type type;
-        @Nonnull
         private final Value comparandValue;
-        @Nonnull
         protected final ParameterRelationshipGraph parameterRelationshipGraph;
-        @Nonnull
         private final Supplier<Integer> hashCodeSupplier;
 
-        protected ValueComparison(@Nonnull final PlanSerializationContext serializationContext,
-                                  @Nonnull final PValueComparison valueComparisonProto) {
+        protected ValueComparison(final PlanSerializationContext serializationContext,
+                                  final PValueComparison valueComparisonProto) {
             this(Type.fromProto(serializationContext, Objects.requireNonNull(valueComparisonProto.getType())),
                     Value.fromValueProto(serializationContext, Objects.requireNonNull(valueComparisonProto.getComparandValue())));
         }
 
-        public ValueComparison(@Nonnull final Type type,
-                               @Nonnull final Value comparandValue) {
+        public ValueComparison(final Type type,
+                               final Value comparandValue) {
             this(type, comparandValue, ParameterRelationshipGraph.unbound());
         }
 
         @SuppressWarnings("this-escape")
-        public ValueComparison(@Nonnull final Type type,
-                               @Nonnull final Value comparandValue,
-                               @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
+        public ValueComparison(final Type type,
+                               final Value comparandValue,
+                               final ParameterRelationshipGraph parameterRelationshipGraph) {
             this.type = type;
             this.comparandValue = comparandValue;
             if (type.isUnary()) {
@@ -1557,44 +1499,39 @@ public class Comparisons {
         }
 
         @Override
-        public void validate(@Nonnull Descriptors.FieldDescriptor descriptor, boolean fannedOut) {
+        public void validate(Descriptors.FieldDescriptor descriptor, boolean fannedOut) {
             // No additional validation.
         }
 
-        @Nonnull
         @Override
         public Type getType() {
             return type;
         }
 
-        @Nonnull
         @Override
-        public ValueComparison withType(@Nonnull final Type newType) {
+        public ValueComparison withType(final Type newType) {
             if (type == newType) {
                 return this;
             }
             return new ValueComparison(newType, comparandValue, parameterRelationshipGraph);
         }
 
-        @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public ValueComparison withValue(@Nonnull final Value value) {
+        public ValueComparison withValue(final Value value) {
             if (comparandValue == value) {
                 return this;
             }
             return new ValueComparison(getType(), value);
         }
 
-        @Nonnull
         public Value getComparandValue() {
             return comparandValue;
         }
 
-        @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+        public Optional<Comparison> replaceValuesMaybe(final Function<Value, Optional<Value>> replacementFunction) {
             return replacementFunction.apply(getValue())
                     .map(replacedComparandValue -> {
                         if (replacedComparandValue == getValue()) {
@@ -1613,9 +1550,8 @@ public class Comparisons {
             return comparandValue.eval(store, context);
         }
 
-        @Nonnull
         @Override
-        public ValueComparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+        public ValueComparison translateCorrelations(final TranslationMap translationMap,
                                                      final boolean shouldSimplifyValues) {
             if (comparandValue.getCorrelatedTo()
                     .stream()
@@ -1627,21 +1563,18 @@ public class Comparisons {
                     parameterRelationshipGraph);
         }
 
-        @Nonnull
         @Override
         public Set<CorrelationIdentifier> getCorrelatedTo() {
             return comparandValue.getCorrelatedTo();
         }
 
-        @Nonnull
         @Override
         public Value getValue() {
             return getComparandValue();
         }
 
-        @Nonnull
         @Override
-        public ConstrainedBoolean semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
+        public ConstrainedBoolean semanticEqualsTyped(final Comparison other, final ValueEquivalence valueEquivalence) {
             final var that = (ValueComparison) other;
             if (type != that.type) {
                 return ConstrainedBoolean.falseValue();
@@ -1653,7 +1586,7 @@ public class Comparisons {
         @Nullable
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object v) {
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, EvaluationContext context, @Nullable Object v) {
             // this is at evaluation time --> always use the context binding
             final Object comparand = getComparand(store, context);
             if (comparand == COMPARISON_SKIPPED_BINDING) {
@@ -1663,7 +1596,6 @@ public class Comparisons {
             }
         }
 
-        @Nonnull
         @Override
         public String typelessString() {
             return comparandValue.toString();
@@ -1674,7 +1606,6 @@ public class Comparisons {
             return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
-        @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
@@ -1702,7 +1633,7 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                 case FOR_CONTINUATION:
@@ -1712,36 +1643,31 @@ public class Comparisons {
             }
         }
 
-        @Nonnull
         @Override
-        public ValueComparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
+        public ValueComparison withParameterRelationshipMap(final ParameterRelationshipGraph parameterRelationshipGraph) {
             Verify.verify(this.parameterRelationshipGraph.isUnbound());
             return new ValueComparison(type, comparandValue, parameterRelationshipGraph);
         }
 
-        @Nonnull
         @Override
-        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public Message toProto(final PlanSerializationContext serializationContext) {
             return toValueComparisonProto(serializationContext);
         }
 
-        @Nonnull
-        public PValueComparison toValueComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PValueComparison toValueComparisonProto(final PlanSerializationContext serializationContext) {
             return PValueComparison.newBuilder()
                     .setType(type.toProto(serializationContext))
                     .setComparandValue(comparandValue.toValueProto(serializationContext))
                     .build();
         }
 
-        @Nonnull
         @Override
-        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparison toComparisonProto(final PlanSerializationContext serializationContext) {
             return PComparison.newBuilder().setValueComparison(toValueComparisonProto(serializationContext)).build();
         }
 
-        @Nonnull
-        public static ValueComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                @Nonnull final PValueComparison valueComparisonProto) {
+        public static ValueComparison fromProto(final PlanSerializationContext serializationContext,
+                                                final PValueComparison valueComparisonProto) {
             return new ValueComparison(serializationContext, valueComparisonProto);
         }
 
@@ -1750,16 +1676,14 @@ public class Comparisons {
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PValueComparison, ValueComparison> {
-            @Nonnull
             @Override
             public Class<PValueComparison> getProtoMessageClass() {
                 return PValueComparison.class;
             }
 
-            @Nonnull
             @Override
-            public ValueComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final PValueComparison valueComparisonProto) {
+            public ValueComparison fromProto(final PlanSerializationContext serializationContext,
+                                             final PValueComparison valueComparisonProto) {
                 return ValueComparison.fromProto(serializationContext, valueComparisonProto);
             }
         }
@@ -1769,7 +1693,6 @@ public class Comparisons {
     public static class DistanceRankValueComparison extends ValueComparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Distance-Rank-Value-Comparison");
 
-        @Nonnull
         private final Value limitValue;
 
         @Nullable
@@ -1778,8 +1701,8 @@ public class Comparisons {
         @Nullable
         private final Boolean isReturningVectors;
 
-        protected DistanceRankValueComparison(@Nonnull PlanSerializationContext serializationContext,
-                                              @Nonnull final PDistanceRankValueComparison distanceRankValueComparisonProto) {
+        protected DistanceRankValueComparison(PlanSerializationContext serializationContext,
+                                              final PDistanceRankValueComparison distanceRankValueComparisonProto) {
             super(serializationContext, distanceRankValueComparisonProto.getSuper());
             this.limitValue = Value.fromValueProto(serializationContext,
                     Objects.requireNonNull(distanceRankValueComparisonProto.getLimitValue()));
@@ -1787,15 +1710,15 @@ public class Comparisons {
             this.isReturningVectors = distanceRankValueComparisonProto.hasIsReturningVectors() ? distanceRankValueComparisonProto.getIsReturningVectors() : null;
         }
 
-        public DistanceRankValueComparison(@Nonnull final Type type, @Nonnull final Value comparandValue,
-                                           @Nonnull final Value limitValue, @Nullable final Integer efSearch,
+        public DistanceRankValueComparison(final Type type, final Value comparandValue,
+                                           final Value limitValue, @Nullable final Integer efSearch,
                                            @Nullable final Boolean isReturningVectors) {
             this(type, comparandValue, ParameterRelationshipGraph.unbound(), limitValue, efSearch, isReturningVectors);
         }
 
-        public DistanceRankValueComparison(@Nonnull final Type type, @Nonnull final Value comparandValue,
-                                           @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph,
-                                           @Nonnull final Value limitValue, @Nullable  final Integer efSearch,
+        public DistanceRankValueComparison(final Type type, final Value comparandValue,
+                                           final ParameterRelationshipGraph parameterRelationshipGraph,
+                                           final Value limitValue, @Nullable  final Integer efSearch,
                                            @Nullable final Boolean isReturningVectors) {
             super(type, comparandValue, parameterRelationshipGraph);
             Verify.verify(type == Type.DISTANCE_RANK_LESS_THAN ||
@@ -1805,14 +1728,12 @@ public class Comparisons {
             this.isReturningVectors = isReturningVectors;
         }
 
-        @Nonnull
         public Value getLimitValue() {
             return limitValue;
         }
 
-        @Nonnull
         @Override
-        public DistanceRankValueComparison withType(@Nonnull final Type newType) {
+        public DistanceRankValueComparison withType(final Type newType) {
             if (getType() == newType) {
                 return this;
             }
@@ -1820,10 +1741,9 @@ public class Comparisons {
                     getLimitValue(), getEfSearch(), isReturningVectors());
         }
 
-        @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public DistanceRankValueComparison withValue(@Nonnull final Value value) {
+        public DistanceRankValueComparison withValue(final Value value) {
             if (getComparandValue() == value) {
                 return this;
             }
@@ -1831,10 +1751,9 @@ public class Comparisons {
                     getEfSearch(), isReturningVectors());
         }
 
-        @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+        public Optional<Comparison> replaceValuesMaybe(final Function<Value, Optional<Value>> replacementFunction) {
             final var replacedComparandValueMaybe = replacementFunction.apply(getComparandValue());
             if (replacedComparandValueMaybe.isEmpty()) {
                 return Optional.empty();
@@ -1852,9 +1771,8 @@ public class Comparisons {
                     parameterRelationshipGraph, replacedLimitValueMaybe.get(), getEfSearch(), isReturningVectors()));
         }
 
-        @Nonnull
         @Override
-        public DistanceRankValueComparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+        public DistanceRankValueComparison translateCorrelations(final TranslationMap translationMap,
                                                                  final boolean shouldSimplifyValues) {
             if (getComparandValue().getCorrelatedTo()
                     .stream()
@@ -1872,7 +1790,6 @@ public class Comparisons {
                     getEfSearch(), isReturningVectors());
         }
 
-        @Nonnull
         @Override
         public Set<CorrelationIdentifier> getCorrelatedTo() {
             return ImmutableSet.<CorrelationIdentifier>builder()
@@ -1881,9 +1798,8 @@ public class Comparisons {
                     .build();
         }
 
-        @Nonnull
         @Override
-        public ConstrainedBoolean semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
+        public ConstrainedBoolean semanticEqualsTyped(final Comparison other, final ValueEquivalence valueEquivalence) {
             if (!(other instanceof DistanceRankValueComparison)) {
                 return ConstrainedBoolean.falseValue();
             }
@@ -1899,11 +1815,10 @@ public class Comparisons {
         @Nullable
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object v) {
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, EvaluationContext context, @Nullable Object v) {
             throw new IllegalStateException("this comparison can only be evaluated using an index");
         }
 
-        @Nonnull
         @Override
         public String typelessString() {
             return typelessExplain().render(DefaultExplainFormatter.forDebugging()).toString();
@@ -1914,14 +1829,12 @@ public class Comparisons {
             return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
-        @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(getType().name())
                     .addWhitespace().addNested(typelessExplain()));
         }
 
-        @Nonnull
         private ExplainTokens typelessExplain() {
             return new ExplainTokens().addNested(getComparandValue().explain().getExplainTokens())
                     .addKeyword(":").addWhitespace()
@@ -1929,7 +1842,7 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                 case FOR_CONTINUATION:
@@ -1944,17 +1857,15 @@ public class Comparisons {
             return Objects.hash(super.computeHashCode(), getType().name(), getComparandValue(), getLimitValue());
         }
 
-        @Nonnull
         @Override
-        public DistanceRankValueComparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
+        public DistanceRankValueComparison withParameterRelationshipMap(final ParameterRelationshipGraph parameterRelationshipGraph) {
             Verify.verify(this.parameterRelationshipGraph.isUnbound());
             return new DistanceRankValueComparison(getType(), getComparandValue(), parameterRelationshipGraph,
                     getLimitValue(), getEfSearch(), isReturningVectors());
         }
 
-        @Nonnull
         @Override
-        public PDistanceRankValueComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PDistanceRankValueComparison toProto(final PlanSerializationContext serializationContext) {
             final var distanceRankValueComparisonProtoBuilder = PDistanceRankValueComparison.newBuilder()
                     .setSuper(super.toValueComparisonProto(serializationContext))
                     .setLimitValue(getLimitValue().toValueProto(serializationContext));
@@ -1967,9 +1878,8 @@ public class Comparisons {
             return distanceRankValueComparisonProtoBuilder.build();
         }
 
-        @Nonnull
         @Override
-        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparison toComparisonProto(final PlanSerializationContext serializationContext) {
             return PComparison.newBuilder().setDistanceRankValueComparison(toProto(serializationContext)).build();
         }
 
@@ -1985,9 +1895,8 @@ public class Comparisons {
             return (int)Objects.requireNonNull(getLimitValue().eval(store, context));
         }
 
-        @Nonnull
-        public static DistanceRankValueComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                            @Nonnull final PDistanceRankValueComparison distanceRankValueComparisonProto) {
+        public static DistanceRankValueComparison fromProto(final PlanSerializationContext serializationContext,
+                                                            final PDistanceRankValueComparison distanceRankValueComparisonProto) {
             return new DistanceRankValueComparison(serializationContext, distanceRankValueComparisonProto);
         }
 
@@ -2006,16 +1915,14 @@ public class Comparisons {
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PDistanceRankValueComparison, DistanceRankValueComparison> {
-            @Nonnull
             @Override
             public Class<PDistanceRankValueComparison> getProtoMessageClass() {
                 return PDistanceRankValueComparison.class;
             }
 
-            @Nonnull
             @Override
-            public DistanceRankValueComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                         @Nonnull final PDistanceRankValueComparison distanceRankValueComparisonProto) {
+            public DistanceRankValueComparison fromProto(final PlanSerializationContext serializationContext,
+                                                         final PDistanceRankValueComparison distanceRankValueComparisonProto) {
                 return DistanceRankValueComparison.fromProto(serializationContext, distanceRankValueComparisonProto);
             }
         }
@@ -2027,20 +1934,17 @@ public class Comparisons {
     public static class ListComparison implements Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("List-Comparison");
 
-        @Nonnull
         private final Type type;
-        @Nonnull
         @SuppressWarnings("rawtypes")
         private final List comparand;
         @Nullable
         private final JavaType javaType;
 
-        @Nonnull
         @SuppressWarnings("rawtypes")
         private final Supplier<List> comparandListWithEqualsSupplier;
 
         @SuppressWarnings({"rawtypes", "unchecked"})
-        public ListComparison(@Nonnull Type type, @Nonnull List comparand) {
+        public ListComparison(Type type, List comparand) {
             this.type = type;
             switch (this.type) {
                 case EQUALS:
@@ -2066,10 +1970,18 @@ public class Comparisons {
                 }
             }
             this.comparand = comparand;
-            this.comparandListWithEqualsSupplier = Suppliers.memoize(() -> Lists.transform(comparand, obj -> obj != null ? toClassWithRealEquals(obj) : null));
+            this.comparandListWithEqualsSupplier = Suppliers.memoize(this::computeComparandListWithRealEquals);
         }
 
-        private static JavaType getJavaType(@Nonnull Object o) {
+        // Guava's Function<F, T> is not nullness-aware, so T is inferred @NonNull from the raw
+        // List target type even though a comparand element (and thus the transformed element) is
+        // allowed to be null for non-IN comparisons; the transform itself is null-safe.
+        @SuppressWarnings({"rawtypes", "unchecked", "NullAway"})
+        private List computeComparandListWithRealEquals() {
+            return Lists.transform(comparand, obj -> obj != null ? toClassWithRealEquals(obj) : null);
+        }
+
+        private static JavaType getJavaType(Object o) {
             if (o instanceof Boolean) {
                 return JavaType.BOOLEAN;
             } else if (o instanceof ByteString || o instanceof byte[]) {
@@ -2084,7 +1996,7 @@ public class Comparisons {
                 return JavaType.INT;
             } else if (o instanceof String) {
                 return JavaType.STRING;
-            } else if (o instanceof Internal.EnumLite) {
+            } else if (o instanceof EnumLite) {
                 return JavaType.ENUM;
             } else {
                 throw new RecordCoreException(o.getClass() + " is an invalid type for a comparand");
@@ -2092,7 +2004,7 @@ public class Comparisons {
         }
 
         @Override
-        public void validate(@Nonnull Descriptors.FieldDescriptor fieldDescriptor, boolean fannedOut) {
+        public void validate(Descriptors.FieldDescriptor fieldDescriptor, boolean fannedOut) {
             if (type.equals(Type.IN)) {
                 if (!fannedOut && fieldDescriptor.isRepeated()) {
                     throw new RecordCoreException("In comparison with non-scalar field " + fieldDescriptor.getName());
@@ -2108,41 +2020,35 @@ public class Comparisons {
             }
         }
 
-        @Nonnull
         @Override
         @SuppressWarnings("rawtypes")
         public List getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             return comparand;
         }
 
-        @Nonnull
         @SuppressWarnings("rawtypes")
         public List getComparandWithRealEquals() {
             return comparandListWithEqualsSupplier.get();
         }
 
-        @Nonnull
         @Override
-        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+        public Optional<Comparison> replaceValuesMaybe(final Function<Value, Optional<Value>> replacementFunction) {
             return Optional.of(this);
         }
 
-        @Nonnull
         @Override
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+        public Comparison translateCorrelations(final TranslationMap translationMap,
                                                 final boolean shouldSimplifyValues) {
             return this;
         }
 
-        @Nonnull
         @Override
         public Type getType() {
             return type;
         }
 
-        @Nonnull
         @Override
-        public Comparison withType(@Nonnull final Type newType) {
+        public Comparison withType(final Type newType) {
             if (type == newType) {
                 return this;
             }
@@ -2151,11 +2057,10 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, EvaluationContext context, @Nullable Object value) {
             return evalListComparison(type, value, getComparand(store, context));
         }
 
-        @Nonnull
         @Override
         public String typelessString() {
             return comparand.toString();
@@ -2166,7 +2071,6 @@ public class Comparisons {
             return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
-        @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
@@ -2195,7 +2099,10 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        // PlanHashable.objectsPlanHash's varargs aren't annotated @Nullable, but each
+        // element is hashed via objectPlanHash, which is explicitly null-safe.
+        @SuppressWarnings("NullAway")
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                     return type.name().hashCode() + PlanHashable.iterablePlanHash(mode, comparand) + PlanHashable.objectPlanHash(mode, javaType);
@@ -2206,9 +2113,8 @@ public class Comparisons {
             }
         }
 
-        @Nonnull
         @Override
-        public PListComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PListComparison toProto(final PlanSerializationContext serializationContext) {
             final var builder = PListComparison.newBuilder()
                     .setType(type.toProto(serializationContext));
             for (final Object element : comparand) {
@@ -2217,15 +2123,13 @@ public class Comparisons {
             return builder.build();
         }
 
-        @Nonnull
         @Override
-        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparison toComparisonProto(final PlanSerializationContext serializationContext) {
             return PComparison.newBuilder().setListComparison(toProto(serializationContext)).build();
         }
 
-        @Nonnull
-        public static ListComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                               @Nonnull final PListComparison listComparisonProto) {
+        public static ListComparison fromProto(final PlanSerializationContext serializationContext,
+                                               final PListComparison listComparisonProto) {
             List<Object> comparand = Lists.newArrayList();
             for (int i = 0; i < listComparisonProto.getComparandCount(); i ++) {
                 comparand.add(PlanSerialization.protoToValueObject(listComparisonProto.getComparand(i)));
@@ -2239,16 +2143,14 @@ public class Comparisons {
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PListComparison, ListComparison> {
-            @Nonnull
             @Override
             public Class<PListComparison> getProtoMessageClass() {
                 return PListComparison.class;
             }
 
-            @Nonnull
             @Override
-            public ListComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                            @Nonnull final PListComparison listComparisonProto) {
+            public ListComparison fromProto(final PlanSerializationContext serializationContext,
+                                            final PListComparison listComparisonProto) {
                 return ListComparison.fromProto(serializationContext, listComparisonProto);
             }
         }
@@ -2260,16 +2162,15 @@ public class Comparisons {
     public static class NullComparison implements Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Null-Comparison");
 
-        @Nonnull
         private final Type type;
 
-        public NullComparison(@Nonnull Type type) {
+        public NullComparison(Type type) {
             this.type = type;
         }
 
         @Nullable
         @Override
-        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, EvaluationContext context, @Nullable Object value) {
             if (type == Type.IS_NULL) {
                 return value == null;
             } else {
@@ -2278,21 +2179,19 @@ public class Comparisons {
         }
 
         @Override
-        public void validate(@Nonnull Descriptors.FieldDescriptor descriptor, boolean fannedOut) {
+        public void validate(Descriptors.FieldDescriptor descriptor, boolean fannedOut) {
             if (!fannedOut && descriptor.isRepeated()) {
                 throw new RecordCoreException("Nullability comparison on repeated field " + descriptor.getName());
             }
         }
 
-        @Nonnull
         @Override
         public Type getType() {
             return type;
         }
 
-        @Nonnull
         @Override
-        public Comparison withType(@Nonnull final Type newType) {
+        public Comparison withType(final Type newType) {
             if (type == newType) {
                 return this;
             }
@@ -2306,20 +2205,17 @@ public class Comparisons {
             return null;
         }
 
-        @Nonnull
         @Override
-        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+        public Optional<Comparison> replaceValuesMaybe(final Function<Value, Optional<Value>> replacementFunction) {
             return Optional.of(this);
         }
 
-        @Nonnull
         @Override
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+        public Comparison translateCorrelations(final TranslationMap translationMap,
                                                 final boolean shouldSimplifyValues) {
             return this;
         }
 
-        @Nonnull
         @Override
         public String typelessString() {
             return "NULL";
@@ -2330,7 +2226,6 @@ public class Comparisons {
             return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
-        @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name()));
@@ -2354,7 +2249,7 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                     return type.name().hashCode();
@@ -2365,21 +2260,18 @@ public class Comparisons {
             }
         }
 
-        @Nonnull
         @Override
-        public PNullComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PNullComparison toProto(final PlanSerializationContext serializationContext) {
             return PNullComparison.newBuilder().setType(type.toProto(serializationContext)).build();
         }
 
-        @Nonnull
         @Override
-        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparison toComparisonProto(final PlanSerializationContext serializationContext) {
             return PComparison.newBuilder().setNullComparison(toProto(serializationContext)).build();
         }
 
-        @Nonnull
-        public static NullComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                               @Nonnull final PNullComparison nullComparisonProto) {
+        public static NullComparison fromProto(final PlanSerializationContext serializationContext,
+                                               final PNullComparison nullComparisonProto) {
             return new NullComparison(Type.fromProto(serializationContext, Objects.requireNonNull(nullComparisonProto.getType())));
         }
 
@@ -2388,16 +2280,14 @@ public class Comparisons {
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PNullComparison, NullComparison> {
-            @Nonnull
             @Override
             public Class<PNullComparison> getProtoMessageClass() {
                 return PNullComparison.class;
             }
 
-            @Nonnull
             @Override
-            public NullComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                            @Nonnull final PNullComparison nullComparisonProto) {
+            public NullComparison fromProto(final PlanSerializationContext serializationContext,
+                                            final PNullComparison nullComparisonProto) {
                 return NullComparison.fromProto(serializationContext, nullComparisonProto);
             }
         }
@@ -2409,24 +2299,22 @@ public class Comparisons {
     public static class OpaqueEqualityComparison implements Comparison {
         @Nullable
         @Override
-        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, EvaluationContext context, @Nullable Object value) {
             return false;
         }
 
         @Override
-        public void validate(@Nonnull final Descriptors.FieldDescriptor descriptor, final boolean fannedOut) {
+        public void validate(final Descriptors.FieldDescriptor descriptor, final boolean fannedOut) {
             throw new UnsupportedOperationException("comparison should not be used in a plan");
         }
 
-        @Nonnull
         @Override
         public Type getType() {
             return Type.EQUALS;
         }
 
-        @Nonnull
         @Override
-        public Comparison withType(@Nonnull final Type newType) {
+        public Comparison withType(final Type newType) {
             return this;
         }
 
@@ -2436,20 +2324,17 @@ public class Comparisons {
             return null;
         }
 
-        @Nonnull
         @Override
-        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+        public Optional<Comparison> replaceValuesMaybe(final Function<Value, Optional<Value>> replacementFunction) {
             return Optional.of(this);
         }
 
-        @Nonnull
         @Override
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+        public Comparison translateCorrelations(final TranslationMap translationMap,
                                                 final boolean shouldSimplifyValues) {
             return this;
         }
 
-        @Nonnull
         @Override
         public String typelessString() {
             return ":?:";
@@ -2460,7 +2345,6 @@ public class Comparisons {
             return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
-        @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(Type.EQUALS.name())
@@ -2480,26 +2364,23 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             throw new UnsupportedOperationException("Hash Kind " + mode.name() + " is not supported");
         }
 
-        @Nonnull
         @Override
-        public POpaqueEqualityComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public POpaqueEqualityComparison toProto(final PlanSerializationContext serializationContext) {
             return POpaqueEqualityComparison.newBuilder().build();
         }
 
-        @Nonnull
         @Override
-        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparison toComparisonProto(final PlanSerializationContext serializationContext) {
             return PComparison.newBuilder().setOpaqueEqualityComparison(toProto(serializationContext)).build();
         }
 
-        @Nonnull
         @SuppressWarnings("unused")
-        public static OpaqueEqualityComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                         @Nonnull final POpaqueEqualityComparison opaqueEqualityComparisonProto) {
+        public static OpaqueEqualityComparison fromProto(final PlanSerializationContext serializationContext,
+                                                         final POpaqueEqualityComparison opaqueEqualityComparisonProto) {
             return new OpaqueEqualityComparison();
         }
 
@@ -2508,16 +2389,14 @@ public class Comparisons {
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<POpaqueEqualityComparison, OpaqueEqualityComparison> {
-            @Nonnull
             @Override
             public Class<POpaqueEqualityComparison> getProtoMessageClass() {
                 return POpaqueEqualityComparison.class;
             }
 
-            @Nonnull
             @Override
-            public OpaqueEqualityComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                      @Nonnull final POpaqueEqualityComparison opaqueEqualityComparisonProto) {
+            public OpaqueEqualityComparison fromProto(final PlanSerializationContext serializationContext,
+                                                      final POpaqueEqualityComparison opaqueEqualityComparisonProto) {
                 return OpaqueEqualityComparison.fromProto(serializationContext, opaqueEqualityComparisonProto);
             }
         }
@@ -2530,7 +2409,6 @@ public class Comparisons {
         private static final TextTokenizerRegistry TOKENIZER_REGISTRY = TextTokenizerRegistryImpl.instance();
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Text-Comparison");
 
-        @Nonnull
         private final Type type;
         @Nullable
         private final List<String> tokenList;
@@ -2538,10 +2416,9 @@ public class Comparisons {
         private final String tokenStr;
         @Nullable
         private final String tokenizerName;
-        @Nonnull
         private final String fallbackTokenizerName;
 
-        public TextComparison(@Nonnull Type type, @Nonnull String tokens, @Nullable String tokenizerName, @Nonnull String fallbackTokenizerName) {
+        public TextComparison(Type type, String tokens, @Nullable String tokenizerName, String fallbackTokenizerName) {
             this.type = type;
             this.tokenList = null;
             this.tokenStr = tokens;
@@ -2549,7 +2426,7 @@ public class Comparisons {
             this.fallbackTokenizerName = fallbackTokenizerName;
         }
 
-        public TextComparison(@Nonnull Type type, @Nonnull List<String> tokens, @Nullable String tokenizerName, @Nonnull String fallbackTokenizerName) {
+        public TextComparison(Type type, List<String> tokens, @Nullable String tokenizerName, String fallbackTokenizerName) {
             this.type = type;
             this.tokenList = tokens;
             this.tokenStr = null;
@@ -2557,27 +2434,24 @@ public class Comparisons {
             this.fallbackTokenizerName = fallbackTokenizerName;
         }
 
-        @Nonnull
         @Override
-        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+        public Optional<Comparison> replaceValuesMaybe(final Function<Value, Optional<Value>> replacementFunction) {
             return Optional.of(this);
         }
 
-        @Nonnull
         @Override
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+        public Comparison translateCorrelations(final TranslationMap translationMap,
                                                 final boolean shouldSimplifyValues) {
             return this;
         }
 
-        @Nonnull
-        private Iterator<? extends CharSequence> tokenize(@Nonnull String text, @Nonnull TextTokenizer.TokenizerMode tokenizerMode) {
+        private Iterator<? extends CharSequence> tokenize(String text, TextTokenizer.TokenizerMode tokenizerMode) {
             final TextTokenizer tokenizer = TOKENIZER_REGISTRY.getTokenizer(tokenizerName == null ? fallbackTokenizerName : tokenizerName);
             return tokenizer.tokenize(text, tokenizer.getMaxVersion(), tokenizerMode);
         }
 
         @Nullable
-        Boolean evalComparison(@Nonnull Iterator<? extends CharSequence> textIterator, @Nonnull List<String> comparand) {
+        Boolean evalComparison(Iterator<? extends CharSequence> textIterator, List<String> comparand) {
             switch (type) {
                 case TEXT_CONTAINS_ALL:
                     return compareTextContainsAll(textIterator, comparand);
@@ -2601,7 +2475,7 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, EvaluationContext context, @Nullable Object value) {
             if (value == null) {
                 return null;
             }
@@ -2619,7 +2493,7 @@ public class Comparisons {
         }
 
         @Override
-        public void validate(@Nonnull Descriptors.FieldDescriptor descriptor, boolean fannedOut) {
+        public void validate(Descriptors.FieldDescriptor descriptor, boolean fannedOut) {
             if (descriptor.getType() != Descriptors.FieldDescriptor.Type.STRING) {
                 throw new RecordCoreException("Text comparison on non-string field");
             } else if (!fannedOut && descriptor.isRepeated()) {
@@ -2632,20 +2506,17 @@ public class Comparisons {
             return tokenizerName;
         }
 
-        @Nonnull
         public String getFallbackTokenizerName() {
             return fallbackTokenizerName;
         }
 
-        @Nonnull
         @Override
         public Type getType() {
             return type;
         }
 
-        @Nonnull
         @Override
-        public Comparison withType(@Nonnull final Type newType) {
+        public Comparison withType(final Type newType) {
             if (type == newType) {
                 return this;
             }
@@ -2677,7 +2548,6 @@ public class Comparisons {
             }
         }
 
-        @Nonnull
         @Override
         public String typelessString() {
             final Object comparand = getComparand(null, EvaluationContext.EMPTY);
@@ -2693,7 +2563,6 @@ public class Comparisons {
             return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
-        @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
@@ -2716,7 +2585,10 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        // PlanHashable.objectsPlanHash's varargs aren't annotated @Nullable, but each
+        // element is hashed via objectPlanHash, which is explicitly null-safe.
+        @SuppressWarnings("NullAway")
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                     return PlanHashable.objectsPlanHash(mode, type, getComparand(), tokenizerName, fallbackTokenizerName);
@@ -2732,15 +2604,13 @@ public class Comparisons {
             return Objects.hash(type.name(), getComparand(), tokenizerName, fallbackTokenizerName);
         }
 
-        @Nonnull
         @Override
-        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public Message toProto(final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("serialization of comparison of this kind is not supported");
         }
 
-        @Nonnull
         @Override
-        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparison toComparisonProto(final PlanSerializationContext serializationContext) {
             throw new RecordCoreException("serialization of comparison of this kind is not supported");
         }
     }
@@ -2753,18 +2623,19 @@ public class Comparisons {
 
         private final int maxDistance;
 
-        public TextWithMaxDistanceComparison(@Nonnull String tokens, int maxDistance, @Nullable String tokenizerName, @Nonnull String fallbackTokenizerName) {
+        public TextWithMaxDistanceComparison(String tokens, int maxDistance, @Nullable String tokenizerName, String fallbackTokenizerName) {
             super(Type.TEXT_CONTAINS_ALL_WITHIN, tokens, tokenizerName, fallbackTokenizerName);
             this.maxDistance = maxDistance;
         }
 
-        public TextWithMaxDistanceComparison(@Nonnull List<String> tokens, int maxDistance, @Nullable String tokenizerName, @Nonnull String fallbackTokenizerName) {
+        public TextWithMaxDistanceComparison(List<String> tokens, int maxDistance, @Nullable String tokenizerName, String fallbackTokenizerName) {
             super(Type.TEXT_CONTAINS_ALL_WITHIN, tokens, tokenizerName, fallbackTokenizerName);
             this.maxDistance = maxDistance;
         }
 
+        @Nullable
         @Override
-        Boolean evalComparison(@Nonnull Iterator<? extends CharSequence> textIterator, @Nonnull List<String> comparand) {
+        Boolean evalComparison(Iterator<? extends CharSequence> textIterator, List<String> comparand) {
             if (getType() != Type.TEXT_CONTAINS_ALL_WITHIN) {
                 throw new RecordCoreException("Cannot evaluate text comparison of type: " + getType());
             }
@@ -2793,7 +2664,7 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                     return super.planHash(mode) * 31 + maxDistance;
@@ -2809,7 +2680,6 @@ public class Comparisons {
             return super.hashCode() * 31 + maxDistance;
         }
 
-        @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(getType().name())
@@ -2830,25 +2700,25 @@ public class Comparisons {
         private final long expectedRecords;
         private final double falsePositivePercentage;
 
-        public TextContainsAllPrefixesComparison(@Nonnull String tokenPrefixes, boolean strict, @Nullable String tokenizerName, @Nonnull String fallbackTokenizerName) {
+        public TextContainsAllPrefixesComparison(String tokenPrefixes, boolean strict, @Nullable String tokenizerName, String fallbackTokenizerName) {
             this(tokenPrefixes, strict, ProbableIntersectionCursor.DEFAULT_EXPECTED_RESULTS, ProbableIntersectionCursor.DEFAULT_FALSE_POSITIVE_PERCENTAGE, tokenizerName, fallbackTokenizerName);
         }
 
-        public TextContainsAllPrefixesComparison(@Nonnull String tokenPrefixes, boolean strict, long expectedRecords, double falsePositivePercentage,
-                                                 @Nullable String tokenizerName, @Nonnull String fallbackTokenizerName) {
+        public TextContainsAllPrefixesComparison(String tokenPrefixes, boolean strict, long expectedRecords, double falsePositivePercentage,
+                                                 @Nullable String tokenizerName, String fallbackTokenizerName) {
             super(Type.TEXT_CONTAINS_ALL_PREFIXES, tokenPrefixes, tokenizerName, fallbackTokenizerName);
             this.strict = strict;
             this.expectedRecords = expectedRecords;
             this.falsePositivePercentage = falsePositivePercentage;
         }
 
-        public TextContainsAllPrefixesComparison(@Nonnull List<String> tokenPrefixes, boolean strict, @Nullable String tokenizerName, @Nonnull String fallbackTokenizerName) {
+        public TextContainsAllPrefixesComparison(List<String> tokenPrefixes, boolean strict, @Nullable String tokenizerName, String fallbackTokenizerName) {
             this(tokenPrefixes, strict, ProbableIntersectionCursor.DEFAULT_EXPECTED_RESULTS, ProbableIntersectionCursor.DEFAULT_FALSE_POSITIVE_PERCENTAGE,
                     tokenizerName, fallbackTokenizerName);
         }
 
-        public TextContainsAllPrefixesComparison(@Nonnull List<String> tokenPrefixes, boolean strict, long expectedRecords, double falsePositivePercentage,
-                                                 @Nullable String tokenizerName, @Nonnull String fallbackTokenizerName) {
+        public TextContainsAllPrefixesComparison(List<String> tokenPrefixes, boolean strict, long expectedRecords, double falsePositivePercentage,
+                                                 @Nullable String tokenizerName, String fallbackTokenizerName) {
             super(Type.TEXT_CONTAINS_ALL_PREFIXES, tokenPrefixes, tokenizerName, fallbackTokenizerName);
             this.strict = strict;
             this.expectedRecords = expectedRecords;
@@ -2904,7 +2774,7 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                     return super.planHash(mode) * (strict ? -1 : 1);
@@ -2920,7 +2790,6 @@ public class Comparisons {
             return super.hashCode() * (strict ? -1 : 1);
         }
 
-        @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
             final var resultExplainTokens =
@@ -2943,34 +2812,31 @@ public class Comparisons {
     public static class MultiColumnComparison implements Comparison {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Multi-Column-Comparison");
 
-        @Nonnull
         private final Comparison inner;
 
-        public MultiColumnComparison(@Nonnull final Comparison inner) {
+        public MultiColumnComparison(final Comparison inner) {
             this.inner = inner;
         }
 
         @Nullable
         @Override
-        public Boolean eval(@Nullable final FDBRecordStoreBase<?> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
+        public Boolean eval(@Nullable final FDBRecordStoreBase<?> store, final EvaluationContext context, @Nullable final Object value) {
             return inner.eval(store, context, value);
         }
 
         @Override
-        public void validate(@Nonnull final Descriptors.FieldDescriptor descriptor, final boolean fannedOut) {
+        public void validate(final Descriptors.FieldDescriptor descriptor, final boolean fannedOut) {
             inner.validate(descriptor, fannedOut);
         }
 
-        @Nonnull
         @Override
         public Type getType() {
             return inner.getType();
         }
 
-        @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Comparison withType(@Nonnull final Type newType) {
+        public Comparison withType(final Type newType) {
             final var newInner = inner.withType(newType);
             if (newInner == inner) {
                 return this;
@@ -2978,10 +2844,9 @@ public class Comparisons {
             return new MultiColumnComparison(newInner);
         }
 
-        @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Comparison withValue(@Nonnull final Value value) {
+        public Comparison withValue(final Value value) {
             final var newInner = inner.withValue(value);
             if (newInner == inner) {
                 return this;
@@ -2989,10 +2854,9 @@ public class Comparisons {
             return new MultiColumnComparison(newInner);
         }
 
-        @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+        public Optional<Comparison> replaceValuesMaybe(final Function<Value, Optional<Value>> replacementFunction) {
             return inner.replaceValuesMaybe(replacementFunction)
                     .map(replacedInner -> {
                         if (replacedInner == inner) {
@@ -3002,10 +2866,9 @@ public class Comparisons {
                     });
         }
 
-        @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+        public Comparison translateCorrelations(final TranslationMap translationMap,
                                                 final boolean shouldSimplifyValues) {
             final var translatedInner = inner.translateCorrelations(translationMap, shouldSimplifyValues);
             if (inner == translatedInner) {
@@ -3015,21 +2878,19 @@ public class Comparisons {
             }
         }
 
-        @Nonnull
         @Override
         public Set<CorrelationIdentifier> getCorrelatedTo() {
             return inner.getCorrelatedTo();
         }
 
-        @Nonnull
         @Override
-        public ConstrainedBoolean semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
+        public ConstrainedBoolean semanticEqualsTyped(final Comparison other, final ValueEquivalence valueEquivalence) {
             MultiColumnComparison that = (MultiColumnComparison)other;
             return this.inner.semanticEquals(that.inner, valueEquivalence);
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             switch (mode.getKind()) {
                 case LEGACY:
                     return inner.planHash(mode);
@@ -3057,7 +2918,6 @@ public class Comparisons {
             return true;
         }
 
-        @Nonnull
         @Override
         public String typelessString() {
             return inner.typelessString();
@@ -3080,29 +2940,25 @@ public class Comparisons {
             return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
-        @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
             return inner.explain();
         }
 
-        @Nonnull
         @Override
-        public PMultiColumnComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PMultiColumnComparison toProto(final PlanSerializationContext serializationContext) {
             return PMultiColumnComparison.newBuilder()
                     .setInner(inner.toComparisonProto(serializationContext))
                     .build();
         }
 
-        @Nonnull
         @Override
-        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparison toComparisonProto(final PlanSerializationContext serializationContext) {
             return PComparison.newBuilder().setMultiColumnComparison(toProto(serializationContext)).build();
         }
 
-        @Nonnull
-        public static MultiColumnComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                      @Nonnull final PMultiColumnComparison multiColumnComparisonProto) {
+        public static MultiColumnComparison fromProto(final PlanSerializationContext serializationContext,
+                                                      final PMultiColumnComparison multiColumnComparisonProto) {
             return new MultiColumnComparison(Comparison.fromComparisonProto(serializationContext,
                     Objects.requireNonNull(multiColumnComparisonProto.getInner())));
         }
@@ -3112,16 +2968,14 @@ public class Comparisons {
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PMultiColumnComparison, MultiColumnComparison> {
-            @Nonnull
             @Override
             public Class<PMultiColumnComparison> getProtoMessageClass() {
                 return PMultiColumnComparison.class;
             }
 
-            @Nonnull
             @Override
-            public MultiColumnComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                   @Nonnull final PMultiColumnComparison multiColumnComparisonProto) {
+            public MultiColumnComparison fromProto(final PlanSerializationContext serializationContext,
+                                                   final PMultiColumnComparison multiColumnComparisonProto) {
                 return MultiColumnComparison.fromProto(serializationContext, multiColumnComparisonProto);
             }
         }
@@ -3143,23 +2997,20 @@ public class Comparisons {
      */
     @API(API.Status.INTERNAL)
     public static class InvertedFunctionComparison implements Comparison {
-        @Nonnull
         private final InvertibleFunctionKeyExpression function;
-        @Nonnull
         private final Comparison originalComparison;
-        @Nonnull
         private final Type type;
 
-        private InvertedFunctionComparison(@Nonnull InvertibleFunctionKeyExpression function,
-                                           @Nonnull Comparison originalComparison,
-                                           @Nonnull Type type) {
+        private InvertedFunctionComparison(InvertibleFunctionKeyExpression function,
+                                           Comparison originalComparison,
+                                           Type type) {
             this.function = function;
             this.originalComparison = originalComparison;
             this.type = type;
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             return PlanHashable.planHash(mode, function, originalComparison);
         }
 
@@ -3182,32 +3033,29 @@ public class Comparisons {
 
         @Nullable
         @Override
-        public Boolean eval(@Nullable final FDBRecordStoreBase<?> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
+        public Boolean eval(@Nullable final FDBRecordStoreBase<?> store, final EvaluationContext context, @Nullable final Object value) {
             Object comparand = getComparand(store, context);
             return evalComparison(type, value, comparand);
         }
 
         @Override
-        public void validate(@Nonnull final Descriptors.FieldDescriptor descriptor, final boolean fannedOut) {
+        public void validate(final Descriptors.FieldDescriptor descriptor, final boolean fannedOut) {
             originalComparison.validate(descriptor, fannedOut);
         }
 
-        @Nonnull
         @Override
         public Type getType() {
             return type;
         }
 
-        @Nonnull
         @Override
-        public Comparison withType(@Nonnull final Type newType) {
+        public Comparison withType(final Type newType) {
             return from(function, originalComparison.withType(newType));
         }
 
-        @Nonnull
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
-        public Comparison withValue(@Nonnull final Value value) {
+        public Comparison withValue(final Value value) {
             final var newComparison = originalComparison.withValue(value);
             if (newComparison == originalComparison) {
                 return this;
@@ -3228,18 +3076,27 @@ public class Comparisons {
                 for (Object obj : underlyingList) {
                     Key.Evaluated evaluated = Key.Evaluated.scalar(obj);
                     List<Key.Evaluated> inverse = function.evaluateInverse(evaluated);
-                    inverse.stream()
+                    // getSingletonPreImage legitimately returns @Nullable, but java.util.function.Function
+                    // (the target type of the method-reference here) isn't nullness-aware, so its R is
+                    // inferred @NonNull regardless; this Stream.map cannot be annotated around that.
+                    @SuppressWarnings("NullAway")
+                    final List<Object> mapped = inverse.stream()
                             .map(this::getSingletonPreImage)
-                            .forEach(finalValues::add);
+                            .collect(Collectors.toList());
+                    finalValues.addAll(mapped);
                 }
                 return finalValues;
             } else {
                 Key.Evaluated evaluated = Key.Evaluated.scalar(originalComparandValue);
                 List<Key.Evaluated> inverse = function.evaluateInverse(evaluated);
                 if (getType() == Type.IN) {
-                    return inverse.stream()
+                    // See the @SuppressWarnings comment above: same Function<T, R> nullability-inference
+                    // limitation applies to this method reference.
+                    @SuppressWarnings("NullAway")
+                    final List<Object> mapped = inverse.stream()
                             .map(this::getSingletonPreImage)
                             .collect(Collectors.toList());
+                    return mapped;
                 } else {
                     Key.Evaluated preImage = inverse.get(0);
                     return getSingletonPreImage(preImage);
@@ -3247,6 +3104,7 @@ public class Comparisons {
             }
         }
 
+        @Nullable
         private Object getSingletonPreImage(Key.Evaluated preImage) {
             if (preImage.size() != 1) {
                 throw new RecordCoreException("unable to get singleton pre-image for function")
@@ -3255,7 +3113,6 @@ public class Comparisons {
             return preImage.getObject(0);
         }
 
-        @Nonnull
         @Override
         public String typelessString() {
             return function.getName() + "^-1(" + originalComparison.typelessString() + ")";
@@ -3266,17 +3123,15 @@ public class Comparisons {
             return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
 
-        @Nonnull
         @Override
         public ExplainTokensWithPrecedence explain() {
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(type.name())
                     .addWhitespace().addIdentifier(typelessString()));
         }
 
-        @Nonnull
         @Override
         @SuppressWarnings({"PMD.CompareObjectsWithEquals"}) // used here for referential equality
-        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+        public Optional<Comparison> replaceValuesMaybe(final Function<Value, Optional<Value>> replacementFunction) {
             return originalComparison.replaceValuesMaybe(replacementFunction)
                     .map(translatedOriginalComparison -> {
                         if (translatedOriginalComparison == originalComparison) {
@@ -3286,10 +3141,9 @@ public class Comparisons {
                     });
         }
 
-        @Nonnull
         @Override
         @SuppressWarnings({"PMD.CompareObjectsWithEquals"}) // used here for referential equality
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+        public Comparison translateCorrelations(final TranslationMap translationMap,
                                                 final boolean shouldSimplifyValues) {
             Comparison translated = originalComparison.translateCorrelations(translationMap, shouldSimplifyValues);
             if (translated == originalComparison) {
@@ -3299,9 +3153,8 @@ public class Comparisons {
             }
         }
 
-        @Nonnull
         @Override
-        public PInvertedFunctionComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PInvertedFunctionComparison toProto(final PlanSerializationContext serializationContext) {
             return PInvertedFunctionComparison.newBuilder()
                     .setFunction(function.toProto())
                     .setOriginalComparison(originalComparison.toComparisonProto(serializationContext))
@@ -3309,15 +3162,13 @@ public class Comparisons {
                     .build();
         }
 
-        @Nonnull
         @Override
-        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PComparison toComparisonProto(final PlanSerializationContext serializationContext) {
             return PComparison.newBuilder().setInvertedFunctionComparison(toProto(serializationContext)).build();
         }
 
-        @Nonnull
-        public static InvertedFunctionComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                           @Nonnull final PInvertedFunctionComparison invertedFunctionComparisonProto) {
+        public static InvertedFunctionComparison fromProto(final PlanSerializationContext serializationContext,
+                                                           final PInvertedFunctionComparison invertedFunctionComparisonProto) {
             return new InvertedFunctionComparison((InvertibleFunctionKeyExpression)InvertibleFunctionKeyExpression.fromProto(Objects.requireNonNull(invertedFunctionComparisonProto.getFunction())),
                     Comparison.fromComparisonProto(serializationContext, Objects.requireNonNull(invertedFunctionComparisonProto.getOriginalComparison())),
                     Type.fromProto(serializationContext, Objects.requireNonNull(invertedFunctionComparisonProto.getType())));
@@ -3344,8 +3195,8 @@ public class Comparisons {
          * @return a new comparison that applies the inverse of the given function to the comparand of the
          *     original comparison
          */
-        public static InvertedFunctionComparison from(@Nonnull InvertibleFunctionKeyExpression function,
-                                                      @Nonnull Comparison originalComparison) {
+        public static InvertedFunctionComparison from(InvertibleFunctionKeyExpression function,
+                                                      Comparison originalComparison) {
             if (function.getMinArguments() != 1 || function.getMaxArguments() != 1 || function.getColumnSize() != 1) {
                 throw new RecordCoreArgumentException("only unary functions can be inverted")
                         .addLogInfo(LogMessageKeys.FUNCTION, function.getName());
@@ -3365,16 +3216,14 @@ public class Comparisons {
          */
         @AutoService(PlanDeserializer.class)
         public static class Deserializer implements PlanDeserializer<PInvertedFunctionComparison, InvertedFunctionComparison> {
-            @Nonnull
             @Override
             public Class<PInvertedFunctionComparison> getProtoMessageClass() {
                 return PInvertedFunctionComparison.class;
             }
 
-            @Nonnull
             @Override
-            public InvertedFunctionComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                        @Nonnull final PInvertedFunctionComparison invertedFunctionComparisonProto) {
+            public InvertedFunctionComparison fromProto(final PlanSerializationContext serializationContext,
+                                                        final PInvertedFunctionComparison invertedFunctionComparisonProto) {
                 return InvertedFunctionComparison.fromProto(serializationContext, invertedFunctionComparisonProto);
             }
         }

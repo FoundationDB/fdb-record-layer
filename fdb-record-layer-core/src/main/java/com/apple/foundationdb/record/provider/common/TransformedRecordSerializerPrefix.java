@@ -25,8 +25,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-
 /**
  * Helper class for {@link TransformedRecordSerializer} giving the low-level bit encoding.
  *
@@ -74,7 +72,7 @@ class TransformedRecordSerializerPrefix {
     protected static final int KEY_SHIFT = 3;
 
     @SuppressWarnings("fallthrough")
-    public static boolean decodePrefix(@Nonnull TransformedRecordSerializerState state, @Nonnull Tuple primaryKey) {
+    public static boolean decodePrefix(TransformedRecordSerializerState state, Tuple primaryKey) {
         final long prefix = readVarint(state, primaryKey);
         final int type = (int)(prefix & TYPE_MASK);
         final long remaining = prefix >> KEY_SHIFT;
@@ -116,7 +114,7 @@ class TransformedRecordSerializerPrefix {
         return true;
     }
 
-    public static void encodePrefix(@Nonnull TransformedRecordSerializerState state) {
+    public static void encodePrefix(TransformedRecordSerializerState state) {
         long prefix;
         if (!state.isCompressed() && !state.isEncrypted()) {
             prefix = PREFIX_CLEAR;
@@ -146,7 +144,7 @@ class TransformedRecordSerializerPrefix {
         return nbytes;
     }
 
-    protected static long readVarint(@Nonnull TransformedRecordSerializerState state, @Nonnull Tuple primaryKey) {
+    protected static long readVarint(TransformedRecordSerializerState state, Tuple primaryKey) {
         long varint = 0;
         int nbytes = 0;
         while (true) {
@@ -172,7 +170,7 @@ class TransformedRecordSerializerPrefix {
         return varint;
     }
 
-    protected static int writeVarint(@Nonnull byte[] into, long varint) {
+    protected static int writeVarint(byte[] into, long varint) {
         int nbytes = 0;
         do {
             byte b = (byte)(varint & 0x7F);

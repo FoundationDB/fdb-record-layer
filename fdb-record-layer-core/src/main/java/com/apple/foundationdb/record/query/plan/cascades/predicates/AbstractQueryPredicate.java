@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -56,8 +55,8 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
     private final Supplier<Boolean> isIndexOnlySupplier = Suppliers.memoize(this::computeIsIndexOnly);
 
     @SuppressWarnings("unused")
-    protected AbstractQueryPredicate(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final PAbstractQueryPredicate abstractQueryPredicateProto) {
+    protected AbstractQueryPredicate(final PlanSerializationContext serializationContext,
+                                     final PAbstractQueryPredicate abstractQueryPredicateProto) {
         this(PlanSerialization.getFieldOrThrow(abstractQueryPredicateProto,
                 PAbstractQueryPredicate::hasIsAtomic, PAbstractQueryPredicate::getIsAtomic));
     }
@@ -66,13 +65,11 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
         this.isAtomic = isAtomic;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         return correlatedToSupplier.get();
     }
 
-    @Nonnull
     private Set<CorrelationIdentifier> computeCorrelatedTo() {
         return fold(QueryPredicate::getCorrelatedToWithoutChildren,
                 (correlatedToWithoutChildren, childrenCorrelatedTo) -> {
@@ -83,7 +80,6 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
                 });
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
@@ -106,7 +102,6 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
         return Objects.hash(isAtomic);
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
@@ -126,8 +121,7 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
         return StreamSupport.stream(getChildren().spliterator(), false).anyMatch(QueryPredicate::isIndexOnly);
     }
 
-    @Nonnull
-    public PAbstractQueryPredicate toAbstractQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PAbstractQueryPredicate toAbstractQueryPredicateProto(final PlanSerializationContext serializationContext) {
         return PAbstractQueryPredicate.newBuilder().setIsAtomic(isAtomic).build();
     }
 }

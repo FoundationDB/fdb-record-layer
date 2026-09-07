@@ -32,8 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -69,11 +68,10 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
      * @param scanBounds the bounds (query vector, limit, per-query scan options) of the search
      * @return a future of the distance-ordered result entries
      */
-    @Nonnull
-    CompletableFuture<List<? extends ResultEntry>> search(@Nonnull FDBRecordContext context,
+    CompletableFuture<List<? extends ResultEntry>> search(FDBRecordContext context,
                                                           boolean snapshot,
-                                                          @Nonnull Subspace subspace,
-                                                          @Nonnull VectorIndexScanBounds scanBounds);
+                                                          Subspace subspace,
+                                                          VectorIndexScanBounds scanBounds);
 
     /**
      * Inserts a single vector into a partition. The write transaction, executor and timer are all taken from
@@ -92,12 +90,11 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
      *        {@link com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl#shouldAutoMergeDuringCommit()}
      * @return a future that completes when the insert is done
      */
-    @Nonnull
-    CompletableFuture<Void> insert(@Nonnull FDBRecordContext context,
-                                   @Nonnull Subspace subspace,
-                                   @Nonnull Tuple primaryKey,
-                                   @Nonnull RealVector vector,
-                                   @Nonnull TaskEventRegister register,
+    CompletableFuture<Void> insert(FDBRecordContext context,
+                                   Subspace subspace,
+                                   Tuple primaryKey,
+                                   RealVector vector,
+                                   TaskEventRegister register,
                                    boolean maintainInTransaction);
 
     /**
@@ -117,12 +114,11 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
      *        Engines that do everything inline (HNSW) ignore it
      * @return a future that completes when the delete is done
      */
-    @Nonnull
-    CompletableFuture<Void> delete(@Nonnull FDBRecordContext context,
-                                   @Nonnull Subspace subspace,
-                                   @Nonnull Tuple primaryKey,
-                                   @Nonnull RealVector vector,
-                                   @Nonnull TaskEventRegister register,
+    CompletableFuture<Void> delete(FDBRecordContext context,
+                                   Subspace subspace,
+                                   Tuple primaryKey,
+                                   RealVector vector,
+                                   TaskEventRegister register,
                                    boolean maintainInTransaction);
 
     /**
@@ -169,11 +165,10 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
      * @return a future of the number of tasks actually run — fewer than {@code numTasks} when the queue held fewer or
      *         the deadline was reached, which is how a merge learns how much of a partition it drained
      */
-    @Nonnull
-    CompletableFuture<Integer> executeDeferredTasks(@Nonnull FDBRecordContext context,
-                                                    @Nonnull Subspace subspace,
+    CompletableFuture<Integer> executeDeferredTasks(FDBRecordContext context,
+                                                    Subspace subspace,
                                                     int numTasks,
-                                                    @Nonnull TaskEventRegister register,
+                                                    TaskEventRegister register,
                                                     long deadlineMillis);
 
     /**
@@ -182,8 +177,7 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
      * @param index the index definition
      * @return the engine kind
      */
-    @Nonnull
-    static VectorIndexEngineKind kindFromIndex(@Nonnull final Index index) {
+    static VectorIndexEngineKind kindFromIndex(final Index index) {
         return VectorIndexEngineKind.fromOptionValue(index.getOption(IndexOptions.VECTOR_ENGINE));
     }
 
@@ -195,7 +189,7 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
      * @param index the index definition to validate
      */
     @SuppressWarnings("checkstyle:MissingSwitchDefault")
-    static void validate(@Nonnull final Index index) {
+    static void validate(final Index index) {
         switch (kindFromIndex(index)) {
             case HNSW -> HnswVectorIndexEngine.parseConfig(index);
             case GUARDIANN -> GuardiannVectorIndexEngine.parseConfig(index);
@@ -211,8 +205,7 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
      * @param indexSecondarySubspace the index's secondary subspace
      * @return the engine backing this index
      */
-    @Nonnull
-    static VectorIndexEngine fromIndex(@Nonnull final Index index, @Nonnull final Subspace indexSecondarySubspace) {
+    static VectorIndexEngine fromIndex(final Index index, final Subspace indexSecondarySubspace) {
         return switch (kindFromIndex(index)) {
             case HNSW -> HnswVectorIndexEngine.fromIndex(index);
             case GUARDIANN -> GuardiannVectorIndexEngine.fromIndex(index, indexSecondarySubspace);
@@ -226,8 +219,7 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
      * @param index the index definition
      * @return the metric of the index
      */
-    @Nonnull
-    static Metric metricFromIndex(@Nonnull final Index index) {
+    static Metric metricFromIndex(final Index index) {
         return VectorIndexOptionKeys.METRIC.read(index, Metric.EUCLIDEAN_METRIC);
     }
 
@@ -245,8 +237,8 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
      * @param newIndex the post-change index
      * @param changedOptions the mutable set of changed option names
      */
-    static void validateChangedOptions(@Nonnull final Index oldIndex, @Nonnull final Index newIndex,
-                                       @Nonnull final Set<String> changedOptions) {
+    static void validateChangedOptions(final Index oldIndex, final Index newIndex,
+                                       final Set<String> changedOptions) {
         // The engine backing an index can never change; that would reinterpret the on-disk layout.
         final VectorIndexEngineKind newIndexKind = kindFromIndex(newIndex);
         VectorIndexOptionsHelper.disallowChange(changedOptions, IndexOptions.VECTOR_ENGINE,

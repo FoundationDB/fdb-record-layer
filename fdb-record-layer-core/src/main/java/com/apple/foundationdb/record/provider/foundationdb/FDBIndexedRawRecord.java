@@ -25,7 +25,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.metadata.Index;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
@@ -34,9 +33,7 @@ import java.util.Objects;
  */
 @API(API.Status.EXPERIMENTAL)
 public class FDBIndexedRawRecord {
-    @Nonnull
     private final IndexEntry indexEntry;
-    @Nonnull
     private final MappedKeyValue rawRecord;
 
     /**
@@ -47,7 +44,7 @@ public class FDBIndexedRawRecord {
      * @param rawRecord the {@link FDBRawRecord} containing the record's data
      */
     @API(API.Status.INTERNAL)
-    public FDBIndexedRawRecord(@Nonnull IndexEntry indexEntry, @Nonnull MappedKeyValue rawRecord) {
+    public FDBIndexedRawRecord(IndexEntry indexEntry, MappedKeyValue rawRecord) {
         this.indexEntry = indexEntry;
         this.rawRecord = rawRecord;
     }
@@ -56,7 +53,6 @@ public class FDBIndexedRawRecord {
      * Get the index for this record.
      * @return the index that contained the entry pointing to this record
      */
-    @Nonnull
     public Index getIndex() {
         return indexEntry.getIndex();
     }
@@ -65,12 +61,10 @@ public class FDBIndexedRawRecord {
      * Get the index entry for this record.
      * @return the index entry that pointed to this record
      */
-    @Nonnull
     public IndexEntry getIndexEntry() {
         return indexEntry;
     }
 
-    @Nonnull
     public MappedKeyValue getRawRecord() {
         return rawRecord;
     }

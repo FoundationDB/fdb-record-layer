@@ -25,8 +25,8 @@ import com.apple.foundationdb.record.AggregateFunctionNotSupportedException;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.metadata.Index;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
@@ -53,7 +53,6 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.UNSTABLE)
 public class IndexBuildState {
-    @Nonnull
     private final IndexState indexState;
     @Nullable
     private final Long recordsScanned;
@@ -66,7 +65,6 @@ public class IndexBuildState {
      * @param index the index needed to be checked
      * @return a future that completes to the index build state
      */
-    @Nonnull
     public static CompletableFuture<IndexBuildState> loadIndexBuildStateAsync(FDBRecordStoreBase<?> store, Index index) {
         IndexState indexState = store.getUntypedRecordStore().getIndexState(index);
         if (!indexState.isWriteOnly()) {
@@ -96,7 +94,6 @@ public class IndexBuildState {
      * @param index the index needed to be checked
      * @return a future that completes to the total records scanned
      */
-    @Nonnull
     public static CompletableFuture<Long> loadRecordsScannedAsync(FDBRecordStoreBase<?> store, Index index) {
         return store.getContext().ensureActive()
                 .get(IndexingSubspaces.indexBuildScannedRecordsSubspace(store, index).getKey())
@@ -107,7 +104,6 @@ public class IndexBuildState {
      * Get the index state.
      * @return the index state
      */
-    @Nonnull
     public IndexState getIndexState() {
         return indexState;
     }

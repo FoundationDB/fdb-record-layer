@@ -32,7 +32,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -53,20 +52,18 @@ import java.util.Optional;
  */
 public interface ComparisonCompensation {
     ComparisonCompensation NO_COMPENSATION = new ComparisonCompensation() {
-        @Nonnull
         @Override
-        public Value applyToValue(@Nonnull final Value value) {
+        public Value applyToValue(final Value value) {
             return value;
         }
 
-        @Nonnull
         @Override
-        public Optional<Value> unapplyMaybe(@Nonnull final Value value) {
+        public Optional<Value> unapplyMaybe(final Value value) {
             return Optional.of(value);
         }
 
         @Override
-        public Optional<Comparisons.Comparison> applyToComparisonMaybe(@Nonnull final Comparisons.Comparison comparison) {
+        public Optional<Comparisons.Comparison> applyToComparisonMaybe(final Comparisons.Comparison comparison) {
             return Optional.of(comparison);
         }
     };
@@ -76,8 +73,7 @@ public interface ComparisonCompensation {
      * @param value the original value
      * @return the compensated value
      */
-    @Nonnull
-    Value applyToValue(@Nonnull Value value);
+    Value applyToValue(Value value);
 
     /**
      * Unapply the compensation. For example, if {@code value} is {@code [< to_ordered_bytes(some value, "↓")]} and the
@@ -86,17 +82,15 @@ public interface ComparisonCompensation {
      * @param value the value to unapply the compensation to
      * @return the original value
      */
-    @Nonnull
-    Optional<Value> unapplyMaybe(@Nonnull Value value);
+    Optional<Value> unapplyMaybe(Value value);
 
     /**
      * Apply the compensation to a value tree.
      * @param comparison the original comparison
      * @return the compensated adjusted comparison
      */
-    Optional<Comparisons.Comparison> applyToComparisonMaybe(@Nonnull Comparisons.Comparison comparison);
+    Optional<Comparisons.Comparison> applyToComparisonMaybe(Comparisons.Comparison comparison);
 
-    @Nonnull
     static ComparisonCompensation noCompensation() {
         return NO_COMPENSATION;
     }
@@ -105,27 +99,23 @@ public interface ComparisonCompensation {
      * Nested chaining comparison compensation.
      */
     class NestedInvertableComparisonCompensation implements ComparisonCompensation {
-        @Nonnull
         private final InvertableValue<?> otherCurrent;
-        @Nonnull
         private final NonnullPair<ComparisonCompensation, QueryPlanConstraint> childResult;
 
-        public NestedInvertableComparisonCompensation(@Nonnull final InvertableValue<?> otherCurrent,
-                                                      @Nonnull final NonnullPair<ComparisonCompensation, QueryPlanConstraint> childResult) {
+        public NestedInvertableComparisonCompensation(final InvertableValue<?> otherCurrent,
+                                                      final NonnullPair<ComparisonCompensation, QueryPlanConstraint> childResult) {
             this.otherCurrent = otherCurrent;
             this.childResult = childResult;
         }
 
-        @Nonnull
         @Override
-        public Value applyToValue(@Nonnull final Value value) {
+        public Value applyToValue(final Value value) {
             final var childCompensation = childResult.getLeft();
             return otherCurrent.withChildren(ImmutableList.of(childCompensation.applyToValue(value)));
         }
 
-        @Nonnull
         @Override
-        public Optional<Value> unapplyMaybe(@Nonnull final Value value) {
+        public Optional<Value> unapplyMaybe(final Value value) {
             final var equalsWithoutChildren = otherCurrent.equalsWithoutChildren(value);
             if (equalsWithoutChildren.isTrue() && equalsWithoutChildren.getConstraint().getPredicate().isTautology()) {
                 final var nestedComparisonCompensation = childResult.getLeft();
@@ -135,7 +125,7 @@ public interface ComparisonCompensation {
         }
 
         @Override
-        public Optional<Comparisons.Comparison> applyToComparisonMaybe(@Nonnull final Comparisons.Comparison comparison) {
+        public Optional<Comparisons.Comparison> applyToComparisonMaybe(final Comparisons.Comparison comparison) {
             Verify.verify(comparison instanceof Comparisons.ValueComparison ||
                     comparison instanceof Comparisons.SimpleComparison);
             final var childCompensation = childResult.getLeft();
@@ -151,9 +141,8 @@ public interface ComparisonCompensation {
             });
         }
 
-        @Nonnull
-        private static Optional<Comparisons.Type> adjustComparisonTypeMaybe(@Nonnull final Comparisons.Type comparisonType,
-                                                                            @Nonnull final Ordering.OrderPreservingKind orderPreservingKind) {
+        private static Optional<Comparisons.Type> adjustComparisonTypeMaybe(final Comparisons.Type comparisonType,
+                                                                            final Ordering.OrderPreservingKind orderPreservingKind) {
             if (comparisonType.isEquality()) {
                 return Optional.of(comparisonType);
             }

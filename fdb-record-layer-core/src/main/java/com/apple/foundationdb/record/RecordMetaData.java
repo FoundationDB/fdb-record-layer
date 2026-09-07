@@ -40,8 +40,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -49,16 +48,19 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+
+import static com.google.protobuf.Descriptors.FileDescriptor;
 
 /**
  * Meta-data for Record Layer record stores.
  *
  * Records are represented using Protobuf {@link com.google.protobuf.Message}s.
  * Each message {@link com.google.protobuf.Descriptors.Descriptor} corresponds to a {@link RecordType}.
- * All message types in the database come from a single {@link com.google.protobuf.Descriptors.FileDescriptor}.
+ * All message types in the database come from a single {@link FileDescriptor}.
  * The Protobuf file must also define a union message type (conventionally named {@code RecordTypeUnion}) with fields for
  * each of the possible record types.
  * When serializing, the record is put in the corresponding field and the whole saved as a byte string.
@@ -70,29 +72,17 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.UNSTABLE)
 public class RecordMetaData implements RecordMetaDataProvider {
-    @Nonnull
-    private final Descriptors.FileDescriptor recordsDescriptor;
-    @Nonnull
+    private final FileDescriptor recordsDescriptor;
     private final Descriptors.Descriptor unionDescriptor;
-    @Nonnull
     private final Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> unionFields;
-    @Nonnull
     private final Map<String, RecordType> recordTypes;
-    @Nonnull
     private final Map<String, SyntheticRecordType<?>> syntheticRecordTypes;
-    @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
-    @Nonnull
     private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
-    @Nonnull
     private final Map<String, View> viewMap;
-    @Nonnull
     private final Map<String, StoredQuery> storedQueries;
-    @Nonnull
     private final Map<String, Index> indexes;
-    @Nonnull
     private final Map<String, Index> universalIndexes;
-    @Nonnull
     private final List<FormerIndex> formerIndexes;
     private final boolean splitLongRecords;
     private final boolean storeRecordVersions;
@@ -104,11 +94,11 @@ public class RecordMetaData implements RecordMetaDataProvider {
     private final boolean usesLocalRecordsDescriptor;
     private final Map<Index, Collection<RecordType>> recordTypesForIndex;
 
-    private static final Descriptors.FileDescriptor[] defaultExcludedDependencies = {
+    private static final FileDescriptor[] defaultExcludedDependencies = {
             RecordMetaDataProto.getDescriptor(), RecordMetaDataOptionsProto.getDescriptor(), TupleFieldsProto.getDescriptor()
     };
 
-    protected RecordMetaData(@Nonnull RecordMetaData orig) {
+    protected RecordMetaData(RecordMetaData orig) {
         this(orig.getRecordsDescriptor(),
                 orig.getUnionDescriptor(),
                 Collections.unmodifiableMap(orig.unionFields),
@@ -131,18 +121,18 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     @SuppressWarnings("squid:S00107") // There is a Builder.
-    protected RecordMetaData(@Nonnull Descriptors.FileDescriptor recordsDescriptor,
-                             @Nonnull Descriptors.Descriptor unionDescriptor,
-                             @Nonnull Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> unionFields,
-                             @Nonnull Map<String, RecordType> recordTypes,
-                             @Nonnull Map<String, SyntheticRecordType<?>> syntheticRecordTypes,
-                             @Nonnull Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap,
-                             @Nonnull Map<String, Index> indexes,
-                             @Nonnull Map<String, Index> universalIndexes,
-                             @Nonnull List<FormerIndex> formerIndexes,
-                             @Nonnull Map<String, UserDefinedFunction> userDefinedFunctionMap,
-                             @Nonnull Map<String, View> viewMap,
-                             @Nonnull Map<String, StoredQuery> storedQueries,
+    protected RecordMetaData(FileDescriptor recordsDescriptor,
+                             Descriptors.Descriptor unionDescriptor,
+                             Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> unionFields,
+                             Map<String, RecordType> recordTypes,
+                             Map<String, SyntheticRecordType<?>> syntheticRecordTypes,
+                             Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap,
+                             Map<String, Index> indexes,
+                             Map<String, Index> universalIndexes,
+                             List<FormerIndex> formerIndexes,
+                             Map<String, UserDefinedFunction> userDefinedFunctionMap,
+                             Map<String, View> viewMap,
+                             Map<String, StoredQuery> storedQueries,
                              boolean splitLongRecords,
                              boolean storeRecordVersions,
                              int version,
@@ -176,23 +166,19 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * Creates an instance of {@link RecordMetaDataBuilder}.
      * @return a new builder
      */
-    @Nonnull
     public static RecordMetaDataBuilder newBuilder() {
         return new RecordMetaDataBuilder();
     }
 
-    @Nonnull
-    public Descriptors.FileDescriptor getRecordsDescriptor() {
+    public FileDescriptor getRecordsDescriptor() {
         return recordsDescriptor;
     }
 
-    @Nonnull
     public Descriptors.Descriptor getUnionDescriptor() {
         return unionDescriptor;
     }
 
-    @Nonnull
-    public Descriptors.FieldDescriptor getUnionFieldForRecordType(@Nonnull RecordType recordType) {
+    public Descriptors.FieldDescriptor getUnionFieldForRecordType(RecordType recordType) {
         final Descriptors.FieldDescriptor unionField = unionFields.get(recordType.getDescriptor());
         if (unionField == null) {
             throw new MetaDataException("Record type " + recordType.getName() + " is not in the union");
@@ -200,13 +186,11 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return unionField;
     }
 
-    @Nonnull
     public Map<String, RecordType> getRecordTypes() {
         return recordTypes;
     }
 
-    @Nonnull
-    public RecordType getRecordType(@Nonnull String name) {
+    public RecordType getRecordType(String name) {
         RecordType recordType = recordTypes.get(name);
         if (recordType == null) {
             throw unknownTypeException(name);
@@ -214,9 +198,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return recordType;
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public RecordType getRecordTypeForDescriptor(@Nonnull Descriptors.Descriptor descriptor) {
+    public RecordType getRecordTypeForDescriptor(Descriptors.Descriptor descriptor) {
         RecordType recordType = getRecordType(descriptor.getName());
         if (recordType.getDescriptor() != descriptor) {
             throw new MetaDataException("descriptor did not match record type");
@@ -230,8 +213,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * @return the record type
      * @throws MetaDataException if the given key does not correspond to any record type
      */
-    @Nonnull
-    public RecordType getRecordTypeFromRecordTypeKey(@Nonnull Object recordTypeKey) {
+    public RecordType getRecordTypeFromRecordTypeKey(Object recordTypeKey) {
         for (RecordType recordType : recordTypes.values()) {
             if (recordType.getRecordTypeKey().equals(recordTypeKey)) {
                 return recordType;
@@ -240,17 +222,15 @@ public class RecordMetaData implements RecordMetaDataProvider {
         throw new MetaDataException("Unknown record type key " + recordTypeKey);
     }
 
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
     @SuppressWarnings("squid:S1452")
     public Map<String, SyntheticRecordType<?>> getSyntheticRecordTypes() {
         return syntheticRecordTypes;
     }
 
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
     @SuppressWarnings("squid:S1452")
-    public SyntheticRecordType<?> getSyntheticRecordType(@Nonnull String name) {
+    public SyntheticRecordType<?> getSyntheticRecordType(String name) {
         SyntheticRecordType<?> recordType = syntheticRecordTypes.get(name);
         if (recordType == null) {
             throw new MetaDataException("Unknown synthetic record type " + name);
@@ -258,10 +238,9 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return recordType;
     }
 
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
     @SuppressWarnings("squid:S1452")
-    public SyntheticRecordType<?> getSyntheticRecordTypeFromRecordTypeKey(@Nonnull Object recordTypeKey) {
+    public SyntheticRecordType<?> getSyntheticRecordTypeFromRecordTypeKey(Object recordTypeKey) {
         final SyntheticRecordType<?> recordType = recordTypeKeyToSyntheticTypeMap.get(recordTypeKey);
         if (recordType == null) {
             throw new MetaDataException("Unknown synthetic record type " + recordTypeKey);
@@ -274,7 +253,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * @param name the name of the record type
      * @return the possibly synthetic record type
      */
-    public RecordType getIndexableRecordType(@Nonnull String name) {
+    public RecordType getIndexableRecordType(String name) {
         RecordType recordType = recordTypes.get(name);
         if (recordType == null) {
             recordType = syntheticRecordTypes.get(name);
@@ -290,7 +269,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * @param name the name of the record type
      * @return the possibly synthetic record type
      */
-    public RecordType getQueryableRecordType(@Nonnull String name) {
+    public RecordType getQueryableRecordType(String name) {
         RecordType recordType = recordTypes.get(name);
         if (recordType == null) {
             recordType = syntheticRecordTypes.get(name);
@@ -301,8 +280,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return recordType;
     }
 
-    @Nonnull
-    public Index getIndex(@Nonnull String indexName) {
+    public Index getIndex(String indexName) {
         Index index = indexes.get(indexName);
         if (null == index) {
             throw new MetaDataException("Index " + indexName + " not defined");
@@ -310,11 +288,10 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return index;
     }
 
-    public boolean hasIndex(@Nonnull String indexName) {
+    public boolean hasIndex(String indexName) {
         return indexes.get(indexName) != null;
     }
 
-    @Nonnull
     public List<Index> getAllIndexes() {
         return new ArrayList<>(indexes.values());
     }
@@ -325,8 +302,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * @return the index
      * @throws MetaDataException if the given key does not correspond to any index
      */
-    @Nonnull
-    public Index getIndexFromSubspaceKey(@Nonnull Object subspaceKey) {
+    public Index getIndexFromSubspaceKey(Object subspaceKey) {
         for (Index index : indexes.values()) {
             if (index.getSubspaceKey().equals(subspaceKey)) {
                 return index;
@@ -335,8 +311,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         throw new MetaDataException("Unknown index subspace key " + subspaceKey);
     }
 
-    @Nonnull
-    public Index getUniversalIndex(@Nonnull String indexName) {
+    public Index getUniversalIndex(String indexName) {
         Index index = universalIndexes.get(indexName);
         if (null == index) {
             throw new MetaDataException("Index " + indexName + " not defined");
@@ -344,11 +319,10 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return index;
     }
 
-    public boolean hasUniversalIndex(@Nonnull String indexName) {
+    public boolean hasUniversalIndex(String indexName) {
         return universalIndexes.get(indexName) != null;
     }
 
-    @Nonnull
     public List<Index> getUniversalIndexes() {
         return new ArrayList<>(universalIndexes.values());
     }
@@ -406,7 +380,6 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * @return a map linking each index that has been modified since the given version to the list of record
      *    types on which that index is defined
      */
-    @Nonnull
     public Map<Index, List<RecordType>> getIndexesSince(int version) {
         Map<Index, List<RecordType>> result = new HashMap<>();
         for (RecordType recordType : recordTypes.values()) {
@@ -463,15 +436,13 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * @see com.apple.foundationdb.record.metadata.IndexOptions#REPLACED_BY_OPTION_PREFIX
      */
     @API(API.Status.INTERNAL)
-    @Nonnull
     public Map<Index, List<RecordType>> getIndexesToBuildSince(int version) {
         final Map<Index, List<RecordType>> indexesToBuild = getIndexesSince(version);
         indexesToBuild.keySet().removeIf(index -> !index.getReplacedByIndexNames().isEmpty());
         return indexesToBuild;
     }
 
-    @Nonnull
-    public Collection<RecordType> recordTypesForIndex(@Nonnull Index index) {
+    public Collection<RecordType> recordTypesForIndex(Index index) {
         return MapUtils.computeIfAbsent(recordTypesForIndex, index, idx -> {
             if (hasUniversalIndex(idx.getName())) {
                 return getRecordTypes().values();
@@ -522,14 +493,14 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     @Nullable
-    public static KeyExpression commonPrimaryKey(@Nonnull Collection<RecordType> recordTypes) {
+    public static KeyExpression commonPrimaryKey(Collection<RecordType> recordTypes) {
         KeyExpression common = null;
         boolean first = true;
         for (RecordType recordType : recordTypes) {
             if (first) {
                 common = recordType.getPrimaryKey();
                 first = false;
-            } else if (!common.equals(recordType.getPrimaryKey())) {
+            } else if (common == null || !common.equals(recordType.getPrimaryKey())) {
                 return null;
             }
         }
@@ -543,7 +514,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * @param recordTypes the (non-null) collection of record types to calculate the common PK length for
      * @return the common length for all given types, -1 if not found
      */
-    public static int commonPrimaryKeyLength(@Nonnull Collection<RecordType> recordTypes) {
+    public static int commonPrimaryKeyLength(Collection<RecordType> recordTypes) {
         int common = -1;
         boolean first = true;
         for (RecordType recordType : recordTypes) {
@@ -562,14 +533,12 @@ public class RecordMetaData implements RecordMetaDataProvider {
      *
      * @return this <code>RecordMetaData</code> instance
      */
-    @Nonnull
     @Override
     public RecordMetaData getRecordMetaData() {
         return this;
     }
 
-    @Nonnull
-    public static RecordMetaData build(@Nonnull Descriptors.FileDescriptor descriptor) {
+    public static RecordMetaData build(FileDescriptor descriptor) {
         return RecordMetaData.newBuilder().setRecords(descriptor).getRecordMetaData();
     }
 
@@ -579,15 +548,14 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * @param proto the serialized proto message of the {@code RecordMetaData}
      * @return the {@code RecordMetaData} object
      */
-    @Nonnull
-    public static RecordMetaData build(@Nonnull RecordMetaDataProto.MetaData proto) {
+    public static RecordMetaData build(RecordMetaDataProto.MetaData proto) {
         return RecordMetaData.newBuilder().setRecords(proto).getRecordMetaData();
     }
 
-    private static void getDependencies(@Nonnull Descriptors.FileDescriptor fileDescriptor,
-                                        @Nonnull Map<String, Descriptors.FileDescriptor> allDependencies,
-                                        @Nullable Map<String, Descriptors.FileDescriptor> excludedDependencies) {
-        for (Descriptors.FileDescriptor dependency : fileDescriptor.getDependencies()) {
+    private static void getDependencies(FileDescriptor fileDescriptor,
+                                        Map<String, FileDescriptor> allDependencies,
+                                        @Nullable Map<String, FileDescriptor> excludedDependencies) {
+        for (FileDescriptor dependency : fileDescriptor.getDependencies()) {
             if (excludedDependencies != null && excludedDependencies.containsKey(dependency.getName())) {
                 // Just pass.
                 continue;
@@ -606,7 +574,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      *
      * <p>
      * Note that if this record meta-data object was created with a
-     * {@linkplain RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor) local file descriptor},
+     * {@linkplain RecordMetaDataBuilder#setLocalFileDescriptor(FileDescriptor) local file descriptor},
      * then serializing the meta-data to a proto message is disallowed. This is because setting a local file descriptor
      * can change the meta-data in ways that would change its serialization, but it also will not update the meta-data
      * version. This means that if the meta-data were then saved to disk, existing clients would not be informed that
@@ -616,9 +584,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * @return the serialized <code>MetaData</code> proto message
      * @throws KeyExpression.SerializationException on any serialization failures
      * @throws MetaDataException if this {@code RecordMetaData} was initialized with a
-     *      {@linkplain RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor) local file descriptor}
+     *      {@linkplain RecordMetaDataBuilder#setLocalFileDescriptor(FileDescriptor) local file descriptor}
      */
-    @Nonnull
     public RecordMetaDataProto.MetaData toProto() {
         return toProto(defaultExcludedDependencies);
     }
@@ -633,12 +600,11 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * @return the serialized <code>MetaData</code> proto message
      * @throws KeyExpression.SerializationException on any serialization failures
      * @throws MetaDataException if this {@code RecordMetaData} was initialized with a
-     *      {@linkplain RecordMetaDataBuilder#setLocalFileDescriptor(Descriptors.FileDescriptor) local file descriptor}
+     *      {@linkplain RecordMetaDataBuilder#setLocalFileDescriptor(FileDescriptor) local file descriptor}
      * @see #toProto()
      */
-    @Nonnull
     @SuppressWarnings("deprecation")
-    public RecordMetaDataProto.MetaData toProto(@Nullable Descriptors.FileDescriptor[] excludedDependencies)
+    public RecordMetaDataProto.MetaData toProto(@Nullable FileDescriptor[] excludedDependencies)
             throws KeyExpression.SerializationException {
         if (usesLocalRecordsDescriptor) {
             throw new MetaDataException("cannot serialize meta-data with a local records descriptor to proto");
@@ -649,18 +615,22 @@ public class RecordMetaData implements RecordMetaDataProvider {
         builder.setRecords(recordsDescriptor.toProto());
 
         // Convert the exclusion list to a map
-        Map<String, Descriptors.FileDescriptor> excludeMap = null;
+        Map<String, FileDescriptor> excludeMap = null;
         if (excludedDependencies != null) {
             excludeMap = new HashMap<>(excludedDependencies.length);
-            for (Descriptors.FileDescriptor dependency : excludedDependencies) {
-                excludeMap.put(dependency.getName(), dependency);
+            for (FileDescriptor dependency : excludedDependencies) {
+                // NullAway does not reliably track element nullability for arrays; excludedDependencies is a plain
+                // (non-@Nullable-element) FileDescriptor[], so dependency is never actually null here.
+                @SuppressWarnings("NullAway")
+                final String dependencyName = dependency.getName();
+                excludeMap.put(dependencyName, dependency);
             }
         }
 
         // Add in the rest of dependencies.
-        Map<String, Descriptors.FileDescriptor> allDependencies = new TreeMap<>();
+        Map<String, FileDescriptor> allDependencies = new TreeMap<>();
         getDependencies(recordsDescriptor, allDependencies, excludeMap);
-        for (Descriptors.FileDescriptor dependency : allDependencies.values()) {
+        for (FileDescriptor dependency : allDependencies.values()) {
             builder.addDependencies(dependency.toProto());
         }
 
@@ -673,10 +643,12 @@ public class RecordMetaData implements RecordMetaDataProvider {
         for (RecordType recordType : getRecordTypes().values()) {
             // Add this record type to each appropriate index.
             for (Index index : recordType.getIndexes()) {
-                indexBuilders.get(index.getName()).addRecordType(recordType.getName());
+                // Every index referenced by a record type is guaranteed to have been registered above.
+                Objects.requireNonNull(indexBuilders.get(index.getName())).addRecordType(recordType.getName());
             }
             for (Index index : recordType.getMultiTypeIndexes()) {
-                indexBuilders.get(index.getName()).addRecordType(recordType.getName());
+                // Every index referenced by a record type is guaranteed to have been registered above.
+                Objects.requireNonNull(indexBuilders.get(index.getName())).addRecordType(recordType.getName());
             }
 
             RecordMetaDataProto.RecordType.Builder typeBuilder = builder.addRecordTypesBuilder()
@@ -696,7 +668,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 builder.addUnnestedRecordTypes(((UnnestedRecordType)syntheticRecordType).toProto());
             }
             for (Index syntheticIndex : syntheticRecordType.getIndexes()) {
-                indexBuilders.get(syntheticIndex.getName()).addRecordType(syntheticRecordType.getName());
+                // Every index referenced by a synthetic record type is guaranteed to have been registered above.
+                Objects.requireNonNull(indexBuilders.get(syntheticIndex.getName())).addRecordType(syntheticRecordType.getName());
             }
         }
 
@@ -733,17 +706,14 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return builder.build();
     }
 
-    @Nonnull
     public Map<String, UserDefinedFunction> getUserDefinedFunctionMap() {
         return userDefinedFunctionMap;
     }
 
-    @Nonnull
     public Map<String, View> getViewMap() {
         return viewMap;
     }
 
-    @Nonnull
     public Map<String, StoredQuery> getStoredQueries() {
         return storedQueries;
     }
@@ -754,30 +724,25 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * registered before the SELECT is planned.
      */
     public static final class StoredQuery {
-        @Nonnull
         private final String query;
-        @Nonnull
         private final List<String> tempFunctions;
 
-        public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions) {
+        public StoredQuery(final String storedQuery, final List<String> tempFunctions) {
             this.query = storedQuery;
             this.tempFunctions = List.copyOf(tempFunctions);
         }
 
-        @Nonnull
         public String getQuery() {
             return query;
         }
 
-        @Nonnull
         public List<String> getTempFunctions() {
             return tempFunctions;
         }
     }
 
 
-    @Nonnull
-    public Type.Record getPlannerType(@Nonnull String recordTypeName) {
+    public Type.Record getPlannerType(String recordTypeName) {
         final RecordType recordType = getRecordType(recordTypeName);
         Type.Record plannerType = Type.Record.fromDescriptor(recordType.getDescriptor());
         if (storeRecordVersions) {
@@ -786,8 +751,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return plannerType;
     }
 
-    @Nonnull
-    public Type.Record getPlannerType(@Nonnull Collection<String> recordTypeNames) {
+    public Type.Record getPlannerType(Collection<String> recordTypeNames) {
         if (recordTypeNames.size() == 1) {
             final String recordTypeName = Iterables.getOnlyElement(recordTypeNames);
             return getPlannerType(recordTypeName);
@@ -821,8 +785,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return Type.Record.fromFields(false, List.copyOf(fieldsByName.values()));
     }
 
-    @Nonnull
-    private MetaDataException unknownTypeException(final @Nonnull String name) {
+    private MetaDataException unknownTypeException(final String name) {
         return new MetaDataException("Unknown record type " + name);
     }
 }

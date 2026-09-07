@@ -579,6 +579,9 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
      * Verify that reverse sorts can be implemented by a reverse index scan.
      */
     @DualPlannerTest
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     public void testComplexLimits1() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
@@ -951,6 +954,9 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
 
     @EnumSource(SortWithoutIndexMode.class)
     @ParameterizedTest(name = "sortWithoutIndex [mode = {0}]")
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
     public void sortWithoutIndex(SortWithoutIndexMode mode) throws Exception {
         final int numberOfRecordsToSave = 2000;
         final int numberOfResultsToReturn = 5;
@@ -1006,7 +1012,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                     if (!next.hasNext()) {
                         break;
                     }
-                    FDBQueriedRecord<Message> rec = next.get();
+                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(next.get());
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
                     myrec.mergeFrom(rec.getRecord());
                     assertTrue(sortedInts.hasNext());

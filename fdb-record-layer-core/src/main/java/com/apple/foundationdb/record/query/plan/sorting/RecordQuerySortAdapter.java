@@ -38,8 +38,8 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import javax.crypto.KeyGenerator;
 import java.io.File;
 import java.io.IOException;
@@ -62,11 +62,8 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
 
     private final int memoryLimit;
     private final boolean memoryOnly;
-    @Nonnull
     private final BiFunction<MemorySortAdapter<Tuple, FDBQueriedRecord<M>>, Tuple, MemorySortComparator<Tuple>> comparatorFunction;
-    @Nonnull
     private final RecordQuerySortKey key;
-    @Nonnull
     private final SortedRecordSerializer<M> serializer;
     private final int metaDataVersion;
 
@@ -74,8 +71,8 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
     private Key encryptionKey;
     private static final Supplier<SecureRandom> RANDOM = Suppliers.memoize(SecureRandom::new);
 
-    protected RecordQuerySortAdapter(int memoryLimit, boolean memoryOnly, @Nonnull BiFunction<MemorySortAdapter<Tuple, FDBQueriedRecord<M>>, Tuple, MemorySortComparator<Tuple>> comparatorFunction,
-                                     @Nonnull RecordQuerySortKey key, @Nonnull FDBRecordStoreBase<M> recordStore) {
+    protected RecordQuerySortAdapter(int memoryLimit, boolean memoryOnly, BiFunction<MemorySortAdapter<Tuple, FDBQueriedRecord<M>>, Tuple, MemorySortComparator<Tuple>> comparatorFunction,
+                                     RecordQuerySortKey key, FDBRecordStoreBase<M> recordStore) {
         this.memoryLimit = memoryLimit;
         this.memoryOnly = memoryOnly;
         this.comparatorFunction = comparatorFunction;
@@ -95,17 +92,15 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
     }
 
     @Override
-    public int compare(@Nonnull Tuple o1, @Nonnull Tuple o2) {
+    public int compare(Tuple o1, Tuple o2) {
         return key.isReverse() ? o2.compareTo(o1) : o1.compareTo(o2);
     }
 
-    @Nonnull
     @Override
-    public Tuple generateKey(@Nonnull FDBQueriedRecord<M> value) {
+    public Tuple generateKey(FDBQueriedRecord<M> value) {
         return key.getKey().evaluateSingleton(value).toTuple();
     }
 
-    @Nonnull
     @Override
     public byte[] serializeKey(final Tuple key) {
         return key.pack();
@@ -116,21 +111,18 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
         return key.isReverse();
     }
 
-    @Nonnull
     @Override
-    public Tuple deserializeKey(@Nonnull final byte[] key) {
+    public Tuple deserializeKey(final byte[] key) {
         return Tuple.fromBytes(key);
     }
 
-    @Nonnull
     @Override
     public byte[] serializeValue(final FDBQueriedRecord<M> record) {
         return serializer.serialize(record);
     }
 
-    @Nonnull
     @Override
-    public FDBQueriedRecord<M> deserializeValue(@Nonnull final byte[] bytes) {
+    public FDBQueriedRecord<M> deserializeValue(final byte[] bytes) {
         return serializer.deserialize(bytes);
     }
 
@@ -139,13 +131,11 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
         return memoryOnly ? memoryLimit : DEFAULT_MAX_RECORD_COUNT_IN_MEMORY;
     }
 
-    @Nonnull
     @Override
     public MemorySorter.RecordCountInMemoryLimitMode getRecordCountInMemoryLimitMode() {
         return memoryOnly ? MemorySorter.RecordCountInMemoryLimitMode.DISCARD : MemorySorter.RecordCountInMemoryLimitMode.STOP;
     }
 
-    @Nonnull
     @Override
     public File generateFilename() throws IOException {
         return File.createTempFile("fdb", ".bin");
@@ -157,12 +147,12 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
     }
 
     @Override
-    public void writeValue(@Nonnull final FDBQueriedRecord<M> record, @Nonnull final CodedOutputStream stream) throws IOException {
+    public void writeValue(final FDBQueriedRecord<M> record, final CodedOutputStream stream) throws IOException {
         serializer.write(record, stream);
     }
 
     @Override
-    public FDBQueriedRecord<M> readValue(@Nonnull final CodedInputStream stream) throws IOException {
+    public FDBQueriedRecord<M> readValue(final CodedInputStream stream) throws IOException {
         return serializer.read(stream);
     }
 
@@ -213,7 +203,6 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
         return RANDOM.get();
     }
 
-    @Nonnull
     @Override
     public MemorySortComparator<Tuple> getComparator(@Nullable final Tuple minimumKey) {
         return comparatorFunction.apply(this, minimumKey);

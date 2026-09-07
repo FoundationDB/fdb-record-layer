@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Optional;
 
@@ -48,31 +47,27 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class DeMorgansTheoremRule<P extends AndOrPredicate> extends QueryPredicateSimplificationRule<NotPredicate> {
-    @Nonnull
     private final Class<P> majorClass;
-    @Nonnull
     private final BindingMatcher<QueryPredicate> termMatcher;
-    @Nonnull
     private final BindingMatcher<P> andOrPredicateMatcher;
 
-    public DeMorgansTheoremRule(@Nonnull final Class<P> majorClass,
-                                @Nonnull final BindingMatcher<QueryPredicate> termMatcher,
-                                @Nonnull final BindingMatcher<P> andOrPredicateMatcher,
-                                @Nonnull final BindingMatcher<NotPredicate> rootMatcher) {
+    public DeMorgansTheoremRule(final Class<P> majorClass,
+                                final BindingMatcher<QueryPredicate> termMatcher,
+                                final BindingMatcher<P> andOrPredicateMatcher,
+                                final BindingMatcher<NotPredicate> rootMatcher) {
         super(rootMatcher);
         this.majorClass = majorClass;
         this.andOrPredicateMatcher = andOrPredicateMatcher;
         this.termMatcher = termMatcher;
     }
 
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.of(NotPredicate.class);
     }
 
     @Override
-    public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
+    public void onMatch(final QueryPredicateSimplificationRuleCall call) {
         final var bindings = call.getBindings();
         final var majorTerms = bindings.getAll(termMatcher);
 
@@ -86,7 +81,7 @@ public class DeMorgansTheoremRule<P extends AndOrPredicate> extends QueryPredica
                 .yieldResultAndReExplore(minorWith(minorTerms));
     }
 
-    private QueryPredicate minorWith(@Nonnull final Collection<? extends QueryPredicate> terms) {
+    private QueryPredicate minorWith(final Collection<? extends QueryPredicate> terms) {
         if (majorClass == AndPredicate.class) {
             return OrPredicate.or(terms);
         } else if (majorClass == OrPredicate.class) {
@@ -95,7 +90,7 @@ public class DeMorgansTheoremRule<P extends AndOrPredicate> extends QueryPredica
         throw new RecordCoreException("unsupported major");
     }
 
-    public static <P extends AndOrPredicate> DeMorgansTheoremRule<P> withMajor(@Nonnull final Class<P> majorClass) {
+    public static <P extends AndOrPredicate> DeMorgansTheoremRule<P> withMajor(final Class<P> majorClass) {
         final var termMatcher = anyPredicate();
         final var andOrPredicateMatcher = ofTypeWithChildren(majorClass, all(termMatcher));
         return new DeMorgansTheoremRule<>(majorClass,

@@ -36,8 +36,7 @@ import com.google.protobuf.UnknownFieldSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -51,7 +50,6 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
 
     private static final DynamicMessageRecordSerializer INSTANCE = new DynamicMessageRecordSerializer();
 
-    @Nonnull
     public static RecordSerializer<Message> instance() {
         return INSTANCE;
     }
@@ -61,17 +59,15 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
     protected DynamicMessageRecordSerializer() {
     }
 
-    @Nonnull
     @Override
     public RecordSerializer<Message> widen() {
         return this;
     }
 
-    @Nonnull
     @Override
-    public byte[] serialize(@Nonnull RecordMetaData metaData,
-                            @Nonnull RecordType recordType,
-                            @Nonnull Message rec,
+    public byte[] serialize(RecordMetaData metaData,
+                            RecordType recordType,
+                            Message rec,
                             @Nullable StoreTimer timer) {
         long startTime = System.nanoTime();
         try {
@@ -92,16 +88,14 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
         }
     }
 
-    @Nonnull
-    protected byte[] serializeToBytes(@Nonnull Message storedRecord) {
+    protected byte[] serializeToBytes(Message storedRecord) {
         return storedRecord.toByteArray();
     }
 
-    @Nonnull
     @Override
-    public Message deserialize(@Nonnull final RecordMetaData metaData,
-                               @Nonnull final Tuple primaryKey,
-                               @Nonnull final byte[] serialized,
+    public Message deserialize(final RecordMetaData metaData,
+                               final Tuple primaryKey,
+                               final byte[] serialized,
                                @Nullable StoreTimer timer) {
         final long startTime = System.nanoTime();
         try {
@@ -115,10 +109,9 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
         }
     }
 
-    @Nonnull
-    protected DynamicMessage deserializeUnion(@Nonnull final Descriptors.Descriptor unionDescriptor,
-                                              @Nonnull final Tuple primaryKey,
-                                              @Nonnull final byte[] serialized,
+    protected DynamicMessage deserializeUnion(final Descriptors.Descriptor unionDescriptor,
+                                              final Tuple primaryKey,
+                                              final byte[] serialized,
                                               int metaDataVersion) {
         final DynamicMessage unionMessage = deserializeFromBytes(unionDescriptor, serialized);
         final Map<Descriptors.FieldDescriptor, Object> allFields = unionMessage.getAllFields();
@@ -143,9 +136,8 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
         return unionMessage;
     }
 
-    @Nonnull
-    protected DynamicMessage deserializeFromBytes(@Nonnull Descriptors.Descriptor storedDescriptor,
-                                                  @Nonnull byte[] serialized) {
+    protected DynamicMessage deserializeFromBytes(Descriptors.Descriptor storedDescriptor,
+                                                  byte[] serialized) {
         try {
             return DynamicMessage.parseFrom(storedDescriptor, serialized);
         } catch (InvalidProtocolBufferException ex) {
@@ -154,9 +146,8 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
         }
     }
 
-    @Nonnull
-    protected Map.Entry<Descriptors.FieldDescriptor, DynamicMessage> getUnionField(@Nonnull final DynamicMessage unionMessage,
-                                                                                   @Nonnull final Tuple primaryKey) {
+    protected Map.Entry<Descriptors.FieldDescriptor, DynamicMessage> getUnionField(final DynamicMessage unionMessage,
+                                                                                   final Tuple primaryKey) {
         final Map.Entry<Descriptors.FieldDescriptor, Object> entry = unionMessage.getAllFields().entrySet().iterator().next();
         final DynamicMessage message = (DynamicMessage)entry.getValue();
         if (!message.getUnknownFields().asMap().isEmpty()) {
@@ -170,7 +161,6 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
         return Pair.of(entry.getKey(), message);
     }
 
-    @Nonnull
     private Set<String> getFieldNames(Set<Descriptors.FieldDescriptor> fieldDescriptors) {
         return fieldDescriptors.stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toSet());
     }

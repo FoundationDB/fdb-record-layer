@@ -45,7 +45,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionP
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -65,7 +64,6 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>> {
         // prevent outside instantiation
     }
 
-    @Nonnull
     @Override
     public RecordTypesVisitor createVisitor() {
         return new RecordTypesVisitor(Optional.empty());
@@ -76,36 +74,31 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>> {
         return getClass().getSimpleName();
     }
 
-    @Nonnull
-    public Set<String> evaluate(@Nonnull Reference reference) {
+    public Set<String> evaluate(Reference reference) {
         return Objects.requireNonNull(reference.acceptVisitor(createVisitor()));
     }
 
-    @Nonnull
-    public Set<String> evaluate(@Nonnull final RelationalExpression expression) {
+    public Set<String> evaluate(final RelationalExpression expression) {
         return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
     }
 
-    @Nonnull
     public static RecordTypesProperty recordTypes() {
         return RECORD_TYPES;
     }
 
     public static class RecordTypesVisitor implements SimpleExpressionVisitor<Set<String>> {
-        @Nonnull
         private final Optional<AliasResolver> aliasResolverOptional;
 
-        public RecordTypesVisitor(@Nonnull final AliasResolver aliasResolver) {
+        public RecordTypesVisitor(final AliasResolver aliasResolver) {
             this(Optional.of(aliasResolver));
         }
 
-        public RecordTypesVisitor(@Nonnull final Optional<AliasResolver> aliasResolverOptional) {
+        public RecordTypesVisitor(final Optional<AliasResolver> aliasResolverOptional) {
             this.aliasResolverOptional = aliasResolverOptional;
         }
 
-        @Nonnull
         @Override
-        public Set<String> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Set<String>> childResults) {
+        public Set<String> evaluateAtExpression(RelationalExpression expression, List<Set<String>> childResults) {
             if (expression instanceof RecordQueryScanPlan) {
                 final var recordTypesFromExpression = ((RecordQueryScanPlan)expression).getRecordTypes();
                 return recordTypesFromExpression == null ? ImmutableSet.of() : recordTypesFromExpression;
@@ -150,7 +143,7 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>> {
                 }
 
                 if (nonNullChildResult == 1) {
-                    return firstChildResult;
+                    return Objects.requireNonNull(firstChildResult);
                 } else {
                     // If we have a single child, then there is a reasonable default for how most relational expressions will
                     // change the set of record types (i.e., they won't change them at all). However, if you have several relational
@@ -176,10 +169,9 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>> {
             }
         }
 
-        @Nonnull
         @Override
-        public Set<String> evaluateAtRef(@Nonnull Reference ref,
-                                         @Nonnull List<Set<String>> memberResults) {
+        public Set<String> evaluateAtRef(Reference ref,
+                                         List<Set<String>> memberResults) {
             final Set<String> union = new HashSet<>();
             for (Set<String> resultSet : memberResults) {
                 union.addAll(resultSet);

@@ -29,8 +29,8 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 
@@ -78,7 +78,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
      * @return a constituent record of {@code null}
      */
     @Nullable
-    public abstract FDBQueriedRecord<M> getConstituent(@Nonnull String constituentName);
+    public abstract FDBQueriedRecord<M> getConstituent(String constituentName);
 
     /**
      * Get the name of this constituent if it comes from a synthetic record.
@@ -87,19 +87,19 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
     @Nullable
     public abstract String getConstituentName();
 
-    public static <M extends Message> FDBQueriedRecord<M> indexed(@Nonnull FDBIndexedRecord<M> indexed) {
+    public static <M extends Message> FDBQueriedRecord<M> indexed(FDBIndexedRecord<M> indexed) {
         return new Indexed<>(indexed);
     }
 
-    public static <M extends Message> FDBQueriedRecord<M> stored(@Nonnull FDBStoredRecord<M> stored) {
+    public static <M extends Message> FDBQueriedRecord<M> stored(FDBStoredRecord<M> stored) {
         return new Stored<>(stored);
     }
 
-    public static <M extends Message> FDBQueriedRecord<M> covered(@Nonnull Index index, @Nonnull IndexEntry indexEntry, @Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M protoRecord) {
+    public static <M extends Message> FDBQueriedRecord<M> covered(Index index, IndexEntry indexEntry, Tuple primaryKey, RecordType recordType, M protoRecord) {
         return new Covered<>(index, indexEntry, primaryKey, recordType, protoRecord);
     }
 
-    public static <M extends Message> FDBQueriedRecord<M> synthetic(@Nonnull Index index, @Nonnull IndexEntry indexEntry, @Nonnull FDBSyntheticRecord syntheticRecord) {
+    public static <M extends Message> FDBQueriedRecord<M> synthetic(Index index, IndexEntry indexEntry, FDBSyntheticRecord syntheticRecord) {
         return new Synthetic<>(index, indexEntry, syntheticRecord);
     }
 
@@ -111,19 +111,16 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
             this.indexed = indexed;
         }
 
-        @Nonnull
         @Override
         public Tuple getPrimaryKey() {
             return indexed.getPrimaryKey();
         }
 
-        @Nonnull
         @Override
         public RecordType getRecordType() {
             return indexed.getRecordType();
         }
 
-        @Nonnull
         @Override
         public M getRecord() {
             return indexed.getRecord();
@@ -140,19 +137,16 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
             return indexed.getVersion();
         }
 
-        @Nonnull
         @Override
         public FDBStoredRecord<M> getStoredRecord() {
             return indexed.getStoredRecord();
         }
 
-        @Nonnull
         @Override
         public Index getIndex() {
             return indexed.getIndex();
         }
 
-        @Nonnull
         @Override
         public IndexEntry getIndexEntry() {
             return indexed.getIndexEntry();
@@ -166,7 +160,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
 
         @Nullable
         @Override
-        public FDBQueriedRecord<M> getConstituent(@Nonnull String constituentName) {
+        public FDBQueriedRecord<M> getConstituent(String constituentName) {
             return null;
         }
 
@@ -181,23 +175,20 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
     static class Stored<M extends Message> extends FDBQueriedRecord<M> {
         private final FDBStoredRecord<M> stored;
 
-        Stored(@Nonnull FDBStoredRecord<M> stored) {
+        Stored(FDBStoredRecord<M> stored) {
             this.stored = stored;
         }
 
-        @Nonnull
         @Override
         public Tuple getPrimaryKey() {
             return stored.getPrimaryKey();
         }
 
-        @Nonnull
         @Override
         public RecordType getRecordType() {
             return stored.getRecordType();
         }
 
-        @Nonnull
         @Override
         public M getRecord() {
             return stored.getRecord();
@@ -240,7 +231,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
 
         @Nullable
         @Override
-        public FDBQueriedRecord<M> getConstituent(@Nonnull String constituentName) {
+        public FDBQueriedRecord<M> getConstituent(String constituentName) {
             return null;
         }
 
@@ -252,18 +243,13 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
     }
 
     static class Covered<M extends Message> extends FDBQueriedRecord<M> {
-        @Nonnull
         private final Index index;
-        @Nonnull
         private final IndexEntry indexEntry;
-        @Nonnull
         private final Tuple primaryKey;
-        @Nonnull
         private final RecordType recordType;
-        @Nonnull
         private final M protoRecord;
 
-        public Covered(@Nonnull Index index, @Nonnull IndexEntry indexEntry, @Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M protoRecord) {
+        public Covered(Index index, IndexEntry indexEntry, Tuple primaryKey, RecordType recordType, M protoRecord) {
             this.index = index;
             this.indexEntry = indexEntry;
             this.primaryKey = primaryKey;
@@ -271,31 +257,26 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
             this.protoRecord = protoRecord;
         }
 
-        @Nonnull
         @Override
         public Index getIndex() {
             return index;
         }
 
-        @Nonnull
         @Override
         public IndexEntry getIndexEntry() {
             return indexEntry;
         }
 
-        @Nonnull
         @Override
         public Tuple getPrimaryKey() {
             return primaryKey;
         }
 
-        @Nonnull
         @Override
         public RecordType getRecordType() {
             return recordType;
         }
 
-        @Nonnull
         @Override
         public M getRecord() {
             return protoRecord;
@@ -333,7 +314,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         @Nullable
         @Override
         @SuppressWarnings("unchecked")
-        public FDBQueriedRecord<M> getConstituent(@Nonnull String constituentName) {
+        public FDBQueriedRecord<M> getConstituent(String constituentName) {
             // Need special handling for this because a covered synthetic record isn't an FDBSyntheticRecord,
             // just as a covered record isn't an FBDStoredRecord.
             if (recordType instanceof SyntheticRecordType<?>) {
@@ -358,7 +339,6 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
                 final Tuple constituentPrimaryKey = primaryKey.isEmpty() ? TupleHelpers.EMPTY : primaryKey.getNestedTuple(position + 1);
                 final M constituent = (M)protoRecord.getField(recordType.getDescriptor().findFieldByName(constituentName));
                 return new Covered<>(index, indexEntry, constituentPrimaryKey, constituentRecordType, constituent) {
-                    @Nonnull
                     @Override
                     public String getConstituentName() {
                         return constituentName;
@@ -370,40 +350,33 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
     }
 
     static class Synthetic<M extends Message> extends FDBQueriedRecord<M> {
-        @Nonnull
         private final Index index;
-        @Nonnull
         private final IndexEntry indexEntry;
-        @Nonnull
         private final FDBSyntheticRecord syntheticRecord;
 
-        public Synthetic(@Nonnull final Index index,
-                         @Nonnull final IndexEntry indexEntry,
-                         @Nonnull final FDBSyntheticRecord syntheticRecord) {
+        public Synthetic(final Index index,
+                         final IndexEntry indexEntry,
+                         final FDBSyntheticRecord syntheticRecord) {
             this.index = index;
             this.indexEntry = indexEntry;
             this.syntheticRecord = syntheticRecord;
         }
 
-        @Nonnull
         @Override
         public Index getIndex() {
             return index;
         }
 
-        @Nonnull
         @Override
         public IndexEntry getIndexEntry() {
             return indexEntry;
         }
 
-        @Nonnull
         @Override
         public Tuple getPrimaryKey() {
             return syntheticRecord.getPrimaryKey();
         }
 
-        @Nonnull
         @Override
         public RecordType getRecordType() {
             return syntheticRecord.getRecordType();
@@ -414,7 +387,6 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
          * It is the responsibility of the caller to not call this method using a typed store.
          * @return the message associated with this record
          */
-        @Nonnull
         @Override
         @SuppressWarnings("unchecked")
         public M getRecord() {
@@ -438,7 +410,6 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
             return null;
         }
 
-        @Nonnull
         @Override
         public FDBSyntheticRecord getSyntheticRecord() {
             return syntheticRecord;
@@ -447,7 +418,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         @Nullable
         @Override
         @SuppressWarnings("unchecked")
-        public FDBQueriedRecord<M> getConstituent(@Nonnull String constituentName) {
+        public FDBQueriedRecord<M> getConstituent(String constituentName) {
             if (syntheticRecord.getConstituent(constituentName) == null) {
                 return null;
             }
@@ -462,44 +433,36 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
     }
 
     static class Constituent<M extends Message> extends FDBQueriedRecord<M> {
-        @Nonnull
         private final Index index;
-        @Nonnull
         private final IndexEntry indexEntry;
-        @Nonnull
         private final FDBSyntheticRecord syntheticRecord;
-        @Nonnull
         private final String constituentName;
 
-        public Constituent(@Nonnull final Index index,
-                           @Nonnull final IndexEntry indexEntry,
-                           @Nonnull final FDBSyntheticRecord syntheticRecord,
-                           @Nonnull final String constituentName) {
+        public Constituent(final Index index,
+                           final IndexEntry indexEntry,
+                           final FDBSyntheticRecord syntheticRecord,
+                           final String constituentName) {
             this.index = index;
             this.indexEntry = indexEntry;
             this.syntheticRecord = syntheticRecord;
             this.constituentName = constituentName;
         }
 
-        @Nonnull
         @Override
         public Index getIndex() {
             return index;
         }
 
-        @Nonnull
         @Override
         public IndexEntry getIndexEntry() {
             return indexEntry;
         }
 
-        @Nonnull
         @Override
         public Tuple getPrimaryKey() {
             return getStoredRecord().getPrimaryKey();
         }
 
-        @Nonnull
         @Override
         public RecordType getRecordType() {
             return getStoredRecord().getRecordType();
@@ -510,7 +473,6 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
          * It is the responsibility of the caller to not call this method using a typed store.
          * @return the message associated with this record
          */
-        @Nonnull
         @Override
         public M getRecord() {
             return getStoredRecord().getRecord();
@@ -527,14 +489,12 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
             return getStoredRecord().getVersion();
         }
 
-        @Nonnull
         @Override
         @SuppressWarnings("unchecked")
         public FDBStoredRecord<M> getStoredRecord() {
             return (FDBStoredRecord<M>)Objects.requireNonNull(syntheticRecord.getConstituent(constituentName));
         }
 
-        @Nonnull
         @Override
         public FDBSyntheticRecord getSyntheticRecord() {
             return syntheticRecord;
@@ -542,11 +502,10 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
 
         @Nullable
         @Override
-        public FDBQueriedRecord<M> getConstituent(@Nonnull String constituentName) {
+        public FDBQueriedRecord<M> getConstituent(String constituentName) {
             return null;
         }
 
-        @Nonnull
         @Override
         public String getConstituentName() {
             return constituentName;

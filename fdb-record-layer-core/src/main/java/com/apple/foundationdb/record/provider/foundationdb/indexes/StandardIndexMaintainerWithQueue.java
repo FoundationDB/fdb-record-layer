@@ -36,8 +36,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -50,7 +49,7 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class StandardIndexMaintainerWithQueue extends StandardIndexMaintainer {
-    protected StandardIndexMaintainerWithQueue(@Nonnull final IndexMaintainerState state) {
+    protected StandardIndexMaintainerWithQueue(final IndexMaintainerState state) {
         super(state);
     }
 
@@ -59,20 +58,18 @@ public abstract class StandardIndexMaintainerWithQueue extends StandardIndexMain
         return isPendingWriteQueueAllowed(this, state);
     }
 
-    static boolean isPendingWriteQueueAllowed(StandardIndexMaintainer maintainer, @Nonnull final IndexMaintainerState state) {
+    static boolean isPendingWriteQueueAllowed(StandardIndexMaintainer maintainer, final IndexMaintainerState state) {
         return maintainer.isIdempotent() && !isSyntheticIndex(state);
     }
 
     @Override
-    @Nonnull
     public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord,
                                                               @Nullable final FDBIndexableRecord<M> newRecord) {
         return serializePendingWrites(state, oldRecord, newRecord);
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
+    public CompletableFuture<Void> updateFromQueue(final Any data) {
         // Calling updateWhileWriteOnly explicitly, lest this update be re-pushed to the queue.
         final IndexBuildProto.OldAndNewRecords records = unpackPendingWrites(data);
         return updateWhileWriteOnly(
@@ -88,8 +85,7 @@ public abstract class StandardIndexMaintainerWithQueue extends StandardIndexMain
      * @param <M> type of message
      * @return the packed payload to enqueue
      */
-    @Nonnull
-    static <M extends Message> Any serializePendingWrites(@Nonnull final IndexMaintainerState state,
+    static <M extends Message> Any serializePendingWrites(final IndexMaintainerState state,
                                                           @Nullable final FDBIndexableRecord<M> oldRecord,
                                                           @Nullable final FDBIndexableRecord<M> newRecord) {
         final IndexBuildProto.OldAndNewRecords.Builder builder = IndexBuildProto.OldAndNewRecords.newBuilder();
@@ -107,8 +103,7 @@ public abstract class StandardIndexMaintainerWithQueue extends StandardIndexMain
      * @param data the {@link Any}-packed payload produced by {@link #serializePendingWrites}
      * @return the unpacked old/new records
      */
-    @Nonnull
-    static IndexBuildProto.OldAndNewRecords unpackPendingWrites(@Nonnull final Any data) {
+    static IndexBuildProto.OldAndNewRecords unpackPendingWrites(final Any data) {
         try {
             return data.unpack(IndexBuildProto.OldAndNewRecords.class);
         } catch (InvalidProtocolBufferException ex) {
@@ -116,16 +111,14 @@ public abstract class StandardIndexMaintainerWithQueue extends StandardIndexMain
         }
     }
 
-    @Nonnull
-    static <M extends Message> ByteString serializePendingRecord(@Nonnull final IndexMaintainerState state,
-                                                                 @Nonnull final FDBIndexableRecord<M> indexableRecord) {
+    static <M extends Message> ByteString serializePendingRecord(final IndexMaintainerState state,
+                                                                 final FDBIndexableRecord<M> indexableRecord) {
         return ZeroCopyByteString.wrap(state.store.getSerializer().serialize(state.store.getRecordMetaData(),
                 indexableRecord.getRecordType(), indexableRecord.getRecord(), state.store.getTimer()));
     }
 
-    @Nonnull
-    static FDBStoredRecord<Message> deserializePendingRecord(@Nonnull final IndexMaintainerState state,
-                                                             @Nonnull final ByteString serialized) {
+    static FDBStoredRecord<Message> deserializePendingRecord(final IndexMaintainerState state,
+                                                             final ByteString serialized) {
         final RecordMetaData metaData = state.store.getRecordMetaData();
         final Message rec = state.store.getSerializer()
                 .deserialize(metaData, TupleHelpers.EMPTY, serialized.toByteArray(), state.store.getTimer());
@@ -135,7 +128,7 @@ public abstract class StandardIndexMaintainerWithQueue extends StandardIndexMain
         return builder.build();
     }
 
-    static boolean isSyntheticIndex(@Nonnull final IndexMaintainerState state) {
+    static boolean isSyntheticIndex(final IndexMaintainerState state) {
         return !state.store.getRecordMetaData().getSyntheticRecordTypes().isEmpty() &&
                 state.store.getRecordMetaData().recordTypesForIndex(state.index).stream().anyMatch(RecordType::isSynthetic);
     }

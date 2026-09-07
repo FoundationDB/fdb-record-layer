@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
@@ -35,9 +34,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 public class ReferenceMatchers {
-    @Nonnull
     private static final BindingMatcher<Reference> topReferenceMatcher = BindingMatcher.instance();
-    @Nonnull
     private static final BindingMatcher<Reference> currentReferenceMatcher = BindingMatcher.instance();
 
 
@@ -46,44 +43,37 @@ public class ReferenceMatchers {
     }
 
 
-    @Nonnull
     public static BindingMatcher<Reference> getTopReferenceMatcher() {
         return topReferenceMatcher;
     }
 
-    @Nonnull
     public static BindingMatcher<Reference> getCurrentReferenceMatcher() {
         return currentReferenceMatcher;
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked")
     public static BindingMatcher<Reference> anyRef() {
         return typed(Reference.class);
     }
 
-    @Nonnull
     public static BindingMatcher<Reference> anyRefOverOnlyPlans() {
         return members(all(RelationalExpressionMatchers.ofType(RecordQueryPlan.class)));
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked")
-    public static <E extends RelationalExpression> BindingMatcher<Reference> members(@Nonnull final CollectionMatcher<E> downstream) {
+    public static <E extends RelationalExpression> BindingMatcher<Reference> members(final CollectionMatcher<E> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(Reference.class,
                 Extractor.of(Reference::getAllMemberExpressions, name -> "allMembers(" + name + ")"),
                 downstream);
     }
 
-    @Nonnull
-    public static <E extends RelationalExpression> BindingMatcher<Reference> exploratoryMember(@Nonnull final BindingMatcher<E> downstream) {
+    public static <E extends RelationalExpression> BindingMatcher<Reference> exploratoryMember(final BindingMatcher<E> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(Reference.class,
                 Extractor.of(Reference::getExploratoryExpressions, name -> "exploratoryMember(" + name + ")"),
                 AnyMatcher.any(downstream));
     }
 
-    @Nonnull
-    public static <E extends RelationalExpression> BindingMatcher<Reference> finalMember(@Nonnull final BindingMatcher<E> downstream) {
+    public static <E extends RelationalExpression> BindingMatcher<Reference> finalMember(final BindingMatcher<E> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(Reference.class,
                 Extractor.of(Reference::getFinalExpressions, name -> "finalMember(" + name + ")"),
                 AnyMatcher.any(downstream));

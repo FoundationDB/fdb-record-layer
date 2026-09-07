@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
@@ -56,11 +57,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -94,6 +95,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
+
+    // NullAway/JSpecify does not reliably resolve the @Nullable annotation on FDBRecordStoreBase's inherited
+    // scanRecords(byte[], ScanProperties)/scanIndex(..., byte[], ScanProperties) default methods when called
+    // (with no continuation) from outside FDBRecordStore itself; wrapping the calls here, rather than
+    // suppressing at each call site, centralizes the (well-understood) suppression.
+    @SuppressWarnings("NullAway")
+    private RecordCursor<FDBStoredRecord<Message>> scanAllRecords(ScanProperties scanProperties) {
+        return recordStore.scanRecords(null, scanProperties);
+    }
+
+    @SuppressWarnings("NullAway")
+    private RecordCursor<IndexEntry> scanIndexNoContinuation(Index index, IndexScanType scanType, TupleRange range, ScanProperties scanProperties) {
+        return recordStore.scanIndex(index, scanType, range, null, scanProperties);
+    }
 
     public static final RecordMetaDataHook BASIC_HOOK = metaData -> {
         final RecordTypeBuilder t1 = metaData.getRecordType("MySimpleRecord");
@@ -191,7 +206,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             // Index entries properly rendezvous with record.
             assertEquals(recs.subList(0, 1), recordStore.executeQuery(RecordQuery.newBuilder()
                     .setRecordType("MySimpleRecord").setFilter(Query.field("str_value_indexed").equalsValue("abc")).build())
-                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+                    .map(qr -> Objects.requireNonNull(qr.getStoredRecord())).asList().join());
         }
     }
 
@@ -208,7 +223,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planQuery(query);
 
             assertEquals(recs.subList(0, 2), recordStore.executeQuery(query)
-                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+                    .map(qr -> Objects.requireNonNull(qr.getStoredRecord())).asList().join());
 
             assertMatchesExactly(plan, scanPlan()
                     .where(scanComparisons(range("[IS MySimpleRecord]"))));
@@ -237,7 +252,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planQuery(query);
 
             assertEquals(recs.subList(0, 2), recordStore.executeQuery(query)
-                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+                    .map(qr -> Objects.requireNonNull(qr.getStoredRecord())).asList().join());
             if (useCascadesPlanner) {
                 assertMatchesExactly(plan, scanPlan()
                         .where(scanComparisons(range("[IS MySimpleRecord]"))));
@@ -276,7 +291,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = new RecordQueryIndexPlan(index.getName(), scan, false);
 
             assertEquals(recs.subList(1, 2), recordStore.executeQuery(query)
-                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+                    .map(qr -> Objects.requireNonNull(qr.getStoredRecord())).asList().join());
             assertMatchesExactly(plan, indexPlan()
                     .where(indexName(index.getName()))
                     .and(scanComparisons(range("[EQUALS 2, IS MySimpleRecord]"))));
@@ -297,7 +312,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planQuery(query);
 
             assertEquals(recs.subList(0, 1), recordStore.executeQuery(query)
-                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+                    .map(qr -> Objects.requireNonNull(qr.getStoredRecord())).asList().join());
 
             assertMatchesExactly(plan, scanPlan()
                     .where(scanComparisons(range("[IS MySimpleRecord, [LESS_THAN 400]]"))));
@@ -320,7 +335,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planQuery(query);
 
             assertEquals(recs.subList(1, 2), recordStore.executeQuery(query)
-                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+                    .map(qr -> Objects.requireNonNull(qr.getStoredRecord())).asList().join());
             assertMatchesExactly(plan, scanPlan()
                     .where(scanComparisons(range("[IS MySimpleRecord, [GREATER_THAN 200 && LESS_THAN 500]]"))));
         }
@@ -358,7 +373,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
                         .collect(Collectors.toList());
 
                 assertEquals(storedSimpleRecords, recordStore.executeQuery(query)
-                        .map(FDBQueriedRecord::getStoredRecord).asList().join());
+                        .map(qr -> Objects.requireNonNull(qr.getStoredRecord())).asList().join());
                 assertMatchesExactly(plan,
                         filterPlan(
                                 typeFilterPlan(
@@ -375,7 +390,6 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
      * reverse order.
      * @return a stream of arguments to use for parameterized tests with sorts
      */
-    @Nonnull
     static Stream<Arguments> sortArgs() {
         // Sorts should be plannable on the primary key if (1) the sort is on the full primary key
         // or (2) if the sort is on just the second column of the primary key as the fact that the query
@@ -386,7 +400,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "testDoublyBoundedScanWithSort [sortExpr = {0}, reverse = {1}]")
     @MethodSource("sortArgs")
-    public void testDoublyBoundedScanWithSort(@Nonnull KeyExpression sortExpr, boolean reverse) throws Exception {
+    public void testDoublyBoundedScanWithSort(KeyExpression sortExpr, boolean reverse) throws Exception {
         List<FDBStoredRecord<Message>> recs = saveSomeRecords(BASIC_HOOK);
 
         try (FDBRecordContext context = openContext()) {
@@ -406,7 +420,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
                 expectedResults = Lists.reverse(expectedResults);
             }
             assertEquals(expectedResults, recordStore.executeQuery(query)
-                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+                    .map(qr -> Objects.requireNonNull(qr.getStoredRecord())).asList().join());
             // This is currently broken on concat(recordType(), field("rec_no")).
             // See: https://github.com/FoundationDB/fdb-record-layer/issues/744
             Assumptions.assumeTrue(sortExpr.getColumnSize() == 1,
@@ -430,7 +444,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "testSortOnSingleRecordType [sortExpr = {0}, reverse = {1}]")
     @MethodSource("sortArgs")
     @Disabled
-    public void testSortOnSingleRecordType(@Nonnull KeyExpression sortExpr, boolean reverse) throws Exception {
+    public void testSortOnSingleRecordType(KeyExpression sortExpr, boolean reverse) throws Exception {
         List<FDBStoredRecord<Message>> recs = saveSomeRecords(BASIC_HOOK);
 
         try (FDBRecordContext context = openContext()) {
@@ -447,7 +461,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
                 expectedResults = Lists.reverse(expectedResults);
             }
             assertEquals(expectedResults, recordStore.executeQuery(query)
-                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+                    .map(qr -> Objects.requireNonNull(qr.getStoredRecord())).asList().join());
             assertMatchesExactly(plan, scanPlan().where(scanComparisons(range("[IS MySimpleRecord"))));
         }
     }
@@ -456,7 +470,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "testSortOnSingleRecordType [sortExpr = {0}, reverse = {1}]")
     @MethodSource("sortArgs")
     @Disabled
-    public void testSortOnIndexWithComparisonOnSecondColumn(@Nonnull KeyExpression sortExpr, boolean reverse) throws Exception {
+    public void testSortOnIndexWithComparisonOnSecondColumn(KeyExpression sortExpr, boolean reverse) throws Exception {
         final Index index = new Index("recno-type", concat(field("num_value_2"), recordType()));
         RecordMetaDataHook hook = metaData -> {
             BASIC_HOOK.apply(metaData);
@@ -493,7 +507,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
                 expectedResults = Lists.reverse(expectedResults);
             }
             assertEquals(expectedResults, recordStore.executeQuery(query)
-                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+                    .map(qr -> Objects.requireNonNull(qr.getStoredRecord())).asList().join());
             assertMatchesExactly(plan, indexPlan().where(indexName(index.getName())).and(scanComparisons(range("[EQUALS 2, IS MySimpleRecord]"))));
         }
     }
@@ -533,7 +547,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planQuery(query);
 
             assertEquals(recs.subList(2, 3), recordStore.executeQuery(query)
-                    .map(FDBQueriedRecord::getStoredRecord).asList().join());
+                    .map(qr -> Objects.requireNonNull(qr.getStoredRecord())).asList().join());
             assertMatchesExactly(plan, scanPlan()
                     .where(scanComparisons(range("[IS MyOtherRecord]"))));
         }
@@ -554,9 +568,8 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             assertEquals(1, recordStore.getSnapshotRecordCount().join().intValue());
             assertEquals(0, recordStore.getSnapshotRecordCountForRecordType("MySimpleRecord").join().intValue());
 
-            assertEquals(recs.subList(2, 3), recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().join());
-            assertEquals(0, recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_3_indexed"),
-                    IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount().join().intValue());
+            assertEquals(recs.subList(2, 3), scanAllRecords(ScanProperties.FORWARD_SCAN).asList().join());
+            assertEquals(0, scanIndexNoContinuation(recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_3_indexed"), IndexScanType.BY_VALUE, TupleRange.ALL, ScanProperties.FORWARD_SCAN).getCount().join().intValue());
         }
     }
 
@@ -581,10 +594,9 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
 
             recordStore.deleteRecordsWhere("MySimpleRecord", Query.field("str_value_indexed").equalsValue("abc"));
 
-            assertEquals(recs.subList(1, 3), recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().join());
+            assertEquals(recs.subList(1, 3), scanAllRecords(ScanProperties.FORWARD_SCAN).asList().join());
             assertEquals(Collections.singletonList(Tuple.from("xyz", 2, 1, 456)),
-                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("str_num_3"),
-                    IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
+                    scanIndexNoContinuation(recordStore.getRecordMetaData().getIndex("str_num_3"), IndexScanType.BY_VALUE, TupleRange.ALL, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
         }
     }
 
@@ -625,8 +637,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             assertEquals(10, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
 
             assertEquals(IntStream.range(0, 10).mapToObj(i -> Tuple.from(i, 1, i)).collect(Collectors.toList()),
-                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("newIndex"),
-                            IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
+                    scanIndexNoContinuation(recordStore.getRecordMetaData().getIndex("newIndex"), IndexScanType.BY_VALUE, TupleRange.ALL, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
             context.commit();
         }
     }
@@ -672,8 +683,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             assertEquals(250, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
 
             assertEquals(IntStream.range(0, 250).mapToObj(i -> Tuple.from(i, 1, i)).collect(Collectors.toList()),
-                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("newIndex"),
-                            IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
+                    scanIndexNoContinuation(recordStore.getRecordMetaData().getIndex("newIndex"), IndexScanType.BY_VALUE, TupleRange.ALL, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
             context.commit();
         }
 
@@ -701,12 +711,14 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             assertEquals(IntStream.range(0, 250).mapToObj(i -> Tuple.from(i, 1, i)).collect(Collectors.toList()),
-                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("newIndex"),
-                            IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
+                    scanIndexNoContinuation(recordStore.getRecordMetaData().getIndex("newIndex"), IndexScanType.BY_VALUE, TupleRange.ALL, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
         }
     }
 
     @Test
+    // Tuple.from below intentionally accepts a null element as test data (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
     public void testOnlineIndexMultiTargetBuilder() throws Exception {
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context, BASIC_HOOK);
@@ -759,8 +771,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             assertEquals(IntStream.range(0, 250).mapToObj(i -> Tuple.from(null, 2, i)).collect(Collectors.toList()),
-                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("newIndex"),
-                            IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
+                    scanIndexNoContinuation(recordStore.getRecordMetaData().getIndex("newIndex"), IndexScanType.BY_VALUE, TupleRange.ALL, ScanProperties.FORWARD_SCAN).map(IndexEntry::getKey).asList().join());
         }
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context, hook);
@@ -826,13 +837,12 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
             assertTrue(recordStore.getIndexState("newIndex").isReadable());
             assertEquals(IntStream.range(0, numRecords).mapToObj(j -> Tuple.from(j, 0L, j)).collect(Collectors.toList()),
-                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("newIndex"),
-                            IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                    scanIndexNoContinuation(recordStore.getRecordMetaData().getIndex("newIndex"), IndexScanType.BY_VALUE, TupleRange.ALL, ScanProperties.FORWARD_SCAN)
                             .map(IndexEntry::getKey).asList().join());
         }
     }
 
-    private List<FDBStoredRecord<Message>> saveSomeRecords(@Nonnull RecordMetaDataHook hook) throws Exception {
+    private List<FDBStoredRecord<Message>> saveSomeRecords(RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
 
@@ -865,7 +875,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    private void saveManyRecords(@Nonnull RecordMetaDataHook hook, int count1, int count2) throws Exception {
+    private void saveManyRecords(RecordMetaDataHook hook, int count1, int count2) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
 

@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.sorting;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 import java.util.NavigableMap;
 import java.util.TreeMap;
@@ -36,16 +35,15 @@ import java.util.TreeMap;
  */
 @API(API.Status.EXPERIMENTAL)
 public class MemorySorter<K, V> extends MemoryScratchpad<K, V, NavigableMap<K, V>> {
-    public MemorySorter(@Nonnull final MemorySortAdapter<K, V> adapter, @Nullable final StoreTimer timer) {
+    public MemorySorter(final MemorySortAdapter<K, V> adapter, @Nullable final StoreTimer timer) {
         super(adapter, new TreeMap<>(adapter), timer);
     }
 
     @Override
-    public void removeLast(@Nonnull final K currentKey) {
+    public void removeLast(final K currentKey) {
         getMap().pollLastEntry();
     }
 
-    @Nonnull
     @Override
     public Collection<V> tailValues(@Nullable final K minimumKey) {
         return getMap().tailMap(minimumKey, false).values();

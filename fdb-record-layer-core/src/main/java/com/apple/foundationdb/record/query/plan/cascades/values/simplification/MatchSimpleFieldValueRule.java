@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -43,21 +42,19 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class MatchSimpleFieldValueRule extends ValueComputationRule<Value, Map<Value, ValueCompensation>, FieldValue> {
-    @Nonnull
     private static final BindingMatcher<FieldValue> rootMatcher = fieldValue(ValueMatchers.quantifiedObjectValue());
 
     public MatchSimpleFieldValueRule() {
         super(rootMatcher);
     }
 
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.of(FieldValue.class);
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<Value, Map<Value, ValueCompensation>> call) {
+    public void onMatch(final ValueComputationRuleCall<Value, Map<Value, ValueCompensation>> call) {
         final var bindings = call.getBindings();
         final var rootValue = bindings.get(rootMatcher);
         final var baseValue = Objects.requireNonNull(call.getArgument());

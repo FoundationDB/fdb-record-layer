@@ -22,8 +22,7 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An exception from transaction processing that ought to be retried.
@@ -31,11 +30,11 @@ import javax.annotation.Nullable;
 @API(API.Status.UNSTABLE)
 @SuppressWarnings("serial")
 public class RecordCoreRetriableTransactionException extends RecordCoreStorageException {
-    public RecordCoreRetriableTransactionException(@Nonnull String msg) {
+    public RecordCoreRetriableTransactionException(String msg) {
         super(msg);
     }
 
-    public RecordCoreRetriableTransactionException(@Nonnull String msg, @Nullable Throwable cause) {
+    public RecordCoreRetriableTransactionException(String msg, @Nullable Throwable cause) {
         super(msg, cause);
     }
 }

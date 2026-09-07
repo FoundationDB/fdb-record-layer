@@ -58,8 +58,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -105,7 +104,6 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
      */
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Compatible-Type-Evolution-Predicate");
 
-    @Nonnull
     private final Map<String, FieldAccessTrieNode> recordTypeNameFieldAccessMap;
 
     /**
@@ -114,7 +112,7 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
      *        record type in a query (designated by its record type name) encodes the accessed fields of that record
      *        type in that query.
      */
-    public CompatibleTypeEvolutionPredicate(@Nonnull final Map<String, FieldAccessTrieNode> recordTypeNameFieldAccessMap) {
+    public CompatibleTypeEvolutionPredicate(final Map<String, FieldAccessTrieNode> recordTypeNameFieldAccessMap) {
         super(true);
         this.recordTypeNameFieldAccessMap = ImmutableMap.copyOf(recordTypeNameFieldAccessMap);
     }
@@ -123,7 +121,7 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
     @Override
     @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
     public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store,
-                                            @Nonnull final EvaluationContext context) {
+                                            final EvaluationContext context) {
         final RecordMetaData recordMetaData = Objects.requireNonNull(store).getRecordMetaData();
         final Map<String, RecordType> currentRecordTypes = recordMetaData.getRecordTypes();
         for (final Map.Entry<String, FieldAccessTrieNode> entry : recordTypeNameFieldAccessMap.entrySet()) {
@@ -152,13 +150,12 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
     }
     
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, isAtomic(), recordTypeNameFieldAccessMap);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         Verify.verify(Iterables.isEmpty(explainSuppliers));
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("compatibleTypeEvolution"));
     }
@@ -175,10 +172,9 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final QueryPredicate other,
-                                                    @Nonnull final ValueEquivalence valueEquivalence) {
+    public ConstrainedBoolean equalsWithoutChildren(final QueryPredicate other,
+                                                    final ValueEquivalence valueEquivalence) {
         return super.equalsWithoutChildren(other, valueEquivalence)
                 .filter(ignored -> {
                     final CompatibleTypeEvolutionPredicate otherCompatibleTypeEvolutionPredicate = (CompatibleTypeEvolutionPredicate)other;
@@ -187,9 +183,8 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
                 });
     }
 
-    @Nonnull
     @Override
-    public PCompatibleTypeEvolutionPredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PCompatibleTypeEvolutionPredicate toProto(final PlanSerializationContext serializationContext) {
         final PCompatibleTypeEvolutionPredicate.Builder builder = PCompatibleTypeEvolutionPredicate.newBuilder();
         for (final Map.Entry<String, FieldAccessTrieNode> entry : recordTypeNameFieldAccessMap.entrySet()) {
             builder.addRecordTypeNameFieldAccessPairs(PRecordTypeNameFieldAccessPair.newBuilder()
@@ -200,15 +195,13 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PQueryPredicate toQueryPredicateProto(final PlanSerializationContext serializationContext) {
         return PQueryPredicate.newBuilder().setCompatibleTypeEvolutionPredicate(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static CompatibleTypeEvolutionPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                             @Nonnull final PCompatibleTypeEvolutionPredicate compatibleTypeEvolutionPredicateProto) {
+    public static CompatibleTypeEvolutionPredicate fromProto(final PlanSerializationContext serializationContext,
+                                                             final PCompatibleTypeEvolutionPredicate compatibleTypeEvolutionPredicateProto) {
         final ImmutableMap.Builder<String, FieldAccessTrieNode> mapBuilder = ImmutableMap.builder();
         for (int i = 0; i < compatibleTypeEvolutionPredicateProto.getRecordTypeNameFieldAccessPairsCount(); i ++) {
             final PRecordTypeNameFieldAccessPair recordTypeNameFieldAccessPair =
@@ -219,8 +212,7 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
         return new CompatibleTypeEvolutionPredicate(mapBuilder.build());
     }
 
-    @Nonnull
-    public static Map<String /* RecordTypeName */, FieldAccessTrieNode> computeFieldAccesses(@Nonnull final List<Value> derivationValues) {
+    public static Map<String /* RecordTypeName */, FieldAccessTrieNode> computeFieldAccesses(final List<Value> derivationValues) {
         final var buildersMap = Maps.<String /* RecordTypeName */, FieldAccessTrieNodeBuilder>newLinkedHashMap();
         derivationValues.forEach(derivationValue -> computeFieldAccessForDerivation(buildersMap, derivationValue));
         final var resultMapBuilder = ImmutableMap.<String, FieldAccessTrieNode>builder();
@@ -230,9 +222,8 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
         return resultMapBuilder.build();
     }
 
-    @Nonnull
-    private static List<FieldAccessTrieNodeBuilder> computeFieldAccessForDerivation(@Nonnull final Map<String /* RecordTypeName */, FieldAccessTrieNodeBuilder> recordTypeNameTrieBuilderMap,
-                                                                                    @Nonnull final Value derivationValue) {
+    private static List<FieldAccessTrieNodeBuilder> computeFieldAccessForDerivation(final Map<String /* RecordTypeName */, FieldAccessTrieNodeBuilder> recordTypeNameTrieBuilderMap,
+                                                                                    final Value derivationValue) {
         if (derivationValue instanceof QueriedValue) {
             final var queriedValue = (QueriedValue)derivationValue;
             final var recordTypeNames = queriedValue.getRecordTypeNames();
@@ -311,7 +302,7 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
         return ImmutableList.of();
     }
 
-    private static void terminateBuilders(@Nonnull final ImmutableList<List<FieldAccessTrieNodeBuilder>> nestedResults,
+    private static void terminateBuilders(final ImmutableList<List<FieldAccessTrieNodeBuilder>> nestedResults,
                                           final Function<FieldAccessTrieNodeBuilder, Type> typeFunction) {
         for (final var nestedResult : nestedResults) {
             for (final var nestedTrieBuilder : nestedResult) {
@@ -321,8 +312,8 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
     }
 
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
-    public static boolean isAccessCompatibleWithCurrentType(@Nonnull final FieldAccessTrieNode fieldAccessTrieNode,
-                                                            @Nonnull Type currentType) {
+    public static boolean isAccessCompatibleWithCurrentType(final FieldAccessTrieNode fieldAccessTrieNode,
+                                                            Type currentType) {
         if (fieldAccessTrieNode.getChildrenMap() != null) {
             while (currentType.isArray()) {
                 currentType = Objects.requireNonNull(((Type.Array)currentType).getElementType());
@@ -345,7 +336,9 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
                     return false;
                 }
 
-                final Type.Record.Field fieldInCurrentRecordType = fieldNameFieldMap.get(name);
+                final Type.Record.Field fieldInCurrentRecordType =
+                        Objects.requireNonNull(fieldNameFieldMap.get(name),
+                                () -> "field " + name + " missing from field map though present in ordinal map");
                 if (!isAccessCompatibleWithCurrentType(entry.getValue(), fieldInCurrentRecordType.getFieldType())) {
                     // something wrong downstream
                     return false;
@@ -361,8 +354,7 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
         }
     }
 
-    @Nonnull
-    public static CompatibleTypeEvolutionPredicate fromPlan(@Nonnull final RecordQueryPlan plannedPlan) {
+    public static CompatibleTypeEvolutionPredicate fromPlan(final RecordQueryPlan plannedPlan) {
         final var derivations = derivations().evaluate(plannedPlan);
         final var simplifiedLocalValues = derivations.simplifyLocalValues();
         final var fieldAccesses = CompatibleTypeEvolutionPredicate.computeFieldAccesses(simplifiedLocalValues);
@@ -374,16 +366,14 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PCompatibleTypeEvolutionPredicate, CompatibleTypeEvolutionPredicate> {
-        @Nonnull
         @Override
         public Class<PCompatibleTypeEvolutionPredicate> getProtoMessageClass() {
             return PCompatibleTypeEvolutionPredicate.class;
         }
 
-        @Nonnull
         @Override
-        public CompatibleTypeEvolutionPredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                          @Nonnull final PCompatibleTypeEvolutionPredicate compatibleTypeEvolutionPredicateProto) {
+        public CompatibleTypeEvolutionPredicate fromProto(final PlanSerializationContext serializationContext,
+                                                          final PCompatibleTypeEvolutionPredicate compatibleTypeEvolutionPredicateProto) {
             return CompatibleTypeEvolutionPredicate.fromProto(serializationContext, compatibleTypeEvolutionPredicateProto);
         }
     }
@@ -399,18 +389,16 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
             super(type, childrenMap);
         }
 
-        @Nonnull
         @Override
         public FieldAccessTrieNode getThis() {
             return this;
         }
 
         @Override
-        public int planHash(@Nonnull final PlanHashMode mode) {
+        public int planHash(final PlanHashMode mode) {
             return PlanHashable.objectsPlanHash(mode, BASE_HASH, getValue(), getChildrenMap());
         }
 
-        @Nonnull
         @Override
         public String toString() {
             final StringBuilder builder = new StringBuilder();
@@ -431,9 +419,8 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
             return builder.toString();
         }
 
-        @Nonnull
         @Override
-        public PFieldAccessTrieNode toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public PFieldAccessTrieNode toProto(final PlanSerializationContext serializationContext) {
             final PFieldAccessTrieNode.Builder builder = PFieldAccessTrieNode.newBuilder();
             final Map<FieldValue.ResolvedAccessor, FieldAccessTrieNode> childrenMap = getChildrenMap();
             builder.setChildrenMapIsNull(childrenMap == null);
@@ -450,9 +437,8 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
             return builder.build();
         }
 
-        @Nonnull
-        public static FieldAccessTrieNode fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                    @Nonnull final PFieldAccessTrieNode fieldAccessTrieNodeProto) {
+        public static FieldAccessTrieNode fromProto(final PlanSerializationContext serializationContext,
+                                                    final PFieldAccessTrieNode fieldAccessTrieNodeProto) {
             Verify.verify(fieldAccessTrieNodeProto.hasChildrenMapIsNull());
             final Map<FieldValue.ResolvedAccessor, FieldAccessTrieNode> childrenMap;
             if (fieldAccessTrieNodeProto.getChildrenMapIsNull()) {
@@ -476,8 +462,7 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
             return new FieldAccessTrieNode(type, childrenMap);
         }
 
-        @Nonnull
-        public static FieldAccessTrieNode of(@Nonnull final Type type,
+        public static FieldAccessTrieNode of(final Type type,
                                              @Nullable final Map<FieldValue.ResolvedAccessor, FieldAccessTrieNode> childrenMap) {
             return new FieldAccessTrieNode(type, childrenMap);
         }
@@ -487,32 +472,28 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
      * Builder version of {@link FieldAccessTrieNode}.
      */
     public static class FieldAccessTrieNodeBuilder extends TrieNode.AbstractTrieNodeBuilder<FieldValue.ResolvedAccessor, Type, FieldAccessTrieNodeBuilder> {
-        @Nonnull
         private final Type currentType;
 
-        public FieldAccessTrieNodeBuilder(@Nonnull final Type currentType) {
+        public FieldAccessTrieNodeBuilder(final Type currentType) {
             this(null, null, currentType);
         }
 
         public FieldAccessTrieNodeBuilder(@Nullable final Type type,
                                           @Nullable final Map<FieldValue.ResolvedAccessor, FieldAccessTrieNodeBuilder> childrenMap,
-                                          @Nonnull final Type currentType) {
+                                          final Type currentType) {
             super(type, childrenMap);
             this.currentType = currentType;
         }
 
-        @Nonnull
         @Override
         public FieldAccessTrieNodeBuilder getThis() {
             return this;
         }
 
-        @Nonnull
         public Type getCurrentType() {
             return currentType;
         }
 
-        @Nonnull
         public FieldAccessTrieNode build() {
             if (getChildrenMap() != null) {
                 final var childrenMapBuilder = ImmutableMap.<FieldValue.ResolvedAccessor, FieldAccessTrieNode>builder();

@@ -134,5 +134,8 @@
  *
  */
 
+@NullMarked
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
+
+import org.jspecify.annotations.NullMarked;
 

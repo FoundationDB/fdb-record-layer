@@ -48,12 +48,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
@@ -65,6 +66,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static com.apple.foundationdb.record.provider.common.StoreTimer.Event;
+import static java.util.Map.Entry;
 
 /**
  * A known FDB {@link Database}, associated with a cluster file location.
@@ -85,7 +89,6 @@ import java.util.function.Supplier;
  */
 @API(API.Status.UNSTABLE)
 public class FDBDatabase {
-    @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabase.class);
 
     /**
@@ -106,36 +109,29 @@ public class FDBDatabase {
      */
     protected static final String BLOCKING_FOR_FUTURE_MESSAGE = "Blocking on a future that should be completed";
 
-    @Nonnull
     private final FDBDatabaseFactory factory;
     @Nullable
     private final String clusterFile;
     /* Null until openFDB is called. */
     @Nullable
     private Database database;
-    @Nonnull
     private final ScheduledExecutorService scheduledExecutor;
     @Nullable
     private Function<FDBStoreTimer.Wait, Duration> asyncToSyncTimeout;
-    @Nonnull
     private ExceptionMapper asyncToSyncExceptionMapper;
-    @Nonnull
     private AsyncLoadingCache<LocatableResolver, ResolverStateProto.State> resolverStateCache;
-    @Nonnull
     private Cache<ScopedValue<String>, ResolverResult> directoryCache;
     // Version that the current directory cache was initialized with. A version counter is kept in the directory layer
     // state. Major changes to the directory layer will increment the version stored in the database, when that version
     // moves past directoryCacheVersion we invalidate the current directoryCache and update directoryCacheVersion.
-    @Nonnull
     private AtomicInteger directoryCacheVersion = new AtomicInteger();
-    @Nonnull
     private Cache<ScopedValue<Long>, String> reverseDirectoryInMemoryCache;
     private boolean opened;
     private final Object reverseDirectoryCacheLock = new Object();
+    @Nullable
     private volatile FDBReverseDirectoryCache reverseDirectoryCache;
     private final int reverseDirectoryMaxRowsPerTransaction;
     private final long reverseDirectoryMaxMillisPerTransaction;
-    @Nonnull
     private FDBRecordStoreStateCache storeStateCache = PassThroughRecordStoreStateCache.instance();
     private final Supplier<Boolean> transactionIsTracedSupplier;
     private final long warnAndCloseOpenContextsAfterSeconds;
@@ -147,29 +143,24 @@ public class FDBDatabase {
     private boolean trackLastSeenVersionOnRead = false;
     private boolean trackLastSeenVersionOnCommit = false;
 
-    @Nonnull
     private final Supplier<BlockingInAsyncDetection> blockingInAsyncDetectionSupplier;
 
-    @Nonnull
     private final Function<FDBLatencySource, Long> latencyInjector;
 
+    @Nullable
     private String datacenterId;
 
-    @Nonnull
     private final FDBLocalityProvider localityProvider;
 
-    @Nonnull
     private final APIVersion apiVersion;
 
-    @Nonnull
     private static final Pair<Long, Long> initialVersionPair = Pair.of(null, null);
-    @Nonnull
     private final AtomicReference<Pair<Long, Long>> lastSeenFDBVersion = new AtomicReference<>(initialVersionPair);
 
     private final NavigableMap<Long, FDBRecordContext> trackedOpenContexts = new ConcurrentSkipListMap<>();
 
     @VisibleForTesting
-    public FDBDatabase(@Nonnull FDBDatabaseFactory factory, @Nullable String clusterFile) {
+    public FDBDatabase(FDBDatabaseFactory factory, @Nullable String clusterFile) {
         this.factory = factory;
         this.clusterFile = clusterFile;
         this.asyncToSyncExceptionMapper = (ex, ev) -> FDBExceptions.wrapException(ex);
@@ -206,7 +197,7 @@ public class FDBDatabase {
      */
     @FunctionalInterface
     public interface ExceptionMapper {
-        RuntimeException apply(@Nonnull Throwable ex, @Nullable StoreTimer.Event event);
+        RuntimeException apply(Throwable ex, @Nullable Event event);
     }
 
     protected synchronized void openFDB() {
@@ -233,6 +224,7 @@ public class FDBDatabase {
         database().options().setDatacenterId(datacenterId);
     }
 
+    @Nullable
     public synchronized String getDatacenterId() {
         return datacenterId;
     }
@@ -241,7 +233,6 @@ public class FDBDatabase {
      * Get the locality provider that is used to discover the server location of the keys.
      * @return the locality provider
      */
-    @Nonnull
     public synchronized FDBLocalityProvider getLocalityProvider() {
         return localityProvider;
     }
@@ -305,7 +296,6 @@ public class FDBDatabase {
      * Get the factory that produced this database.
      * @return the database factory
      */
-    @Nonnull
     protected FDBDatabaseFactory getFactory() {
         return factory;
     }
@@ -314,10 +304,10 @@ public class FDBDatabase {
      * Get the underlying FDB database.
      * @return the FDB database
      */
-    @Nonnull
     public Database database() {
         openFDB();
-        return database;
+        // openFDB() unconditionally sets database (opening it if not already open), so it is non-null here.
+        return Objects.requireNonNull(database);
     }
 
     /**
@@ -325,7 +315,6 @@ public class FDBDatabase {
      * @return a new record context
      * @see Database#createTransaction
      */
-    @Nonnull
     public FDBRecordContext openContext() {
         return openContext(null, null);
     }
@@ -344,7 +333,6 @@ public class FDBDatabase {
      * @return a new record context
      * @see Database#createTransaction
      */
-    @Nonnull
     public FDBRecordContext openContext(@Nullable Map<String, String> mdcContext,
                                         @Nullable FDBStoreTimer timer) {
         return openContext(mdcContext, timer, null);
@@ -365,7 +353,6 @@ public class FDBDatabase {
      * @return a new record context
      * @see Database#createTransaction()
      */
-    @Nonnull
     public FDBRecordContext openContext(@Nullable Map<String, String> mdcContext,
                                         @Nullable FDBStoreTimer timer,
                                         @Nullable WeakReadSemantics weakReadSemantics) {
@@ -388,11 +375,10 @@ public class FDBDatabase {
      * @return a new record context
      * @see Database#createTransaction
      */
-    @Nonnull
     public FDBRecordContext openContext(@Nullable Map<String, String> mdcContext,
                                         @Nullable FDBStoreTimer timer,
                                         @Nullable WeakReadSemantics weakReadSemantics,
-                                        @Nonnull FDBTransactionPriority priority) {
+                                        FDBTransactionPriority priority) {
         return openContext(mdcContext, timer, weakReadSemantics, priority, null);
     }
 
@@ -416,11 +402,10 @@ public class FDBDatabase {
      * @return a new record context
      * @see Database#createTransaction
      */
-    @Nonnull
     public FDBRecordContext openContext(@Nullable Map<String, String> mdcContext,
                                         @Nullable FDBStoreTimer timer,
                                         @Nullable WeakReadSemantics weakReadSemantics,
-                                        @Nonnull FDBTransactionPriority priority,
+                                        FDBTransactionPriority priority,
                                         @Nullable String transactionId) {
         FDBRecordContextConfig contextConfig = FDBRecordContextConfig.newBuilder()
                 .setMdcContext(mdcContext)
@@ -440,9 +425,8 @@ public class FDBDatabase {
      * @return a new record context
      * @see Database#createTransaction
      */
-    @Nonnull
     @SuppressWarnings({"PMD.CompareObjectsWithEquals", "PMD.CloseResource"})
-    public FDBRecordContext openContext(@Nonnull FDBRecordContextConfig contextConfig) {
+    public FDBRecordContext openContext(FDBRecordContextConfig contextConfig) {
         openFDB();
         final FDBStoreTimer delayedTimer = contextConfig.getTimer() == null ? null : new FDBStoreTimer();
         final Executor executor = newContextExecutor(contextConfig.getMdcContext());
@@ -461,9 +445,11 @@ public class FDBDatabase {
         final WeakReadSemantics weakReadSemantics = context.getWeakReadSemantics();
         if (isTrackLastSeenVersion() && (weakReadSemantics != null)) {
             Pair<Long, Long> pair = lastSeenFDBVersion.get();
-            if (pair != initialVersionPair) {
-                long version = pair.getLeft();
-                long versionTimeMillis = pair.getRight();
+            if (pair != null && pair != initialVersionPair) {
+                // Any pair other than the initialVersionPair sentinel is only ever created (in
+                // updateLastSeenFDBVersion) with two non-null Long values.
+                long version = Objects.requireNonNull(pair.getLeft());
+                long versionTimeMillis = Objects.requireNonNull(pair.getRight());
                 // If the following condition holds, a subsequent getReadVersion (on this transaction) returns version,
                 // otherwise getReadVersion does not use the cached value and results in a GRV call to FDB
                 if (version >= weakReadSemantics.getMinVersion() &&
@@ -492,7 +478,6 @@ public class FDBDatabase {
      * @return a future that will complete after being run by the FDB network thread
      * @see #performNoOp(Map, FDBStoreTimer)
      */
-    @Nonnull
     public CompletableFuture<Void> performNoOpAsync() {
         return performNoOpAsync(null);
     }
@@ -505,7 +490,6 @@ public class FDBDatabase {
      * @return a future that will complete after being run by the FDB network thread
      * @see #performNoOp(Map, FDBStoreTimer)
      */
-    @Nonnull
     public CompletableFuture<Void> performNoOpAsync(@Nullable FDBStoreTimer timer) {
         return performNoOpAsync(null, timer);
     }
@@ -529,7 +513,6 @@ public class FDBDatabase {
      * @param timer the timer to use for instrumentation
      * @return a future that will complete after being run by the FDB network thread
      */
-    @Nonnull
     @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"})
     public CompletableFuture<Void> performNoOpAsync(@Nullable Map<String, String> mdcContext,
                                                     @Nullable FDBStoreTimer timer) {
@@ -610,10 +593,9 @@ public class FDBDatabase {
         resolverStateCache = new AsyncLoadingCache<>(resolverStateRefreshTimeMillis, resolverStateCache.getDeadlineTimeMillis(), resolverStateCache.getMaxSize(), getScheduledExecutor());
     }
 
-    @Nonnull
     @API(API.Status.INTERNAL)
-    public CompletableFuture<ResolverStateProto.State> getStateForResolver(@Nonnull LocatableResolver resolver,
-                                                                           @Nonnull Supplier<CompletableFuture<ResolverStateProto.State>> loader) {
+    public CompletableFuture<ResolverStateProto.State> getStateForResolver(LocatableResolver resolver,
+                                                                           Supplier<CompletableFuture<ResolverStateProto.State>> loader) {
         return resolverStateCache.orElseGet(resolver, loader);
     }
 
@@ -625,20 +607,22 @@ public class FDBDatabase {
                         Pair.of(readVersion, versionTimeEstimate(startTime)) : pair);
     }
 
-    @Nonnull
     @API(API.Status.INTERNAL)
     public FDBReverseDirectoryCache getReverseDirectoryCache() {
-        if (reverseDirectoryCache == null) {
+        FDBReverseDirectoryCache cache = reverseDirectoryCache;
+        if (cache == null) {
             synchronized (reverseDirectoryCacheLock) {
-                if (reverseDirectoryCache == null) {
-                    reverseDirectoryCache = new FDBReverseDirectoryCache(
+                cache = reverseDirectoryCache;
+                if (cache == null) {
+                    cache = new FDBReverseDirectoryCache(
                             this,
                             reverseDirectoryMaxRowsPerTransaction,
                             reverseDirectoryMaxMillisPerTransaction);
+                    reverseDirectoryCache = cache;
                 }
             }
         }
-        return reverseDirectoryCache;
+        return cache;
     }
 
     private void setDirectoryCacheVersion(int version) {
@@ -654,7 +638,6 @@ public class FDBDatabase {
         return directoryCache.stats();
     }
 
-    @Nonnull
     @API(API.Status.INTERNAL)
     public Cache<ScopedValue<String>, ResolverResult> getDirectoryCache(int atVersion) {
         if (atVersion > getDirectoryCacheVersion()) {
@@ -671,7 +654,6 @@ public class FDBDatabase {
         return directoryCache;
     }
 
-    @Nonnull
     @API(API.Status.INTERNAL)
     public Cache<ScopedValue<Long>, String> getReverseDirectoryInMemoryCache() {
         return reverseDirectoryInMemoryCache;
@@ -698,7 +680,6 @@ public class FDBDatabase {
      * @return the store state cache for this database
      * @see FDBRecordStoreStateCache
      */
-    @Nonnull
     public FDBRecordStoreStateCache getStoreStateCache() {
         return storeStateCache;
     }
@@ -710,7 +691,7 @@ public class FDBDatabase {
      *
      * @param storeStateCache the store state cache
      */
-    public void setStoreStateCache(@Nonnull FDBRecordStoreStateCache storeStateCache) {
+    public void setStoreStateCache(FDBRecordStoreStateCache storeStateCache) {
         storeStateCache.validateDatabase(this);
         this.storeStateCache = storeStateCache;
     }
@@ -726,7 +707,8 @@ public class FDBDatabase {
 
     public synchronized void close() {
         if (opened) {
-            database.close();
+            // opened is only ever set true together with database (see openFDB()), so database is non-null here.
+            Objects.requireNonNull(database).close();
             database = null;
             opened = false;
             directoryCacheVersion.set(0);
@@ -735,7 +717,6 @@ public class FDBDatabase {
         }
     }
 
-    @Nonnull
     public Executor getExecutor() {
         return factory.getExecutor();
     }
@@ -758,7 +739,6 @@ public class FDBDatabase {
      *
      * @return the scheduled executor service to use when interacting with this database
      */
-    @Nonnull
     public ScheduledExecutorService getScheduledExecutor() {
         return scheduledExecutor;
     }
@@ -770,7 +750,7 @@ public class FDBDatabase {
      * @return newly created transaction
      */
     @SuppressWarnings("PMD.CloseResource")
-    private Transaction createTransaction(@Nonnull FDBRecordContextConfig config, @Nullable FDBStoreTimer delayedTimer, @Nonnull Executor executor) {
+    private Transaction createTransaction(FDBRecordContextConfig config, @Nullable FDBStoreTimer delayedTimer, Executor executor) {
         final TransactionListener listener = config.getTransactionListener() == null
                                              ? factory.getTransactionListener()
                                              : config.getTransactionListener();
@@ -780,8 +760,8 @@ public class FDBDatabase {
                                  : config.getTimer();
 
         boolean enableAssertions = config.areAssertionsEnabled();
-        //noinspection ConstantConditions
-        Transaction transaction = database.createTransaction(executor, new EventKeeperTranslator(timer));
+        // The only caller (openContext()) calls openFDB() immediately before this, so database() is non-null.
+        Transaction transaction = database().createTransaction(executor, new EventKeeperTranslator(timer));
         if (timer != null || enableAssertions) {
             transaction = new InstrumentedTransaction(timer, delayedTimer, this, listener, transaction, enableAssertions);
             if (listener != null) {
@@ -803,8 +783,7 @@ public class FDBDatabase {
      * @param contextConfigBuilder options for contexts opened by the new runner
      * @return a new runner
      */
-    @Nonnull
-    public FDBDatabaseRunner newRunner(@Nonnull FDBRecordContextConfig.Builder contextConfigBuilder) {
+    public FDBDatabaseRunner newRunner(FDBRecordContextConfig.Builder contextConfigBuilder) {
         return new FDBDatabaseRunnerImpl(this, contextConfigBuilder);
     }
 
@@ -812,7 +791,6 @@ public class FDBDatabase {
      * Create an {@link FDBDatabaseRunner} for use against this database.
      * @return a new runner
      */
-    @Nonnull
     public FDBDatabaseRunner newRunner() {
         return newRunner(FDBRecordContextConfig.newBuilder());
     }
@@ -823,7 +801,6 @@ public class FDBDatabase {
      * @param mdcContext logger context to set in running threads
      * @return a new runner
      */
-    @Nonnull
     public FDBDatabaseRunner newRunner(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext) {
         return newRunner(FDBRecordContextConfig.newBuilder().setTimer(timer).setMdcContext(mdcContext));
     }
@@ -835,7 +812,6 @@ public class FDBDatabase {
      * @param weakReadSemantics allowable staleness information if caching read versions
      * @return a new runner
      */
-    @Nonnull
     public FDBDatabaseRunner newRunner(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext,
                                        @Nullable WeakReadSemantics weakReadSemantics) {
         return newRunner(FDBRecordContextConfig.newBuilder().setTimer(timer).setMdcContext(mdcContext).setWeakReadSemantics(weakReadSemantics));
@@ -853,7 +829,7 @@ public class FDBDatabase {
      * @see #newRunner()
      * @see FDBDatabaseRunner#run
      */
-    public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable) {
+    public <T> T run(Function<? super FDBRecordContext, ? extends T> retriable) {
         try (FDBDatabaseRunner runner = newRunner()) {
             return runner.run(retriable);
         }
@@ -874,7 +850,7 @@ public class FDBDatabase {
      * @see FDBDatabaseRunner#run
      */
     public <T> T run(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext,
-                     @Nonnull Function<? super FDBRecordContext, ? extends T> retriable) {
+                     Function<? super FDBRecordContext, ? extends T> retriable) {
         try (FDBDatabaseRunner runner = newRunner(timer, mdcContext)) {
             return runner.run(retriable);
         }
@@ -921,7 +897,7 @@ public class FDBDatabase {
      * @see FDBDatabaseRunner#run
      */
     public <T> T run(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext, @Nullable WeakReadSemantics weakReadSemantics,
-                     @Nonnull Function<? super FDBRecordContext, ? extends T> retriable) {
+                     Function<? super FDBRecordContext, ? extends T> retriable) {
         try (FDBDatabaseRunner runner = newRunner(timer, mdcContext, weakReadSemantics)) {
             return runner.run(retriable);
         }
@@ -939,9 +915,8 @@ public class FDBDatabase {
      * @see #newRunner()
      * @see FDBDatabaseRunner#runAsync
      */
-    @Nonnull
     @API(API.Status.UNSTABLE)
-    public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
+    public <T> CompletableFuture<T> runAsync(Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
         return runAsync(retriable, null);
     }
 
@@ -958,10 +933,9 @@ public class FDBDatabase {
      * @see #newRunner()
      * @see FDBDatabaseRunner#runAsync
      */
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
     @SuppressWarnings("PMD.CloseResource")
-    public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
+    public <T> CompletableFuture<T> runAsync(Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
                                              @Nullable List<Object> additionalLogMessageKeyValues) {
         final FDBDatabaseRunner runner = newRunner();
         return runner.runAsync(retriable, additionalLogMessageKeyValues).whenComplete((t, e) -> runner.close());
@@ -981,10 +955,9 @@ public class FDBDatabase {
      * @see #newRunner(FDBStoreTimer, Map)
      * @see FDBDatabaseRunner#runAsync
      */
-    @Nonnull
     @API(API.Status.UNSTABLE)
     public <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext,
-                                             @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
+                                             Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
         return runAsync(timer, mdcContext, retriable, null);
     }
 
@@ -1003,11 +976,10 @@ public class FDBDatabase {
      * @see #newRunner(FDBStoreTimer, Map)
      * @see FDBDatabaseRunner#runAsync
      */
-    @Nonnull
     @API(API.Status.UNSTABLE)
     @SuppressWarnings("PMD.CloseResource")
     public <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext,
-                                             @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
+                                             Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
                                              @Nullable List<Object> additionalLogMessageKeyValues) {
         final FDBDatabaseRunner runner = newRunner(timer, mdcContext);
         return runner.runAsync(retriable, additionalLogMessageKeyValues).whenComplete((t, e) -> runner.close());
@@ -1053,11 +1025,10 @@ public class FDBDatabase {
      * @see #newRunner(FDBStoreTimer, Map, WeakReadSemantics)
      * @see FDBDatabaseRunner#runAsync
      */
-    @Nonnull
     @API(API.Status.UNSTABLE)
     @SuppressWarnings("PMD.CloseResource")
     public <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext, @Nullable WeakReadSemantics weakReadSemantics,
-                                             @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
+                                             Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
         final FDBDatabaseRunner runner = newRunner(timer, mdcContext, weakReadSemantics);
         return runner.runAsync(retriable).whenComplete((t, e) -> runner.close());
     }
@@ -1084,7 +1055,7 @@ public class FDBDatabase {
         this.asyncToSyncTimeout = asyncToSyncTimeout;
     }
 
-    public void setAsyncToSyncTimeout(long asyncToSyncTimeout, @Nonnull TimeUnit asyncToSyncTimeoutUnit) {
+    public void setAsyncToSyncTimeout(long asyncToSyncTimeout, TimeUnit asyncToSyncTimeoutUnit) {
         Duration timeout = Duration.ofNanos(asyncToSyncTimeoutUnit.toNanos(asyncToSyncTimeout));
         setAsyncToSyncTimeout(event -> timeout);
     }
@@ -1093,16 +1064,19 @@ public class FDBDatabase {
         asyncToSyncTimeout = null;
     }
 
-    public void setAsyncToSyncExceptionMapper(@Nonnull ExceptionMapper asyncToSyncExceptionMapper) {
+    public void setAsyncToSyncExceptionMapper(ExceptionMapper asyncToSyncExceptionMapper) {
         this.asyncToSyncExceptionMapper = asyncToSyncExceptionMapper;
     }
 
-    protected RuntimeException mapAsyncToSyncException(@Nonnull Throwable ex) {
+    protected RuntimeException mapAsyncToSyncException(Throwable ex) {
         return asyncToSyncExceptionMapper.apply(ex, null);
     }
 
-    @Nullable
-    public <T> T asyncToSync(@Nullable FDBStoreTimer timer, FDBStoreTimer.Wait event, @Nonnull CompletableFuture<T> async) {
+    // Note: T is intentionally unbounded (<T extends @Nullable Object>) rather than annotating the return
+    // type @Nullable, since this method is a transparent passthrough of async.get() -- nullability of the
+    // result should follow whatever nullability the caller's CompletableFuture<T> was instantiated with,
+    // not be forced nullable for every caller (many call sites use non-null T).
+    public <T extends @Nullable Object> T asyncToSync(@Nullable FDBStoreTimer timer, FDBStoreTimer.Wait event, CompletableFuture<T> async) {
         checkIfBlockingInFuture(async);
         if (async.isDone()) {
             try {
@@ -1204,7 +1178,7 @@ public class FDBDatabase {
     @SuppressWarnings({"PMD.CloseResource", "PMD.GuardLogStatement"})
     public int warnAndCloseOldTrackedOpenContexts(long minAgeSeconds) {
         long cutoffTime = System.nanoTime() - TimeUnit.SECONDS.toNanos(minAgeSeconds);
-        @Nullable Map.Entry<Long, FDBRecordContext> firstEntry = trackedOpenContexts.firstEntry();
+        @Nullable Entry<Long, FDBRecordContext> firstEntry = trackedOpenContexts.firstEntry();
         if (firstEntry == null || firstEntry.getKey() > cutoffTime) {
             return 0;
         }
@@ -1296,8 +1270,8 @@ public class FDBDatabase {
         // ending in "Async"), we will keep track of where this happened. What this may indicate is that some
         // poor, otherwise well-intentioned individual, may be doing something like:
         //
-        // @Nonnull
-        // public CompletableFuture<Void> doSomethingAsync(@Nonnull FDBRecordStore store) {
+        //
+        // public CompletableFuture<Void> doSomethingAsync(FDBRecordStore store) {
         //    Message record = store.loadRecord(Tuple.from(1066L));
         //    return AsyncUtil.DONE;
         // }
@@ -1321,10 +1295,10 @@ public class FDBDatabase {
         }
     }
 
-    private void logOrThrowBlockingInAsync(@Nonnull BlockingInAsyncDetection behavior,
+    private void logOrThrowBlockingInAsync(BlockingInAsyncDetection behavior,
                                            boolean isComplete,
-                                           @Nonnull StackTraceElement stackElement,
-                                           @Nonnull String title) {
+                                           StackTraceElement stackElement,
+                                           String title) {
         final RecordCoreException exception = new BlockingInAsyncException(title)
                 .addLogInfo(
                         LogMessageKeys.FUTURE_COMPLETED, isComplete,
@@ -1341,7 +1315,7 @@ public class FDBDatabase {
         }
     }
 
-    public CompletableFuture<Tuple> loadBoundaryKeys(@Nonnull FDBTransactionContext context, Tuple key) {
+    public CompletableFuture<Tuple> loadBoundaryKeys(FDBTransactionContext context, Tuple key) {
         CompletableFuture<Tuple> result = context.ensureActive().get(key.pack())
                 .thenApply(bytes -> bytes == null ? null : Tuple.fromBytes(bytes));
         return context.instrument(FDBStoreTimer.Events.LOAD_BOUNDARY_KEYS, result);

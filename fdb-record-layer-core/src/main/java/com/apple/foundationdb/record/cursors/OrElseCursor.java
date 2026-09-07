@@ -31,8 +31,8 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
@@ -44,11 +44,8 @@ import java.util.function.Function;
  */
 @API(API.Status.UNSTABLE)
 public final class OrElseCursor<T> implements RecordCursor<T> {
-    @Nonnull
     private final RecordCursor<T> inner;
-    @Nonnull
     private final Function<Executor, RecordCursor<T>> func;
-    @Nonnull
     private RecordCursorProto.OrElseContinuation.State state;
     @Nullable
     private RecordCursor<T> other;
@@ -56,8 +53,9 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
     private RecordCursorResult<T> nextResult;
 
     @API(API.Status.INTERNAL)
-    public OrElseCursor(@Nonnull Function<byte[], ? extends RecordCursor<T>> innerFunc,
-                        @Nonnull BiFunction<Executor, byte[], ? extends RecordCursor<T>> elseFunc,
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even across explicit null checks.
+    public OrElseCursor(Function<byte[], ? extends RecordCursor<T>> innerFunc,
+                        BiFunction<Executor, byte[], ? extends RecordCursor<T>> elseFunc,
                         @Nullable byte[] continuation) {
         final Function<Executor, RecordCursor<T>> newElseFunc = executor -> elseFunc.apply(executor, null);
 
@@ -71,7 +69,7 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
                 parsed = RecordCursorProto.OrElseContinuation.parseFrom(continuation);
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("error parsing continuation", ex)
-                        .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuation));
+                        .addLogInfo("raw_bytes", Objects.requireNonNull(ByteArrayUtil2.loggable(continuation)));
             }
             this.state = parsed.getState();
 
@@ -93,7 +91,6 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
         }
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (nextResult != null && !nextResult.hasNext()) {
@@ -105,7 +102,7 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
                 innerFuture = inner.onNext();
                 break;
             case USE_OTHER:
-                innerFuture = other.onNext();
+                innerFuture = Objects.requireNonNull(other, "other cursor should be set when state is USE_OTHER").onNext();
                 break;
             case UNDECIDED:
                 innerFuture = inner.onNext().thenCompose(result -> {
@@ -133,7 +130,6 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
     }
 
     // shim to support old continuation style
-    @Nonnull
     private RecordCursorResult<T> postProcess(RecordCursorResult<T> result) {
         nextResult = result;
         return result;
@@ -152,14 +148,13 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
         return (other == null || other.isClosed()) && inner.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return inner.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             inner.accept(visitor);
         }
@@ -176,10 +171,9 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
 
     private static class Continuation implements RecordCursorContinuation {
         private final RecordCursorProto.OrElseContinuation.State state;
-        @Nonnull
         private final RecordCursorContinuation innerOrOtherContinuation;
 
-        public Continuation(@Nonnull RecordCursorProto.OrElseContinuation.State state, @Nonnull RecordCursorContinuation innerOrOtherContinuation) {
+        public Continuation(RecordCursorProto.OrElseContinuation.State state, RecordCursorContinuation innerOrOtherContinuation) {
             this.state = state;
             this.innerOrOtherContinuation = innerOrOtherContinuation;
         }
@@ -189,7 +183,6 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
             return innerOrOtherContinuation.isEnd();
         }
 
-        @Nonnull
         @Override
         public ByteString toByteString() {
             ByteString bytes = innerOrOtherContinuation.toByteString();
@@ -205,6 +198,7 @@ public final class OrElseCursor<T> implements RecordCursor<T> {
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
         public byte[] toBytes() {
             ByteString byteString = toByteString();
             return byteString.isEmpty() ? null : byteString.toByteArray();

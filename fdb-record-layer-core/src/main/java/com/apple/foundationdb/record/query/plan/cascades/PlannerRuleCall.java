@@ -25,8 +25,6 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 
-import javax.annotation.Nonnull;
-
 /**
  * A <code>PlannerRuleCall</code> is a context object that supports a single application of a rule to a particular
  * expression. It stores and provides convenient access to various context related to the transformation, such as any
@@ -39,7 +37,6 @@ public interface PlannerRuleCall {
      * Method that returns the current {@link EvaluationContext}.
      * @return the current {@link EvaluationContext}
      */
-    @Nonnull
     EvaluationContext getEvaluationContext();
 
     /**
@@ -50,7 +47,6 @@ public interface PlannerRuleCall {
      *
      * @return the map of bindings that the rule's matcher expression produced
      */
-    @Nonnull
     PlannerBindings getBindings();
 
     /**
@@ -64,8 +60,7 @@ public interface PlannerRuleCall {
      * @throws java.util.NoSuchElementException when <code>key</code> is not a valid binding, or is not bound to a
      * bindable
      */
-    @Nonnull
-    default <U> U get(@Nonnull BindingMatcher<U> key) {
+    default <U> U get(BindingMatcher<U> key) {
         return getBindings().get(key);
     }
 }

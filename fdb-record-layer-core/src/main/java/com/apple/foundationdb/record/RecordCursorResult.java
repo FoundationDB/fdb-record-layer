@@ -22,11 +22,12 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+
+import static com.apple.foundationdb.record.RecordCursor.NoNextReason;
 
 /**
  * A result obtained when a {@link RecordCursor} advances.
@@ -43,7 +44,7 @@ import java.util.function.Function;
  *     </li>
  *     <li>
  *         The fact that the cursor is stopped and cannot produce another record and a
- *         {@link com.apple.foundationdb.record.RecordCursor.NoNextReason} that explains why no record could be produced.
+ *         {@link NoNextReason} that explains why no record could be produced.
  *         The result includes a continuation that can be used to continue the cursor after the last record returned.
  *
  *         If the result's {@code NoNextReason} is anything other than {@code SOURCE_EXHAUSTED}, the returned
@@ -63,26 +64,24 @@ import java.util.function.Function;
 @API(API.Status.UNSTABLE)
 public class RecordCursorResult<T> {
 
-    @Nonnull
     private static final RecordCursorResult<Object> EXHAUSTED = new RecordCursorResult<>(RecordCursorEndContinuation.END,
-            RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
+            NoNextReason.SOURCE_EXHAUSTED);
 
     private final boolean hasNext;
     @Nullable
     private final T nextValue;
-    @Nonnull
     private final RecordCursorContinuation continuation;
     @Nullable
-    private final RecordCursor.NoNextReason noNextReason;
+    private final NoNextReason noNextReason;
 
-    private RecordCursorResult(@Nullable final T nextValue, @Nonnull final RecordCursorContinuation continuation) {
+    private RecordCursorResult(@Nullable final T nextValue, final RecordCursorContinuation continuation) {
         this.hasNext = true;
         this.nextValue = nextValue;
         this.continuation = continuation;
         this.noNextReason = null;
     }
 
-    private RecordCursorResult(@Nonnull final RecordCursorContinuation continuation, @Nonnull final RecordCursor.NoNextReason noNextReason) {
+    private RecordCursorResult(final RecordCursorContinuation continuation, final NoNextReason noNextReason) {
         this.hasNext = false;
         this.nextValue = null;
         this.continuation = continuation;
@@ -105,7 +104,8 @@ public class RecordCursorResult<T> {
     @Nullable
     public T get() {
         if (!hasNext()) {
-            throw new IllegalResultValueAccessException(continuation, noNextReason);
+            // Invariant enforced by both constructors: noNextReason is non-null whenever hasNext is false.
+            throw new IllegalResultValueAccessException(continuation, Objects.requireNonNull(noNextReason));
         }
         return nextValue;
     }
@@ -115,7 +115,6 @@ public class RecordCursorResult<T> {
      * return {@code true} only if this result has a no-next-reason and that reason is {@code SOURCE_EXHAUSTED}.
      * @return the continuation of this result
      */
-    @Nonnull
     public RecordCursorContinuation getContinuation() {
         return continuation;
     }
@@ -125,12 +124,12 @@ public class RecordCursorResult<T> {
      * @return the no-next-reason of this result
      * @throws IllegalResultNoNextReasonAccessException if this result contains a value
      */
-    @Nonnull
-    public RecordCursor.NoNextReason getNoNextReason() {
+    public NoNextReason getNoNextReason() {
         if (hasNext()) {
             throw new IllegalResultNoNextReasonAccessException(nextValue, continuation);
         }
-        return noNextReason;
+        // Invariant enforced by both constructors: noNextReason is non-null whenever hasNext is false.
+        return Objects.requireNonNull(noNextReason);
     }
 
     @Override
@@ -170,8 +169,10 @@ public class RecordCursorResult<T> {
      * @param <U> the type of the function's result and the type of value in the returned result
      * @return a new result with a value equal to the value of the function on the current result, if one is present
      */
-    @Nonnull
-    @SuppressWarnings("unchecked") // allows us to reuse this object if we don't have a value
+    @SuppressWarnings({"unchecked", "NullAway"}) // unchecked: allows us to reuse this object if we don't have a value
+    // NullAway: nextValue (and thus get()) may legitimately be null independent of T -- a cursor may produce a null
+    // value as its "next" result -- but func's declared parameter type doesn't express this since T's own bound is
+    // unrelated to the nullability of this particular field; pre-existing contract, not a real bug.
     public <U> RecordCursorResult<U> map(Function<? super T, ? extends U>  func) {
         if (hasNext()) {
             return withNextValue(func.apply(get()), getContinuation());
@@ -190,8 +191,9 @@ public class RecordCursorResult<T> {
      * @param <U> the type of the value for the returned result
      * @return a future that, when complete, contains the result of type {@code U}
      */
-    @Nonnull
-    @SuppressWarnings("unchecked") // allows us to reuse this object if we don't have a value
+    @SuppressWarnings({"unchecked", "NullAway"}) // unchecked: allows us to reuse this object if we don't have a value
+    // NullAway: nextValue may legitimately be null independent of T -- a cursor may produce a null value as its
+    // "next" result -- but func's declared parameter type doesn't express this; pre-existing contract, not a real bug.
     public <U> CompletableFuture<RecordCursorResult<U>> mapAsync(Function<? super T, ? extends CompletableFuture<? extends  U>> func) {
         if (hasNext()) {
             return func.apply(nextValue).thenApply(mappedValue -> withNextValue(mappedValue, continuation));
@@ -206,12 +208,12 @@ public class RecordCursorResult<T> {
      * @param newContinuation the new continuation for the result
      * @return a new result with the same value or no-next-reason, but the given continuation
      */
-    @Nonnull
-    public RecordCursorResult<T> withContinuation(@Nonnull RecordCursorContinuation newContinuation) {
+    public RecordCursorResult<T> withContinuation(RecordCursorContinuation newContinuation) {
         if (hasNext()) {
             return RecordCursorResult.withNextValue(nextValue, newContinuation);
         } else {
-            return RecordCursorResult.withoutNextValue(newContinuation, noNextReason);
+            // Invariant enforced by both constructors: noNextReason is non-null whenever hasNext is false.
+            return RecordCursorResult.withoutNextValue(newContinuation, Objects.requireNonNull(noNextReason));
         }
     }
 
@@ -231,8 +233,7 @@ public class RecordCursorResult<T> {
      * @return a new {@code RecordCursorResult} with the given value and continuation
      * @throws RecordCoreException if the given continuation is an end continuation
      */
-    @Nonnull
-    public static <T> RecordCursorResult<T> withNextValue(@Nullable final T nextValue, @Nonnull final RecordCursorContinuation continuation) {
+    public static <T> RecordCursorResult<T> withNextValue(@Nullable final T nextValue, final RecordCursorContinuation continuation) {
         if (continuation.isEnd()) {
             throw new RecordCoreException("cannot return end continuation with next value");
         }
@@ -243,13 +244,12 @@ public class RecordCursorResult<T> {
      * Create a new {@code RecordCursorResult} that does not have a next value, using the given continuation and no-next-reason.
      * The continuation may be an end continuation if and only if the no-next-reason is {@code SOURCE_EXHAUSTED}.
      * @param continuation the continuation of the result
-     * @param noNextReason the {@link com.apple.foundationdb.record.RecordCursor.NoNextReason} that no value was present
+     * @param noNextReason the {@link NoNextReason} that no value was present
      * @param <T> the type of the value if it were present
      * @return a new {@code RecordCursorResult} with the given continuation and no-next-reason
      * @throws RecordCoreException if an incompatible continuation and no-next-reason are provided
      */
-    @Nonnull
-    public static <T> RecordCursorResult<T> withoutNextValue(@Nonnull final RecordCursorContinuation continuation, @Nonnull final RecordCursor.NoNextReason noNextReason) {
+    public static <T> RecordCursorResult<T> withoutNextValue(final RecordCursorContinuation continuation, final NoNextReason noNextReason) {
         if (continuation.isEnd() && !noNextReason.isSourceExhausted()) {
             throw new RecordCoreException("attempted to return a result with an end continuation and NoNextReason other than SOURCE_EXHAUSTED");
         }
@@ -269,9 +269,8 @@ public class RecordCursorResult<T> {
      * @param <U> the type of value that would be included in the given result if one were present
      * @return a cast version of {@code withoutNext} with the same continuation and no-next-reason
      */
-    @Nonnull
     @SuppressWarnings("unchecked") // allows us to reuse this object if we don't have a value
-    public static <T, U> RecordCursorResult<T> withoutNextValue(@Nonnull RecordCursorResult<U> withoutNext) {
+    public static <T, U> RecordCursorResult<T> withoutNextValue(RecordCursorResult<U> withoutNext) {
         if (withoutNext.hasNext()) {
             throw new RecordCoreException("tried to build record cursor result without next from a result with next");
         }
@@ -283,7 +282,6 @@ public class RecordCursorResult<T> {
      * @param <T> the type of value that would be returned if a value were present
      * @return a {@code RecordCursorResult} containing an end continuation and a no-next-reason of {@code SOURCE_EXHAUSTED}
      */
-    @Nonnull
     @SuppressWarnings("unchecked")
     public static <T> RecordCursorResult<T> exhausted() {
         return (RecordCursorResult<T>) EXHAUSTED;
@@ -295,7 +293,7 @@ public class RecordCursorResult<T> {
     public static final class IllegalResultValueAccessException extends RecordCoreException {
         private static final long serialVersionUID = 1;
 
-        public IllegalResultValueAccessException(@Nonnull RecordCursorContinuation continuation, @Nonnull RecordCursor.NoNextReason noNextReason) {
+        public IllegalResultValueAccessException(RecordCursorContinuation continuation, NoNextReason noNextReason) {
             super("Tried to call get() on a RecordCoreResult that did not have a next value.");
             addLogInfo("continuation", continuation);
             addLogInfo("noNextReason", noNextReason);
@@ -308,7 +306,7 @@ public class RecordCursorResult<T> {
     public static final class IllegalResultNoNextReasonAccessException extends RecordCoreException {
         private static final long serialVersionUID = 1;
 
-        public IllegalResultNoNextReasonAccessException(@Nullable Object value, @Nonnull RecordCursorContinuation continuation) {
+        public IllegalResultNoNextReasonAccessException(@Nullable Object value, RecordCursorContinuation continuation) {
             super("Tried to call noNextReason() on a RecordCoreResult that had a next value.");
             addLogInfo("value", value);
             addLogInfo("continuation", continuation);

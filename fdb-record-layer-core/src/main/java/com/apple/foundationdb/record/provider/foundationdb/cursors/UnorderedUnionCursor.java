@@ -27,11 +27,11 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -58,12 +58,11 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 public class UnorderedUnionCursor<T> extends UnionCursorBase<T, MergeCursorState<T>> {
 
-    protected UnorderedUnionCursor(@Nonnull List<MergeCursorState<T>> cursorStates,
+    protected UnorderedUnionCursor(List<MergeCursorState<T>> cursorStates,
                                    @Nullable FDBStoreTimer timer) {
         super(cursorStates, timer);
     }
 
-    @Nonnull
     @Override
     protected CompletableFuture<List<MergeCursorState<T>>> computeNextResultStates() {
         final long startComputingStateTime = System.currentTimeMillis();
@@ -78,7 +77,8 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T, MergeCursorState
                     allDone = false;
                     continue;
                 }
-                final RecordCursorResult<T> result = cursorState.getResult();
+                // The future for this cursor state has completed normally, so getResult() is guaranteed non-null here.
+                final RecordCursorResult<T> result = Objects.requireNonNull(cursorState.getResult());
                 if (result.hasNext()) {
                     // Found a cursor with an element.
                     allDone = false;
@@ -103,8 +103,7 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T, MergeCursorState
         });
     }
 
-    @Nonnull
-    static <T> List<MergeCursorState<T>> createCursorStates(@Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
+    static <T> List<MergeCursorState<T>> createCursorStates(List<Function<byte[], RecordCursor<T>>> cursorFunctions,
                                                             @Nullable byte[] byteContinuation) {
         final List<MergeCursorState<T>> cursorStates = new ArrayList<>(cursorFunctions.size());
         final UnionCursorContinuation continuation = UnionCursorContinuation.from(byteContinuation, cursorFunctions.size());
@@ -128,9 +127,8 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T, MergeCursorState
      * @param <T> the type of elements returned by this cursor
      * @return a cursor containing any records from any child cursor
      */
-    @Nonnull
     public static <T> UnorderedUnionCursor<T> create(
-            @Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
+            List<Function<byte[], RecordCursor<T>>> cursorFunctions,
             @Nullable byte[] continuation,
             @Nullable FDBStoreTimer timer) {
         return new UnorderedUnionCursor<>(createCursorStates(cursorFunctions, continuation), timer);

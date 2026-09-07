@@ -47,8 +47,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -61,23 +60,18 @@ import static com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRec
  */
 public class IndexEntryObjectValue extends AbstractValue implements LeafValue, Value.RangeMatchableValue {
 
-    @Nonnull
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Entry-Object-Value");
 
-    @Nonnull
     private final CorrelationIdentifier indexEntryAlias;
-    @Nonnull
     private final TupleSource source;
-    @Nonnull
     private final ImmutableIntArray ordinalPath;
 
-    @Nonnull
     private final Type resultType;
 
-    public IndexEntryObjectValue(@Nonnull final CorrelationIdentifier alias,
-                                 @Nonnull final TupleSource source,
-                                 @Nonnull final ImmutableIntArray ordinalPath,
-                                 @Nonnull final Type resultType) {
+    public IndexEntryObjectValue(final CorrelationIdentifier alias,
+                                 final TupleSource source,
+                                 final ImmutableIntArray ordinalPath,
+                                 final Type resultType) {
         Verify.verify(resultType.isPrimitive() || resultType.isEnum() || resultType.isUuid());
         this.indexEntryAlias = alias;
         this.source = source;
@@ -86,18 +80,15 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
     }
 
     @Override
-    @Nonnull
     public Type getResultType() {
         return resultType;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return Set.of();
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of();
@@ -115,16 +106,15 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
         return semanticHashCode();
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         return super.equalsWithoutChildren(other)
                 .filter(ignored -> ordinalPath.equals(((IndexEntryObjectValue)other).ordinalPath));
     }
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         final var indexEntry = Objects.requireNonNull((IndexEntry)context.getBinding(Bindings.Internal.CORRELATION, indexEntryAlias));
 
         final var tuple = (source == TupleSource.KEY ? indexEntry.getKey() : indexEntry.getValue());
@@ -142,21 +132,19 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, ordinalPath, source);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         Verify.verify(Iterables.isEmpty(explainSuppliers));
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(source.toString())
                 .addOptionalWhitespace().addToString(":").addIdentifier(ordinalPath.toString()));
     }
 
-    @Nonnull
     @Override
-    public PIndexEntryObjectValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PIndexEntryObjectValue toProto(final PlanSerializationContext serializationContext) {
         final var builder = PIndexEntryObjectValue.newBuilder()
                 .setIndexEntryAlias(indexEntryAlias.getId())
                 .setSource(source.toProto(serializationContext));
@@ -165,20 +153,17 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setIndexEntryObjectValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
     public static String bindingName() {
         return Bindings.Internal.CORRELATION.bindingName(Quantifier.current().getId());
     }
 
-    @Nonnull
-    public static IndexEntryObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                  @Nonnull final PIndexEntryObjectValue indexEntryObjectValueProto) {
+    public static IndexEntryObjectValue fromProto(final PlanSerializationContext serializationContext,
+                                                  final PIndexEntryObjectValue indexEntryObjectValueProto) {
         final ImmutableIntArray.Builder ordinalPathBuilder = ImmutableIntArray.builder();
         for (int i = 0; i < indexEntryObjectValueProto.getOrdinalPathCount(); i ++) {
             ordinalPathBuilder.add(indexEntryObjectValueProto.getOrdinalPath(i));
@@ -197,16 +182,14 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PIndexEntryObjectValue, IndexEntryObjectValue> {
-        @Nonnull
         @Override
         public Class<PIndexEntryObjectValue> getProtoMessageClass() {
             return PIndexEntryObjectValue.class;
         }
 
-        @Nonnull
         @Override
-        public IndexEntryObjectValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                               @Nonnull final PIndexEntryObjectValue indexEntryObjectValue) {
+        public IndexEntryObjectValue fromProto(final PlanSerializationContext serializationContext,
+                                               final PIndexEntryObjectValue indexEntryObjectValue) {
             return IndexEntryObjectValue.fromProto(serializationContext, indexEntryObjectValue);
         }
     }

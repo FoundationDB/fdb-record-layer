@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.CursorFactory;
@@ -35,8 +36,9 @@ import com.apple.foundationdb.util.CloseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -88,23 +90,23 @@ public abstract class RecordRepair implements AutoCloseable {
 
     private static final Logger logger = LoggerFactory.getLogger(RecordRepair.class);
 
-    @Nonnull
     private final FDBDatabase database;
-    @Nonnull
     private final FDBRecordStore.Builder storeBuilder;
-    @Nonnull
     private final ValidationKind validationKind;
-    @Nonnull
     private final ThrottledRetryingIterator<Tuple> throttledIterator;
     private final boolean allowRepair;
 
     @SuppressWarnings("this-escape")
-    protected RecordRepair(@Nonnull final Builder config, boolean allowRepair) {
+    protected RecordRepair(final Builder config, boolean allowRepair) {
         this.database = config.database;
         this.storeBuilder = config.getStoreBuilder();
         this.validationKind = config.getValidationKind();
+        // context aliases storeBuilder's own context (owned/closed elsewhere), not a newly-created resource.
+        @SuppressWarnings("PMD.CloseResource")
+        final FDBRecordContext context = Objects.requireNonNull(storeBuilder.getContext(),
+                "storeBuilder must have a context set before being used to build a RecordRepair runner");
         ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
-                ThrottledRetryingIterator.builder(database, storeBuilder.getContext().getConfig().toBuilder(), cursorFactory(), this::handleOneItem);
+                ThrottledRetryingIterator.builder(database, context.getConfig().toBuilder(), cursorFactory(), this::handleOneItem);
         this.allowRepair = allowRepair;
         // This will also ensure the transaction only commits when needed
         throttledIterator = configureThrottlingIterator(iteratorBuilder, config, allowRepair).build();
@@ -116,7 +118,7 @@ public abstract class RecordRepair implements AutoCloseable {
      * @param storeBuilder the store builder to use
      * @return the builder instance
      */
-    public static Builder builder(@Nonnull FDBDatabase database, final FDBRecordStore.Builder storeBuilder) {
+    public static Builder builder(FDBDatabase database, final FDBRecordStore.Builder storeBuilder) {
         return new Builder(database, storeBuilder);
     }
 
@@ -125,10 +127,9 @@ public abstract class RecordRepair implements AutoCloseable {
         throttledIterator.close();
     }
 
-    @Nonnull
-    protected abstract CompletableFuture<Void> handleOneItem(@Nonnull FDBRecordStore store,
-                                                             @Nonnull RecordCursorResult<Tuple> lastResult,
-                                                             @Nonnull ThrottledRetryingIterator.QuotaManager quotaManager);
+    protected abstract CompletableFuture<Void> handleOneItem(FDBRecordStore store,
+                                                             RecordCursorResult<Tuple> lastResult,
+                                                             ThrottledRetryingIterator.QuotaManager quotaManager);
 
     /**
      * Internal utility ot start the iteration with the underlying iterator.
@@ -138,21 +139,27 @@ public abstract class RecordRepair implements AutoCloseable {
         return throttledIterator.iterateAll(storeBuilder);
     }
 
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters/locals: continuation and
+    // scanRecordKeys' parameter are both correctly declared @Nullable byte[], but NullAway still flags the
+    // pass-through below as a mismatch. This is a known tooling gap, not a real bug.
+    @SuppressWarnings("NullAway")
     private CursorFactory<Tuple> cursorFactory() {
-        return (@Nonnull FDBRecordStore store, @Nullable RecordCursorResult<Tuple> lastResult, int rowLimit) -> {
-            byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
+        return (FDBRecordStore store, @Nullable RecordCursorResult<Tuple> lastResult, int rowLimit) -> {
+            @Nullable byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
             ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(executeProperties -> executeProperties.setReturnedRowLimit(rowLimit));
             return store.scanRecordKeys(continuation, scanProperties);
         };
     }
 
-    protected CompletableFuture<RecordRepairResult> validateInternal(@Nonnull final RecordCursorResult<Tuple> primaryKey,
-                                                                     @Nonnull final FDBRecordStore store,
+    protected CompletableFuture<RecordRepairResult> validateInternal(final RecordCursorResult<Tuple> primaryKey,
+                                                                     final FDBRecordStore store,
                                                                      boolean allowRepair) {
         RecordValueValidator valueValidator = new RecordValueValidator(store);
+        // primaryKey is produced from scanRecordKeys, which never yields a result with a null value.
+        final Tuple primaryKeyTuple = Objects.requireNonNull(primaryKey.get());
         // The following is dependent on the semantics of value and version repairs. A more elaborate scheme
         // to introduce flow control and abort/continue mechanisms would make this more generic but is yet unnecessary.
-        return valueValidator.validateRecordAsync(primaryKey.get()).thenCompose(valueValidationResult -> {
+        return valueValidator.validateRecordAsync(primaryKeyTuple).thenCompose(valueValidationResult -> {
             if (!valueValidationResult.isValid()) {
                 if (allowRepair) {
                     return valueValidator.repairRecordAsync(valueValidationResult);
@@ -161,7 +168,7 @@ public abstract class RecordRepair implements AutoCloseable {
                 }
             } else if (validationKind == ValidationKind.RECORD_VALUE_AND_VERSION) {
                 RecordVersionValidator versionValidator = new RecordVersionValidator(store);
-                return versionValidator.validateRecordAsync(primaryKey.get()).thenCompose(versionValidationResult -> {
+                return versionValidator.validateRecordAsync(primaryKeyTuple).thenCompose(versionValidationResult -> {
                     if (!versionValidationResult.isValid() && allowRepair) {
                         return versionValidator.repairRecordAsync(versionValidationResult);
                     } else {
@@ -206,13 +213,10 @@ public abstract class RecordRepair implements AutoCloseable {
      * A builder to configure and create a {@link RecordRepair}.
      */
     public static class Builder {
-        @Nonnull
         private final FDBDatabase database;
-        @Nonnull
         private final FDBRecordStore.Builder storeBuilder;
 
         private int maxResultsReturned = 10_000;
-        @Nonnull
         private ValidationKind validationKind = ValidationKind.RECORD_VALUE_AND_VERSION;
 
         private int transactionTimeQuotaMillis = (int)TimeUnit.SECONDS.toMillis(4);
@@ -228,7 +232,7 @@ public abstract class RecordRepair implements AutoCloseable {
          * @param database the FDB database to use
          * @param storeBuilder the store builder to use
          */
-        public Builder(@Nonnull final FDBDatabase database, @Nonnull final FDBRecordStore.Builder storeBuilder) {
+        public Builder(final FDBDatabase database, final FDBRecordStore.Builder storeBuilder) {
             this.database = database;
             this.storeBuilder = storeBuilder;
         }
@@ -354,12 +358,10 @@ public abstract class RecordRepair implements AutoCloseable {
             return this;
         }
 
-        @Nonnull
         public FDBDatabase getDatabase() {
             return database;
         }
 
-        @Nonnull
         public FDBRecordStore.Builder getStoreBuilder() {
             if (minimumPossibleFormatVersion != null) {
                 // override the store builder to repair the header if necessary
@@ -369,7 +371,6 @@ public abstract class RecordRepair implements AutoCloseable {
             }
         }
 
-        @Nonnull
         public ValidationKind getValidationKind() {
             return validationKind;
         }

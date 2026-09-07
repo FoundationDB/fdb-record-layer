@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -59,12 +58,11 @@ public class QueryPredicateWithCnfRuleSet extends DefaultQueryPredicateRuleSet {
         this(SIMPLIFICATION_WITH_CNF_RULES, SIMPLIFICATION_WITH_CNF_DEPENDS_ON);
     }
 
-    protected QueryPredicateWithCnfRuleSet(@Nonnull final Set<? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>> abstractQueryPredicateRules,
-                                           @Nonnull final SetMultimap<? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>, ? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>> dependsOn) {
+    protected QueryPredicateWithCnfRuleSet(final Set<? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>> abstractQueryPredicateRules,
+                                           final SetMultimap<? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>, ? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>> dependsOn) {
         super(abstractQueryPredicateRules, dependsOn);
     }
 
-    @Nonnull
     public static QueryPredicateWithCnfRuleSet ofSimplificationRules() {
         return new QueryPredicateWithCnfRuleSet();
     }

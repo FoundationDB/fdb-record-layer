@@ -34,9 +34,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -51,13 +51,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests for {@link BooleanNormalizer}.
  */
 class BooleanNormalizerTest {
-    @Nonnull
     private static final BooleanNormalizer REDUNDANCY_ELIMINATOR = BooleanNormalizer.forConfiguration(
             RecordQueryPlannerConfiguration.builder().setCheckForDuplicateConditions(true).build());
-    @Nonnull
     private static final BooleanNormalizer NESTED_NORMALIZER = BooleanNormalizer.forConfiguration(
             RecordQueryPlannerConfiguration.builder().setNormalizeNestedFields(true).build());
-    @Nonnull
     private static final BooleanNormalizer NESTED_REDUNDANCY_ELIMINATOR = BooleanNormalizer.forConfiguration(
             RecordQueryPlannerConfiguration.builder().setCheckForDuplicateConditions(true).setNormalizeNestedFields(true).build());
 
@@ -71,13 +68,11 @@ class BooleanNormalizerTest {
     static final QueryComponent POneOf = Query.field("r").oneOfThem().equalsValue("x");
     static final QueryComponent PRank = Query.rank(Key.Expressions.field("score").groupBy(Key.Expressions.field("game"))).lessThan(100);
 
-    @Nonnull
-    private static QueryComponent nest(@Nonnull QueryComponent p) {
+    private static QueryComponent nest(QueryComponent p) {
         return nest("p", p);
     }
 
-    @Nonnull
-    private static QueryComponent nest(@Nonnull String parent, @Nonnull QueryComponent p) {
+    private static QueryComponent nest(String parent, QueryComponent p) {
         return Query.field(parent).matches(p);
     }
 
@@ -353,14 +348,14 @@ class BooleanNormalizerTest {
         assertEquals(cnf, normalizer.normalizeIfPossible(cnf));
     }
 
-    protected static void assertExpectedNormalization(@Nonnull final QueryComponent expected, @Nonnull final QueryComponent given) {
+    protected static void assertExpectedNormalization(final QueryComponent expected, final QueryComponent given) {
         assertExpectedNormalization(BooleanNormalizer.getDefaultInstance(), expected, given);
     }
 
-    protected static void assertExpectedNormalization(@Nonnull final BooleanNormalizer normalizer,
-                                                      @Nonnull final QueryComponent expected, @Nonnull final QueryComponent given) {
+    protected static void assertExpectedNormalization(final BooleanNormalizer normalizer,
+                                                      final QueryComponent expected, final QueryComponent given) {
         final QueryComponent normalized = normalizer.normalize(given);
-        assertFilterEquals(expected, normalized);
+        assertFilterEquals(expected, Objects.requireNonNull(normalized));
         if (!normalizer.isCheckForDuplicateConditions()) {
             assertEquals(numberOfTerms(expected), normalizer.getNormalizedSize(given));
         }
@@ -369,11 +364,11 @@ class BooleanNormalizerTest {
     }
 
     // Query components do not implement equals, but they have distinctive enough printed representations.
-    protected static void assertFilterEquals(@Nonnull final QueryComponent expected, @Nonnull final QueryComponent actual) {
+    protected static void assertFilterEquals(final QueryComponent expected, final QueryComponent actual) {
         assertEquals(expected.toString(), actual.toString());
     }
 
-    private static int numberOfTerms(@Nonnull final QueryComponent predicate) {
+    private static int numberOfTerms(final QueryComponent predicate) {
         if (predicate instanceof OrComponent) {
             return ((OrComponent)predicate).getChildren().size();
         } else {

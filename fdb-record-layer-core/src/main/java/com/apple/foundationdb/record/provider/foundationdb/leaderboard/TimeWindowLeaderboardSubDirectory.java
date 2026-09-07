@@ -24,28 +24,25 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.TimeWindowLeaderboardProto;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 
 /**
  * Persisted per-group information for leaderboard ranked sets.
  */
 @API(API.Status.EXPERIMENTAL)
 public class TimeWindowLeaderboardSubDirectory {
-    @Nonnull
     private final Tuple group;
     private final boolean highScoreFirst;
 
-    public TimeWindowLeaderboardSubDirectory(@Nonnull Tuple group, boolean highScoreFirst) {
+    public TimeWindowLeaderboardSubDirectory(Tuple group, boolean highScoreFirst) {
         this.group = group;
         this.highScoreFirst = highScoreFirst;
     }
 
-    protected TimeWindowLeaderboardSubDirectory(@Nonnull Tuple group, @Nonnull TimeWindowLeaderboardProto.TimeWindowLeaderboardSubDirectory proto) {
+    protected TimeWindowLeaderboardSubDirectory(Tuple group, TimeWindowLeaderboardProto.TimeWindowLeaderboardSubDirectory proto) {
         this.group = group;
         highScoreFirst = proto.getHighScoreFirst();
     }
 
-    @Nonnull
     public Tuple getGroup() {
         return group;
     }
@@ -54,7 +51,6 @@ public class TimeWindowLeaderboardSubDirectory {
         return highScoreFirst;
     }
 
-    @Nonnull
     public TimeWindowLeaderboardProto.TimeWindowLeaderboardSubDirectory toProto() {
         TimeWindowLeaderboardProto.TimeWindowLeaderboardSubDirectory.Builder builder = TimeWindowLeaderboardProto.TimeWindowLeaderboardSubDirectory.newBuilder();
         builder.setHighScoreFirst(highScoreFirst);

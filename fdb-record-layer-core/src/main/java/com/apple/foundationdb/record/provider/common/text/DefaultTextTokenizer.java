@@ -22,13 +22,13 @@ package com.apple.foundationdb.record.provider.common.text;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.text.BreakIterator;
 import java.text.Normalizer;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -44,22 +44,18 @@ import java.util.regex.Pattern;
  */
 @API(API.Status.EXPERIMENTAL)
 public class DefaultTextTokenizer implements TextTokenizer {
-    @Nonnull
     private static final DefaultTextTokenizer INSTANCE = new DefaultTextTokenizer();
 
     // This unicode normalized form splits diacritical marks so that they can be
     // removed. It also collapses equivalent graphemes, e.g., "ﬆ" into "st".
-    @Nonnull
     private static final Normalizer.Form NORMALIZED_FORM = Normalizer.Form.NFKD;
 
-    @Nonnull
     private static final Pattern DIACRITICAL_PATTERN = Pattern.compile("\\p{M}+");
 
     /**
      * The name of the default tokenizer. This can be used to explicitly
      * require the default tokenizer in a text index.
      */
-    @Nonnull
     public static final String NAME = "default";
 
     private DefaultTextTokenizer() {
@@ -71,24 +67,20 @@ public class DefaultTextTokenizer implements TextTokenizer {
      *
      * @return this tokenizer's singleton instance
      */
-    @Nonnull
     public static DefaultTextTokenizer instance() {
         return INSTANCE;
     }
 
     // Turn an iterator that
     private static class BreakIteratorWrapper implements Iterator<String> {
-        @Nonnull
         private final BreakIterator underlying;
-        @Nonnull
         private final String text;
         @Nullable
         private String nextToken = null;
         private int lastBreak;
-        @Nonnull
         private Matcher matcher;
 
-        private BreakIteratorWrapper(@Nonnull BreakIterator underlying, @Nonnull String text) {
+        private BreakIteratorWrapper(BreakIterator underlying, String text) {
             this.underlying = underlying;
             this.text = text;
             this.lastBreak = underlying.first();
@@ -141,11 +133,10 @@ public class DefaultTextTokenizer implements TextTokenizer {
             return nextToken != null;
         }
 
-        @Nonnull
         @Override
         public String next() {
             if (hasNext()) {
-                String next = nextToken;
+                String next = Objects.requireNonNull(nextToken, "nextToken should be set once hasNext() returns true");
                 nextToken = null;
                 return next;
             } else {
@@ -168,9 +159,8 @@ public class DefaultTextTokenizer implements TextTokenizer {
      * @param mode ignored as this tokenizer operates the same way at index and query time
      * @return an iterator over whitespace-separated tokens
      */
-    @Nonnull
     @Override
-    public Iterator<String> tokenize(@Nonnull String text, int version, @Nonnull TokenizerMode mode) {
+    public Iterator<String> tokenize(String text, int version, TokenizerMode mode) {
         validateVersion(version);
         final BreakIterator breakIterator = BreakIterator.getWordInstance(Locale.ROOT);
         breakIterator.setText(text);
@@ -183,7 +173,6 @@ public class DefaultTextTokenizer implements TextTokenizer {
      *
      * @return the name of the default tokenizer
      */
-    @Nonnull
     @Override
     public String getName() {
         return NAME;

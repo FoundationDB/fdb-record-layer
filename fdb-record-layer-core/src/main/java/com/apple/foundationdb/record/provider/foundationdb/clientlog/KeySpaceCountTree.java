@@ -25,43 +25,48 @@ import com.apple.foundationdb.clientlog.TupleKeyCountTree;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceTreeResolver;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+
+import static com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceTreeResolver.Resolved;
 
 /**
  * Count keys and resolve back to key space paths.
  */
 public class KeySpaceCountTree extends TupleKeyCountTree {
     @Nullable
-    private KeySpaceTreeResolver.Resolved resolved;
+    private Resolved resolved;
 
-    public KeySpaceCountTree(@Nonnull KeySpace keySpace) {
+    public KeySpaceCountTree(KeySpace keySpace) {
         super();
         this.resolved = new KeySpaceTreeResolver.ResolvedRoot(keySpace);
     }
 
-    public KeySpaceCountTree(@Nullable KeySpaceCountTree parent, @Nonnull byte[] bytes, @Nullable Object object) {
+    public KeySpaceCountTree(@Nullable KeySpaceCountTree parent, byte[] bytes, @Nullable Object object) {
         super(parent, bytes, object);
     }
 
     @Override
-    @Nonnull
-    protected TupleKeyCountTree newChild(@Nonnull byte[] childBytes, @Nonnull Object object) {
+    protected TupleKeyCountTree newChild(byte[] childBytes, Object object) {
         return new KeySpaceCountTree(this, childBytes, object);
     }
 
     @Override
-    @Nonnull
-    protected TupleKeyCountTree newPrefixChild(@Nonnull byte[] prefixBytes, @Nonnull Object prefix) {
+    protected TupleKeyCountTree newPrefixChild(byte[] prefixBytes, Object prefix) {
         TupleKeyCountTree result = super.newPrefixChild(prefixBytes, prefix);
-        ((KeySpaceCountTree)result).resolved = new KeySpaceTreeResolver.ResolvedPrefixRoot(resolved, prefix);
+        // A prefix child can only be attached beneath a node whose own path has already been resolved
+        // (either the root, which is resolved at construction, or a node reached via a prior prefix link).
+        ((KeySpaceCountTree)result).resolved = new KeySpaceTreeResolver.ResolvedPrefixRoot(
+                Objects.requireNonNull(resolved, "cannot add a prefix child to an unresolved key space count tree node"), prefix);
         return result;
     }
 
-    public CompletableFuture<Void> resolveVisibleChildren(@Nonnull KeySpaceTreeResolver resolver) {
-        if (resolved != null) {
+    public CompletableFuture<Void> resolveVisibleChildren(KeySpaceTreeResolver resolver) {
+        final Resolved resolvedValue = resolved;
+        if (resolvedValue != null) {
             final Iterator<TupleKeyCountTree> children = getChildren().iterator();
             return AsyncUtil.whileTrue(() -> {
                 if (!children.hasNext()) {
@@ -71,7 +76,7 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
                 if (!child.isVisible()) {
                     return AsyncUtil.READY_TRUE;
                 }
-                return child.resolve(resolver, resolved)
+                return child.resolve(resolver, resolvedValue)
                         .thenCompose(vignore -> child.resolveVisibleChildren(resolver))
                         .thenApply(vignore -> true);
             });
@@ -80,7 +85,7 @@ public class KeySpaceCountTree extends TupleKeyCountTree {
         }
     }
 
-    protected CompletableFuture<Void> resolve(@Nonnull KeySpaceTreeResolver resolver, @Nonnull KeySpaceTreeResolver.Resolved resolvedParent) {
+    protected CompletableFuture<Void> resolve(KeySpaceTreeResolver resolver, Resolved resolvedParent) {
         if (resolved != null || !hasObject()) {
             return AsyncUtil.DONE;
         }

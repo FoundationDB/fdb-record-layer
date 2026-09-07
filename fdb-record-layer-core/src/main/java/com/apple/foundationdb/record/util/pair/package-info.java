@@ -32,4 +32,7 @@
  *
  * @see com.apple.foundationdb.record.util.pair.Pair
  */
+@NullMarked
 package com.apple.foundationdb.record.util.pair;
+
+import org.jspecify.annotations.NullMarked;

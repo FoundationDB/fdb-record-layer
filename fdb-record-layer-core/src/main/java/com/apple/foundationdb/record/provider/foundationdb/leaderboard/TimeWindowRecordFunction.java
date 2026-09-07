@@ -26,8 +26,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The <code>TIME_WINDOW_RANK</code> record function.
@@ -38,29 +37,25 @@ import javax.annotation.Nullable;
 public class TimeWindowRecordFunction<T> extends IndexRecordFunction<T> {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Time-Window-Record-Function");
 
-    @Nonnull
     private final TimeWindowForFunction timeWindow;
 
-    public TimeWindowRecordFunction(@Nonnull String name, @Nonnull GroupingKeyExpression operand, @Nullable String index,
-                                    @Nonnull TimeWindowForFunction timeWindow) {
+    public TimeWindowRecordFunction(String name, GroupingKeyExpression operand, @Nullable String index,
+                                    TimeWindowForFunction timeWindow) {
         super(name, operand, index);
         this.timeWindow = timeWindow;
     }
 
-    @Nonnull
     public TimeWindowForFunction getTimeWindow() {
         return timeWindow;
     }
 
-    @Nonnull
     @Override
-    public TimeWindowRecordFunction<T> cloneWithOperand(@Nonnull GroupingKeyExpression operand) {
+    public TimeWindowRecordFunction<T> cloneWithOperand(GroupingKeyExpression operand) {
         return new TimeWindowRecordFunction<>(getName(), operand, getIndex(), timeWindow);
     }
 
-    @Nonnull
     @Override
-    public TimeWindowRecordFunction<T> cloneWithIndex(@Nonnull String index) {
+    public TimeWindowRecordFunction<T> cloneWithIndex(String index) {
         return new TimeWindowRecordFunction<>(getName(), getOperand(), index, timeWindow);
     }
 
@@ -93,7 +88,7 @@ public class TimeWindowRecordFunction<T> extends IndexRecordFunction<T> {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+    public int planHash(final PlanHashable.PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return super.planHash(mode);

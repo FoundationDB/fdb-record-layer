@@ -48,7 +48,6 @@ import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.support.ParameterDeclarations;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -60,13 +59,10 @@ public class ExplodePlanTest {
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     private static final class ExplodeCursorBuilder {
 
-        @Nonnull
         private final RecordQueryPlan explodePlan;
 
-        @Nonnull
         private Optional<Integer> skip;
 
-        @Nonnull
         private Optional<Integer> limit;
 
         private ExplodeCursorBuilder() {
@@ -75,13 +71,11 @@ public class ExplodePlanTest {
             limit = Optional.empty();
         }
 
-        @Nonnull
         ExplodeCursorBuilder withSkip(int skip) {
             this.skip = Optional.of(skip);
             return this;
         }
 
-        @Nonnull
         ExplodeCursorBuilder withLimit(int limit) {
             this.limit = Optional.of(limit);
             return this;
@@ -94,8 +88,8 @@ public class ExplodePlanTest {
                     + skip.map(s -> "skip " + s).orElse("");
         }
 
-        @Nonnull
-        @SuppressWarnings("DataFlowIssue") // explode transposes the underlying constant array Value, it does not strictly require a record store instance.
+        // explode transposes the underlying constant array Value, it does not strictly require a record store instance.
+        @SuppressWarnings({"DataFlowIssue", "NullAway"})
         RecordCursor<QueryResult> build() {
             final var executionPropertiesBuilder = ExecuteProperties.newBuilder();
             skip.ifPresent(executionPropertiesBuilder::setSkip);
@@ -104,20 +98,18 @@ public class ExplodePlanTest {
             return explodePlan.executePlan(null, EvaluationContext.EMPTY, null, executionProperties);
         }
 
-        @Nonnull
         private static RecordQueryPlan generateExplodePlan() {
             final Value collectionValue = LiteralValue.ofList(List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
             return new RecordQueryExplodePlan(collectionValue);
         }
 
-        @Nonnull
         public static ExplodeCursorBuilder instance() {
             return new ExplodeCursorBuilder();
         }
     }
 
-    private static void verifyCursor(@Nonnull final RecordCursor<QueryResult> actualCursor,
-                                     @Nonnull final List<Integer> expectedResults,
+    private static void verifyCursor(final RecordCursor<QueryResult> actualCursor,
+                                     final List<Integer> expectedResults,
                                      boolean verifyLimitExceeded) {
         for (final var expectedValue : expectedResults) {
             final var result = actualCursor.getNext();
@@ -147,8 +139,8 @@ public class ExplodePlanTest {
 
     @ParameterizedTest(name = "{0} should return {1}")
     @ArgumentsSource(ArgumentProvider.class)
-    void explodeWithSkipAndLimitWorks(@Nonnull final ExplodeCursorBuilder actualCursorBuilder,
-                                      @Nonnull final List<Integer> expectedResult,
+    void explodeWithSkipAndLimitWorks(final ExplodeCursorBuilder actualCursorBuilder,
+                                      final List<Integer> expectedResult,
                                       boolean shouldReachLimit) {
         verifyCursor(actualCursorBuilder.build(), expectedResult, shouldReachLimit);
     }
@@ -211,7 +203,6 @@ public class ExplodePlanTest {
         Assertions.assertFalse(plan2.contains("ORDINALITY"));
     }
 
-    @Nonnull
     private static PlanSerializationContext newSerializationContext() {
         return new PlanSerializationContext(new DefaultPlanSerializationRegistry(),
                 PlanHashable.CURRENT_FOR_CONTINUATION);

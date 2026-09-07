@@ -47,7 +47,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -85,6 +84,16 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             .build();
 
     private boolean useSplitRecords = true;
+
+    // RemoteFetchTestBase's executeAndVerifyData/scanAndVerifyData overloads declare their
+    // continuation parameter as plain (non-@Nullable) byte[], but a null continuation is the
+    // normal FDB convention for "start of scan" and is accepted at runtime. Declaring the return
+    // type here as plain (non-null) byte[] lets a literal null flow into those non-null-declared
+    // parameters without NullAway flagging every "start of scan" call site in this file.
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
+    }
 
     @BeforeEach
     void setup() throws Exception {
@@ -128,7 +137,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
     @MethodSource("fetchMethodAndStreamMode")
     void indexPrefetchPrimaryKeyIndexTest(IndexFetchMethod useIndexPrefetch, CursorStreamingMode streamingMode) throws Exception {
         RecordQueryPlan plan = plan(PRIMARY_KEY_EQUAL, useIndexPrefetch);
-        executeAndVerifyData(plan, null, serializableWithStreamingMode(streamingMode), 1, (rec, i) -> {
+        executeAndVerifyData(plan, noContinuation(), serializableWithStreamingMode(streamingMode), 1, (rec, i) -> {
             int primaryKey = 1;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
@@ -142,7 +151,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
     void indexPrefetchComplexIndexTest(IndexFetchMethod useIndexPrefetch, CursorStreamingMode streamingMode) throws Exception {
         RecordQueryPlan plan = plan(STR_VALUE_EVEN, useIndexPrefetch);
         // Pass in every supported streaming mode. The result should not change.
-        executeAndVerifyData(plan, null, serializableWithStreamingMode(streamingMode), 50, (rec, i) -> {
+        executeAndVerifyData(plan, noContinuation(), serializableWithStreamingMode(streamingMode), 50, (rec, i) -> {
             int primaryKey = i * 2;
             int numValue = 1000 - primaryKey;
             assertRecord(rec, primaryKey, "even", numValue, "MySimpleRecord$str_value_indexed", "even", primaryKey); // we are filtering out all odd entries, so count*2 are the keys of the even ones
@@ -182,7 +191,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
                 .build();
 
         // First iteration - first 5 records
-        byte[] continuation = executeAndVerifyData(plan, null, executeProperties, 5, (rec, i) -> {
+        byte[] continuation = executeAndVerifyData(plan, noContinuation(), executeProperties, 5, (rec, i) -> {
             int primaryKey = 9 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
@@ -216,7 +225,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
                 .build();
 
         // First iteration - first 4 records
-        byte[] continuation = executeAndVerifyData(planWithPrefetch, null, executeProperties, 4, (rec, i) -> {
+        byte[] continuation = executeAndVerifyData(planWithPrefetch, noContinuation(), executeProperties, 4, (rec, i) -> {
             int primaryKey = 9 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
@@ -253,7 +262,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setScannedBytesLimit(1)
                 .build();
-        byte[] continuation = executeAndVerifyData(plan, null, executeProperties, 1, (rec, i) -> {
+        byte[] continuation = executeAndVerifyData(plan, noContinuation(), executeProperties, 1, (rec, i) -> {
             int primaryKey = 9 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
@@ -281,7 +290,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
                 .setScannedRecordsLimit(3)
                 .build();
 
-        byte[] continuation = executeAndVerifyData(plan, null, executeProperties, 3, (rec, i) -> {
+        byte[] continuation = executeAndVerifyData(plan, noContinuation(), executeProperties, 3, (rec, i) -> {
             int primaryKey = 9 - i;
             String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
             int numValue = 1000 - primaryKey;
@@ -322,7 +331,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, noContinuation(), executeProperties)) {
                 // Will throw exception if plans do not match
                 // This only compares the primary key and not all values
                 assertNotNull(cursor.asList().get());
@@ -340,7 +349,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, noContinuation(), executeProperties)) {
                 assertThrows(ExecutionException.class, () -> cursor.asList().get());
             }
         }
@@ -367,9 +376,9 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, fetchMethod);
 
             if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
-                assertThrows(ExecutionException.class, () -> executeToList(context, plan, null, ExecuteProperties.SERIAL_EXECUTE));
+                assertThrows(ExecutionException.class, () -> executeToList(context, plan, noContinuation(), ExecuteProperties.SERIAL_EXECUTE));
             } else {
-                executeAndVerifyData(context, plan, null, ExecuteProperties.SERIAL_EXECUTE, 10, (rec, i) -> {
+                executeAndVerifyData(context, plan, noContinuation(), ExecuteProperties.SERIAL_EXECUTE, 10, (rec, i) -> {
                     int primaryKey = 9 - i;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                     if (primaryKey == 1) {
@@ -403,7 +412,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             // Execute the query (will fail because a record in memory cannot be processed by fdb)
             RecordQueryPlan plan = plan(NUM_VALUES_LARGER_THAN_990, fetchMethod);
 
-            executeAndVerifyData(context, plan, null, ExecuteProperties.SERIAL_EXECUTE, 10, (rec, i) -> {
+            executeAndVerifyData(context, plan, noContinuation(), ExecuteProperties.SERIAL_EXECUTE, 10, (rec, i) -> {
                 int primaryKey = 9 - i;
                 String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                 int numValue = 1000 - primaryKey;
@@ -442,9 +451,9 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             // up the record
             RecordQueryPlan plan = plan(NUM_VALUES_LARGER_EQUAL_0, fetchMethod);
             if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
-                assertThrows(ExecutionException.class, () -> executeToList(context, plan, null, ExecuteProperties.SERIAL_EXECUTE));
+                assertThrows(ExecutionException.class, () -> executeToList(context, plan, noContinuation(), ExecuteProperties.SERIAL_EXECUTE));
             } else {
-                executeAndVerifyData(context, plan, null, ExecuteProperties.SERIAL_EXECUTE, 500, (rec, i) -> {
+                executeAndVerifyData(context, plan, noContinuation(), ExecuteProperties.SERIAL_EXECUTE, 500, (rec, i) -> {
                     int primaryKey = i;
                     int numValue = i;
                     String strValue = (i == created.size() - 1) ? "foo" : "";
@@ -478,9 +487,9 @@ class RemoteFetchTest extends RemoteFetchTestBase {
             // up the record
             RecordQueryPlan plan = plan(NUM_VALUES_LARGER_EQUAL_0_REVERSE, fetchMethod);
             if (fetchMethod == IndexFetchMethod.USE_REMOTE_FETCH) {
-                assertThrows(ExecutionException.class, () -> executeToList(context, plan, null, ExecuteProperties.SERIAL_EXECUTE));
+                assertThrows(ExecutionException.class, () -> executeToList(context, plan, noContinuation(), ExecuteProperties.SERIAL_EXECUTE));
             } else {
-                executeAndVerifyData(context, plan, null, ExecuteProperties.SERIAL_EXECUTE, 500, (rec, i) -> {
+                executeAndVerifyData(context, plan, noContinuation(), ExecuteProperties.SERIAL_EXECUTE, 500, (rec, i) -> {
                     int primaryKey = 499 - i;
                     int numValue = primaryKey;
                     String strValue = (i == (created.size() - 1)) ? "foo" : "";
@@ -506,13 +515,13 @@ class RemoteFetchTest extends RemoteFetchTestBase {
         // This will throw an exception since SNAPSHOT is not supported
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
-            assertThrows(UnsupportedOperationException.class, () -> executeToList(context, planWithPrefetch, null, executeProperties));
+            assertThrows(UnsupportedOperationException.class, () -> executeToList(context, planWithPrefetch, noContinuation(), executeProperties));
         }
         // This will compare the plans successfully since fallback resorts to the scan plan
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, splitRecordsHook);
             // Will throw exception if plans do not match
-            executeToList(context, comparatorPlan, null, executeProperties);
+            executeToList(context, comparatorPlan, noContinuation(), executeProperties);
         }
     }
 
@@ -580,7 +589,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
 
     private List<FDBIndexedRecord<Message>> scanIndex(final IndexOrphanBehavior orphanBehavior) throws InterruptedException, ExecutionException {
         return recordStore.scanIndexRemoteFetch("MySimpleRecord$num_value_unique", new IndexScanRange(IndexScanType.BY_VALUE, TupleRange.ALL),
-                null, ScanProperties.FORWARD_SCAN, orphanBehavior).asList().get();
+                noContinuation(), ScanProperties.FORWARD_SCAN, orphanBehavior).asList().get();
     }
 
     private void createOrphanEntry() throws Exception {
@@ -606,7 +615,6 @@ class RemoteFetchTest extends RemoteFetchTestBase {
         return recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getPrimaryKey();
     }
 
-    @Nonnull
     private final RecordMetaDataHook splitRecordsHook = metaDataBuilder -> {
         // UseSplitRecords can be set to different values to impact the way the store is opened
         metaDataBuilder.setSplitLongRecords(isUseSplitRecords());
@@ -614,7 +622,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
     };
 
     private void assertRecordWithPrimaryKeyIndex(final FDBQueriedRecord<Message> rec, final long primaryKey, final String strValue, final int numValue, final String indexName, final Object indexedValue) {
-        IndexEntry indexEntry = rec.getIndexEntry();
+        IndexEntry indexEntry = Objects.requireNonNull(rec.getIndexEntry());
         assertThat(indexEntry.getIndex().getName(), equalTo(indexName));
         List<Object> indexElements = indexEntry.getKey().getItems();
         assertThat(indexElements.size(), equalTo(1));
@@ -623,7 +631,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
         assertThat(indexPrimaryKey.size(), equalTo(1));
         assertThat(indexPrimaryKey.get(0), equalTo(primaryKey));
 
-        FDBStoredRecord<Message> storedRecord = rec.getStoredRecord();
+        FDBStoredRecord<Message> storedRecord = Objects.requireNonNull(rec.getStoredRecord());
         assertThat(storedRecord.getPrimaryKey().get(0), equalTo(primaryKey));
         assertThat(storedRecord.getRecordType().getName(), equalTo("MySimpleRecord"));
 

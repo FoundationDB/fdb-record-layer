@@ -653,6 +653,11 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
         return new HashSet<>(recordStore.executeQuery(plan).map(this::fieldsRecordId).asList().join());
     }
 
+    // record is @Nullable to match callers that pass a possibly-absent loadRecord() result directly, but in
+    // practice (including every caller in this file) it is never actually null; the null-returning branch
+    // below is unreachable in this test's usage, so its @NonNull violation is suppressed rather than widening
+    // the return type (which would break the .map(this::fieldsRecordId) call in fieldsRecordQuery()).
+    @SuppressWarnings("NullAway")
     protected UUID fieldsRecordId(@Nullable FDBRecord<Message> record) {
         if (record == null) {
             return null;

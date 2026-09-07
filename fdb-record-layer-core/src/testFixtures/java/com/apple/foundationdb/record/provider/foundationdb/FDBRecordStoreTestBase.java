@@ -46,9 +46,9 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.provider.Arguments;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -59,11 +59,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Base class for tests for {@link FDBRecordStore}.
  */
 @Tag(Tags.RequiresFDB)
+// NullAway.Init is suppressed here because recordStore/planner follow the standard JUnit test-fixture
+// lifecycle: they are left unset by the constructor and are always populated by one of the
+// createOrOpen*/uncheckedOpen*/openXxxRecordStore methods before any test method that uses them runs.
+@SuppressWarnings("NullAway.Init")
 public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTestBase {
 
     protected FDBRecordStore recordStore;
     protected QueryPlanner planner;
-    @Nullable
+    // Not @Nullable: the constructor always populates this, either from the given path or a freshly
+    // created default path (see below); only the constructor parameter accepts null.
     protected KeySpacePath path;
 
     public FDBRecordStoreTestBase() {
@@ -74,7 +79,6 @@ public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTes
         this.path = path == null ? pathManager.createPath(TestKeySpace.RECORD_STORE) : path;
     }
 
-    @Nonnull
     public static Stream<Arguments> formatVersionAndSplitArgs() {
         return Stream.of(
                         FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX),
@@ -110,16 +114,16 @@ public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTes
         void open(FDBRecordContext context) throws Exception;
     }
 
-    protected Pair<FDBRecordStore, QueryPlanner> createOrOpenRecordStore(@Nonnull FDBRecordContext context,
-                                                                         @Nonnull RecordMetaDataProvider metaData) {
+    protected Pair<FDBRecordStore, QueryPlanner> createOrOpenRecordStore(FDBRecordContext context,
+                                                                         RecordMetaDataProvider metaData) {
         Pair<FDBRecordStore, QueryPlanner> recordStoreQueryPlannerPair = createOrOpenRecordStore(context, metaData, path);
-        recordStore = recordStoreQueryPlannerPair.getLeft();
-        planner = recordStoreQueryPlannerPair.getRight();
+        recordStore = Objects.requireNonNull(recordStoreQueryPlannerPair.getLeft());
+        planner = Objects.requireNonNull(recordStoreQueryPlannerPair.getRight());
         return recordStoreQueryPlannerPair;
     }
 
-    protected Pair<FDBRecordStore, QueryPlanner> createOrOpenRecordStoreWithSingletonPipeline(@Nonnull FDBRecordContext context,
-                                                                                              @Nonnull RecordMetaDataProvider metaData) {
+    protected Pair<FDBRecordStore, QueryPlanner> createOrOpenRecordStoreWithSingletonPipeline(FDBRecordContext context,
+                                                                                              RecordMetaDataProvider metaData) {
         recordStore = getStoreBuilder(context, metaData, path)
                 .setPipelineSizer(ignored -> 1)
                 .createOrOpen();
@@ -127,12 +131,11 @@ public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTes
         return Pair.of(recordStore, planner);
     }
 
-    public FDBRecordStore openSimpleRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook, @Nonnull FormatVersion formatVersion) {
+    public FDBRecordStore openSimpleRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook, FormatVersion formatVersion) {
         return createOrOpenRecordStore(context, simpleMetaData(hook), path, formatVersion);
     }
 
-    @Nonnull
-    protected FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
+    protected FDBRecordStore.Builder getStoreBuilder(FDBRecordContext context, RecordMetaData metaData) {
         return getStoreBuilder(context, metaData, path);
     }
 
@@ -144,17 +147,15 @@ public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTes
         return openContext(RecordLayerPropertyStorage.getEmptyInstance());
     }
 
-    @Nonnull
     public static Index globalCountIndex() {
         return new Index(COUNT_INDEX_NAME, new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
     }
 
-    @Nonnull
     public static Index globalCountUpdatesIndex() {
         return new Index(COUNT_UPDATES_INDEX_NAME, new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT_UPDATES);
     }
 
-    protected void uncheckedOpenRecordStore(@Nonnull FDBRecordContext context, @Nonnull RecordMetaData metaData) {
+    protected void uncheckedOpenRecordStore(FDBRecordContext context, RecordMetaData metaData) {
         recordStore = getStoreBuilder(context, metaData).uncheckedOpen();
         setupPlanner(null);
     }
@@ -219,7 +220,6 @@ public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTes
         this.recordStore = openNewUnionRecordStore(context);
     }
 
-    @Nonnull
     protected FDBRecordStore openNewUnionRecordStore(FDBRecordContext context) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsWithUnionProto.getDescriptor());
         metaDataBuilder.addUniversalIndex(

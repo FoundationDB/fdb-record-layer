@@ -55,8 +55,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -81,18 +81,19 @@ public class RecordQueryRangePlan extends AbstractRelationalExpressionWithoutChi
         return exclusiveLimitValue;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return new QueriedValue(Type.primitiveType(Type.TypeCode.INT));
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
+    // NullAway doesn't reliably track @Nullable on byte[] parameters; RangeCursor's
+    // constructor handles a null continuation (starts from position 0).
+    @SuppressWarnings("NullAway")
+    public <M extends Message> RecordCursor<QueryResult> executePlan(final FDBRecordStoreBase<M> store,
+                                                                     final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+                                                                     final ExecuteProperties executeProperties) {
         final int exclusiveLimit = (int)Verify.verifyNotNull(exclusiveLimitValue.eval(store, context));
         return new RangeCursor(store.getExecutor(), exclusiveLimit, continuation).map(QueryResult::ofComputed);
     }
@@ -113,11 +114,10 @@ public class RecordQueryRangePlan extends AbstractRelationalExpressionWithoutChi
     }
 
     @Override
-    public boolean hasIndexScan(@Nonnull String indexName) {
+    public boolean hasIndexScan(String indexName) {
         return false;
     }
 
-    @Nonnull
     @Override
     public Set<String> getUsedIndexes() {
         return ImmutableSet.of();
@@ -129,11 +129,10 @@ public class RecordQueryRangePlan extends AbstractRelationalExpressionWithoutChi
     }
 
     @Override
-    public RecordQueryRangePlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
+    public RecordQueryRangePlan strictlySorted(final FinalMemoizer memoizer) {
         return this;
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.ALL_FIELDS;
@@ -144,24 +143,21 @@ public class RecordQueryRangePlan extends AbstractRelationalExpressionWithoutChi
         return false;
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return exclusiveLimitValue.getCorrelatedTo();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RelationalExpression translateCorrelations(final TranslationMap translationMap,
                                                       final boolean shouldSimplifyValues,
-                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                      final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
         if (translationMap.definesOnlyIdentities()) {
             return this;
@@ -176,8 +172,8 @@ public class RecordQueryRangePlan extends AbstractRelationalExpressionWithoutChi
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap aliasMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap aliasMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -215,7 +211,7 @@ public class RecordQueryRangePlan extends AbstractRelationalExpressionWithoutChi
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
             case FOR_CONTINUATION:
@@ -225,15 +221,13 @@ public class RecordQueryRangePlan extends AbstractRelationalExpressionWithoutChi
         }
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of();
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         Verify.verify(childGraphs.isEmpty());
 
         final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
@@ -247,23 +241,20 @@ public class RecordQueryRangePlan extends AbstractRelationalExpressionWithoutChi
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryRangePlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryRangePlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryRangePlan.newBuilder()
                 .setExclusiveLimitValue(exclusiveLimitValue.toValueProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setRangePlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryRangePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                 @Nonnull final PRecordQueryRangePlan recordQueryRangePlanProto) {
+    public static RecordQueryRangePlan fromProto(final PlanSerializationContext serializationContext,
+                                                 final PRecordQueryRangePlan recordQueryRangePlanProto) {
         return new RecordQueryRangePlan(Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryRangePlanProto.getExclusiveLimitValue())));
     }
 
@@ -272,16 +263,14 @@ public class RecordQueryRangePlan extends AbstractRelationalExpressionWithoutChi
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryRangePlan, RecordQueryRangePlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryRangePlan> getProtoMessageClass() {
             return PRecordQueryRangePlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryRangePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final PRecordQueryRangePlan recordQueryRangePlanProto) {
+        public RecordQueryRangePlan fromProto(final PlanSerializationContext serializationContext,
+                                              final PRecordQueryRangePlan recordQueryRangePlanProto) {
             return RecordQueryRangePlan.fromProto(serializationContext, recordQueryRangePlanProto);
         }
     }

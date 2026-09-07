@@ -40,10 +40,12 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -55,23 +57,19 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 @API(API.Status.INTERNAL)
 public class IndexScrubbing extends IndexingBase {
-    @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexScrubbing.class);
-    @Nonnull
     private static final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = compileIndexingTypeStamp();
-    @Nonnull
     private final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy;
-    @Nonnull
     private final AtomicLong issueCounter;
     private long scanCounter = 0;
     private int logWarningCounter;
     private final IndexScrubbingTools.ScrubbingType scrubbingType;
     private final String scrubberName;
 
-    public IndexScrubbing(@Nonnull final IndexingCommon common,
-                          @Nonnull final OnlineIndexer.IndexingPolicy policy,
-                          @Nonnull final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy,
-                          @Nonnull final AtomicLong issueCounter,
+    public IndexScrubbing(final IndexingCommon common,
+                          final OnlineIndexer.IndexingPolicy policy,
+                          final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy,
+                          final AtomicLong issueCounter,
                           IndexScrubbingTools.ScrubbingType scrubbingType) {
         super(common, policy, true);
         this.scrubbingPolicy = scrubbingPolicy;
@@ -93,13 +91,11 @@ public class IndexScrubbing extends IndexingBase {
         );
     }
 
-    @Nonnull
     @Override
     IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp(final FDBRecordStore store) {
         return myIndexingTypeStamp;
     }
 
-    @Nonnull
     static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp() {
         return
                 IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
@@ -114,7 +110,6 @@ public class IndexScrubbing extends IndexingBase {
                 common.indexLogMessageKeyValues("IndexScrubbing::buildIndexInternalAsync"));
     }
 
-    @Nonnull
     private CompletableFuture<Void> indexScrub() {
 
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "indexScrub");
@@ -123,8 +118,7 @@ public class IndexScrubbing extends IndexingBase {
                 this::indexScrubRangeOnly);
     }
 
-    @Nonnull
-    private CompletableFuture<Boolean> indexScrubRangeOnly(@Nonnull FDBRecordStore store, @Nonnull AtomicLong recordsScanned) {
+    private CompletableFuture<Boolean> indexScrubRangeOnly(FDBRecordStore store, AtomicLong recordsScanned) {
         Index index = common.getIndex();
         final RecordMetaData metaData = store.getRecordMetaData();
         final RecordMetaDataProvider recordMetaDataProvider = common.getRecordStoreBuilder().getMetaDataProvider();
@@ -140,7 +134,7 @@ public class IndexScrubbing extends IndexingBase {
         return indexScrubRangeOnly(store, recordsScanned, index, tools, maintainer.isIdempotent());
     }
 
-    private <T> CompletableFuture<Boolean> indexScrubRangeOnly(final @Nonnull FDBRecordStore store, final @Nonnull AtomicLong recordsScanned, final Index index, final IndexScrubbingTools<T> tools, boolean isIdempotent) {
+    private <T> CompletableFuture<Boolean> indexScrubRangeOnly(final FDBRecordStore store, final AtomicLong recordsScanned, final Index index, final IndexScrubbingTools<T> tools, boolean isIdempotent) {
         // scrubbing only scannable index (in readable or readable-unique-pending state)
         validateOrThrowEx(store.getIndexState(index).isScannable(), "scrubbed index is not readable");
         // scrubbing only idempotent indexes (at least for now)
@@ -169,7 +163,10 @@ public class IndexScrubbing extends IndexingBase {
 
             return iterateRangeOnly(store, cursor, (recordStore, result) -> handleOneItem(recordStore, result, tools, issueList),
                     lastResult, hasMore, recordsScanned, isIdempotent)
-                    .thenApply(vignore -> hasMore.get() ? tools.getKeyFromCursorResult(lastResult.get()) : rangeEnd)
+                    .thenApply(vignore -> hasMore.get()
+                                          ? tools.getKeyFromCursorResult(Objects.requireNonNull(lastResult.get(),
+                                                  "lastResult must be set when hasMore is true"))
+                                          : rangeEnd)
                     .thenCompose(continuation -> updateRangeAndCheckIfExhausted(rangeSet, rangeStart, rangeEnd, continuation))
                     .thenApply(ret -> checkScanLimit(ret, recordsScanned, scanLimit))
                     .whenComplete((ignore, err) -> reportIssues(issueList, err));
@@ -203,7 +200,7 @@ public class IndexScrubbing extends IndexingBase {
      * @return a future yielding {@code true} when more ranges remain to be scrubbed, or {@code false} when the
      *         entire range has been covered and the range set has been cleared
      */
-    private CompletableFuture<Boolean> updateRangeAndCheckIfExhausted(final IndexingRangeSet rangeSet, final Tuple rangeStart, final Tuple rangeEnd, final Tuple continuation) {
+    private CompletableFuture<Boolean> updateRangeAndCheckIfExhausted(final IndexingRangeSet rangeSet, @Nullable final Tuple rangeStart, @Nullable final Tuple rangeEnd, final Tuple continuation) {
         if (allRangesAreExhausted(continuation, rangeEnd)) {
             // Last missing range just got covered. Clear so the next scrubbing session starts fresh.
             logScrubberRangeReset("range exhausted at iteration end");
@@ -214,7 +211,7 @@ public class IndexScrubbing extends IndexingBase {
                 .thenApply(ignore -> true);
     }
 
-    private Boolean checkScanLimit(final Boolean ret, final @Nonnull AtomicLong recordsScanned, final long scanLimit) {
+    private Boolean checkScanLimit(final Boolean ret, final AtomicLong recordsScanned, final long scanLimit) {
         if (scanLimit > 0) {
             scanCounter += recordsScanned.get();
             if (scanLimit <= scanCounter) {
@@ -255,7 +252,6 @@ public class IndexScrubbing extends IndexingBase {
         }
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     @Override
     protected CompletableFuture<Void> setScrubberTypeOrThrow(FDBRecordStore store) {

@@ -46,7 +46,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 
@@ -58,16 +57,16 @@ import java.util.Objects;
 public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-In-Values-Join-Plan");
 
-    protected RecordQueryInValuesJoinPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                          @Nonnull final PRecordQueryInValuesJoinPlan recordQueryInValuesJoinPlanProto) {
+    protected RecordQueryInValuesJoinPlan(final PlanSerializationContext serializationContext,
+                                          final PRecordQueryInValuesJoinPlan recordQueryInValuesJoinPlanProto) {
         super(serializationContext, Objects.requireNonNull(recordQueryInValuesJoinPlanProto.getSuper()));
     }
 
     @HeuristicPlanner
     public RecordQueryInValuesJoinPlan(final RecordQueryPlan plan,
-                                       @Nonnull final String bindingName,
-                                       @Nonnull final Bindings.Internal internal,
-                                       @Nonnull final List<Object> values,
+                                       final String bindingName,
+                                       final Bindings.Internal internal,
+                                       final List<Object> values,
                                        final boolean sortValues,
                                        final boolean sortReverse) {
         this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(plan))),
@@ -78,10 +77,10 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
                 sortReverse);
     }
 
-    private RecordQueryInValuesJoinPlan(@Nonnull final Quantifier.Physical inner,
-                                        @Nonnull final String bindingName,
-                                        @Nonnull final Bindings.Internal internal,
-                                        @Nonnull final List<Object> values,
+    private RecordQueryInValuesJoinPlan(final Quantifier.Physical inner,
+                                        final String bindingName,
+                                        final Bindings.Internal internal,
+                                        final List<Object> values,
                                         final boolean sortValues,
                                         final boolean sortReverse) {
         super(inner,
@@ -91,24 +90,21 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
                 internal);
     }
 
-    public RecordQueryInValuesJoinPlan(@Nonnull final Quantifier.Physical inner,
-                                       @Nonnull final InValuesSource inSource,
-                                       @Nonnull final Bindings.Internal internal) {
+    public RecordQueryInValuesJoinPlan(final Quantifier.Physical inner,
+                                       final InValuesSource inSource,
+                                       final Bindings.Internal internal) {
         super(inner, inSource, internal);
     }
 
-    @Nonnull
     private InValuesSource inValuesSource() {
         return (InValuesSource)inSource;
     }
 
     @Override
-    @Nonnull
     public List<Object> getValues(EvaluationContext context) {
         return getInListValues();
     }
 
-    @Nonnull
     public List<Object> getInListValues() {
         return inSource.getValues();
     }
@@ -118,25 +114,23 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
         return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryInValuesJoinPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryInValuesJoinPlan translateCorrelations(final TranslationMap translationMap,
                                                              final boolean shouldSimplifyValues,
-                                                             @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                             final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryInValuesJoinPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 inValuesSource(), internal);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
+    public RecordQueryPlanWithChild withChild(final Reference childRef) {
         return new RecordQueryInValuesJoinPlan(Quantifier.physical(childRef, inner.getAlias()), inValuesSource(), internal);
     }
 
     @Override
     @SuppressWarnings("fallthrough")
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 if (internal == Bindings.Internal.IN) {
@@ -166,9 +160,8 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
      *         joining an outer table of values in the IN clause to the correlated inner result of executing (usually)
      *         an index lookup for each bound outer value.
      */
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(List<? extends PlannerGraph> childGraphs) {
         final PlannerGraph.Node root =
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.NESTED_LOOP_JOIN_OPERATOR);
@@ -191,23 +184,20 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryInValuesJoinPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryInValuesJoinPlan toProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryInValuesJoinPlan.newBuilder()
                 .setSuper(toRecordQueryInJoinPlanProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         return PRecordQueryPlan.newBuilder().setInValuesJoinPlan(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static RecordQueryInValuesJoinPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                        @Nonnull final PRecordQueryInValuesJoinPlan recordQueryInValuesJoinPlanProto) {
+    public static RecordQueryInValuesJoinPlan fromProto(final PlanSerializationContext serializationContext,
+                                                        final PRecordQueryInValuesJoinPlan recordQueryInValuesJoinPlanProto) {
         return new RecordQueryInValuesJoinPlan(serializationContext, recordQueryInValuesJoinPlanProto);
     }
 
@@ -216,16 +206,14 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRecordQueryInValuesJoinPlan, RecordQueryInValuesJoinPlan> {
-        @Nonnull
         @Override
         public Class<PRecordQueryInValuesJoinPlan> getProtoMessageClass() {
             return PRecordQueryInValuesJoinPlan.class;
         }
 
-        @Nonnull
         @Override
-        public RecordQueryInValuesJoinPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                     @Nonnull final PRecordQueryInValuesJoinPlan recordQueryInValuesJoinPlanProto) {
+        public RecordQueryInValuesJoinPlan fromProto(final PlanSerializationContext serializationContext,
+                                                     final PRecordQueryInValuesJoinPlan recordQueryInValuesJoinPlanProto) {
             return RecordQueryInValuesJoinPlan.fromProto(serializationContext, recordQueryInValuesJoinPlanProto);
         }
     }

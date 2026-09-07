@@ -64,12 +64,12 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
@@ -142,10 +142,8 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
     // (Currently, there is only one, but this allows for expansion if we ever decide
     // to use a more compact format or add an indirection layer for keys to reduce the key-size, etc.)
     @VisibleForTesting
-    @Nonnull
     static final Tuple TOKENIZER_VERSION_SUBSPACE_TUPLE = Tuple.from(0L);
 
-    @Nonnull
     private final TextTokenizer tokenizer;
     private final int tokenizerVersion;
     private final boolean addAggressiveConflictRanges;
@@ -160,8 +158,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
      * @param index the index to get the tokenizer of
      * @return the tokenizer associated with this index
      */
-    @Nonnull
-    public static TextTokenizer getTokenizer(@Nonnull Index index) {
+    public static TextTokenizer getTokenizer(Index index) {
         String tokenizerName = index.getOption(IndexOptions.TEXT_TOKENIZER_NAME_OPTION);
         return registry.getTokenizer(tokenizerName);
     }
@@ -176,7 +173,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
      * @return the tokenizer version associated with the given index
      */
     @SuppressWarnings("PMD.PreserveStackTrace")
-    public static int getIndexTokenizerVersion(@Nonnull Index index) {
+    public static int getIndexTokenizerVersion(Index index) {
         String versionStr = index.getOption(IndexOptions.TEXT_TOKENIZER_VERSION_OPTION);
         if (versionStr != null) {
             try {
@@ -191,18 +188,18 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    static boolean getIfAddAggressiveConflictRanges(@Nonnull Index index) {
+    static boolean getIfAddAggressiveConflictRanges(Index index) {
         return index.getBooleanOption(IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION, false);
     }
 
-    static boolean getIfOmitPositions(@Nonnull Index index) {
+    static boolean getIfOmitPositions(Index index) {
         return index.getBooleanOption(IndexOptions.TEXT_OMIT_POSITIONS_OPTION, false);
     }
 
     // Gets the position of the text field this index is tokenizing from within the
     // index's expression. This is the first column of the index expression after
     // all grouping columns (or the first column if there are no grouping columns).
-    static int textFieldPosition(@Nonnull KeyExpression expression) {
+    static int textFieldPosition(KeyExpression expression) {
         if (expression instanceof GroupingKeyExpression) {
             return ((GroupingKeyExpression) expression).getGroupingCount();
         } else {
@@ -210,8 +207,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    @Nonnull
-    static BunchedMap<Tuple, List<Integer>> getBunchedMap(@Nonnull FDBRecordContext context) {
+    static BunchedMap<Tuple, List<Integer>> getBunchedMap(FDBRecordContext context) {
         if (context.getTimer() != null) {
             return new InstrumentedBunchedMap<>(BUNCHED_MAP, context.getTimer(), context.getExecutor());
         } else {
@@ -219,7 +215,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    protected TextIndexMaintainer(@Nonnull IndexMaintainerState state) {
+    protected TextIndexMaintainer(IndexMaintainerState state) {
         super(state);
         this.tokenizer = getTokenizer(state.index);
         this.tokenizerVersion = getIndexTokenizerVersion(state.index);
@@ -235,13 +231,11 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    @Nonnull
-    private byte[] getRecordTokenizerKey(@Nonnull Tuple primaryKey) {
+    private byte[] getRecordTokenizerKey(Tuple primaryKey) {
         return getSecondarySubspace().subspace(TOKENIZER_VERSION_SUBSPACE_TUPLE).subspace(primaryKey).pack();
     }
 
-    @Nonnull
-    private CompletableFuture<Integer> getRecordTokenizerVersion(@Nonnull Tuple primaryKey) {
+    private CompletableFuture<Integer> getRecordTokenizerVersion(Tuple primaryKey) {
         byte[] key = getRecordTokenizerKey(primaryKey);
         return state.transaction.get(key).thenApply(rawVersion -> {
             if (rawVersion == null) {
@@ -252,16 +246,15 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         });
     }
 
-    private void writeRecordTokenizerVersion(@Nonnull Tuple primaryKey) {
+    private void writeRecordTokenizerVersion(Tuple primaryKey) {
         state.transaction.set(getRecordTokenizerKey(primaryKey), Tuple.from(tokenizerVersion).pack());
     }
 
-    private void clearRecordTokenizerVersion(@Nonnull Tuple primaryKey) {
+    private void clearRecordTokenizerVersion(Tuple primaryKey) {
         state.transaction.clear(getRecordTokenizerKey(primaryKey));
     }
 
-    @Nonnull
-    private NonnullPair<Integer, Integer> estimateSize(@Nullable Tuple groupingKey, @Nonnull Map<String, List<Integer>> positionMap, @Nonnull Tuple groupedKey) {
+    private NonnullPair<Integer, Integer> estimateSize(@Nullable Tuple groupingKey, Map<String, List<Integer>> positionMap, Tuple groupedKey) {
         final int idSize = groupedKey.pack().length;
         final int subspaceSize = getIndexSubspace().getKey().length + (groupingKey != null ? groupingKey.pack().length : 0);
         int keySize = 0;
@@ -278,10 +271,9 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         return NonnullPair.of(keySize, valueSize);
     }
 
-    @Nonnull
-    private <M extends Message> CompletableFuture<Void> updateOneKeyAsync(@Nonnull FDBIndexableRecord<M> savedRecord,
+    private <M extends Message> CompletableFuture<Void> updateOneKeyAsync(FDBIndexableRecord<M> savedRecord,
                                                                           final boolean remove,
-                                                                          @Nonnull IndexEntry entry,
+                                                                          IndexEntry entry,
                                                                           int textPosition,
                                                                           int recordTokenizerVersion) {
         long startTime = System.nanoTime();
@@ -335,6 +327,8 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
             state.context.ensureActive().addWriteConflictRange(indexRange.begin, indexRange.end);
         }
         final BunchedMap<Tuple, List<Integer>> bunchedMap = getBunchedMap(state.context);
+        // forEachAsync legitimately returns CompletableFuture<@Nullable Void> (it always completes with null);
+        // re-wrap with thenApply to match the CompletableFuture<Void> type used below.
         CompletableFuture<Void> tokenInsertFuture = RecordCursor.fromIterator(state.context.getExecutor(), positionMap.entrySet().iterator())
                 .forEachAsync((Map.Entry<String, List<Integer>> tokenEntry) -> {
                     Tuple subspaceTuple;
@@ -350,7 +344,8 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
                         final List<Integer> value = omitPositionLists ? Collections.emptyList() : tokenEntry.getValue();
                         return bunchedMap.put(state.transaction, mapSubspace, groupedKey, value).thenAccept(ignore -> { });
                     }
-                }, state.store.getPipelineSize(PipelineOperation.TEXT_INDEX_UPDATE));
+                }, state.store.getPipelineSize(PipelineOperation.TEXT_INDEX_UPDATE))
+                .thenApply(ignore -> null);
         if (state.store.getTimer() != null) {
             return state.store.getTimer().instrument(indexUpdateEvent, tokenInsertFuture, state.context.getExecutor(), startTime);
         } else {
@@ -358,10 +353,9 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    @Nonnull
-    private <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+    private <M extends Message> CompletableFuture<Void> updateIndexKeys(final FDBIndexableRecord<M> savedRecord,
                                                                         final boolean remove,
-                                                                        @Nonnull final List<IndexEntry> indexEntries,
+                                                                        final List<IndexEntry> indexEntries,
                                                                         final int recordTokenizerVersion) {
         if (indexEntries.isEmpty()) {
             return AsyncUtil.DONE;
@@ -399,11 +393,10 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
      * @param indexEntries the result of {@link #evaluateIndex(com.apple.foundationdb.record.provider.foundationdb.FDBRecord)}
      * @return a future completed when update is done
      */
-    @Nonnull
     @Override
-    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(final FDBIndexableRecord<M> savedRecord,
                                                                           final boolean remove,
-                                                                          @Nonnull final List<IndexEntry> indexEntries) {
+                                                                          final List<IndexEntry> indexEntries) {
         if (indexEntries.isEmpty()) {
             return AsyncUtil.DONE;
         }
@@ -432,7 +425,6 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
      * @return a future that is complete when the record update is done
      * @see com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer#update(FDBIndexableRecord, FDBIndexableRecord)
      */
-    @Nonnull
     @Override
     @SuppressWarnings("squid:S1604") // need annotation so no lambda
     public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord, @Nullable FDBIndexableRecord<M> newRecord) {
@@ -452,12 +444,14 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
             }
             );
         } else if (oldRecord != null) {
-            // Updating an existing record.
+            // Updating an existing record. Given the two branches above have already been ruled out, oldRecord != null
+            // here implies newRecord != null (the only remaining case besides "both null", handled below).
+            final FDBIndexableRecord<M> nonNullNewRecord = Objects.requireNonNull(newRecord);
             return getRecordTokenizerVersion(oldRecord.getPrimaryKey()).thenCompose(recordTokenizerVersion -> {
                 if (recordTokenizerVersion == tokenizerVersion) {
                     // In this case, we don't need to do any book-keeping of the tokenizer version, and
                     // updating the entries works exactly the same for this record as all others.
-                    return super.update(oldRecord, newRecord);
+                    return super.update(oldRecord, nonNullNewRecord);
                 } else {
                     // Because the tokenizer version changed, we will re-index the record.
                     // This is necessary if some of the entries have changed but not others in
@@ -468,8 +462,8 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
                     return super.update(oldRecord, null).thenCompose(new Function<Void, CompletionStage<Void>>() {
                         @Override
                         public CompletionStage<Void> apply(Void vignore) {
-                            TextIndexMaintainer.this.writeRecordTokenizerVersion(newRecord.getPrimaryKey());
-                            return TextIndexMaintainer.super.update(null, newRecord);
+                            TextIndexMaintainer.this.writeRecordTokenizerVersion(nonNullNewRecord.getPrimaryKey());
+                            return TextIndexMaintainer.super.update(null, nonNullNewRecord);
                         }
                     });
                 }
@@ -493,7 +487,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
      * @return whether the index maintainer can remove all records matching <code>matcher</code>
      */
     @Override
-    public boolean canDeleteWhere(@Nonnull QueryToKeyMatcher matcher, @Nonnull Key.Evaluated evaluated) {
+    public boolean canDeleteWhere(QueryToKeyMatcher matcher, Key.Evaluated evaluated) {
         return canDeleteGroup(matcher, evaluated);
     }
 
@@ -515,13 +509,14 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
      * @throws RecordCoreException if <code>scanType</code> is not {@link IndexScanType#BY_TEXT_TOKEN}
      * @see TextCursor
      */
-    @Nonnull
     @Override
-    @SuppressWarnings({"squid:S2095", "PMD.CloseResource"}) // not closing the returned cursor
-    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType,
-                                         @Nonnull TupleRange range,
+    // NullAway does not reliably recognize @Nullable on the byte[] continuation parameter across the call
+    // into BunchedMap.scanMulti below, even though scanMulti's own parameter is declared @Nullable byte[].
+    @SuppressWarnings({"squid:S2095", "PMD.CloseResource", "NullAway"}) // not closing the returned cursor
+    public RecordCursor<IndexEntry> scan(IndexScanType scanType,
+                                         TupleRange range,
                                          @Nullable byte[] continuation,
-                                         @Nonnull ScanProperties scanProperties) {
+                                         ScanProperties scanProperties) {
         if (!scanType.equals(IndexScanType.BY_TEXT_TOKEN)) {
             throw new RecordCoreException("Can only scan text index by text token.");
         }
@@ -554,19 +549,17 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
     }
 
     private static class InstrumentedBunchedMap<K, V> extends BunchedMap<K, V> {
-        @Nonnull
         private final FDBStoreTimer timer;
-        @Nonnull
         private final Executor executor;
 
-        public InstrumentedBunchedMap(@Nonnull BunchedMap<K, V> model, @Nonnull FDBStoreTimer timer, @Nonnull Executor executor) {
+        public InstrumentedBunchedMap(BunchedMap<K, V> model, FDBStoreTimer timer, Executor executor) {
             super(model);
             this.timer = timer;
             this.executor = executor;
         }
 
         @Override
-        protected void instrumentDelete(@Nonnull byte[] key, @Nullable byte[] oldValue) {
+        protected void instrumentDelete(byte[] key, byte @Nullable [] oldValue) {
             timer.increment(FDBStoreTimer.Counts.DELETE_INDEX_KEY);
             timer.increment(FDBStoreTimer.Counts.DELETE_INDEX_KEY_BYTES, key.length);
             if (oldValue != null) {
@@ -575,7 +568,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        protected void instrumentWrite(@Nonnull byte[] key, @Nonnull byte[] value, @Nullable byte[] oldValue) {
+        protected void instrumentWrite(byte[] key, byte[] value, byte @Nullable [] oldValue) {
             timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_KEY);
             timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_KEY_BYTES, key.length);
             timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES, value.length);
@@ -586,8 +579,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        @Nonnull
-        protected CompletableFuture<List<KeyValue>> instrumentRangeRead(@Nonnull CompletableFuture<List<KeyValue>> readFuture) {
+        protected CompletableFuture<List<KeyValue>> instrumentRangeRead(CompletableFuture<List<KeyValue>> readFuture) {
             return timer.instrument(FDBStoreTimer.Events.SCAN_INDEX_KEYS, readFuture, executor).whenComplete((list, err) -> {
                 if (list != null && !list.isEmpty()) {
                     int keyBytes = 0;

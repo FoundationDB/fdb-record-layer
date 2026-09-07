@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An exception that can be thrown by {@link FDBRecordStore}s if they are scanning non-readable indexes.
@@ -32,7 +31,7 @@ import javax.annotation.Nullable;
 @SuppressWarnings("serial")
 @API(API.Status.UNSTABLE)
 public class ScanNonReadableIndexException extends RecordCoreException {
-    ScanNonReadableIndexException(@Nonnull String msg, @Nullable Object... keyValues) {
+    ScanNonReadableIndexException(String msg, @Nullable Object... keyValues) {
         super(msg, keyValues);
     }
 }

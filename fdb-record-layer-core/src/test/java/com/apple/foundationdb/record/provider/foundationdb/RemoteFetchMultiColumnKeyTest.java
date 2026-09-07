@@ -108,10 +108,19 @@ class RemoteFetchMultiColumnKeyTest extends RemoteFetchTestBase {
             createOrOpenRecordStore(context, metaData);
 
             RecordQueryPlan plan = plan(query, indexFetchMethod);
-            records = recordStore.executeQuery(plan, null, ExecuteProperties.SERIAL_EXECUTE).asList().get();
+            records = executeQueryNoContinuation(plan);
             assertEquals(1, records.size());
         }
         return records;
+    }
+
+    // NullAway/JSpecify does not reliably resolve the @Nullable annotation on FDBRecordStoreBase's inherited
+    // executeQuery(RecordQueryPlan, byte[], ExecuteProperties) default method when it is called (with no
+    // continuation) from outside FDBRecordStore itself; wrapping the call here, rather than suppressing at
+    // the call site, centralizes the (well-understood) suppression.
+    @SuppressWarnings("NullAway")
+    private List<FDBQueriedRecord<Message>> executeQueryNoContinuation(RecordQueryPlan plan) throws InterruptedException, ExecutionException {
+        return recordStore.executeQuery(plan, null, ExecuteProperties.SERIAL_EXECUTE).asList().get();
     }
 
     private void populateRecords(final RecordMetaData metaData) {
@@ -161,7 +170,7 @@ class RemoteFetchMultiColumnKeyTest extends RemoteFetchTestBase {
     }
 
     private void assertRecordStrIndex(final FDBQueriedRecord<Message> rec, final String path, final long rec_no, final String strValue) {
-        IndexEntry indexEntry = rec.getIndexEntry();
+        IndexEntry indexEntry = Objects.requireNonNull(rec.getIndexEntry());
         assertThat(indexEntry.getIndex().getName(), equalTo("str_value_index"));
         List<Object> indexElements = indexEntry.getKey().getItems();
         assertThat(indexElements.size(), equalTo(3));
@@ -173,7 +182,7 @@ class RemoteFetchMultiColumnKeyTest extends RemoteFetchTestBase {
         assertThat(indexPrimaryKey.get(0), equalTo(path));
         assertThat(indexPrimaryKey.get(1), equalTo(rec_no));
 
-        FDBStoredRecord<Message> storedRecord = rec.getStoredRecord();
+        FDBStoredRecord<Message> storedRecord = Objects.requireNonNull(rec.getStoredRecord());
         assertThat(storedRecord.getPrimaryKey().size(), equalTo(2));
         assertThat(storedRecord.getPrimaryKey().get(0), equalTo(path));
         assertThat(storedRecord.getPrimaryKey().get(1), equalTo(rec_no));
@@ -187,7 +196,7 @@ class RemoteFetchMultiColumnKeyTest extends RemoteFetchTestBase {
     }
 
     private void assertRecordRecnoIndex(final FDBQueriedRecord<Message> rec, final String path, final long rec_no, final String strValue) {
-        IndexEntry indexEntry = rec.getIndexEntry();
+        IndexEntry indexEntry = Objects.requireNonNull(rec.getIndexEntry());
         assertThat(indexEntry.getIndex().getName(), equalTo("recno_index"));
         List<Object> indexElements = indexEntry.getKey().getItems();
         assertThat(indexElements.size(), equalTo(3));
@@ -199,7 +208,7 @@ class RemoteFetchMultiColumnKeyTest extends RemoteFetchTestBase {
         assertThat(indexPrimaryKey.get(0), equalTo(path));
         assertThat(indexPrimaryKey.get(1), equalTo(rec_no));
 
-        FDBStoredRecord<Message> storedRecord = rec.getStoredRecord();
+        FDBStoredRecord<Message> storedRecord = Objects.requireNonNull(rec.getStoredRecord());
         assertThat(storedRecord.getPrimaryKey().size(), equalTo(2));
         assertThat(storedRecord.getPrimaryKey().get(0), equalTo(path));
         assertThat(storedRecord.getPrimaryKey().get(1), equalTo(rec_no));
@@ -213,7 +222,7 @@ class RemoteFetchMultiColumnKeyTest extends RemoteFetchTestBase {
     }
 
     private void assertRecordPathIndex(final FDBQueriedRecord<Message> rec, final String path, final long rec_no, final String strValue) {
-        IndexEntry indexEntry = rec.getIndexEntry();
+        IndexEntry indexEntry = Objects.requireNonNull(rec.getIndexEntry());
         assertThat(indexEntry.getIndex().getName(), equalTo("path_index"));
         List<Object> indexElements = indexEntry.getKey().getItems();
         assertThat(indexElements.size(), equalTo(3));
@@ -225,7 +234,7 @@ class RemoteFetchMultiColumnKeyTest extends RemoteFetchTestBase {
         assertThat(indexPrimaryKey.get(0), equalTo(path));
         assertThat(indexPrimaryKey.get(1), equalTo(rec_no));
 
-        FDBStoredRecord<Message> storedRecord = rec.getStoredRecord();
+        FDBStoredRecord<Message> storedRecord = Objects.requireNonNull(rec.getStoredRecord());
         assertThat(storedRecord.getPrimaryKey().size(), equalTo(2));
         assertThat(storedRecord.getPrimaryKey().get(0), equalTo(path));
         assertThat(storedRecord.getPrimaryKey().get(1), equalTo(rec_no));

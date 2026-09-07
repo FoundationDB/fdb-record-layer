@@ -44,8 +44,8 @@ import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.support.ParameterDeclarations;
 
-import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -141,7 +141,8 @@ class VariadicFunctionValueTest {
 
     private static DynamicMessage getMessageForRecord1() {
         final var values = ImmutableList.of("a", 1, 1.0f);
-        final var messageBuilder = typeRepository.newMessageBuilder(recordTypeUnnamed);
+        // recordTypeUnnamed was defined into typeRepository above, so a builder is always returned
+        final var messageBuilder = Objects.requireNonNull(typeRepository.newMessageBuilder(recordTypeUnnamed));
         for (int i = 0; i < recordTypeUnnamed.getFields().size(); i++) {
             messageBuilder.setField(messageBuilder.getDescriptorForType().getFields().get(i), values.get(i));
         }
@@ -150,7 +151,8 @@ class VariadicFunctionValueTest {
 
     private static DynamicMessage getMessageForRecordNamed() {
         final var values = ImmutableList.of("sz", 100, 100.0f);
-        final var messageBuilder = typeRepository.newMessageBuilder(recordTypeNamed);
+        // recordTypeNamed was defined into typeRepository above, so a builder is always returned
+        final var messageBuilder = Objects.requireNonNull(typeRepository.newMessageBuilder(recordTypeNamed));
         for (int i = 0; i < recordTypeNamed.getFields().size(); i++) {
             messageBuilder.setField(messageBuilder.getDescriptorForType().getFields().get(i), values.get(i));
         }
@@ -158,10 +160,9 @@ class VariadicFunctionValueTest {
     }
 
     static class BinaryPredicateTestProvider implements ArgumentsProvider {
-        @Nonnull
         @Override
-        public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
-                                                            @Nonnull final ExtensionContext context) {
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) {
             return Stream.of(
                     // Greatest Function
                     Arguments.of(List.of(INT_1, INT_1), GREATEST_FN, 1, false),
@@ -388,7 +389,6 @@ class VariadicFunctionValueTest {
                     Arguments.of(List.of(LIST_INT_2, LIST_FLOAT_1), COALESCE_FN, List.of(3.0f, 2.0f, 1.0f), false),
                     Arguments.of(List.of(LIST_FLOAT_1, LIST_INT_2), COALESCE_FN, List.of(1.0f, 2.0f, 3.0f), false),
 
-
                     Arguments.of(List.of(RECORD_1, RECORD_2), COALESCE_FN, getMessageForRecord1(), false),
                     Arguments.of(List.of(RECORD_1, RECORD_NAMED), COALESCE_FN, getMessageForRecord1(), false),
                     Arguments.of(List.of(NULL_TYPED, RECORD_1), COALESCE_FN, getMessageForRecord1(), false),
@@ -468,10 +468,9 @@ class VariadicFunctionValueTest {
     }
 
     static class ResultTypeTestProvider implements ArgumentsProvider {
-        @Nonnull
         @Override
-        public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
-                                                            @Nonnull final ExtensionContext context) {
+        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
+                                                            final ExtensionContext context) {
             return Stream.of(
                     // GREATEST() and LEAST() are nullable if any of their arguments is nullable.
                     new ResultTypeTestCase(GREATEST_FN, List.of(INT_1, INT_2), Type.TypeCode.INT, true),

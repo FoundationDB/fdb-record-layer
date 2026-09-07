@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -34,6 +33,5 @@ public interface PredicateWithComparisons {
      * Return all comparisons this predicate uses.
      * @return a list of comparisons
      */
-    @Nonnull
     List<Comparisons.Comparison> getComparisons();
 }

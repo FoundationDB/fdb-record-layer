@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -47,29 +46,27 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 public class ExistentialValuePredicate extends ValuePredicate {
 
-    public ExistentialValuePredicate(@Nonnull final Value value, @Nonnull final Comparison comparison) {
+    public ExistentialValuePredicate(final Value value, final Comparison comparison) {
         super(value, comparison);
         Verify.verify(value instanceof QuantifiedObjectValue);
     }
 
-    private ExistentialValuePredicate(@Nonnull final PlanSerializationContext serializationContext,
-                                      @Nonnull final PExistentialValuePredicate proto) {
+    private ExistentialValuePredicate(final PlanSerializationContext serializationContext,
+                                      final PExistentialValuePredicate proto) {
         super(Value.fromValueProto(serializationContext, Objects.requireNonNull(proto.getSuper().getValue())),
                 Comparison.fromComparisonProto(serializationContext, Objects.requireNonNull(proto.getSuper().getComparison())));
     }
 
-    @Nonnull
     private CorrelationIdentifier getQuantifierAlias() {
         return ((QuantifiedObjectValue) getValue()).getAlias();
     }
 
-    @Nonnull
     @Override
-    public PredicateMultiMap.PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
-                                                                                       @Nonnull final QueryPredicate originalQueryPredicate,
-                                                                                       @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                                       @Nonnull final List<PredicateMultiMap.PredicateCompensationFunction> childrenResults,
-                                                                                       @Nonnull final PullUp pullUp) {
+    public PredicateMultiMap.PredicateCompensationFunction computeCompensationFunction(final PartialMatch partialMatch,
+                                                                                       final QueryPredicate originalQueryPredicate,
+                                                                                       final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                                                       final List<PredicateMultiMap.PredicateCompensationFunction> childrenResults,
+                                                                                       final PullUp pullUp) {
         Verify.verify(childrenResults.isEmpty());
         Verify.verify(originalQueryPredicate instanceof ExistentialValuePredicate);
         final var originalQuantifiedQueryPredicate = (ExistentialValuePredicate) originalQueryPredicate;
@@ -88,10 +85,9 @@ public class ExistentialValuePredicate extends ValuePredicate {
         return PredicateMultiMap.PredicateCompensationFunction.noCompensationNeeded();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
+    public QueryPredicate translateLeafPredicate(final TranslationMap translationMap, final boolean shouldSimplifyValues) {
         final var translatedValue = getValue().translateCorrelations(translationMap, shouldSimplifyValues);
         if (getValue() != translatedValue) {
             return new ExistentialValuePredicate(translatedValue, getComparison());
@@ -102,29 +98,25 @@ public class ExistentialValuePredicate extends ValuePredicate {
     // TODO: This is only needed in the interim to maintain backward compatibility while replacing earlier-existing
     //  ExistsPredicate with this class. This essentially enforces that the predicate applied over the join is a
     //  ValuePredicate.
-    @Nonnull
     @Override
     public QueryPredicate toResidualPredicate() {
         return new ValuePredicate(getValue(), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
     }
 
-    @Nonnull
     @Override
-    public PQueryPredicate toQueryPredicateProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PQueryPredicate toQueryPredicateProto(final PlanSerializationContext serializationContext) {
         return PQueryPredicate.newBuilder().setExistentialValuePredicate(toProto(serializationContext)).build();
     }
 
-    @Nonnull
     @Override
-    public PExistentialValuePredicate toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PExistentialValuePredicate toProto(final PlanSerializationContext serializationContext) {
         return PExistentialValuePredicate.newBuilder()
                 .setSuper((PValuePredicate) super.toProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
-    public static ExistentialValuePredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                      @Nonnull final PExistentialValuePredicate proto) {
+    public static ExistentialValuePredicate fromProto(final PlanSerializationContext serializationContext,
+                                                      final PExistentialValuePredicate proto) {
         return new ExistentialValuePredicate(serializationContext, proto);
     }
 
@@ -133,16 +125,14 @@ public class ExistentialValuePredicate extends ValuePredicate {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PExistentialValuePredicate, ExistentialValuePredicate> {
-        @Nonnull
         @Override
         public Class<PExistentialValuePredicate> getProtoMessageClass() {
             return PExistentialValuePredicate.class;
         }
 
-        @Nonnull
         @Override
-        public ExistentialValuePredicate fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                   @Nonnull final PExistentialValuePredicate proto) {
+        public ExistentialValuePredicate fromProto(final PlanSerializationContext serializationContext,
+                                                   final PExistentialValuePredicate proto) {
             return ExistentialValuePredicate.fromProto(serializationContext, proto);
         }
     }

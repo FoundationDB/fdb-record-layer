@@ -59,12 +59,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
@@ -401,7 +402,7 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         assertThat(callbackPresent).isTrue();
         // The write-only index of this ongoing build has exactly one heartbeat: this indexer's
         assertThat(heartbeatsSeen.get()).hasSize(1);
-        final IndexBuildProto.IndexBuildHeartbeat heartbeat = heartbeatsSeen.get().values().iterator().next();
+        final IndexBuildProto.IndexBuildHeartbeat heartbeat = Objects.requireNonNull(heartbeatsSeen.get()).values().iterator().next();
         assertThat(heartbeat.getInfo()).isEqualTo(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS.toString());
         assertThat(heartbeat.getHeartbeatTimeMilliseconds()).isPositive();
         // And it is cleared once the index becomes readable
@@ -428,7 +429,6 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         assertNoHeartbeatsLeft(storeBuilder);
     }
 
-    @Nonnull
     private static Function<IndexMaintainerState, CompletableFuture<Void>> observeHeartbeatDuringMerge(
             final AtomicBoolean callbackPresent,
             final AtomicReference<Map<UUID, IndexBuildProto.IndexBuildHeartbeat>> heartbeatsSeen) {
@@ -446,8 +446,7 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         };
     }
 
-    @Nonnull
-    private FDBRecordStore.Builder createStore(@Nonnull final String indexType) {
+    private FDBRecordStore.Builder createStore(final String indexType) {
         Index index = new Index(INDEX_NAME, Key.Expressions.field("num_value_2"),
                 indexType, Map.of());
         final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
@@ -457,14 +456,13 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         final KeySpacePath path = pathManager.createPath();
         FDBRecordStore.Builder storeBuilder;
         try (FDBRecordContext context = openContext(RecordLayerPropertyStorage.getEmptyInstance())) {
-            storeBuilder = createOrOpenRecordStore(context, metadata, path).getLeft().asBuilder();
+            storeBuilder = Objects.requireNonNull(createOrOpenRecordStore(context, metadata, path).getLeft()).asBuilder();
             context.commit();
         }
         return storeBuilder;
     }
 
-    @Nonnull
-    private FDBRecordStore.Builder createStoreWithUnbuiltIndex(@Nonnull final String indexType, final int numRecords) {
+    private FDBRecordStore.Builder createStoreWithUnbuiltIndex(final String indexType, final int numRecords) {
         final FDBRecordStore.Builder storeBuilder = createStore(indexType);
         try (FDBRecordContext context = openContext(RecordLayerPropertyStorage.getEmptyInstance())) {
             final FDBRecordStore store = storeBuilder.copyBuilder().setContext(context).open();
@@ -485,7 +483,7 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         return storeBuilder;
     }
 
-    private void assertNoHeartbeatsLeft(@Nonnull final FDBRecordStore.Builder storeBuilder) {
+    private void assertNoHeartbeatsLeft(final FDBRecordStore.Builder storeBuilder) {
         try (FDBRecordContext context = openContext(RecordLayerPropertyStorage.getEmptyInstance())) {
             final FDBRecordStore store = storeBuilder.copyBuilder().setContext(context).open();
             final Index index = store.getRecordMetaData().getIndex(INDEX_NAME);
@@ -493,7 +491,7 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         }
     }
 
-    private static <T> @Nonnull List<T> repeat(final T value, final int count) {
+    private static <T> List<T> repeat(final T value, final int count) {
         return Stream.generate(() -> value).limit(count).collect(Collectors.toList());
     }
 
@@ -512,13 +510,11 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
         private static void register(String name, Function<IndexMaintainerState, CompletableFuture<Void>> mergeImplementation,
                              boolean buildable) {
             maintainers.put(name, state -> new IndexMaintainer(state) {
-                @Nonnull
                 @Override
-                public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanType scanType, @Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+                public RecordCursor<IndexEntry> scan(final IndexScanType scanType, final TupleRange range, @Nullable final byte[] continuation, final ScanProperties scanProperties) {
                     throw new UnsupportedOperationException();
                 }
 
-                @Nonnull
                 @Override
                 public <M extends Message> CompletableFuture<Void> update(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
                     if (!buildable) {
@@ -528,7 +524,6 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                     return AsyncUtil.DONE;
                 }
 
-                @Nonnull
                 @Override
                 public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
                     if (!buildable) {
@@ -537,9 +532,8 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                     return update(oldRecord, newRecord);
                 }
 
-                @Nonnull
                 @Override
-                public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+                public RecordCursor<IndexEntry> scanUniquenessViolations(final TupleRange range, @Nullable final byte[] continuation, final ScanProperties scanProperties) {
                     throw new UnsupportedOperationException();
                 }
 
@@ -548,20 +542,19 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                     throw new UnsupportedOperationException();
                 }
 
-                @Nonnull
                 @Override
                 public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable final byte[] continuation, @Nullable final ScanProperties scanProperties) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public boolean canEvaluateRecordFunction(@Nonnull final IndexRecordFunction<?> function) {
+                public boolean canEvaluateRecordFunction(final IndexRecordFunction<?> function) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Nullable
                 @Override
-                public <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull final FDBRecord<M> record) {
+                public <M extends Message> List<IndexEntry> evaluateIndex(final FDBRecord<M> record) {
                     throw new UnsupportedOperationException();
                 }
 
@@ -571,20 +564,18 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                     throw new UnsupportedOperationException();
                 }
 
-                @Nonnull
                 @Override
-                public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull final EvaluationContext context, @Nonnull final IndexRecordFunction<T> function, @Nonnull final FDBRecord<M> record) {
+                public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(final EvaluationContext context, final IndexRecordFunction<T> function, final FDBRecord<M> record) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public boolean canEvaluateAggregateFunction(@Nonnull final IndexAggregateFunction function) {
+                public boolean canEvaluateAggregateFunction(final IndexAggregateFunction function) {
                     throw new UnsupportedOperationException();
                 }
 
-                @Nonnull
                 @Override
-                public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull final IndexAggregateFunction function, @Nonnull final TupleRange range, @Nonnull final IsolationLevel isolationLevel) {
+                public CompletableFuture<Tuple> evaluateAggregateFunction(final IndexAggregateFunction function, final TupleRange range, final IsolationLevel isolationLevel) {
                     throw new UnsupportedOperationException();
                 }
 
@@ -596,24 +587,23 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
                     return true;
                 }
 
-                @Nonnull
                 @Override
-                public CompletableFuture<Boolean> addedRangeWithKey(@Nonnull final Tuple primaryKey) {
+                public CompletableFuture<Boolean> addedRangeWithKey(final Tuple primaryKey) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public boolean canDeleteWhere(@Nonnull final QueryToKeyMatcher matcher, @Nonnull final Key.Evaluated evaluated) {
+                public boolean canDeleteWhere(final QueryToKeyMatcher matcher, final Key.Evaluated evaluated) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public CompletableFuture<Void> deleteWhere(@Nonnull final Transaction tr, @Nonnull final Tuple prefix) {
+                public CompletableFuture<Void> deleteWhere(final Transaction tr, final Tuple prefix) {
                     throw new UnsupportedOperationException();
                 }
 
                 @Override
-                public CompletableFuture<IndexOperationResult> performOperation(@Nonnull final IndexOperation operation) {
+                public CompletableFuture<IndexOperationResult> performOperation(final IndexOperation operation) {
                     throw new UnsupportedOperationException();
                 }
 
@@ -624,7 +614,6 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
             });
         }
 
-        @Nonnull
         @Override
         public Iterable<String> getIndexTypes() {
             return List.of(
@@ -640,16 +629,14 @@ public class OnlineIndexerMergeTest extends FDBRecordStoreConcurrentTestBase {
             );
         }
 
-        @Nonnull
         @Override
         public IndexValidator getIndexValidator(Index index) {
             return new IndexValidator(index);
         }
 
-        @Nonnull
         @Override
-        public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
-            return maintainers.get(state.index.getType()).apply(state);
+        public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
+            return Objects.requireNonNull(maintainers.get(state.index.getType())).apply(state);
         }
     }
 

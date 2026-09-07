@@ -25,4 +25,7 @@
  * serializer for round-trip tests, and a helper for shaping a
  * {@link com.apple.foundationdb.record.RecordMetaData} so text indexes resemble relational tables.
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
+
+import org.jspecify.annotations.NullMarked;

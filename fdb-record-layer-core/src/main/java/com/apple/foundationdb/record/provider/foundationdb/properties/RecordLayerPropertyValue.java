@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.provider.foundationdb.properties;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.function.Supplier;
 
 /**
@@ -39,17 +39,15 @@ import java.util.function.Supplier;
  */
 @API(API.Status.EXPERIMENTAL)
 public final class RecordLayerPropertyValue<T> {
-    @Nonnull
     private final RecordLayerPropertyKey<T> key;
     @Nullable
     private final Supplier<T> valueSupplier;
 
-    RecordLayerPropertyValue(@Nonnull RecordLayerPropertyKey<T> key, @Nullable Supplier<T> valueSupplier) {
+    RecordLayerPropertyValue(RecordLayerPropertyKey<T> key, @Nullable Supplier<T> valueSupplier) {
         this.key = key;
         this.valueSupplier = valueSupplier;
     }
 
-    @Nonnull
     public RecordLayerPropertyKey<T> getKey() {
         return key;
     }

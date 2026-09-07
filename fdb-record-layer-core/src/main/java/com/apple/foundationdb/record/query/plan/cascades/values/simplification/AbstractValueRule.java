@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
 
 /**
  * Tag class to bind the base {@code BASE} to {@link Value}.
@@ -37,7 +36,7 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class AbstractValueRule<RESULT, CALL extends AbstractValueRuleCall<RESULT, CALL>, TYPE extends Value> extends AbstractRule<RESULT, CALL, Value, TYPE> {
-    public AbstractValueRule(@Nonnull BindingMatcher<TYPE> matcher) {
+    public AbstractValueRule(BindingMatcher<TYPE> matcher) {
         super(matcher);
     }
 }

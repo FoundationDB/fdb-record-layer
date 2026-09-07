@@ -45,13 +45,13 @@ import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 
 /**
@@ -59,7 +59,9 @@ import java.util.concurrent.CompletableFuture;
  * have had generated index entries, but these index entries cannot be found.
  */
 public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBStoredRecord<Message>> {
-    private Collection<RecordType> recordTypes = null;
+    @Nullable
+    private Collection<RecordType> recordTypes;
+    @Nullable
     private Index index;
     private boolean allowRepair;
     private boolean isSynthetic;
@@ -76,6 +78,10 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
     }
 
     @Override
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters of
+    // FDBRecordStoreBase#scanRecords (out of scope to fix here); null intentionally means
+    // "start from the beginning".
+    @SuppressWarnings("NullAway")
     public RecordCursor<FDBStoredRecord<Message>> getCursor(final TupleRange tupleRange, final FDBRecordStore store, int limit) {
         final IsolationLevel isolationLevel = IsolationLevel.SNAPSHOT;
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
@@ -87,41 +93,55 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
     }
 
     @Override
+    @Nullable
+    // IndexScrubbingTools#getKeyFromCursorResult (out of scope to fix here) is not annotated
+    // @Nullable even though a missing stored record genuinely yields a null key here.
+    @SuppressWarnings("NullAway")
     public Tuple getKeyFromCursorResult(final RecordCursorResult<FDBStoredRecord<Message>> result) {
         final FDBStoredRecord<Message> storedRecord = result.get();
         return storedRecord == null ? null : storedRecord.getPrimaryKey();
     }
 
     @Override
-    @Nullable
-    public CompletableFuture<Issue> handleOneItem(FDBRecordStore store,  final RecordCursorResult<FDBStoredRecord<Message>> result) {
+    public CompletableFuture<@Nullable Issue> handleOneItem(FDBRecordStore store,  final RecordCursorResult<FDBStoredRecord<Message>> result) {
         if (recordTypes == null || index == null) {
             throw new IllegalStateException("presetParams was not called appropriately for this scrubbing tool");
         }
 
         final FDBStoredRecord<Message> rec = result.get();
         if (rec == null || !recordTypes.contains(rec.getRecordType())) {
-            return CompletableFuture.completedFuture(null);
+            final CompletableFuture<@Nullable Issue> noIssue = CompletableFuture.completedFuture(null);
+            return noIssue;
         }
 
-        return getMissingIndexKeys(store, rec)
-                .thenApply(missingIndexesKeys -> {
-                    if (missingIndexesKeys.isEmpty()) {
-                        return null;
-                    }
-                    // Here: Oh, No! the index is missing!!
-                    // (Maybe) report an error and (maybe) return this record to be index
-                    return new Issue(
-                            KeyValueLogMessage.build("Scrubber: missing index entry",
-                                    LogMessageKeys.KEY, rec.getPrimaryKey().toString(),
-                                    LogMessageKeys.INDEX_KEY, missingIndexesKeys.toString()),
-                            FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES,
-                            allowRepair ? rec : null);
-                });
+        final Function<List<Tuple>, @Nullable Issue> checkMissingIndexKeys = missingIndexesKeys -> {
+            if (missingIndexesKeys.isEmpty()) {
+                return null;
+            }
+            // Here: Oh, No! the index is missing!!
+            // (Maybe) report an error and (maybe) return this record to be index
+            return new Issue(
+                    KeyValueLogMessage.build("Scrubber: missing index entry",
+                            LogMessageKeys.KEY, rec.getPrimaryKey().toString(),
+                            LogMessageKeys.INDEX_KEY, missingIndexesKeys.toString()),
+                    FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES,
+                    // Issue#recordToIndex is documented as nullable ("if non-null, let the indexer index this
+                    // record"), but its constructor parameter is not itself annotated @Nullable.
+                    allowRepairOrNull(rec));
+        };
+        return getMissingIndexKeys(store, rec).<@Nullable Issue>thenApply(checkMissingIndexKeys);
+    }
+
+    // Issue#recordToIndex's constructor parameter is not annotated @Nullable even though it is
+    // documented as accepting null; see the comment at the call site above.
+    @SuppressWarnings("NullAway")
+    private FDBStoredRecord<Message> allowRepairOrNull(final FDBStoredRecord<Message> rec) {
+        return allowRepair ? rec : null;
     }
 
     private CompletableFuture<List<Tuple>> getMissingIndexKeys(FDBRecordStore store, FDBStoredRecord<Message> rec) {
-        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+        final Index nonNullIndex = Objects.requireNonNull(index, "presetParams was not called appropriately for this scrubbing tool");
+        final IndexMaintainer maintainer = store.getIndexMaintainer(nonNullIndex);
         return indexEntriesForRecord(store, rec)
                 .mapPipelined(indexEntry -> {
                     final Tuple valueKey = indexEntry.getKey();
@@ -132,14 +152,18 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
                 .asList();
     }
 
-    @Nonnull
-    protected RecordCursor<IndexEntry> indexEntriesForRecord(@Nonnull FDBRecordStore store, @Nonnull FDBStoredRecord<Message> rec) {
-        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters of
+    // RecordCursor#flatMapPipelined (out of scope to fix here); null intentionally means
+    // "start from the beginning".
+    @SuppressWarnings("NullAway")
+    protected RecordCursor<IndexEntry> indexEntriesForRecord(FDBRecordStore store, FDBStoredRecord<Message> rec) {
+        final Index nonNullIndex = Objects.requireNonNull(index, "presetParams was not called appropriately for this scrubbing tool");
+        final IndexMaintainer maintainer = store.getIndexMaintainer(nonNullIndex);
         if (isSynthetic) {
             final RecordQueryPlanner queryPlanner =
-                    new RecordQueryPlanner(store.getRecordMetaData(), store.getRecordStoreState().withWriteOnlyIndexes(Collections.singletonList(index.getName())));
+                    new RecordQueryPlanner(store.getRecordMetaData(), store.getRecordStoreState().withWriteOnlyIndexes(Collections.singletonList(nonNullIndex.getName())));
             final SyntheticRecordPlanner syntheticPlanner = new SyntheticRecordPlanner(store, queryPlanner);
-            SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanner.forIndex(index);
+            SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanner.forIndex(nonNullIndex);
 
             return RecordCursor.flatMapPipelined(
                     outerContinuation -> syntheticPlan.execute(store, rec),
@@ -165,8 +189,7 @@ public class ValueIndexScrubbingToolsMissing implements IndexScrubbingTools<FDBS
         }
     }
 
-    @Nonnull
-    private IndexEntry rewriteWithPrimaryKey(@Nonnull IndexEntry indexEntry, @Nonnull FDBRecord<? extends Message> rec) {
+    private IndexEntry rewriteWithPrimaryKey(IndexEntry indexEntry, FDBRecord<? extends Message> rec) {
         return new IndexEntry(indexEntry.getIndex(), FDBRecordStoreBase.indexEntryKey(indexEntry.getIndex(), indexEntry.getKey(), rec.getPrimaryKey()), indexEntry.getValue(), rec.getPrimaryKey());
     }
 

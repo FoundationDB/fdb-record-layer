@@ -27,8 +27,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -62,16 +61,14 @@ import java.util.function.Function;
  */
 @API(API.Status.UNSTABLE)
 public class DirectoryLayerDirectory extends KeySpaceDirectory {
-    @Nonnull
     private final Function<FDBRecordContext, CompletableFuture<LocatableResolver>> scopeGenerator;
-    @Nonnull
     private final ResolverCreateHooks createHooks;
 
     /**
      * Constructor for <code>DirectoryLayerDirectory</code>.
      * @param name The logical name of the directory
      */
-    public DirectoryLayerDirectory(@Nonnull String name) {
+    public DirectoryLayerDirectory(String name) {
         this(name, ANY_VALUE, null);
     }
 
@@ -80,7 +77,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
      * @param name The logical name of the directory
      * @param wrapper Wrapper function, see: {@link KeySpaceDirectory#KeySpaceDirectory(String, KeyType, Function)}
      */
-    public DirectoryLayerDirectory(@Nonnull String name, Function<KeySpacePath, KeySpacePath> wrapper) {
+    public DirectoryLayerDirectory(String name, Function<KeySpacePath, KeySpacePath> wrapper) {
         this(name, ANY_VALUE, wrapper);
     }
 
@@ -89,7 +86,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
      * @param name The logical name of the directory
      * @param value The value of the directory entry (the string which will be translated to an int by the resolver)
      */
-    public DirectoryLayerDirectory(@Nonnull String name, @Nullable Object value) {
+    public DirectoryLayerDirectory(String name, @Nullable Object value) {
         this(name, value, null);
     }
 
@@ -100,7 +97,7 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
      * @param value The value of the directory entry (the string which will be translated to an int by the resolver)
      * @param wrapper Wrapper function, see: {@link KeySpaceDirectory#KeySpaceDirectory(String, KeyType, Function)}
      */
-    public DirectoryLayerDirectory(@Nonnull String name, @Nullable Object value,
+    public DirectoryLayerDirectory(String name, @Nullable Object value,
                                    @Nullable Function<KeySpacePath, KeySpacePath> wrapper) {
         this(name, value, wrapper,
                 context -> CompletableFuture.completedFuture(ExtendedDirectoryLayer.global(context.getDatabase())),
@@ -119,10 +116,10 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
      * to resolver entries for this directory, or to transactionally verify that the {@link LocatableResolver} returned
      * by the <code>scopeGenerator</code> is correct.
      */
-    public DirectoryLayerDirectory(@Nonnull String name,
+    public DirectoryLayerDirectory(String name,
                                     @Nullable Function<KeySpacePath, KeySpacePath> wrapper,
-                                    @Nonnull Function<FDBRecordContext, CompletableFuture<LocatableResolver>> scopeGenerator,
-                                    @Nonnull ResolverCreateHooks createHooks) {
+                                    Function<FDBRecordContext, CompletableFuture<LocatableResolver>> scopeGenerator,
+                                    ResolverCreateHooks createHooks) {
         this(name, ANY_VALUE, wrapper, scopeGenerator, createHooks);
     }
 
@@ -139,10 +136,10 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
      * to resolver entries for this directory, or to transactionally verify that the {@link LocatableResolver} returned
      * by the <code>scopeGenerator</code> is correct.
      */
-    public DirectoryLayerDirectory(@Nonnull String name, @Nullable Object value,
+    public DirectoryLayerDirectory(String name, @Nullable Object value,
                             @Nullable Function<KeySpacePath, KeySpacePath> wrapper,
-                            @Nonnull Function<FDBRecordContext, CompletableFuture<LocatableResolver>> scopeGenerator,
-                            @Nonnull ResolverCreateHooks createHooks) {
+                            Function<FDBRecordContext, CompletableFuture<LocatableResolver>> scopeGenerator,
+                            ResolverCreateHooks createHooks) {
         super(name, KeyType.LONG, value, wrapper);
         this.scopeGenerator = scopeGenerator;
         this.createHooks = createHooks;
@@ -165,6 +162,9 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
     }
 
     @Override
+    // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
+    // even though value can genuinely be null.
+    @SuppressWarnings("NullAway")
     protected void validateConstant(@Nullable Object value) {
         if (!(value instanceof String)) {
             throw new RecordCoreArgumentException("Illegal constant value type provided for directory",
@@ -176,14 +176,16 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
     // TODO: fix this for scoped directory layers
     // TODO: DirectoryLayerDirectory should support scopes and correctly detect incompatible peer (https://github.com/FoundationDB/fdb-record-layer/issues/10)
     @Override
-    protected boolean isCompatible(@Nonnull KeySpaceDirectory parent, @Nonnull KeySpaceDirectory dir) {
+    protected boolean isCompatible(KeySpaceDirectory parent, KeySpaceDirectory dir) {
         return (dir instanceof DirectoryLayerDirectory);
     }
 
     @Override
-    @Nonnull
-    @SuppressWarnings("squid:S1604") // need annotation so no lambda
-    protected CompletableFuture<PathValue> toTupleValueAsyncImpl(@Nonnull FDBRecordContext context, @Nullable Object value) {
+    // need annotation so no lambda; RecordCoreArgumentException's varargs
+    // constructor parameter is not annotated @Nullable even though
+    // value/this.value can genuinely be null.
+    @SuppressWarnings({"squid:S1604", "NullAway"})
+    protected CompletableFuture<PathValue> toTupleValueAsyncImpl(FDBRecordContext context, @Nullable Object value) {
         // We allow someone to explicitly pass the value of a directory layer entry, however if
         // this directory is hard-wired to a specific value, then the value passed in is compared
         // with the directory layer to ensure it is valid.
@@ -241,11 +243,10 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
         return lookupInScope(context, (String) value).thenApply(DirectoryLayerDirectory::toPathValue);
     }
 
-    @Nonnull
     @Override
-    protected CompletableFuture<Optional<ResolvedKeySpacePath>> pathFromKey(@Nonnull FDBRecordContext context,
+    protected CompletableFuture<Optional<ResolvedKeySpacePath>> pathFromKey(FDBRecordContext context,
                                                                             @Nullable ResolvedKeySpacePath parent,
-                                                                            @Nonnull Tuple key,
+                                                                            Tuple key,
                                                                             int keySize,
                                                                             int keyIndex) {
         final Object tupleValue = key.get(keyIndex);
@@ -286,26 +287,26 @@ public class DirectoryLayerDirectory extends KeySpaceDirectory {
                 });
     }
 
-    @Nonnull
     @Override
     public String getNameInTree() {
         return "[" + getName() + "]";
     }
 
-    @Nonnull
-    private CompletableFuture<String> doReverseLookup(@Nonnull FDBRecordContext context, Long dir) {
+    private CompletableFuture<String> doReverseLookup(FDBRecordContext context, Long dir) {
         return scopeGenerator.apply(context)
                 .thenCompose(resolver -> resolver.reverseLookup(context, dir));
     }
 
-    @Nonnull
-    private CompletableFuture<ResolverResult> lookupInScope(@Nonnull final FDBRecordContext context, @Nonnull final String key) {
+    private CompletableFuture<ResolverResult> lookupInScope(final FDBRecordContext context, final String key) {
         return scopeGenerator.apply(context).thenCompose(resolver ->
             resolver.resolveWithMetadata(context, key, createHooks));
     }
 
-    @Nonnull
-    private static PathValue toPathValue(@Nonnull ResolverResult result) {
+    // ResolverResult#getMetadata uses the @Nullable byte[] annotation position (which
+    // NullAway does not reliably recognize) while PathValue's constructor uses the
+    // reliable byte @Nullable [] position; both are genuinely nullable.
+    @SuppressWarnings("NullAway")
+    private static PathValue toPathValue(ResolverResult result) {
         return new PathValue(result.getValue(), result.getMetadata());
     }
 }

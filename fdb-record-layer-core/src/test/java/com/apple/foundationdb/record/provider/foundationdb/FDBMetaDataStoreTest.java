@@ -73,11 +73,11 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -102,6 +102,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link FDBMetaDataStore}.
  */
 @Tag(Tags.RequiresFDB)
+// NullAway.Init is suppressed here because metaDataStore follows the standard JUnit test-fixture
+// lifecycle: it is left unset by setUp() and is always populated by openMetaDataStore() before any
+// test method that uses it runs.
+@SuppressWarnings("NullAway.Init")
 public class FDBMetaDataStoreTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
@@ -801,37 +805,37 @@ public class FDBMetaDataStoreTest {
         }
     }
 
-    private void addRecordType(@Nonnull DescriptorProtos.DescriptorProto newRecordType, @Nonnull KeyExpression primaryKey) {
+    private void addRecordType(DescriptorProtos.DescriptorProto newRecordType, KeyExpression primaryKey) {
         metaDataStore.mutateMetaData(metaDataProto -> MetaDataProtoEditor.addRecordType(metaDataProto, newRecordType, primaryKey));
     }
 
-    private void addRecordType(@Nonnull DescriptorProtos.DescriptorProto newRecordType, @Nonnull KeyExpression primaryKey, @Nonnull Index index) {
+    private void addRecordType(DescriptorProtos.DescriptorProto newRecordType, KeyExpression primaryKey, Index index) {
         metaDataStore.mutateMetaData(metaDataProto -> MetaDataProtoEditor.addRecordType(metaDataProto, newRecordType, primaryKey),
                 recordMetaDataBuilder -> recordMetaDataBuilder.addIndex(newRecordType.getName(), index));
     }
 
-    private void deprecateRecordType(@Nonnull String recordType) {
+    private void deprecateRecordType(String recordType) {
         metaDataStore.mutateMetaData((metaDataProto) -> {
             Descriptors.FileDescriptor[] dependencies = RecordMetaDataBuilder.getDependencies(metaDataProto.build(), Map.of());
             MetaDataProtoEditor.deprecateRecordType(metaDataProto, recordType, dependencies);
         });
     }
 
-    private void addField(@Nonnull String recordType, @Nonnull DescriptorProtos.FieldDescriptorProto field) {
+    private void addField(String recordType, DescriptorProtos.FieldDescriptorProto field) {
         metaDataStore.mutateMetaData((metaDataProto) -> MetaDataProtoEditor.addField(metaDataProto, recordType, field));
     }
 
-    private void deprecateField(@Nonnull String recordType, @Nonnull String fieldName) {
+    private void deprecateField(String recordType, String fieldName) {
         metaDataStore.mutateMetaData((metaDataProto) -> MetaDataProtoEditor.deprecateField(metaDataProto, recordType, fieldName));
     }
 
-    private void renameRecordType(@Nonnull String recordType, @Nonnull String newRecordTypeName) {
+    private void renameRecordType(String recordType, String newRecordTypeName) {
         metaDataStore.mutateMetaData((metaDataProto) ->
                 MetaDataProtoEditor.renameRecordType(metaDataProto, recordType, newRecordTypeName,
                         RecordMetaDataBuilder.getDependencies(metaDataProto.build(), Map.of())));
     }
 
-    private static void assertDeprecated(@Nonnull RecordMetaData metaData, @Nonnull String recordType) {
+    private static void assertDeprecated(RecordMetaData metaData, String recordType) {
         RecordType recordTypeObj = metaData.getRecordType(recordType);
         assertTrue(metaData.getUnionFieldForRecordType(recordTypeObj).getOptions().getDeprecated());
     }
@@ -885,7 +889,7 @@ public class FDBMetaDataStoreTest {
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MySimpleRecord"));
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
             assertEquals(version + 1, metaDataStore.getRecordMetaData().getVersion());
-            assertEquals(version + 1, metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion().intValue());
+            assertEquals(version + 1, Objects.requireNonNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion()).intValue());
             context.commit();
         }
 
@@ -917,7 +921,7 @@ public class FDBMetaDataStoreTest {
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecordWithIndex"));
             assertNotNull(metaDataStore.getRecordMetaData().getIndex("MyNewRecordWithIndex$index"));
-            assertEquals(version + 2, metaDataStore.getRecordMetaData().getRecordType("MyNewRecordWithIndex").getSinceVersion().intValue());
+            assertEquals(version + 2, Objects.requireNonNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecordWithIndex").getSinceVersion()).intValue());
             assertEquals(version + 3, metaDataStore.getRecordMetaData().getVersion()); // +1 because of the index.
             context.commit();
         }
@@ -1176,7 +1180,7 @@ public class FDBMetaDataStoreTest {
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyHierarchicalRecord"));
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
             assertEquals(version + 1 , metaDataStore.getRecordMetaData().getVersion());
-            assertEquals(version + 1 , metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion().intValue());
+            assertEquals(version + 1 , Objects.requireNonNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion()).intValue());
             context.commit();
         }
 
@@ -1544,7 +1548,6 @@ public class FDBMetaDataStoreTest {
             this.fileDescriptor = fileDescriptor;
         }
 
-        @Nonnull
         public Descriptors.FileDescriptor getFileDescriptor() {
             return fileDescriptor;
         }
@@ -1552,7 +1555,7 @@ public class FDBMetaDataStoreTest {
 
     @EnumSource(TestProtoFiles.class)
     @ParameterizedTest(name = "noUnion [protoFile = {0}]")
-    public void noUnion(@Nonnull TestProtoFiles protoFile) {
+    public void noUnion(TestProtoFiles protoFile) {
         int version;
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
@@ -1576,7 +1579,7 @@ public class FDBMetaDataStoreTest {
             addRecordType(newRecordType, Key.Expressions.field("rec_no"));
             assertNotNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord"));
             assertEquals(version + 1, metaDataStore.getRecordMetaData().getVersion());
-            assertEquals(version + 1, metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion().intValue());
+            assertEquals(version + 1, Objects.requireNonNull(metaDataStore.getRecordMetaData().getRecordType("MyNewRecord").getSinceVersion()).intValue());
             context.commit();
         }
     }
@@ -2164,7 +2167,7 @@ public class FDBMetaDataStoreTest {
         }
     }
 
-    private static void validateInnerRecordsInRightPlaces(@Nonnull RecordMetaData metaData) {
+    private static void validateInnerRecordsInRightPlaces(RecordMetaData metaData) {
         Descriptors.FileDescriptor recordsDescriptor = metaData.getRecordsDescriptor();
         Descriptors.Descriptor innerRecord = recordsDescriptor.findMessageTypeByName("InnerRecord");
         assertNotNull(innerRecord);

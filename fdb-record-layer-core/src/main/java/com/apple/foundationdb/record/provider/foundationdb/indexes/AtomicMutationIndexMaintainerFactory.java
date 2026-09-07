@@ -42,7 +42,6 @@ import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.List;
 
@@ -76,13 +75,11 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
     private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Override
-    @Nonnull
     public Iterable<String> getIndexTypes() {
         return Arrays.asList(TYPES);
     }
 
     @Override
-    @Nonnull
     public IndexValidator getIndexValidator(Index index) {
         return new IndexValidator(index) {
             final AtomicMutation mutation = AtomicMutationIndexMaintainer.getAtomicMutation(index);
@@ -92,7 +89,7 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
             }
 
             @Override
-            public void validate(@Nonnull MetaDataValidator metaDataValidator) {
+            public void validate(MetaDataValidator metaDataValidator) {
                 super.validate(metaDataValidator);
                 if (!mutation.hasValues()) {
                     validateGrouping(0);
@@ -129,7 +126,7 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
             // A system requiring that it become clear immediately can arrange for the index to be rebuilt.
 
             @Override
-            public void validateIndexForRecordType(@Nonnull RecordType recordType, @Nonnull MetaDataValidator metaDataValidator) {
+            public void validateIndexForRecordType(RecordType recordType, MetaDataValidator metaDataValidator) {
                 final List<Descriptors.FieldDescriptor> fields = metaDataValidator.validateIndexForRecordType(index, recordType);
                 if (mutation.hasLongValue()) {
                     switch (fields.get(fields.size() - 1).getType()) {
@@ -153,14 +150,12 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
     }
 
     @Override
-    @Nonnull
-    public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+    public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
         return new AtomicMutationIndexMaintainer(state);
     }
 
-    @Nonnull
     @Override
-    public Iterable<MatchCandidate> createMatchCandidates(@Nonnull final RecordMetaData metaData, @Nonnull final Index index, final boolean reverse) {
+    public Iterable<MatchCandidate> createMatchCandidates(final RecordMetaData metaData, final Index index, final boolean reverse) {
         if (AggregateIndexExpansionVisitor.supportsAggregateIndexType(index.getType())) {
             return MatchCandidateExpansion.expandAggregateIndexMatchCandidate(metaData, index, reverse);
         } else {
@@ -168,9 +163,8 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
         }
     }
 
-    @Nonnull
     @Override
-    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+    public IndexGeneralAttributes getIndexGeneralAttributes(final Index index) {
         return GENERAL_ATTRIBUTES;
     }
 }

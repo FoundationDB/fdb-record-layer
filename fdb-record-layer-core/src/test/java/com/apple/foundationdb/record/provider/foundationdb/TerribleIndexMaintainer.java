@@ -37,8 +37,8 @@ import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -50,15 +50,13 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
         super(state);
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull IndexScanType scanType, @Nonnull TupleRange range,
+    public RecordCursor<IndexEntry> scan(IndexScanType scanType, TupleRange range,
                                             @Nullable byte[] continuation,
-                                            @Nonnull ScanProperties scanProperties) {
+                                            ScanProperties scanProperties) {
         return RecordCursor.empty();
     }
 
-    @Nonnull
     @Override
     public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord, @Nullable FDBIndexableRecord<M> newRecord) {
         try {
@@ -94,15 +92,13 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
         }
     }
 
-    @Nonnull
     @Override
     public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable final FDBIndexableRecord<M> oldRecord, @Nullable final FDBIndexableRecord<M> newRecord) {
         return AsyncUtil.DONE;
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scanUniquenessViolations(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    public RecordCursor<IndexEntry> scanUniquenessViolations(TupleRange range, @Nullable byte[] continuation, ScanProperties scanProperties) {
         throw new UnsupportedOperationException("Terrible index cannot scan uniqueness violations");
     }
 
@@ -111,7 +107,6 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
         throw new UnsupportedOperationException("Terrible index cannot clear uniqueness violations");
     }
 
-    @Nonnull
     @Override
     public RecordCursor<InvalidIndexEntry> validateEntries(@Nullable byte[] continuation,
                                                            @Nullable ScanProperties scanProperties) {
@@ -119,22 +114,21 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
     }
 
     @Override
-    public boolean canEvaluateRecordFunction(@Nonnull IndexRecordFunction<?> function) {
+    public boolean canEvaluateRecordFunction(IndexRecordFunction<?> function) {
         return false;
     }
 
-    @Nonnull
     @Override
-    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext context,
-                                                                              @Nonnull IndexRecordFunction<T> function,
-                                                                              @Nonnull FDBRecord<M> record) {
+    public <T, M extends Message> CompletableFuture<T> evaluateRecordFunction(EvaluationContext context,
+                                                                              IndexRecordFunction<T> function,
+                                                                              FDBRecord<M> record) {
         CompletableFuture<T> future = new CompletableFuture<>();
         future.completeExceptionally(new UnsupportedOperationException("TerribleIndexMaintainer does not implement evaluateRecordFunction"));
         return future;
     }
 
     @Override
-    public boolean canEvaluateAggregateFunction(@Nonnull IndexAggregateFunction function) {
+    public boolean canEvaluateAggregateFunction(IndexAggregateFunction function) {
         return false;
     }
 
@@ -143,39 +137,37 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
         return false;
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Boolean> addedRangeWithKey(@Nonnull Tuple primaryKey) {
+    public CompletableFuture<Boolean> addedRangeWithKey(Tuple primaryKey) {
         return CompletableFuture.completedFuture(false);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull IndexAggregateFunction function,
-                                                               @Nonnull TupleRange range,
-                                                               @Nonnull IsolationLevel isolationLevel) {
+    public CompletableFuture<Tuple> evaluateAggregateFunction(IndexAggregateFunction function,
+                                                               TupleRange range,
+                                                               IsolationLevel isolationLevel) {
         throw new IllegalStateException("this is not an aggregate index");
     }
 
     @Override
-    public boolean canDeleteWhere(@Nonnull QueryToKeyMatcher matcher, @Nonnull Key.Evaluated evaluated) {
+    public boolean canDeleteWhere(QueryToKeyMatcher matcher, Key.Evaluated evaluated) {
         return false;
     }
 
     @Override
-    public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {
+    public CompletableFuture<Void> deleteWhere(Transaction tr, Tuple prefix) {
         return AsyncUtil.DONE;
     }
 
     @Override
-    public CompletableFuture<IndexOperationResult> performOperation(@Nonnull IndexOperation operation) {
+    public CompletableFuture<IndexOperationResult> performOperation(IndexOperation operation) {
         CompletableFuture<IndexOperationResult> future = new CompletableFuture<>();
         future.completeExceptionally(new UnsupportedOperationException("TerribleIndexMaintainer does not implement performOperation"));
         return future;
     }
 
     @Override
-    public <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull FDBRecord<M> record) {
+    public <M extends Message> List<IndexEntry> evaluateIndex(FDBRecord<M> record) {
         throw new UnsupportedOperationException("TerribleIndexMaintainer does not implement evaluateIndex");
     }
 

@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 
 /**
@@ -62,10 +62,8 @@ public class RecordRepairResult {
     /** (repair code) Record version was created and added to the record. */
     public static final String REPAIR_VERSION_CREATED = "RecordVersionCreatedRepair";
 
-    @Nonnull
     private final Tuple primaryKey;
     private final boolean isValid;
-    @Nonnull
     private final String errorCode;
     @Nullable
     private final String message;
@@ -73,11 +71,11 @@ public class RecordRepairResult {
     @Nullable
     private final String repairCode;
 
-    private RecordRepairResult(@Nonnull final Tuple primaryKey, final boolean isValid, @Nonnull final String errorCode, @Nullable final String message) {
+    private RecordRepairResult(final Tuple primaryKey, final boolean isValid, final String errorCode, @Nullable final String message) {
         this(primaryKey, isValid, errorCode, message, false, null);
     }
 
-    private RecordRepairResult(@Nonnull final Tuple primaryKey, final boolean isValid, @Nonnull final String errorCode, @Nullable final String message, boolean isRepaired, String repairCode) {
+    private RecordRepairResult(final Tuple primaryKey, final boolean isValid, final String errorCode, @Nullable final String message, boolean isRepaired, @Nullable String repairCode) {
         this.primaryKey = primaryKey;
         this.isValid = isValid;
         this.errorCode = errorCode;
@@ -94,12 +92,10 @@ public class RecordRepairResult {
         return new RecordRepairResult(primaryKey, false, error, message);
     }
 
-    @Nonnull
-    public RecordRepairResult withRepair(@Nonnull String repairCode) {
+    public RecordRepairResult withRepair(String repairCode) {
         return new RecordRepairResult(primaryKey, isValid, errorCode, message, true, repairCode);
     }
 
-    @Nonnull
     public Tuple getPrimaryKey() {
         return primaryKey;
     }
@@ -108,7 +104,6 @@ public class RecordRepairResult {
         return isValid;
     }
 
-    @Nonnull
     public String getErrorCode() {
         return errorCode;
     }

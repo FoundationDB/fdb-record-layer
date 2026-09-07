@@ -26,4 +26,7 @@
  * for exercising the encryption code paths of
  * {@link com.apple.foundationdb.record.provider.common.TransformedRecordSerializer}.
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.common;
+
+import org.jspecify.annotations.NullMarked;

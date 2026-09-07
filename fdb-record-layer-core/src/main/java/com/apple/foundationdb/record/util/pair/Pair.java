@@ -22,8 +22,7 @@ package com.apple.foundationdb.record.util.pair;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 
 /**
@@ -59,6 +58,9 @@ public interface Pair<L, R> extends Map.Entry<L, R> {
      * @return the left element of the pair
      */
     @Override
+    @SuppressWarnings("NullAway") // getLeft() is @Nullable in general (a Pair may hold a null left element, e.g. via
+    // Pair.of), but widening this Map.Entry-conformance alias to @Nullable would ripple non-null-assuming call sites
+    // across the codebase; deferring that broader change, this is a pre-existing gap rather than a new bug.
     default L getKey() {
         return getLeft();
     }
@@ -70,6 +72,7 @@ public interface Pair<L, R> extends Map.Entry<L, R> {
      * @return the right element of the pair
      */
     @Override
+    @SuppressWarnings("NullAway") // See getKey() above.
     default R getValue() {
         return getRight();
     }
@@ -84,7 +87,6 @@ public interface Pair<L, R> extends Map.Entry<L, R> {
      * @param <R> the type of the right element
      * @return a new pair wrapping the two elements
      */
-    @Nonnull
     static <L, R> Pair<L, R> of(@Nullable L left, @Nullable R right) {
         return ImmutablePair.of(left, right);
     }

@@ -25,8 +25,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Record handler to use within online index tests to handle {@link com.apple.foundationdb.record.TestRecords1Proto.MySimpleRecord}s.
@@ -42,7 +41,6 @@ class OnlineIndexerTestSimpleRecordHandler implements OnlineIndexerTestRecordHan
         return TestRecords1Proto.getDescriptor();
     }
 
-    @Nonnull
     @Override
     public FDBRecordStoreTestBase.RecordMetaDataHook baseHook(final boolean splitLongRecords, @Nullable final Index sourceIndex) {
         return metaDataBuilder -> {
@@ -56,19 +54,16 @@ class OnlineIndexerTestSimpleRecordHandler implements OnlineIndexerTestRecordHan
         };
     }
 
-    @Nonnull
     @Override
-    public FDBRecordStoreTestBase.RecordMetaDataHook addIndexHook(@Nonnull final Index index) {
+    public FDBRecordStoreTestBase.RecordMetaDataHook addIndexHook(final Index index) {
         return metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
     }
 
-    @Nonnull
     @Override
-    public Tuple getPrimaryKey(@Nonnull final TestRecords1Proto.MySimpleRecord message) {
+    public Tuple getPrimaryKey(final TestRecords1Proto.MySimpleRecord message) {
         return Tuple.from(message.getRecNo());
     }
 
-    @Nonnull
     public static OnlineIndexerTestSimpleRecordHandler instance() {
         return INSTANCE;
     }

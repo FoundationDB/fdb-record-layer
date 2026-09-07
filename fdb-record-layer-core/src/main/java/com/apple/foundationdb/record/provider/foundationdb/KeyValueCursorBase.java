@@ -46,8 +46,8 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -58,24 +58,25 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.UNSTABLE)
 public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIteratorCursor<K> implements BaseCursor<K> {
-    @Nonnull
     private final FDBRecordContext context;
     private final int prefixLength;
-    @Nonnull
     private final CursorLimitManager limitManager;
     private final int valuesLimit;
     // the pointer may be mutated, but the actual array must never be mutated or continuations will break
     @Nullable
     private byte[] lastKey;
-    @Nonnull
     private final SerializationMode serializationMode;
 
-    protected KeyValueCursorBase(@Nonnull final FDBRecordContext context,
-                                 @Nonnull final AsyncIterator<K> iterator,
+    // NullAway/JSpecify does not reliably recognize @Nullable on the byte[] lastKey field for the
+    // field-initialization check, even though it is correctly annotated @Nullable and is genuinely left
+    // unset (null) here (no record has been read yet).
+    @SuppressWarnings("NullAway")
+    protected KeyValueCursorBase(final FDBRecordContext context,
+                                 final AsyncIterator<K> iterator,
                                  int prefixLength,
-                                 @Nonnull final CursorLimitManager limitManager,
+                                 final CursorLimitManager limitManager,
                                  int valuesLimit,
-                                 @Nonnull final SerializationMode serializationMode) {
+                                 final SerializationMode serializationMode) {
         super(context.getExecutor(), iterator);
 
         this.context = context;
@@ -87,7 +88,6 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         context.instrument(FDBStoreTimer.DetailEvents.GET_SCAN_RANGE_RAW_FIRST_CHUNK, iterator.onHasNext());
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<K>> onNext() {
         if (nextResult != null && !nextResult.hasNext()) {
@@ -130,12 +130,10 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
     }
 
     @Override
-    @Nonnull
     public RecordCursorResult<K> getNext() {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onNext());
     }
 
-    @Nonnull
     private RecordCursorContinuation continuationHelper() {
         return new Continuation(lastKey, prefixLength, serializationMode);
     }
@@ -177,7 +175,6 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             return lastKey == null;
         }
 
-        @Nonnull
         @Override
         public ByteString toByteString() {
             if (serializationMode == SerializationMode.TO_OLD) {
@@ -195,6 +192,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably track @Nullable on byte[] return types
         public byte[] toBytes() {
             if (lastKey == null) {
                 return null;
@@ -203,6 +201,8 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             return byteString.isEmpty() ? new byte[0] : byteString.toByteArray();
         }
 
+        @Nullable
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably track @Nullable on byte[] return types
         public static byte[] getInnerContinuation(@Nullable byte[] rawBytes) {
             if (rawBytes == null) {
                 return null;
@@ -223,7 +223,6 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             }
         }
 
-        @Nonnull
         private RecordCursorProto.KeyValueCursorContinuation toProto() {
             RecordCursorProto.KeyValueCursorContinuation.Builder builder = RecordCursorProto.KeyValueCursorContinuation.newBuilder();
             if (lastKey == null) {
@@ -258,16 +257,34 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
      * </code></pre>
      */
     @API(API.Status.UNSTABLE)
+    // NullAway.Init is suppressed here because this Builder follows a deliberate two-phase-initialization
+    // contract: setter-populated fields default to null until prepare() validates/defaults them, and
+    // prepare()-only fields (transaction, limitManager, streamingMode, begin, end) are left unset by the
+    // constructor and are always populated by prepare() before any getter is called -- see, e.g.,
+    // KeyValueCursor.Builder#build(), which always calls prepare() before calling any getter.
+    @SuppressWarnings("NullAway.Init")
     public abstract static class Builder<T extends Builder<T>> {
 
         private int prefixLength;
+        @Nullable
         private FDBRecordContext context = null;
         private final Subspace subspace;
+        // NullAway/JSpecify does not reliably recognize @Nullable on byte[] fields for the field-initialization
+        // check, even though continuation/lowBytes/highBytes below are correctly annotated @Nullable.
+        @Nullable
+        @SuppressWarnings("NullAway")
         private byte[] continuation = null;
+        @Nullable
         private ScanProperties scanProperties = null;
+        @Nullable
+        @SuppressWarnings("NullAway")
         private byte[] lowBytes = null;
+        @Nullable
+        @SuppressWarnings("NullAway")
         private byte[] highBytes = null;
+        @Nullable
         private EndpointType lowEndpoint = null;
+        @Nullable
         private EndpointType highEndpoint = null;
         private ReadTransaction transaction;
         private CursorLimitManager limitManager;
@@ -279,7 +296,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         private KeySelector end;
         protected SerializationMode serializationMode;
 
-        protected Builder(@Nonnull Subspace subspace) {
+        protected Builder(Subspace subspace) {
             this.subspace = subspace;
             this.serializationMode = SerializationMode.TO_NEW;
         }
@@ -287,6 +304,10 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         /**
          * Called by subclasses to perform chacks and initialize all the required properties needed to construct cursors.
          */
+        // NullAway does not reliably track @Nullable on the byte[] lowBytes/highBytes fields across the calls
+        // into KeySelector.firstGreaterOrEqual below (a known array-type tracking gap); both are non-null by
+        // this point, having just been reassigned from TupleRange.toRange()'s non-null Range.begin/end.
+        @SuppressWarnings("NullAway")
         protected void prepare() {
             if (subspace == null) {
                 throw new RecordCoreException("record subspace must be supplied");
@@ -325,7 +346,8 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             reverse = scanProperties.isReverse();
 
             if (continuation != null) {
-                byte[] realContinuation = KeyValueCursorBase.Continuation.getInnerContinuation(continuation);
+                // getInnerContinuation returns null if and only if its argument is null.
+                byte[] realContinuation = Objects.requireNonNull(KeyValueCursorBase.Continuation.getInnerContinuation(continuation));
                 final byte[] continuationBytes = new byte[prefixLength + realContinuation.length];
                 System.arraycopy(lowBytes, 0, continuationBytes, 0, prefixLength);
                 System.arraycopy(realContinuation, 0, continuationBytes, prefixLength, realContinuation.length);
@@ -371,48 +393,48 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             return self();
         }
 
-        public T setScanProperties(@Nonnull ScanProperties scanProperties) {
+        public T setScanProperties(ScanProperties scanProperties) {
             this.scanProperties = scanProperties;
             return self();
         }
 
-        public T setRange(@Nonnull KeyRange range) {
+        public T setRange(KeyRange range) {
             setLow(range.getLowKey(), range.getLowEndpoint());
             setHigh(range.getHighKey(), range.getHighEndpoint());
             return self();
         }
 
-        public T setRange(@Nonnull TupleRange range) {
+        public T setRange(TupleRange range) {
             setLow(range.getLow(), range.getLowEndpoint());
             setHigh(range.getHigh(), range.getHighEndpoint());
             return self();
         }
 
-        public T setLow(@Nullable Tuple low, @Nonnull EndpointType lowEndpoint) {
+        public T setLow(@Nullable Tuple low, EndpointType lowEndpoint) {
             setLow(low != null ? subspace.pack(low) : subspace.pack(), lowEndpoint);
             return self();
         }
 
         @SpotBugsSuppressWarnings(value = "EI2", justification = "copies are expensive")
-        public T setLow(@Nonnull byte[] lowBytes, @Nonnull EndpointType lowEndpoint) {
+        public T setLow(byte[] lowBytes, EndpointType lowEndpoint) {
             this.lowBytes = lowBytes;
             this.lowEndpoint = lowEndpoint;
             return self();
         }
 
-        public T setHigh(@Nullable Tuple high, @Nonnull EndpointType highEndpoint) {
+        public T setHigh(@Nullable Tuple high, EndpointType highEndpoint) {
             setHigh(high != null ? subspace.pack(high) : subspace.pack(), highEndpoint);
             return self();
         }
 
         @SpotBugsSuppressWarnings(value = "EI2", justification = "copies are expensive")
-        public T setHigh(@Nonnull byte[] highBytes, @Nonnull EndpointType highEndpoint) {
+        public T setHigh(byte[] highBytes, EndpointType highEndpoint) {
             this.highBytes = highBytes;
             this.highEndpoint = highEndpoint;
             return self();
         }
 
-        public T setSerializationMode(@Nonnull final SerializationMode serializationMode) {
+        public T setSerializationMode(final SerializationMode serializationMode) {
             this.serializationMode = serializationMode;
             return self();
         }
@@ -423,17 +445,21 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
          * @return the length of the key prefix
          */
         protected int calculatePrefixLength() {
+            // Only ever called from prepare(), after lowBytes/highBytes have already been defaulted.
+            final byte[] low = Objects.requireNonNull(lowBytes);
+            final byte[] high = Objects.requireNonNull(highBytes);
             int prefixLength = subspace.pack().length;
-            while ((prefixLength < lowBytes.length) &&
-                   (prefixLength < highBytes.length) &&
-                   (lowBytes[prefixLength] == highBytes[prefixLength])) {
+            while ((prefixLength < low.length) &&
+                   (prefixLength < high.length) &&
+                   (low[prefixLength] == high[prefixLength])) {
                 prefixLength++;
             }
             return prefixLength;
         }
 
         public FDBRecordContext getContext() {
-            return context;
+            // Only ever called after prepare(), which throws if context is not supplied.
+            return Objects.requireNonNull(context);
         }
 
         public int getLimit() {

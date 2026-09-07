@@ -50,8 +50,7 @@ import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -65,9 +64,7 @@ import java.util.function.Supplier;
 public class LikeOperatorValue extends AbstractValue implements BooleanValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Like-Operator-Value");
 
-    @Nonnull
     private final Value srcChild;
-    @Nonnull
     private final Value patternChild;
 
     /**
@@ -75,7 +72,7 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
      * @param srcChild the string
      * @param patternChild the pattern
      */
-    public LikeOperatorValue(@Nonnull final Value srcChild, @Nonnull final Value patternChild) {
+    public LikeOperatorValue(final Value srcChild, final Value patternChild) {
         this.srcChild = srcChild;
         this.patternChild = patternChild;
     }
@@ -83,7 +80,7 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
     @Nullable
     @Override
     @SuppressWarnings("java:S6213")
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         String lhs = (String)srcChild.eval(store, context);
         Message rhs = (Message)patternChild.eval(store, context);
         return likeOperation(lhs, rhs);
@@ -142,7 +139,7 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
      * @param pattern the pattern to match the text against
      * @param escape an optional escape character
      */
-    private static boolean matchLike(@Nonnull final String text, @Nonnull final String pattern, @Nullable final String escape) {
+    private static boolean matchLike(final String text, final String pattern, @Nullable final String escape) {
         // Conceptually, this is similar to breaking the pattern down into chunks, separated by the wildcard
         // character %. For each sequence between %s, we can evaluate if a subsequence from the text
         // matches in linear time. We then do the following:
@@ -243,17 +240,15 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
 
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
-                                                     @Nonnull final Set<CorrelationIdentifier> localAliases) {
+                                                     final Set<CorrelationIdentifier> localAliases) {
         return Optional.of(new ValuePredicate(srcChild, new Comparisons.ValueComparison(Comparisons.Type.LIKE, patternChild)));
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of(srcChild, patternChild);
     }
 
-    @Nonnull
     @Override
     public LikeOperatorValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 2);
@@ -268,13 +263,12 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
     }
     
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, srcChild, patternChild);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var src = Iterables.get(explainSuppliers, 0).get();
         final var pattern = Iterables.get(explainSuppliers, 1).get();
         return ExplainTokensWithPrecedence.of(Precedence.BETWEEN,
@@ -294,30 +288,26 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
         return semanticEquals(other, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public PLikeOperatorValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PLikeOperatorValue toProto(final PlanSerializationContext serializationContext) {
         return PLikeOperatorValue.newBuilder()
                 .setSrcChild(srcChild.toValueProto(serializationContext))
                 .setPatternChild(patternChild.toValueProto(serializationContext))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setLikeOperatorValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static LikeOperatorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final PLikeOperatorValue likeOperatorValueProto) {
+    public static LikeOperatorValue fromProto(final PlanSerializationContext serializationContext,
+                                              final PLikeOperatorValue likeOperatorValueProto) {
         return new LikeOperatorValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(likeOperatorValueProto.getSrcChild())),
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(likeOperatorValueProto.getPatternChild())));
     }
 
-    @Nonnull
-    private static Value encapsulate(@Nonnull final List<? extends Typed> arguments) {
+    private static Value encapsulate(final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() == 2);
         Type srcType = arguments.get(0).getResultType();
         Type patternType = arguments.get(1).getResultType();
@@ -344,16 +334,14 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PLikeOperatorValue, LikeOperatorValue> {
-        @Nonnull
         @Override
         public Class<PLikeOperatorValue> getProtoMessageClass() {
             return PLikeOperatorValue.class;
         }
 
-        @Nonnull
         @Override
-        public LikeOperatorValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                           @Nonnull final PLikeOperatorValue likeOperatorValueProto) {
+        public LikeOperatorValue fromProto(final PlanSerializationContext serializationContext,
+                                           final PLikeOperatorValue likeOperatorValueProto) {
             return LikeOperatorValue.fromProto(serializationContext, likeOperatorValueProto);
         }
     }

@@ -34,7 +34,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -64,9 +63,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests of the Memo data structure implemented by {@link Reference} and {@link RelationalExpression}.
  */
 public class MemoExpressionTest {
-    @Nonnull
     private static final Map<String, SyntheticPlannerExpression> leafExpressions = new HashMap<>();
-    @Nonnull
     private static final Map<String, SyntheticPlannerExpression> middleExpressions = new HashMap<>();
 
     static {
@@ -79,7 +76,7 @@ public class MemoExpressionTest {
         for (int childMemberCount = 1; childMemberCount <= 4; childMemberCount++) {
             Reference middleChildGroup = Reference.empty();
             for (int i = 1; i <= childMemberCount; i++) {
-                middleChildGroup.insertFinalExpression(leafExpressions.get("leaf" + i));
+                middleChildGroup.insertFinalExpression(Objects.requireNonNull(leafExpressions.get("leaf" + i)));
             }
             final String name = "middle" + childMemberCount;
             middleExpressions.put(name, SyntheticPlannerExpression.ofRefs(name, middleChildGroup));
@@ -89,10 +86,10 @@ public class MemoExpressionTest {
             Reference leftGroup = Reference.empty();
             Reference rightGroup = Reference.empty();
             for (int i = 1; i <= childSplitPosition; i++) {
-                leftGroup.insertFinalExpression(leafExpressions.get("leaf" + i));
+                leftGroup.insertFinalExpression(Objects.requireNonNull(leafExpressions.get("leaf" + i)));
             }
             for (int i = childSplitPosition + 1; i <= 4; i++) {
-                rightGroup.insertFinalExpression(leafExpressions.get("leaf" + i));
+                rightGroup.insertFinalExpression(Objects.requireNonNull(leafExpressions.get("leaf" + i)));
             }
             assertEquals(4, leftGroup.getAllMemberExpressions().size() + rightGroup.getAllMemberExpressions().size());
             final String name = "middle" + childSplitPosition + "-" + (4 - childSplitPosition);
@@ -100,41 +97,39 @@ public class MemoExpressionTest {
         }
     }
 
-    @Nonnull
-    private static Memoizer createMemoizer(@Nonnull Reference root) {
+    private static Memoizer createMemoizer(Reference root) {
         AbstractCascadesRule<?> rule = new FinalizeExpressionsRule(); // doesn't matter for memoization
         return new CascadesRuleCall(PlannerPhase.REWRITING, new FakePlanContext(), rule, root, Traversal.withRoot(root), new ArrayDeque<>(), PlannerBindings.empty(), EvaluationContext.empty());
     }
 
-    @Nonnull
-    private static Reference ofExploratoryExpressions(@Nonnull RelationalExpression... expressions) {
+    private static Reference ofExploratoryExpressions(RelationalExpression... expressions) {
         return Reference.ofExploratoryExpressions(PlannerStage.CANONICAL, List.of(expressions));
     }
 
     @Test
     public void identicalSets() {
-        Reference justALeaf1 = Reference.initialOf(leafExpressions.get("leaf1"));
-        Reference justALeaf2 = Reference.initialOf(leafExpressions.get("leaf2"));
+        Reference justALeaf1 = Reference.initialOf(Objects.requireNonNull(leafExpressions.get("leaf1")));
+        Reference justALeaf2 = Reference.initialOf(Objects.requireNonNull(leafExpressions.get("leaf2")));
         assertTrue(justALeaf1.containsAllInMemo(justALeaf1, AliasMap.emptyMap()));
         assertFalse(justALeaf1.containsAllInMemo(justALeaf2, AliasMap.emptyMap()));
 
-        Reference multipleLeaves1 = Reference.initialOf(leafExpressions.get("leaf1"), leafExpressions.get("leaf2"));
-        Reference multipleLeaves2 = Reference.initialOf(leafExpressions.get("leaf3"), leafExpressions.get("leaf4"));
+        Reference multipleLeaves1 = Reference.initialOf(Objects.requireNonNull(leafExpressions.get("leaf1")), Objects.requireNonNull(leafExpressions.get("leaf2")));
+        Reference multipleLeaves2 = Reference.initialOf(Objects.requireNonNull(leafExpressions.get("leaf3")), Objects.requireNonNull(leafExpressions.get("leaf4")));
         assertTrue(multipleLeaves1.containsAllInMemo(multipleLeaves1, AliasMap.emptyMap()));
         assertFalse(multipleLeaves1.containsAllInMemo(multipleLeaves2, AliasMap.emptyMap()));
 
-        Reference complexExpression = Reference.initialOf(middleExpressions.get("middle1-3"), middleExpressions.get("middle2"));
+        Reference complexExpression = Reference.initialOf(Objects.requireNonNull(middleExpressions.get("middle1-3")), Objects.requireNonNull(middleExpressions.get("middle2")));
         assertTrue(complexExpression.containsAllInMemo(complexExpression, AliasMap.emptyMap()));
     }
 
     @Test
     public void flatSets() {
         Reference allLeaves = Reference.initialOf(leafExpressions.values());
-        Reference justALeaf = Reference.initialOf(leafExpressions.get("leaf1"));
+        Reference justALeaf = Reference.initialOf(Objects.requireNonNull(leafExpressions.get("leaf1")));
         assertTrue(allLeaves.containsAllInMemo(justALeaf, AliasMap.emptyMap()));
         assertFalse(justALeaf.containsAllInMemo(allLeaves, AliasMap.emptyMap()));
 
-        Reference multipleLeaves = Reference.initialOf(leafExpressions.get("leaf1"), leafExpressions.get("leaf2"));
+        Reference multipleLeaves = Reference.initialOf(Objects.requireNonNull(leafExpressions.get("leaf1")), Objects.requireNonNull(leafExpressions.get("leaf2")));
         assertTrue(allLeaves.containsAllInMemo(multipleLeaves, AliasMap.emptyMap()));
         assertFalse(multipleLeaves.containsAllInMemo(allLeaves, AliasMap.emptyMap()));
     }
@@ -142,14 +137,14 @@ public class MemoExpressionTest {
     @Test
     public void complexReferences() {
         SyntheticPlannerExpression root1 = SyntheticPlannerExpression.ofRefs("root1",
-                Reference.initialOf(middleExpressions.get("middle1"), middleExpressions.get("middle2")),
-                        Reference.initialOf(leafExpressions.get("leaf1"), leafExpressions.get("leaf2")));
+                Reference.initialOf(Objects.requireNonNull(middleExpressions.get("middle1")), Objects.requireNonNull(middleExpressions.get("middle2"))),
+                        Reference.initialOf(Objects.requireNonNull(leafExpressions.get("leaf1")), Objects.requireNonNull(leafExpressions.get("leaf2"))));
         SyntheticPlannerExpression root2 = SyntheticPlannerExpression.ofRefs("root2",
-                Reference.initialOf(middleExpressions.get("middle1-3"), middleExpressions.get("middle2-2")),
-                        Reference.initialOf(leafExpressions.get("leaf3"), leafExpressions.get("leaf4")));
+                Reference.initialOf(Objects.requireNonNull(middleExpressions.get("middle1-3")), Objects.requireNonNull(middleExpressions.get("middle2-2"))),
+                        Reference.initialOf(Objects.requireNonNull(leafExpressions.get("leaf3")), Objects.requireNonNull(leafExpressions.get("leaf4"))));
         SyntheticPlannerExpression root1copy = SyntheticPlannerExpression.ofRefs("root1",
-                    Reference.initialOf(leafExpressions.get("leaf3")),
-                            Reference.initialOf(leafExpressions.get("leaf4")));
+                    Reference.initialOf(Objects.requireNonNull(leafExpressions.get("leaf3"))),
+                            Reference.initialOf(Objects.requireNonNull(leafExpressions.get("leaf4"))));
         Reference firstTwoRoots = Reference.initialOf(root1, root2);
         Reference allRoots = Reference.initialOf(root1, root2, root1copy);
         assertEquals(3, allRoots.getAllMemberExpressions().size());
@@ -161,8 +156,8 @@ public class MemoExpressionTest {
         assertFalse(firstTwoRoots.containsAllInMemo(allRoots, AliasMap.emptyMap()));
 
         SyntheticPlannerExpression singleRefExpression = SyntheticPlannerExpression.ofRefs("root1",
-                Reference.initialOf(middleExpressions.get("middle1")), // has only a single member in its child group
-                        Reference.initialOf(leafExpressions.get("leaf1")));
+                Reference.initialOf(Objects.requireNonNull(middleExpressions.get("middle1"))), // has only a single member in its child group
+                        Reference.initialOf(Objects.requireNonNull(leafExpressions.get("leaf1"))));
         assertTrue(firstTwoRoots.containsAllInMemo(Reference.initialOf(singleRefExpression), AliasMap.emptyMap()));
     }
 
@@ -480,37 +475,34 @@ public class MemoExpressionTest {
      * data structure.
      */
     private static class SyntheticPlannerExpression extends AbstractRelationalExpressionWithChildren {
-        @Nonnull
         private final String identity;
-        @Nonnull
         private final List<? extends Quantifier> quantifiers;
         private final Set<CorrelationIdentifier> correlatedTo;
 
-        public SyntheticPlannerExpression(@Nonnull String identity) {
+        public SyntheticPlannerExpression(String identity) {
             this(identity, ImmutableList.of());
         }
 
-        public SyntheticPlannerExpression(@Nonnull String identity, @Nonnull Collection<? extends Quantifier> children) {
+        public SyntheticPlannerExpression(String identity, Collection<? extends Quantifier> children) {
             this(identity, children, ImmutableSet.of());
         }
 
-        public SyntheticPlannerExpression(@Nonnull String identity,
-                                          @Nonnull Collection<? extends Quantifier> children,
-                                          @Nonnull Collection<CorrelationIdentifier> correlatedTo) {
+        public SyntheticPlannerExpression(String identity,
+                                          Collection<? extends Quantifier> children,
+                                          Collection<CorrelationIdentifier> correlatedTo) {
             this.identity = identity;
             this.quantifiers = ImmutableList.copyOf(children);
             this.correlatedTo = ImmutableSet.copyOf(correlatedTo);
         }
 
-        @Nonnull
         @Override
         public List<? extends Quantifier> getQuantifiers() {
             return quantifiers;
         }
 
         @Override
-        public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                             @Nonnull final AliasMap equivalencesMap) {
+        public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                             final AliasMap equivalencesMap) {
             if (this == otherExpression) {
                 return true;
             }
@@ -536,8 +528,7 @@ public class MemoExpressionTest {
             return Objects.hash(identity);
         }
 
-        @Nonnull
-        public static SyntheticPlannerExpression generate(@Nonnull Random random, int maxDepth) {
+        public static SyntheticPlannerExpression generate(Random random, int maxDepth) {
             String name = Integer.toString(random.nextInt());
             if (maxDepth == 0) {
                 return new SyntheticPlannerExpression(name);
@@ -555,21 +546,18 @@ public class MemoExpressionTest {
             return quantifiers.size();
         }
 
-        @Nonnull
         @Override
         public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
             return correlatedTo;
         }
 
-        @Nonnull
         @Override
-        public SyntheticPlannerExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+        public SyntheticPlannerExpression translateCorrelations(final TranslationMap translationMap,
                                                                 final boolean shouldSimplifyValues,
-                                                                @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                                final List<? extends Quantifier> translatedQuantifiers) {
             return new SyntheticPlannerExpression(identity, translatedQuantifiers);
         }
 
-        @Nonnull
         @Override
         public Value getResultValue() {
             return new QueriedValue();
@@ -582,13 +570,11 @@ public class MemoExpressionTest {
                     + ")";
         }
 
-        @Nonnull
-        public static SyntheticPlannerExpression ofRefs(@Nonnull String name, @Nonnull Reference... references) {
+        public static SyntheticPlannerExpression ofRefs(String name, Reference... references) {
             return new SyntheticPlannerExpression(name, Quantifiers.forEachQuantifiers(List.of(references)));
         }
 
-        @Nonnull
-        public static SyntheticPlannerExpression withCorrelated(@Nonnull String name, @Nonnull String... correlatedTo) {
+        public static SyntheticPlannerExpression withCorrelated(String name, String... correlatedTo) {
             return new SyntheticPlannerExpression(name, ImmutableList.of(), Arrays.stream(correlatedTo).map(CorrelationIdentifier::of).collect(ImmutableSet.toImmutableSet()));
         }
     }

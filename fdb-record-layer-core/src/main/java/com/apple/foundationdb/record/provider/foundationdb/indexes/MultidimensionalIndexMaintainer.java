@@ -79,8 +79,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Objects;
@@ -96,7 +95,6 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
     private static final byte nodeSlotIndexSubspaceIndicator = 0x00;
-    @Nonnull
     private final RTree.Config config;
 
     public MultidimensionalIndexMaintainer(IndexMaintainerState state) {
@@ -105,10 +103,9 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @SuppressWarnings("resource")
-    @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanBounds scanBounds, @Nullable final byte[] continuation,
-                                         @Nonnull final ScanProperties scanProperties) {
+    public RecordCursor<IndexEntry> scan(final IndexScanBounds scanBounds, @Nullable final byte[] continuation,
+                                         final ScanProperties scanProperties) {
         if (!scanBounds.getScanType().equals(IndexScanType.BY_VALUE)) {
             throw new RecordCoreException("Can only scan multidimensional index by value.");
         }
@@ -179,18 +176,16 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanType scanType, @Nonnull final TupleRange range,
-                                         @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+    public RecordCursor<IndexEntry> scan(final IndexScanType scanType, final TupleRange range,
+                                         @Nullable final byte[] continuation, final ScanProperties scanProperties) {
         throw new RecordCoreException("index maintainer does not support this scan api");
     }
 
-    @Nonnull
     private Function<byte[], RecordCursor<Tuple>> prefixSkipScan(final int prefixSize,
-                                                                 @Nonnull final StoreTimer timer,
-                                                                 @Nonnull final MultidimensionalIndexScanBounds mDScanBounds,
-                                                                 @Nonnull final ScanProperties innerScanProperties) {
+                                                                 final StoreTimer timer,
+                                                                 final MultidimensionalIndexScanBounds mDScanBounds,
+                                                                 final ScanProperties innerScanProperties) {
         final Function<byte[], RecordCursor<Tuple>> outerFunction;
         if (prefixSize > 0) {
             outerFunction = outerContinuation -> timer.instrument(MultiDimensionalIndexHelper.Events.MULTIDIMENSIONAL_SKIP_SCAN,
@@ -207,11 +202,14 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         return outerFunction;
     }
 
-    @SuppressWarnings({"resource", "PMD.CloseResource"})
-    private CompletableFuture<Optional<Tuple>> nextPrefixTuple(@Nonnull final TupleRange prefixRange,
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+    // parameters of KeyValueCursorBase.Builder#setContinuation (out of scope
+    // to fix here); passing null intentionally means "start from the beginning".
+    @SuppressWarnings({"resource", "PMD.CloseResource", "NullAway"})
+    private CompletableFuture<Optional<Tuple>> nextPrefixTuple(final TupleRange prefixRange,
                                                                final int prefixSize,
                                                                @Nullable final Tuple lastPrefixTuple,
-                                                               @Nonnull final ScanProperties scanProperties) {
+                                                               final ScanProperties scanProperties) {
         final Subspace indexSubspace = getIndexSubspace();
         final KeyValueCursor cursor;
         if (lastPrefixTuple == null) {
@@ -246,9 +244,9 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(final FDBIndexableRecord<M> savedRecord,
                                                                           final boolean remove,
-                                                                          @Nonnull final List<IndexEntry> indexEntries) {
+                                                                          final List<IndexEntry> indexEntries) {
         final DimensionsKeyExpression dimensionsKeyExpression = getDimensionsKeyExpression(state.index.getRootExpression());
         final int prefixSize = dimensionsKeyExpression.getPrefixSize();
         final int dimensionsSize = dimensionsKeyExpression.getDimensionsSize();
@@ -295,7 +293,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    public boolean canDeleteWhere(@Nonnull final QueryToKeyMatcher matcher, @Nonnull final Key.Evaluated evaluated) {
+    public boolean canDeleteWhere(final QueryToKeyMatcher matcher, final Key.Evaluated evaluated) {
         if (!super.canDeleteWhere(matcher, evaluated)) {
             return false;
         }
@@ -303,7 +301,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    public CompletableFuture<Void> deleteWhere(@Nonnull final Transaction tr, @Nonnull final Tuple prefix) {
+    public CompletableFuture<Void> deleteWhere(final Transaction tr, final Tuple prefix) {
         Verify.verify(getDimensionsKeyExpression(state.index.getRootExpression()).getPrefixSize() >= prefix.size());
         return super.deleteWhere(tr, prefix).thenApply(v -> {
             // NOTE: Range.startsWith(), Subspace.range() and so on cover keys *strictly* within the range, but we sometimes
@@ -315,7 +313,6 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         });
     }
 
-    @Nonnull
     private Subspace getNodeSlotIndexSubspace() {
         return getSecondarySubspace().subspace(Tuple.from(nodeSlotIndexSubspaceIndicator));
     }
@@ -325,8 +322,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
      * @param root the root {@link KeyExpression} of the index definition
      * @return a {@link DimensionsKeyExpression}
      */
-    @Nonnull
-    public static DimensionsKeyExpression getDimensionsKeyExpression(@Nonnull final KeyExpression root) {
+    public static DimensionsKeyExpression getDimensionsKeyExpression(final KeyExpression root) {
         if (root instanceof KeyWithValueExpression) {
             KeyExpression innerKey = ((KeyWithValueExpression)root).getInnerKey();
             while (innerKey instanceof ThenKeyExpression) {
@@ -340,8 +336,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         return (DimensionsKeyExpression)root;
     }
 
-    @Nonnull
-    private static RTree.Point validatePoint(@Nonnull RTree.Point point) {
+    private static RTree.Point validatePoint(RTree.Point point) {
         for (int d = 0; d < point.getNumDimensions(); d ++) {
             Object coordinate = point.getCoordinate(d);
             Preconditions.checkArgument(coordinate == null || coordinate instanceof Long,
@@ -351,24 +346,22 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
     }
 
     static class OnRead implements OnReadListener {
-        @Nonnull
         private final CursorLimitManager cursorLimitManager;
-        @Nonnull
         private final FDBStoreTimer timer;
 
-        public OnRead(@Nonnull final CursorLimitManager cursorLimitManager,
-                      @Nonnull final FDBStoreTimer timer) {
+        public OnRead(final CursorLimitManager cursorLimitManager,
+                      final FDBStoreTimer timer) {
             this.cursorLimitManager = cursorLimitManager;
             this.timer = timer;
         }
 
         @Override
-        public <T extends Node> CompletableFuture<T> onAsyncRead(@Nonnull final CompletableFuture<T> future) {
+        public <T extends Node> CompletableFuture<T> onAsyncRead(final CompletableFuture<T> future) {
             return timer.instrument(MultiDimensionalIndexHelper.Events.MULTIDIMENSIONAL_SCAN, future);
         }
 
         @Override
-        public void onNodeRead(@Nonnull final Node node) {
+        public void onNodeRead(final Node node) {
             switch (node.getKind()) {
                 case LEAF:
                     timer.increment(FDBStoreTimer.Counts.MULTIDIMENSIONAL_LEAF_NODE_READS);
@@ -382,7 +375,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        public void onKeyValueRead(@Nonnull final Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
+        public void onKeyValueRead(final Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
             final int keyLength = key == null ? 0 : key.length;
             final int valueLength = value == null ? 0 : value.length;
 
@@ -406,26 +399,25 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        public void onChildNodeDiscard(@Nonnull final ChildSlot childSlot) {
+        public void onChildNodeDiscard(final ChildSlot childSlot) {
             timer.increment(FDBStoreTimer.Counts.MULTIDIMENSIONAL_CHILD_NODE_DISCARDS);
         }
     }
 
     static class OnWrite implements OnWriteListener {
-        @Nonnull
         private final FDBStoreTimer timer;
 
-        public OnWrite(@Nonnull final FDBStoreTimer timer) {
+        public OnWrite(final FDBStoreTimer timer) {
             this.timer = timer;
         }
 
         @Override
-        public <T extends Node> CompletableFuture<T> onAsyncReadForWrite(@Nonnull final CompletableFuture<T> future) {
+        public <T extends Node> CompletableFuture<T> onAsyncReadForWrite(final CompletableFuture<T> future) {
             return timer.instrument(MultiDimensionalIndexHelper.Events.MULTIDIMENSIONAL_MODIFICATION, future);
         }
 
         @Override
-        public void onNodeWritten(@Nonnull final Node node) {
+        public void onNodeWritten(final Node node) {
             switch (node.getKind()) {
                 case LEAF:
                     timer.increment(FDBStoreTimer.Counts.MULTIDIMENSIONAL_LEAF_NODE_WRITES);
@@ -439,7 +431,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Override
-        public void onKeyValueWritten(@Nonnull final Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
+        public void onKeyValueWritten(final Node node, @Nullable final byte[] key, @Nullable final byte[] value) {
             final int keyLength = key == null ? 0 : key.length;
             final int valueLength = value == null ? 0 : value.length;
 
@@ -462,19 +454,16 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
     }
 
     static class ItemSlotCursor extends AsyncIteratorCursor<ItemSlot> {
-        @Nonnull
         private final CursorLimitManager cursorLimitManager;
-        @Nonnull
         private final FDBStoreTimer timer;
 
-        public ItemSlotCursor(@Nonnull final Executor executor, @Nonnull final AsyncIterator<ItemSlot> iterator,
-                              @Nonnull final CursorLimitManager cursorLimitManager, @Nonnull final FDBStoreTimer timer) {
+        public ItemSlotCursor(final Executor executor, final AsyncIterator<ItemSlot> iterator,
+                              final CursorLimitManager cursorLimitManager, final FDBStoreTimer timer) {
             super(executor, iterator);
             this.cursorLimitManager = cursorLimitManager;
             this.timer = timer;
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<RecordCursorResult<ItemSlot>> onNext() {
             if (nextResult != null && !nextResult.hasNext()) {
@@ -519,6 +508,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         @Nullable
         private byte[] cachedBytes;
 
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
         private Continuation(@Nullable final BigInteger lastHilbertValue, @Nullable final Tuple lastKey) {
             this.lastHilbertValue = lastHilbertValue;
             this.lastKey = lastKey;
@@ -534,7 +524,6 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
             return lastKey;
         }
 
-        @Nonnull
         @Override
         public ByteString toByteString() {
             if (isEnd()) {
@@ -553,6 +542,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
         public byte[] toBytes() {
             if (isEnd()) {
                 return null;
@@ -569,6 +559,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
         }
 
         @Nullable
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even across explicit null checks.
         private static Continuation fromBytes(@Nullable byte[] continuationBytes) {
             if (continuationBytes != null) {
                 final RecordCursorProto.MultidimensionalIndexScanContinuation parsed;
@@ -576,7 +567,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                     parsed = RecordCursorProto.MultidimensionalIndexScanContinuation.parseFrom(continuationBytes);
                 } catch (InvalidProtocolBufferException ex) {
                     throw new RecordCoreException("error parsing continuation", ex)
-                            .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuationBytes));
+                            .addLogInfo("raw_bytes", Objects.requireNonNull(ByteArrayUtil2.loggable(continuationBytes)));
                 }
                 return new Continuation(new BigInteger(parsed.getLastHilbertValue().toByteArray()),
                         Tuple.fromBytes(parsed.getLastKey().toByteArray()));

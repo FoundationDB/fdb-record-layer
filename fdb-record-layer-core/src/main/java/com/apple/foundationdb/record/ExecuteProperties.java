@@ -23,8 +23,7 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.ReadTransaction;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,7 +51,6 @@ public class ExecuteProperties {
             .build();
 
     // the isolation level at which the scan takes place
-    @Nonnull
     protected final IsolationLevel isolationLevel;
 
     // number of records to skip; skipping happens before any rowLimit is applied.
@@ -66,7 +64,6 @@ public class ExecuteProperties {
 
     // A wrapper that encapsulates all of the mutable state associated with the execution, such as the record scan limit.
     // In general, the state should be preserved under all transformations except for explicit mutations of the state member.
-    @Nonnull
     private final ExecuteState state;
 
     // how record scan limit reached is handled -- false: return early with continuation, true: throw exception
@@ -76,8 +73,8 @@ public class ExecuteProperties {
     private final CursorStreamingMode defaultCursorStreamingMode;
 
     @SuppressWarnings("java:S107")
-    private ExecuteProperties(int skip, int rowLimit, @Nonnull IsolationLevel isolationLevel, long timeLimit,
-                              @Nonnull ExecuteState state, boolean failOnScanLimitReached, @Nonnull CursorStreamingMode defaultCursorStreamingMode, boolean isDryRun) {
+    private ExecuteProperties(int skip, int rowLimit, IsolationLevel isolationLevel, long timeLimit,
+                              ExecuteState state, boolean failOnScanLimitReached, CursorStreamingMode defaultCursorStreamingMode, boolean isDryRun) {
         this.skip = skip;
         this.rowLimit = rowLimit;
         this.isolationLevel = isolationLevel;
@@ -88,7 +85,6 @@ public class ExecuteProperties {
         this.isDryRun = isDryRun;
     }
 
-    @Nonnull
     public IsolationLevel getIsolationLevel() {
         return isolationLevel;
     }
@@ -97,7 +93,6 @@ public class ExecuteProperties {
         return skip;
     }
 
-    @Nonnull
     public ExecuteProperties setSkip(final int skip) {
         if (skip == this.skip) {
             return this;
@@ -109,7 +104,6 @@ public class ExecuteProperties {
         return isDryRun;
     }
 
-    @Nonnull
     public ExecuteProperties setDryRun(final boolean isDryRun) {
         if (isDryRun == this.isDryRun) {
             return this;
@@ -131,7 +125,6 @@ public class ExecuteProperties {
      * @param rowLimit the limit or {@link ReadTransaction#ROW_LIMIT_UNLIMITED} or {@link Integer#MAX_VALUE} for no limit
      * @return a new <code>ExecuteProperties</code> with the given limit
      */
-    @Nonnull
     public ExecuteProperties setReturnedRowLimit(final int rowLimit) {
         final int newLimit = validateAndNormalizeRowLimit(rowLimit);
         if (newLimit == this.rowLimit) {
@@ -172,7 +165,6 @@ public class ExecuteProperties {
         return !byteScanLimiter.isEnforcing() ? Long.MAX_VALUE : byteScanLimiter.getLimit();
     }
 
-    @Nonnull
     public ExecuteState getState() {
         return state;
     }
@@ -182,8 +174,7 @@ public class ExecuteProperties {
      * @param newState the new state
      * @return a new properties object with the new state
      */
-    @Nonnull
-    public ExecuteProperties setState(@Nonnull ExecuteState newState) {
+    public ExecuteProperties setState(ExecuteState newState) {
         return copy(skip, rowLimit, timeLimit, isolationLevel, newState, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
     }
 
@@ -191,7 +182,6 @@ public class ExecuteProperties {
      * Build a new <code>ExecuteProperties</code> with an empty state.
      * @return a new properties object with an empty state
      */
-    @Nonnull
     public ExecuteProperties clearState() {
         return copy(skip, rowLimit, timeLimit, isolationLevel, new ExecuteState(), failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
     }
@@ -212,7 +202,6 @@ public class ExecuteProperties {
         return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
     }
 
-    @Nonnull
     public ExecuteProperties clearReturnedRowLimit() {
         if (getReturnedRowLimit() == ReadTransaction.ROW_LIMIT_UNLIMITED) {
             return this;
@@ -224,7 +213,6 @@ public class ExecuteProperties {
      * Clear the returned row limit and time limit. Does not clear the skip.
      * @return a new <code>ExecuteProperties</code> without the returned row and time limits
      */
-    @Nonnull
     public ExecuteProperties clearRowAndTimeLimits() {
         if (getTimeLimit() == UNLIMITED_TIME && getReturnedRowLimit() == ReadTransaction.ROW_LIMIT_UNLIMITED) {
             return this;
@@ -236,7 +224,6 @@ public class ExecuteProperties {
      * Clear the skip and returned row limit, but no other limits.
      * @return a new <code>ExecuteProperties</code> without the skip and returned row limit
      */
-    @Nonnull
     public ExecuteProperties clearSkipAndLimit() {
         if (skip == 0 && rowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED) {
             return this;
@@ -248,7 +235,6 @@ public class ExecuteProperties {
      * Remove any skip count and adjust the limit to include enough rows that we can skip those and then apply the current limit.
      * @return a new properties without skip and with an adjusted limit
      */
-    @Nonnull
     public ExecuteProperties clearSkipAndAdjustLimit() {
         if (skip == 0) {
             return this;
@@ -271,8 +257,7 @@ public class ExecuteProperties {
      * @param other the <code>ExecuteProperties</code> to the take the limits from
      * @return an <code>ExecuteProperties</code> with limits merged as described above
      */
-    @Nonnull
-    public ExecuteProperties setLimitsFrom(@Nonnull ExecuteProperties other) {
+    public ExecuteProperties setLimitsFrom(ExecuteProperties other) {
         ExecuteProperties.Builder builder = toBuilder();
         if (other.rowLimit != ReadTransaction.ROW_LIMIT_UNLIMITED) {
             builder.setReturnedRowLimit(other.rowLimit);
@@ -313,7 +298,6 @@ public class ExecuteProperties {
      * @see ExecuteState#reset()
      * @return an {@code ExecuteProperties} with an independent mutable state
      */
-    @Nonnull
     public ExecuteProperties resetState() {
         return copy(skip, rowLimit, timeLimit, isolationLevel, state.reset(), failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
     }
@@ -331,13 +315,11 @@ public class ExecuteProperties {
      * @return a new properties with the given fields changed and other fields copied from this properties
      */
     @SuppressWarnings("java:S107")
-    @Nonnull
-    protected ExecuteProperties copy(int skip, int rowLimit, long timeLimit, @Nonnull IsolationLevel isolationLevel,
-                                     @Nonnull ExecuteState state, boolean failOnScanLimitReached, CursorStreamingMode defaultCursorStreamingMode, boolean isDryRun) {
+    protected ExecuteProperties copy(int skip, int rowLimit, long timeLimit, IsolationLevel isolationLevel,
+                                     ExecuteState state, boolean failOnScanLimitReached, CursorStreamingMode defaultCursorStreamingMode, boolean isDryRun) {
         return new ExecuteProperties(skip, rowLimit, isolationLevel, timeLimit, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
     }
 
-    @Nonnull
     public ScanProperties asScanProperties(boolean reverse) {
         return new ScanProperties(this, reverse);
     }
@@ -359,17 +341,14 @@ public class ExecuteProperties {
         return timeLimit;
     }
 
-    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }
 
-    @Nonnull
     public Builder toBuilder() {
         return new Builder(this);
     }
 
-    @Nonnull
     @Override
     public String toString() {
         final List<String> components = new ArrayList<>();
@@ -405,6 +384,7 @@ public class ExecuteProperties {
         private long timeLimit = UNLIMITED_TIME;
         private int scannedRecordsLimit = Integer.MAX_VALUE;
         private long scannedBytesLimit = Long.MAX_VALUE;
+        @Nullable
         private ExecuteState executeState = null;
         private boolean failOnScanLimitReached = false;
         private boolean isDryRun = false;
@@ -424,18 +404,15 @@ public class ExecuteProperties {
             this.isDryRun = executeProperties.isDryRun;
         }
 
-        @Nonnull
-        public Builder setIsolationLevel(@Nonnull IsolationLevel isolationLevel) {
+        public Builder setIsolationLevel(IsolationLevel isolationLevel) {
             this.isolationLevel = isolationLevel;
             return this;
         }
 
-        @Nonnull
         public IsolationLevel getIsolationLevel() {
             return isolationLevel;
         }
 
-        @Nonnull
         public Builder setSkip(int skip) {
             this.skip = skip;
             return this;
@@ -449,19 +426,16 @@ public class ExecuteProperties {
             return isDryRun;
         }
 
-        @Nonnull
         public Builder setDryRun(boolean isDryRun) {
             this.isDryRun = isDryRun;
             return this;
         }
 
-        @Nonnull
         public Builder setReturnedRowLimit(int rowLimit) {
             this.rowLimit = validateAndNormalizeRowLimit(rowLimit);
             return this;
         }
 
-        @Nonnull
         public Builder clearReturnedRowLimit() {
             return setReturnedRowLimit(Integer.MAX_VALUE);
         }
@@ -474,7 +448,6 @@ public class ExecuteProperties {
             return rowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED ? Integer.MAX_VALUE : rowLimit;
         }
 
-        @Nonnull
         public Builder clearSkipAndAdjustLimit() {
             if (skip != 0) {
                 if (rowLimit != ReadTransaction.ROW_LIMIT_UNLIMITED) {
@@ -485,13 +458,11 @@ public class ExecuteProperties {
             return this;
         }
 
-        @Nonnull
         public Builder setTimeLimit(long timeLimit) {
             this.timeLimit = validateAndNormalizeTimeLimit(timeLimit);
             return this;
         }
 
-        @Nonnull
         public Builder clearTimeLimit() {
             return setTimeLimit(UNLIMITED_TIME);
         }
@@ -507,7 +478,6 @@ public class ExecuteProperties {
          * @param limit the maximum number of records to scan
          * @return an updated builder
          */
-        @Nonnull
         public Builder setScannedRecordsLimit(int limit) {
             if (executeState != null) {
                 throw new RecordCoreException("Tried to set a record scan limit on a builder with an ExecuteState");
@@ -523,12 +493,10 @@ public class ExecuteProperties {
             return scanLimit;
         }
 
-        @Nonnull
         public Builder clearScannedRecordsLimit() {
             return setScannedRecordsLimit(Integer.MAX_VALUE);
         }
 
-        @Nonnull
         public Builder setScannedBytesLimit(long limit) {
             if (executeState != null) {
                 throw new RecordCoreException("Tried to set a byte scan limit on a builder with an ExecuteState");
@@ -544,12 +512,10 @@ public class ExecuteProperties {
             return scanLimit;
         }
 
-        @Nonnull
         public Builder clearScannedBytesLimit() {
             return setScannedBytesLimit(Long.MAX_VALUE);
         }
 
-        @Nonnull
         public Builder setState(@Nullable ExecuteState state) {
             if (scannedRecordsLimit != Integer.MAX_VALUE || scannedBytesLimit != Long.MAX_VALUE) {
                 throw new RecordCoreException("Tried to set a state on a builder with a record scan limit or byte scan limit");
@@ -558,7 +524,6 @@ public class ExecuteProperties {
             return this;
         }
 
-        @Nonnull
         public Builder clearState() {
             return setState(null);
         }
@@ -593,7 +558,6 @@ public class ExecuteProperties {
             return this;
         }
 
-        @Nonnull
         public ExecuteProperties build() {
             final ExecuteState state;
             if (executeState != null) {

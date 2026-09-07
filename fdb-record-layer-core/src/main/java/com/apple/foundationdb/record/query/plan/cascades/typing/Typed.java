@@ -22,8 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.typing;
 
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 
-import javax.annotation.Nonnull;
-
 /**
  * Provides {@link Type} information about result set. Implementations of this interface allow the caller to inspect
  * the {@link Type} of their result sets.
@@ -34,7 +32,6 @@ public interface Typed {
      * Returns the {@link Type} of the result set.
      * @return the {@link Type} of the result set.
      */
-    @Nonnull
     Type getResultType();
 
     /**
@@ -42,7 +39,6 @@ public interface Typed {
      * @return a token list used to render a human-friendly textual representation of both the type-producing instance
      *         and its result set {@link Type}.
      */
-    @Nonnull
     default ExplainTokens describe() {
         return getResultType().describe();
     }

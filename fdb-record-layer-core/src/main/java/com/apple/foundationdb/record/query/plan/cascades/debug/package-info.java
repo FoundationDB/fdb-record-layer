@@ -21,4 +21,7 @@
 /**
  * Stub for planner debugger.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.cascades.debug;
+
+import org.jspecify.annotations.NullMarked;

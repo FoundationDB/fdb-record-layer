@@ -24,7 +24,6 @@ import com.apple.foundationdb.LocalityUtil;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
 
-import javax.annotation.Nonnull;
 
 /**
  * An implementation of the {@link FDBLocalityProvider} interface that uses foundationDB's {@link LocalityUtil} API to
@@ -40,7 +39,6 @@ public class FDBLocalityUtil implements FDBLocalityProvider {
      * Get the single instance of this utility class.
      * @return the only instance of the class
      */
-    @Nonnull
     public static FDBLocalityUtil instance() {
         return INSTANCE;
     }
@@ -60,9 +58,8 @@ public class FDBLocalityUtil implements FDBLocalityProvider {
      * @return a sequence of keys denoting the start of single-server ranges
      * @see LocalityUtil#getBoundaryKeys(Transaction, byte[], byte[])
      */
-    @Nonnull
     @Override
-    public CloseableAsyncIterator<byte[]> getBoundaryKeys(@Nonnull Transaction tr, @Nonnull byte[] begin, @Nonnull byte[] end) {
+    public CloseableAsyncIterator<byte[]> getBoundaryKeys(Transaction tr, byte[] begin, byte[] end) {
         return LocalityUtil.getBoundaryKeys(tr, begin, end);
     }
 }

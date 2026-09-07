@@ -40,8 +40,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -67,9 +67,13 @@ public class RemoteFetchOldVersionTest extends RemoteFetchTestBase {
         int count = 0;
         try (FDBRecordContext context = openContext()) {
             openStoreWithVersion(context, simpleVersionHook, FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX));
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // executeQuery's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
+            RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.SERIAL_EXECUTE).asIterator();
+            try (cursor) {
                 while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> record = cursor.next();
+                    FDBQueriedRecord<Message> record = Objects.requireNonNull(cursor.next());
                     long primaryKey = 9 - count;
                     String strValue = ((primaryKey % 2) == 0) ? "even" : "odd";
                     int numValue = 1000 - (int)primaryKey;
@@ -81,7 +85,6 @@ public class RemoteFetchOldVersionTest extends RemoteFetchTestBase {
         assertThat(count, equalTo(10));
     }
 
-    @Nonnull
     protected final RecordMetaDataHook simpleVersionHook = metaDataBuilder -> {
         metaDataBuilder.setSplitLongRecords(false);
         metaDataBuilder.addUniversalIndex(new Index("globalCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));

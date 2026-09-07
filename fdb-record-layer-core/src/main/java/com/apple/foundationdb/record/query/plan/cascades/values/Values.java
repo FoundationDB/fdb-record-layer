@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -49,8 +48,7 @@ public class Values {
      * @param recordValue the record value
      * @return a list of field values
      */
-    @Nonnull
-    public static List<Value> deconstructRecord(@Nonnull final Value recordValue) {
+    public static List<Value> deconstructRecord(final Value recordValue) {
         final var resultType = recordValue.getResultType();
         Verify.verify(resultType.isRecord());
         Verify.verify(resultType instanceof Type.Record);
@@ -71,12 +69,11 @@ public class Values {
         return resultBuilder.build();
     }
 
-    @Nonnull
-    public static List<Value> simplify(@Nonnull final Iterable<Value> values,
-                                       @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet,
-                                       @Nonnull final EvaluationContext evaluationContext,
-                                       @Nonnull final AliasMap aliasMap,
-                                       @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+    public static List<Value> simplify(final Iterable<Value> values,
+                                       final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet,
+                                       final EvaluationContext evaluationContext,
+                                       final AliasMap aliasMap,
+                                       final Set<CorrelationIdentifier> constantAliases) {
         return Streams.stream(values)
                 .map(value -> value.simplify(ruleSet, evaluationContext, aliasMap, constantAliases))
                 .collect(ImmutableList.toImmutableList());
@@ -95,9 +92,8 @@ public class Values {
      * @param baseValueSupplier a supplier that creates a base value the accessors are expressed over
      * @return a list of {@link Value}s consisting of the accessors to primitive elements of the given type.
      */
-    @Nonnull
-    public static List<Value> primitiveAccessorsForType(@Nonnull final Type type,
-                                                        @Nonnull final Supplier<Value> baseValueSupplier) {
+    public static List<Value> primitiveAccessorsForType(final Type type,
+                                                        final Supplier<Value> baseValueSupplier) {
         if (type.getTypeCode() != Type.TypeCode.RECORD) {
             SemanticException.check(type.isPrimitive() || type.isEnum(),
                     SemanticException.ErrorCode.ORDERING_IS_OF_INCOMPATIBLE_TYPE);
@@ -148,8 +144,7 @@ public class Values {
      * @return an {@link Optional} containing the underlying record value if collapse is possible,
      *         or {@link Optional#empty()} if the record constructor cannot be simplified
      */
-    @Nonnull
-    public static Optional<Value> collapseSimpleSelectMaybe(@Nonnull final RecordConstructorValue recordConstructorValue) {
+    public static Optional<Value> collapseSimpleSelectMaybe(final RecordConstructorValue recordConstructorValue) {
         if (Iterables.isEmpty(recordConstructorValue.getChildren()) ||
                 StreamSupport.stream(recordConstructorValue.getChildren().spliterator(), false).anyMatch(v -> !(v instanceof FieldValue))) {
             return Optional.empty();

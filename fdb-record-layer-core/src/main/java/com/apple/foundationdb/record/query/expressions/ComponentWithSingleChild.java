@@ -23,21 +23,18 @@ package com.apple.foundationdb.record.query.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 
-import javax.annotation.Nonnull;
 
 /**
  * A {@link QueryComponent} with exactly one child component.
  */
 @API(API.Status.UNSTABLE)
 public interface ComponentWithSingleChild extends QueryComponent {
-    @Nonnull
     QueryComponent getChild();
 
     QueryComponent withOtherChild(QueryComponent newChild);
 
-    @Nonnull
     @Override
-    default QueryComponent withParameterRelationshipMap(@Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+    default QueryComponent withParameterRelationshipMap(ParameterRelationshipGraph parameterRelationshipGraph) {
         return withOtherChild(getChild().withParameterRelationshipMap(parameterRelationshipGraph));
     }
 }

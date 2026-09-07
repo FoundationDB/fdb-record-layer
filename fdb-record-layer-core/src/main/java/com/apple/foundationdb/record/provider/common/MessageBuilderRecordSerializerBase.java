@@ -30,8 +30,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.google.protobuf.UninitializedMessageException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.function.Supplier;
 
 /**
@@ -43,19 +42,17 @@ import java.util.function.Supplier;
  */
 @API(API.Status.UNSTABLE)
 public abstract class MessageBuilderRecordSerializerBase<M extends Message, U extends Message, B extends Message.Builder> implements RecordSerializer<M> {
-    @Nonnull
     private final Supplier<B> builderSupplier;
 
-    public MessageBuilderRecordSerializerBase(@Nonnull Supplier<B> builderSupplier) {
+    public MessageBuilderRecordSerializerBase(Supplier<B> builderSupplier) {
         this.builderSupplier = builderSupplier;
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public byte[] serialize(@Nonnull RecordMetaData metaData,
-                            @Nonnull RecordType recordType,
-                            @Nonnull M rec,
+    public byte[] serialize(RecordMetaData metaData,
+                            RecordType recordType,
+                            M rec,
                             @Nullable StoreTimer timer) {
         long startTime = System.nanoTime();
         try {
@@ -78,18 +75,17 @@ public abstract class MessageBuilderRecordSerializerBase<M extends Message, U ex
         }
     }
 
-    protected abstract void setUnionField(@Nonnull RecordMetaData metaData,
-                                          @Nonnull RecordType recordType,
-                                          @Nonnull B unionBuilder,
-                                          @Nonnull M rec);
+    protected abstract void setUnionField(RecordMetaData metaData,
+                                          RecordType recordType,
+                                          B unionBuilder,
+                                          M rec);
 
-    @Nonnull
     @Override
     @SuppressWarnings({"unchecked", "squid:S1193", "PMD.AvoidInstanceofChecksInCatchClause", // exception type checking is less clunky
                        "PMD.PreserveStackTrace", "PMD.CompareObjectsWithEquals"})
-    public M deserialize(@Nonnull RecordMetaData metaData,
-                         @Nonnull Tuple primaryKey,
-                         @Nonnull byte[] serialized,
+    public M deserialize(RecordMetaData metaData,
+                         Tuple primaryKey,
+                         byte[] serialized,
                          @Nullable StoreTimer timer) {
         long startTime = System.nanoTime();
         try {
@@ -123,11 +119,9 @@ public abstract class MessageBuilderRecordSerializerBase<M extends Message, U ex
         }
     }
 
-    @Nonnull
-    protected abstract M getUnionField(@Nonnull Descriptors.Descriptor unionDescriptor,
-                                       @Nonnull U storedRecord);
+    protected abstract M getUnionField(Descriptors.Descriptor unionDescriptor,
+                                       U storedRecord);
 
-    @Nonnull
     @Override
     public RecordSerializer<Message> widen() {
         return new MessageBuilderRecordSerializer(builderSupplier::get);

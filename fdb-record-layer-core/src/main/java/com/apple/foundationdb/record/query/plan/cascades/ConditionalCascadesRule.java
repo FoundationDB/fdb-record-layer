@@ -29,8 +29,8 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -64,7 +64,6 @@ public class ConditionalCascadesRule<T extends RelationalExpression, R extends C
     /**
      * The grouped inner rules, as an immutable list.
      */
-    @Nonnull
     final List<R> rules;
 
     /**
@@ -85,7 +84,7 @@ public class ConditionalCascadesRule<T extends RelationalExpression, R extends C
      * Creates a rule that groups the given inner rules. The list of rules must be non-empty. All rules must agree on
      * their root operator and on the root class of their binding matcher.
      */
-    public ConditionalCascadesRule(@Nonnull final List<R> rules) {
+    public ConditionalCascadesRule(final List<R> rules) {
         super(deriveBindingMatcher(rules), deriveConstraintDependencies(rules));
         this.rules = ImmutableList.copyOf(rules);
         this.rootOperator = deriveRootOperator(rules);
@@ -98,14 +97,13 @@ public class ConditionalCascadesRule<T extends RelationalExpression, R extends C
      */
     @SafeVarargs
     @SuppressWarnings("varargs")
-    public ConditionalCascadesRule(@Nonnull final R... rules) {
+    public ConditionalCascadesRule(final R... rules) {
         this(ImmutableList.copyOf(rules));
     }
 
     /**
      * Returns the inner rules grouped by this rule as an immutable list.
      */
-    @Nonnull
     public List<R> getRules() {
         return rules;
     }
@@ -114,7 +112,6 @@ public class ConditionalCascadesRule<T extends RelationalExpression, R extends C
      * Returns the root operator shared by all inner rules. If the inner rules do not declare a root operator, returns
      * an empty {@link Optional}.
      */
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.ofNullable(rootOperator);
@@ -126,7 +123,7 @@ public class ConditionalCascadesRule<T extends RelationalExpression, R extends C
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(final CascadesRuleCall call) {
         // `onMatch()` must never actually be invoked. A `ConditionalCascadesRule` only groups inner rules for the
         // planner to schedule conditionally; it never matches or applies transformations on its own.
         throw new RecordCoreException("cannot call this method directly");
@@ -147,8 +144,7 @@ public class ConditionalCascadesRule<T extends RelationalExpression, R extends C
      * (Note that {@link #onMatch} is never actually invoked on a {@code ConditionalCascadesRule}. The matcher only
      * communicates the common root class.)
      */
-    @Nonnull
-    private static <T, R extends PlannerRule<CascadesRuleCall, T>> BindingMatcher<T> deriveBindingMatcher(@Nonnull final List<R> rules) {
+    private static <T, R extends PlannerRule<CascadesRuleCall, T>> BindingMatcher<T> deriveBindingMatcher(final List<R> rules) {
         Verify.verify(!rules.isEmpty(), "`ConditionalCascadesRule` must contain at least one rule");
         final Class<T> rootClass = rules.get(0).getMatcher().getRootClass();
         for (final R rule : rules) {
@@ -162,7 +158,7 @@ public class ConditionalCascadesRule<T extends RelationalExpression, R extends C
      * operator (either the same class, or all empty). This is verified, and the common value is returned.
      */
     @Nullable
-    private static <T, R extends PlannerRule<CascadesRuleCall, T>> Class<?> deriveRootOperator(@Nonnull final List<R> rules) {
+    private static <T, R extends PlannerRule<CascadesRuleCall, T>> Class<?> deriveRootOperator(final List<R> rules) {
         Verify.verify(!rules.isEmpty(), "`ConditionalCascadesRule` must contain at least one rule");
         final Class<?> op = rules.get(0).getRootOperator().orElse(null);
         for (final R rule : rules) {
@@ -177,8 +173,7 @@ public class ConditionalCascadesRule<T extends RelationalExpression, R extends C
      * this conditional rule whenever any of its inner rules is sensitive to a newly-pushed requirement, even though
      * only the wrapping conditional rule (and not the inner rules individually) is registered in the ruleset.
      */
-    @Nonnull
-    private static <T> Set<PlannerConstraint<?>> deriveConstraintDependencies(@Nonnull final List<? extends CascadesRule<T>> rules) {
+    private static <T> Set<PlannerConstraint<?>> deriveConstraintDependencies(final List<? extends CascadesRule<T>> rules) {
         final ImmutableSet.Builder<PlannerConstraint<?>> dependencies = ImmutableSet.builder();
         for (final CascadesRule<T> rule : rules) {
             dependencies.addAll(rule.getConstraintDependencies());
@@ -193,7 +188,7 @@ public class ConditionalCascadesRule<T extends RelationalExpression, R extends C
      * in separate passes by the planner and combining them inside a single conditional chain would silently skip one
      * half of the chain during each pass.
      */
-    private static <T, R extends CascadesRule<T>> boolean deriveOnlyOnPrunedInputs(@Nonnull final List<R> rules) {
+    private static <T, R extends CascadesRule<T>> boolean deriveOnlyOnPrunedInputs(final List<R> rules) {
         Verify.verify(!rules.isEmpty(), "`ConditionalCascadesRule` must contain at least one rule");
         final boolean first = rules.get(0).onlyOnPrunedInputs();
         for (final R rule : rules) {
@@ -212,7 +207,7 @@ public class ConditionalCascadesRule<T extends RelationalExpression, R extends C
         /**
          * Creates a rule that groups the given inner exploration rules.
          */
-        public ConditionalExplorationCascadesRule(@Nonnull final List<ExplorationCascadesRule<T>> rules) {
+        public ConditionalExplorationCascadesRule(final List<ExplorationCascadesRule<T>> rules) {
             super(rules);
         }
 
@@ -221,12 +216,12 @@ public class ConditionalCascadesRule<T extends RelationalExpression, R extends C
          */
         @SafeVarargs
         @SuppressWarnings("varargs")
-        public ConditionalExplorationCascadesRule(@Nonnull final ExplorationCascadesRule<T>... rules) {
+        public ConditionalExplorationCascadesRule(final ExplorationCascadesRule<T>... rules) {
             super(rules);
         }
 
         @Override
-        public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
+        public void onMatch(final ExplorationCascadesRuleCall call) {
             throw new RecordCoreException("cannot call this method directly");
         }
     }
@@ -241,7 +236,7 @@ public class ConditionalCascadesRule<T extends RelationalExpression, R extends C
         /**
          * Creates a rule that groups the given inner implementation rules.
          */
-        public ConditionalImplementationCascadesRule(@Nonnull final List<ImplementationCascadesRule<T>> rules) {
+        public ConditionalImplementationCascadesRule(final List<ImplementationCascadesRule<T>> rules) {
             super(rules);
         }
 
@@ -250,12 +245,12 @@ public class ConditionalCascadesRule<T extends RelationalExpression, R extends C
          */
         @SafeVarargs
         @SuppressWarnings("varargs")
-        public ConditionalImplementationCascadesRule(@Nonnull final ImplementationCascadesRule<T>... rules) {
+        public ConditionalImplementationCascadesRule(final ImplementationCascadesRule<T>... rules) {
             super(rules);
         }
 
         @Override
-        public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+        public void onMatch(final ImplementationCascadesRuleCall call) {
             throw new RecordCoreException("cannot call this method directly");
         }
     }

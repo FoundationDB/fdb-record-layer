@@ -219,8 +219,8 @@ public class FDBReverseDirectoryCacheTest {
 
             assertEquals(3L, rdc.getPersistentCacheHitCount());
             assertEquals(1L, rdc.getPersistentCacheMissCount());
-            assertEquals(3L, context.getTimer().getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT));
-            assertEquals(1L, context.getTimer().getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_MISS_COUNT));
+            assertEquals(3L, Objects.requireNonNull(context.getTimer()).getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT));
+            assertEquals(1L, Objects.requireNonNull(context.getTimer()).getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_MISS_COUNT));
 
             commit(context);
         }
@@ -232,8 +232,8 @@ public class FDBReverseDirectoryCacheTest {
 
             assertEquals(1L, rdc.getPersistentCacheHitCount());
             assertEquals(0L, rdc.getPersistentCacheMissCount());
-            assertEquals(1L, context.getTimer().getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT));
-            assertEquals(0L, context.getTimer().getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_MISS_COUNT));
+            assertEquals(1L, Objects.requireNonNull(context.getTimer()).getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT));
+            assertEquals(0L, Objects.requireNonNull(context.getTimer()).getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_MISS_COUNT));
 
             commit(context);
         }
@@ -293,8 +293,8 @@ public class FDBReverseDirectoryCacheTest {
             // The put should be considered a hard miss because it had to write to the cache
             assertEquals(0L, rdc.getPersistentCacheHitCount());
             assertEquals(1L, rdc.getPersistentCacheMissCount());
-            assertEquals(0L, context.getTimer().getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT));
-            assertEquals(1L, context.getTimer().getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_MISS_COUNT));
+            assertEquals(0L, Objects.requireNonNull(context.getTimer()).getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT));
+            assertEquals(1L, Objects.requireNonNull(context.getTimer()).getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_MISS_COUNT));
 
             commit(context);
         }
@@ -546,7 +546,7 @@ public class FDBReverseDirectoryCacheTest {
                 assertEquals(entry.getValue(), name.get());
             }
             assertEquals((long)names.length, reverseDirectoryCache.getPersistentCacheHitCount());
-            assertEquals((long)names.length, context.getTimer().getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT));
+            assertEquals((long)names.length, Objects.requireNonNull(context.getTimer()).getCount(FDBStoreTimer.Counts.REVERSE_DIR_PERSISTENT_CACHE_HIT_COUNT));
 
             Long id = globalScope.resolve(context.getTimer(), afterRebuildName).get();
             reverseDirectoryCache.clearStats();
@@ -570,13 +570,13 @@ public class FDBReverseDirectoryCacheTest {
 
         // Populate the cache
         for (Pair<String, Long> pair : initialEntries) {
-            assertEquals(Optional.of(pair.getLeft()), cache.get(globalScope.wrap(pair.getRight())).get());
+            assertEquals(Optional.of(Objects.requireNonNull(pair.getLeft())), cache.get(globalScope.wrap(Objects.requireNonNull(pair.getRight()))).get());
         }
         assertEquals(initialEntries.length, cache.getPersistentCacheHitCount());
 
         // Ensure that the cache is populated
         for (Pair<String, Long> pair : initialEntries) {
-            assertEquals(Optional.of(pair.getLeft()), cache.get(globalScope.wrap(pair.getRight())).get());
+            assertEquals(Optional.of(Objects.requireNonNull(pair.getLeft())), cache.get(globalScope.wrap(Objects.requireNonNull(pair.getRight()))).get());
         }
         assertEquals(0, cache.getPersistentCacheMissCount());
 
@@ -602,7 +602,7 @@ public class FDBReverseDirectoryCacheTest {
 
         // Just make sure the filler entries are populated
         for (Pair<String, Long> pair : fillerEntries) {
-            assertEquals(Optional.of(pair.getLeft()), cache.get(globalScope.wrap(pair.getRight())).get());
+            assertEquals(Optional.of(Objects.requireNonNull(pair.getLeft())), cache.get(globalScope.wrap(Objects.requireNonNull(pair.getRight()))).get());
         }
         assertEquals(fillerEntries.length, cache.getPersistentCacheHitCount());
 
@@ -612,8 +612,8 @@ public class FDBReverseDirectoryCacheTest {
             List<String> keys = new ArrayList<>();
             List<CompletableFuture<Long>> futures = Arrays.stream(initialEntries)
                     .map(entry -> {
-                        keys.add(entry.getLeft());
-                        return entry.getLeft();
+                        keys.add(Objects.requireNonNull(entry.getLeft()));
+                        return Objects.requireNonNull(entry.getLeft());
                     })
                     .map(key -> globalScope.resolve(context.getTimer(), key)).collect(Collectors.toList());
             List<Long> values = AsyncUtil.getAll(futures).get();
@@ -627,9 +627,9 @@ public class FDBReverseDirectoryCacheTest {
             Pair<String, Long> initialEntry = initialEntries[i];
             Pair<String, Long> newEntry = newEntries[i];
 
-            assertEquals(initialEntry.getLeft(), newEntry.getLeft());
-            oldValuesMatchNewValues &= initialEntry.getRight().equals(newEntry.getRight());
-            assertEquals(Optional.of(newEntry.getLeft()), cache.get(globalScope.wrap(newEntry.getRight())).get());
+            assertEquals(Objects.requireNonNull(initialEntry.getLeft()), Objects.requireNonNull(newEntry.getLeft()));
+            oldValuesMatchNewValues &= Objects.requireNonNull(initialEntry.getRight()).equals(Objects.requireNonNull(newEntry.getRight()));
+            assertEquals(Optional.of(Objects.requireNonNull(newEntry.getLeft())), cache.get(globalScope.wrap(Objects.requireNonNull(newEntry.getRight()))).get());
         }
         // While it's possible that some of the values are re-allocated to the same value, it is very unlikely that
         // they are *all* allocated the same values, so we assert that at least one of them differs

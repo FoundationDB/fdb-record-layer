@@ -40,7 +40,8 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.Serial;
 import java.util.Objects;
@@ -98,7 +99,10 @@ public final class IndexingPendingWriteQueue {
                 });
     }
 
-    @Nonnull
+    // NullAway does not reliably track @Nullable on byte[] parameters, and PendingWritesQueue#getQueueCursor
+    // (in the .queue subpackage) still declares its continuation parameter with the legacy javax.annotation
+    // @Nullable rather than jspecify's, which additionally confuses NullAway's generic-array nullability check.
+    @SuppressWarnings("NullAway")
     private CursorFactory<PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry>> cursorFactory(
             final Function<FDBRecordStore, CompletableFuture<Void>> heartbeatUpdater) {
         return (store, lastResult, rowLimit) -> {
@@ -106,13 +110,12 @@ public final class IndexingPendingWriteQueue {
             // heartbeat update once per such transaction, to be written just before that transaction is committed.
             store.getContext().getOrCreateCommitCheck(HEARTBEAT_COMMIT_HOOK + index.getName(),
                     name -> () -> heartbeatUpdater.apply(store));
-            final byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
+            @Nullable final byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
             final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(props -> props.setReturnedRowLimit(rowLimit));
             return getIndexingQueue(store).getQueueCursor(store.getContext(), scanProperties, continuation);
         };
     }
 
-    @Nonnull
     private CompletableFuture<Void> handleOneItem(final FDBRecordStore store,
                                                   final RecordCursorResult<PendingWritesQueueEntry<IndexBuildProto.PendingWritesQueueEntry>> lastResult,
                                                   final ThrottledRetryingIterator.QuotaManager quotaManager) {
@@ -142,12 +145,10 @@ public final class IndexingPendingWriteQueue {
                 });
     }
 
-    @Nonnull
     private PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> getIndexingQueue(final FDBRecordStore store) {
         return getIndexingQueue(store, index);
     }
 
-    @Nonnull
     public static PendingWritesQueue<IndexBuildProto.PendingWritesQueueEntry> getIndexingQueue(final FDBRecordStore store, final Index index) {
         return new PendingWritesQueue<>(
                 IndexingSubspaces.indexPendingWriteQueueSubspace(store, index),
@@ -170,7 +171,6 @@ public final class IndexingPendingWriteQueue {
      * @param context the context used for the conflict-free read
      * @return a future that completes with true if the queue is non-empty
      */
-    @Nonnull
     public static CompletableFuture<Boolean> hasPendingWrites(final FDBRecordStore store, final Index index, final FDBRecordContext context) {
         return getIndexingQueue(store, index).getQueueSizeNoConflict(context)
                 .thenApply(size -> size != null && size > 0);
@@ -183,7 +183,6 @@ public final class IndexingPendingWriteQueue {
      * @param entry the entry to enqueue
      * @return a future that completes when the entry has been enqueued
      */
-    @Nonnull
     public static CompletableFuture<Void> enqueuePendingIndexUpdate(
             final FDBRecordStore store,
             final Index index,
@@ -214,7 +213,6 @@ public final class IndexingPendingWriteQueue {
                 name -> () -> disableOverflowingIndex(store, index));
     }
 
-    @Nonnull
     private static CompletableFuture<Void> disableOverflowingIndex(final FDBRecordStore store, final Index index) {
         return store.markIndexDisabled(index).thenAccept(changed -> {
             final int maxQueueSize = maxQueueSize(store);

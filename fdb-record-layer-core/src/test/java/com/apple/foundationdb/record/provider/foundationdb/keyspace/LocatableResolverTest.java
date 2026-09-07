@@ -53,7 +53,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -839,7 +838,7 @@ public abstract class LocatableResolverTest {
         assertLocked(database, globalScope);
     }
 
-    private void assertLocked(@Nonnull final FDBDatabase database, @Nonnull final LocatableResolver resolver) {
+    private void assertLocked(final FDBDatabase database, final LocatableResolver resolver) {
         try (FDBRecordContext context = database.openContext()) {
             eventually("write lock is enabled", () -> {
                 try {
@@ -1340,6 +1339,10 @@ public abstract class LocatableResolverTest {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably track the byte @Nullable [] return type declared by
+    // ResolverCreateHooks.MetadataHook, so returning null from the lambda below is flagged even
+    // though it is exactly what the interface allows.
+    @SuppressWarnings("NullAway")
     void testSetMappingWithUpdatedValue() {
         final String key = "key_with_meta_data";
         final String metaData1 = "meta_data_1";
@@ -1420,6 +1423,9 @@ public abstract class LocatableResolverTest {
     }
 
     @Test
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[]
+    // continuation parameter at the ResolverValidator.validate call site below.
+    @SuppressWarnings("NullAway")
     void testValidateMissingReverseEntries() {
         final List<ResolverKeyValue> entries = new ArrayList<>();
         for (int i = 0; i < 10; i++) {

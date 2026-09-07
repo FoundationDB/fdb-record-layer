@@ -634,7 +634,10 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, newBuilder().setReturnedRowLimit(5).build()).asIterator()) {
+            // continuation is intentionally omitted (no continuation from a previous scan); NullAway/JSpecify
+            // does not reliably track @Nullable on byte[] parameters, so passing null literal trips a known
+            // limitation.
+            try (@SuppressWarnings("NullAway") RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, newBuilder().setReturnedRowLimit(5).build()).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
@@ -965,7 +968,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
      */
     @Test
     public void intersectionVisitorOnComplexComparisonKey() throws Exception {
-        complexQuerySetup(null);
+        complexQuerySetup(NO_HOOK);
 
         IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
 

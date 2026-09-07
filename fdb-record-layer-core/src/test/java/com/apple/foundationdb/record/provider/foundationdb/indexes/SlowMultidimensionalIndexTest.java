@@ -34,7 +34,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Random;
@@ -156,95 +155,95 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
 
     @ParameterizedTest
     @MethodSource("argumentsForBasicReads")
-    void basicRead(@Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+    void basicRead(final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.basicReadTest(true, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForBasicReads")
-    void basicReadWithNulls(@Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+    void basicReadWithNulls(final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.basicReadWithNullsTest(true, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForBasicReads")
-    void deleteWhereTest(@Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+    void deleteWhereTest(final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.deleteWhereTest(true, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForBasicReads")
-    void coveringIndexScanWithFetchTest(@Nonnull final String storage, final boolean storeHilbertValues,
+    void coveringIndexScanWithFetchTest(final String storage, final boolean storeHilbertValues,
                                         final boolean useNodeSlotIndex) throws Exception {
         super.coveringIndexScanWithFetchTest(true, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void indexReadTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void indexReadTest(final long seed, final int numRecords, final String storage,
                        final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.indexReadTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void indexReadWithNullsTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void indexReadWithNullsTest(final long seed, final int numRecords, final String storage,
                                 final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.indexReadWithNullsTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void indexReadIsNullTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void indexReadIsNullTest(final long seed, final int numRecords, final String storage,
                              final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.indexReadIsNullTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void coveringIndexReadTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void coveringIndexReadTest(final long seed, final int numRecords, final String storage,
                                final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.coveringIndexReadTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void indexScan3DTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void indexScan3DTest(final long seed, final int numRecords, final String storage,
                          final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.indexScan3DTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void unprefixedIndexReadTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void unprefixedIndexReadTest(final long seed, final int numRecords, final String storage,
                                  final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.unprefixedIndexReadTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void unprefixedSuffixedIndexReadTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void unprefixedSuffixedIndexReadTest(final long seed, final int numRecords, final String storage,
                                          final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.unprefixedSuffixedIndexReadTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void indexReadWithAdditionalValueTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void indexReadWithAdditionalValueTest(final long seed, final int numRecords, final String storage,
                                           final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.indexReadWithAdditionalValueTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void unprefixedSuffixedIndexReadWithResidualsTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void unprefixedSuffixedIndexReadWithResidualsTest(final long seed, final int numRecords, final String storage,
                                                       final boolean storeHilbertValues, final Boolean useNodeSlotIndex) throws Exception {
         super.unprefixedSuffixedIndexReadWithResidualsTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
-    void indexSkipScanTest(final long seed, final int numRecords, @Nonnull final String storage,
+    void indexSkipScanTest(final long seed, final int numRecords, final String storage,
                            final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.indexSkipScanTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
@@ -252,14 +251,14 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
     @ParameterizedTest
     @MethodSource("argumentsForIndexReadsAfterDeletes")
     void indexReadsAfterDeletesTest(final long seed, final int numRecords, final int numDeletes,
-                                    @Nonnull final String storage, final boolean storeHilbertValues,
+                                    final String storage, final boolean storeHilbertValues,
                                     final boolean useNodeSlotIndex) throws Exception {
         super.indexReadsAfterDeletesTest(true, seed, numRecords, numDeletes, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReadsWithDuplicates")
-    void indexReadWithDuplicatesTest(final int numRecords, @Nonnull final String storage,
+    void indexReadWithDuplicatesTest(final int numRecords, final String storage,
                                      final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         super.indexReadWithDuplicatesTest(true, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
@@ -292,9 +291,13 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
 
     @ParameterizedTest
     @MethodSource("argumentsForBasicReads")
-    void concurrentReadsAndWrites(@Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+    void concurrentReadsAndWrites(final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndex = metaDataBuilder -> addMultidimensionalIndex(metaDataBuilder, storage,
                 storeHilbertValues, useNodeSlotIndex);
+        // HypercubeScanParameters's varargs Long... minMaxLimits is not annotated @Nullable (it's declared in
+        // MultidimensionalIndexTestBase, shared with other tests), but null min/max limits are an intentional,
+        // supported way to express an unbounded dimension.
+        @SuppressWarnings("NullAway")
         final RecordQueryIndexPlan indexPlan =
                 new RecordQueryIndexPlan("EventIntervals",
                         new HypercubeScanParameters("business",
@@ -315,7 +318,7 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
                 } else {
                     // read all records inserted.
                     readFutures.add(CompletableFuture.runAsync(() -> {
-                        try (var cursor = indexPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE)) {
+                        try (@SuppressWarnings("NullAway") var cursor = indexPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE)) {
                             while (true) {
                                 var result = cursor.onNext().get();
                                 if (!result.hasNext()) {
@@ -340,7 +343,7 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
         final var actualMessages = new HashSet<Message>();
         try (final var context = openContext()) {
             openRecordStore(context, additionalIndex);
-            try (var cursor = indexPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE)) {
+            try (@SuppressWarnings("NullAway") var cursor = indexPlan.executePlan(recordStore, EvaluationContext.empty(), null, ExecuteProperties.SERIAL_EXECUTE)) {
                 cursor.asStream().forEach(result -> actualMessages.add(result.getMessage()));
             }
         }

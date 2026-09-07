@@ -114,8 +114,8 @@ import com.google.common.primitives.ImmutableIntArray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -139,7 +139,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Field
  */
 @API(API.Status.UNSTABLE)
 public class RecordQueryPlanner implements QueryPlanner {
-    @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(RecordQueryPlanner.class);
 
     /**
@@ -148,40 +147,36 @@ public class RecordQueryPlanner implements QueryPlanner {
      */
     public static final int DEFAULT_COMPLEXITY_THRESHOLD = 3000;
 
-    @Nonnull
     private final RecordMetaData metaData;
-    @Nonnull
     private final RecordStoreState recordStoreState;
     @Nullable
     private final StoreTimer timer;
-    @Nonnull
     private final PlannableIndexTypes indexTypes;
 
     private boolean primaryKeyHasRecordTypePrefix;
-    @Nonnull
     private RecordQueryPlannerConfiguration configuration;
 
-    public RecordQueryPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
+    public RecordQueryPlanner(RecordMetaData metaData, RecordStoreState recordStoreState) {
         this(metaData, recordStoreState, null);
     }
 
-    public RecordQueryPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState,
+    public RecordQueryPlanner(RecordMetaData metaData, RecordStoreState recordStoreState,
                               @Nullable StoreTimer timer) {
         this(metaData, recordStoreState, PlannableIndexTypes.DEFAULT, timer, DEFAULT_COMPLEXITY_THRESHOLD);
     }
 
-    public RecordQueryPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState,
-                              @Nonnull PlannableIndexTypes indexTypes, @Nullable StoreTimer timer) {
+    public RecordQueryPlanner(RecordMetaData metaData, RecordStoreState recordStoreState,
+                              PlannableIndexTypes indexTypes, @Nullable StoreTimer timer) {
         this(metaData, recordStoreState, indexTypes, timer, DEFAULT_COMPLEXITY_THRESHOLD);
     }
 
-    public RecordQueryPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState,
+    public RecordQueryPlanner(RecordMetaData metaData, RecordStoreState recordStoreState,
                               @Nullable StoreTimer timer, int complexityThreshold) {
         this(metaData, recordStoreState, PlannableIndexTypes.DEFAULT, timer, complexityThreshold);
     }
 
-    public RecordQueryPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState,
-                              @Nonnull PlannableIndexTypes indexTypes, @Nullable StoreTimer timer, int complexityThreshold) {
+    public RecordQueryPlanner(RecordMetaData metaData, RecordStoreState recordStoreState,
+                              PlannableIndexTypes indexTypes, @Nullable StoreTimer timer, int complexityThreshold) {
         this.metaData = metaData;
         this.recordStoreState = recordStoreState;
         this.indexTypes = indexTypes;
@@ -202,7 +197,6 @@ public class RecordQueryPlanner implements QueryPlanner {
      * satisfy any additional conditions.
      * @return whether to prefer index scan over record scan
      */
-    @Nonnull
     public IndexScanPreference getIndexScanPreference() {
         return configuration.getIndexScanPreference();
     }
@@ -219,20 +213,19 @@ public class RecordQueryPlanner implements QueryPlanner {
      * @param indexScanPreference whether to prefer index scan over record scan
      */
     @Override
-    public void setIndexScanPreference(@Nonnull IndexScanPreference indexScanPreference) {
+    public void setIndexScanPreference(IndexScanPreference indexScanPreference) {
         configuration = this.configuration.asBuilder()
                 .setIndexScanPreference(indexScanPreference)
                 .build();
     }
 
-    @Nonnull
     @Override
     public RecordQueryPlannerConfiguration getConfiguration() {
         return configuration;
     }
     
     @Override
-    public void setConfiguration(@Nonnull RecordQueryPlannerConfiguration configuration) {
+    public void setConfiguration(RecordQueryPlannerConfiguration configuration) {
         this.configuration = configuration;
     }
 
@@ -240,7 +233,6 @@ public class RecordQueryPlanner implements QueryPlanner {
      * Get the {@link RecordMetaData} for this planner.
      * @return the meta-data
      */
-    @Nonnull
     @Override
     public RecordMetaData getRecordMetaData() {
         return metaData;
@@ -250,7 +242,6 @@ public class RecordQueryPlanner implements QueryPlanner {
      * Get the {@link RecordStoreState} for this planner.
      * @return the record store state
      */
-    @Nonnull
     @Override
     public RecordStoreState getRecordStoreState() {
         return recordStoreState;
@@ -267,9 +258,8 @@ public class RecordQueryPlanner implements QueryPlanner {
      * @return a {@link QueryPlanResult} that contains the plan for the query with additional information
      * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
      */
-    @Nonnull
     @Override
-    public QueryPlanResult planQuery(@Nonnull final RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+    public QueryPlanResult planQuery(final RecordQuery query, ParameterRelationshipGraph parameterRelationshipGraph) {
         return new QueryPlanResult(plan(query, parameterRelationshipGraph));
     }
 
@@ -283,9 +273,8 @@ public class RecordQueryPlanner implements QueryPlanner {
      * @return a plan that will return the results of the provided query when executed
      * @throws com.apple.foundationdb.record.RecordCoreException if there is no index that matches the sort in the provided query
      */
-    @Nonnull
     @Override
-    public RecordQueryPlan plan(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+    public RecordQueryPlan plan(RecordQuery query, ParameterRelationshipGraph parameterRelationshipGraph) {
         query.validate(metaData);
 
         final PlanContext planContext = getPlanContext(query);
@@ -340,7 +329,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private RecordQueryPlan plan(PlanContext planContext, QueryComponent filter, KeyExpression sort, boolean sortReverse) {
+    private RecordQueryPlan plan(PlanContext planContext, @Nullable QueryComponent filter, @Nullable KeyExpression sort, boolean sortReverse) {
         RecordQueryPlan plan = null;
         if (filter == null) {
             plan = planNoFilter(planContext, sort, sortReverse);
@@ -384,7 +373,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private RecordQueryPlan planNoFilter(PlanContext planContext, KeyExpression sort, boolean sortReverse) {
+    private RecordQueryPlan planNoFilter(PlanContext planContext, @Nullable KeyExpression sort, boolean sortReverse) {
         ScoredPlan bestPlan = null;
         Index bestIndex = null;
         if (sort == null) {
@@ -437,7 +426,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         return new ScoredPlan(0, valueScan(new CandidateScan(planContext, index, false), scanComparisons, false));
     }
 
-    private int compareIndexes(@Nonnull final PlanContext planContext, @Nullable final Index index1, final boolean flowsAllRequiredResults1,
+    private int compareIndexes(final PlanContext planContext, @Nullable final Index index1, final boolean flowsAllRequiredResults1,
                                @Nullable final Index index2, final boolean flowsAllRequiredResults2) {
         if (index1 == null) {
             if (index2 == null) {
@@ -467,7 +456,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     // Compatible behavior with older code: prefer an index on *just* the primary key.
-    private boolean preferIndexToScan(PlanContext planContext, @Nonnull Index index) {
+    private boolean preferIndexToScan(PlanContext planContext, Index index) {
         IndexScanPreference indexScanPreference = getIndexScanPreference();
         switch (indexScanPreference) {
             case PREFER_INDEX:
@@ -481,7 +470,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
     }
 
-    private static int indexSizeOverhead(PlanContext planContext, @Nonnull Index index) {
+    private static int indexSizeOverhead(PlanContext planContext, Index index) {
         if (planContext.commonPrimaryKey == null) {
             return index.getColumnSize();
         } else {
@@ -490,7 +479,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredPlan planFilter(@Nonnull PlanContext planContext, @Nonnull QueryComponent filter) {
+    private ScoredPlan planFilter(PlanContext planContext, QueryComponent filter) {
         if (filter instanceof AndComponent) {
             QueryComponent normalized = normalizeAndOr((AndComponent) filter);
             if (normalized instanceof OrComponent) {
@@ -520,7 +509,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      * @return the best plan or {@code null} if no suitable index exists
      */
     @Nullable
-    private ScoredPlan planFilter(@Nonnull PlanContext planContext, @Nonnull QueryComponent filter, boolean needOrdering) {
+    private ScoredPlan planFilter(PlanContext planContext, QueryComponent filter, boolean needOrdering) {
         final InExtractor inExtractor = InExtractor.fromFilter(filter, (componentWithComparison, inBinding) -> true);
         ScoredPlan withInAsOrUnion = null;
         if (planContext.query.getSort() != null) {
@@ -552,19 +541,17 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     private static final class PlanWithInExtractor {
-        @Nonnull
         private final ScoredPlan plan;
-        @Nonnull
         private final InExtractor inExtractor;
 
-        PlanWithInExtractor(@Nonnull ScoredPlan plan, @Nonnull InExtractor inExtractor) {
+        PlanWithInExtractor(ScoredPlan plan, InExtractor inExtractor) {
             this.plan = plan;
             this.inExtractor = inExtractor;
         }
     }
 
     @Nullable
-    private ScoredPlan planFilterWithInJoin(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor, boolean needOrdering) {
+    private ScoredPlan planFilterWithInJoin(PlanContext planContext, InExtractor inExtractor, boolean needOrdering) {
         final PlanWithInExtractor planWithIn = planExtractedInsFilter(planContext, inExtractor, needOrdering, getConfiguration().getMaxNumReplansForInToJoin());
         if (planWithIn == null) {
             return null;
@@ -580,7 +567,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredPlan planFilterWithInUnion(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor) {
+    private ScoredPlan planFilterWithInUnion(PlanContext planContext, InExtractor inExtractor) {
         final PlanWithInExtractor planWithIn = planExtractedInsFilter(planContext, inExtractor, false, getConfiguration().getMaxNumReplansForInUnion());
         if (planWithIn != null) {
             final ScoredPlan scoredPlan = planWithIn.plan;
@@ -602,7 +589,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
             @Nullable final KeyExpression candidateKey;
             boolean candidateOnly;
-            if (getConfiguration().shouldOmitPrimaryKeyInOrderingKeyForInUnion()) {
+            if (getConfiguration().shouldOmitPrimaryKeyInOrderingKeyForInUnion() || planContext.commonPrimaryKey == null) {
                 candidateKey = planContext.query.getSort();
                 candidateOnly = false;
             } else {
@@ -628,7 +615,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         return null;
     }
 
-    private boolean isRankInComparison(@Nonnull PlanContext planContext, @Nonnull ComponentWithComparison comparison, @Nonnull String bindingName) {
+    private boolean isRankInComparison(PlanContext planContext, ComponentWithComparison comparison, String bindingName) {
         if (!(comparison instanceof QueryRecordFunctionWithComparison)) {
             return false;
         }
@@ -662,7 +649,8 @@ public class RecordQueryPlanner implements QueryPlanner {
      * @see RecordQueryPlannerConfiguration#getMaxNumReplansForInToJoin()
      * @see RecordQueryPlannerConfiguration#getMaxNumReplansForInUnion()
      */
-    private PlanWithInExtractor planExtractedInsFilter(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor, boolean needOrdering, int maxNumReplansConfig) {
+    @Nullable
+    private PlanWithInExtractor planExtractedInsFilter(PlanContext planContext, InExtractor inExtractor, boolean needOrdering, int maxNumReplansConfig) {
         int maxNumReplans = Math.max(maxNumReplansConfig, 0);
         boolean allowNonSargedInBindings = maxNumReplansConfig < 0;
 
@@ -734,7 +722,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      * @return the best plan found for provided filter or {@code null} if none could be found
      */
     @Nullable
-    private ScoredPlan planExtractedInsFilterOnce(@Nonnull PlanContext planContext, @Nonnull QueryComponent filter, boolean needOrdering) {
+    private ScoredPlan planExtractedInsFilterOnce(PlanContext planContext, QueryComponent filter, boolean needOrdering) {
         planContext.rankComparisons = new RankComparisons(filter, planContext.indexes);
         List<ScoredPlan> intersectionCandidates = new ArrayList<>();
         ScoredPlan bestPlan = null;
@@ -768,7 +756,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     // Get the key expression for the index entries of the given index, which includes primary key fields for normal indexes.
-    private KeyExpression indexKeyExpressionForPlan(@Nullable KeyExpression commonPrimaryKey, @Nonnull Index index) {
+    private KeyExpression indexKeyExpressionForPlan(@Nullable KeyExpression commonPrimaryKey, Index index) {
         KeyExpression indexKeyExpression = index.getRootExpression();
         if (indexKeyExpression instanceof KeyWithValueExpression) {
             indexKeyExpression = ((KeyWithValueExpression) indexKeyExpression).getKeyExpression();
@@ -788,8 +776,8 @@ public class RecordQueryPlanner implements QueryPlanner {
         return indexKeyExpression;
     }
 
-    public boolean isBetterThanOther(@Nonnull final PlanContext planContext,
-                                     @Nonnull final ScoredPlan plan,
+    public boolean isBetterThanOther(final PlanContext planContext,
+                                     final ScoredPlan plan,
                                      @Nullable final Index index,
                                      @Nullable final ScoredPlan otherPlan,
                                      @Nullable final Index otherIndex) {
@@ -825,9 +813,9 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredPlan planIndex(@Nonnull PlanContext planContext, @Nonnull QueryComponent filter,
-                                 @Nullable Index index, @Nonnull KeyExpression indexExpr,
-                                 @Nonnull List<ScoredPlan> intersectionCandidates) {
+    private ScoredPlan planIndex(PlanContext planContext, QueryComponent filter,
+                                 @Nullable Index index, KeyExpression indexExpr,
+                                 List<ScoredPlan> intersectionCandidates) {
         final KeyExpression sort = planContext.query.getSort();
         final boolean sortReverse = planContext.query.isSortReverse();
         final CandidateScan candidateScan = new CandidateScan(planContext, index, sortReverse);
@@ -904,7 +892,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         return p;
     }
 
-    private ScoredPlan computePlanProperties(@Nonnull PlanContext planContext, @Nonnull final ScoredPlan plan) {
+    private ScoredPlan computePlanProperties(PlanContext planContext, final ScoredPlan plan) {
         final Set<Comparisons.Comparison> sargedComparisons = computeSargedComparisons(plan.getPlan());
 
         List<QueryComponent> indexFilters = plan.indexFilters;
@@ -943,14 +931,14 @@ public class RecordQueryPlanner implements QueryPlanner {
         return plan.withFiltersAndSargedComparisons(residualFilters, indexFilters, sargedComparisons, flowsAllRequiredFields);
     }
 
-    protected Set<Comparisons.Comparison> computeSargedComparisons(@Nonnull final RecordQueryPlan plan) {
+    protected Set<Comparisons.Comparison> computeSargedComparisons(final RecordQueryPlan plan) {
         return comparisons().evaluate(plan);
     }
 
     @Nullable
-    private ScoredMatch matchCandidateScan(@Nonnull CandidateScan candidateScan,
-                                           @Nonnull KeyExpression indexExpr,
-                                           @Nonnull QueryComponent filter, @Nullable KeyExpression sort) {
+    private ScoredMatch matchCandidateScan(CandidateScan candidateScan,
+                                           KeyExpression indexExpr,
+                                           @Nullable QueryComponent filter, @Nullable KeyExpression sort) {
         filter = candidateScan.planContext.rankComparisons.planComparisonSubstitute(filter);
         if (filter instanceof FieldWithComparison) {
             return planFieldWithComparison(candidateScan, indexExpr, (FieldWithComparison) filter, sort, true);
@@ -975,7 +963,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredPlan matchToPlan(@Nonnull final CandidateScan candidateScan,
+    private ScoredPlan matchToPlan(final CandidateScan candidateScan,
                                    @Nullable final ScoredMatch scoredMatch) {
         if (scoredMatch == null) {
             return null;
@@ -990,8 +978,8 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredPlan matchToMultidimensionalIndexScan(final @Nonnull CandidateScan candidateScan,
-                                                        final @Nonnull ScoredMatch scoredMatch, final Index index) {
+    private ScoredPlan matchToMultidimensionalIndexScan(final CandidateScan candidateScan,
+                                                        final ScoredMatch scoredMatch, final Index index) {
         final ComparisonRanges comparisonRanges = scoredMatch.getComparisonRanges();
 
         final DimensionsKeyExpression dimensionsKeyExpression =
@@ -1051,8 +1039,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         return scoredPlan;
     }
 
-    @Nonnull
-    private List<Index> readableOf(@Nonnull List<Index> indexes) {
+    private List<Index> readableOf(List<Index> indexes) {
         if (recordStoreState.allIndexesReadable()) {
             return indexes;
         } else {
@@ -1060,8 +1047,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
     }
 
-    @Nonnull
-    private PlanContext getPlanContext(@Nonnull RecordQuery query) {
+    private PlanContext getPlanContext(RecordQuery query) {
         final List<Index> indexes = new ArrayList<>();
         @Nullable final KeyExpression commonPrimaryKey;
 
@@ -1095,15 +1081,16 @@ public class RecordQueryPlanner implements QueryPlanner {
             recordStoreState.endRead();
         }
 
-        indexes.removeIf(query.hasAllowedIndexes() ?
-                index -> !query.getAllowedIndexes().contains(index.getName()) :
+        final Collection<String> allowedIndexes = query.getAllowedIndexes();
+        indexes.removeIf(allowedIndexes != null ?
+                index -> !allowedIndexes.contains(index.getName()) :
                 index -> !query.getIndexQueryabilityFilter().isQueryable(index));
 
         return new PlanContext(query, indexes, commonPrimaryKey);
     }
 
     @Nullable
-    private ScoredPlan planRemoveDuplicates(@Nonnull PlanContext planContext, @Nonnull ScoredPlan plan) {
+    private ScoredPlan planRemoveDuplicates(PlanContext planContext, ScoredPlan plan) {
         if (plan.createsDuplicates && planContext.query.removesDuplicates()) {
             if (planContext.commonPrimaryKey == null) {
                 return null;
@@ -1116,10 +1103,9 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
     }
 
-    @Nonnull
-    private ScoredPlan handleNonSargables(@Nonnull ScoredPlan bestPlan,
-                                          @Nonnull List<ScoredPlan> intersectionCandidates,
-                                          @Nonnull PlanContext planContext) {
+    private ScoredPlan handleNonSargables(ScoredPlan bestPlan,
+                                          List<ScoredPlan> intersectionCandidates,
+                                          PlanContext planContext) {
         if (planContext.commonPrimaryKey != null && !intersectionCandidates.isEmpty()) {
             KeyExpression comparisonKey = planContext.commonPrimaryKey;
             final KeyExpression sort = planContext.query.getSort();
@@ -1135,8 +1121,10 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         if (bestPlan.getNumNonSargables() > 0) {
+            // planComparisonSubstitutes(components) only returns null when components is null; combineNonSargables()
+            // never returns null, so this call doesn't either.
             final RecordQueryPlan filtered = new RecordQueryFilterPlan(bestPlan.getPlan(),
-                    planContext.rankComparisons.planComparisonSubstitutes(bestPlan.combineNonSargables()));
+                    Objects.requireNonNull(planContext.rankComparisons.planComparisonSubstitutes(bestPlan.combineNonSargables())));
             // TODO: further optimization requires knowing which filters are satisfied
             return new ScoredPlan(filtered, Collections.emptyList(), Collections.emptyList(),
                     bestPlan.sargedComparisons, bestPlan.score, bestPlan.createsDuplicates, bestPlan.isStrictlySorted,
@@ -1147,8 +1135,8 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredPlan planIntersection(@Nonnull List<ScoredPlan> intersectionCandidates,
-                                        @Nonnull KeyExpression comparisonKey) {
+    private ScoredPlan planIntersection(List<ScoredPlan> intersectionCandidates,
+                                        KeyExpression comparisonKey) {
         // Prefer plans that handle more filters (leave fewer unhandled), more index filters
         intersectionCandidates.sort(
                 Comparator.comparingInt(ScoredPlan::getNumNonSargables)
@@ -1195,9 +1183,9 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredMatch planOneOfThemWithComponent(@Nonnull CandidateScan candidateScan,
-                                                   @Nonnull KeyExpression indexExpr,
-                                                   @Nonnull OneOfThemWithComponent filter,
+    private ScoredMatch planOneOfThemWithComponent(CandidateScan candidateScan,
+                                                   KeyExpression indexExpr,
+                                                   OneOfThemWithComponent filter,
                                                    @Nullable KeyExpression sort) {
         if (indexExpr instanceof FieldKeyExpression) {
             return null;
@@ -1233,9 +1221,9 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredMatch planNesting(@Nonnull CandidateScan candidateScan,
-                                    @Nonnull NestingKeyExpression indexExpr,
-                                    @Nonnull OneOfThemWithComponent filter, @Nullable NestingKeyExpression sort) {
+    private ScoredMatch planNesting(CandidateScan candidateScan,
+                                    NestingKeyExpression indexExpr,
+                                    OneOfThemWithComponent filter, @Nullable NestingKeyExpression sort) {
         if (sort == null || Objects.equals(indexExpr.getParent().getFieldName(), sort.getParent().getFieldName())) {
             // great, sort aligns
             if (Objects.equals(indexExpr.getParent().getFieldName(), filter.getFieldName())) {
@@ -1247,9 +1235,9 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredMatch planNestedField(@Nonnull CandidateScan candidateScan,
-                                        @Nonnull KeyExpression indexExpr,
-                                        @Nonnull NestedField filter,
+    private ScoredMatch planNestedField(CandidateScan candidateScan,
+                                        KeyExpression indexExpr,
+                                        NestedField filter,
                                         @Nullable KeyExpression sort) {
         if (indexExpr instanceof FieldKeyExpression) {
             return null;
@@ -1261,8 +1249,9 @@ public class RecordQueryPlanner implements QueryPlanner {
         return null;
     }
 
-    private ScoredMatch planThenNestedField(@Nonnull CandidateScan candidateScan, @Nonnull ThenKeyExpression then,
-                                            @Nonnull NestedField filter, @Nullable KeyExpression sort) {
+    @Nullable
+    private ScoredMatch planThenNestedField(CandidateScan candidateScan, ThenKeyExpression then,
+                                            NestedField filter, @Nullable KeyExpression sort) {
         if (sort instanceof ThenKeyExpression || then.createsDuplicates()) {
             // Too complicated for the simple checks below.
             return planAndWithThen(candidateScan, then, Collections.singletonList(filter), sort);
@@ -1281,8 +1270,9 @@ public class RecordQueryPlanner implements QueryPlanner {
         return match;
     }
 
-    private ScoredMatch planNestingNestedField(@Nonnull CandidateScan candidateScan, @Nonnull NestingKeyExpression nesting,
-                                               @Nonnull NestedField filter, @Nullable KeyExpression sort) {
+    @Nullable
+    private ScoredMatch planNestingNestedField(CandidateScan candidateScan, NestingKeyExpression nesting,
+                                               NestedField filter, @Nullable KeyExpression sort) {
         if (Objects.equals(nesting.getParent().getFieldName(), filter.getFieldName())) {
             ScoredMatch childMatch = null;
             if (sort == null) {
@@ -1311,7 +1301,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ComparisonRanges getPlanComparisonRanges(@Nonnull final RecordQueryPlan plan) {
+    private ComparisonRanges getPlanComparisonRanges(final RecordQueryPlan plan) {
         if (plan instanceof RecordQueryTypeFilterPlan) {
             return getPlanComparisonRanges(((RecordQueryTypeFilterPlan) plan).getInnerPlan());
         }
@@ -1325,9 +1315,9 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredMatch planOneOfThemWithComparison(@Nonnull CandidateScan candidateScan,
-                                                    @Nonnull KeyExpression indexExpr,
-                                                    @Nonnull OneOfThemWithComparison oneOfThemWithComparison,
+    private ScoredMatch planOneOfThemWithComparison(CandidateScan candidateScan,
+                                                    KeyExpression indexExpr,
+                                                    OneOfThemWithComparison oneOfThemWithComparison,
                                                     @Nullable KeyExpression sort) {
         final Comparisons.Comparison comparison = oneOfThemWithComparison.getComparison();
         final ComparisonRanges comparisonRanges = ComparisonRanges.tryFrom(comparison);
@@ -1336,9 +1326,10 @@ public class RecordQueryPlanner implements QueryPlanner {
             final ComparisonRanges planComparisonRanges =
                     sortOnlyPlan == null ? null : getPlanComparisonRanges(sortOnlyPlan.getPlan());
             if (planComparisonRanges != null) {
+                // planComparisonRanges can only be non-null here if sortOnlyPlan was non-null (see the ternary above).
                 return new ScoredMatch(0, planComparisonRanges,
                         Collections.singletonList(oneOfThemWithComparison),
-                        sortOnlyPlan.createsDuplicates, sortOnlyPlan.isStrictlySorted);
+                        Objects.requireNonNull(sortOnlyPlan).createsDuplicates, sortOnlyPlan.isStrictlySorted);
             } else {
                 return null;
             }
@@ -1373,9 +1364,9 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredMatch planAnd(@Nonnull CandidateScan candidateScan,
-                                @Nonnull KeyExpression indexExpr,
-                                @Nonnull AndComponent filter,
+    private ScoredMatch planAnd(CandidateScan candidateScan,
+                                KeyExpression indexExpr,
+                                AndComponent filter,
                                 @Nullable KeyExpression sort) {
         if (indexExpr instanceof NestingKeyExpression) {
             return planAndWithNesting(candidateScan, (NestingKeyExpression)indexExpr, filter, sort);
@@ -1386,17 +1377,19 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
     }
 
-    private ScoredMatch planAndWithThen(@Nonnull CandidateScan candidateScan,
-                                       @Nonnull ThenKeyExpression indexExpr,
-                                       @Nonnull List<QueryComponent> filters,
+    @Nullable
+    private ScoredMatch planAndWithThen(CandidateScan candidateScan,
+                                       ThenKeyExpression indexExpr,
+                                       List<QueryComponent> filters,
                                        @Nullable KeyExpression sort) {
         return planAndWithThen(candidateScan, indexExpr, indexExpr.getChildren(), filters, sort);
     }
 
-    private ScoredMatch planAndWithThen(@Nonnull CandidateScan candidateScan,
+    @Nullable
+    private ScoredMatch planAndWithThen(CandidateScan candidateScan,
                                         @Nullable ThenKeyExpression indexExpr,
-                                        @Nonnull List<KeyExpression> indexChildren,
-                                        @Nonnull List<QueryComponent> filters,
+                                        List<KeyExpression> indexChildren,
+                                        List<QueryComponent> filters,
                                         @Nullable KeyExpression sort) {
         final AbstractAndWithThenPlanner andWithThenPlanner;
         if (candidateScan.index != null && candidateScan.index.getType().equals(IndexTypes.MULTIDIMENSIONAL)) {
@@ -1409,9 +1402,9 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredMatch planAndWithNesting(@Nonnull CandidateScan candidateScan,
-                                           @Nonnull NestingKeyExpression indexExpr,
-                                           @Nonnull AndComponent filter,
+    private ScoredMatch planAndWithNesting(CandidateScan candidateScan,
+                                           NestingKeyExpression indexExpr,
+                                           AndComponent filter,
                                            @Nullable KeyExpression sort) {
         final FieldKeyExpression parent = indexExpr.getParent();
         if (parent.getFanType() == FanType.None) {
@@ -1460,9 +1453,9 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredMatch planFieldWithComparison(@Nonnull CandidateScan candidateScan,
-                                                @Nonnull KeyExpression indexExpr,
-                                                @Nonnull FieldWithComparison singleField,
+    private ScoredMatch planFieldWithComparison(CandidateScan candidateScan,
+                                                KeyExpression indexExpr,
+                                                FieldWithComparison singleField,
                                                 @Nullable KeyExpression sort,
                                                 boolean fullKey) {
         final Comparisons.Comparison comparison = singleField.getComparison();
@@ -1507,9 +1500,9 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredMatch planQueryKeyExpressionWithComparison(@Nonnull CandidateScan candidateScan,
-                                                            @Nonnull KeyExpression indexExpr,
-                                                            @Nonnull QueryKeyExpressionWithComparison queryKeyExpressionWithComparison,
+    private ScoredMatch planQueryKeyExpressionWithComparison(CandidateScan candidateScan,
+                                                            KeyExpression indexExpr,
+                                                            QueryKeyExpressionWithComparison queryKeyExpressionWithComparison,
                                                             @Nullable KeyExpression sort) {
         if (indexExpr.equals(queryKeyExpressionWithComparison.getKeyExpression()) && (sort == null || sort.equals(indexExpr))) {
             final Comparisons.Comparison comparison = queryKeyExpressionWithComparison.getComparison();
@@ -1527,9 +1520,9 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredMatch planQueryKeyExpressionWithOneOfComparison(@Nonnull CandidateScan candidateScan,
-                                                                  @Nonnull KeyExpression indexExpr,
-                                                                  @Nonnull QueryKeyExpressionWithOneOfComparison queryKeyExpressionWithOneOfComparison,
+    private ScoredMatch planQueryKeyExpressionWithOneOfComparison(CandidateScan candidateScan,
+                                                                  KeyExpression indexExpr,
+                                                                  QueryKeyExpressionWithOneOfComparison queryKeyExpressionWithOneOfComparison,
                                                                   @Nullable KeyExpression sort) {
         if (indexExpr.equals(queryKeyExpressionWithOneOfComparison.getKeyExpression()) && (sort == null || sort.equals(indexExpr))) {
             final Comparisons.Comparison comparison = queryKeyExpressionWithOneOfComparison.getComparison();
@@ -1547,8 +1540,8 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredPlan planSortOnly(@Nonnull CandidateScan candidateScan,
-                                    @Nonnull KeyExpression indexExpr,
+    private ScoredPlan planSortOnly(CandidateScan candidateScan,
+                                    KeyExpression indexExpr,
                                     @Nullable KeyExpression sort) {
         if (sort == null) {
             return null;
@@ -1573,8 +1566,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
     }
 
-    @Nonnull
-    protected Set<String> getPossibleTypes(@Nonnull Index index) {
+    protected Set<String> getPossibleTypes(Index index) {
         final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
         if (recordTypes.size() == 1) {
             final RecordType singleRecordType = recordTypes.iterator().next();
@@ -1584,9 +1576,8 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
     }
 
-    @Nonnull
-    protected RecordQueryPlan addTypeFilterIfNeeded(@Nonnull CandidateScan candidateScan, @Nonnull RecordQueryPlan plan,
-                                                    @Nonnull Set<String> possibleTypes) {
+    protected RecordQueryPlan addTypeFilterIfNeeded(CandidateScan candidateScan, RecordQueryPlan plan,
+                                                    Set<String> possibleTypes) {
         Collection<String> allowedTypes = candidateScan.planContext.query.getRecordTypes();
         if (!allowedTypes.isEmpty() && !allowedTypes.containsAll(possibleTypes)) {
             return new RecordQueryTypeFilterPlan(plan, allowedTypes);
@@ -1596,9 +1587,9 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredMatch planVersion(@Nonnull CandidateScan candidateScan,
-                                    @Nonnull KeyExpression indexExpr,
-                                    @Nonnull QueryRecordFunctionWithComparison filter,
+    private ScoredMatch planVersion(CandidateScan candidateScan,
+                                    KeyExpression indexExpr,
+                                    QueryRecordFunctionWithComparison filter,
                                     @Nullable KeyExpression sort) {
         if (indexExpr instanceof VersionKeyExpression) {
             if (sort == null || sort.equals(VersionKeyExpression.VERSION)) {
@@ -1621,9 +1612,9 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private ScoredPlan planRank(@Nonnull CandidateScan candidateScan,
-                                @Nonnull Index index, @Nonnull GroupingKeyExpression indexExpr,
-                                @Nonnull QueryComponent filter) {
+    private ScoredPlan planRank(CandidateScan candidateScan,
+                                Index index, GroupingKeyExpression indexExpr,
+                                QueryComponent filter) {
         if (filter instanceof QueryRecordFunctionWithComparison) {
             final QueryRecordFunctionWithComparison filterComparison = (QueryRecordFunctionWithComparison) filter;
             final RankComparisons.RankComparison rankComparison = candidateScan.planContext.rankComparisons.getPlanComparison(filterComparison);
@@ -1644,9 +1635,9 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nullable
     @SuppressWarnings({"PMD.CompareObjectsWithEquals", "checkstyle:VariableDeclarationUsageDistance"})
-    private ScoredPlan planRankWithAnd(@Nonnull CandidateScan candidateScan,
-                                       @Nonnull Index index, @Nonnull GroupingKeyExpression indexExpr,
-                                       @Nonnull AndComponent and) {
+    private ScoredPlan planRankWithAnd(CandidateScan candidateScan,
+                                       Index index, GroupingKeyExpression indexExpr,
+                                       AndComponent and) {
         final List<QueryComponent> filters = and.getChildren();
         for (QueryComponent filter : filters) {
             if (filter instanceof QueryRecordFunctionWithComparison) {
@@ -1688,8 +1679,8 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    protected ScoredPlan planOther(@Nonnull CandidateScan candidateScan,
-                                   @Nonnull Index index, @Nonnull QueryComponent filter,
+    protected ScoredPlan planOther(CandidateScan candidateScan,
+                                   Index index, @Nullable QueryComponent filter,
                                    @Nullable KeyExpression sort, boolean sortReverse,
                                    @Nullable KeyExpression commonPrimaryKey) {
         if (indexTypes.getTextTypes().contains(index.getType())) {
@@ -1701,11 +1692,16 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nullable
     @SuppressWarnings("PMD.UnusedFormalParameter")
-    private ScoredPlan planText(@Nonnull CandidateScan candidateScan,
-                                @Nonnull Index index, @Nonnull QueryComponent filter,
+    private ScoredPlan planText(CandidateScan candidateScan,
+                                Index index, @Nullable QueryComponent filter,
                                 @Nullable KeyExpression sort, boolean sortReverse) {
         if (sort != null) {
             // TODO: Full Text: Sorts are not supported with full text queries (https://github.com/FoundationDB/fdb-record-layer/issues/55)
+            return null;
+        }
+        if (filter == null) {
+            // Nothing to text-search on; only reachable from plan()'s "attempt the whole filter" special case,
+            // which already excludes text-type indexes before calling this far, but be defensive anyway.
             return null;
         }
         FilterSatisfiedMask filterMask = FilterSatisfiedMask.of(filter);
@@ -1734,9 +1730,8 @@ public class RecordQueryPlanner implements QueryPlanner {
                 10, scan.createsDuplicates(), plan.isStrictlySorted(), false, null);
     }
 
-    @Nonnull
-    private RecordQueryPlan planScan(@Nonnull CandidateScan candidateScan,
-                                     @Nonnull IndexScanParameters indexScanParameters,
+    private RecordQueryPlan planScan(CandidateScan candidateScan,
+                                     IndexScanParameters indexScanParameters,
                                      boolean strictlySorted) {
         RecordQueryPlan plan;
         Set<String> possibleTypes;
@@ -1770,7 +1765,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         return plan;
     }
 
-    private boolean avoidScanPlan(@Nonnull PlanContext planContext) {
+    private boolean avoidScanPlan(PlanContext planContext) {
         final var queriedRecordTypes = planContext.query.getRecordTypes();
         final var syntheticRecordTypes = metaData.getSyntheticRecordTypes().keySet();
 
@@ -1791,8 +1786,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      * @param planContext the current plan context
      * @return an enum of type {@link FetchIndexRecords} which determines how records are fetched given an index key
      */
-    @Nonnull
-    protected FetchIndexRecords resolveFetchIndexRecords(@Nonnull PlanContext planContext) {
+    protected FetchIndexRecords resolveFetchIndexRecords(PlanContext planContext) {
         final var queriedRecordTypes = planContext.query.getRecordTypes();
         final var syntheticRecordTypes = metaData.getSyntheticRecordTypes().keySet();
         final var regularRecordTypes = metaData.getRecordTypes().keySet();
@@ -1814,8 +1808,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         return FetchIndexRecords.PRIMARY_KEY;
     }
 
-    @Nonnull
-    private RecordQueryPlan valueScan(@Nonnull CandidateScan candidateScan,
+    private RecordQueryPlan valueScan(CandidateScan candidateScan,
                                       @Nullable ScanComparisons scanComparisons,
                                       boolean strictlySorted) {
         IndexScanType scanType = candidateScan.index != null && this.configuration.valueIndexOverScanNeeded(candidateScan.index.getName())
@@ -1824,10 +1817,9 @@ public class RecordQueryPlanner implements QueryPlanner {
         return planScan(candidateScan, IndexScanComparisons.byValue(scanComparisons, scanType), strictlySorted);
     }
 
-    @Nonnull
-    private RecordQueryPlan rankScan(@Nonnull CandidateScan candidateScan,
-                                     @Nonnull QueryRecordFunctionWithComparison rank,
-                                     @Nonnull ScanComparisons scanComparisons) {
+    private RecordQueryPlan rankScan(CandidateScan candidateScan,
+                                     QueryRecordFunctionWithComparison rank,
+                                     ScanComparisons scanComparisons) {
         IndexScanComparisons scanParameters;
         if (FunctionNames.TIME_WINDOW_RANK.equals(rank.getFunction().getName())) {
             scanParameters = new TimeWindowScanComparisons(((TimeWindowRecordFunction<?>) rank.getFunction()).getTimeWindow(), scanComparisons);
@@ -1838,7 +1830,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredPlan planOr(@Nonnull PlanContext planContext, @Nonnull OrComponent filter) {
+    private ScoredPlan planOr(PlanContext planContext, OrComponent filter) {
         if (filter.getChildren().isEmpty()) {
             return null;
         }
@@ -1873,7 +1865,9 @@ public class RecordQueryPlanner implements QueryPlanner {
         // Note that this also improves the _second-best_ plan for planFilterWithInJoin, but an IN filter wins
         // out there over the equivalent OR(EQUALS) filters.
         if (allHaveSameBasePlan) {
-            final RecordQueryPlan combinedOrFilter = new RecordQueryFilterPlan(commonFilteredBasePlan,
+            // allHaveSameBasePlan is only ever true after the loop if commonFilteredBasePlan was set non-null on
+            // the first iteration and never contradicted (see the loop above), so it's guaranteed non-null here.
+            final RecordQueryPlan combinedOrFilter = new RecordQueryFilterPlan(Objects.requireNonNull(commonFilteredBasePlan),
                     new OrComponent(subplans.stream()
                             .map(subplan -> ((RecordQueryFilterPlan)subplan.getPlan()).getConjunctedFilter())
                             .collect(Collectors.toList())));
@@ -1899,7 +1893,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredPlan planOrderedUnion(@Nonnull PlanContext planContext, @Nonnull List<ScoredPlan> subplans) {
+    private ScoredPlan planOrderedUnion(PlanContext planContext, List<ScoredPlan> subplans) {
         @Nullable final KeyExpression sort = planContext.query.getSort();
         @Nullable KeyExpression candidateKey;
         boolean candidateOnly = false;
@@ -1945,7 +1939,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    private ScoredPlan planUnorderedUnion(@Nonnull PlanContext planContext, @Nonnull List<ScoredPlan> subplans) {
+    private ScoredPlan planUnorderedUnion(PlanContext planContext, List<ScoredPlan> subplans) {
         final KeyExpression sort = planContext.query.getSort();
         if (sort != null) {
             return null;
@@ -1985,8 +1979,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      * Generate a key for a merge operation, logically consisting of a sort key for the merge comparison and a primary
      * key for uniqueness. If the sort is a prefix of the primary key, then the primary key suffices.
      */
-    @Nonnull
-    private KeyExpression getKeyForMerge(@Nullable KeyExpression sort, @Nonnull KeyExpression candidateKey) {
+    private KeyExpression getKeyForMerge(@Nullable KeyExpression sort, KeyExpression candidateKey) {
         if (sort == null || sort.isPrefixKey(candidateKey)) {
             return candidateKey;
         } else if (candidateKey.isPrefixKey(sort)) {
@@ -1997,7 +1990,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     // TODO: Perhaps this should be a public method on Key.Expressions.
-    private ThenKeyExpression concatWithoutDuplicates(@Nullable KeyExpression expr1, @Nonnull KeyExpression expr2) {
+    private ThenKeyExpression concatWithoutDuplicates(@Nullable KeyExpression expr1, KeyExpression expr2) {
         final List<KeyExpression> children = new ArrayList<>(2);
         if (expr1 instanceof ThenKeyExpression) {
             children.addAll(((ThenKeyExpression)expr1).getChildren());
@@ -2016,7 +2009,6 @@ public class RecordQueryPlanner implements QueryPlanner {
         return new ThenKeyExpression(children);
     }
 
-    @Nonnull
     // This is sufficient to handle the very common case of a single prefix comparison.
     // Distribute it across a disjunction so that we can union complex index lookups.
     private QueryComponent normalizeAndOr(AndComponent and) {
@@ -2033,7 +2025,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         return and;
     }
 
-    private QueryComponent normalizeAndOrForInAsOr(@Nonnull QueryComponent component) {
+    private QueryComponent normalizeAndOrForInAsOr(QueryComponent component) {
         if (!(component instanceof AndComponent)) {
             return component;
         }
@@ -2078,9 +2070,8 @@ public class RecordQueryPlanner implements QueryPlanner {
         return distributed;
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private RecordQueryPlan tryToConvertToCoveringPlan(@Nonnull PlanContext planContext, @Nonnull RecordQueryPlan chosenPlan) {
+    private RecordQueryPlan tryToConvertToCoveringPlan(PlanContext planContext, RecordQueryPlan chosenPlan) {
         if (planContext.query.getRequiredResults() == null) {
             // This should already be true when calling, but as a safety precaution, check here anyway.
             return chosenPlan;
@@ -2098,7 +2089,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    public RecordQueryCoveringIndexPlan planCoveringAggregateIndex(@Nonnull RecordQuery query, @Nonnull String indexName) {
+    public RecordQueryCoveringIndexPlan planCoveringAggregateIndex(RecordQuery query, String indexName) {
         final Index index = metaData.getIndex(indexName);
         KeyExpression indexExpr = index.getRootExpression();
         if (indexExpr instanceof GroupingKeyExpression) {
@@ -2121,7 +2112,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    public RecordQueryCoveringIndexPlan planCoveringAggregateIndex(@Nonnull RecordQuery query, @Nonnull Index index, @Nonnull KeyExpression indexExpr) {
+    public RecordQueryCoveringIndexPlan planCoveringAggregateIndex(RecordQuery query, Index index, KeyExpression indexExpr) {
         final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
         if (recordTypes.size() != 1) {
             // Unfortunately, since we materialize partial records, we need a unique type for them.
@@ -2143,7 +2134,9 @@ public class RecordQueryPlanner implements QueryPlanner {
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
         final List<KeyExpression> keyFields = indexExpr.normalizeKeyForPositions();
         final List<KeyExpression> valueFields = Collections.emptyList();
-        for (KeyExpression resultField : query.getRequiredResults()) {
+        // A covering aggregate index plan needs to know which fields the caller requires; the query passed in
+        // here is required to have them set (see, e.g., ComposedBitmapIndexAggregate.plan's queryBuilder javadoc).
+        for (KeyExpression resultField : Objects.requireNonNull(query.getRequiredResults())) {
             if (!addCoveringField(resultField, builder, keyFields, valueFields)) {
                 return null;
             }
@@ -2160,10 +2153,10 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    private static boolean addCoveringField(@Nonnull KeyExpression requiredExpr,
-                                            @Nonnull IndexKeyValueToPartialRecord.Builder builder,
-                                            @Nonnull List<KeyExpression> keyFields,
-                                            @Nonnull List<KeyExpression> valueFields) {
+    private static boolean addCoveringField(KeyExpression requiredExpr,
+                                            IndexKeyValueToPartialRecord.Builder builder,
+                                            List<KeyExpression> keyFields,
+                                            List<KeyExpression> valueFields) {
         final IndexKeyValueToPartialRecord.TupleSource source;
         final int index;
 
@@ -2183,7 +2176,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         return AvailableFields.addCoveringField(requiredExpr, AvailableFields.FieldData.ofUnconditional(source, ImmutableIntArray.of(index)), builder);
     }
 
-    private static int keyFieldPosition(final @Nonnull KeyExpression requiredExpr, final @Nonnull List<KeyExpression> keyFields) {
+    private static int keyFieldPosition(final KeyExpression requiredExpr, final List<KeyExpression> keyFields) {
         int position = 0;
         for (KeyExpression keyField : keyFields) {
             if (keyField.equals(requiredExpr)) {
@@ -2195,16 +2188,19 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     private static class PlanContext {
-        @Nonnull
         final RecordQuery query;
-        @Nonnull
         final List<Index> indexes;
         @Nullable
         final KeyExpression commonPrimaryKey;
+        // Lazily set by planExtractedInsFilterOnce()/planCoveringAggregateIndex() before any planning code that
+        // reads it runs (e.g. matchCandidateScan()); not a constructor parameter because plan() and
+        // planCoveringAggregateIndex() each construct a PlanContext well before the filter used to build the
+        // RankComparisons is finalized.
         RankComparisons rankComparisons;
         boolean allowDuplicates;
 
-        public PlanContext(@Nonnull RecordQuery query, @Nonnull List<Index> indexes,
+        @SuppressWarnings("NullAway")
+        public PlanContext(RecordQuery query, List<Index> indexes,
                            @Nullable KeyExpression commonPrimaryKey) {
             this.query = query;
             this.indexes = indexes;
@@ -2213,19 +2209,17 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     protected static class CandidateScan {
-        @Nonnull
         final PlanContext planContext;
         @Nullable
         final Index index;
         final boolean reverse;
 
-        public CandidateScan(@Nonnull PlanContext planContext, @Nullable Index index, boolean reverse) {
+        public CandidateScan(PlanContext planContext, @Nullable Index index, boolean reverse) {
             this.planContext = planContext;
             this.index = index;
             this.reverse = reverse;
         }
 
-        @Nonnull
         public PlanContext getPlanContext() {
             return planContext;
         }
@@ -2242,7 +2236,6 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     protected abstract static class ScoredInfo<T, S extends ScoredInfo<T, S>> {
         final int score;
-        @Nonnull
         final T info;
 
         /**
@@ -2251,15 +2244,11 @@ public class RecordQueryPlanner implements QueryPlanner {
          * sufficient. Remember to carry things up when dealing with children (i.e. a OneOfThemWithComponent that has
          * a partially satisfied And for its child, will be completely unsatisfied)
          */
-        @Nonnull
         final List<QueryComponent> unsatisfiedFilters;
-        @Nonnull
         final List<QueryComponent> indexFilters;
 
-        @Nonnull
         final Set<Comparisons.Comparison> sargedComparisons;
 
-        @Nonnull
         private final Supplier<Set<String>> sargedInBindingsSupplier;
 
         final boolean createsDuplicates;
@@ -2271,9 +2260,9 @@ public class RecordQueryPlanner implements QueryPlanner {
         @Nullable
         PlanOrderingKey planOrderingKey;
 
-        public ScoredInfo(@Nonnull T info,
-                          @Nonnull List<QueryComponent> unsatisfiedFilters, @Nonnull final List<QueryComponent> indexFilters,
-                          @Nonnull final Set<Comparisons.Comparison> sargedComparisons, int score, boolean createsDuplicates,
+        public ScoredInfo(T info,
+                          List<QueryComponent> unsatisfiedFilters, final List<QueryComponent> indexFilters,
+                          final Set<Comparisons.Comparison> sargedComparisons, int score, boolean createsDuplicates,
                           boolean isStrictlySorted, boolean flowsAllRequiredFields,
                           @Nullable Set<RankComparisons.RankComparison> includedRankComparisons) {
             this.score = score;
@@ -2309,20 +2298,18 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         protected abstract S getThis();
 
-        protected abstract S with(@Nonnull T plan, @Nonnull List<QueryComponent> unsatisfiedFilters,
-                                  @Nonnull List<QueryComponent> indexFilters,
-                                  @Nonnull Set<Comparisons.Comparison> sargedComparisons,
+        protected abstract S with(T plan, List<QueryComponent> unsatisfiedFilters,
+                                  List<QueryComponent> indexFilters,
+                                  Set<Comparisons.Comparison> sargedComparisons,
                                   int score, boolean createsDuplicates, boolean isStrictlySorted,
                                   boolean flowsAllRequiredFields,
                                   @Nullable Set<RankComparisons.RankComparison> includedRankComparisons);
 
-        @Nonnull
-        public S withInfo(@Nonnull T newInfo) {
+        public S withInfo(T newInfo) {
             return with(newInfo, unsatisfiedFilters, indexFilters, sargedComparisons, score, createsDuplicates,
                     isStrictlySorted, flowsAllRequiredFields, includedRankComparisons);
         }
 
-        @Nonnull
         public S withScore(int newScore) {
             if (newScore == score) {
                 return getThis();
@@ -2346,20 +2333,17 @@ public class RecordQueryPlanner implements QueryPlanner {
                     .collect(ImmutableSet.toImmutableSet());
         }
 
-        @Nonnull
-        public S withUnsatisfiedFilters(@Nonnull List<QueryComponent> newFilters) {
+        public S withUnsatisfiedFilters(List<QueryComponent> newFilters) {
             return with(info, newFilters, indexFilters, sargedComparisons, score, createsDuplicates, isStrictlySorted,
                     flowsAllRequiredFields, includedRankComparisons);
         }
 
-        @Nonnull
-        public S withIndexFilters(@Nonnull List<QueryComponent> newIndexFilters) {
+        public S withIndexFilters(List<QueryComponent> newIndexFilters) {
             return with(info, unsatisfiedFilters, newIndexFilters, sargedComparisons, score,
                     createsDuplicates, isStrictlySorted, flowsAllRequiredFields, includedRankComparisons);
         }
 
-        @Nonnull
-        public S withAdditionalIndexFilters(@Nonnull List<QueryComponent> additionalIndexFilters) {
+        public S withAdditionalIndexFilters(List<QueryComponent> additionalIndexFilters) {
             final List<QueryComponent> newIndexFilters = Lists.newArrayList();
             newIndexFilters.addAll(indexFilters);
             newIndexFilters.addAll(additionalIndexFilters);
@@ -2367,23 +2351,20 @@ public class RecordQueryPlanner implements QueryPlanner {
                     isStrictlySorted, flowsAllRequiredFields, includedRankComparisons);
         }
 
-        @Nonnull
-        public S withResidualFilterAndSargedComparisons(@Nonnull List<QueryComponent> newUnsatisfiedFilters,  @Nonnull final Set<Comparisons.Comparison> sargedComparisons, boolean flowsAllRequiredFields) {
+        public S withResidualFilterAndSargedComparisons(List<QueryComponent> newUnsatisfiedFilters,  final Set<Comparisons.Comparison> sargedComparisons, boolean flowsAllRequiredFields) {
             return withFiltersAndSargedComparisons(newUnsatisfiedFilters, Collections.emptyList(), sargedComparisons, flowsAllRequiredFields);
         }
 
-        @Nonnull
-        public S withFiltersAndSargedComparisons(@Nonnull List<QueryComponent> newUnsatisfiedFilters, @Nonnull List<QueryComponent> newIndexFilters, @Nonnull final Set<Comparisons.Comparison> sargedComparisons, boolean flowsAllRequiredFields) {
+        public S withFiltersAndSargedComparisons(List<QueryComponent> newUnsatisfiedFilters, List<QueryComponent> newIndexFilters, final Set<Comparisons.Comparison> sargedComparisons, boolean flowsAllRequiredFields) {
             return with(info, newUnsatisfiedFilters, newIndexFilters, sargedComparisons, score, createsDuplicates,
                     isStrictlySorted, flowsAllRequiredFields, includedRankComparisons);
         }
 
-        public S withSargedComparisons(@Nonnull Set<Comparisons.Comparison> sargedComparisons) {
+        public S withSargedComparisons(Set<Comparisons.Comparison> sargedComparisons) {
             return with(info, unsatisfiedFilters, indexFilters, sargedComparisons, score, createsDuplicates,
                     isStrictlySorted, flowsAllRequiredFields, includedRankComparisons);
         }
 
-        @Nonnull
         public S withCreatesDuplicates(boolean newCreatesDuplicates) {
             if (createsDuplicates == newCreatesDuplicates) {
                 return getThis();
@@ -2395,24 +2376,24 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     protected static class ScoredPlan extends ScoredInfo<RecordQueryPlan, ScoredPlan> {
-        public ScoredPlan(int score, @Nonnull RecordQueryPlan plan) {
+        public ScoredPlan(int score, RecordQueryPlan plan) {
             this(score, plan, Collections.emptyList());
         }
 
-        public ScoredPlan(int score, @Nonnull RecordQueryPlan plan,
-                          @Nonnull List<QueryComponent> unsatisfiedFilters) {
+        public ScoredPlan(int score, RecordQueryPlan plan,
+                          List<QueryComponent> unsatisfiedFilters) {
             this(score, plan, unsatisfiedFilters, false, false);
         }
 
-        public ScoredPlan(int score, @Nonnull RecordQueryPlan plan, @Nonnull List<QueryComponent> unsatisfiedFilters,
+        public ScoredPlan(int score, RecordQueryPlan plan, List<QueryComponent> unsatisfiedFilters,
                           boolean createsDuplicates, boolean isStrictlySorted) {
             this(plan, unsatisfiedFilters, Collections.emptyList(), Collections.emptySet(), score,
                     createsDuplicates, isStrictlySorted, false, null);
         }
 
-        public ScoredPlan(@Nonnull RecordQueryPlan plan, @Nonnull List<QueryComponent> unsatisfiedFilters,
-                          @Nonnull final List<QueryComponent> indexFilters,
-                          @Nonnull final Set<Comparisons.Comparison> sargedComparisons, int score, boolean createsDuplicates,
+        public ScoredPlan(RecordQueryPlan plan, List<QueryComponent> unsatisfiedFilters,
+                          final List<QueryComponent> indexFilters,
+                          final Set<Comparisons.Comparison> sargedComparisons, int score, boolean createsDuplicates,
                           boolean isStrictlySorted, boolean flowsAllRequiredFields,
                           @Nullable Set<RankComparisons.RankComparison> includedRankComparisons) {
             super(plan, unsatisfiedFilters, indexFilters, sargedComparisons, score, createsDuplicates, isStrictlySorted,
@@ -2428,16 +2409,15 @@ public class RecordQueryPlanner implements QueryPlanner {
          * Make callers get the plan in a more readable way.
          * @return the {@link RecordQueryPlan}
          */
-        @Nonnull
         public RecordQueryPlan getPlan() {
             return info;
         }
 
         @Override
-        protected ScoredPlan with(@Nonnull final RecordQueryPlan plan,
-                                  @Nonnull final List<QueryComponent> unsatisfiedFilters,
-                                  @Nonnull final List<QueryComponent> indexFilters,
-                                  @Nonnull final Set<Comparisons.Comparison> sargedComparisons,
+        protected ScoredPlan with(final RecordQueryPlan plan,
+                                  final List<QueryComponent> unsatisfiedFilters,
+                                  final List<QueryComponent> indexFilters,
+                                  final Set<Comparisons.Comparison> sargedComparisons,
                                   final int score, final boolean createsDuplicates, final boolean isStrictlySorted,
                                   final boolean flowsAllRequiredFields,
                                   @Nullable final Set<RankComparisons.RankComparison> includedRankComparisons) {
@@ -2447,24 +2427,24 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     protected static class ScoredMatch extends ScoredInfo<ComparisonRanges, ScoredMatch> {
-        public ScoredMatch(int score, @Nonnull ComparisonRanges comparisonRanges) {
+        public ScoredMatch(int score, ComparisonRanges comparisonRanges) {
             this(score, comparisonRanges, Collections.emptyList());
         }
 
-        public ScoredMatch(int score, @Nonnull ComparisonRanges comparisonRanges,
-                           @Nonnull List<QueryComponent> unsatisfiedFilters) {
+        public ScoredMatch(int score, ComparisonRanges comparisonRanges,
+                           List<QueryComponent> unsatisfiedFilters) {
             this(score, comparisonRanges, unsatisfiedFilters, false, false);
         }
 
-        public ScoredMatch(int score, @Nonnull ComparisonRanges comparisonRanges,
-                           @Nonnull List<QueryComponent> unsatisfiedFilters, boolean createsDuplicates, boolean isStrictlySorted) {
+        public ScoredMatch(int score, ComparisonRanges comparisonRanges,
+                           List<QueryComponent> unsatisfiedFilters, boolean createsDuplicates, boolean isStrictlySorted) {
             this(comparisonRanges, unsatisfiedFilters, Collections.emptyList(), Collections.emptySet(), score,
                     createsDuplicates, isStrictlySorted, false, null);
         }
 
-        public ScoredMatch(@Nonnull ComparisonRanges comparisonRanges,
-                           @Nonnull List<QueryComponent> unsatisfiedFilters, @Nonnull final List<QueryComponent> indexFilters,
-                           @Nonnull final Set<Comparisons.Comparison> sargedComparisons, int score, boolean createsDuplicates,
+        public ScoredMatch(ComparisonRanges comparisonRanges,
+                           List<QueryComponent> unsatisfiedFilters, final List<QueryComponent> indexFilters,
+                           final Set<Comparisons.Comparison> sargedComparisons, int score, boolean createsDuplicates,
                            boolean isStrictlySorted, boolean flowsAllRequiredFields,
                            @Nullable Set<RankComparisons.RankComparison> includedRankComparisons) {
             super(comparisonRanges, unsatisfiedFilters, indexFilters, sargedComparisons, score, createsDuplicates,
@@ -2480,16 +2460,15 @@ public class RecordQueryPlanner implements QueryPlanner {
          * Make callers get the info in a more readable way.
          * @return the {@link ComparisonRanges}
          */
-        @Nonnull
         public ComparisonRanges getComparisonRanges() {
             return info;
         }
 
         @Override
-        protected ScoredMatch with(@Nonnull final ComparisonRanges comparisonRanges,
-                                   @Nonnull final List<QueryComponent> unsatisfiedFilters,
-                                   @Nonnull final List<QueryComponent> indexFilters,
-                                   @Nonnull final Set<Comparisons.Comparison> sargedComparisons,
+        protected ScoredMatch with(final ComparisonRanges comparisonRanges,
+                                   final List<QueryComponent> unsatisfiedFilters,
+                                   final List<QueryComponent> indexFilters,
+                                   final Set<Comparisons.Comparison> sargedComparisons,
                                    final int score, final boolean createsDuplicates, final boolean isStrictlySorted,
                                    final boolean flowsAllRequiredFields,
                                    @Nullable final Set<RankComparisons.RankComparison> includedRankComparisons) {
@@ -2497,8 +2476,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                     createsDuplicates, isStrictlySorted, flowsAllRequiredFields, includedRankComparisons);
         }
 
-        @Nonnull
-        public ScoredPlan asScoredPlan(@Nonnull final RecordQueryPlan recordQueryPlan) {
+        public ScoredPlan asScoredPlan(final RecordQueryPlan recordQueryPlan) {
             return new ScoredPlan(recordQueryPlan, unsatisfiedFilters, indexFilters, sargedComparisons, score,
                     createsDuplicates, isStrictlySorted, flowsAllRequiredFields, includedRankComparisons);
         }
@@ -2524,26 +2502,21 @@ public class RecordQueryPlanner implements QueryPlanner {
         /**
          * The children of the root expression or a single key expression if the index actually has only a single column.
          */
-        @Nonnull
         protected final List<KeyExpression> indexChildren;
         /**
          * The children of the {@link AndComponent} or a single filter if the query is actually on a single component.
          */
-        @Nonnull
         protected final List<QueryComponent> filters;
         @Nullable
         protected final KeyExpression sort;
-        @Nonnull
         protected final CandidateScan candidateScan;
         /**
          * The filters in the {@link AndComponent} that have not been satisfied (yet).
          */
-        @Nonnull
         protected final List<QueryComponent> unsatisfiedFilters;
         /**
          * The set of sort keys that have not been satisfied (yet).
          */
-        @Nonnull
         protected final List<KeyExpression> unsatisfiedSorts;
         /**
          * True if the current child of the index {@link ThenKeyExpression Then} clause has a corresponding equality comparison in the filter.
@@ -2554,10 +2527,10 @@ public class RecordQueryPlanner implements QueryPlanner {
          */
         protected boolean foundCompleteComparison;
 
-        protected AbstractAndWithThenPlanner(@Nonnull CandidateScan candidateScan,
+        protected AbstractAndWithThenPlanner(CandidateScan candidateScan,
                                              @Nullable ThenKeyExpression indexExpr,
-                                             @Nonnull List<KeyExpression> indexChildren,
-                                             @Nonnull List<QueryComponent> filters,
+                                             List<KeyExpression> indexChildren,
+                                             List<QueryComponent> filters,
                                              @Nullable KeyExpression sort) {
             this.indexExpr = indexExpr;
             this.indexChildren = indexChildren;
@@ -2590,7 +2563,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
 
-        protected void planChild(@Nonnull KeyExpression child) {
+        protected void planChild(KeyExpression child) {
             foundCompleteComparison = foundComparison = false;
             if (child instanceof RecordTypeKeyExpression) {
                 if (candidateScan.planContext.query.getRecordTypes().size() == 1) {
@@ -2657,23 +2630,23 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
 
-        private boolean planNestedFieldChild(@Nonnull KeyExpression child, @Nonnull NestedField filterField, @Nonnull QueryComponent filterChild) {
+        private boolean planNestedFieldChild(KeyExpression child, NestedField filterField, QueryComponent filterChild) {
             return planNestedFieldOrComponentChild(child, filterChild,
                     (maybeSort) -> planNestedField(candidateScan, child, filterField, maybeSort));
         }
 
-        private boolean planOneOfThemWithComponentChild(@Nonnull KeyExpression child, @Nonnull OneOfThemWithComponent oneOfThemWithComponent, @Nonnull QueryComponent filterChild) {
+        private boolean planOneOfThemWithComponentChild(KeyExpression child, OneOfThemWithComponent oneOfThemWithComponent, QueryComponent filterChild) {
             return planNestedFieldOrComponentChild(child, filterChild,
                     (maybeSort) -> planOneOfThemWithComponent(candidateScan, child, oneOfThemWithComponent, maybeSort));
         }
 
-        protected abstract boolean planNestedFieldOrComponentChild(@Nonnull KeyExpression child,
-                                                                   @Nonnull QueryComponent filterChild,
-                                                                   @Nonnull Function<KeyExpression, ScoredMatch> maybeSortedMatch);
+        protected abstract boolean planNestedFieldOrComponentChild(KeyExpression child,
+                                                                   QueryComponent filterChild,
+                                                                   Function<@Nullable KeyExpression, @Nullable ScoredMatch> maybeSortedMatch);
 
         protected abstract int getEqualitySize();
 
-        private void planWithComparisonChild(@Nonnull KeyExpression child, @Nonnull FieldWithComparison field, @Nonnull QueryComponent filterChild) {
+        private void planWithComparisonChild(KeyExpression child, FieldWithComparison field, QueryComponent filterChild) {
             if (child instanceof FieldKeyExpression) {
                 FieldKeyExpression indexField = (FieldKeyExpression) child;
                 if (Objects.equals(field.getFieldName(), indexField.getFieldName())) {
@@ -2688,7 +2661,10 @@ public class RecordQueryPlanner implements QueryPlanner {
                     if (Objects.equals(field.getFieldName(), indexField.getFieldName())) {
                         final OrderQueryKeyExpression orderedExpression = new OrderQueryKeyExpression(indexOrderedField);
                         final Pair<Comparisons.Comparison, Comparisons.Comparison> adjustedComparisons = orderedExpression.adjustComparison(field.getComparison());
-                        if (adjustedComparisons != null && addToComparisons(adjustedComparisons.getLeft())) {
+                        // Pair.getLeft()/getRight() are unconditionally declared @Nullable, but adjustComparison()'s
+                        // contract guarantees a non-null left (the adjusted comparison); only the right (an
+                        // optional null-exclusion comparison, checked below) may be absent.
+                        if (adjustedComparisons != null && addToComparisons(Objects.requireNonNull(adjustedComparisons.getLeft()))) {
                             if (adjustedComparisons.getRight() != null) {
                                 addToComparisons(adjustedComparisons.getRight());
                             }
@@ -2699,7 +2675,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
 
-        private void planWithComparisonChild(@Nonnull KeyExpression child, @Nonnull QueryKeyExpressionWithComparison queryKeyExpression, @Nonnull QueryComponent filterChild) {
+        private void planWithComparisonChild(KeyExpression child, QueryKeyExpressionWithComparison queryKeyExpression, QueryComponent filterChild) {
             if (child.equals(queryKeyExpression.getKeyExpression())) {
                 if (addToComparisons(queryKeyExpression.getComparison())) {
                     addedComparison(child, filterChild);
@@ -2707,7 +2683,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
 
-        private void planOneOfThemWithComparisonChild(@Nonnull KeyExpression child, @Nonnull OneOfThemWithComparison oneOfThem, @Nonnull QueryComponent filterChild) {
+        private void planOneOfThemWithComparisonChild(KeyExpression child, OneOfThemWithComparison oneOfThem, QueryComponent filterChild) {
             if (child instanceof FieldKeyExpression) {
                 FieldKeyExpression indexField = (FieldKeyExpression) child;
                 if (Objects.equals(oneOfThem.getFieldName(), indexField.getFieldName()) && indexField.getFanType() == FanType.FanOut) {
@@ -2718,7 +2694,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
 
-        private void planOneOfThemWithComparisonChild(@Nonnull KeyExpression child, @Nonnull QueryKeyExpressionWithOneOfComparison queryKeyExpression, @Nonnull QueryComponent filterChild) {
+        private void planOneOfThemWithComparisonChild(KeyExpression child, QueryKeyExpressionWithOneOfComparison queryKeyExpression, QueryComponent filterChild) {
             if (child.equals(queryKeyExpression.getKeyExpression())) {
                 if (addToComparisons(queryKeyExpression.getComparison())) {
                     addedComparison(child, filterChild);
@@ -2726,7 +2702,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
 
-        private void planWithVersionComparisonChild(@Nonnull KeyExpression child, @Nonnull QueryRecordFunctionWithComparison filter, @Nonnull QueryComponent filterChild) {
+        private void planWithVersionComparisonChild(KeyExpression child, QueryRecordFunctionWithComparison filter, QueryComponent filterChild) {
             if (child instanceof VersionKeyExpression) {
                 if (addToComparisons(filter.getComparison())) {
                     addedComparison(child, filterChild);
@@ -2734,9 +2710,9 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
 
-        protected abstract boolean addToComparisons(@Nonnull Comparisons.Comparison comparison);
+        protected abstract boolean addToComparisons(Comparisons.Comparison comparison);
 
-        protected abstract void addedComparison(@Nonnull KeyExpression child, @Nonnull QueryComponent filterChild);
+        protected abstract void addedComparison(KeyExpression child, QueryComponent filterChild);
     }
 
     /**
@@ -2754,34 +2730,33 @@ public class RecordQueryPlanner implements QueryPlanner {
         /**
          * Accumulate matching comparisons here.
          */
-        @Nonnull
         private final ScanComparisons.Builder comparisons;
 
-        public AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
-                                  @Nonnull ThenKeyExpression indexExpr,
-                                  @Nonnull AndComponent filter,
+        public AndWithThenPlanner(CandidateScan candidateScan,
+                                  ThenKeyExpression indexExpr,
+                                  AndComponent filter,
                                   @Nullable KeyExpression sort) {
             this(candidateScan, indexExpr, filter.getChildren(), sort);
         }
 
-        public AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
-                                  @Nonnull ThenKeyExpression indexExpr,
-                                  @Nonnull List<QueryComponent> filters,
+        public AndWithThenPlanner(CandidateScan candidateScan,
+                                  ThenKeyExpression indexExpr,
+                                  List<QueryComponent> filters,
                                   @Nullable KeyExpression sort) {
             this(candidateScan, indexExpr, indexExpr.getChildren(), filters, sort);
         }
 
-        public AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
-                                  @Nonnull List<KeyExpression> indexChildren,
-                                  @Nonnull AndComponent filter,
+        public AndWithThenPlanner(CandidateScan candidateScan,
+                                  List<KeyExpression> indexChildren,
+                                  AndComponent filter,
                                   @Nullable KeyExpression sort) {
             this(candidateScan, null, indexChildren, filter.getChildren(), sort);
         }
 
-        private AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
+        private AndWithThenPlanner(CandidateScan candidateScan,
                                    @Nullable ThenKeyExpression indexExpr,
-                                   @Nonnull List<KeyExpression> indexChildren,
-                                   @Nonnull List<QueryComponent> filters,
+                                   List<KeyExpression> indexChildren,
+                                   List<QueryComponent> filters,
                                    @Nullable KeyExpression sort) {
             super(candidateScan, indexExpr, indexChildren, filters, sort);
             this.comparisons = new ScanComparisons.Builder();
@@ -2850,12 +2825,12 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         @Override
-        protected boolean planNestedFieldOrComponentChild(@Nonnull KeyExpression child,
-                                                          @Nonnull QueryComponent filterChild,
-                                                          @Nonnull Function<KeyExpression, ScoredMatch> maybeSortedMatch) {
+        protected boolean planNestedFieldOrComponentChild(KeyExpression child,
+                                                          QueryComponent filterChild,
+                                                          Function<@Nullable KeyExpression, @Nullable ScoredMatch> maybeSortedMatch) {
             ScoredMatch scoredMatch = maybeSortedMatch.apply(null);
             if (scoredMatch != null) {
-                ScanComparisons nextComparisons = scoredMatch.getComparisonRanges().toScanComparisons();
+                @Nullable ScanComparisons nextComparisons = scoredMatch.getComparisonRanges().toScanComparisons();
                 if (!comparisons.isEquality() && nextComparisons.getEqualitySize() > 0) {
                     throw new Query.InvalidExpressionException(
                             "Two nested fields in the same and clause, combine them into one");
@@ -2866,12 +2841,15 @@ public class RecordQueryPlanner implements QueryPlanner {
                         nextComparisons = scoredMatch == null ? null : scoredMatch.getComparisonRanges().toScanComparisons();
                     }
                     if (scoredMatch != null) {
+                        // nextComparisons is only reassigned together with scoredMatch above, so it's
+                        // guaranteed non-null whenever scoredMatch is (in both the reassigned and original case).
+                        final ScanComparisons nonNullNextComparisons = Objects.requireNonNull(nextComparisons);
                         unsatisfiedFilters.remove(filterChild);
                         unsatisfiedFilters.addAll(scoredMatch.unsatisfiedFilters);
-                        comparisons.addAll(nextComparisons);
-                        if (nextComparisons.isEquality()) {
+                        comparisons.addAll(nonNullNextComparisons);
+                        if (nonNullNextComparisons.isEquality()) {
                             foundComparison = true;
-                            foundCompleteComparison = nextComparisons.getEqualitySize() == child.getColumnSize();
+                            foundCompleteComparison = nonNullNextComparisons.getEqualitySize() == child.getColumnSize();
                             satisfyEqualitySort(child);
                         }
                         return true;
@@ -2883,14 +2861,14 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         // A sort key corresponding to an equality comparison is (trivially) satisfied throughout.
         @SuppressWarnings({"PMD.EmptyWhileStmt", "StatementWithEmptyBody"})
-        private void satisfyEqualitySort(@Nonnull KeyExpression child) {
+        private void satisfyEqualitySort(KeyExpression child) {
             while (unsatisfiedSorts.remove(child)) {
                 // Keep removing all occurrences.
             }
         }
 
         // Does this sort key from an inequality comparison or in the index after filters match what's pending?
-        private boolean nextSortSatisfied(@Nonnull KeyExpression child, int childColumns) {
+        private boolean nextSortSatisfied(KeyExpression child, int childColumns) {
             if (unsatisfiedSorts.isEmpty()) {
                 return false;
             }
@@ -2918,7 +2896,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         @Override
-        protected boolean addToComparisons(@Nonnull Comparisons.Comparison comparison) {
+        protected boolean addToComparisons(Comparisons.Comparison comparison) {
             switch (ScanComparisons.getComparisonType(comparison)) {
                 case EQUALITY:
                     // TODO: If there is an equality on the same field as inequalities, it
@@ -2940,7 +2918,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         @Override
-        protected void addedComparison(@Nonnull KeyExpression child, @Nonnull QueryComponent filterChild) {
+        protected void addedComparison(KeyExpression child, QueryComponent filterChild) {
             unsatisfiedFilters.remove(filterChild);
             if (foundComparison) {
                 foundCompleteComparison = true;
@@ -2969,13 +2947,12 @@ public class RecordQueryPlanner implements QueryPlanner {
         /**
          * Accumulate matching comparisons here.
          */
-        @Nonnull
         private final ComparisonRanges comparisons;
 
-        private MultidimensionalAndWithThenPlanner(@Nonnull CandidateScan candidateScan,
+        private MultidimensionalAndWithThenPlanner(CandidateScan candidateScan,
                                                    @Nullable ThenKeyExpression indexExpr,
-                                                   @Nonnull List<KeyExpression> indexChildren,
-                                                   @Nonnull List<QueryComponent> filters,
+                                                   List<KeyExpression> indexChildren,
+                                                   List<QueryComponent> filters,
                                                    @Nullable KeyExpression sort) {
             super(candidateScan, indexExpr, indexChildren, filters, sort);
             comparisons = new ComparisonRanges();
@@ -3048,9 +3025,9 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         @Override
-        protected boolean planNestedFieldOrComponentChild(@Nonnull KeyExpression child,
-                                                          @Nonnull QueryComponent filterChild,
-                                                          @Nonnull Function<KeyExpression, ScoredMatch> maybeSortedMatch) {
+        protected boolean planNestedFieldOrComponentChild(KeyExpression child,
+                                                          QueryComponent filterChild,
+                                                          Function<@Nullable KeyExpression, @Nullable ScoredMatch> maybeSortedMatch) {
             @Nullable ScoredMatch scoredMatch = maybeSortedMatch.apply(null);
             if (scoredMatch != null) {
                 ComparisonRanges nextComparisonRanges = scoredMatch.getComparisonRanges();
@@ -3073,7 +3050,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         @Override
-        protected boolean addToComparisons(@Nonnull Comparisons.Comparison comparison) {
+        protected boolean addToComparisons(Comparisons.Comparison comparison) {
             switch (ScanComparisons.getComparisonType(comparison)) {
                 case EQUALITY:
                     comparisons.addEqualityComparison(comparison);
@@ -3089,7 +3066,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         @Override
-        protected void addedComparison(@Nonnull KeyExpression child, @Nonnull QueryComponent filterChild) {
+        protected void addedComparison(KeyExpression child, QueryComponent filterChild) {
             unsatisfiedFilters.remove(filterChild);
             if (foundComparison) {
                 foundCompleteComparison = true;

@@ -41,7 +41,6 @@ import com.google.common.collect.ImmutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -60,55 +59,46 @@ public class LogicalIntersectionExpression extends AbstractRelationalExpressionW
      * reordered is identical. This is accurate in the current implementation (except that the continuation might no longer
      * be valid); if this ever changes, equals() and hashCode() must be updated.
      */
-    @Nonnull
     private final List<Quantifier.ForEach> quantifiers;
-    @Nonnull
     private final List<ProvidedOrderingPart> comparisonKeyProvidedOrderingParts;
-    @Nonnull
     private final Value resultValue;
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
-    private LogicalIntersectionExpression(@Nonnull List<Quantifier.ForEach> quantifiers,
-                                          @Nonnull List<ProvidedOrderingPart> comparisonKeyProvidedOrderingParts) {
+    private LogicalIntersectionExpression(List<Quantifier.ForEach> quantifiers,
+                                          List<ProvidedOrderingPart> comparisonKeyProvidedOrderingParts) {
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.comparisonKeyProvidedOrderingParts = ImmutableList.copyOf(comparisonKeyProvidedOrderingParts);
         this.resultValue = RecordQuerySetPlan.mergeValues(quantifiers);
     }
 
-    @Nonnull
     public List<ProvidedOrderingPart> getComparisonKeyProvidedOrderingParts() {
         return comparisonKeyProvidedOrderingParts;
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return quantifiers;
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return quantifiers.stream().map(Quantifier::toString).collect(Collectors.joining(" " + INTERSECT + " "));
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public LogicalIntersectionExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public LogicalIntersectionExpression translateCorrelations(final TranslationMap translationMap,
                                                                final boolean shouldSimplifyValues,
-                                                               @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                               final List<? extends Quantifier> translatedQuantifiers) {
         return new LogicalIntersectionExpression(
                 Quantifiers.narrow(Quantifier.ForEach.class, translatedQuantifiers),
                 getComparisonKeyProvidedOrderingParts());
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
@@ -116,8 +106,8 @@ public class LogicalIntersectionExpression extends AbstractRelationalExpressionW
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -159,8 +149,7 @@ public class LogicalIntersectionExpression extends AbstractRelationalExpressionW
      *        plans are ordered
      * @return a new plan that will return the intersection of all results from both child plans
      */
-    @Nonnull
-    public static LogicalIntersectionExpression from(@Nonnull List<? extends Reference> children, @Nonnull List<ProvidedOrderingPart> comparisonKeyProvidedOrderingParts) {
+    public static LogicalIntersectionExpression from(List<? extends Reference> children, List<ProvidedOrderingPart> comparisonKeyProvidedOrderingParts) {
         if (children.size() < 2) {
             throw new RecordCoreArgumentException("fewer than two children given to intersection expression");
         }
@@ -172,9 +161,8 @@ public class LogicalIntersectionExpression extends AbstractRelationalExpressionW
         return new LogicalIntersectionExpression(childRefsBuilder.build(), comparisonKeyProvidedOrderingParts);
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteInternalPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNodeWithInfo(this,
                         NodeInfo.INTERSECTION_OPERATOR,

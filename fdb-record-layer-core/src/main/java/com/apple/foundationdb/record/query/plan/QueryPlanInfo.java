@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,21 +40,18 @@ public class QueryPlanInfo {
 
     private static final QueryPlanInfo EMPTY = new QueryPlanInfo(Collections.emptyMap());
 
-    private QueryPlanInfo(@Nonnull final Map<QueryPlanInfoKey<?>, Object> infoMap) {
+    private QueryPlanInfo(final Map<QueryPlanInfoKey<?>, Object> infoMap) {
         info = infoMap;
     }
 
-    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }
 
-    @Nonnull
     public static QueryPlanInfo empty()  {
         return EMPTY;
     }
 
-    @Nonnull
     public Builder toBuilder() {
         return new Builder(this);
     }
@@ -66,7 +63,7 @@ public class QueryPlanInfo {
      * @param <T> The type of the value (not used in this method)
      * @return TRUE if the key exists in the table, FALSE otherwise
      */
-    public <T> boolean containsKey(@Nonnull final QueryPlanInfoKey<T> key) {
+    public <T> boolean containsKey(final QueryPlanInfoKey<T> key) {
         return info.containsKey(key);
     }
 
@@ -78,7 +75,7 @@ public class QueryPlanInfo {
      * @return the value for the key, null if not found
      */
     @Nullable
-    public <T> T get(@Nonnull QueryPlanInfoKey<T> key) {
+    public <T> T get(QueryPlanInfoKey<T> key) {
         return key.narrow(info.get(key));
     }
 
@@ -95,7 +92,6 @@ public class QueryPlanInfo {
      * @return the Key Sey for the info map
      */
     @SuppressWarnings("java:S1452")
-    @Nonnull
     public Set<QueryPlanInfoKey<?>> keySet() {
         return Collections.unmodifiableSet(info.keySet());
     }
@@ -108,21 +104,20 @@ public class QueryPlanInfo {
      * @param <T> the type of the value associated with the key constant value.
      */
     public static class QueryPlanInfoKey<T> {
-        @Nonnull
         private final String name;
 
-        public QueryPlanInfoKey(@Nonnull final String name) {
+        public QueryPlanInfoKey(final String name) {
             this.name = name;
         }
 
-        @Nonnull
         public String getName() {
             return name;
         }
 
         // Suppress Unchecked Cast exception since all put() into the map use the right type for the value from the key.
         @SuppressWarnings("unchecked")
-        public T narrow(@Nonnull final Object o) {
+        @Nullable
+        public T narrow(@Nullable final Object o) {
             return (T) o;
         }
 
@@ -160,7 +155,7 @@ public class QueryPlanInfo {
             infoMap = new HashMap<>();
         }
 
-        private Builder(@Nonnull final QueryPlanInfo source) {
+        private Builder(final QueryPlanInfo source) {
             infoMap = new HashMap<>(source.info);
         }
 
@@ -172,14 +167,13 @@ public class QueryPlanInfo {
          * @param <T>   the type of the value to set (determined by the Key generic type)
          * @return this
          */
-        @Nonnull
-        public <T> Builder put(@Nonnull final QueryPlanInfoKey<T> key, @Nullable final T value) {
+        public <T> Builder put(final QueryPlanInfoKey<T> key, @Nullable final T value) {
             infoMap.put(key, value);
             return this;
         }
 
         @Nullable
-        public <T> T get(@Nonnull final QueryPlanInfoKey<T> key) {
+        public <T> T get(final QueryPlanInfoKey<T> key) {
             return key.narrow(infoMap.get(key));
         }
 

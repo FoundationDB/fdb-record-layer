@@ -64,6 +64,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
@@ -98,9 +99,15 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
     private List<Long> getScannedByteCountsByRecord(@Nonnull FDBRecordContext context, @Nonnull RecordQueryPlan plan) {
         final List<Long> byteCountsByRecord = new ArrayList<>();
         byte[] continuation = null;
-        context.getTimer().reset();
+        // context always has a timer configured by the test infrastructure
+        Objects.requireNonNull(context.getTimer()).reset();
         do {
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, ExecuteProperties.SERIAL_EXECUTE)) {
+            // FDBRecordStoreBase#executeQuery's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the genuinely-nullable
+            // continuation local below still trips the checker.
+            @SuppressWarnings("NullAway")
+            RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, ExecuteProperties.SERIAL_EXECUTE);
+            try (cursor) {
                 RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.getNext();
                 if (result.hasNext()) {
                     byteCountsByRecord.add(byteCounter.getBytesScanned(context));
@@ -164,7 +171,8 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
                                                       @Nonnull RecordQueryPlan plan) {
         byte[] continuation = null;
         int i = 0;
-        context.getTimer().reset();
+        // context always has a timer configured by the test infrastructure
+        Objects.requireNonNull(context.getTimer()).reset();
         while (i < byteCountsByRecord.size()) {
             final int currentIndex = i;
             // If the limit is slightly too low to scan the next record, we should scan it anyway and then stop.
@@ -172,7 +180,10 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
                     .setScannedBytesLimit(byteCountsByRecord.get(currentIndex) - 1)
                     .build();
 
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties)) {
+            // FDBRecordStoreBase#executeQuery's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the genuinely-nullable
+            // continuation local below still trips the checker.
+            try (@SuppressWarnings("NullAway") RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties)) {
                 RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.getNext();
                 final long bytesScanned = byteCounter.getBytesScanned(context);
                 if (currentIndex == byteCountsByRecord.size() - 1) { // Final record
@@ -203,7 +214,10 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
             final ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                     .setScannedBytesLimit(byteCountsByRecord.get(currentIndex))
                     .build();
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties)) {
+            // FDBRecordStoreBase#executeQuery's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the genuinely-nullable
+            // continuation local below still trips the checker.
+            try (@SuppressWarnings("NullAway") RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties)) {
                 RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.getNext();
                 final long bytesScanned = byteCounter.getBytesScanned(context);
                 // If the execution order is a little bit different this time (especially for union/intersection
@@ -228,7 +242,10 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
             final ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                     .setScannedBytesLimit(byteCountsByRecord.get(i) + 1)
                     .build();
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties)) {
+            // FDBRecordStoreBase#executeQuery's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the genuinely-nullable
+            // continuation local below still trips the checker.
+            try (@SuppressWarnings("NullAway") RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties)) {
                 RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.getNext();
                 assertTrue(result.hasNext());
                 continuation = result.getContinuation().toBytes();
@@ -273,7 +290,10 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
                 final List<Long> byContinuation = new ArrayList<>(allAtOnce.size());
                 byte[] continuation = null;
                 do {
-                    try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties)) {
+                    // FDBRecordStoreBase#executeQuery's continuation parameter is declared @Nullable byte[] (a
+                    // position NullAway does not reliably recognize as nullable), so the genuinely-nullable
+                    // continuation local below still trips the checker.
+                    try (@SuppressWarnings("NullAway") RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties)) {
                         RecordCursorResult<Long> result;
                         do {
                             result = cursor.onNext().get().map(getRecNo);
@@ -324,6 +344,10 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
                     .setScannedBytesLimit(0)
                     .setIsolationLevel(IsolationLevel.SERIALIZABLE)
                     .build());
+            // FDBRecordStoreBase#scanRecords's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            @SuppressWarnings("NullAway")
             RecordCursorIterator<FDBStoredRecord<Message>> messageCursor = recordStore.scanRecords(null, props.get()).asIterator();
             while (messageCursor.hasNext()) {
                 scannedRecords.add(messageCursor.next());
@@ -351,6 +375,10 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
                     .setScannedBytesLimit(1)
                     .setIsolationLevel(IsolationLevel.SERIALIZABLE)
                     .build(), reverse);
+            // FDBRecordStoreBase#scanRecords's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            @SuppressWarnings("NullAway")
             final RecordCursor<FDBStoredRecord<Message>> messageCursor = recordStore.scanRecords(null, properties);
 
             RecordCursorResult<FDBStoredRecord<Message>> result = messageCursor.getNext();
@@ -496,7 +524,12 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
         Set<Long> noLimitRecordIds = new HashSet<>();
         try (FDBRecordContext context = openContext()) {
             openTextRecordStore(context, indexHook);
-            context.getTimer().reset();
+            // context always has a timer configured by the test infrastructure
+            Objects.requireNonNull(context.getTimer()).reset();
+            // FDBRecordStoreBase#executeQuery's continuation parameter is declared @Nullable byte[] (a
+            // position NullAway does not reliably recognize as nullable), so the null literal below
+            // still trips the checker.
+            @SuppressWarnings("NullAway")
             RecordCursor<FDBQueriedRecord<Message>> cursor =
                     recordStore.executeQuery(query, null, ExecuteProperties.SERIAL_EXECUTE);
             RecordCursorResult<FDBQueriedRecord<Message>> result;
@@ -504,7 +537,8 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
                 result = cursor.onNext().get();
                 if (result.hasNext()) {
                     TestRecordsTextProto.SimpleDocument.Builder record = TestRecordsTextProto.SimpleDocument.newBuilder();
-                    record.mergeFrom(result.get().getRecord());
+                    // result.hasNext() was just checked above, so a value is present
+                    record.mergeFrom(Objects.requireNonNull(result.get()).getRecord());
                     noLimitRecordIds.add(record.getDocId());
                 }
             } while (result.hasNext());
@@ -520,14 +554,20 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
                     .setScannedBytesLimit(0);
             byte[] continuation = null;
             do {
-                context.getTimer().reset();
+                // context always has a timer configured by the test infrastructure
+                Objects.requireNonNull(context.getTimer()).reset();
+                // FDBRecordStoreBase#executeQuery's continuation parameter is declared @Nullable byte[]
+                // (a position NullAway does not reliably recognize as nullable), so the genuinely-nullable
+                // continuation local below still trips the checker.
+                @SuppressWarnings("NullAway")
                 RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(query, continuation, executeProperties.build());
                 RecordCursorResult<FDBQueriedRecord<Message>> result;
                 do {
                     result = cursor.onNext().get();
                     if (result.hasNext()) {
                         TestRecordsTextProto.SimpleDocument.Builder record = TestRecordsTextProto.SimpleDocument.newBuilder();
-                        record.mergeFrom(result.get().getRecord());
+                        // result.hasNext() was just checked above, so a value is present
+                        record.mergeFrom(Objects.requireNonNull(result.get()).getRecord());
                         limitRecordIds.add(record.getDocId());
                     }
                 } while (result.hasNext());
@@ -551,6 +591,10 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
                         .setFailOnScanLimitReached(true)
                         .build();
                 openSimpleRecordStore(context);
+                // FDBRecordStoreBase#executeQuery's continuation parameter is declared @Nullable byte[]
+                // (a position NullAway does not reliably recognize as nullable), so the null literal
+                // below still trips the checker.
+                @SuppressWarnings("NullAway")
                 RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, properties);
                 assertThrowsWithWrapper(ScanLimitReachedException.class, () -> cursor.asList().join());
             }

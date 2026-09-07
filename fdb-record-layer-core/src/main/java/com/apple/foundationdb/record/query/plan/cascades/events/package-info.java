@@ -22,4 +22,7 @@
  * A package containing different events that the Cascades planner
  * emit during the different planning phases.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.cascades.events;
+
+import org.jspecify.annotations.NullMarked;

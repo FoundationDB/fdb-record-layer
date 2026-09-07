@@ -47,13 +47,14 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.slf4j.MDC;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
@@ -102,6 +103,9 @@ class TransactionalRunnerTest {
     }
 
     @AfterEach
+    // timer = null below is intentional: it releases the reference between tests so a stale timer
+    // cannot be read accidentally; every test's @BeforeEach re-assigns it before any use.
+    @SuppressWarnings("NullAway")
     public void tearDown() {
         assertEquals(timer.getCount(FDBStoreTimer.Counts.CLOSE_CONTEXT), timer.getCount(FDBStoreTimer.Counts.OPEN_CONTEXT),
                 "an equal number of contexts should have been opened and closed");
@@ -146,6 +150,10 @@ class TransactionalRunnerTest {
      * exception should be forwarded up wrapped as a {@link CompletionException}.
      */
     @Test
+    // value = null below is intentional: it asserts the key has no value. NullAway/JSpecify does not
+    // reliably track @Nullable on byte[] parameters, even though assertValue()'s value parameter is
+    // already correctly annotated @Nullable.
+    @SuppressWarnings("NullAway")
     void abortsAsyncInChainedFuture() {
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
             final Exception cause = new Exception("ABORT");
@@ -176,6 +184,9 @@ class TransactionalRunnerTest {
      * @see #abortsAsyncInChainedFuture()
      */
     @Test
+    // value = null below is intentional: it asserts the key has no value. See the comment on
+    // abortsAsyncInChainedFuture() above for why NullAway still flags this.
+    @SuppressWarnings("NullAway")
     void abortsAsyncDuringRunnable() {
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
             final RuntimeException cause = new RuntimeException("ABORT");
@@ -199,6 +210,9 @@ class TransactionalRunnerTest {
      * The exception should be forwarded, and the transaction should not be committed.
      */
     @Test
+    // value = null below is intentional: it asserts the key has no value. See the comment on
+    // abortsAsyncInChainedFuture() above for why NullAway still flags this.
+    @SuppressWarnings("NullAway")
     void abortsSynchronous() {
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
             final RuntimeException cause = new RuntimeException("ABORT");
@@ -217,6 +231,10 @@ class TransactionalRunnerTest {
     }
 
     @Test
+    // expectedForKey = null below is intentional: it asserts the key has no value. NullAway/JSpecify
+    // does not reliably track @Nullable on byte[] parameters, even though
+    // Conflicter.expectValues()'s parameters are already correctly annotated @Nullable.
+    @SuppressWarnings("NullAway")
     void conflicts() {
         final Conflicter conflicter = new Conflicter();
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
@@ -229,6 +247,9 @@ class TransactionalRunnerTest {
     }
 
     @Test
+    // expectedForKey = null below is intentional: it asserts the key has no value. See the comment
+    // on conflicts() above for why NullAway still flags this.
+    @SuppressWarnings("NullAway")
     void conflictsSynchronous() {
         final Conflicter conflicter = new Conflicter();
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
@@ -517,6 +538,10 @@ class TransactionalRunnerTest {
 
     @ParameterizedTest
     @BooleanSource("successful")
+    // value = null below is intentional: it asserts the key has no value. NullAway/JSpecify does not
+    // reliably track @Nullable on byte[] parameters, even though assertValue()'s value parameter is
+    // already correctly annotated @Nullable.
+    @SuppressWarnings("NullAway")
     void closesAfterCompletion(boolean success) {
         AtomicReference<FDBRecordContext> contextRef = new AtomicReference<>();
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
@@ -539,12 +564,12 @@ class TransactionalRunnerTest {
             } else {
                 exception = assertThrows(CompletionException.class, runResult::join);
             }
-            assertTrue(contextRef.get().isClosed());
+            assertTrue(Objects.requireNonNull(contextRef.get()).isClosed());
 
             if (success) {
                 assertValue(runner, key, value);
             } else {
-                assertEquals(cause, exception.getCause());
+                assertEquals(cause, Objects.requireNonNull(exception).getCause());
                 assertValue(runner, key, null);
             }
         }
@@ -552,6 +577,9 @@ class TransactionalRunnerTest {
 
     @ParameterizedTest
     @BooleanSource("successful")
+    // value = null below is intentional: it asserts the key has no value. See the comment on
+    // closesAfterCompletion() above for why NullAway still flags this.
+    @SuppressWarnings("NullAway")
     void closesAfterCompletionSynchronous(boolean success) throws Exception {
         AtomicReference<FDBRecordContext> contextRef = new AtomicReference<>();
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
@@ -572,7 +600,7 @@ class TransactionalRunnerTest {
             } else {
                 exception = assertThrows(RuntimeException.class, callable::call);
             }
-            assertTrue(contextRef.get().isClosed());
+            assertTrue(Objects.requireNonNull(contextRef.get()).isClosed());
 
             if (success) {
                 assertValue(runner, key, value);
@@ -583,11 +611,14 @@ class TransactionalRunnerTest {
         }
     }
 
-    private static void assertValue(final TransactionalRunner runner, final byte[] key, final byte[] value) {
+    // value is legitimately null when asserting the key has no value. JUnit's assertArrayEquals() isn't
+    // annotated with JSpecify nullability, and NullAway/JSpecify does not reliably track @Nullable on
+    // byte[] parameters/return types in general.
+    @SuppressWarnings("NullAway")
+    private static void assertValue(final TransactionalRunner runner, final byte[] key, @Nullable final byte[] value) {
         assertArrayEquals(value, runner.runAsync(false, context -> context.ensureActive().get(key)).join());
     }
 
-    @Nonnull
     private TransactionalRunner defaultTransactionalRunner() {
         final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
                 .setTimer(timer)
@@ -604,15 +635,14 @@ class TransactionalRunnerTest {
     }
 
     private void assertConflictException(final FDBExceptions.FDBStoreTransactionConflictException exception) {
-        assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)exception.getCause()).getCode());
+        assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)Objects.requireNonNull(exception.getCause())).getCode());
     }
 
     private void assertConflictException(final CompletionException exception) {
         assertThat(exception.getCause(), Matchers.instanceOf(FDBException.class));
-        assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException) exception.getCause()).getCode());
+        assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)Objects.requireNonNull(exception.getCause())).getCode());
     }
 
-    @Nonnull
     private static byte[] randomBytes(final int count, final Random random) {
         final byte[] key = new byte[count];
         random.nextBytes(key);
@@ -653,6 +683,9 @@ class TransactionalRunnerTest {
                     });
         }
 
+        // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters, even when passed
+        // through to another parameter that is already annotated @Nullable.
+        @SuppressWarnings("NullAway")
         public void expectValues(TransactionalRunner runner,
                                  @Nullable byte[] expectedForKey, @Nullable byte[] expectedForOtherKey) {
             assertValue(runner, key, expectedForKey);

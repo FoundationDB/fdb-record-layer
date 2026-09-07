@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.provider.common;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -43,21 +42,16 @@ import java.util.Random;
  */
 @API(API.Status.EXPERIMENTAL)
 public class KeyStoreSerializationKeyManager implements SerializationKeyManager {
-    @Nonnull
     private final KeyStore keyStore;
-    @Nonnull
     private final KeyStore.ProtectionParameter keyEntryPassword;
-    @Nonnull
     private final List<String> keyEntryAliases;
     private final int defaultKeyNumber;
-    @Nonnull
     private final String cipherName;
-    @Nonnull
     private final SecureRandom secureRandom;
 
-    protected KeyStoreSerializationKeyManager(@Nonnull KeyStore keyStore, @Nonnull KeyStore.ProtectionParameter keyEntryPassword,
-                                              @Nonnull List<String> keyEntryAliases, int defaultKeyNumber,
-                                              @Nonnull String cipherName, @Nonnull SecureRandom secureRandom) {
+    protected KeyStoreSerializationKeyManager(KeyStore keyStore, KeyStore.ProtectionParameter keyEntryPassword,
+                                              List<String> keyEntryAliases, int defaultKeyNumber,
+                                              String cipherName, SecureRandom secureRandom) {
         this.keyStore = keyStore;
         this.keyEntryPassword = keyEntryPassword;
         this.keyEntryAliases = List.copyOf(keyEntryAliases);
@@ -96,7 +90,6 @@ public class KeyStoreSerializationKeyManager implements SerializationKeyManager 
         return secureRandom;
     }
 
-    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }
@@ -112,7 +105,6 @@ public class KeyStoreSerializationKeyManager implements SerializationKeyManager 
         String defaultKeyEntryAlias;
         @Nullable
         List<String> keyEntryAliases;
-        @Nonnull
         String cipherName = CipherPool.DEFAULT_CIPHER;
         @Nullable
         SecureRandom secureRandom;
@@ -125,7 +117,7 @@ public class KeyStoreSerializationKeyManager implements SerializationKeyManager 
             return keyStoreFileName;
         }
 
-        public void setKeyStoreFileName(@Nonnull String keyStoreFileName) {
+        public void setKeyStoreFileName(String keyStoreFileName) {
             this.keyStoreFileName = keyStoreFileName;
         }
 
@@ -134,7 +126,7 @@ public class KeyStoreSerializationKeyManager implements SerializationKeyManager 
             return keyStorePassword;
         }
 
-        public void setKeyStorePassword(@Nonnull String keyStorePassword) {
+        public void setKeyStorePassword(String keyStorePassword) {
             this.keyStorePassword = keyStorePassword;
         }
 
@@ -143,7 +135,7 @@ public class KeyStoreSerializationKeyManager implements SerializationKeyManager 
             return keyEntryPassword;
         }
 
-        public void setKeyEntryPassword(@Nonnull String keyEntryPassword) {
+        public void setKeyEntryPassword(String keyEntryPassword) {
             this.keyEntryPassword = keyEntryPassword;
         }
 
@@ -152,7 +144,7 @@ public class KeyStoreSerializationKeyManager implements SerializationKeyManager 
             return defaultKeyEntryAlias;
         }
 
-        public void setDefaultKeyEntryAlias(@Nonnull String defaultKeyEntryAlias) {
+        public void setDefaultKeyEntryAlias(String defaultKeyEntryAlias) {
             this.defaultKeyEntryAlias = defaultKeyEntryAlias;
         }
 
@@ -161,16 +153,15 @@ public class KeyStoreSerializationKeyManager implements SerializationKeyManager 
             return keyEntryAliases;
         }
 
-        public void setKeyEntryAliases(@Nonnull List<String> keyEntryAliases) {
+        public void setKeyEntryAliases(List<String> keyEntryAliases) {
             this.keyEntryAliases = keyEntryAliases;
         }
 
-        @Nonnull
         public String getCipherName() {
             return cipherName;
         }
 
-        public void setCipherName(@Nonnull String cipherName) {
+        public void setCipherName(String cipherName) {
             this.cipherName = cipherName;
         }
 
@@ -179,11 +170,10 @@ public class KeyStoreSerializationKeyManager implements SerializationKeyManager 
             return secureRandom;
         }
 
-        public void setSecureRandom(@Nonnull SecureRandom secureRandom) {
+        public void setSecureRandom(SecureRandom secureRandom) {
             this.secureRandom = secureRandom;
         }
 
-        @Nonnull
         public KeyStoreSerializationKeyManager build() {
             if (keyStoreFileName == null) {
                 throw new RecordCoreArgumentException("must specify key store file name");

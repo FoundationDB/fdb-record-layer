@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
@@ -37,7 +36,7 @@ public interface Narrowable<T> {
      * @return if cast is successful, an {@link Optional} containing the instance cast to {@link T}, otherwise an
      * empty {@link Optional}
      */
-    default <T1 extends T> Optional<T1> narrowMaybe(@Nonnull final Class<T1> clazz) {
+    default <T1 extends T> Optional<T1> narrowMaybe(final Class<T1> clazz) {
         if (clazz.isInstance(this)) {
             return Optional.of(clazz.cast(this));
         } else {

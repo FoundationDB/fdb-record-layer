@@ -23,21 +23,18 @@ package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 
-import javax.annotation.Nonnull;
 
 /**
  * A sub-directory, which presently only contains information about direction.
  */
 @API(API.Status.EXPERIMENTAL)
 public class TimeWindowLeaderboardSubDirectoryResult extends IndexOperationResult {
-    @Nonnull
     private final TimeWindowLeaderboardSubDirectory subDirectory;
 
-    public TimeWindowLeaderboardSubDirectoryResult(@Nonnull TimeWindowLeaderboardSubDirectory subDirectory) {
+    public TimeWindowLeaderboardSubDirectoryResult(TimeWindowLeaderboardSubDirectory subDirectory) {
         this.subDirectory = subDirectory;
     }
 
-    @Nonnull
     public TimeWindowLeaderboardSubDirectory getSubDirectory() {
         return subDirectory;
     }

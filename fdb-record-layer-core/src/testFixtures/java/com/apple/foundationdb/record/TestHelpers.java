@@ -34,13 +34,13 @@ import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.function.Executable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -248,6 +248,7 @@ public class TestHelpers {
         }
     }
 
+    @Nullable
     public static <T extends Throwable> T findCause(@Nullable Throwable ex, Class<T> classT) {
         Set<Throwable> seenSet = Collections.newSetFromMap(new IdentityHashMap<>());
         for (Throwable current = ex;
@@ -320,39 +321,43 @@ public class TestHelpers {
             description.appendText("anything()");
         }
 
-        @Nonnull
         public static <T> Matcher<T> anything() {
             return new RealAnythingMatcher<>();
         }
     }
 
-    public static void assertDiscardedAtMost(int expected, @Nonnull FDBRecordContext context) {
-        assertNotNull(context.getTimer());
-        int discarded = context.getTimer().getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
+    public static void assertDiscardedAtMost(int expected, FDBRecordContext context) {
+        final FDBStoreTimer timer = context.getTimer();
+        assertNotNull(timer);
+        int discarded = timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
         assertTrue(discarded <= expected, "discarded too many records\nExpected maximum: " + expected + "\nActual discarded: " + discarded);
     }
 
-    public static void assertLoadRecord(int expected, @Nonnull FDBRecordContext context) {
-        assertNotNull(context.getTimer());
-        int loads = context.getTimer().getCount(FDBStoreTimer.Events.LOAD_RECORD);
+    public static void assertLoadRecord(int expected, FDBRecordContext context) {
+        final FDBStoreTimer timer = context.getTimer();
+        assertNotNull(timer);
+        int loads = timer.getCount(FDBStoreTimer.Events.LOAD_RECORD);
         assertTrue(loads <= expected, "loaded too many records\nExpected maximum: " + expected + "\nActual loaded: " + loads);
     }
 
-    public static void assertDiscardedAtLeast(int expected, @Nonnull FDBRecordContext context) {
-        assertNotNull(context.getTimer());
-        int discarded = context.getTimer().getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
+    public static void assertDiscardedAtLeast(int expected, FDBRecordContext context) {
+        final FDBStoreTimer timer = context.getTimer();
+        assertNotNull(timer);
+        int discarded = timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
         assertTrue(discarded >= expected, "discarded too few records\nExpected minimum: " + expected + "\nActual discarded: " + discarded);
     }
 
-    public static void assertDiscardedExactly(int expected, @Nonnull FDBRecordContext context) {
-        assertNotNull(context.getTimer());
-        int discarded = context.getTimer().getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
+    public static void assertDiscardedExactly(int expected, FDBRecordContext context) {
+        final FDBStoreTimer timer = context.getTimer();
+        assertNotNull(timer);
+        int discarded = timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
         assertTrue(discarded == expected, "discarded wrong number of records\nExpected: " + expected + "\nActual: " + discarded);
     }
 
-    public static void assertDiscardedNone(@Nonnull FDBRecordContext context) {
-        assertNotNull(context.getTimer());
-        int discarded = context.getTimer().getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
+    public static void assertDiscardedNone(FDBRecordContext context) {
+        final FDBStoreTimer timer = context.getTimer();
+        assertNotNull(timer);
+        int discarded = timer.getCount(FDBStoreTimer.Counts.QUERY_DISCARDED);
         assertTrue(discarded == 0, "discarded records unnecessarily\nExpected: 0\nActual: " + discarded);
     }
 
@@ -365,13 +370,13 @@ public class TestHelpers {
 
         private final List<String> matchedEvents = new ArrayList<>();
 
-        protected MatchingAppender(@Nonnull String name, @Nonnull Pattern pattern) {
+        protected MatchingAppender(String name, Pattern pattern) {
             super(name, null, null, true, null);
             this.pattern = pattern;
             this.messagePrefix = null;
         }
 
-        protected MatchingAppender(@Nonnull String name, @Nonnull String messagePrefix) {
+        protected MatchingAppender(String name, String messagePrefix) {
             super(name, null, null, true, null);
             this.pattern = null;
             this.messagePrefix = messagePrefix;
@@ -381,13 +386,12 @@ public class TestHelpers {
             return !matchedEvents.isEmpty();
         }
 
-        @Nonnull
         public List<String> getMatchedEvents() {
             return matchedEvents;
         }
 
         @Override
-        public synchronized void append(@Nonnull LogEvent event) {
+        public synchronized void append(LogEvent event) {
             if ((pattern != null && pattern.matcher(event.getMessage().getFormattedMessage()).matches())
                     || (messagePrefix != null && event.getMessage().getFormattedMessage().startsWith(messagePrefix)))  {
                 matchedEvents.add(event.getMessage().getFormattedMessage());
@@ -399,7 +403,8 @@ public class TestHelpers {
             if (pattern != null) {
                 return pattern.toString();
             }
-            return messagePrefix;
+            // Exactly one of pattern/messagePrefix is set, by construction (see the two constructors above).
+            return Objects.requireNonNull(messagePrefix);
         }
     }
 }

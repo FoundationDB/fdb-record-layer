@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -44,14 +44,14 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class AbstractValueRuleCall<RESULT, CALL extends AbstractValueRuleCall<RESULT, CALL>> extends AbstractRuleCall<RESULT, CALL, Value> {
-    public AbstractValueRuleCall(@Nonnull final PlannerRule<CALL, ? extends Value> rule,
-                                 @Nonnull final Value root,
-                                 @Nonnull final Value current,
-                                 @Nonnull final EvaluationContext evaluationContext,
-                                 @Nonnull final PlannerBindings bindings,
-                                 @Nonnull final AliasMap equivalenceMap,
-                                 @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                 @Nonnull final Function<Value, QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
+    public AbstractValueRuleCall(final PlannerRule<CALL, ? extends Value> rule,
+                                 final Value root,
+                                 final Value current,
+                                 final EvaluationContext evaluationContext,
+                                 final PlannerBindings bindings,
+                                 final AliasMap equivalenceMap,
+                                 final Set<CorrelationIdentifier> constantAliases,
+                                 final Function<Value, @Nullable QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
         super(rule, root, current, evaluationContext, bindings, equivalenceMap, constantAliases,
                 retrieveQueryPlanConstraintFunction);
     }

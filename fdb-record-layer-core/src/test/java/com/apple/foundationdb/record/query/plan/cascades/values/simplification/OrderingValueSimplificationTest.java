@@ -44,7 +44,6 @@ import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
@@ -232,7 +231,6 @@ class OrderingValueSimplificationTest {
         Assertions.assertEquals(expectedResult, orderingPart.getValue());
     }
 
-    @Nonnull
     private static Type.Record someRecordType() {
         final var aaType = Type.Record.fromFields(ImmutableList.of(
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("aaa")),
@@ -255,8 +253,7 @@ class OrderingValueSimplificationTest {
                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("z"))));
     }
 
-    @Nonnull
-    private static Value simplifyOrderingValue(@Nonnull final Value toBeSimplified) {
+    private static Value simplifyOrderingValue(final Value toBeSimplified) {
         return Simplification.simplify(toBeSimplified, EvaluationContext.empty(), AliasMap.emptyMap(),
                         ImmutableSet.of(), RequestedOrderingValueSimplificationRuleSet.ofRequestedOrderSimplificationRules())
                 .get();

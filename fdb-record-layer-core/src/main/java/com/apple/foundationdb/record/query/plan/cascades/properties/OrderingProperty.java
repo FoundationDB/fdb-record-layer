@@ -100,11 +100,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
@@ -120,7 +121,6 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
         // prevent outside instantiation
     }
 
-    @Nonnull
     @Override
     public RelationalExpressionVisitor<Ordering> createVisitor() {
         return ExpressionProperty.toExpressionVisitor(new OrderingVisitor());
@@ -131,17 +131,14 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
         return getClass().getSimpleName();
     }
 
-    @Nonnull
-    public Ordering evaluate(@Nonnull final Reference reference) {
+    public Ordering evaluate(final Reference reference) {
         return evaluate(reference.getOnlyElementAsPlan());
     }
 
-    @Nonnull
-    public Ordering evaluate(@Nonnull final RecordQueryPlan recordQueryPlan) {
+    public Ordering evaluate(final RecordQueryPlan recordQueryPlan) {
         return createVisitor().visit(recordQueryPlan);
     }
 
-    @Nonnull
     public static OrderingProperty ordering() {
         return ORDERING;
     }
@@ -152,15 +149,13 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
     @API(API.Status.EXPERIMENTAL)
     @SuppressWarnings("java:S3776")
     public static class OrderingVisitor implements RecordQueryPlanVisitor<Ordering> {
-        @Nonnull
         @Override
-        public Ordering visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan updatePlan) {
+        public Ordering visitUpdatePlan(final RecordQueryUpdatePlan updatePlan) {
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitPredicatesFilterPlan(@Nonnull final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {
+        public Ordering visitPredicatesFilterPlan(final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {
             final var childOrdering = orderingFromSingleChild(predicatesFilterPlan);
 
             final SetMultimap<Value, Comparisons.Comparison> equalityBoundValuesMap =
@@ -202,7 +197,8 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
                                 final var translationMap = AliasMap.ofAliases(innerAlias, Quantifier.current());
                                 return Stream.of(Pair.of(fieldValue.rebase(translationMap), valuePredicate.getComparison()));
                             })
-                            .collect(ImmutableSetMultimap.toImmutableSetMultimap(Pair::getLeft, Pair::getRight));
+                            .collect(ImmutableSetMultimap.toImmutableSetMultimap(
+                                    pair -> Objects.requireNonNull(pair.getLeft()), pair -> Objects.requireNonNull(pair.getRight())));
 
             // We can create a new ordering set by adding the equality-bound values to the ordering set domain no matter what.
             final var childOrderingSet = childOrdering.getOrderingSet();
@@ -234,51 +230,43 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
             return Ordering.ofOrderingSet(resultBindingMap, orderingSet, childOrdering.isDistinct());
         }
 
-        @Nonnull
         @Override
-        public Ordering visitLoadByKeysPlan(@Nonnull final RecordQueryLoadByKeysPlan element) {
+        public Ordering visitLoadByKeysPlan(final RecordQueryLoadByKeysPlan element) {
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitInValuesJoinPlan(@Nonnull final RecordQueryInValuesJoinPlan inValuesJoinPlan) {
+        public Ordering visitInValuesJoinPlan(final RecordQueryInValuesJoinPlan inValuesJoinPlan) {
             return visitInJoinPlan(inValuesJoinPlan);
         }
 
-        @Nonnull
         @Override
-        public Ordering visitInComparandJoinPlan(@Nonnull final RecordQueryInComparandJoinPlan inComparandJoinPlan) {
+        public Ordering visitInComparandJoinPlan(final RecordQueryInComparandJoinPlan inComparandJoinPlan) {
             return visitInJoinPlan(inComparandJoinPlan);
         }
 
-        @Nonnull
         @Override
-        public Ordering visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
+        public Ordering visitAggregateIndexPlan(final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
             return visit(aggregateIndexPlan.getIndexPlan());
         }
 
-        @Nonnull
         @Override
-        public Ordering visitCoveringIndexPlan(@Nonnull final RecordQueryCoveringIndexPlan coveringIndexPlan) {
+        public Ordering visitCoveringIndexPlan(final RecordQueryCoveringIndexPlan coveringIndexPlan) {
             return visit(coveringIndexPlan.getIndexPlan());
         }
 
-        @Nonnull
         @Override
-        public Ordering visitDeletePlan(@Nonnull final RecordQueryDeletePlan deletePlan) {
+        public Ordering visitDeletePlan(final RecordQueryDeletePlan deletePlan) {
             return orderingFromSingleChild(deletePlan);
         }
 
-        @Nonnull
         @Override
-        public Ordering visitIntersectionOnKeyExpressionPlan(@Nonnull final RecordQueryIntersectionOnKeyExpressionPlan intersectionPlan) {
+        public Ordering visitIntersectionOnKeyExpressionPlan(final RecordQueryIntersectionOnKeyExpressionPlan intersectionPlan) {
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitMapPlan(@Nonnull final RecordQueryMapPlan mapPlan) {
+        public Ordering visitMapPlan(final RecordQueryMapPlan mapPlan) {
             final var childOrdering = orderingFromSingleChild(mapPlan);
             final var resultValue = mapPlan.getResultValue();
 
@@ -286,27 +274,23 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
                     AliasMap.ofAliases(mapPlan.getInner().getAlias(), Quantifier.current()), mapPlan.getCorrelatedTo());
         }
 
-        @Nonnull
         @Override
-        public Ordering visitComparatorPlan(@Nonnull final RecordQueryComparatorPlan element) {
+        public Ordering visitComparatorPlan(final RecordQueryComparatorPlan element) {
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitUnorderedDistinctPlan(@Nonnull final RecordQueryUnorderedDistinctPlan unorderedDistinctPlan) {
+        public Ordering visitUnorderedDistinctPlan(final RecordQueryUnorderedDistinctPlan unorderedDistinctPlan) {
             return orderingFromSingleChild(unorderedDistinctPlan);
         }
 
-        @Nonnull
         @Override
-        public Ordering visitSelectorPlan(@Nonnull final RecordQuerySelectorPlan element) {
+        public Ordering visitSelectorPlan(final RecordQuerySelectorPlan element) {
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitRangePlan(@Nonnull final RecordQueryRangePlan element) {
+        public Ordering visitRangePlan(final RecordQueryRangePlan element) {
             final var resultValue = ObjectValue.of(Quantifier.current(), Type.primitiveType(Type.TypeCode.INT));
             return Ordering.ofOrderingSet(ImmutableSetMultimap.of(resultValue, Binding.sorted(ProvidedSortOrder.ASCENDING)),
                     PartiallyOrderedSet.of(
@@ -314,82 +298,70 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
                             ImmutableSetMultimap.of()), true);
         }
 
-        @Nonnull
         @Override
-        public Ordering visitTempTableScanPlan(@Nonnull final TempTableScanPlan element) {
+        public Ordering visitTempTableScanPlan(final TempTableScanPlan element) {
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitExplodePlan(@Nonnull final RecordQueryExplodePlan element) {
+        public Ordering visitExplodePlan(final RecordQueryExplodePlan element) {
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
+        public Ordering visitInsertPlan(final RecordQueryInsertPlan insertPlan) {
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitTableFunctionPlan(@Nonnull final RecordQueryTableFunctionPlan element) {
+        public Ordering visitTableFunctionPlan(final RecordQueryTableFunctionPlan element) {
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan tempTableInsertPlan) {
+        public Ordering visitTempTableInsertPlan(final TempTableInsertPlan tempTableInsertPlan) {
             return orderingFromSingleChild(tempTableInsertPlan);
         }
 
-        @Nonnull
         @Override
-        public Ordering visitIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuePlan) {
+        public Ordering visitIntersectionOnValuesPlan(final RecordQueryIntersectionOnValuesPlan intersectionOnValuePlan) {
             final var orderings = orderingsFromChildren(intersectionOnValuePlan);
             return deriveForDistinctSetOperationFromOrderings(orderings,
                     intersectionOnValuePlan.getComparisonKeyOrderingParts(), Ordering.INTERSECTION);
         }
 
-        @Nonnull
         @Override
-        public Ordering visitScoreForRankPlan(@Nonnull final RecordQueryScoreForRankPlan element) {
+        public Ordering visitScoreForRankPlan(final RecordQueryScoreForRankPlan element) {
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan) {
+        public Ordering visitIndexPlan(final RecordQueryIndexPlan indexPlan) {
             final var scanComparisons = indexPlan.getScanComparisons();
             return indexPlan.getMatchCandidateMaybe()
                     .map(matchCandidate -> matchCandidate.computeOrderingFromScanComparisons(scanComparisons, indexPlan.isReverse(), indexPlan.isStrictlySorted()))
                     .orElse(Ordering.empty());
         }
 
-        @Nonnull
         @Override
-        public Ordering visitRecursiveLevelUnionPlan(@Nonnull final RecordQueryRecursiveLevelUnionPlan element) {
+        public Ordering visitRecursiveLevelUnionPlan(final RecordQueryRecursiveLevelUnionPlan element) {
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan element) {
+        public Ordering visitFirstOrDefaultPlan(final RecordQueryFirstOrDefaultPlan element) {
             // TODO This plan is sorted by anything it's flowing as its max cardinality is one.
             //      We cannot express that as of yet.
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitDefaultOnEmptyPlan(@Nonnull final RecordQueryDefaultOnEmptyPlan element) {
+        public Ordering visitDefaultOnEmptyPlan(final RecordQueryDefaultOnEmptyPlan element) {
             return orderingFromSingleChild(element);
         }
 
-        @Nonnull
         @SuppressWarnings("java:S135")
-        public Ordering visitInJoinPlan(@Nonnull final RecordQueryInJoinPlan inJoinPlan) {
+        public Ordering visitInJoinPlan(final RecordQueryInJoinPlan inJoinPlan) {
             final var innerOrdering = orderingFromSingleChild(inJoinPlan);
             final var bindingMap = innerOrdering.getBindingMap();
             final var inSource = inJoinPlan.getInSource();
@@ -479,39 +451,33 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
             return inValue;
         }
 
-        @Nonnull
         @Override
-        public Ordering visitFilterPlan(@Nonnull final RecordQueryFilterPlan filterPlan) {
+        public Ordering visitFilterPlan(final RecordQueryFilterPlan filterPlan) {
             return orderingFromSingleChild(filterPlan);
         }
 
-        @Nonnull
         @Override
-        public Ordering visitUnorderedPrimaryKeyDistinctPlan(@Nonnull final RecordQueryUnorderedPrimaryKeyDistinctPlan unorderedPrimaryKeyDistinctPlan) {
+        public Ordering visitUnorderedPrimaryKeyDistinctPlan(final RecordQueryUnorderedPrimaryKeyDistinctPlan unorderedPrimaryKeyDistinctPlan) {
             return orderingFromSingleChild(unorderedPrimaryKeyDistinctPlan);
         }
 
-        @Nonnull
         @Override
-        public Ordering visitUnionOnKeyExpressionPlan(@Nonnull final RecordQueryUnionOnKeyExpressionPlan unionOnKeyExpressionPlan) {
+        public Ordering visitUnionOnKeyExpressionPlan(final RecordQueryUnionOnKeyExpressionPlan unionOnKeyExpressionPlan) {
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitTextIndexPlan(@Nonnull final RecordQueryTextIndexPlan element) {
+        public Ordering visitTextIndexPlan(final RecordQueryTextIndexPlan element) {
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitFetchFromPartialRecordPlan(@Nonnull final RecordQueryFetchFromPartialRecordPlan element) {
+        public Ordering visitFetchFromPartialRecordPlan(final RecordQueryFetchFromPartialRecordPlan element) {
             return orderingFromSingleChild(element);
         }
 
-        @Nonnull
         @Override
-        public Ordering visitTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan typeFilterPlan) {
+        public Ordering visitTypeFilterPlan(final RecordQueryTypeFilterPlan typeFilterPlan) {
             final var childOrdering = orderingFromSingleChild(typeFilterPlan);
 
             if (typeFilterPlan.getRecordTypes().size() > 1) {
@@ -550,29 +516,25 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
             return Ordering.ofOrderingSet(resultBindingMap, orderingSet, childOrdering.isDistinct());
         }
 
-        @Nonnull
         @Override
-        public Ordering visitInUnionOnKeyExpressionPlan(@Nonnull final RecordQueryInUnionOnKeyExpressionPlan inUnionOnKeyExpressionPlan) {
+        public Ordering visitInUnionOnKeyExpressionPlan(final RecordQueryInUnionOnKeyExpressionPlan inUnionOnKeyExpressionPlan) {
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan multiIntersectionOnValuesPlan) {
+        public Ordering visitMultiIntersectionOnValuesPlan(final RecordQueryMultiIntersectionOnValuesPlan multiIntersectionOnValuesPlan) {
             final var orderings = orderingsFromChildren(multiIntersectionOnValuesPlan);
             return deriveForDistinctSetOperationFromOrderings(orderings,
                     multiIntersectionOnValuesPlan.getComparisonKeyOrderingParts(), Ordering.INTERSECTION);
         }
 
-        @Nonnull
         @Override
-        public Ordering visitInParameterJoinPlan(@Nonnull final RecordQueryInParameterJoinPlan inParameterJoinPlan) {
+        public Ordering visitInParameterJoinPlan(final RecordQueryInParameterJoinPlan inParameterJoinPlan) {
             return visitInJoinPlan(inParameterJoinPlan);
         }
 
-        @Nonnull
         @Override
-        public Ordering visitFlatMapPlan(@Nonnull final RecordQueryFlatMapPlan flatMapPlan) {
+        public Ordering visitFlatMapPlan(final RecordQueryFlatMapPlan flatMapPlan) {
             final var orderingsFromChildren = orderingsFromChildren(flatMapPlan);
             final var correlatedTo = flatMapPlan.getCorrelatedTo();
             final var resultValue = flatMapPlan.getResultValue();
@@ -604,9 +566,8 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
             return Ordering.concatOrderings(outerOrdering, innerOrdering);
         }
 
-        @Nonnull
         @Override
-        public Ordering visitStreamingAggregationPlan(@Nonnull final RecordQueryStreamingAggregationPlan streamingAggregationPlan) {
+        public Ordering visitStreamingAggregationPlan(final RecordQueryStreamingAggregationPlan streamingAggregationPlan) {
             final var childOrdering = orderingFromSingleChild(streamingAggregationPlan);
 
             //
@@ -629,12 +590,13 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
             //
             // Substitute the grouping key value everywhere the ObjectValue of the grouping key alias is used.
             //
-            final var composedCompleteResultValueOptional = completeResultValue.replaceLeavesMaybe(value -> {
+            final Function<Value, @Nullable Value> substituteGroupingKeyFunction = value -> {
                 if (value instanceof ObjectValue && ((ObjectValue)value).getAlias().equals(groupingKeyAlias)) {
                     return groupingValue;
                 }
                 return value;
-            });
+            };
+            final var composedCompleteResultValueOptional = completeResultValue.replaceLeavesMaybe(substituteGroupingKeyFunction);
 
             if (composedCompleteResultValueOptional.isEmpty()) {
                 return Ordering.empty();
@@ -647,24 +609,21 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
                     streamingAggregationPlan.getCorrelatedTo());
         }
 
-        @Nonnull
         @Override
-        public Ordering visitUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
+        public Ordering visitUnionOnValuesPlan(final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
             return deriveForDistinctSetOperationFromOrderings(
                     orderingsFromChildren(unionOnValuesPlan),
                     unionOnValuesPlan.getComparisonKeyOrderingParts(),
                     Ordering.UNION);
         }
 
-        @Nonnull
         @Override
-        public Ordering visitUnorderedUnionPlan(@Nonnull final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
+        public Ordering visitUnorderedUnionPlan(final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitScanPlan(@Nonnull final RecordQueryScanPlan scanPlan) {
+        public Ordering visitScanPlan(final RecordQueryScanPlan scanPlan) {
             final var primaryMatchCandidate = scanPlan.getMatchCandidateMaybe();
             return primaryMatchCandidate.map(withPrimaryKeyMatchCandidate ->
                             withPrimaryKeyMatchCandidate
@@ -675,9 +634,8 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
                     .orElseGet(Ordering::empty);
         }
 
-        @Nonnull
         @Override
-        public Ordering visitInUnionOnValuesPlan(@Nonnull final RecordQueryInUnionOnValuesPlan inUnionOnValuePlan) {
+        public Ordering visitInUnionOnValuesPlan(final RecordQueryInUnionOnValuesPlan inUnionOnValuePlan) {
             final var childOrdering = orderingFromSingleChild(inUnionOnValuePlan);
             final var bindingMap = childOrdering.getBindingMap();
             final var comparisonKeyOrderingParts = inUnionOnValuePlan.getComparisonKeyOrderingParts();
@@ -712,40 +670,34 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
             return Ordering.ofOrderingSequence(resultBindingMapBuilder.build(), comparisonKeyValues, childOrdering.isDistinct());
         }
 
-        @Nonnull
         @Override
-        public Ordering visitComposedBitmapIndexQueryPlan(@Nonnull final ComposedBitmapIndexQueryPlan element) {
+        public Ordering visitComposedBitmapIndexQueryPlan(final ComposedBitmapIndexQueryPlan element) {
             // TODO
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitDamPlan(@Nonnull final RecordQueryDamPlan damPlan) {
+        public Ordering visitDamPlan(final RecordQueryDamPlan damPlan) {
             return orderingFromSingleChild(damPlan);
         }
 
-        @Nonnull
         @Override
-        public Ordering visitSortPlan(@Nonnull final RecordQuerySortPlan element) {
+        public Ordering visitSortPlan(final RecordQuerySortPlan element) {
             // TODO
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitRecursiveDfsJoinPlan(@Nonnull final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
+        public Ordering visitRecursiveDfsJoinPlan(final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
             return Ordering.empty();
         }
 
-        @Nonnull
         @Override
-        public Ordering visitDefault(@Nonnull final RecordQueryPlan element) {
+        public Ordering visitDefault(final RecordQueryPlan element) {
             return Ordering.empty();
         }
 
-        @Nonnull
-        private Ordering orderingFromSingleChild(@Nonnull final RelationalExpression expression) {
+        private Ordering orderingFromSingleChild(final RelationalExpression expression) {
             final var quantifiers = expression.getQuantifiers();
             if (quantifiers.size() == 1) {
                 return evaluateForReference(Iterables.getOnlyElement(quantifiers).getRangesOver());
@@ -753,8 +705,7 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
             return Ordering.empty();
         }
 
-        @Nonnull
-        private List<Ordering> orderingsFromChildren(@Nonnull final RelationalExpression expression) {
+        private List<Ordering> orderingsFromChildren(final RelationalExpression expression) {
             return expression.getQuantifiers()
                     .stream()
                     .map(quantifier -> {
@@ -766,8 +717,7 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
                     .collect(ImmutableList.toImmutableList());
         }
 
-        @Nonnull
-        private Ordering evaluateForReference(@Nonnull Reference reference) {
+        private Ordering evaluateForReference(Reference reference) {
             final var memberOrderings =
                     reference.getPropertyForPlans(ORDERING).values();
             final var allAreDistinct =
@@ -778,9 +728,9 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
             return Ordering.merge(memberOrderings, Ordering.UNION, (left, right) -> allAreDistinct);
         }
 
-        public static <O extends Ordering.SetOperationsOrdering> Ordering deriveForDistinctSetOperationFromOrderings(@Nonnull final List<Ordering> orderings,
-                                                                                                                     @Nonnull final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
-                                                                                                                     @Nonnull final Ordering.MergeOperator<O> mergeOperator) {
+        public static <O extends Ordering.SetOperationsOrdering> Ordering deriveForDistinctSetOperationFromOrderings(final List<Ordering> orderings,
+                                                                                                                     final List<ProvidedOrderingPart> comparisonKeyOrderingParts,
+                                                                                                                     final Ordering.MergeOperator<O> mergeOperator) {
             final var mergedOrdering = Ordering.merge(orderings, mergeOperator, (left, right) -> true);
             return mergedOrdering.applyComparisonKey(comparisonKeyOrderingParts);
         }

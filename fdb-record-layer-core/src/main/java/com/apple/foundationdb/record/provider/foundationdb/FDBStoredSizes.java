@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 
-import javax.annotation.Nonnull;
 
 /**
  * Information about how a record is stored in the database.
@@ -72,7 +71,7 @@ public interface FDBStoredSizes {
      * @param msg the log message to add information to
      */
     @API(API.Status.EXPERIMENTAL)
-    default void addSizeLogInfo(@Nonnull KeyValueLogMessage msg) {
+    default void addSizeLogInfo(KeyValueLogMessage msg) {
         msg.addKeyAndValue(LogMessageKeys.KEY_COUNT, getKeyCount())
                 .addKeyAndValue(LogMessageKeys.KEY_SIZE, getKeySize())
                 .addKeyAndValue(LogMessageKeys.VALUE_SIZE, getValueSize())

@@ -33,11 +33,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -237,7 +237,7 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
                         })
                         .build()) {
                     RecordCoreException e = assertThrows(RecordCoreException.class, indexer::buildIndex);
-                    assertTrue(e.getMessage().contains(testThrowMsg));
+                    assertTrue(Objects.requireNonNull(e.getMessage()).contains(testThrowMsg));
                 }
             });
         } else {
@@ -254,7 +254,7 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
                     })
                     .build()) {
                 RecordCoreException e = assertThrows(RecordCoreException.class, indexer::buildIndex);
-                assertTrue(e.getMessage().contains(testThrowMsg));
+                assertTrue(Objects.requireNonNull(e.getMessage()).contains(testThrowMsg));
             }
         }
 
@@ -371,7 +371,6 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
         }
     }
 
-    @Nonnull
     private Thread collectHeartbeatsThread(final AtomicBoolean indexerDone, final Semaphore colectorGo, final List<Index> indexes, final List<Map<UUID, IndexBuildProto.IndexBuildHeartbeat>> heartbeatsQueries, final Semaphore indexerGo) {
         return new Thread(() -> {
             while (!indexerDone.get()) {
@@ -386,7 +385,6 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
         });
     }
 
-    @Nonnull
     private Thread buildIndexesThread(final List<Index> indexes, final Semaphore colectorGo, final Semaphore indexerGo, final AtomicBoolean indexerDone) {
         return new Thread(() -> {
             try (OnlineIndexer indexer = newIndexerBuilder(indexes)

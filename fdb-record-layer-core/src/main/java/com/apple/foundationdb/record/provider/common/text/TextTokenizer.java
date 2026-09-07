@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexMaintainer;
 import com.apple.foundationdb.record.util.MapUtils;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -103,8 +102,7 @@ public interface TextTokenizer {
      * @param mode whether this tokenizer is being used to index a document or query a set of documents
      * @return a stream of tokens retrieved from the text
      */
-    @Nonnull
-    Iterator<? extends CharSequence> tokenize(@Nonnull String text, int version, @Nonnull TokenizerMode mode);
+    Iterator<? extends CharSequence> tokenize(String text, int version, TokenizerMode mode);
 
     /**
      * Create a map from tokens to their offset lists from the given input text. This
@@ -132,8 +130,7 @@ public interface TextTokenizer {
      * @param mode whether this tokenizer is being used to index a document or query a set of documents
      * @return a mapping from token to a list of offsets in the original text
      */
-    @Nonnull
-    default Map<String, List<Integer>> tokenizeToMap(@Nonnull String text, int version, @Nonnull TokenizerMode mode) {
+    default Map<String, List<Integer>> tokenizeToMap(String text, int version, TokenizerMode mode) {
         final Iterator<? extends CharSequence> tokens = tokenize(text, version, mode);
         Map<String, List<Integer>> offsetMap = new HashMap<>();
         int offset = 0;
@@ -157,7 +154,7 @@ public interface TextTokenizer {
      * @param mode whether this tokenizer is being used to index a document or query a set of documents
      * @return a list of tokens retrieved from the text
      */
-    default List<String> tokenizeToList(@Nonnull String text, int version, @Nonnull TokenizerMode mode) {
+    default List<String> tokenizeToList(String text, int version, TokenizerMode mode) {
         final Iterator<? extends CharSequence> tokens = tokenize(text, version, mode);
         List<String> tokenList = new ArrayList<>();
         while (tokens.hasNext()) {
@@ -194,7 +191,6 @@ public interface TextTokenizer {
      *
      * @return this tokenizer's name
      */
-    @Nonnull
     String getName();
 
     /**

@@ -109,7 +109,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.OptionalLong;
@@ -129,7 +128,6 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         // prevent outside instantiation
     }
 
-    @Nonnull
     @Override
     public RelationalExpressionVisitor<Cardinalities> createVisitor() {
         return new CardinalitiesVisitor();
@@ -140,17 +138,14 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         return getClass().getSimpleName();
     }
 
-    @Nonnull
-    public Cardinalities evaluate(@Nonnull Reference ref) {
+    public Cardinalities evaluate(Reference ref) {
         return evaluate(ref.get());
     }
 
-    @Nonnull
-    public Cardinalities evaluate(@Nonnull final RelationalExpression expression) {
+    public Cardinalities evaluate(final RelationalExpression expression) {
         return createVisitor().visit(expression);
     }
 
-    @Nonnull
     public static CardinalitiesProperty cardinalities() {
         return CARDINALITIES;
     }
@@ -159,22 +154,19 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
      * Visitor implementation.
      */
     public static class CardinalitiesVisitor implements RelationalExpressionVisitor<Cardinalities> {
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryUpdatePlan(@Nonnull final RecordQueryUpdatePlan updatePlan) {
+        public Cardinalities visitRecordQueryUpdatePlan(final RecordQueryUpdatePlan updatePlan) {
             return fromChild(updatePlan);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryPredicatesFilterPlan(@Nonnull final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {
+        public Cardinalities visitRecordQueryPredicatesFilterPlan(final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {
             final var cardinalitiesFromChild = fromChild(predicatesFilterPlan);
             return cardinalitiesFromChild.floor(0L);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryLoadByKeysPlan(@Nonnull final RecordQueryLoadByKeysPlan element) {
+        public Cardinalities visitRecordQueryLoadByKeysPlan(final RecordQueryLoadByKeysPlan element) {
             final var keysSource = element.getKeysSource();
             if (keysSource.maxCardinality() == QueryPlan.UNKNOWN_MAX_CARDINALITY) {
                 return Cardinalities.unknownCardinalities;
@@ -183,9 +175,8 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return new Cardinalities(Cardinality.ofCardinality(0L), Cardinality.ofCardinality(keysSource.maxCardinality()));
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryInValuesJoinPlan(@Nonnull final RecordQueryInValuesJoinPlan inValuesJoinPlan) {
+        public Cardinalities visitRecordQueryInValuesJoinPlan(final RecordQueryInValuesJoinPlan inValuesJoinPlan) {
             final var childCardinalities = fromChild(inValuesJoinPlan);
             final var valuesSize = inValuesJoinPlan.getInListValues().size();
             return new Cardinalities(
@@ -193,9 +184,8 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
                     Cardinality.ofCardinality(valuesSize).times(childCardinalities.getMaxCardinality()));
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
+        public Cardinalities visitRecordQueryAggregateIndexPlan(final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
             final var groupingValueMaybe = aggregateIndexPlan.getGroupingValueMaybe();
             if (groupingValueMaybe.isEmpty()) {
                 return Cardinalities.atMostOne();
@@ -218,54 +208,46 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             }
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryCoveringIndexPlan(@Nonnull final RecordQueryCoveringIndexPlan coveringIndexPlan) {
+        public Cardinalities visitRecordQueryCoveringIndexPlan(final RecordQueryCoveringIndexPlan coveringIndexPlan) {
             if (!(coveringIndexPlan.getIndexPlan() instanceof RecordQueryIndexPlan)) {
                 return Cardinalities.unknownMaxCardinality();
             }
             return visitRecordQueryIndexPlan((RecordQueryIndexPlan)coveringIndexPlan.getIndexPlan());
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryDeletePlan(@Nonnull final RecordQueryDeletePlan deletePlan) {
+        public Cardinalities visitRecordQueryDeletePlan(final RecordQueryDeletePlan deletePlan) {
             return fromChild(deletePlan);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryMapPlan(@Nonnull final RecordQueryMapPlan mapPlan) {
+        public Cardinalities visitRecordQueryMapPlan(final RecordQueryMapPlan mapPlan) {
             return fromChild(mapPlan);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryComparatorPlan(@Nonnull final RecordQueryComparatorPlan comparatorPlan) {
+        public Cardinalities visitRecordQueryComparatorPlan(final RecordQueryComparatorPlan comparatorPlan) {
             return weakenCardinalities(fromChildren(comparatorPlan));
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryUnorderedDistinctPlan(@Nonnull final RecordQueryUnorderedDistinctPlan unorderedDistinctPlan) {
+        public Cardinalities visitRecordQueryUnorderedDistinctPlan(final RecordQueryUnorderedDistinctPlan unorderedDistinctPlan) {
             return fromChild(unorderedDistinctPlan);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryIntersectionOnKeyExpressionPlan(@Nonnull final RecordQueryIntersectionOnKeyExpressionPlan intersectionOnKeyExpressionPlan) {
+        public Cardinalities visitRecordQueryIntersectionOnKeyExpressionPlan(final RecordQueryIntersectionOnKeyExpressionPlan intersectionOnKeyExpressionPlan) {
             return intersectCardinalities(fromChildren(intersectionOnKeyExpressionPlan));
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQuerySelectorPlan(@Nonnull final RecordQuerySelectorPlan selectorPlan) {
+        public Cardinalities visitRecordQuerySelectorPlan(final RecordQuerySelectorPlan selectorPlan) {
             return weakenCardinalities(fromChildren(selectorPlan));
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryRangePlan(@Nonnull final RecordQueryRangePlan rangePlan) {
+        public Cardinalities visitRecordQueryRangePlan(final RecordQueryRangePlan rangePlan) {
             final var limitValue = rangePlan.getExclusiveLimitValue();
             if (limitValue instanceof LiteralValue) {
                 final var limit = Cardinality.ofCardinality((int)Verify.verifyNotNull(limitValue.evalWithoutStore(EvaluationContext.EMPTY)));
@@ -274,45 +256,38 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return Cardinalities.unknownMaxCardinality();
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryExplodePlan(@Nonnull final RecordQueryExplodePlan element) {
+        public Cardinalities visitRecordQueryExplodePlan(final RecordQueryExplodePlan element) {
             return Cardinalities.unknownMaxCardinality();
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
+        public Cardinalities visitRecordQueryInsertPlan(final RecordQueryInsertPlan insertPlan) {
             return fromChild(insertPlan);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryTableFunctionPlan(@Nonnull final RecordQueryTableFunctionPlan element) {
+        public Cardinalities visitRecordQueryTableFunctionPlan(final RecordQueryTableFunctionPlan element) {
             return Cardinalities.unknownMaxCardinality();
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan tempTableInsertPlan) {
+        public Cardinalities visitTempTableInsertPlan(final TempTableInsertPlan tempTableInsertPlan) {
             return fromChild(tempTableInsertPlan);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuesPlan) {
+        public Cardinalities visitRecordQueryIntersectionOnValuesPlan(final RecordQueryIntersectionOnValuesPlan intersectionOnValuesPlan) {
             return intersectCardinalities(fromChildren(intersectionOnValuesPlan));
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryScoreForRankPlan(@Nonnull final RecordQueryScoreForRankPlan scoreForRankPlan) {
+        public Cardinalities visitRecordQueryScoreForRankPlan(final RecordQueryScoreForRankPlan scoreForRankPlan) {
             return fromChild(scoreForRankPlan);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan) {
+        public Cardinalities visitRecordQueryIndexPlan(final RecordQueryIndexPlan indexPlan) {
             final var matchCandidateOptional = indexPlan.getMatchCandidateMaybe();
             if (matchCandidateOptional.isEmpty()) {
                 return Cardinalities.unknownMaxCardinality();
@@ -354,35 +329,30 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return Cardinalities.unknownMaxCardinality();
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan element) {
+        public Cardinalities visitRecordQueryFirstOrDefaultPlan(final RecordQueryFirstOrDefaultPlan element) {
             return new Cardinalities(Cardinality.ofCardinality(1L), Cardinality.ofCardinality(1L));
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryDefaultOnEmptyPlan(@Nonnull final RecordQueryDefaultOnEmptyPlan defaultOnEmptyPlan) {
+        public Cardinalities visitRecordQueryDefaultOnEmptyPlan(final RecordQueryDefaultOnEmptyPlan defaultOnEmptyPlan) {
             final var cardinalitiesFromChild = fromChild(defaultOnEmptyPlan);
             return cardinalitiesFromChild.floor(1L);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryUnionOnKeyExpressionPlan(@Nonnull final RecordQueryUnionOnKeyExpressionPlan unionOnKeyExpressionPlan) {
+        public Cardinalities visitRecordQueryUnionOnKeyExpressionPlan(final RecordQueryUnionOnKeyExpressionPlan unionOnKeyExpressionPlan) {
             return unionCardinalities(fromChildren(unionOnKeyExpressionPlan));
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryFilterPlan(@Nonnull final RecordQueryFilterPlan filterPlan) {
+        public Cardinalities visitRecordQueryFilterPlan(final RecordQueryFilterPlan filterPlan) {
             final var cardinalitiesFromChild = fromChild(filterPlan);
             return new Cardinalities(Cardinality.ofCardinality(0L), cardinalitiesFromChild.getMaxCardinality());
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryUnorderedPrimaryKeyDistinctPlan(@Nonnull final RecordQueryUnorderedPrimaryKeyDistinctPlan unorderedPrimaryKeyDistinctPlan) {
+        public Cardinalities visitRecordQueryUnorderedPrimaryKeyDistinctPlan(final RecordQueryUnorderedPrimaryKeyDistinctPlan unorderedPrimaryKeyDistinctPlan) {
             final var cardinalitiesFromChild = fromChild(unorderedPrimaryKeyDistinctPlan);
             if (!cardinalitiesFromChild.getMinCardinality().isUnknown()) {
                 if (cardinalitiesFromChild.getMinCardinality().getCardinality() >= 1L) {
@@ -393,32 +363,27 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return cardinalitiesFromChild;
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryTextIndexPlan(@Nonnull final RecordQueryTextIndexPlan element) {
+        public Cardinalities visitRecordQueryTextIndexPlan(final RecordQueryTextIndexPlan element) {
             return Cardinalities.unknownMaxCardinality();
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryFetchFromPartialRecordPlan(@Nonnull final RecordQueryFetchFromPartialRecordPlan fetchFromPartialRecordPlan) {
+        public Cardinalities visitRecordQueryFetchFromPartialRecordPlan(final RecordQueryFetchFromPartialRecordPlan fetchFromPartialRecordPlan) {
             return fromChild(fetchFromPartialRecordPlan);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan typeFilterPlan) {
+        public Cardinalities visitRecordQueryTypeFilterPlan(final RecordQueryTypeFilterPlan typeFilterPlan) {
             return fromChild(typeFilterPlan);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryInUnionOnKeyExpressionPlan(@Nonnull final RecordQueryInUnionOnKeyExpressionPlan inUnionOnKeyExpressionPlan) {
+        public Cardinalities visitRecordQueryInUnionOnKeyExpressionPlan(final RecordQueryInUnionOnKeyExpressionPlan inUnionOnKeyExpressionPlan) {
             return visitRecordQueryInUnionPlan(inUnionOnKeyExpressionPlan);
         }
 
-        @Nonnull
-        public Cardinalities visitRecordQueryInUnionPlan(@Nonnull final RecordQueryInUnionPlan inUnionPlan) {
+        public Cardinalities visitRecordQueryInUnionPlan(final RecordQueryInUnionPlan inUnionPlan) {
             final var inSources = inUnionPlan.getInSources();
 
             final var inSourcesCardinalitiesOptional =
@@ -442,27 +407,23 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return inSourcesCardinalities.times(childCardinalities);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan recordQueryMultiIntersectionOnValuesPlan) {
+        public Cardinalities visitRecordQueryMultiIntersectionOnValuesPlan(final RecordQueryMultiIntersectionOnValuesPlan recordQueryMultiIntersectionOnValuesPlan) {
             return intersectCardinalities(fromChildren(recordQueryMultiIntersectionOnValuesPlan));
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryInParameterJoinPlan(@Nonnull final RecordQueryInParameterJoinPlan element) {
+        public Cardinalities visitRecordQueryInParameterJoinPlan(final RecordQueryInParameterJoinPlan element) {
             return Cardinalities.unknownMaxCardinality();
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryInComparandJoinPlan(@Nonnull final RecordQueryInComparandJoinPlan element) {
+        public Cardinalities visitRecordQueryInComparandJoinPlan(final RecordQueryInComparandJoinPlan element) {
             return Cardinalities.unknownMaxCardinality();
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryRecursiveLevelUnionPlan(@Nonnull final RecordQueryRecursiveLevelUnionPlan element) {
+        public Cardinalities visitRecordQueryRecursiveLevelUnionPlan(final RecordQueryRecursiveLevelUnionPlan element) {
             final var initialStateCardinality = fromChild(element.getChildren().get(0));
             // this can be improved by imposing an assertion on the cardinality of the recursive leg; if the recursive leg
             // has a known minimum cardinality of x | x > 0 then this query is infinitely recursive, so we should probably
@@ -470,9 +431,8 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return new Cardinalities(initialStateCardinality.minCardinality, Cardinality.unknownCardinality);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryFlatMapPlan(@Nonnull final RecordQueryFlatMapPlan flatMapPlan) {
+        public Cardinalities visitRecordQueryFlatMapPlan(final RecordQueryFlatMapPlan flatMapPlan) {
             final var fromChildren = fromChildren(flatMapPlan);
             final var outerCardinalities = fromChildren.get(0);
             final var innerCardinalities = fromChildren.get(1);
@@ -480,9 +440,8 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return outerCardinalities.times(innerCardinalities);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryStreamingAggregationPlan(@Nonnull final RecordQueryStreamingAggregationPlan element) {
+        public Cardinalities visitRecordQueryStreamingAggregationPlan(final RecordQueryStreamingAggregationPlan element) {
             // if we do not have any grouping value, we will apply the aggregation(s) over the entire child result set
             // and return a single row comprising the aggregation(s) result
             if (element.getGroupingValue() == null) {
@@ -495,21 +454,18 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return Cardinalities.unknownMaxCardinality();
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
+        public Cardinalities visitRecordQueryUnionOnValuesPlan(final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
             return unionCardinalities(fromChildren(unionOnValuesPlan));
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryUnorderedUnionPlan(@Nonnull final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
+        public Cardinalities visitRecordQueryUnorderedUnionPlan(final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
             return unionCardinalities(fromChildren(unorderedUnionPlan));
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryScanPlan(@Nonnull final RecordQueryScanPlan scanPlan) {
+        public Cardinalities visitRecordQueryScanPlan(final RecordQueryScanPlan scanPlan) {
             final var matchCandidateOptional = scanPlan.getMatchCandidateMaybe();
             if (matchCandidateOptional.isEmpty()) {
                 return Cardinalities.unknownMaxCardinality();
@@ -535,95 +491,80 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return Cardinalities.unknownMaxCardinality();
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryInUnionOnValuesPlan(@Nonnull final RecordQueryInUnionOnValuesPlan inUnionOnValuesPlan) {
+        public Cardinalities visitRecordQueryInUnionOnValuesPlan(final RecordQueryInUnionOnValuesPlan inUnionOnValuesPlan) {
             return visitRecordQueryInUnionPlan(inUnionOnValuesPlan);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitComposedBitmapIndexQueryPlan(@Nonnull final ComposedBitmapIndexQueryPlan element) {
+        public Cardinalities visitComposedBitmapIndexQueryPlan(final ComposedBitmapIndexQueryPlan element) {
             return Cardinalities.unknownMaxCardinality();
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryDamPlan(@Nonnull final RecordQueryDamPlan damPlan) {
+        public Cardinalities visitRecordQueryDamPlan(final RecordQueryDamPlan damPlan) {
             return fromChild(damPlan);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitMatchableSortExpression(@Nonnull final MatchableSortExpression matchableSortExpression) {
+        public Cardinalities visitMatchableSortExpression(final MatchableSortExpression matchableSortExpression) {
             return fromChild(matchableSortExpression);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitInsertExpression(@Nonnull final InsertExpression insertExpression) {
+        public Cardinalities visitInsertExpression(final InsertExpression insertExpression) {
             return fromChild(insertExpression);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitTempTableInsertExpression(@Nonnull final TempTableInsertExpression tempTableInsertExpression) {
+        public Cardinalities visitTempTableInsertExpression(final TempTableInsertExpression tempTableInsertExpression) {
             return fromChild(tempTableInsertExpression);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecursiveUnionExpression(@Nonnull final RecursiveUnionExpression element) {
+        public Cardinalities visitRecursiveUnionExpression(final RecursiveUnionExpression element) {
             final var initialStateCardinality = fromQuantifier(element.getQuantifiers().get(0));
             return new Cardinalities(initialStateCardinality.minCardinality, Cardinality.unknownCardinality);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitLogicalSortExpression(@Nonnull final LogicalSortExpression logicalSortExpression) {
+        public Cardinalities visitLogicalSortExpression(final LogicalSortExpression logicalSortExpression) {
             return fromChild(logicalSortExpression);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitLogicalTypeFilterExpression(@Nonnull final LogicalTypeFilterExpression logicalTypeFilterExpression) {
+        public Cardinalities visitLogicalTypeFilterExpression(final LogicalTypeFilterExpression logicalTypeFilterExpression) {
             return fromChild(logicalTypeFilterExpression);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitLogicalUnionExpression(@Nonnull final LogicalUnionExpression logicalUnionExpression) {
+        public Cardinalities visitLogicalUnionExpression(final LogicalUnionExpression logicalUnionExpression) {
             return unionCardinalities(fromChildren(logicalUnionExpression));
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitLogicalIntersectionExpression(@Nonnull final LogicalIntersectionExpression logicalIntersectionExpression) {
+        public Cardinalities visitLogicalIntersectionExpression(final LogicalIntersectionExpression logicalIntersectionExpression) {
             return intersectCardinalities(fromChildren(logicalIntersectionExpression));
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitTableFunctionExpression(@Nonnull final TableFunctionExpression element) {
+        public Cardinalities visitTableFunctionExpression(final TableFunctionExpression element) {
             final StreamingValue streamingValue = element.getValue();
             return streamingValue.getCardinalities();
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitLogicalUniqueExpression(@Nonnull final LogicalUniqueExpression logicalUniqueExpression) {
+        public Cardinalities visitLogicalUniqueExpression(final LogicalUniqueExpression logicalUniqueExpression) {
             return fromChild(logicalUniqueExpression);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitLogicalProjectionExpression(@Nonnull final LogicalProjectionExpression logicalProjectionExpression) {
+        public Cardinalities visitLogicalProjectionExpression(final LogicalProjectionExpression logicalProjectionExpression) {
             return fromChild(logicalProjectionExpression);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitSelectExpression(@Nonnull final SelectExpression selectExpression) {
+        public Cardinalities visitSelectExpression(final SelectExpression selectExpression) {
             return fromChildren(selectExpression)
                     .stream()
                     .reduce(Cardinalities::times)
@@ -635,35 +576,30 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
          * inner join). The minimum is floored to the minimum cardinality of the preserved side, since every
          * preserved-side row produces at least one output (whether matched or null-padded).
          */
-        @Nonnull
         @Override
-        public Cardinalities visitOuterJoinExpression(@Nonnull final OuterJoinExpression outerJoinExpression) {
+        public Cardinalities visitOuterJoinExpression(final OuterJoinExpression outerJoinExpression) {
             final Cardinalities preserved = fromQuantifier(outerJoinExpression.getPreservedQuantifier());
             final Cardinalities nullSupplying = fromQuantifier(outerJoinExpression.getNullSupplyingQuantifier());
             return preserved.times(nullSupplying).floor(preserved.getMinCardinality());
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitExplodeExpression(@Nonnull final ExplodeExpression element) {
+        public Cardinalities visitExplodeExpression(final ExplodeExpression element) {
             return Cardinalities.unknownMaxCardinality();
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitFullUnorderedScanExpression(@Nonnull final FullUnorderedScanExpression element) {
+        public Cardinalities visitFullUnorderedScanExpression(final FullUnorderedScanExpression element) {
             return Cardinalities.unknownMaxCardinality();
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitTempTableScanExpression(@Nonnull final TempTableScanExpression element) {
+        public Cardinalities visitTempTableScanExpression(final TempTableScanExpression element) {
             return Cardinalities.unknownMaxCardinality();
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitGroupByExpression(@Nonnull final GroupByExpression element) {
+        public Cardinalities visitGroupByExpression(final GroupByExpression element) {
             // if we do not have any grouping value, we will apply the aggregation(s) over the entire child result set
             // and return a single row comprising the aggregation(s) result
             if (element.getGroupingValue() == null) {
@@ -676,50 +612,42 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return Cardinalities.unknownMaxCardinality();
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitUpdateExpression(@Nonnull final UpdateExpression updateExpression) {
+        public Cardinalities visitUpdateExpression(final UpdateExpression updateExpression) {
             return fromChild(updateExpression);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitLogicalDistinctExpression(@Nonnull final LogicalDistinctExpression logicalDistinctExpression) {
+        public Cardinalities visitLogicalDistinctExpression(final LogicalDistinctExpression logicalDistinctExpression) {
             return fromChild(logicalDistinctExpression);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitLogicalFilterExpression(@Nonnull final LogicalFilterExpression logicalFilterExpression) {
+        public Cardinalities visitLogicalFilterExpression(final LogicalFilterExpression logicalFilterExpression) {
             return fromChild(logicalFilterExpression);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitDeleteExpression(@Nonnull final DeleteExpression deleteExpression) {
+        public Cardinalities visitDeleteExpression(final DeleteExpression deleteExpression) {
             return fromChild(deleteExpression);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQuerySortPlan(@Nonnull final RecordQuerySortPlan querySortPlan) {
+        public Cardinalities visitRecordQuerySortPlan(final RecordQuerySortPlan querySortPlan) {
             return fromChild(querySortPlan);
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitRecordQueryRecursiveDfsJoinPlan(@Nonnull final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
+        public Cardinalities visitRecordQueryRecursiveDfsJoinPlan(final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
             return Cardinalities.unknownMaxCardinality();
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitTempTableScanPlan(@Nonnull final TempTableScanPlan element) {
+        public Cardinalities visitTempTableScanPlan(final TempTableScanPlan element) {
             return Cardinalities.unknownMaxCardinality();
         }
 
-        @Nonnull
-        private Cardinalities intersectCardinalities(@Nonnull Iterable<Cardinalities> cardinalitiesIterable) {
+        private Cardinalities intersectCardinalities(Iterable<Cardinalities> cardinalitiesIterable) {
             //
             // Merge all cardinalities in the iterable.
             // If the cardinality in one member is unknown but not in the other, we'll take the more constraining one
@@ -752,8 +680,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return new Cardinalities(minCardinality, maxCardinality);
         }
 
-        @Nonnull
-        private Cardinalities unionCardinalities(@Nonnull Iterable<Cardinalities> cardinalitiesIterable) {
+        private Cardinalities unionCardinalities(Iterable<Cardinalities> cardinalitiesIterable) {
             //
             // Merge all cardinalities in the iterable.
             //
@@ -792,8 +719,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return new Cardinalities(minCardinality, maxCardinality);
         }
 
-        @Nonnull
-        private Cardinalities weakenCardinalities(@Nonnull Iterable<Cardinalities> cardinalitiesIterable) {
+        private Cardinalities weakenCardinalities(Iterable<Cardinalities> cardinalitiesIterable) {
             //
             // Merge all cardinalities in the iterable.
             // If the cardinality in one member is unknown but not in the other, we'll take the less constraining one
@@ -831,19 +757,16 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return new Cardinalities(minCardinality, maxCardinality);
         }
 
-        @Nonnull
-        private Cardinalities fromChild(@Nonnull final RelationalExpression relationalExpression) {
+        private Cardinalities fromChild(final RelationalExpression relationalExpression) {
             Verify.verify(relationalExpression.getQuantifiers().size() == 1);
             return Iterables.getOnlyElement(fromChildren(relationalExpression));
         }
 
-        @Nonnull
-        private List<Cardinalities> fromChildren(@Nonnull final RelationalExpression relationalExpression) {
+        private List<Cardinalities> fromChildren(final RelationalExpression relationalExpression) {
             return fromQuantifiers(relationalExpression.getQuantifiers());
         }
 
-        @Nonnull
-        private List<Cardinalities> fromQuantifiers(@Nonnull final List<? extends Quantifier> quantifiers) {
+        private List<Cardinalities> fromQuantifiers(final List<? extends Quantifier> quantifiers) {
             final var quantifierResults = Lists.<Cardinalities>newArrayListWithCapacity(quantifiers.size());
             for (final Quantifier quantifier : quantifiers) {
                 quantifierResults.add(fromQuantifier(quantifier));
@@ -852,8 +775,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return quantifierResults;
         }
 
-        @Nonnull
-        private Cardinalities fromQuantifier(@Nonnull final Quantifier quantifier) {
+        private Cardinalities fromQuantifier(final Quantifier quantifier) {
             if (quantifier instanceof Quantifier.Existential) {
                 return Cardinalities.exactlyOne();
             }
@@ -866,9 +788,8 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             }
         }
 
-        @Nonnull
         @Override
-        public Cardinalities visitDefault(@Nonnull final RelationalExpression element) {
+        public Cardinalities visitDefault(final RelationalExpression element) {
             throw new RecordCoreException("not implemented");
         }
     }
@@ -880,38 +801,30 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @SpotBugsSuppressWarnings(value = "SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR",
             justification = "False positive as this is not a singleton class")
     public static class Cardinalities {
-        @Nonnull
         private static final Cardinalities unknownCardinalities = new Cardinalities(Cardinality.unknownCardinality(), Cardinality.unknownCardinality());
 
-        @Nonnull
         private static final Cardinalities unknownMaxCardinality = new Cardinalities(Cardinality.zero, Cardinality.unknownCardinality());
 
-        @Nonnull
         private static final Cardinalities exactlyOne = new Cardinalities(Cardinality.one, Cardinality.one);
-        @Nonnull
         private static final Cardinalities atMostOne = new Cardinalities(Cardinality.zero, Cardinality.one);
 
-        @Nonnull
         private final Cardinality minCardinality;
-        @Nonnull
         private final Cardinality maxCardinality;
 
-        public Cardinalities(@Nonnull final Cardinality minCardinality, @Nonnull final Cardinality maxCardinality) {
+        public Cardinalities(final Cardinality minCardinality, final Cardinality maxCardinality) {
             this.minCardinality = minCardinality;
             this.maxCardinality = maxCardinality;
         }
 
-        @Nonnull
         public Cardinality getMinCardinality() {
             return minCardinality;
         }
 
-        @Nonnull
         public Cardinality getMaxCardinality() {
             return maxCardinality;
         }
 
-        public Cardinalities times(@Nonnull final Cardinalities otherCardinalities) {
+        public Cardinalities times(final Cardinalities otherCardinalities) {
             return new Cardinalities(getMinCardinality().times(otherCardinalities.getMinCardinality()),
                     getMaxCardinality().times(otherCardinalities.getMaxCardinality()));
         }
@@ -923,7 +836,6 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
          * @param minimum the lower bound to enforce
          * @return the adjusted cardinalities
          */
-        @Nonnull
         public Cardinalities floor(long minimum) {
             Cardinality newMin = minCardinality.floor(minimum);
             Cardinality newMax = maxCardinality.floor(minimum);
@@ -940,8 +852,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
          * @param minimum the lower bound to enforce
          * @return the adjusted cardinalities
          */
-        @Nonnull
-        public Cardinalities floor(@Nonnull final Cardinality minimum) {
+        public Cardinalities floor(final Cardinality minimum) {
             return minimum.isUnknown() ? this : floor(minimum.getCardinality());
         }
 
@@ -962,22 +873,18 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return Objects.hash(minCardinality, maxCardinality);
         }
 
-        @Nonnull
         public static Cardinalities unknownCardinalities() {
             return unknownCardinalities;
         }
 
-        @Nonnull
         public static Cardinalities exactlyOne() {
             return exactlyOne;
         }
 
-        @Nonnull
         public static Cardinalities atMostOne() {
             return atMostOne;
         }
 
-        @Nonnull
         public static Cardinalities unknownMaxCardinality() {
             return unknownMaxCardinality;
         }
@@ -993,10 +900,9 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         private static final Cardinality zero = Cardinality.ofCardinality(0L);
         private static final Cardinality one = Cardinality.ofCardinality(1L);
 
-        @Nonnull
         private final OptionalLong cardinalityOptional;
 
-        private Cardinality(@Nonnull final OptionalLong cardinalityOptional) {
+        private Cardinality(final OptionalLong cardinalityOptional) {
             this.cardinalityOptional = cardinalityOptional;
         }
 
@@ -1009,14 +915,13 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return cardinalityOptional.getAsLong();
         }
 
-        public Cardinality times(@Nonnull final Cardinality otherCardinality) {
+        public Cardinality times(final Cardinality otherCardinality) {
             if (isUnknown() || otherCardinality.isUnknown()) {
                 return unknownCardinality();
             }
             return Cardinality.ofCardinality(getCardinality() * otherCardinality.getCardinality());
         }
 
-        @Nonnull
         public Cardinality floor(long minimum) {
             if (isUnknown() || cardinalityOptional.getAsLong() >= minimum) {
                 return this;
@@ -1028,8 +933,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
          * Returns a {@code Cardinality} that is at least as large as {@code minimum}. If {@code minimum} is unknown,
          * returns {@code this} unchanged.
          */
-        @Nonnull
-        public Cardinality floor(@Nonnull final Cardinality minimum) {
+        public Cardinality floor(final Cardinality minimum) {
             return minimum.isUnknown() ? this : floor(minimum.getCardinality());
         }
 
@@ -1037,8 +941,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
          * Returns the larger of this cardinality and {@code other}. An unknown cardinality is treated as larger than
          * any known value.
          */
-        @Nonnull
-        public Cardinality max(@Nonnull final Cardinality other) {
+        public Cardinality max(final Cardinality other) {
             if (isUnknown() || other.isUnknown()) {
                 return unknownCardinality();
             }

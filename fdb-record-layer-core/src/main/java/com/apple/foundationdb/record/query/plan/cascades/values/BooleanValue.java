@@ -26,8 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Optional;
 import java.util.Set;
 
@@ -35,7 +34,6 @@ import java.util.Set;
  * Shim class to translate objects of type {@link Value} to {@link QueryPredicate}.
  */
 public interface BooleanValue extends Value {
-    @Nonnull
     @Override
     default Type getResultType() {
         return Type.primitiveType(Type.TypeCode.BOOLEAN);
@@ -49,7 +47,7 @@ public interface BooleanValue extends Value {
      * @return A {@link QueryPredicate} that is equivalent to this {@link BooleanValue} expression.
      */
     Optional<QueryPredicate> toQueryPredicate(@Nullable TypeRepository typeRepository,
-                                              @Nonnull Set<CorrelationIdentifier> localAliases);
+                                              Set<CorrelationIdentifier> localAliases);
 
     /**
      * Translates the {@link BooleanValue} into a {@link QueryPredicate}.
@@ -59,7 +57,7 @@ public interface BooleanValue extends Value {
      * @return A {@link QueryPredicate} that is equivalent to this {@link BooleanValue} expression.
      */
     default Optional<QueryPredicate> toQueryPredicate(@Nullable TypeRepository typeRepository,
-                                              @Nonnull CorrelationIdentifier localAlias) {
+                                              CorrelationIdentifier localAlias) {
         return toQueryPredicate(typeRepository, ImmutableSet.of(localAlias));
     }
 }

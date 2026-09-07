@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TypeFilterExpression;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 
@@ -49,29 +48,26 @@ public class TypeFilterCountProperty implements ExpressionProperty<Integer> {
         // prevent outside instantiation
     }
 
-    @Nonnull
     @Override
     public TypeFilterCountVisitor createVisitor() {
         return new TypeFilterCountVisitor();
     }
 
-    public int evaluate(@Nonnull final Reference reference) {
+    public int evaluate(final Reference reference) {
         return Objects.requireNonNull(reference.acceptVisitor(createVisitor()));
     }
 
-    public int evaluate(@Nonnull final RelationalExpression expression) {
+    public int evaluate(final RelationalExpression expression) {
         return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
     }
 
-    @Nonnull
     public static TypeFilterCountProperty typeFilterCount() {
         return TYPE_FILTER_COUNT;
     }
 
     public static class TypeFilterCountVisitor implements SimpleExpressionVisitor<Integer> {
-        @Nonnull
         @Override
-        public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
+        public Integer evaluateAtExpression(RelationalExpression expression, List<Integer> childResults) {
             int total = expression instanceof TypeFilterExpression ?
                         ((TypeFilterExpression)expression).getRecordTypes().size() : 0;
             for (Integer childCount : childResults) {
@@ -82,9 +78,8 @@ public class TypeFilterCountProperty implements ExpressionProperty<Integer> {
             return total;
         }
 
-        @Nonnull
         @Override
-        public Integer evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Integer> memberResults) {
+        public Integer evaluateAtRef(Reference ref, List<Integer> memberResults) {
             int min = Integer.MAX_VALUE;
             for (int memberResult : memberResults) {
                 if (memberResult < min) {

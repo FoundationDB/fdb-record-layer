@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisi
 import com.apple.foundationdb.record.query.plan.explain.ExplainLevel;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
-import javax.annotation.Nonnull;
 
 /**
  * Exception thrown when a query plan is more complex than the configured limit.
@@ -35,7 +34,7 @@ import javax.annotation.Nonnull;
 @SuppressWarnings("serial")
 @API(API.Status.UNSTABLE)
 public final class RecordQueryPlanComplexityException extends RecordCoreException {
-    public RecordQueryPlanComplexityException(@Nonnull String msg) {
+    public RecordQueryPlanComplexityException(String msg) {
         super(msg);
     }
 

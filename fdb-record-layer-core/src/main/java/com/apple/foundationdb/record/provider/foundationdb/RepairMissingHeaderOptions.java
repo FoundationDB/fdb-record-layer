@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 
 /**
@@ -54,7 +54,7 @@ public class RepairMissingHeaderOptions {
      * @param lockReason the reason for the repair/store lock
      * @return new options for the repair
      */
-    public static RepairMissingHeaderOptions leavePotentiallyCorruptedIndexesReadable(@Nonnull final String lockReason) {
+    public static RepairMissingHeaderOptions leavePotentiallyCorruptedIndexesReadable(final String lockReason) {
         return new RepairMissingHeaderOptions(true, lockReason);
     }
 
@@ -68,7 +68,6 @@ public class RepairMissingHeaderOptions {
      * @return the lock reason if appropriate.
      */
     @API(API.Status.INTERNAL)
-    @Nonnull
     String getLockReason() {
         return Objects.requireNonNull(lockReason);
     }

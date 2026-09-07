@@ -45,8 +45,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -73,12 +72,11 @@ public final class SlidingWindowTestHelpers {
      * orders by the {@code relevance} field; the index value is {@code vector_data},
      * optionally prefixed by the columns named in {@code groupingFields}.
      */
-    @Nonnull
-    public static RecordMetaData buildSlidingWindowVectorMetaData(@Nonnull String indexName,
+    public static RecordMetaData buildSlidingWindowVectorMetaData(String indexName,
                                                                   int windowSize,
                                                                   int vectorDims,
-                                                                  @Nonnull Direction direction,
-                                                                  @Nonnull List<List<String>> groupingFields) {
+                                                                  Direction direction,
+                                                                  List<List<String>> groupingFields) {
         return buildSlidingWindowVectorMetaData(indexName, windowSize, vectorDims, direction, groupingFields,
                 Key.Expressions.field("rec_no"));
     }
@@ -87,13 +85,12 @@ public final class SlidingWindowTestHelpers {
      * Same as {@link #buildSlidingWindowVectorMetaData(String, int, int, Direction, List)} but with an explicit
      * primary key. Prefixing the primary key with a grouping field lets {@code deleteRecordsWhere} target that group.
      */
-    @Nonnull
-    public static RecordMetaData buildSlidingWindowVectorMetaData(@Nonnull String indexName,
+    public static RecordMetaData buildSlidingWindowVectorMetaData(String indexName,
                                                                   int windowSize,
                                                                   int vectorDims,
-                                                                  @Nonnull Direction direction,
-                                                                  @Nonnull List<List<String>> groupingFields,
-                                                                  @Nonnull KeyExpression primaryKey) {
+                                                                  Direction direction,
+                                                                  List<List<String>> groupingFields,
+                                                                  KeyExpression primaryKey) {
         final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecordsSlidingWindowVectorProto.getDescriptor());
         metaDataBuilder.getRecordType("SlidingWindowVectorRecord")
@@ -129,7 +126,6 @@ public final class SlidingWindowTestHelpers {
         return metaDataBuilder.getRecordMetaData();
     }
 
-    @Nonnull
     public static HalfRealVector makeVector(final float... values) {
         final Half[] components = new Half[values.length];
         for (int i = 0; i < values.length; i++) {
@@ -138,7 +134,6 @@ public final class SlidingWindowTestHelpers {
         return new HalfRealVector(components);
     }
 
-    @Nonnull
     public static HalfRealVector sampleVector() {
         return makeVector(0.5f, 0.5f, 0.4f, 0.1f);
     }
@@ -147,9 +142,11 @@ public final class SlidingWindowTestHelpers {
      * Scans the HNSW index with a broad query to find all indexed records,
      * optionally restricted to a single group.
      */
-    @Nonnull
-    public static Set<Long> scanIndexRecNos(@Nonnull final FDBRecordStore recordStore,
-                                            @Nonnull final String indexName,
+    // continuation = null below is intentional: it means "start from the beginning".
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters.
+    @SuppressWarnings("NullAway")
+    public static Set<Long> scanIndexRecNos(final FDBRecordStore recordStore,
+                                            final String indexName,
                                             @Nullable final Tuple groupingKey) {
         final Index index = recordStore.getRecordMetaData().getIndex(indexName);
         final IndexMaintainer maintainer = recordStore.getIndexMaintainer(index);
@@ -177,9 +174,8 @@ public final class SlidingWindowTestHelpers {
     /**
      * Returns a snapshot of the sliding-window state for the ungrouped index.
      */
-    @Nonnull
-    public static SlidingWindow slidingWindow(@Nonnull final FDBRecordStore recordStore,
-                                              @Nonnull final String indexName) {
+    public static SlidingWindow slidingWindow(final FDBRecordStore recordStore,
+                                              final String indexName) {
         return groupedSlidingWindow(recordStore, indexName, null);
     }
 
@@ -188,16 +184,15 @@ public final class SlidingWindowTestHelpers {
      * Captures both the window counter and the underlying HNSW recNos for that
      * group, so chained assertions on the underlying index stay group-scoped.
      */
-    @Nonnull
-    public static SlidingWindow groupedSlidingWindow(@Nonnull final FDBRecordStore recordStore,
-                                                     @Nonnull final String indexName,
+    public static SlidingWindow groupedSlidingWindow(final FDBRecordStore recordStore,
+                                                     final String indexName,
                                                      @Nullable final Tuple groupingKey) {
         return new SlidingWindow(readWindowCount(recordStore, indexName, groupingKey),
                                  scanIndexRecNos(recordStore, indexName, groupingKey));
     }
 
-    private static long readWindowCount(@Nonnull final FDBRecordStore recordStore,
-                                        @Nonnull final String indexName,
+    private static long readWindowCount(final FDBRecordStore recordStore,
+                                        final String indexName,
                                         @Nullable final Tuple groupingKey) {
         final Index index = recordStore.getRecordMetaData().getIndex(indexName);
         Subspace swSubspace = recordStore.indexSlidingWindowSubspace(index);
@@ -219,7 +214,7 @@ public final class SlidingWindowTestHelpers {
      * {@code .underlyingHnsw().containsInAnyOrder(...)} stay scoped to the same
      * group.
      */
-    record SlidingWindow(long size, @Nonnull Set<Long> hnswRecNos) {
+    record SlidingWindow(long size, Set<Long> hnswRecNos) {
     }
 
     /**
@@ -229,18 +224,16 @@ public final class SlidingWindowTestHelpers {
      * and propagated to {@link #underlyingHnsw()}.
      */
     public static final class SlidingWindowAssert {
-        @Nonnull
         private final SlidingWindow window;
         @Nullable
         private final String description;
 
-        private SlidingWindowAssert(@Nonnull final SlidingWindow window, @Nullable final String description) {
+        private SlidingWindowAssert(final SlidingWindow window, @Nullable final String description) {
             this.window = window;
             this.description = description;
         }
 
-        @Nonnull
-        public static SlidingWindowAssert assertThat(@Nonnull final SlidingWindow window) {
+        public static SlidingWindowAssert assertThat(final SlidingWindow window) {
             return new SlidingWindowAssert(window, null);
         }
 
@@ -249,12 +242,10 @@ public final class SlidingWindowTestHelpers {
          * produced by subsequent assertions in this chain (including those on
          * the {@link HnswAssert} returned by {@link #underlyingHnsw()}).
          */
-        @Nonnull
-        public SlidingWindowAssert as(@Nonnull final String description) {
+        public SlidingWindowAssert as(final String description) {
             return new SlidingWindowAssert(window, description);
         }
 
-        @Nonnull
         public SlidingWindowAssert hasSizeOf(final int expectedSize) {
             assertEquals(expectedSize, window.size(),
                     describe(description,
@@ -267,7 +258,6 @@ public final class SlidingWindowTestHelpers {
          * scoped to the same group. The {@link #as(String) description} (if any)
          * is propagated.
          */
-        @Nonnull
         public HnswAssert underlyingHnsw() {
             return new HnswAssert(window.hnswRecNos(), description);
         }
@@ -277,16 +267,15 @@ public final class SlidingWindowTestHelpers {
      * Fluent assertion over a snapshot of HNSW recNos.
      */
     public static final class HnswAssert {
-        @Nonnull
         private final Set<Long> recNos;
         @Nullable
         private final String description;
 
-        HnswAssert(@Nonnull final Set<Long> recNos) {
+        HnswAssert(final Set<Long> recNos) {
             this(recNos, null);
         }
 
-        HnswAssert(@Nonnull final Set<Long> recNos, @Nullable final String description) {
+        HnswAssert(final Set<Long> recNos, @Nullable final String description) {
             this.recNos = recNos;
             this.description = description;
         }
@@ -295,12 +284,10 @@ public final class SlidingWindowTestHelpers {
          * Attaches a description that will be prefixed to any failure message
          * produced by subsequent assertions in this chain.
          */
-        @Nonnull
-        public HnswAssert as(@Nonnull final String description) {
+        public HnswAssert as(final String description) {
             return new HnswAssert(recNos, description);
         }
 
-        @Nonnull
         public HnswAssert containsInAnyOrder(final long... expectedRecNos) {
             final Set<Long> expected = LongStream.of(expectedRecNos).boxed().collect(Collectors.toSet());
             assertEquals(expected, recNos,
@@ -308,14 +295,12 @@ public final class SlidingWindowTestHelpers {
             return this;
         }
 
-        @Nonnull
         public HnswAssert contains(final long expectedRecNo) {
             assertTrue(recNos.contains(expectedRecNo),
                     describe(description, "HNSW should contain " + expectedRecNo + " but was " + recNos));
             return this;
         }
 
-        @Nonnull
         public HnswAssert isEmpty() {
             assertTrue(recNos.isEmpty(),
                     describe(description, "HNSW should be empty but contained " + recNos));
@@ -323,8 +308,7 @@ public final class SlidingWindowTestHelpers {
         }
     }
 
-    @Nonnull
-    private static String describe(@Nullable final String description, @Nonnull final String defaultMessage) {
+    private static String describe(@Nullable final String description, final String defaultMessage) {
         return description == null ? defaultMessage : description + System.lineSeparator() + defaultMessage;
     }
 }

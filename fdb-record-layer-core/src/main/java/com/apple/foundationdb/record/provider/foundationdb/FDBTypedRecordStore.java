@@ -56,9 +56,10 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -81,12 +82,10 @@ import java.util.function.Supplier;
 @API(API.Status.UNSTABLE)
 public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBase<M> {
 
-    @Nonnull
     private final FDBRecordStore untypedStore;
-    @Nonnull
     private final RecordSerializer<M> typedSerializer;
 
-    protected FDBTypedRecordStore(@Nonnull FDBRecordStore untypedStore, @Nonnull RecordSerializer<M> typedSerializer) {
+    protected FDBTypedRecordStore(FDBRecordStore untypedStore, RecordSerializer<M> typedSerializer) {
         this.untypedStore = untypedStore;
         this.typedSerializer = typedSerializer;
     }
@@ -96,13 +95,11 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         return untypedStore;
     }
 
-    @Nonnull
     @Override
     public RecordMetaData getRecordMetaData() {
         return untypedStore.getRecordMetaData();
     }
 
-    @Nonnull
     @Override
     public FDBRecordContext getContext() {
         return untypedStore.getContext();
@@ -114,28 +111,24 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         return untypedStore.getSubspaceProvider();
     }
 
-    @Nonnull
     @Override
     public RecordStoreState getRecordStoreState() {
         return untypedStore.getRecordStoreState();
     }
 
-    @Nonnull
     @Override
     public RecordSerializer<M> getSerializer() {
         return typedSerializer;
     }
 
 
-    @Nonnull
     @Override
     public IndexMaintainerFactoryRegistry getIndexMaintainerRegistry() {
         return untypedStore.getIndexMaintainerRegistry();
     }
 
-    @Nonnull
     @Override
-    public IndexMaintainer getIndexMaintainer(@Nonnull final Index index) {
+    public IndexMaintainer getIndexMaintainer(final Index index) {
         return untypedStore.getIndexMaintainer(index);
     }
 
@@ -145,118 +138,102 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     }
 
     @Override
-    public CompletableFuture<Void> updateIncarnation(@Nonnull final IntFunction<Integer> updater) {
+    public CompletableFuture<Void> updateIncarnation(final IntFunction<Integer> updater) {
         return untypedStore.updateIncarnation(updater);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull M rec, @Nonnull RecordExistenceCheck existenceCheck, @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior) {
+    public CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(M rec, RecordExistenceCheck existenceCheck, @Nullable FDBRecordVersion version, VersionstampSaveBehavior behavior) {
         return untypedStore.saveTypedRecord(typedSerializer, rec, existenceCheck, version, behavior);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<FDBStoredRecord<M>> dryRunSaveRecordAsync(@Nonnull M rec, @Nonnull RecordExistenceCheck existenceCheck, @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior) {
+    public CompletableFuture<FDBStoredRecord<M>> dryRunSaveRecordAsync(M rec, RecordExistenceCheck existenceCheck, @Nullable FDBRecordVersion version, VersionstampSaveBehavior behavior) {
         return untypedStore.saveTypedRecord(typedSerializer, rec, existenceCheck, version, behavior, true, false);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<FDBStoredRecord<M>> loadRecordInternal(@Nonnull Tuple primaryKey, @Nonnull ExecuteState executeState, boolean snapshot) {
+    public CompletableFuture<FDBStoredRecord<M>> loadRecordInternal(Tuple primaryKey, ExecuteState executeState, boolean snapshot) {
         return untypedStore.loadTypedRecord(typedSerializer, primaryKey, snapshot);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Void> preloadRecordAsync(@Nonnull Tuple primaryKey) {
+    public CompletableFuture<Void> preloadRecordAsync(Tuple primaryKey) {
         return untypedStore.preloadRecordAsync(primaryKey);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull final Tuple primaryKey, final IndexOrphanBehavior orphanBehavior) {
+    public CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(final Tuple primaryKey, final IndexOrphanBehavior orphanBehavior) {
         throw new RecordCoreException("api unsupported on typed store");
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Boolean> recordExistsAsync(@Nonnull Tuple primaryKey, @Nonnull final IsolationLevel isolationLevel) {
+    public CompletableFuture<Boolean> recordExistsAsync(Tuple primaryKey, final IsolationLevel isolationLevel) {
         return untypedStore.recordExistsAsync(primaryKey, isolationLevel);
     }
 
     @Override
-    public void addRecordReadConflict(@Nonnull Tuple primaryKey) {
+    public void addRecordReadConflict(Tuple primaryKey) {
         untypedStore.addRecordReadConflict(primaryKey);
     }
 
     @Override
-    public void addRecordWriteConflict(@Nonnull Tuple primaryKey) {
+    public void addRecordWriteConflict(Tuple primaryKey) {
         untypedStore.addRecordWriteConflict(primaryKey);
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<FDBStoredRecord<M>> scanRecords(@Nullable Tuple low, @Nullable Tuple high, @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    public RecordCursor<FDBStoredRecord<M>> scanRecords(@Nullable Tuple low, @Nullable Tuple high, EndpointType lowEndpoint, EndpointType highEndpoint, @Nullable byte[] continuation, ScanProperties scanProperties) {
         return untypedStore.scanTypedRecords(typedSerializer, low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<Tuple> scanRecordKeys(@Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+    public RecordCursor<Tuple> scanRecordKeys(@Nullable final byte[] continuation, final ScanProperties scanProperties) {
         return untypedStore.scanRecordKeys(continuation, scanProperties);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Integer> countRecords(@Nullable Tuple low, @Nullable Tuple high, @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    public CompletableFuture<Integer> countRecords(@Nullable Tuple low, @Nullable Tuple high, EndpointType lowEndpoint, EndpointType highEndpoint, @Nullable byte[] continuation, ScanProperties scanProperties) {
         return untypedStore.countRecords(low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scanIndex(@Nonnull Index index, @Nonnull IndexScanBounds scanBounds, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    public RecordCursor<IndexEntry> scanIndex(Index index, IndexScanBounds scanBounds, @Nullable byte[] continuation, ScanProperties scanProperties) {
         return untypedStore.scanIndex(index, scanBounds, continuation, scanProperties);
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(@Nonnull Index index,
-                                                                  @Nonnull IndexScanBounds scanBounds,
+    public RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(Index index,
+                                                                  IndexScanBounds scanBounds,
                                                                   int commonPrimaryKeyLength,
                                                                   @Nullable byte[] continuation,
-                                                                  @Nonnull ScanProperties scanProperties,
-                                                                  @Nonnull final IndexOrphanBehavior orphanBehavior) {
+                                                                  ScanProperties scanProperties,
+                                                                  final IndexOrphanBehavior orphanBehavior) {
         return untypedStore.scanIndexRemoteFetchInternal(index, scanBounds, commonPrimaryKeyLength, continuation, typedSerializer, scanProperties, orphanBehavior);
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<FDBIndexedRecord<M>> buildSingleRecord(@Nonnull FDBIndexedRawRecord indexedRawRecord) {
+    public CompletableFuture<FDBIndexedRecord<M>> buildSingleRecord(FDBIndexedRawRecord indexedRawRecord) {
         return untypedStore.buildSingleRecordInternal(indexedRawRecord, typedSerializer, null);
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(@Nonnull Index index, @Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    public RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(Index index, TupleRange range, @Nullable byte[] continuation, ScanProperties scanProperties) {
         return untypedStore.scanUniquenessViolations(index, range, continuation, scanProperties);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Void> resolveUniquenessViolation(@Nonnull Index index, @Nonnull Tuple valueKey, @Nullable Tuple primaryKey) {
+    public CompletableFuture<Void> resolveUniquenessViolation(Index index, Tuple valueKey, @Nullable Tuple primaryKey) {
         return untypedStore.resolveUniquenessViolation(index, valueKey, primaryKey);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Boolean> dryRunDeleteRecordAsync(@Nonnull Tuple primaryKey) {
+    public CompletableFuture<Boolean> dryRunDeleteRecordAsync(Tuple primaryKey) {
         return untypedStore.deleteTypedRecord(typedSerializer, primaryKey, true);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Boolean> deleteRecordAsync(@Nonnull Tuple primaryKey) {
+    public CompletableFuture<Boolean> deleteRecordAsync(Tuple primaryKey) {
         return untypedStore.deleteTypedRecord(typedSerializer, primaryKey, false);
     }
 
@@ -265,83 +242,71 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         untypedStore.deleteAllRecords();
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Void> deleteRecordsWhereAsync(@Nonnull QueryComponent component) {
+    public CompletableFuture<Void> deleteRecordsWhereAsync(QueryComponent component) {
         return untypedStore.deleteRecordsWhereAsync(component);
     }
 
-    @Nonnull
     @Override
     public PipelineSizer getPipelineSizer() {
         return untypedStore.getPipelineSizer();
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<Long> estimateStoreSizeAsync() {
         return untypedStore.estimateStoreSizeAsync();
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Long> estimateRecordsSizeAsync(@Nonnull TupleRange range) {
+    public CompletableFuture<Long> estimateRecordsSizeAsync(TupleRange range) {
         return untypedStore.estimateRecordsSizeAsync(range);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value,
-                                                          @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+    public CompletableFuture<Long> getSnapshotRecordCount(KeyExpression key, Key.Evaluated value,
+                                                          IndexQueryabilityFilter indexQueryabilityFilter) {
         return untypedStore.getSnapshotRecordCount(key, value, indexQueryabilityFilter);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName,
-                                                                       @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+    public CompletableFuture<Long> getSnapshotRecordCountForRecordType(String recordTypeName,
+                                                                       IndexQueryabilityFilter indexQueryabilityFilter) {
         return untypedStore.getSnapshotRecordCountForRecordType(recordTypeName, indexQueryabilityFilter);
     }
 
-    @Nonnull
     @Override
-    public <T> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull EvaluationContext evaluationContext, @Nonnull IndexRecordFunction<T> function, @Nonnull FDBRecord<M> rec) {
+    public <T> CompletableFuture<T> evaluateIndexRecordFunction(EvaluationContext evaluationContext, IndexRecordFunction<T> function, FDBRecord<M> rec) {
         return untypedStore.evaluateTypedIndexRecordFunction(evaluationContext, function, rec);
     }
 
-    @Nonnull
     @Override
-    public <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull EvaluationContext evaluationContext, @Nonnull StoreRecordFunction<T> function, @Nonnull FDBRecord<M> rec) {
+    public <T> CompletableFuture<T> evaluateStoreFunction(EvaluationContext evaluationContext, StoreRecordFunction<T> function, FDBRecord<M> rec) {
         return untypedStore.evaluateTypedStoreFunction(evaluationContext, function, rec);
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull List<String> recordTypeNames,
-                                                              @Nonnull IndexAggregateFunction aggregateFunction,
-                                                              @Nonnull TupleRange range,
-                                                              @Nonnull IsolationLevel isolationLevel,
-                                                              @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+    public CompletableFuture<Tuple> evaluateAggregateFunction(List<String> recordTypeNames,
+                                                              IndexAggregateFunction aggregateFunction,
+                                                              TupleRange range,
+                                                              IsolationLevel isolationLevel,
+                                                              IndexQueryabilityFilter indexQueryabilityFilter) {
         return untypedStore.evaluateAggregateFunction(recordTypeNames, aggregateFunction, range, isolationLevel,
                 indexQueryabilityFilter);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlan planQuery(@Nonnull final RecordQuery query, @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
+    public RecordQueryPlan planQuery(final RecordQuery query, final ParameterRelationshipGraph parameterRelationshipGraph) {
         return untypedStore.planQuery(query, parameterRelationshipGraph);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlan planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph,
-                                     @Nonnull RecordQueryPlannerConfiguration plannerConfiguration) {
+    public RecordQueryPlan planQuery(RecordQuery query, ParameterRelationshipGraph parameterRelationshipGraph,
+                                     RecordQueryPlannerConfiguration plannerConfiguration) {
         return untypedStore.planQuery(query, parameterRelationshipGraph, plannerConfiguration);
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlan planQuery(@Nonnull RecordQuery query) {
+    public RecordQueryPlan planQuery(RecordQuery query) {
         return planQuery(query, ParameterRelationshipGraph.empty());
     }
 
@@ -355,7 +320,6 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
      */
     public static class Builder<M extends Message> implements BaseBuilder<M, FDBTypedRecordStore<M>> {
 
-        @Nonnull
         private final FDBRecordStore.Builder untypedStoreBuilder;
         @Nullable
         private RecordSerializer<M> typedSerializer;
@@ -380,7 +344,6 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
             return typedSerializer;
         }
 
-        @Nonnull
         @Override
         public Builder<M> setSerializer(@Nullable RecordSerializer<M> typedSerializer) {
             this.typedSerializer = typedSerializer;
@@ -391,9 +354,10 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
          * Get the serializer that will be used by the underlying record store for non-typed operations such as building indexes.
          * @return untyped serializer
          */
-        @Nonnull
         public RecordSerializer<Message> getUntypedSerializer() {
-            return untypedStoreBuilder.getSerializer();
+            // FDBRecordStore.Builder#getSerializer() is declared @Nullable, but the underlying field always has
+            // a non-null default (DynamicMessageRecordSerializer.instance()) and no public API can clear it.
+            return Objects.requireNonNull(untypedStoreBuilder.getSerializer());
         }
 
         /**
@@ -401,8 +365,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
          * @param serializer untyped serializer
          * @return this builder
          */
-        @Nonnull
-        public Builder<M> setUntypedSerializer(@Nonnull RecordSerializer<Message> serializer) {
+        public Builder<M> setUntypedSerializer(RecordSerializer<Message> serializer) {
             untypedStoreBuilder.setSerializer(serializer);
             return this;
         }
@@ -420,7 +383,6 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         }
 
         @Override
-        @Nonnull
         @Deprecated(forRemoval = true)
         @SuppressWarnings("removal") // this method is deprecated to be removed with parent
         public Builder<M> setFormatVersion(int formatVersion) {
@@ -440,7 +402,6 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
             return untypedStoreBuilder.getMetaDataProvider();
         }
 
-        @Nonnull
         @Override
         public Builder<M> setMetaDataProvider(@Nullable RecordMetaDataProvider metaDataProvider) {
             untypedStoreBuilder.setMetaDataProvider(metaDataProvider);
@@ -453,7 +414,6 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
             return untypedStoreBuilder.getMetaDataStore();
         }
 
-        @Nonnull
         @Override
         public Builder<M> setMetaDataStore(@Nullable FDBMetaDataStore metaDataStore) {
             untypedStoreBuilder.setMetaDataStore(metaDataStore);
@@ -466,7 +426,6 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
             return untypedStoreBuilder.getContext();
         }
 
-        @Nonnull
         @Override
         public Builder<M> setContext(@Nullable FDBRecordContext context) {
             untypedStoreBuilder.setContext(context);
@@ -479,21 +438,18 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
             return untypedStoreBuilder.getSubspaceProvider();
         }
 
-        @Nonnull
         @Override
         public Builder<M> setSubspaceProvider(@Nullable SubspaceProvider subspaceProvider) {
             untypedStoreBuilder.setSubspaceProvider(subspaceProvider);
             return this;
         }
 
-        @Nonnull
         @Override
         public Builder<M> setSubspace(@Nullable Subspace subspace) {
             untypedStoreBuilder.setSubspace(subspace);
             return this;
         }
 
-        @Nonnull
         @Override
         public Builder<M> setKeySpacePath(@Nullable KeySpacePath keySpacePath) {
             untypedStoreBuilder.setKeySpacePath(keySpacePath);
@@ -506,74 +462,65 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
             return untypedStoreBuilder.getUserVersionChecker();
         }
 
-        @Nonnull
         @Override
         public Builder<M> setUserVersionChecker(@Nullable UserVersionChecker userVersionChecker) {
             untypedStoreBuilder.setUserVersionChecker(userVersionChecker);
             return this;
         }
 
-        @Nonnull
         @Override
         public IndexMaintainerFactoryRegistry getIndexMaintainerRegistry() {
             return untypedStoreBuilder.getIndexMaintainerRegistry();
         }
 
-        @Nonnull
         @Override
-        public Builder<M> setIndexMaintainerRegistry(@Nonnull IndexMaintainerFactoryRegistry indexMaintainerRegistry) {
+        public Builder<M> setIndexMaintainerRegistry(IndexMaintainerFactoryRegistry indexMaintainerRegistry) {
             untypedStoreBuilder.setIndexMaintainerRegistry(indexMaintainerRegistry);
             return this;
         }
 
-        @Nonnull
         @Override
         public IndexMaintenanceFilter getIndexMaintenanceFilter() {
             return untypedStoreBuilder.getIndexMaintenanceFilter();
         }
 
-        @Nonnull
         @Override
-        public Builder<M> setIndexMaintenanceFilter(@Nonnull IndexMaintenanceFilter indexMaintenanceFilter) {
+        public Builder<M> setIndexMaintenanceFilter(IndexMaintenanceFilter indexMaintenanceFilter) {
             untypedStoreBuilder.setIndexMaintenanceFilter(indexMaintenanceFilter);
             return this;
         }
 
-        @Nonnull
         @Override
         public PipelineSizer getPipelineSizer() {
             return untypedStoreBuilder.getPipelineSizer();
         }
 
-        @Nonnull
         @Override
-        public Builder<M> setPipelineSizer(@Nonnull PipelineSizer pipelineSizer) {
+        public Builder<M> setPipelineSizer(PipelineSizer pipelineSizer) {
             untypedStoreBuilder.setPipelineSizer(pipelineSizer);
             return this;
         }
 
-        @Nonnull
         @Override
         public FDBRecordStoreStateCache getStoreStateCache() {
-            return untypedStoreBuilder.getStoreStateCache();
+            // FDBRecordStore.Builder#getStoreStateCache() is declared @Nullable, but the underlying field always
+            // has a non-null default (PassThroughRecordStoreStateCache.instance()) and no public API can clear it.
+            return Objects.requireNonNull(untypedStoreBuilder.getStoreStateCache());
         }
 
-        @Nonnull
         @Override
-        public Builder<M> setStoreStateCache(@Nonnull FDBRecordStoreStateCache storeStateCache) {
+        public Builder<M> setStoreStateCache(FDBRecordStoreStateCache storeStateCache) {
             untypedStoreBuilder.setStoreStateCache(storeStateCache);
             return this;
         }
 
-        @Nonnull
         @Override
         public FDBRecordStore.StateCacheabilityOnOpen getStateCacheabilityOnOpen() {
             return untypedStoreBuilder.getStateCacheabilityOnOpen();
         }
 
         @Override
-        @Nonnull
-        public BaseBuilder<M, FDBTypedRecordStore<M>> setStateCacheabilityOnOpen(@Nonnull final FDBRecordStore.StateCacheabilityOnOpen stateCacheabilityOnOpen) {
+        public BaseBuilder<M, FDBTypedRecordStore<M>> setStateCacheabilityOnOpen(final FDBRecordStore.StateCacheabilityOnOpen stateCacheabilityOnOpen) {
             untypedStoreBuilder.setStateCacheabilityOnOpen(stateCacheabilityOnOpen);
             return this;
         }
@@ -584,41 +531,45 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
             return untypedStoreBuilder.getBypassFullStoreLockReason();
         }
 
-        @Nonnull
         @Override
         public Builder<M> setBypassFullStoreLockReason(@Nullable final String reason) {
             untypedStoreBuilder.setBypassFullStoreLockReason(reason);
             return this;
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<FDBTypedRecordStore<M>> uncheckedOpenAsync() {
+            final RecordSerializer<M> nonNullTypedSerializer = requireTypedSerializer();
             return untypedStoreBuilder.uncheckedOpenAsync()
-                    .thenApply(untypedStore -> new FDBTypedRecordStore<>(untypedStore, typedSerializer));
+                    .thenApply(untypedStore -> new FDBTypedRecordStore<>(untypedStore, nonNullTypedSerializer));
         }
 
-        @Nonnull
         @Override
-        public CompletableFuture<FDBTypedRecordStore<M>> createOrOpenAsync(@Nonnull StoreExistenceCheck existenceCheck) {
+        public CompletableFuture<FDBTypedRecordStore<M>> createOrOpenAsync(StoreExistenceCheck existenceCheck) {
+            final RecordSerializer<M> nonNullTypedSerializer = requireTypedSerializer();
             return untypedStoreBuilder.createOrOpenAsync(existenceCheck)
-                    .thenApply(untypedStore -> new FDBTypedRecordStore<>(untypedStore, typedSerializer));
+                    .thenApply(untypedStore -> new FDBTypedRecordStore<>(untypedStore, nonNullTypedSerializer));
         }
 
-        @Nonnull
-        @Override
-        public FDBTypedRecordStore<M> build() {
+        // typedSerializer must be set before opening/building a typed record store; this is the same
+        // precondition build() below already enforces.
+        private RecordSerializer<M> requireTypedSerializer() {
             if (typedSerializer == null) {
                 throw new RecordCoreException("typed serializer must be specified");
             }
-            if (untypedStoreBuilder.getSerializer() == null) {
-                untypedStoreBuilder.setSerializer(typedSerializer.widen());
-            }
-            return new FDBTypedRecordStore<>(untypedStoreBuilder.build(), typedSerializer);
+            return typedSerializer;
         }
 
         @Override
-        @Nonnull
+        public FDBTypedRecordStore<M> build() {
+            final RecordSerializer<M> nonNullTypedSerializer = requireTypedSerializer();
+            if (untypedStoreBuilder.getSerializer() == null) {
+                untypedStoreBuilder.setSerializer(nonNullTypedSerializer.widen());
+            }
+            return new FDBTypedRecordStore<>(untypedStoreBuilder.build(), nonNullTypedSerializer);
+        }
+
+        @Override
         public Builder<M> copyBuilder() {
             return new Builder<>(this);
         }
@@ -631,7 +582,6 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
      * @param <M> generated Protobuf class for the record message type
      * @return an uninitialized builder
      */
-    @Nonnull
     public static <M extends Message> Builder<M> newBuilder() {
         return new Builder<>();
     }
@@ -643,8 +593,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
      * @param <M> generated Protobuf class for the record message type
      * @return an uninitialized builder
      */
-    @Nonnull
-    public static <M extends Message> Builder<M> newBuilder(@Nonnull RecordSerializer<M> serializer) {
+    public static <M extends Message> Builder<M> newBuilder(RecordSerializer<M> serializer) {
         return new Builder<M>().setSerializer(serializer);
     }
 
@@ -661,12 +610,11 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
      * @param <B> generated Protobuf class for the union message's builder
      * @return a builder using the given functions
      */
-    @Nonnull
-    public static <M extends Message, U extends Message, B extends Message.Builder> Builder<M> newBuilder(@Nonnull Descriptors.FieldDescriptor fieldDescriptor,
-                                                                                                          @Nonnull Supplier<B> builderSupplier,
-                                                                                                          @Nonnull Predicate<U> tester,
-                                                                                                          @Nonnull Function<U, M> getter,
-                                                                                                          @Nonnull BiConsumer<B, M> setter) {
+    public static <M extends Message, U extends Message, B extends Message.Builder> Builder<M> newBuilder(Descriptors.FieldDescriptor fieldDescriptor,
+                                                                                                          Supplier<B> builderSupplier,
+                                                                                                          Predicate<U> tester,
+                                                                                                          Function<U, M> getter,
+                                                                                                          BiConsumer<B, M> setter) {
         RecordSerializer<M> typedSerializer = new TypedRecordSerializer<>(fieldDescriptor, builderSupplier, tester, getter, setter);
         RecordSerializer<Message> untypedSerializer = new MessageBuilderRecordSerializer(builderSupplier::get);
         return newBuilder(typedSerializer).setUntypedSerializer(untypedSerializer);
@@ -701,18 +649,16 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
      * @param <B> generated Protobuf class for the union message's builder
      * @return a builder using the given functions
      */
-    @Nonnull
-    public static <M extends Message, U extends Message, B extends Message.Builder> Builder<M> newBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor,
-                                                                                                          @Nonnull Descriptors.FieldDescriptor fieldDescriptor,
-                                                                                                          @Nonnull Supplier<B> builderSupplier,
-                                                                                                          @Nonnull Predicate<U> tester,
-                                                                                                          @Nonnull Function<U, M> getter,
-                                                                                                          @Nonnull BiConsumer<B, M> setter) {
+    public static <M extends Message, U extends Message, B extends Message.Builder> Builder<M> newBuilder(Descriptors.FileDescriptor fileDescriptor,
+                                                                                                          Descriptors.FieldDescriptor fieldDescriptor,
+                                                                                                          Supplier<B> builderSupplier,
+                                                                                                          Predicate<U> tester,
+                                                                                                          Function<U, M> getter,
+                                                                                                          BiConsumer<B, M> setter) {
         RecordMetaData metaData = RecordMetaData.build(fileDescriptor);
         return newBuilder(fieldDescriptor, builderSupplier, tester, getter, setter).setMetaDataProvider(metaData);
     }
 
-    @Nonnull
     public Builder<M> asBuilder() {
         return new Builder<>(this);
     }

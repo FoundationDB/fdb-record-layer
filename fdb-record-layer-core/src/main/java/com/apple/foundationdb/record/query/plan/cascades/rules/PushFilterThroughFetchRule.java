@@ -40,10 +40,11 @@ import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.physicalQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
@@ -140,15 +141,11 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 public class PushFilterThroughFetchRule extends AbstractCascadesRule<RecordQueryPredicatesFilterPlan> implements ImplementationCascadesRule<RecordQueryPredicatesFilterPlan> {
-    @Nonnull
     private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
-    @Nonnull
     private static final BindingMatcher<RecordQueryFetchFromPartialRecordPlan> fetchPlanMatcher =
             RecordQueryPlanMatchers.fetchFromPartialRecordPlan(innerPlanMatcher);
-    @Nonnull
     private static final BindingMatcher<Quantifier.Physical> quantifierOverFetchMatcher =
             physicalQuantifier(fetchPlanMatcher);
-    @Nonnull
     private static final BindingMatcher<RecordQueryPredicatesFilterPlan> root =
             predicatesFilter(quantifierOverFetchMatcher);
 
@@ -157,7 +154,7 @@ public class PushFilterThroughFetchRule extends AbstractCascadesRule<RecordQuery
     }
 
     @Override
-    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+    public void onMatch(final ImplementationCascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
 
         final RecordQueryPredicatesFilterPlan filterPlan = bindings.get(root);
@@ -174,7 +171,8 @@ public class PushFilterThroughFetchRule extends AbstractCascadesRule<RecordQuery
 
         for (final QueryPredicate queryPredicate : queryPredicates) {
             final Optional<QueryPredicate> pushedPredicateOptional =
-                    queryPredicate.replaceLeavesMaybe(leafPredicate -> pushLeafPredicate(fetchPlan, quantifierOverFetch.getAlias(), newInnerAlias, leafPredicate));
+                    queryPredicate.replaceLeavesMaybe((Function<QueryPredicate, @Nullable QueryPredicate>)leafPredicate ->
+                            pushLeafPredicate(fetchPlan, quantifierOverFetch.getAlias(), newInnerAlias, leafPredicate));
 
             if (pushedPredicateOptional.isPresent()) {
                 pushedPredicatesBuilder.add(pushedPredicateOptional.get());
@@ -228,10 +226,10 @@ public class PushFilterThroughFetchRule extends AbstractCascadesRule<RecordQuery
     }
 
     @Nullable
-    private QueryPredicate pushLeafPredicate(@Nonnull final RecordQueryFetchFromPartialRecordPlan fetchPlan,
-                                             @Nonnull final CorrelationIdentifier oldInnerAlias,
-                                             @Nonnull final CorrelationIdentifier newInnerAlias,
-                                             @Nonnull final QueryPredicate leafPredicate) {
+    private QueryPredicate pushLeafPredicate(final RecordQueryFetchFromPartialRecordPlan fetchPlan,
+                                             final CorrelationIdentifier oldInnerAlias,
+                                             final CorrelationIdentifier newInnerAlias,
+                                             final QueryPredicate leafPredicate) {
         if (!(leafPredicate instanceof PredicateWithValue)) {
             // Only values depend on aliases -- returning this leaf is ok as it
             // appears to be pushable as is.

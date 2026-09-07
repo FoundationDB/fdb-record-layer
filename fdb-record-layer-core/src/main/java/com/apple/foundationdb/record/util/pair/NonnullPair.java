@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.util.pair;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 /**
@@ -36,23 +35,23 @@ import java.util.Objects;
  */
 @API(API.Status.INTERNAL)
 public class NonnullPair<L, R> implements Pair<L, R> {
-    @Nonnull
     private final Pair<L, R> pair;
 
-    private NonnullPair(@Nonnull Pair<L, R> pair) {
+    private NonnullPair(Pair<L, R> pair) {
         this.pair = pair;
     }
 
-    @Nonnull
     @Override
+    @SuppressWarnings("NullAway") // We check the left and right are not null during the static initializer (of()),
+    // so we do not need to double check during the get methods, even though the delegate's own type is @Nullable.
     public L getLeft() {
         // We check the left and right are not null during the static initializer, so we
         // do not need to double check during the get methods
         return pair.getLeft();
     }
 
-    @Nonnull
     @Override
+    @SuppressWarnings("NullAway") // See getLeft() above.
     public R getRight() {
         // We check the left and right are not null during the static initializer, so we
         // do not need to double check during the get methods
@@ -89,8 +88,7 @@ public class NonnullPair<L, R> implements Pair<L, R> {
      * @param <R> the type of the right element
      * @return a pair wrapping both elements
      */
-    @Nonnull
-    public static <L, R> NonnullPair<L, R> of(@Nonnull L left, @Nonnull R right) {
+    public static <L, R> NonnullPair<L, R> of(L left, R right) {
         return new NonnullPair<>(Pair.of(Objects.requireNonNull(left), Objects.requireNonNull(right)));
     }
 }

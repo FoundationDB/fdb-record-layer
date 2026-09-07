@@ -76,7 +76,6 @@ import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -92,7 +91,6 @@ public class StoredRecordProperty implements ExpressionProperty<Boolean> {
         // prevent outside instantiation
     }
 
-    @Nonnull
     @Override
     public RelationalExpressionVisitor<Boolean> createVisitor() {
         return ExpressionProperty.toExpressionVisitor(new StoredRecordVisitor());
@@ -103,15 +101,14 @@ public class StoredRecordProperty implements ExpressionProperty<Boolean> {
         return getClass().getSimpleName();
     }
 
-    public boolean evaluate(@Nonnull final Reference reference) {
+    public boolean evaluate(final Reference reference) {
         return evaluate(reference.getOnlyElementAsPlan());
     }
 
-    public boolean evaluate(@Nonnull final RecordQueryPlan recordQueryPlan) {
+    public boolean evaluate(final RecordQueryPlan recordQueryPlan) {
         return createVisitor().visit(recordQueryPlan);
     }
 
-    @Nonnull
     public static StoredRecordProperty storedRecord() {
         return STORED_RECORD;
     }
@@ -122,285 +119,239 @@ public class StoredRecordProperty implements ExpressionProperty<Boolean> {
      * e.g. primary keys, or if the result does not flow them.
      */
     public static class StoredRecordVisitor implements RecordQueryPlanVisitor<Boolean> {
-        @Nonnull
         @Override
-        public Boolean visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan element) {
+        public Boolean visitUpdatePlan(final RecordQueryUpdatePlan element) {
             return true;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitPredicatesFilterPlan(@Nonnull final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {
+        public Boolean visitPredicatesFilterPlan(final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {
             return storedRecordsFromSingleChild(predicatesFilterPlan);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitLoadByKeysPlan(@Nonnull final RecordQueryLoadByKeysPlan element) {
+        public Boolean visitLoadByKeysPlan(final RecordQueryLoadByKeysPlan element) {
             return true;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitInValuesJoinPlan(@Nonnull final RecordQueryInValuesJoinPlan inValuesJoinPlan) {
+        public Boolean visitInValuesJoinPlan(final RecordQueryInValuesJoinPlan inValuesJoinPlan) {
             return visitInJoinPlan(inValuesJoinPlan);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitInComparandJoinPlan(@Nonnull final RecordQueryInComparandJoinPlan inComparandJoinPlan) {
+        public Boolean visitInComparandJoinPlan(final RecordQueryInComparandJoinPlan inComparandJoinPlan) {
             return visitInJoinPlan(inComparandJoinPlan);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan element) {
+        public Boolean visitAggregateIndexPlan(final RecordQueryAggregateIndexPlan element) {
             return false;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitCoveringIndexPlan(@Nonnull final RecordQueryCoveringIndexPlan element) {
+        public Boolean visitCoveringIndexPlan(final RecordQueryCoveringIndexPlan element) {
             return true;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitDeletePlan(@Nonnull final RecordQueryDeletePlan element) {
+        public Boolean visitDeletePlan(final RecordQueryDeletePlan element) {
             return true;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitIntersectionOnKeyExpressionPlan(@Nonnull final RecordQueryIntersectionOnKeyExpressionPlan element) {
+        public Boolean visitIntersectionOnKeyExpressionPlan(final RecordQueryIntersectionOnKeyExpressionPlan element) {
             return true;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitMapPlan(@Nonnull final RecordQueryMapPlan mapPlan) {
+        public Boolean visitMapPlan(final RecordQueryMapPlan mapPlan) {
             return storedRecordsFromSingleChild(mapPlan);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitComparatorPlan(@Nonnull final RecordQueryComparatorPlan comparatorPlan) {
+        public Boolean visitComparatorPlan(final RecordQueryComparatorPlan comparatorPlan) {
             return storedRecordsFromChildren(comparatorPlan).stream().allMatch(s -> s);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitUnorderedDistinctPlan(@Nonnull final RecordQueryUnorderedDistinctPlan element) {
+        public Boolean visitUnorderedDistinctPlan(final RecordQueryUnorderedDistinctPlan element) {
             return true;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitSelectorPlan(@Nonnull final RecordQuerySelectorPlan selectorPlan) {
+        public Boolean visitSelectorPlan(final RecordQuerySelectorPlan selectorPlan) {
             return storedRecordsFromChildren(selectorPlan).stream().allMatch(s -> s);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitRangePlan(@Nonnull final RecordQueryRangePlan element) {
+        public Boolean visitRangePlan(final RecordQueryRangePlan element) {
             return false;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitTempTableScanPlan(@Nonnull final TempTableScanPlan element) {
+        public Boolean visitTempTableScanPlan(final TempTableScanPlan element) {
             return false;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitExplodePlan(@Nonnull final RecordQueryExplodePlan element) {
+        public Boolean visitExplodePlan(final RecordQueryExplodePlan element) {
             return false;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitInsertPlan(@Nonnull final RecordQueryInsertPlan element) {
+        public Boolean visitInsertPlan(final RecordQueryInsertPlan element) {
             return true;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitTableFunctionPlan(@Nonnull final RecordQueryTableFunctionPlan element) {
+        public Boolean visitTableFunctionPlan(final RecordQueryTableFunctionPlan element) {
             return false;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan element) {
+        public Boolean visitTempTableInsertPlan(final TempTableInsertPlan element) {
             return false;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuesPlan) {
+        public Boolean visitIntersectionOnValuesPlan(final RecordQueryIntersectionOnValuesPlan intersectionOnValuesPlan) {
             return storedRecordsFromChildren(intersectionOnValuesPlan).stream().allMatch(s -> s);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitScoreForRankPlan(@Nonnull final RecordQueryScoreForRankPlan scoreForRankPlan) {
+        public Boolean visitScoreForRankPlan(final RecordQueryScoreForRankPlan scoreForRankPlan) {
             return storedRecordsFromSingleChild(scoreForRankPlan);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitIndexPlan(@Nonnull final RecordQueryIndexPlan element) {
+        public Boolean visitIndexPlan(final RecordQueryIndexPlan element) {
             return true;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitRecursiveLevelUnionPlan(@Nonnull final RecordQueryRecursiveLevelUnionPlan recursiveUnionPlan) {
+        public Boolean visitRecursiveLevelUnionPlan(final RecordQueryRecursiveLevelUnionPlan recursiveUnionPlan) {
             return storedRecordsFromChildren(recursiveUnionPlan).stream().allMatch(s -> s);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan element) {
+        public Boolean visitFirstOrDefaultPlan(final RecordQueryFirstOrDefaultPlan element) {
             return false;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitDefaultOnEmptyPlan(@Nonnull final RecordQueryDefaultOnEmptyPlan element) {
+        public Boolean visitDefaultOnEmptyPlan(final RecordQueryDefaultOnEmptyPlan element) {
             return false;
         }
 
-        @Nonnull
-        public Boolean visitInJoinPlan(@Nonnull final RecordQueryInJoinPlan inJoinPlan) {
+        public Boolean visitInJoinPlan(final RecordQueryInJoinPlan inJoinPlan) {
             return storedRecordsFromSingleChild(inJoinPlan);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitFilterPlan(@Nonnull final RecordQueryFilterPlan filterPlan) {
+        public Boolean visitFilterPlan(final RecordQueryFilterPlan filterPlan) {
             return storedRecordsFromSingleChild(filterPlan);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitUnorderedPrimaryKeyDistinctPlan(@Nonnull final RecordQueryUnorderedPrimaryKeyDistinctPlan element) {
+        public Boolean visitUnorderedPrimaryKeyDistinctPlan(final RecordQueryUnorderedPrimaryKeyDistinctPlan element) {
             return true;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitUnionOnKeyExpressionPlan(@Nonnull final RecordQueryUnionOnKeyExpressionPlan element) {
+        public Boolean visitUnionOnKeyExpressionPlan(final RecordQueryUnionOnKeyExpressionPlan element) {
             return true;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitTextIndexPlan(@Nonnull final RecordQueryTextIndexPlan element) {
+        public Boolean visitTextIndexPlan(final RecordQueryTextIndexPlan element) {
             return true;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitFetchFromPartialRecordPlan(@Nonnull final RecordQueryFetchFromPartialRecordPlan element) {
+        public Boolean visitFetchFromPartialRecordPlan(final RecordQueryFetchFromPartialRecordPlan element) {
             return true;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan typeFilterPlan) {
+        public Boolean visitTypeFilterPlan(final RecordQueryTypeFilterPlan typeFilterPlan) {
             return storedRecordsFromSingleChild(typeFilterPlan);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitInUnionOnKeyExpressionPlan(@Nonnull final RecordQueryInUnionOnKeyExpressionPlan element) {
+        public Boolean visitInUnionOnKeyExpressionPlan(final RecordQueryInUnionOnKeyExpressionPlan element) {
             return true;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan element) {
+        public Boolean visitMultiIntersectionOnValuesPlan(final RecordQueryMultiIntersectionOnValuesPlan element) {
             return false;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitInParameterJoinPlan(@Nonnull final RecordQueryInParameterJoinPlan inParameterJoinPlan) {
+        public Boolean visitInParameterJoinPlan(final RecordQueryInParameterJoinPlan inParameterJoinPlan) {
             return visitInJoinPlan(inParameterJoinPlan);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitFlatMapPlan(@Nonnull final RecordQueryFlatMapPlan flatMapPlan) {
+        public Boolean visitFlatMapPlan(final RecordQueryFlatMapPlan flatMapPlan) {
             if (flatMapPlan.isInheritOuterRecordProperties()) {
                 return storedRecordsFromSingleQuantifier(flatMapPlan.getOuterQuantifier());
             }
             return false;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitStreamingAggregationPlan(@Nonnull final RecordQueryStreamingAggregationPlan element) {
+        public Boolean visitStreamingAggregationPlan(final RecordQueryStreamingAggregationPlan element) {
             return false;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
+        public Boolean visitUnionOnValuesPlan(final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
             return storedRecordsFromChildren(unionOnValuesPlan).stream().allMatch(s -> s);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitUnorderedUnionPlan(@Nonnull final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
+        public Boolean visitUnorderedUnionPlan(final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
             return storedRecordsFromChildren(unorderedUnionPlan).stream().allMatch(s -> s);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitScanPlan(@Nonnull final RecordQueryScanPlan element) {
+        public Boolean visitScanPlan(final RecordQueryScanPlan element) {
             return true;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitInUnionOnValuesPlan(@Nonnull final RecordQueryInUnionOnValuesPlan inUnionOnValuesPlan) {
+        public Boolean visitInUnionOnValuesPlan(final RecordQueryInUnionOnValuesPlan inUnionOnValuesPlan) {
             return storedRecordsFromSingleChild(inUnionOnValuesPlan);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitComposedBitmapIndexQueryPlan(@Nonnull final ComposedBitmapIndexQueryPlan element) {
+        public Boolean visitComposedBitmapIndexQueryPlan(final ComposedBitmapIndexQueryPlan element) {
             return true;
         }
 
-        @Nonnull
         @Override
-        public Boolean visitDamPlan(@Nonnull final RecordQueryDamPlan damPlan) {
+        public Boolean visitDamPlan(final RecordQueryDamPlan damPlan) {
             return storedRecordsFromSingleChild(damPlan);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitSortPlan(@Nonnull final RecordQuerySortPlan sortPlan) {
+        public Boolean visitSortPlan(final RecordQuerySortPlan sortPlan) {
             return storedRecordsFromSingleChild(sortPlan);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitRecursiveDfsJoinPlan(@Nonnull final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
+        public Boolean visitRecursiveDfsJoinPlan(final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
             return storedRecordsFromChildren(recursiveDfsJoinPlan).stream().allMatch(s -> s);
         }
 
-        @Nonnull
         @Override
-        public Boolean visitDefault(@Nonnull final RecordQueryPlan element) {
+        public Boolean visitDefault(final RecordQueryPlan element) {
             return true;
         }
 
-        private boolean storedRecordsFromSingleChild(@Nonnull final RelationalExpression expression) {
+        private boolean storedRecordsFromSingleChild(final RelationalExpression expression) {
             final var quantifiers = expression.getQuantifiers();
             if (quantifiers.size() == 1) {
                 return storedRecordsFromSingleQuantifier(Iterables.getOnlyElement(quantifiers));
@@ -408,12 +359,11 @@ public class StoredRecordProperty implements ExpressionProperty<Boolean> {
             throw new RecordCoreException("cannot compute property for expression");
         }
 
-        private boolean storedRecordsFromSingleQuantifier(@Nonnull final Quantifier quantifier) {
+        private boolean storedRecordsFromSingleQuantifier(final Quantifier quantifier) {
             return evaluateForReference(quantifier.getRangesOver());
         }
 
-        @Nonnull
-        private List<Boolean> storedRecordsFromChildren(@Nonnull final RelationalExpression expression) {
+        private List<Boolean> storedRecordsFromChildren(final RelationalExpression expression) {
             return expression.getQuantifiers()
                     .stream()
                     .map(quantifier -> {
@@ -425,7 +375,7 @@ public class StoredRecordProperty implements ExpressionProperty<Boolean> {
                     .collect(ImmutableList.toImmutableList());
         }
 
-        private boolean evaluateForReference(@Nonnull Reference reference) {
+        private boolean evaluateForReference(Reference reference) {
             final var memberStoredRecordsCollection =
                     reference.getPropertyForPlans(STORED_RECORD).values();
 

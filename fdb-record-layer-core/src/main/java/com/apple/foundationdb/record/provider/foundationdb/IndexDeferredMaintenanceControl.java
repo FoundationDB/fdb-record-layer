@@ -23,7 +23,8 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -36,6 +37,7 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class IndexDeferredMaintenanceControl {
+    @Nullable
     private Set<Index> mergeRequiredIndexes = null;
     private boolean autoMergeDuringCommit = false;
     private boolean explicitMergePath = false;
@@ -67,6 +69,7 @@ public class IndexDeferredMaintenanceControl {
      * caller, to check which index maintainer requested a deferred merge.
      * @return set of indexes to be merged, null if no merge was requested.
      */
+    @Nullable
     public synchronized Set<Index> getMergeRequiredIndexes() {
         return mergeRequiredIndexes;
     }

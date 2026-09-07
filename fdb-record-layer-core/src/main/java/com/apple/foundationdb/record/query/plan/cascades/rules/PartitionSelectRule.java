@@ -46,9 +46,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher.combinations;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -72,7 +74,7 @@ public class PartitionSelectRule extends AbstractCascadesRule<SelectExpression> 
 
     @SuppressWarnings("java:S135")
     @Override
-    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
+    public void onMatch(final ExplorationCascadesRuleCall call) {
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);
@@ -308,7 +310,7 @@ public class PartitionSelectRule extends AbstractCascadesRule<SelectExpression> 
             final var newUpperPredicates =
                     upperPredicates.stream()
                             .map(upperPredicate ->
-                                    upperPredicate.replaceLeavesMaybe(leafPredicate -> leafPredicate.translateLeafPredicate(translationMap, false))
+                                    upperPredicate.replaceLeavesMaybe((Function<QueryPredicate, @Nullable QueryPredicate>)leafPredicate -> leafPredicate.translateLeafPredicate(translationMap, false))
                                     .orElseThrow(() -> new RecordCoreException("unable to map leaf predicate")))
                             .collect(ImmutableList.toImmutableList());
 
@@ -324,9 +326,9 @@ public class PartitionSelectRule extends AbstractCascadesRule<SelectExpression> 
         call.yieldExploratoryExpression(upperSelectExpression);
     }
 
-    private boolean isCrossProduct(@Nonnull final Set<Set<CorrelationIdentifier>> independentQuantifiersPartitioning,
-                                   @Nonnull final Set<CorrelationIdentifier> lowerAliases,
-                                   @Nonnull final Set<CorrelationIdentifier> upperAliases) {
+    private boolean isCrossProduct(final Set<Set<CorrelationIdentifier>> independentQuantifiersPartitioning,
+                                   final Set<CorrelationIdentifier> lowerAliases,
+                                   final Set<CorrelationIdentifier> upperAliases) {
         // Check if any independent partitioning has members that are in both lower and upper, if so, this break
         // into lower and upper is NOT a cross-product.
         for (final var independentPartition : independentQuantifiersPartitioning) {

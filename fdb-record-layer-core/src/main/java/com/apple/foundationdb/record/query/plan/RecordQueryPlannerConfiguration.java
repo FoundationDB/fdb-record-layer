@@ -37,8 +37,9 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -46,16 +47,12 @@ import java.util.Set;
  */
 @API(API.Status.UNSTABLE)
 public class RecordQueryPlannerConfiguration {
-    @Nonnull
     private static final BiMap<QueryPlanner.IndexScanPreference, RecordPlannerConfigurationProto.PlannerConfiguration.IndexScanPreference> SCAN_PREFERENCE_BI_MAP =
             PlanSerialization.protoEnumBiMap(QueryPlanner.IndexScanPreference.class, RecordPlannerConfigurationProto.PlannerConfiguration.IndexScanPreference.class);
-    @Nonnull
     private static final BiMap<IndexFetchMethod, RecordPlannerConfigurationProto.PlannerConfiguration.IndexFetchMethod> FETCH_METHOD_BI_MAP =
             PlanSerialization.protoEnumBiMap(IndexFetchMethod.class, RecordPlannerConfigurationProto.PlannerConfiguration.IndexFetchMethod.class);
-    @Nonnull
     private static final BiMap<VectorIndexEnginePreference, RecordPlannerConfigurationProto.PlannerConfiguration.VectorIndexEnginePreference> VECTOR_INDEX_ENGINE_PREFERENCE_BI_MAP =
             PlanSerialization.protoEnumBiMap(VectorIndexEnginePreference.class, RecordPlannerConfigurationProto.PlannerConfiguration.VectorIndexEnginePreference.class);
-    @Nonnull
     private static final RecordQueryPlannerConfiguration DEFAULT_PLANNER_CONFIGURATION = builder().build();
 
     // Masks used for encoding multiple Boolean flags into a single long
@@ -73,31 +70,27 @@ public class RecordQueryPlannerConfiguration {
     private static final long OMIT_PRIMARY_KEY_IN_ORDERING_KEY_FOR_IN_UNION_MASK = 1L << 11;
     private static final long JOIN_RIGHT_DEEP_MASK = 1L << 12;
 
-    @Nonnull
     private final RecordPlannerConfigurationProto.PlannerConfiguration proto;
-    @Nonnull
     private final QueryPlanner.IndexScanPreference indexScanPreference;
-    @Nonnull
     private final IndexFetchMethod indexFetchMethod;
-    @Nonnull
     private final VectorIndexEnginePreference vectorIndexEnginePreference;
-    @Nonnull
     private final Set<String> disabledTransformationRules;
     /**
      * The value index's names that {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} with
      * {@link com.apple.foundationdb.record.IndexScanType#BY_VALUE_OVER_SCAN} is preferred to use.
      */
-    @Nonnull
     private final Set<String> valueIndexesOverScanNeeded;
     @Nullable
     private final RecordQueryPlannerSortConfiguration sortConfiguration;
 
 
-    private RecordQueryPlannerConfiguration(@Nonnull RecordPlannerConfigurationProto.PlannerConfiguration proto, @Nullable RecordQueryPlannerSortConfiguration sortConfiguration) {
+    private RecordQueryPlannerConfiguration(RecordPlannerConfigurationProto.PlannerConfiguration proto, @Nullable RecordQueryPlannerSortConfiguration sortConfiguration) {
         this.proto = proto;
-        this.indexScanPreference = SCAN_PREFERENCE_BI_MAP.inverse().get(proto.getIndexScanPreference());
-        this.indexFetchMethod = FETCH_METHOD_BI_MAP.inverse().get(proto.getIndexFetchMethod());
-        this.vectorIndexEnginePreference = VECTOR_INDEX_ENGINE_PREFERENCE_BI_MAP.inverse().get(proto.getVectorIndexEnginePreference());
+        // These enum<->proto-enum BiMaps are built to be exhaustive bijections (see protoEnumBiMap),
+        // so a lookup by any valid enum constant is guaranteed to succeed.
+        this.indexScanPreference = Objects.requireNonNull(SCAN_PREFERENCE_BI_MAP.inverse().get(proto.getIndexScanPreference()));
+        this.indexFetchMethod = Objects.requireNonNull(FETCH_METHOD_BI_MAP.inverse().get(proto.getIndexFetchMethod()));
+        this.vectorIndexEnginePreference = Objects.requireNonNull(VECTOR_INDEX_ENGINE_PREFERENCE_BI_MAP.inverse().get(proto.getVectorIndexEnginePreference()));
         this.disabledTransformationRules = ImmutableSet.copyOf(proto.getDisabledTransformationRulesList());
         this.valueIndexesOverScanNeeded = ImmutableSet.copyOf(proto.getValueIndexesOverScanNeededList());
         this.sortConfiguration = sortConfiguration;
@@ -116,7 +109,6 @@ public class RecordQueryPlannerConfiguration {
      * If the meta-data has more than one record type but the record store does not, this can be overridden.
      * @return the index scan preference
      */
-    @Nonnull
     public QueryPlanner.IndexScanPreference getIndexScanPreference() {
         return indexScanPreference;
     }
@@ -285,7 +277,7 @@ public class RecordQueryPlannerConfiguration {
      * @param rule in question
      * @return {@code true} is enabled, {@code false} otherwise
      */
-    public boolean isRuleEnabled(@Nonnull PlannerRule<?, ?> rule) {
+    public boolean isRuleEnabled(PlannerRule<?, ?> rule) {
         return !disabledTransformationRules.contains(rule.getClass().getSimpleName());
     }
 
@@ -293,7 +285,6 @@ public class RecordQueryPlannerConfiguration {
      * Returns the set of disabled transformation rules.
      * @return set of disabled transformation rules.
      */
-    @Nonnull
     public Set<String> getDisabledTransformationRules() {
         return disabledTransformationRules;
     }
@@ -325,7 +316,6 @@ public class RecordQueryPlannerConfiguration {
      * by record fetches.
      * @return Whether the planner should use index prefetch in the plans
      */
-    @Nonnull
     public IndexFetchMethod getIndexFetchMethod() {
         return indexFetchMethod;
     }
@@ -338,12 +328,11 @@ public class RecordQueryPlannerConfiguration {
      * @return the vector index engine preference
      * @see VectorIndexEnginePreference
      */
-    @Nonnull
     public VectorIndexEnginePreference getVectorIndexEnginePreference() {
         return vectorIndexEnginePreference;
     }
 
-    public boolean valueIndexOverScanNeeded(@Nonnull String indexName) {
+    public boolean valueIndexOverScanNeeded(String indexName) {
         return valueIndexesOverScanNeeded.contains(indexName);
     }
 
@@ -426,22 +415,18 @@ public class RecordQueryPlannerConfiguration {
      *
      * @return a protobuf representation of this configuration object
      */
-    @Nonnull
     public RecordPlannerConfigurationProto.PlannerConfiguration toProto() {
         return proto;
     }
 
-    @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
     }
 
-    @Nonnull
     public static Builder builder() {
         return new Builder();
     }
 
-    @Nonnull
     public static RecordQueryPlannerConfiguration defaultPlannerConfiguration() {
         return DEFAULT_PLANNER_CONFIGURATION;
     }
@@ -454,8 +439,7 @@ public class RecordQueryPlannerConfiguration {
      * @param proto a protobuf representation of a {@code RecordQueryPlannerConfiguration}
      * @return a {@code RecordQueryPlannerConfiguration} with the same configuration as the proto object
      */
-    @Nonnull
-    public static RecordQueryPlannerConfiguration fromProto(@Nonnull RecordPlannerConfigurationProto.PlannerConfiguration proto) {
+    public static RecordQueryPlannerConfiguration fromProto(RecordPlannerConfigurationProto.PlannerConfiguration proto) {
         @Nullable RecordQueryPlannerSortConfiguration sortConfiguration = proto.hasSortConfiguration() ? RecordQueryPlannerSortConfiguration.fromProto(proto.getSortConfiguration()) : null;
         return new RecordQueryPlannerConfiguration(proto, sortConfiguration);
     }
@@ -464,13 +448,12 @@ public class RecordQueryPlannerConfiguration {
      * A builder for {@link RecordQueryPlannerConfiguration}.
      */
     public static class Builder {
-        @Nonnull
         private final RecordPlannerConfigurationProto.PlannerConfiguration.Builder protoBuilder;
         @Nullable
         private RecordQueryPlannerSortConfiguration sortConfiguration;
         private long flags;
 
-        public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
+        public Builder(RecordQueryPlannerConfiguration configuration) {
             this.protoBuilder = configuration.toProto().toBuilder();
             this.sortConfiguration = configuration.sortConfiguration;
             this.flags = protoBuilder.getFlags();
@@ -481,9 +464,8 @@ public class RecordQueryPlannerConfiguration {
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
-        public Builder setIndexScanPreference(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference) {
-            protoBuilder.setIndexScanPreference(SCAN_PREFERENCE_BI_MAP.get(indexScanPreference));
+        public Builder setIndexScanPreference(QueryPlanner.IndexScanPreference indexScanPreference) {
+            protoBuilder.setIndexScanPreference(Objects.requireNonNull(SCAN_PREFERENCE_BI_MAP.get(indexScanPreference)));
             return this;
         }
 
@@ -492,63 +474,54 @@ public class RecordQueryPlannerConfiguration {
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setAttemptFailedInJoinAsOr(boolean attemptFailedInJoinAsOr) {
             updateFlags(attemptFailedInJoinAsOr, ATTEMPT_FAILED_IN_JOIN_AS_OR_MASK);
             return this;
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setAttemptFailedInJoinAsUnionMaxSize(int attemptFailedInJoinAsUnionMaxSize) {
             protoBuilder.setAttemptFailedInJoinAsUnionMaxSize(attemptFailedInJoinAsUnionMaxSize);
             return this;
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setComplexityThreshold(final int complexityThreshold) {
             protoBuilder.setComplexityThreshold(complexityThreshold);
             return this;
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setCheckForDuplicateConditions(final boolean checkForDuplicateConditions) {
             updateFlags(checkForDuplicateConditions, CHECK_FOR_DUPLICATE_CONDITIONS_MASK);
             return this;
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setDeferFetchAfterUnionAndIntersection(boolean deferFetchAfterUnionAndIntersection) {
             updateFlags(deferFetchAfterUnionAndIntersection, DEFER_FETCH_AFTER_UNION_AND_INTERSECTION_MASK);
             return this;
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setDeferFetchAfterInJoinAndInUnion(boolean deferFetchAfterInJoinAndInUnion) {
             updateFlags(deferFetchAfterInJoinAndInUnion, DEFER_FETCH_AFTER_IN_JOIN_AND_IN_UNION_MASK);
             return this;
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setOmitPrimaryKeyInUnionOrderingKey(boolean omitPrimaryKeyInUnionOrderingKey) {
             updateFlags(omitPrimaryKeyInUnionOrderingKey, OMIT_PRIMARY_KEY_IN_UNION_ORDERING_KEY_MASK);
             return this;
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setOmitPrimaryKeyInOrderingKeyForInUnion(boolean omitPrimaryKeyInOrderingKeyForInUnion) {
             updateFlags(omitPrimaryKeyInOrderingKeyForInUnion, OMIT_PRIMARY_KEY_IN_ORDERING_KEY_FOR_IN_UNION_MASK);
             return this;
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setOptimizeForIndexFilters(final boolean optimizeForIndexFilters) {
             updateFlags(optimizeForIndexFilters, OPTIMIZE_FOR_INDEX_FILTERS_MASK);
             return this;
@@ -562,7 +535,6 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setOptimizeForRequiredResults(final boolean optimizeForRequiredResults) {
             updateFlags(optimizeForRequiredResults, OPTIMIZE_FOR_REQUIRED_RESULTS_MASK);
             return this;
@@ -576,7 +548,6 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setMaxTaskQueueSize(final int maxTaskQueueSize) {
             protoBuilder.setMaxTaskQueueSize(maxTaskQueueSize);
             return this;
@@ -590,7 +561,6 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setMaxTotalTaskCount(final int maxTotalTaskCount) {
             protoBuilder.setMaxTotalTaskCount(maxTotalTaskCount);
             return this;
@@ -602,7 +572,6 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setUseFullKeyForValueIndex(final boolean useFullKeyForValueIndex) {
             updateFlags(!useFullKeyForValueIndex, DONT_USE_FULL_KEY_FOR_VALUE_INDEX_MASK);
             return this;
@@ -615,7 +584,6 @@ public class RecordQueryPlannerConfiguration {
          * @return {@code this}
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setMaxNumMatchesPerRuleCall(final int maxNumMatchesPerRuleCall) {
             protoBuilder.setMaxNumMatchesPerRuleCall(maxNumMatchesPerRuleCall);
             return this;
@@ -627,7 +595,6 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setSortConfiguration(@Nullable final RecordQueryPlannerSortConfiguration sortConfiguration) {
             if (sortConfiguration == null) {
                 protoBuilder.clearSortConfiguration();
@@ -644,7 +611,6 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setAllowNonIndexSort(final boolean allowNonIndexSort) {
             setSortConfiguration(allowNonIndexSort ? RecordQueryPlannerSortConfiguration.getDefaultInstance() : null);
             return this;
@@ -656,8 +622,7 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          */
         @CanIgnoreReturnValue
-        @Nonnull
-        public Builder setDisabledTransformationRules(@Nonnull final Set<Class<? extends AbstractCascadesRule<?>>> disabledTransformationRules) {
+        public Builder setDisabledTransformationRules(final Set<Class<? extends AbstractCascadesRule<?>>> disabledTransformationRules) {
             protoBuilder.clearDisabledTransformationRules();
             for (Class<? extends AbstractCascadesRule<?>> rule : disabledTransformationRules) {
                 protoBuilder.addDisabledTransformationRules(rule.getSimpleName());
@@ -674,8 +639,7 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          */
         @CanIgnoreReturnValue
-        @Nonnull
-        public Builder setDisabledTransformationRuleNames(@Nonnull final Set<String> disabledTransformationRuleNames, @Nonnull PlanningRuleSet planningRuleSet) {
+        public Builder setDisabledTransformationRuleNames(final Set<String> disabledTransformationRuleNames, PlanningRuleSet planningRuleSet) {
             protoBuilder.clearDisabledTransformationRules()
                     .addAllDisabledTransformationRules(disabledTransformationRuleNames);
             return this;
@@ -696,7 +660,6 @@ public class RecordQueryPlannerConfiguration {
         @API(API.Status.EXPERIMENTAL)
         @SuppressWarnings("unchecked")
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder disableRewritingRules() {
             for (CascadesRule<?> rule : RewritingRuleSet.OPTIONAL_RULES) {
                 disableTransformationRule((Class<? extends AbstractCascadesRule<?>>) rule.getClass());
@@ -710,8 +673,7 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          */
         @CanIgnoreReturnValue
-        @Nonnull
-        public Builder disableTransformationRule(@Nonnull Class<? extends AbstractCascadesRule<?>> ruleClass) {
+        public Builder disableTransformationRule(Class<? extends AbstractCascadesRule<?>> ruleClass) {
             protoBuilder.addDisabledTransformationRules(ruleClass.getSimpleName());
             return this;
         }
@@ -731,7 +693,6 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setDeferCrossProducts(final boolean deferCrossProducts) {
             updateFlags(!deferCrossProducts, DONT_DEFER_CROSS_PRODUCTS_MASK);
             return this;
@@ -746,9 +707,8 @@ public class RecordQueryPlannerConfiguration {
          */
         @API(API.Status.EXPERIMENTAL)
         @CanIgnoreReturnValue
-        @Nonnull
-        public Builder setIndexFetchMethod(@Nonnull final IndexFetchMethod indexFetchMethod) {
-            protoBuilder.setIndexFetchMethod(FETCH_METHOD_BI_MAP.get(indexFetchMethod));
+        public Builder setIndexFetchMethod(final IndexFetchMethod indexFetchMethod) {
+            protoBuilder.setIndexFetchMethod(Objects.requireNonNull(FETCH_METHOD_BI_MAP.get(indexFetchMethod)));
             return this;
         }
 
@@ -763,16 +723,14 @@ public class RecordQueryPlannerConfiguration {
          */
         @API(API.Status.EXPERIMENTAL)
         @CanIgnoreReturnValue
-        @Nonnull
-        public Builder setVectorIndexEnginePreference(@Nonnull final VectorIndexEnginePreference vectorIndexEnginePreference) {
-            protoBuilder.setVectorIndexEnginePreference(VECTOR_INDEX_ENGINE_PREFERENCE_BI_MAP.get(vectorIndexEnginePreference));
+        public Builder setVectorIndexEnginePreference(final VectorIndexEnginePreference vectorIndexEnginePreference) {
+            protoBuilder.setVectorIndexEnginePreference(Objects.requireNonNull(VECTOR_INDEX_ENGINE_PREFERENCE_BI_MAP.get(vectorIndexEnginePreference)));
             return this;
         }
 
         @API(API.Status.EXPERIMENTAL)
         @CanIgnoreReturnValue
-        @Nonnull
-        public Builder addValueIndexOverScanNeeded(@Nonnull final String indexName) {
+        public Builder addValueIndexOverScanNeeded(final String indexName) {
             protoBuilder.addValueIndexesOverScanNeeded(indexName);
             return this;
         }
@@ -784,7 +742,6 @@ public class RecordQueryPlannerConfiguration {
          */
         @API(API.Status.EXPERIMENTAL)
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setPlanOtherAttemptWholeFilter(final boolean planOtherAttemptWholeFilter) {
             updateFlags(planOtherAttemptWholeFilter, PLAN_OTHER_ATTEMPT_FULL_FILTER_MASK);
             return this;
@@ -799,7 +756,6 @@ public class RecordQueryPlannerConfiguration {
          * @see #getMaxNumReplansForInToJoin()
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setMaxNumReplansForInToJoin(final int maxNumReplansForInToJoin) {
             protoBuilder.setMaxNumReplansForInToJoin(maxNumReplansForInToJoin);
             return this;
@@ -814,7 +770,6 @@ public class RecordQueryPlannerConfiguration {
          * @see #getMaxNumReplansForInUnion()
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setMaxNumReplansForInUnion(final int maxNumReplansForInUnion) {
             protoBuilder.setMaxNumReplansForInUnion(maxNumReplansForInUnion);
             return this;
@@ -827,14 +782,12 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setOrToUnionMaxNumConjuncts(final int orToUnionMaxNumConjuncts) {
             protoBuilder.setOrToUnionMaxNumConjuncts(orToUnionMaxNumConjuncts);
             return this;
         }
 
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setNormalizeNestedFields(boolean normalizeNestedFields) {
             updateFlags(normalizeNestedFields, NORMALIZE_NESTED_FIELDS_MASK);
             return this;
@@ -849,7 +802,6 @@ public class RecordQueryPlannerConfiguration {
          * @see #shouldJoinRightDeep()
          */
         @CanIgnoreReturnValue
-        @Nonnull
         public Builder setJoinRightDeep(boolean joinRightDeep) {
             updateFlags(joinRightDeep, JOIN_RIGHT_DEEP_MASK);
             return this;

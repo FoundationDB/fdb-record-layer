@@ -32,7 +32,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
-import javax.annotation.Nonnull;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
@@ -64,10 +63,9 @@ public class References {
      * @param shouldSimplifyValues an indicator whether we should attempt to simplify values after translation
      * @return a list of translated references
      */
-    @Nonnull
-    public static List<? extends Reference> translateCorrelationsInGraphs(@Nonnull final List<? extends Reference> refs,
-                                                                          @Nonnull final Memoizer memoizer,
-                                                                          @Nonnull final TranslationMap translationMap,
+    public static List<? extends Reference> translateCorrelationsInGraphs(final List<? extends Reference> refs,
+                                                                          final Memoizer memoizer,
+                                                                          final TranslationMap translationMap,
                                                                           final boolean shouldSimplifyValues) {
         if (refs.isEmpty()) {
             return ImmutableList.of();
@@ -115,10 +113,9 @@ public class References {
      * @param shouldSimplifyValues an indicator whether we should attempt to simplify values after translation
      * @return a list of translated references
      */
-    @Nonnull
-    public static List<? extends Reference> rebaseGraphs(@Nonnull final List<? extends Reference> refs,
-                                                         @Nonnull final Memoizer memoizer,
-                                                         @Nonnull final TranslationMap translationMap,
+    public static List<? extends Reference> rebaseGraphs(final List<? extends Reference> refs,
+                                                         final Memoizer memoizer,
+                                                         final TranslationMap translationMap,
                                                          final boolean shouldSimplifyValues) {
         if (refs.isEmpty()) {
             return ImmutableList.of();
@@ -143,10 +140,10 @@ public class References {
                 .collect(ImmutableList.toImmutableList());
     }
 
-    private static void rebaseGraph(@Nonnull final Memoizer memoizer, @Nonnull final TranslationMap translationMap,
-                                    final boolean shouldSimplifyValues, @Nonnull final Reference reference,
-                                    @Nonnull final IdentityHashMap<Reference, Reference> translationsCache,
-                                    @Nonnull final Function<CorrelationIdentifier, CorrelationIdentifier> quantifierAliasMapper) {
+    private static void rebaseGraph(final Memoizer memoizer, final TranslationMap translationMap,
+                                    final boolean shouldSimplifyValues, final Reference reference,
+                                    final IdentityHashMap<Reference, Reference> translationsCache,
+                                    final Function<CorrelationIdentifier, CorrelationIdentifier> quantifierAliasMapper) {
         Verify.verify(!reference.isExploring());
         var allMembersSame = true;
         final var translatedExploratoryExpressionsBuilder = ImmutableList.<RelationalExpression>builder();

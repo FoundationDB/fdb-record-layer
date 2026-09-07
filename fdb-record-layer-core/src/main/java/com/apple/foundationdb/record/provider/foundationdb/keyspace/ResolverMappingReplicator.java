@@ -37,7 +37,6 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -57,25 +56,22 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 public class ResolverMappingReplicator implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(ResolverMappingReplicator.class);
-    @Nonnull
     private final FDBDatabaseRunner runner;
-    @Nonnull
     private final LocatableResolver primary;
-    @Nonnull
     private final Function<byte[], ResolverResult> valueDeserializer;
     private final int transactionRowLimit;
     private final long transactionTimeLimitMillis;
 
-    public ResolverMappingReplicator(@Nonnull LocatableResolver primary) {
+    public ResolverMappingReplicator(LocatableResolver primary) {
         this(primary, 10_000, 4000L);
     }
 
-    public ResolverMappingReplicator(@Nonnull LocatableResolver primary,
+    public ResolverMappingReplicator(LocatableResolver primary,
                                      final int transactionRowLimit) {
         this(primary, transactionRowLimit, 4000L);
     }
 
-    public ResolverMappingReplicator(@Nonnull LocatableResolver primary,
+    public ResolverMappingReplicator(LocatableResolver primary,
                                      final int transactionRowLimit,
                                      final long transactionTimeLimitMillis) {
         this.runner = primary.getDatabase().newRunner();
@@ -105,7 +101,7 @@ public class ResolverMappingReplicator implements AutoCloseable {
      * @param replica The {@link LocatableResolver} to copy to.
      * @return A future that will complete when the copy is finished.
      */
-    public CompletableFuture<Void> copyToAsync(@Nonnull final LocatableResolver replica) {
+    public CompletableFuture<Void> copyToAsync(final LocatableResolver replica) {
         if (!replica.getDatabase().equals(runner.getDatabase())) {
             throw new IllegalArgumentException("copy must be within same database");
         }
@@ -116,9 +112,9 @@ public class ResolverMappingReplicator implements AutoCloseable {
                 .thenCompose(ignore -> replica.setWindow(maxAccumulator.get()));
     }
 
-    private CompletableFuture<Void> copyInternal(@Nonnull final LocatableResolver replica,
-                                                 @Nonnull final LongAccumulator accumulator,
-                                                 @Nonnull final AtomicInteger counter) {
+    private CompletableFuture<Void> copyInternal(final LocatableResolver replica,
+                                                 final LongAccumulator accumulator,
+                                                 final AtomicInteger counter) {
         ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(transactionRowLimit)
                 .setTimeLimit(transactionTimeLimitMillis)
@@ -130,6 +126,11 @@ public class ResolverMappingReplicator implements AutoCloseable {
             final FDBRecordContext context = runner.openContext();
 
             return primary.getMappingSubspaceAsync().thenCompose(primaryMappingSubspace -> {
+                // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+                // parameters, even though KeyValueCursorBase.Builder#setContinuation
+                // declares its parameter @Nullable; continuation.get() is genuinely
+                // nullable here (it starts out null and is only set once a batch commits).
+                @SuppressWarnings("NullAway")
                 RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(primaryMappingSubspace)
                         .setScanProperties(new ScanProperties(executeProperties))
                         .setContext(context)
@@ -137,13 +138,20 @@ public class ResolverMappingReplicator implements AutoCloseable {
                         .build();
 
                 return cursor.forEachResultAsync(result -> {
-                    KeyValue kv = result.get();
+                    // forEachResultAsync guarantees hasNext() is true for every result passed to func, so get() is
+                    // guaranteed non-null here even though its declared return type is generically @Nullable.
+                    KeyValue kv = Objects.requireNonNull(result.get());
                     final String mappedString = primaryMappingSubspace.unpack(kv.getKey()).getString(0);
                     final ResolverResult mappedValue = valueDeserializer.apply(kv.getValue());
                     accumulator.accumulate(mappedValue.getValue());
                     counter.incrementAndGet();
                     return replica.setMapping(context, mappedString, mappedValue);
                 }).thenCompose(lastResult -> context.commitAsync().thenRun(() -> {
+                    // NullAway/JSpecify does not currently track @Nullable on array
+                    // (byte[]) return types; toBytes() may genuinely return null (e.g.
+                    // when the cursor is exhausted), which is used below via
+                    // Objects.nonNull(...) to decide whether the copy loop continues.
+                    @SuppressWarnings("NullAway")
                     byte[] nextContinuationBytes = lastResult.getContinuation().toBytes();
                     if (LOGGER.isInfoEnabled()) {
                         LOGGER.info(KeyValueLogMessage.of("committing batch",

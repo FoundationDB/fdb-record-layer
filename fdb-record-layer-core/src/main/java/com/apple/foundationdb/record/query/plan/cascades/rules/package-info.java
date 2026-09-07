@@ -21,4 +21,7 @@
 /**
  * A package containing the rules used by the planner.
  */
+@NullMarked
 package com.apple.foundationdb.record.query.plan.cascades.rules;
+
+import org.jspecify.annotations.NullMarked;

@@ -27,8 +27,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiConsumer;
@@ -64,22 +63,16 @@ import java.util.function.Supplier;
  */
 @API(API.Status.EXPERIMENTAL)
 public final class VectorOptionKey<T> implements PlanHashable {
-    @Nonnull
     private final String canonicalName;
-    @Nonnull
     private final ImmutableList<String> aliases;
-    @Nonnull
     private final Class<T> type;
-    @Nonnull
     private final Function<String, T> parser;
-    @Nonnull
     private final Function<T, String> serializer;
-    @Nonnull
     private final Supplier<List<String>> allNamesSupplier;
 
-    private VectorOptionKey(@Nonnull final String canonicalName, @Nonnull final ImmutableList<String> aliases,
-                            @Nonnull final Class<T> type, @Nonnull final Function<String, T> parser,
-                            @Nonnull final Function<T, String> serializer) {
+    private VectorOptionKey(final String canonicalName, final ImmutableList<String> aliases,
+                            final Class<T> type, final Function<String, T> parser,
+                            final Function<T, String> serializer) {
         this.canonicalName = canonicalName;
         this.aliases = aliases;
         this.type = type;
@@ -92,7 +85,6 @@ public final class VectorOptionKey<T> implements PlanHashable {
      * The canonical wire name — the only name ever written.
      * @return the canonical name
      */
-    @Nonnull
     public String getCanonicalName() {
         return canonicalName;
     }
@@ -102,7 +94,6 @@ public final class VectorOptionKey<T> implements PlanHashable {
      * historically read an option's serialized name via {@code getOptionName()}.
      * @return the canonical name
      */
-    @Nonnull
     public String getOptionName() {
         return canonicalName;
     }
@@ -111,7 +102,6 @@ public final class VectorOptionKey<T> implements PlanHashable {
      * The value type of the option, used by the scan-option surface to cast and (de)serialize stored values.
      * @return the value type
      */
-    @Nonnull
     public Class<T> getType() {
         return type;
     }
@@ -121,12 +111,10 @@ public final class VectorOptionKey<T> implements PlanHashable {
      * that must resolve to this key and to enumerate the names to inspect when validating option changes.
      * @return the canonical name followed by the aliases
      */
-    @Nonnull
     public List<String> allNames() {
         return allNamesSupplier.get();
     }
 
-    @Nonnull
     private List<String> computeAllNames() {
         return ImmutableList.<String>builderWithExpectedSize(aliases.size() + 1)
                 .add(canonicalName)
@@ -142,7 +130,7 @@ public final class VectorOptionKey<T> implements PlanHashable {
      * @return the parsed value, or {@code null} if the option is not set under any of its names
      */
     @Nullable
-    public T read(@Nonnull final Index index) {
+    public T read(final Index index) {
         for (final String name : allNames()) {
             final String value = index.getOption(name);
             if (value != null) {
@@ -161,8 +149,7 @@ public final class VectorOptionKey<T> implements PlanHashable {
      * @param defaultValue the value to return when the option is unset
      * @return the parsed value, or {@code defaultValue} if the option is not set under any of its names
      */
-    @Nonnull
-    public T read(@Nonnull final Index index, @Nonnull final T defaultValue) {
+    public T read(final Index index, final T defaultValue) {
         final T value = read(index);
         return value != null ? value : defaultValue;
     }
@@ -177,12 +164,12 @@ public final class VectorOptionKey<T> implements PlanHashable {
      *        {@code addIndexOption}
      * @param value the value to write
      */
-    public void put(@Nonnull final BiConsumer<String, String> sink, @Nonnull final T value) {
+    public void put(final BiConsumer<String, String> sink, final T value) {
         sink.accept(canonicalName, serializer.apply(value));
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode hashMode) {
+    public int planHash(final PlanHashMode hashMode) {
         return PlanHashable.objectPlanHash(hashMode, canonicalName);
     }
 
@@ -207,39 +194,34 @@ public final class VectorOptionKey<T> implements PlanHashable {
         return canonicalName;
     }
 
-    @Nonnull
-    public static VectorOptionKey<Integer> ofInteger(@Nonnull final String canonicalName,
-                                                     @Nonnull final String... aliases) {
+    public static VectorOptionKey<Integer> ofInteger(final String canonicalName,
+                                                     final String... aliases) {
         return new VectorOptionKey<>(canonicalName, ImmutableList.copyOf(aliases), Integer.class, Integer::parseInt,
                 String::valueOf);
     }
 
-    @Nonnull
-    public static VectorOptionKey<Double> ofDouble(@Nonnull final String canonicalName,
-                                                   @Nonnull final String... aliases) {
+    public static VectorOptionKey<Double> ofDouble(final String canonicalName,
+                                                   final String... aliases) {
         return new VectorOptionKey<>(canonicalName, ImmutableList.copyOf(aliases), Double.class, Double::parseDouble,
                 String::valueOf);
     }
 
-    @Nonnull
-    public static VectorOptionKey<Boolean> ofBoolean(@Nonnull final String canonicalName,
-                                                     @Nonnull final String... aliases) {
+    public static VectorOptionKey<Boolean> ofBoolean(final String canonicalName,
+                                                     final String... aliases) {
         return new VectorOptionKey<>(canonicalName, ImmutableList.copyOf(aliases), Boolean.class, Boolean::parseBoolean,
                 String::valueOf);
     }
 
-    @Nonnull
-    public static VectorOptionKey<Metric> ofMetric(@Nonnull final String canonicalName,
-                                                   @Nonnull final String... aliases) {
+    public static VectorOptionKey<Metric> ofMetric(final String canonicalName,
+                                                   final String... aliases) {
         // Metric.toString() returns the metric definition's label, not the enum constant name; the parser is
         // Metric::valueOf, so the serializer must be Metric::name to round-trip.
         return new VectorOptionKey<>(canonicalName, ImmutableList.copyOf(aliases), Metric.class, Metric::valueOf,
                 Metric::name);
     }
 
-    @Nonnull
-    public static VectorOptionKey<VectorIndexEngineKind> ofEngine(@Nonnull final String canonicalName,
-                                                                   @Nonnull final String... aliases) {
+    public static VectorOptionKey<VectorIndexEngineKind> ofEngine(final String canonicalName,
+                                                                   final String... aliases) {
         // Kind.fromOptionValue accepts any letter case (and rejects unknown values); the serializer is Kind::name so the
         // stored form round-trips back through the parser.
         return new VectorOptionKey<>(canonicalName, ImmutableList.copyOf(aliases), VectorIndexEngineKind.class,

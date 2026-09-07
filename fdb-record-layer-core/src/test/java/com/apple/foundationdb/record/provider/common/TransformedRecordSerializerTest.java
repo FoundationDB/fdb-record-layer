@@ -47,8 +47,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import javax.crypto.SecretKey;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -58,6 +57,7 @@ import java.security.Key;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.stream.Stream;
 import java.util.zip.DataFormatException;
@@ -120,22 +120,22 @@ public class TransformedRecordSerializerTest {
         storeTimer.reset();
     }
 
-    private void logMetrics(@Nonnull String staticMessage, @Nullable Object... keysAndValues) {
+    private void logMetrics(String staticMessage, @Nullable Object... keysAndValues) {
         KeyValueLogMessage message = KeyValueLogMessage.build(staticMessage, keysAndValues);
         message.addKeysAndValues(storeTimer.getKeysAndValues());
         LOGGER.info(message.toString());
         resetTimer();
     }
 
-    private byte[] serialize(@Nonnull RecordSerializer<? super MySimpleRecord> serializer, MySimpleRecord rec) {
+    private byte[] serialize(RecordSerializer<? super MySimpleRecord> serializer, MySimpleRecord rec) {
         return serializer.serialize(metaData, metaData.getRecordType("MySimpleRecord"), rec, storeTimer);
     }
 
-    private <M extends Message> M deserialize(@Nonnull RecordSerializer<M> serializer, @Nonnull Tuple primaryKey, byte[] serialized) {
+    private <M extends Message> M deserialize(RecordSerializer<M> serializer, Tuple primaryKey, byte[] serialized) {
         return serializer.deserialize(metaData, primaryKey, serialized, storeTimer);
     }
 
-    private <M extends Message> void validateSerialization(@Nonnull RecordSerializer<M> serializer, M rec, byte[] serialized) {
+    private <M extends Message> void validateSerialization(RecordSerializer<M> serializer, M rec, byte[] serialized) {
         serializer.validateSerialization(metaData, metaData.getRecordType("MySimpleRecord"), rec, serialized, storeTimer);
     }
 
@@ -177,7 +177,7 @@ public class TransformedRecordSerializerTest {
 
     @ParameterizedTest
     @MethodSource("smallRecords")
-    void compressSmallRecordWhenSerializing(@Nonnull final MySimpleRecord smallRecord, @Nonnull final Tuple primaryKey) {
+    void compressSmallRecordWhenSerializing(final MySimpleRecord smallRecord, final Tuple primaryKey) {
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder()
                 .setCompressWhenSerializing(true)
                 .setCompressionLevel(Deflater.HUFFMAN_ONLY)
@@ -206,7 +206,7 @@ public class TransformedRecordSerializerTest {
 
     @ParameterizedTest
     @MethodSource("longRecords")
-    void compressLongRecordWhenSerializing(@Nonnull final MySimpleRecord longRecord, @Nonnull final Tuple primaryKey) {
+    void compressLongRecordWhenSerializing(final MySimpleRecord longRecord, final Tuple primaryKey) {
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder()
                 .setCompressWhenSerializing(true)
                 .setCompressionLevel(Deflater.HUFFMAN_ONLY)
@@ -291,7 +291,7 @@ public class TransformedRecordSerializerTest {
         RecordSerializationValidationException validationException = assertThrows(RecordSerializationValidationException.class,
                 () -> validateSerialization(serializer, simpleRecord, serialized));
         assertThat(validationException.getMessage(), containsString("cannot deserialize record"));
-        assertThat(validationException.getCause().getMessage(), containsString("unknown compression version"));
+        assertThat(Objects.requireNonNull(validationException.getCause()).getMessage(), containsString("unknown compression version"));
     }
 
     @Test
@@ -308,7 +308,7 @@ public class TransformedRecordSerializerTest {
         RecordSerializationValidationException validationException = assertThrows(RecordSerializationValidationException.class,
                 () -> validateSerialization(serializer, simpleRecord, serialized));
         assertThat(validationException.getMessage(), containsString("cannot deserialize record"));
-        assertThat(validationException.getCause().getMessage(), containsString("decompression error"));
+        assertThat(Objects.requireNonNull(validationException.getCause()).getMessage(), containsString("decompression error"));
     }
 
     @Test
@@ -657,7 +657,7 @@ public class TransformedRecordSerializerTest {
                     () -> serialize(serializer, simpleRecord));
             assertThat(e.getMessage(), containsString("encryption error"));
             assertThat(e.getCause(), instanceOf(InvalidKeyException.class));
-            assertThat(e.getCause().getMessage(), containsString("Wrong algorithm"));
+            assertThat(Objects.requireNonNull(e.getCause()).getMessage(), containsString("Wrong algorithm"));
         } finally {
             // We have put something inconsistent in.
             CipherPool.invalidateAll();
@@ -882,21 +882,20 @@ public class TransformedRecordSerializerTest {
      * decryption produces different first-block plaintext, triggering the mismatch check.
      */
     private static class CorruptEncryptSerializer extends TransformedRecordSerializerJCE<Message> {
-        CorruptEncryptSerializer(@Nonnull TransformedRecordSerializerJCE<Message> base) {
+        CorruptEncryptSerializer(TransformedRecordSerializerJCE<Message> base) {
             super(base.inner, base.compressWhenSerializing, base.compressionLevel, base.encryptWhenSerializing,
                     base.writeValidationRatio, base.writeEncryptionValidationRatio, base.failOnDeserializeReattempt,
                     base.deserializeReattemptCount, base.keyManager);
         }
 
         @Override
-        protected void encrypt(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
+        protected void encrypt(TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
             super.encrypt(state, timer);
             // Flip one bit in the IV so decryption in validateEncryption produces different plaintext
             byte[] data = state.getDataArray();
             data[0] ^= 0x01;
         }
 
-        @Nonnull
         @Override
         public RecordSerializer<Message> widen() {
             return this;
@@ -970,7 +969,7 @@ public class TransformedRecordSerializerTest {
      */
     @ParameterizedTest
     @MethodSource("transientDecryptionFailureTestArgs")
-    void transientDecryptionHardwareFailureTest(long seed, @Nonnull final NonnullPair<Integer, Integer> reattemptCountAndInitialKFailures, boolean failOnDeserializeReattempt) {
+    void transientDecryptionHardwareFailureTest(long seed, final NonnullPair<Integer, Integer> reattemptCountAndInitialKFailures, boolean failOnDeserializeReattempt) {
         final SecretKey key = RandomSecretUtil.randomSecretKey(seed);
         final int reattemptCount = reattemptCountAndInitialKFailures.getLeft();
         final int initialKFailures = reattemptCountAndInitialKFailures.getRight();
@@ -1050,7 +1049,7 @@ public class TransformedRecordSerializerTest {
      */
     @ParameterizedTest
     @MethodSource("transientDecryptionThrowingFailureTestArgs")
-    void transientDecryptionThrowingFailureTest(long seed, @Nonnull final NonnullPair<Integer, Integer> reattemptCountAndInitialKFailures, boolean failOnDeserializeReattempt) {
+    void transientDecryptionThrowingFailureTest(long seed, final NonnullPair<Integer, Integer> reattemptCountAndInitialKFailures, boolean failOnDeserializeReattempt) {
         final SecretKey key = RandomSecretUtil.randomSecretKey(seed);
         final int reattemptCount = reattemptCountAndInitialKFailures.getLeft();
         final int initialKFailures = reattemptCountAndInitialKFailures.getRight();
@@ -1134,7 +1133,7 @@ public class TransformedRecordSerializerTest {
         private int decryptCallCount = 0;
         private final int initialFailCount;
 
-        ThrowingFirstKDecryptSerializer(@Nonnull TransformedRecordSerializerJCE<Message> base, int initialFailCount) {
+        ThrowingFirstKDecryptSerializer(TransformedRecordSerializerJCE<Message> base, int initialFailCount) {
             super(base.inner, base.compressWhenSerializing, base.compressionLevel, base.encryptWhenSerializing,
                     base.writeValidationRatio, base.writeEncryptionValidationRatio, base.failOnDeserializeReattempt,
                     base.deserializeReattemptCount, base.keyManager);
@@ -1142,14 +1141,13 @@ public class TransformedRecordSerializerTest {
         }
 
         @Override
-        protected void decrypt(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
+        protected void decrypt(TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
             if (decryptCallCount++ < initialFailCount) {
                 throw new GeneralSecurityException("simulated transient decrypt failure");
             }
             super.decrypt(state, timer);
         }
 
-        @Nonnull
         @Override
         public RecordSerializer<Message> widen() {
             return this;
@@ -1160,7 +1158,7 @@ public class TransformedRecordSerializerTest {
         private int decryptCallCount = 0;
         private final int initialFailCount;
 
-        CorruptFirstKDecryptSerializer(@Nonnull TransformedRecordSerializerJCE<Message> base, int initialFailCount) {
+        CorruptFirstKDecryptSerializer(TransformedRecordSerializerJCE<Message> base, int initialFailCount) {
             super(base.inner, base.compressWhenSerializing, base.compressionLevel, base.encryptWhenSerializing,
                     base.writeValidationRatio, base.writeEncryptionValidationRatio, base.failOnDeserializeReattempt,
                     base.deserializeReattemptCount, base.keyManager);
@@ -1168,7 +1166,7 @@ public class TransformedRecordSerializerTest {
         }
 
         @Override
-        protected void decrypt(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
+        protected void decrypt(TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
             super.decrypt(state, timer);
             if (decryptCallCount < initialFailCount) {
                 // Preserve the 5-byte compression header (version + uncompressed length) so that
@@ -1187,7 +1185,6 @@ public class TransformedRecordSerializerTest {
             decryptCallCount++;
         }
 
-        @Nonnull
         @Override
         public RecordSerializer<Message> widen() {
             return this;
@@ -1200,7 +1197,6 @@ public class TransformedRecordSerializerTest {
      * is configured to check for writes that mishandle.
      */
     private static class ModifyingRecordSerializer implements RecordSerializer<MySimpleRecord> {
-        @Nonnull
         private static final TypedRecordSerializer<MySimpleRecord, TestRecords1Proto.RecordTypeUnion, TestRecords1Proto.RecordTypeUnion.Builder> underlying = new TypedRecordSerializer<>(
                 TestRecords1Proto.RecordTypeUnion.getDescriptor().findFieldByName("_MySimpleRecord"),
                 RecordTypeUnion::newBuilder,
@@ -1213,20 +1209,17 @@ public class TransformedRecordSerializerTest {
             /* handled by parent */
         }
 
-        @Nonnull
         @Override
-        public byte[] serialize(@Nonnull final RecordMetaData metaData, @Nonnull final RecordType recordType, @Nonnull final MySimpleRecord rec, @Nullable final StoreTimer timer) {
+        public byte[] serialize(final RecordMetaData metaData, final RecordType recordType, final MySimpleRecord rec, @Nullable final StoreTimer timer) {
             MySimpleRecord modified = rec.toBuilder().setNumValue2(rec.getNumValue2() + 1).build();
             return underlying.serialize(metaData, recordType, modified, timer);
         }
 
-        @Nonnull
         @Override
-        public MySimpleRecord deserialize(@Nonnull final RecordMetaData metaData, @Nonnull final Tuple primaryKey, @Nonnull final byte[] serialized, @Nullable final StoreTimer timer) {
+        public MySimpleRecord deserialize(final RecordMetaData metaData, final Tuple primaryKey, final byte[] serialized, @Nullable final StoreTimer timer) {
             return underlying.deserialize(metaData, primaryKey, serialized, timer);
         }
 
-        @Nonnull
         @Override
         public RecordSerializer<Message> widen() {
             throw new UnsupportedOperationException("cannot widen this serializer");

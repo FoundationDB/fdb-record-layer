@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.TupleOrdering.Direction;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -48,23 +47,20 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ComputeToOrderedBytesValueRule<O extends SortOrder, P extends OrderingPart<O>> extends ValueComputationRule<OrderingPartCreator<O, P>, P, ToOrderedBytesValue> {
-    @Nonnull
     private static final CollectionMatcher<Value> childrenMatcher = all(anyValue());
 
-    @Nonnull
     private static final BindingMatcher<ToOrderedBytesValue> rootMatcher =
             toOrderedBytesValue(childrenMatcher);
 
-    @Nonnull
     private final Function<Direction, O> directionToSortOrderFunction;
 
-    public ComputeToOrderedBytesValueRule(@Nonnull final Function<Direction, O> directionToSortOrderFunction) {
+    public ComputeToOrderedBytesValueRule(final Function<Direction, O> directionToSortOrderFunction) {
         super(rootMatcher);
         this.directionToSortOrderFunction = directionToSortOrderFunction;
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueComputationRuleCall<OrderingPartCreator<O, P>, P> call) {
+    public void onMatch(final ValueComputationRuleCall<OrderingPartCreator<O, P>, P> call) {
         final var bindings = call.getBindings();
         final var toOrderedBytesValue = bindings.get(rootMatcher);
         final var childrenCollection = bindings.get(childrenMatcher);

@@ -22,7 +22,6 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -78,7 +77,6 @@ public class ByteScanLimiterFactory
         }
 
         @Override
-        @Nonnull
         public ByteScanLimiter reset() {
             return new Enforcing(originalLimit);
         }
@@ -122,7 +120,6 @@ public class ByteScanLimiterFactory
         private final AtomicLong bytesScanned = new AtomicLong();
 
         @Override
-        @Nonnull
         public ByteScanLimiter reset() {
             return new Tracking();
         }
@@ -163,7 +160,6 @@ public class ByteScanLimiterFactory
      */
     private static class Untracked implements ByteScanLimiter {
         @Override
-        @Nonnull
         public ByteScanLimiter reset() {
             return this;
         }

@@ -24,27 +24,25 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.MessageOrBuilder;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 
 abstract class BaseRepeatedField extends BaseField {
-    @Nonnull
     private final Field.OneOfThemEmptyMode emptyMode;
 
-    public BaseRepeatedField(@Nonnull String fieldName, Field.OneOfThemEmptyMode emptyMode) {
+    public BaseRepeatedField(String fieldName, Field.OneOfThemEmptyMode emptyMode) {
         super(fieldName);
         this.emptyMode = emptyMode;
     }
 
-    @Nonnull
     public Field.OneOfThemEmptyMode getEmptyMode() {
         return emptyMode;
     }
 
     @Nullable
     @SuppressWarnings("unchecked")
-    protected List<Object> getValues(@Nonnull MessageOrBuilder message) {
+    protected List<Object> getValues(MessageOrBuilder message) {
         final Descriptors.FieldDescriptor field = findFieldDescriptor(message);
         if (emptyMode == Field.OneOfThemEmptyMode.EMPTY_UNKNOWN && message.getRepeatedFieldCount(field) == 0) {
             return null;
@@ -53,8 +51,7 @@ abstract class BaseRepeatedField extends BaseField {
         }
     }
 
-    @Nonnull
-    protected Descriptors.FieldDescriptor validateRepeatedField(@Nonnull Descriptors.Descriptor descriptor) {
+    protected Descriptors.FieldDescriptor validateRepeatedField(Descriptors.Descriptor descriptor) {
         final Descriptors.FieldDescriptor field = validateFieldExistence(descriptor);
         if (!field.isRepeated()) {
             throw new Query.InvalidExpressionException("Expected repeated field, but it was scalar " + getFieldName());
@@ -93,7 +90,7 @@ abstract class BaseRepeatedField extends BaseField {
      * @return the plan hash value calculated
      */
     @Override
-    protected int basePlanHash(@Nonnull final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
+    protected int basePlanHash(final PlanHashMode mode, ObjectPlanHash baseHash, Object... hashables) {
         switch (mode.getKind()) {
             case LEGACY:
                 return super.basePlanHash(mode, baseHash) + emptyMode.ordinal();

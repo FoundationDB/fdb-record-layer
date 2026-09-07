@@ -35,8 +35,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -84,7 +84,7 @@ public class SplitSelectExtractIndependentQuantifiersRule extends AbstractCascad
 
     @SuppressWarnings("java:S135")
     @Override
-    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
+    public void onMatch(final ExplorationCascadesRuleCall call) {
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);
@@ -136,8 +136,9 @@ public class SplitSelectExtractIndependentQuantifiersRule extends AbstractCascad
                                         explodeAliases.contains(quantifier.getAlias()) && eligibleAliases.contains(quantifier.getAlias()),
                                 ImmutableList.toImmutableList()));
 
-        final var lowerQuantifiers = partitionedQuantifiers.get(false);
-        final var upperQuantifiers = partitionedQuantifiers.get(true);
+        // Collectors.partitioningBy() is documented to always populate both the false and true keys.
+        final var lowerQuantifiers = Objects.requireNonNull(partitionedQuantifiers.get(false));
+        final var upperQuantifiers = Objects.requireNonNull(partitionedQuantifiers.get(true));
 
         // we need a proper partitioning
         if (lowerQuantifiers.isEmpty() || upperQuantifiers.isEmpty()) {
@@ -171,8 +172,8 @@ public class SplitSelectExtractIndependentQuantifiersRule extends AbstractCascad
         call.yieldExploratoryExpression(upperSelectExpression);
     }
 
-    private boolean isSimpleSelect(@Nonnull final SelectExpression selectExpression,
-                                   @Nonnull final Set<CorrelationIdentifier> explodeAliases) {
+    private boolean isSimpleSelect(final SelectExpression selectExpression,
+                                   final Set<CorrelationIdentifier> explodeAliases) {
         if (!selectExpression.getPredicates().isEmpty()) {
             return false;
         }

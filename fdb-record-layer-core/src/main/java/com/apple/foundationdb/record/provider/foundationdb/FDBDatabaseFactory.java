@@ -31,8 +31,8 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCacheFactory;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.PassThroughRecordStoreStateCacheFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executor;
@@ -73,19 +73,15 @@ public abstract class FDBDatabaseFactory {
 
     @Nullable
     protected volatile Executor networkExecutor = null;
-    @Nonnull
     protected Function<Executor, Executor> contextExecutor = Function.identity();
     protected boolean unclosedWarning = true;
-    @Nonnull
     protected Supplier<BlockingInAsyncDetection> blockingInAsyncDetectionSupplier = () -> BlockingInAsyncDetection.DISABLED;
-    @Nonnull
     protected FDBRecordStoreStateCacheFactory storeStateCacheFactory = PassThroughRecordStoreStateCacheFactory.instance();
-    @Nonnull
     private Executor executor = ForkJoinPool.commonPool();
-    @Nonnull
     private Supplier<ScheduledExecutorService> scheduledExecutorSupplier = MoreAsyncUtil::getDefaultScheduledExecutor;
     private int directoryCacheSize = DEFAULT_DIRECTORY_CACHE_SIZE;
     private boolean trackLastSeenVersion;
+    @Nullable
     private String datacenterId;
     private int maxAttempts = 10;
     private long maxDelayMillis = 1000;
@@ -107,7 +103,6 @@ public abstract class FDBDatabaseFactory {
      *
      * @return singleton instance of {@link FDBDatabaseFactoryImpl}.
      */
-    @Nonnull
     public static FDBDatabaseFactoryImpl instance() {
         return FDBDatabaseFactoryImpl.instance();
     }
@@ -117,11 +112,10 @@ public abstract class FDBDatabaseFactory {
         return networkExecutor;
     }
 
-    public void setNetworkExecutor(@Nonnull Executor networkExecutor) {
+    public void setNetworkExecutor(Executor networkExecutor) {
         this.networkExecutor = networkExecutor;
     }
 
-    @Nonnull
     public Executor getExecutor() {
         return executor;
     }
@@ -132,7 +126,7 @@ public abstract class FDBDatabaseFactory {
      *
      * @param executor the executor to be used for asynchronous task completion
      */
-    public void setExecutor(@Nonnull Executor executor) {
+    public void setExecutor(Executor executor) {
         this.executor = executor;
     }
 
@@ -143,7 +137,6 @@ public abstract class FDBDatabaseFactory {
      * @return a scheduled executor service
      * @see FDBDatabase#getScheduledExecutor()
      */
-    @Nonnull
     public ScheduledExecutorService getScheduledExecutor() {
         return scheduledExecutorSupplier.get();
     }
@@ -154,7 +147,7 @@ public abstract class FDBDatabaseFactory {
      *
      * @param scheduledExecutor the scheduled executor used by this factory
      */
-    public void setScheduledExecutor(@Nonnull ScheduledExecutorService scheduledExecutor) {
+    public void setScheduledExecutor(ScheduledExecutorService scheduledExecutor) {
         this.scheduledExecutorSupplier = () -> scheduledExecutor;
     }
 
@@ -165,7 +158,7 @@ public abstract class FDBDatabaseFactory {
      *
      * @param scheduledExecutorSupplier a supplier lazily constructing a {@link ScheduledExecutorService}s for the factory
      */
-    public void setScheduledExecutorSupplier(@Nonnull Supplier<ScheduledExecutorService> scheduledExecutorSupplier) {
+    public void setScheduledExecutorSupplier(Supplier<ScheduledExecutorService> scheduledExecutorSupplier) {
         this.scheduledExecutorSupplier = scheduledExecutorSupplier;
     }
 
@@ -179,7 +172,7 @@ public abstract class FDBDatabaseFactory {
      * @param contextExecutor function to produce an executor to be used for all tasks executed on behalf of a
      * specific record context
      */
-    public void setContextExecutor(@Nonnull Function<Executor, Executor> contextExecutor) {
+    public void setContextExecutor(Function<Executor, Executor> contextExecutor) {
         this.contextExecutor = contextExecutor;
     }
 
@@ -207,6 +200,7 @@ public abstract class FDBDatabaseFactory {
         return trackLastSeenVersion;
     }
 
+    @Nullable
     public synchronized String getDatacenterId() {
         return datacenterId;
     }
@@ -409,7 +403,7 @@ public abstract class FDBDatabaseFactory {
      * @param behavior the blocking desired blocking detection behavior
      * (see {@link BlockingInAsyncDetection})
      */
-    public void setBlockingInAsyncDetection(@Nonnull BlockingInAsyncDetection behavior) {
+    public void setBlockingInAsyncDetection(BlockingInAsyncDetection behavior) {
         setBlockingInAsyncDetection(() -> behavior);
     }
 
@@ -425,7 +419,7 @@ public abstract class FDBDatabaseFactory {
      * @param supplier a supplier that produces the blocking desired blocking detection behavior
      * (see {@link BlockingInAsyncDetection})
      */
-    public void setBlockingInAsyncDetection(@Nonnull Supplier<BlockingInAsyncDetection> supplier) {
+    public void setBlockingInAsyncDetection(Supplier<BlockingInAsyncDetection> supplier) {
         this.blockingInAsyncDetectionSupplier = supplier;
     }
 
@@ -441,7 +435,7 @@ public abstract class FDBDatabaseFactory {
      *
      * @param latencyInjector a function computing the latency to be injected into an operation
      */
-    public void setLatencyInjector(@Nonnull Function<FDBLatencySource, Long> latencyInjector) {
+    public void setLatencyInjector(Function<FDBLatencySource, Long> latencyInjector) {
         this.latencyInjector = latencyInjector;
     }
 
@@ -450,7 +444,6 @@ public abstract class FDBDatabaseFactory {
      *
      * @return the current latency injector
      */
-    @Nonnull
     public Function<FDBLatencySource, Long> getLatencyInjector() {
         return latencyInjector;
     }
@@ -531,7 +524,6 @@ public abstract class FDBDatabaseFactory {
      * used when initializing {@link FDBDatabase}s
      */
     @API(API.Status.EXPERIMENTAL)
-    @Nonnull
     public FDBRecordStoreStateCacheFactory getStoreStateCacheFactory() {
         return storeStateCacheFactory;
     }
@@ -550,7 +542,7 @@ public abstract class FDBDatabaseFactory {
      * @see com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache
      */
     @API(API.Status.EXPERIMENTAL)
-    public void setStoreStateCacheFactory(@Nonnull FDBRecordStoreStateCacheFactory storeStateCacheFactory) {
+    public void setStoreStateCacheFactory(FDBRecordStoreStateCacheFactory storeStateCacheFactory) {
         this.storeStateCacheFactory = storeStateCacheFactory;
     }
 
@@ -563,7 +555,6 @@ public abstract class FDBDatabaseFactory {
      *
      * @return a new executor to be used by a {@code FDBRecordContext}
      */
-    @Nonnull
     public Executor newContextExecutor(@Nullable Map<String, String> mdcContext) {
         Executor newExecutor = contextExecutor.apply(getExecutor());
         if (mdcContext != null) {
@@ -596,7 +587,6 @@ public abstract class FDBDatabaseFactory {
         return FDBDatabaseFactoryImpl.getThreadsPerClientVersion();
     }
 
-    @Nonnull
     public Supplier<BlockingInAsyncDetection> getBlockingInAsyncDetectionSupplier() {
         return this.blockingInAsyncDetectionSupplier;
     }
@@ -610,7 +600,6 @@ public abstract class FDBDatabaseFactory {
      *
      * @return this factory
      */
-    @Nonnull
     public FDBDatabaseFactory setTransactionListener(@Nullable final TransactionListener listener) {
         this.transactionListener = listener;
         return this;
@@ -665,7 +654,7 @@ public abstract class FDBDatabaseFactory {
      * @see #setTrace(String, String)
      * @see FDBTraceFormat
      */
-    public abstract void setTraceFormat(@Nonnull FDBTraceFormat traceFormat);
+    public abstract void setTraceFormat(FDBTraceFormat traceFormat);
 
     /**
      * Disable the FDB shutdown hook. By default, the FDB client will register a shutdown hook that stops
@@ -760,7 +749,7 @@ public abstract class FDBDatabaseFactory {
      * @see APIVersion
      */
     @API(API.Status.EXPERIMENTAL)
-    public abstract void setAPIVersion(@Nonnull APIVersion apiVersion);
+    public abstract void setAPIVersion(APIVersion apiVersion);
 
     /**
      * Get the configured FDB API version. This is an internal method to indicate what value was configured
@@ -773,10 +762,8 @@ public abstract class FDBDatabaseFactory {
     @API(API.Status.INTERNAL)
     public abstract APIVersion getAPIVersion();
 
-    @Nonnull
     public abstract FDBDatabase getDatabase(@Nullable String clusterFile);
 
-    @Nonnull
     public FDBDatabase getDatabase() {
         return getDatabase(null);
     }
@@ -786,7 +773,6 @@ public abstract class FDBDatabaseFactory {
      *
      * @return the installed locality provider
      */
-    @Nonnull
     public abstract FDBLocalityProvider getLocalityProvider();
 
     /**
@@ -796,15 +782,14 @@ public abstract class FDBDatabaseFactory {
      *
      * @see FDBLocalityUtil
      */
-    public abstract void setLocalityProvider(@Nonnull FDBLocalityProvider localityProvider);
+    public abstract void setLocalityProvider(FDBLocalityProvider localityProvider);
 
     /**
      * Return a {@link Database} object from the factory.
      *
-     * @param clusterFile Cluster file.
+     * @param clusterFile Cluster file, or {@code null} to use the default cluster file.
      *
      * @return FDB Database object.
      */
-    @Nonnull
-    public abstract Database open(String clusterFile);
+    public abstract Database open(@Nullable String clusterFile);
 }

@@ -58,8 +58,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -76,21 +76,16 @@ import java.util.stream.Stream;
  */
 public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                                             implements ExpansionVisitor<KeyExpressionExpansionVisitor.VisitorState> {
-    @Nonnull
     static final Supplier<Map<String, BuiltInFunction<? extends Value>>> aggregateMap =
             Suppliers.memoize(AggregateIndexExpansionVisitor::computeAggregateMap);
 
-    @Nonnull
     static final Supplier<Map<String, BuiltInFunction<? extends Value>>> rollUpAggregateMap =
             Suppliers.memoize(AggregateIndexExpansionVisitor::computeRollUpAggregateMap);
 
-    @Nonnull
     protected final Index index;
 
-    @Nonnull
     private final Collection<RecordType> recordTypes;
 
-    @Nonnull
     protected final GroupingKeyExpression groupingKeyExpression;
 
     private final int columnPermutations;
@@ -101,7 +96,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
      * @param index The target index.
      * @param recordTypes The indexed record types.
      */
-    public AggregateIndexExpansionVisitor(@Nonnull final Index index, @Nonnull final Collection<RecordType> recordTypes) {
+    public AggregateIndexExpansionVisitor(final Index index, final Collection<RecordType> recordTypes) {
         Preconditions.checkArgument(supportsAggregateIndexType(index.getType()),
                 "Unsupported index aggregate type %s", index.getType());
         Preconditions.checkArgument(index.getRootExpression() instanceof GroupingKeyExpression);
@@ -124,12 +119,11 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
      * @param isReverse an indicator whether the result set is expected to be returned in reverse order.
      * @return A match candidate representing the aggregate index.
      */
-    @Nonnull
     @Override
-    public MatchCandidate expand(@Nonnull final Set<String> availableRecordTypeNames,
-                                 @Nonnull final Set<String> queriedRecordTypeNames,
-                                 @Nonnull final Type.Record baseType,
-                                 @Nonnull final AccessHint accessHint,
+    public MatchCandidate expand(final Set<String> availableRecordTypeNames,
+                                 final Set<String> queriedRecordTypeNames,
+                                 final Type.Record baseType,
+                                 final AccessHint accessHint,
                                  @Nullable final KeyExpression ignored,
                                  final boolean isReverse) {
         Verify.verify(ignored == null);
@@ -172,16 +166,14 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 selectHaving);
     }
 
-    @Nonnull
-    private GraphExpansion constructBaseExpansion(@Nonnull final Quantifier.ForEach baseQuantifier) {
+    private GraphExpansion constructBaseExpansion(final Quantifier.ForEach baseQuantifier) {
         final var state = VisitorState.of(Lists.newArrayList(), Lists.newArrayList(),
                 baseQuantifier, ImmutableList.of(), groupingKeyExpression.getGroupingCount(),
                 0, false, false);
         return pop(groupingKeyExpression.getWholeKey().expand(push(state)));
     }
 
-    @Nonnull
-    private NonnullPair<Quantifier, List<Placeholder>> constructSelectWhereAndPlaceholders(@Nonnull final Quantifier.ForEach baseQuantifier, @Nonnull final GraphExpansion baseExpansion) {
+    private NonnullPair<Quantifier, List<Placeholder>> constructSelectWhereAndPlaceholders(final Quantifier.ForEach baseQuantifier, final GraphExpansion baseExpansion) {
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
         allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
 
@@ -229,8 +221,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         return NonnullPair.of(Quantifier.forEach(Reference.initialOf(GraphExpansion.ofOthers(allExpansionsBuilder.build()).buildSelect())), baseExpansion.getPlaceholders());
     }
 
-    @Nonnull
-    protected NonnullPair<Quantifier, List<Placeholder>> constructGroupBy(@Nonnull final Quantifier selectWhereQun, @Nonnull final GraphExpansion baseExpansion) {
+    protected NonnullPair<Quantifier, List<Placeholder>> constructGroupBy(final Quantifier selectWhereQun, final GraphExpansion baseExpansion) {
         if (groupingKeyExpression.getGroupedCount() > 1) {
             throw new UnsupportedOperationException("aggregate index is expected to contain exactly one aggregation, however it contains " + groupingKeyExpression.getGroupedCount() + " aggregations");
         }
@@ -292,15 +283,14 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         return NonnullPair.of(groupByQuantifier, ImmutableList.of());
     }
 
-    @Nonnull
-    private ConstructSelectHavingResult constructSelectHaving(@Nonnull final Quantifier groupByQun,
-                                                              @Nonnull final List<Placeholder> selectWherePlaceholders) {
+    private ConstructSelectHavingResult constructSelectHaving(final Quantifier groupByQun,
+                                                              final List<Placeholder> selectWherePlaceholders) {
         final var rangesOverExpression = groupByQun.getRangesOver().get();
         Verify.verify(rangesOverExpression instanceof GroupByExpression);
         final var groupByExpression = (GroupByExpression)rangesOverExpression;
 
         // the grouping value in GroupByExpression comes first (if set).
-        @Nullable final var groupingValueReference =
+        @Nullable final FieldValue groupingValueReference =
                 groupByExpression.getGroupingValue() == null
                 ? null : FieldValue.ofOrdinalNumber(groupByQun.getFlowedObjectValue(), 0);
 
@@ -355,17 +345,18 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
      * @return whether this class can expand index of the given type
      */
     @API(API.Status.INTERNAL)
-    public static boolean supportsAggregateIndexType(@Nonnull String indexType) {
+    public static boolean supportsAggregateIndexType(String indexType) {
         return IndexTypes.BITMAP_VALUE.equals(indexType) || aggregateMap.get().containsKey(indexType);
     }
 
-    @Nonnull
-    public static Optional<AggregateValue> aggregateValue(@Nonnull final Index index, @Nonnull final Value argument) {
-        return Optional.of((AggregateValue)aggregateMap.get()
-                .get(index.getType()).encapsulate(CallSiteArguments.ofPositional(argument)));
+    public static Optional<AggregateValue> aggregateValue(final Index index, final Value argument) {
+        final BuiltInFunction<? extends Value> aggregateFunction = aggregateMap.get().get(index.getType());
+        if (aggregateFunction == null) {
+            return Optional.empty();
+        }
+        return Optional.of((AggregateValue)aggregateFunction.encapsulate(CallSiteArguments.ofPositional(argument)));
     }
 
-    @Nonnull
     private static Map<String, BuiltInFunction<? extends Value>> computeAggregateMap() {
         final ImmutableMap.Builder<String, BuiltInFunction<? extends Value>> mapBuilder = ImmutableMap.builder();
         mapBuilder.put(IndexTypes.MAX_EVER_LONG, new IndexOnlyAggregateValue.MaxEverFn());
@@ -380,18 +371,16 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         return mapBuilder.build();
     }
 
-    public static boolean canBeRolledUp(@Nonnull final String indexType) {
+    public static boolean canBeRolledUp(final String indexType) {
         return rollUpAggregateMap.get().containsKey(indexType);
     }
 
-    @Nonnull
-    public static Optional<AggregateValue> rollUpAggregateValueMaybe(@Nonnull final String indexType, @Nonnull final Value argument) {
+    public static Optional<AggregateValue> rollUpAggregateValueMaybe(final String indexType, final Value argument) {
         return Optional.ofNullable(rollUpAggregateMap.get()
                 .get(indexType))
                 .map(fn -> (AggregateValue)fn.encapsulate(CallSiteArguments.ofPositional(argument)));
     }
 
-    @Nonnull
     private static Map<String, BuiltInFunction<? extends Value>> computeRollUpAggregateMap() {
         final ImmutableMap.Builder<String, BuiltInFunction<? extends Value>> mapBuilder = ImmutableMap.builder();
         mapBuilder.put(IndexTypes.MAX_EVER_LONG, new NumericAggregationValue.MaxFn());
@@ -407,23 +396,19 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
     }
 
     private static class ConstructSelectHavingResult {
-        @Nonnull
         private final SelectExpression selectExpression;
-        @Nonnull
         private final List<CorrelationIdentifier> placeholderAliases;
 
-        private ConstructSelectHavingResult(@Nonnull final SelectExpression selectExpression,
-                                            @Nonnull final List<CorrelationIdentifier> placeholderAliases) {
+        private ConstructSelectHavingResult(final SelectExpression selectExpression,
+                                            final List<CorrelationIdentifier> placeholderAliases) {
             this.selectExpression = selectExpression;
             this.placeholderAliases = placeholderAliases;
         }
 
-        @Nonnull
         public SelectExpression getSelectExpression() {
             return selectExpression;
         }
 
-        @Nonnull
         public List<CorrelationIdentifier> getPlaceholderAliases() {
             return placeholderAliases;
         }

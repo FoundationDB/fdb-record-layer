@@ -36,7 +36,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.opentest4j.AssertionFailedError;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -251,27 +250,27 @@ class BooleanPredicateNormalizerTest {
         assertEquals(cnf, normalizer.normalizeAndSimplify(cnf, false).orElse(cnf));
     }
 
-    protected static void assertExpectedCnf(@Nonnull final QueryPredicate expected, @Nonnull final QueryPredicate given) {
+    protected static void assertExpectedCnf(final QueryPredicate expected, final QueryPredicate given) {
         assertExpectedNormalization(BooleanPredicateNormalizer.getDefaultInstanceForCnf(), expected, given);
     }
 
-    protected static void assertExpectedDnf(@Nonnull final QueryPredicate expected, @Nonnull final QueryPredicate given) {
+    protected static void assertExpectedDnf(final QueryPredicate expected, final QueryPredicate given) {
         assertExpectedNormalization(BooleanPredicateNormalizer.getDefaultInstanceForDnf(), expected, given);
     }
 
-    protected static void assertExpectedNormalization(@Nonnull final BooleanPredicateNormalizer normalizer,
-                                                      @Nonnull final QueryPredicate expected, @Nonnull final QueryPredicate given) {
+    protected static void assertExpectedNormalization(final BooleanPredicateNormalizer normalizer,
+                                                      final QueryPredicate expected, final QueryPredicate given) {
         final QueryPredicate normalized = normalizer.normalizeAndSimplify(given, true).orElse(given);
         assertFilterEquals(expected, Objects.requireNonNull(normalized));
         assertEquals(normalized, normalizer.normalizeAndSimplify(normalized, true).orElse(normalized), "Normalized form should be stable");
     }
 
     // Query components do not implement equals, but they have distinctive enough printed representations.
-    protected static void assertFilterEquals(@Nonnull final QueryPredicate expected, @Nonnull final QueryPredicate actual) {
+    protected static void assertFilterEquals(final QueryPredicate expected, final QueryPredicate actual) {
         assertEquals(expected.toString(), actual.toString());
     }
 
-    private static int numberOfOrTerms(@Nonnull final QueryPredicate predicate) {
+    private static int numberOfOrTerms(final QueryPredicate predicate) {
         if (predicate instanceof OrPredicate) {
             return ((OrPredicate)predicate).getChildren().size();
         } else {
@@ -279,7 +278,7 @@ class BooleanPredicateNormalizerTest {
         }
     }
 
-    private static int maxNumberOfAndTermsWithinOrTerms(@Nonnull final QueryPredicate predicate) {
+    private static int maxNumberOfAndTermsWithinOrTerms(final QueryPredicate predicate) {
         if (predicate instanceof OrPredicate) {
             return ((OrPredicate)predicate).getChildren()
                     .stream()

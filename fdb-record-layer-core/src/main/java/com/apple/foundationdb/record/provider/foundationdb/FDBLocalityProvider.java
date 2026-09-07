@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
 
-import javax.annotation.Nonnull;
 
 
 /**
@@ -45,6 +44,5 @@ public interface FDBLocalityProvider {
      * @return a sequence of keys denoting the start of single-server ranges
      * @see com.apple.foundationdb.LocalityUtil#getBoundaryKeys(Transaction, byte[], byte[])
      */
-    @Nonnull
-    CloseableAsyncIterator<byte[]> getBoundaryKeys(@Nonnull Transaction tr, @Nonnull byte[] begin, @Nonnull byte[] end);
+    CloseableAsyncIterator<byte[]> getBoundaryKeys(Transaction tr, byte[] begin, byte[] end);
 }

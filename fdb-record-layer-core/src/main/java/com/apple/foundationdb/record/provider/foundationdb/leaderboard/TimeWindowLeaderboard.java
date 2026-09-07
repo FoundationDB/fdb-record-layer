@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.TimeWindowLeaderboardProto;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
 
 /**
  * A single leaderboard, representing ranks within a time window.
@@ -35,18 +34,16 @@ import javax.annotation.Nonnull;
 public class TimeWindowLeaderboard implements Comparable<TimeWindowLeaderboard> {
     public static final int ALL_TIME_LEADERBOARD_TYPE = 0;
 
-    @Nonnull
     private final TimeWindowLeaderboardDirectory directory;
     private final int type;
     private final long startTimestamp;
     private final long endTimestamp;
-    @Nonnull
     private final Tuple subspaceKey;
     private final int nlevels;
 
-    public TimeWindowLeaderboard(@Nonnull TimeWindowLeaderboardDirectory directory,
+    public TimeWindowLeaderboard(TimeWindowLeaderboardDirectory directory,
                                  int type, long startTimestamp, long endTimestamp,
-                                 @Nonnull Tuple subspaceKey, int nlevels) {
+                                 Tuple subspaceKey, int nlevels) {
         this.directory = directory;
         this.type = type;
         this.startTimestamp = startTimestamp;
@@ -55,8 +52,8 @@ public class TimeWindowLeaderboard implements Comparable<TimeWindowLeaderboard> 
         this.nlevels = nlevels;
     }
 
-    protected TimeWindowLeaderboard(@Nonnull TimeWindowLeaderboardDirectory directory,
-                                    @Nonnull TimeWindowLeaderboardProto.TimeWindowLeaderboard proto) {
+    protected TimeWindowLeaderboard(TimeWindowLeaderboardDirectory directory,
+                                    TimeWindowLeaderboardProto.TimeWindowLeaderboard proto) {
         this(directory,
                 proto.getType(), proto.getStartTimestamp(), proto.getEndTimestamp(),
                 Tuple.fromBytes(proto.getSubspaceKey().toByteArray()),
@@ -83,7 +80,6 @@ public class TimeWindowLeaderboard implements Comparable<TimeWindowLeaderboard> 
         return startTimestamp <= timestamp && timestamp < endTimestamp;
     }
 
-    @Nonnull
     public Tuple getSubspaceKey() {
         return subspaceKey;
     }
@@ -129,7 +125,7 @@ public class TimeWindowLeaderboard implements Comparable<TimeWindowLeaderboard> 
     }
 
     @Override
-    public int compareTo(@Nonnull TimeWindowLeaderboard that) {
+    public int compareTo(TimeWindowLeaderboard that) {
         if (this.type != that.type) {
             return this.type < that.type ? -1 : +1;
         }
@@ -145,7 +141,6 @@ public class TimeWindowLeaderboard implements Comparable<TimeWindowLeaderboard> 
         return this.nlevels < that.nlevels ? -1 : +1;
     }
 
-    @Nonnull
     protected TimeWindowLeaderboardProto.TimeWindowLeaderboard.Builder toProto() {
         return TimeWindowLeaderboardProto.TimeWindowLeaderboard.newBuilder()
                 .setType(type)

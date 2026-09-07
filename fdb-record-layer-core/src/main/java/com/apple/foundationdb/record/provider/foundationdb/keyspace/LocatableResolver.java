@@ -44,8 +44,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -70,10 +69,8 @@ import java.util.stream.Collectors;
 @API(API.Status.UNSTABLE)
 public abstract class LocatableResolver {
     private static final Logger LOGGER = LoggerFactory.getLogger(LocatableResolver.class);
-    @Nonnull
     protected final FDBDatabase database;
     // NOTE: Once the deprecated code has been removed this should be switched to a ResolvedKeySpacePath
-    @Nonnull
     protected final ResolverLocation location;
     protected final int hashCode;
 
@@ -93,7 +90,7 @@ public abstract class LocatableResolver {
      * @param path the path at which the resolver has its data located
      * @param resolvedPath the resolved form of the path
      */
-    protected LocatableResolver(@Nonnull FDBDatabase database,
+    protected LocatableResolver(FDBDatabase database,
                                 @Nullable KeySpacePath path,
                                 @Nullable CompletableFuture<ResolvedKeySpacePath> resolvedPath) {
         if ((path == null && resolvedPath != null)
@@ -109,20 +106,18 @@ public abstract class LocatableResolver {
         return new ScopedValue<>(value, this);
     }
 
-    @Nonnull
     public FDBDatabase getDatabase() {
         return database;
     }
 
-    private void validateDatabase(@Nonnull FDBRecordContext context) {
+    private void validateDatabase(FDBRecordContext context) {
         if (!context.getDatabase().equals(database)) {
             throw new RecordCoreArgumentException("attempted to resolve value against incorrect database");
         }
     }
 
-    @Nonnull
     private <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer,
-                                              @Nonnull Function<FDBRecordContext, CompletableFuture<T>> retriable,
+                                              Function<FDBRecordContext, CompletableFuture<T>> retriable,
                                               Object... additionalLogMessageKeyValues) {
         return database.runAsync(timer, null, context ->
                         // Explicitly get a read version for instrumentation purposes
@@ -130,10 +125,9 @@ public abstract class LocatableResolver {
                 Arrays.asList(additionalLogMessageKeyValues));
     }
 
-    @Nonnull
     @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"})
-    private <T> CompletableFuture<T> runAsyncBorrowingReadVersion(@Nonnull FDBRecordContext parentContext,
-                                                                  @Nonnull Function<FDBRecordContext, CompletableFuture<T>> retriable,
+    private <T> CompletableFuture<T> runAsyncBorrowingReadVersion(FDBRecordContext parentContext,
+                                                                  Function<FDBRecordContext, CompletableFuture<T>> retriable,
                                                                   Object... additionalLogMessageKeyValues) {
         final FDBDatabaseRunner runner = parentContext.newRunner();
         boolean started = false;
@@ -167,7 +161,7 @@ public abstract class LocatableResolver {
         }
     }
 
-    private CompletableFuture<Cache<ScopedValue<String>, ResolverResult>> getDirectoryCache(@Nonnull FDBRecordContext context) {
+    private CompletableFuture<Cache<ScopedValue<String>, ResolverResult>> getDirectoryCache(FDBRecordContext context) {
         validateDatabase(context);
         return getVersion(context)
                 .thenApply(database::getDirectoryCache);
@@ -185,8 +179,7 @@ public abstract class LocatableResolver {
      * @return a future for the resolved Long value
      * @see #resolve(FDBStoreTimer, String)
      */
-    @Nonnull
-    public CompletableFuture<Long> resolve(@Nonnull String name) {
+    public CompletableFuture<Long> resolve(String name) {
         return resolve((FDBStoreTimer)null, name, ResolverCreateHooks.getDefault());
     }
 
@@ -198,8 +191,7 @@ public abstract class LocatableResolver {
      * @param name the value to resolve
      * @return a future for the resolved Long value
      */
-    @Nonnull
-    public CompletableFuture<Long> resolve(@Nullable FDBStoreTimer timer, @Nonnull String name) {
+    public CompletableFuture<Long> resolve(@Nullable FDBStoreTimer timer, String name) {
         return resolve(timer, name, ResolverCreateHooks.getDefault());
     }
 
@@ -219,8 +211,7 @@ public abstract class LocatableResolver {
      * @return a future for the resolved Long value
      */
     @API(API.Status.UNSTABLE)
-    @Nonnull
-    public CompletableFuture<Long> resolve(@Nonnull FDBRecordContext context, @Nonnull String name) {
+    public CompletableFuture<Long> resolve(FDBRecordContext context, String name) {
         return resolve(context, name, ResolverCreateHooks.getDefault());
     }
 
@@ -237,9 +228,8 @@ public abstract class LocatableResolver {
      * @return a future for the resolved Long value
      * @see #resolve(FDBStoreTimer, String, ResolverCreateHooks)
      */
-    @Nonnull
-    public CompletableFuture<Long> resolve(@Nonnull String name,
-                                           @Nonnull ResolverCreateHooks hooks) {
+    public CompletableFuture<Long> resolve(String name,
+                                           ResolverCreateHooks hooks) {
         return resolve((FDBStoreTimer)null, name, hooks);
     }
 
@@ -252,10 +242,9 @@ public abstract class LocatableResolver {
      * @param hooks {@link ResolverCreateHooks} to run on create
      * @return a future for the resolved Long value
      */
-    @Nonnull
     public CompletableFuture<Long> resolve(@Nullable FDBStoreTimer timer,
-                                           @Nonnull String name,
-                                           @Nonnull ResolverCreateHooks hooks) {
+                                           String name,
+                                           ResolverCreateHooks hooks) {
         return resolveWithMetadata(timer, name, hooks)
                 .thenApply(ResolverResult::getValue);
     }
@@ -277,10 +266,9 @@ public abstract class LocatableResolver {
      * @return a future for the resolved Long value
      */
     @API(API.Status.UNSTABLE)
-    @Nonnull
-    public CompletableFuture<Long> resolve(@Nonnull FDBRecordContext context,
-                                           @Nonnull String name,
-                                           @Nonnull ResolverCreateHooks hooks) {
+    public CompletableFuture<Long> resolve(FDBRecordContext context,
+                                           String name,
+                                           ResolverCreateHooks hooks) {
         return resolveWithMetadata(context, name, hooks)
                 .thenApply(ResolverResult::getValue);
     }
@@ -301,9 +289,8 @@ public abstract class LocatableResolver {
      * @return a future for the {@link ResolverResult} containing the resolved value and metadata
      * @see #resolveWithMetadata(FDBStoreTimer, String, ResolverCreateHooks)
      */
-    @Nonnull
-    public CompletableFuture<ResolverResult> resolveWithMetadata(@Nonnull String name,
-                                                                 @Nonnull ResolverCreateHooks hooks) {
+    public CompletableFuture<ResolverResult> resolveWithMetadata(String name,
+                                                                 ResolverCreateHooks hooks) {
         return resolveWithMetadata((FDBStoreTimer)null, name, hooks);
     }
 
@@ -319,11 +306,10 @@ public abstract class LocatableResolver {
      * @param hooks {@link ResolverCreateHooks} to run on create
      * @return a future for the {@link ResolverResult} containing the resolved value and metadata
      */
-    @Nonnull
     @SuppressWarnings({"PMD.CloseResource", "PMD.UseTryWithResources"})
     public CompletableFuture<ResolverResult> resolveWithMetadata(@Nullable FDBStoreTimer timer,
-                                                                 @Nonnull String name,
-                                                                 @Nonnull ResolverCreateHooks hooks) {
+                                                                 String name,
+                                                                 ResolverCreateHooks hooks) {
         final FDBRecordContext context = database.openContext(null, timer);
         boolean started = false;
         try {
@@ -360,8 +346,7 @@ public abstract class LocatableResolver {
      * @return a future for the {@link ResolverResult} containing the resolved value and metadata
      */
     @API(API.Status.UNSTABLE)
-    @Nonnull
-    public CompletableFuture<ResolverResult> resolveWithMetadata(@Nonnull FDBRecordContext context, @Nonnull String name, @Nonnull ResolverCreateHooks hooks) {
+    public CompletableFuture<ResolverResult> resolveWithMetadata(FDBRecordContext context, String name, ResolverCreateHooks hooks) {
         // check the version stored in the resolver state and compare it with what version the cache was created at
         // if we read a version that is ahead of whats stored in FDBDatabase we need to invalidate the cache in FDBDatabase
         // if the cache version in FDBDatabase is a future version we can trust the cache we get from getDirectoryCache
@@ -380,8 +365,7 @@ public abstract class LocatableResolver {
      * @return a future for the {@link ResolverResult}
      * @throws NoSuchElementException if the value does not exist
      */
-    @Nonnull
-    public CompletableFuture<ResolverResult> mustResolveWithMetadata(@Nonnull FDBRecordContext context, @Nonnull String name) {
+    public CompletableFuture<ResolverResult> mustResolveWithMetadata(FDBRecordContext context, String name) {
         return read(context, name)
                 .thenApply(maybeRead ->
                         maybeRead.orElseThrow(() -> new NoSuchElementException(wrap(name).toString())));
@@ -396,7 +380,7 @@ public abstract class LocatableResolver {
      * @return a future for the resolved Long value
      * @throws NoSuchElementException if the value does not exist
      */
-    public CompletableFuture<Long> mustResolve(@Nonnull FDBRecordContext context, @Nonnull String name) {
+    public CompletableFuture<Long> mustResolve(FDBRecordContext context, String name) {
         return read(context, name)
                 .thenApply(maybeRead ->
                         maybeRead.map(ResolverResult::getValue)
@@ -411,9 +395,8 @@ public abstract class LocatableResolver {
      * @return a future for the name that maps to this value
      * @throws NoSuchElementException if the value is not found
      */
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<String> reverseLookup(@Nullable FDBStoreTimer timer, @Nonnull Long value) {
+    public CompletableFuture<String> reverseLookup(@Nullable FDBStoreTimer timer, Long value) {
         Cache<ScopedValue<Long>, String> inMemoryReverseCache = database.getReverseDirectoryInMemoryCache();
         String cachedValue = inMemoryReverseCache.getIfPresent(wrap(value));
         if (cachedValue != null) {
@@ -436,8 +419,7 @@ public abstract class LocatableResolver {
      * @return a future for the name that maps to this value
      * @throws NoSuchElementException if the value is not found
      */
-    @Nonnull
-    public CompletableFuture<String> reverseLookup(@Nonnull FDBRecordContext parentContext, @Nonnull Long value) {
+    public CompletableFuture<String> reverseLookup(FDBRecordContext parentContext, Long value) {
         Cache<ScopedValue<Long>, String> inMemoryReverseCache = database.getReverseDirectoryInMemoryCache();
         String cachedValue = inMemoryReverseCache.getIfPresent(wrap(value));
         if (cachedValue != null) {
@@ -447,7 +429,7 @@ public abstract class LocatableResolver {
         return reverseLookupFromDatabase(parentContext, value);
     }
 
-    private CompletableFuture<String> reverseLookupFromDatabase(@Nonnull FDBRecordContext parentContext, @Nonnull Long value) {
+    private CompletableFuture<String> reverseLookupFromDatabase(FDBRecordContext parentContext, Long value) {
         AtomicBoolean maybeStale = new AtomicBoolean(true);
         return runAsyncBorrowingReadVersion(parentContext, childContext -> readReverse(childContext, value).thenApply(maybeRead -> {
             if (maybeStale.get()) {
@@ -481,8 +463,7 @@ public abstract class LocatableResolver {
      * @return a future that will contain the name that maps to this value
      * @throws NoSuchElementException if the value is not found
      */
-    @Nonnull
-    public CompletableFuture<String> reverseLookupInTransaction(@Nonnull FDBRecordContext context,
+    public CompletableFuture<String> reverseLookupInTransaction(FDBRecordContext context,
                                                                 long value) {
         final Cache<ScopedValue<Long>, String> inMemoryCache = database.getReverseDirectoryInMemoryCache();
         final ScopedValue<Long> reverseCacheKey = wrap(value);
@@ -504,10 +485,10 @@ public abstract class LocatableResolver {
         });
     }
 
-    private CompletableFuture<ResolverResult> resolveWithCache(@Nonnull FDBRecordContext context,
-                                                               @Nonnull ScopedValue<String> scopedName,
-                                                               @Nonnull Cache<ScopedValue<String>, ResolverResult> directoryCache,
-                                                               @Nonnull ResolverCreateHooks hooks) {
+    private CompletableFuture<ResolverResult> resolveWithCache(FDBRecordContext context,
+                                                               ScopedValue<String> scopedName,
+                                                               Cache<ScopedValue<String>, ResolverResult> directoryCache,
+                                                               ResolverCreateHooks hooks) {
         ResolverResult value = directoryCache.getIfPresent(scopedName);
         if (value != null) {
             return CompletableFuture.completedFuture(value);
@@ -538,9 +519,8 @@ public abstract class LocatableResolver {
      * @param name the name to look up
      * @return a future that contains the current {@link ResolverResult} for the given name or {@code null} if unset
      */
-    @Nonnull
-    public CompletableFuture<ResolverResult> readInTransaction(@Nonnull FDBRecordContext context,
-                                                               @Nonnull String name) {
+    public CompletableFuture<ResolverResult> readInTransaction(FDBRecordContext context,
+                                                               String name) {
         return getDirectoryCache(context).thenCompose(directoryCache -> {
             ScopedValue<String> scopedName = wrap(name);
             ResolverResult cachedValue = directoryCache.getIfPresent(scopedName);
@@ -571,18 +551,17 @@ public abstract class LocatableResolver {
      * @param hooks hooks to run when inserting the name into the database
      * @return a future that contains the current {@link ResolverResult} for the given name or {@code null} if unset
      */
-    @Nonnull
-    public CompletableFuture<ResolverResult> createInTransaction(@Nonnull FDBRecordContext context,
-                                                                 @Nonnull String name,
-                                                                 @Nonnull ResolverCreateHooks hooks) {
+    public CompletableFuture<ResolverResult> createInTransaction(FDBRecordContext context,
+                                                                 String name,
+                                                                 ResolverCreateHooks hooks) {
         return getDirectoryCache(context).thenCompose(directoryCache ->
                 createIfNotLocked(context, name, hooks).whenComplete((result, err) ->
                         addCachePostCommitIfNotError(context, directoryCache, name, result, err)));
     }
 
-    private void addCachePostCommitIfNotError(@Nonnull FDBRecordContext context,
-                                              @Nonnull Cache<ScopedValue<String>, ResolverResult> directoryCache,
-                                              @Nonnull String name,
+    private void addCachePostCommitIfNotError(FDBRecordContext context,
+                                              Cache<ScopedValue<String>, ResolverResult> directoryCache,
+                                              String name,
                                               @Nullable ResolverResult result,
                                               @Nullable Throwable err) {
         if (result != null && err == null) {
@@ -594,18 +573,23 @@ public abstract class LocatableResolver {
         }
     }
 
-    private CompletableFuture<ResolverResult> readOrCreateValue(@Nonnull FDBRecordContext context,
-                                                                @Nonnull String name,
-                                                                @Nonnull ResolverCreateHooks hooks) {
+    private CompletableFuture<ResolverResult> readOrCreateValue(FDBRecordContext context,
+                                                                String name,
+                                                                ResolverCreateHooks hooks) {
         return read(context, name)
                 .thenCompose(maybeRead -> maybeRead.map(CompletableFuture::completedFuture)
                         .orElseGet(() -> createIfNotLocked(context, name, hooks)));
     }
 
-    @SuppressWarnings("squid:S1066") // do not collapse if statements with LOGGER statements
-    private CompletableFuture<ResolverResult> createIfNotLocked(@Nonnull FDBRecordContext context,
-                                                                @Nonnull String key,
-                                                                @Nonnull final ResolverCreateHooks hooks) {
+    // do not collapse if statements with LOGGER statements;
+    // NullAway/JSpecify does not currently track @Nullable on array
+    // (byte[]) parameters reliably across this local variable and the
+    // lambda that captures it, even though create(FDBRecordContext,
+    // String, byte[])'s metadata parameter is @Nullable.
+    @SuppressWarnings({"squid:S1066", "NullAway"})
+    private CompletableFuture<ResolverResult> createIfNotLocked(FDBRecordContext context,
+                                                                String key,
+                                                                final ResolverCreateHooks hooks) {
         List<CompletableFuture<Boolean>> checks = hooks.getPreWriteChecks().stream()
                 .map(hook -> hook.apply(context, this))
                 .collect(Collectors.toList());
@@ -644,8 +628,7 @@ public abstract class LocatableResolver {
                 });
     }
 
-    @Nonnull
-    public CompletableFuture<ResolverStateProto.State> loadResolverState(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<ResolverStateProto.State> loadResolverState(FDBRecordContext context) {
         // don't use a snapshot read, the lock state shouldn't change frequently but if it does we should
         // fail the transaction and should retry getting the value.
         return context.instrument(FDBStoreTimer.DetailEvents.RESOLVER_STATE_READ,
@@ -654,7 +637,6 @@ public abstract class LocatableResolver {
                         .thenApply(LocatableResolver::deserializeResolverState)));
     }
 
-    @Nonnull
     private CompletableFuture<ResolverStateProto.State> getResolverState(@Nullable FDBStoreTimer timer) {
         return database.getStateForResolver(this, () -> runAsync(timer, this::loadResolverState,
                 LogMessageKeys.TRANSACTION_NAME, "LocatableResolver::loadResolverState",
@@ -662,8 +644,7 @@ public abstract class LocatableResolver {
                 LogMessageKeys.SHARED_READ_VERSION, false));
     }
 
-    @Nonnull
-    private CompletableFuture<ResolverStateProto.State> getResolverState(@Nonnull FDBRecordContext context) {
+    private CompletableFuture<ResolverStateProto.State> getResolverState(FDBRecordContext context) {
         // Note that this doesn't re-use the same transaction, though it does borrow the read version to avoid another get read version request
         return database.getStateForResolver(this, () -> runAsyncBorrowingReadVersion(context, this::loadResolverState,
                 LogMessageKeys.TRANSACTION_NAME, "LocatableResolver::loadResolverState",
@@ -680,7 +661,6 @@ public abstract class LocatableResolver {
      * see the updated state.
      * @return a future that completes when the write lock has been set
      */
-    @Nonnull
     public CompletableFuture<Void> exclusiveLock() {
         return updateAndCommitResolverState(StateMutation.EXCLUSIVE_LOCK);
     }
@@ -693,7 +673,6 @@ public abstract class LocatableResolver {
      * see the updated state.
      * @return a future that completes when the write lock has been set
      */
-    @Nonnull
     public CompletableFuture<Void> enableWriteLock() {
         return updateAndCommitResolverState(StateMutation.LOCK);
     }
@@ -705,7 +684,6 @@ public abstract class LocatableResolver {
      * method succeeds should see the updated state.
      * @return a future that completes when the write lock has been cleared
      */
-    @Nonnull
     public CompletableFuture<Void> disableWriteLock() {
         return updateAndCommitResolverState(StateMutation.UNLOCK);
     }
@@ -716,7 +694,6 @@ public abstract class LocatableResolver {
      * using that resolver instead.
      * @return a future that completes when the write lock has been cleared
      */
-    @Nonnull
     public CompletableFuture<Void> retireLayer() {
         return updateAndCommitResolverState(StateMutation.RETIRE);
     }
@@ -727,7 +704,6 @@ public abstract class LocatableResolver {
      * to be seen by {@link #getVersion(FDBStoreTimer)}.
      * @return A future that completes when the version has been incremented
      */
-    @Nonnull
     public CompletableFuture<Void> incrementVersion() {
         return updateAndCommitResolverState(StateMutation.INCREMENT_VERSION);
     }
@@ -745,15 +721,13 @@ public abstract class LocatableResolver {
      * @param timer The store timer to instrument the transaction with.
      * @return A future that will complete with the value of the current version
      */
-    @Nonnull
     public CompletableFuture<Integer> getVersion(@Nullable FDBStoreTimer timer) {
         return runAsync(timer, this::getVersion,
                 LogMessageKeys.TRANSACTION_NAME, "LocatableResolver::getVersion",
                 LogMessageKeys.RESOLVER, this);
     }
 
-    @Nonnull
-    private CompletableFuture<Integer> getVersion(@Nonnull FDBRecordContext context) {
+    private CompletableFuture<Integer> getVersion(FDBRecordContext context) {
         return getResolverState(context).thenApply(ResolverStateProto.State::getVersion);
     }
 
@@ -763,7 +737,6 @@ public abstract class LocatableResolver {
      * @param timer The store timer to instrument the transaction with.
      * @return A future that will complete with boolean indicating whether this resolver has been retired.
      */
-    @Nonnull
     public CompletableFuture<Boolean> retired(@Nullable FDBStoreTimer timer) {
         return getResolverState(timer).thenApply(state -> state.getLock() == ResolverStateProto.WriteLock.RETIRED);
     }
@@ -774,8 +747,7 @@ public abstract class LocatableResolver {
      * @param context the transaction to use to access the database
      * @return A future that will complete with boolean indicating whether this resolver has been retired.
      */
-    @Nonnull
-    public CompletableFuture<Boolean> retiredSkipCache(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<Boolean> retiredSkipCache(FDBRecordContext context) {
         return loadResolverState(context).thenApply(state -> state.getLock() == ResolverStateProto.WriteLock.RETIRED);
     }
 
@@ -789,8 +761,7 @@ public abstract class LocatableResolver {
      * @param metadata the new metadata
      * @return a future that will finish when the update and increment operations are complete
      */
-    @Nonnull
-    public CompletableFuture<Void> updateMetadataAndVersion(@Nonnull final String key,
+    public CompletableFuture<Void> updateMetadataAndVersion(final String key,
                                                             @Nullable final byte[] metadata) {
         return runAsync(null, context -> updateMetadata(context, key, metadata)
                 .thenCompose(ignore -> updateResolverState(context, StateMutation.INCREMENT_VERSION)),
@@ -808,8 +779,7 @@ public abstract class LocatableResolver {
      * @param newState the new state to write
      * @return a future that will be completed when the new state has been written
      */
-    @Nonnull
-    public CompletableFuture<Void> saveResolverState(@Nonnull final FDBRecordContext context, @Nonnull ResolverStateProto.State newState) {
+    public CompletableFuture<Void> saveResolverState(final FDBRecordContext context, ResolverStateProto.State newState) {
         return loadResolverState(context).thenCompose(oldState -> {
             if (newState.equals(oldState)) {
                 return AsyncUtil.DONE;
@@ -821,20 +791,20 @@ public abstract class LocatableResolver {
         });
     }
 
-    private CompletableFuture<Void> updateAndCommitResolverState(@Nonnull final StateMutation mutation) {
+    private CompletableFuture<Void> updateAndCommitResolverState(final StateMutation mutation) {
         return runAsync(null, context -> updateResolverState(context, mutation),
                 LogMessageKeys.TRANSACTION_NAME, "LocatableResolver::updateAndCommitResolverState",
                 LogMessageKeys.RESOLVER, this,
                 LogMessageKeys.MUTATION, mutation);
     }
 
-    private CompletableFuture<Void> updateResolverState(@Nonnull final FDBRecordContext context, @Nonnull final StateMutation mutation) {
+    private CompletableFuture<Void> updateResolverState(final FDBRecordContext context, final StateMutation mutation) {
         return loadResolverState(context)
                 .thenApply(mutation::apply)
                 .thenCompose(newState -> writeResolverState(context, newState));
     }
 
-    private CompletableFuture<Void> writeResolverState(@Nonnull final FDBRecordContext context, @Nonnull ResolverStateProto.State newState) {
+    private CompletableFuture<Void> writeResolverState(final FDBRecordContext context, ResolverStateProto.State newState) {
         return getStateSubspaceAsync()
                 .thenApply(Subspace::getKey)
                 .thenApply(stateKey -> {
@@ -851,9 +821,9 @@ public abstract class LocatableResolver {
      * @param scanProperties how the scan is to be performed
      * @return a cursor returning key/value pairs of resolver mappings
      */
-    public RecordCursor<ResolverKeyValue> scan(@Nonnull FDBRecordContext context,
+    public RecordCursor<ResolverKeyValue> scan(FDBRecordContext context,
                                                @Nullable byte[] continuation,
-                                               @Nonnull ScanProperties scanProperties) {
+                                               ScanProperties scanProperties) {
         return new LazyCursor<>(
                 getMappingSubspaceAsync().thenApply(mappingSubspace ->
                         KeyValueCursor.Builder.withSubspace(mappingSubspace)
@@ -868,14 +838,17 @@ public abstract class LocatableResolver {
     }
 
 
-    protected abstract CompletableFuture<Optional<ResolverResult>> read(@Nonnull FDBRecordContext context, String key);
+    protected abstract CompletableFuture<Optional<ResolverResult>> read(FDBRecordContext context, String key);
 
-    protected abstract CompletableFuture<ResolverResult> create(@Nonnull FDBRecordContext context,
-                                                                @Nonnull String key,
+    protected abstract CompletableFuture<ResolverResult> create(FDBRecordContext context,
+                                                                String key,
                                                                 @Nullable byte[] metadata);
 
-    protected final CompletableFuture<ResolverResult> create(@Nonnull FDBRecordContext context,
-                                                       @Nonnull String key) {
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even
+    // across a call to another overload that declares the same array @Nullable.
+    @SuppressWarnings("NullAway")
+    protected final CompletableFuture<ResolverResult> create(FDBRecordContext context,
+                                                       String key) {
         return create(context, key, null);
     }
 
@@ -890,8 +863,12 @@ public abstract class LocatableResolver {
      * @see #reverseLookup(FDBStoreTimer, Long)
      * @see #reverseLookup(FDBRecordContext, Long)
      */
-    @SuppressWarnings("squid:S1874") // old deprecated code used as default implementation until removed
-    protected CompletableFuture<Optional<String>> readReverse(@Nonnull FDBRecordContext context, Long value) {
+    // old deprecated code used as default implementation until removed;
+    // context.getTimer() is genuinely nullable but readReverse(FDBStoreTimer,
+    // Long)'s timer parameter is not annotated @Nullable (a null timer simply
+    // means "don't instrument", the common convention elsewhere in this codebase).
+    @SuppressWarnings({"squid:S1874", "NullAway"})
+    protected CompletableFuture<Optional<String>> readReverse(FDBRecordContext context, Long value) {
         return readReverse(context.getTimer(), value);
     }
 
@@ -908,7 +885,7 @@ public abstract class LocatableResolver {
     @Deprecated
     protected abstract CompletableFuture<Optional<String>> readReverse(FDBStoreTimer timer, Long value);
 
-    protected abstract CompletableFuture<Void> updateMetadata(FDBRecordContext context, String key, byte[] metadata);
+    protected abstract CompletableFuture<Void> updateMetadata(FDBRecordContext context, String key, @Nullable byte[] metadata);
 
     protected abstract CompletableFuture<Void> setMapping(FDBRecordContext context, String key, ResolverResult value);
 
@@ -928,7 +905,6 @@ public abstract class LocatableResolver {
      * to this subspace is not needed by general users and extreme care should be taken when interacting with it.
      * @return a future that, when ready, will hold the mapping subspace
      */
-    @Nonnull
     public abstract CompletableFuture<Subspace> getMappingSubspaceAsync();
 
     /**
@@ -938,7 +914,6 @@ public abstract class LocatableResolver {
      * maintains its allocation keys (see {@link #getMappingSubspaceAsync()}).
      * @return a future that, when ready, will hold the base subspace
      */
-    @Nonnull
     public abstract CompletableFuture<Subspace> getBaseSubspaceAsync();
 
     /**
@@ -946,7 +921,6 @@ public abstract class LocatableResolver {
      * @param value raw value bytes.
      * @return the deserialized {@link ResolverResult}.
      */
-    @Nonnull
     public abstract ResolverResult deserializeValue(byte[] value);
 
     /**
@@ -963,7 +937,7 @@ public abstract class LocatableResolver {
      */
     @VisibleForTesting
     @API(API.Status.INTERNAL)
-    protected abstract CompletableFuture<Void> deleteReverseForTesting(@Nonnull FDBRecordContext context, long value);
+    protected abstract CompletableFuture<Void> deleteReverseForTesting(FDBRecordContext context, long value);
 
     /**
      * Explicitly write an entry to the reverse directory for the resolver. This method is only intended for internal
@@ -978,16 +952,15 @@ public abstract class LocatableResolver {
      * @return a future that completes when the put operation has completed
      */
     @API(API.Status.INTERNAL)
-    protected abstract CompletableFuture<Void> putReverse(@Nonnull FDBRecordContext context, long value, @Nonnull String key);
+    protected abstract CompletableFuture<Void> putReverse(FDBRecordContext context, long value, String key);
 
-    @Nonnull
-    private static ResolverStateProto.State deserializeResolverState(@Nullable byte[] bytes) {
+    private static ResolverStateProto.State deserializeResolverState(byte @Nullable [] bytes) {
         if (bytes != null) {
             try {
                 return ResolverStateProto.State.parseFrom(bytes);
             } catch (InvalidProtocolBufferException exception) {
                 throw new RecordCoreException("invalid state value", exception)
-                        .addLogInfo("valueBytes", ByteArrayUtil2.loggable(bytes));
+                        .addLogInfo("valueBytes", Objects.requireNonNull(ByteArrayUtil2.loggable(bytes)));
             }
         }
         // if state key is not preset, use default values: unlocked, version=0
@@ -1032,14 +1005,12 @@ public abstract class LocatableResolver {
             return LOCK.apply(state);
         });
 
-        @Nonnull
         private final Function<ResolverStateProto.State, ResolverStateProto.State> mutation;
 
-        StateMutation(@Nonnull Function<ResolverStateProto.State, ResolverStateProto.State> mutation) {
+        StateMutation(Function<ResolverStateProto.State, ResolverStateProto.State> mutation) {
             this.mutation = mutation;
         }
 
-        @Nonnull
         private ResolverStateProto.State apply(ResolverStateProto.State state) {
             return mutation.apply(state);
         }

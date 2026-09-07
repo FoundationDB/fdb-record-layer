@@ -76,7 +76,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag(Tags.RequiresFDB)
 class FDBOrderingQueryTest extends FDBRecordStoreQueryTestBase {
 
-    protected void saveRecord(FDBRecordContext context, long recNo, int num, String str) {
+    protected void saveRecord(FDBRecordContext context, long recNo, int num, @Nullable String str) {
         TestRecords1Proto.MySimpleRecord.Builder record = TestRecords1Proto.MySimpleRecord.newBuilder()
                 .setRecNo(recNo)
                 .setNumValue2(num);

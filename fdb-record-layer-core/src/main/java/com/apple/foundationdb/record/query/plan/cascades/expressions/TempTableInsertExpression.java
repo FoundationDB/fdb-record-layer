@@ -40,7 +40,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -54,19 +53,16 @@ import java.util.Set;
  */
 public class TempTableInsertExpression extends AbstractRelationalExpressionWithChildren implements PlannerGraphRewritable {
 
-    @Nonnull
     private final Quantifier.ForEach inner;
 
-    @Nonnull
     private final Value resultValue;
 
-    @Nonnull
     private final Value tempTableReferenceValue;
 
     private final boolean isOwningTempTable;
 
-    private TempTableInsertExpression(@Nonnull final Quantifier.ForEach inner,
-                                      @Nonnull final Value tempTableReferenceValue,
+    private TempTableInsertExpression(final Quantifier.ForEach inner,
+                                      final Value tempTableReferenceValue,
                                       boolean isOwningTempTable) {
         this.inner = inner;
         this.tempTableReferenceValue = tempTableReferenceValue;
@@ -81,23 +77,20 @@ public class TempTableInsertExpression extends AbstractRelationalExpressionWithC
         return 1;
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return tempTableReferenceValue.getCorrelatedToWithoutChildren();
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
     }
 
-    @Nonnull
     @Override
-    public TempTableInsertExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public TempTableInsertExpression translateCorrelations(final TranslationMap translationMap,
                                                            final boolean shouldSimplifyValues,
-                                                           @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                           final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedTableReferenceValue =
                 tempTableReferenceValue.translateCorrelations(translationMap, shouldSimplifyValues);
         return new TempTableInsertExpression(
@@ -105,27 +98,24 @@ public class TempTableInsertExpression extends AbstractRelationalExpressionWithC
                 translatedTableReferenceValue, isOwningTempTable);
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return resultValue;
     }
 
-    @Nonnull
     public Value getTempTableReferenceValue() {
         return tempTableReferenceValue;
     }
 
-    @Nonnull
-    public TempTableInsertPlan toPlan(@Nonnull final Quantifier.Physical physicalInner) {
+    public TempTableInsertPlan toPlan(final Quantifier.Physical physicalInner) {
         Verify.verify(inner.getAlias().equals(physicalInner.getAlias()));
         return TempTableInsertPlan.insertPlan(physicalInner, tempTableReferenceValue, isOwningTempTable);
     }
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(final RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -162,9 +152,8 @@ public class TempTableInsertExpression extends AbstractRelationalExpressionWithC
      * @return the rewritten planner graph that models the target as a separate node that is connected to the
      *         temporary table insert expression node.
      */
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         Verify.verify(!childGraphs.isEmpty());
 
         final var graphForTarget =
@@ -191,11 +180,10 @@ public class TempTableInsertExpression extends AbstractRelationalExpressionWithC
      * @param type The type of the temporary table records.
      * @return A new {@link TempTableInsertExpression} that adds records to a constant-bound {@link TempTable}.
      */
-    @Nonnull
-    public static TempTableInsertExpression ofConstant(@Nonnull final Quantifier.ForEach inner,
-                                                       @Nonnull final CorrelationIdentifier constantAlias,
-                                                       @Nonnull final String constantId,
-                                                       @Nonnull final Type type) {
+    public static TempTableInsertExpression ofConstant(final Quantifier.ForEach inner,
+                                                       final CorrelationIdentifier constantAlias,
+                                                       final String constantId,
+                                                       final Type type) {
         return ofConstant(inner, constantAlias, constantId, type, true);
     }
 
@@ -211,11 +199,10 @@ public class TempTableInsertExpression extends AbstractRelationalExpressionWithC
      *                          {@link TempTable}, otherwise {@code False}.
      * @return A new {@link TempTableInsertExpression} that adds records to a constant-bound {@link TempTable}.
      */
-    @Nonnull
-    public static TempTableInsertExpression ofConstant(@Nonnull final Quantifier.ForEach inner,
-                                                       @Nonnull final CorrelationIdentifier constantAlias,
-                                                       @Nonnull final String constantId,
-                                                       @Nonnull final Type type,
+    public static TempTableInsertExpression ofConstant(final Quantifier.ForEach inner,
+                                                       final CorrelationIdentifier constantAlias,
+                                                       final String constantId,
+                                                       final Type type,
                                                        boolean isOwningTempTable) {
         return new TempTableInsertExpression(inner, ConstantObjectValue.of(constantAlias, constantId, new Type.Relation(type)), isOwningTempTable);
     }
@@ -231,10 +218,9 @@ public class TempTableInsertExpression extends AbstractRelationalExpressionWithC
      *
      * @return A new {@link TempTableInsertExpression} that adds records to a correlated {@link TempTable}.
      */
-    @Nonnull
-    public static TempTableInsertExpression ofCorrelated(@Nonnull final Quantifier.ForEach inner,
-                                                         @Nonnull final CorrelationIdentifier correlation,
-                                                         @Nonnull final Type type) {
+    public static TempTableInsertExpression ofCorrelated(final Quantifier.ForEach inner,
+                                                         final CorrelationIdentifier correlation,
+                                                         final Type type) {
         return ofCorrelated(inner, correlation, type, true);
     }
 
@@ -250,10 +236,9 @@ public class TempTableInsertExpression extends AbstractRelationalExpressionWithC
      *
      * @return A new {@link TempTableInsertExpression} that adds records to a correlated {@link TempTable}.
      */
-    @Nonnull
-    public static TempTableInsertExpression ofCorrelated(@Nonnull final Quantifier.ForEach inner,
-                                                         @Nonnull final CorrelationIdentifier correlation,
-                                                         @Nonnull final Type type,
+    public static TempTableInsertExpression ofCorrelated(final Quantifier.ForEach inner,
+                                                         final CorrelationIdentifier correlation,
+                                                         final Type type,
                                                          boolean isOwningTempTable) {
         return new TempTableInsertExpression(inner, QuantifiedObjectValue.of(correlation, new Type.Relation(type)), isOwningTempTable);
     }

@@ -33,8 +33,7 @@ import com.apple.foundationdb.tuple.TupleOrdering;
 import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
@@ -47,16 +46,14 @@ import java.util.function.Function;
 public class OrderFunctionKeyExpression extends InvertibleFunctionKeyExpression implements QueryableKeyExpression {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Order-Function-Key-Expression");
 
-    @Nonnull
     private final TupleOrdering.Direction direction;
 
-    protected OrderFunctionKeyExpression(@Nonnull TupleOrdering.Direction direction,
-                                         @Nonnull String name, @Nonnull KeyExpression arguments) {
+    protected OrderFunctionKeyExpression(TupleOrdering.Direction direction,
+                                         String name, KeyExpression arguments) {
         super(name, arguments);
         this.direction = direction;
     }
 
-    @Nonnull
     public TupleOrdering.Direction getDirection() {
         return direction;
     }
@@ -71,11 +68,10 @@ public class OrderFunctionKeyExpression extends InvertibleFunctionKeyExpression 
         return 1;
     }
 
-    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
                                                                     @Nullable Message message,
-                                                                    @Nonnull Key.Evaluated arguments) {
+                                                                    Key.Evaluated arguments) {
         return Collections.singletonList(Key.Evaluated.scalar(ZeroCopyByteString.wrap(TupleOrdering.pack(arguments.toTuple(), direction))));
     }
 
@@ -89,15 +85,13 @@ public class OrderFunctionKeyExpression extends InvertibleFunctionKeyExpression 
         return 1;
     }
 
-    @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State, R> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
+    public <S extends KeyExpressionVisitor.State, R> R expand(final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 
-    @Nonnull
     @Override
-    public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
+    public Value toValue(final List<? extends Value> argumentValues) {
         return new ToOrderedBytesValue(argumentValues.get(0), direction);
     }
 
@@ -108,12 +102,16 @@ public class OrderFunctionKeyExpression extends InvertibleFunctionKeyExpression 
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
+    public int planHash(final PlanHashable.PlanHashMode mode) {
         return super.basePlanHash(mode, BASE_HASH, direction);
     }
 
     @Override
-    protected List<Key.Evaluated> evaluateInverseInternal(@Nonnull Key.Evaluated result) {
+    @SuppressWarnings("NullAway") // getObject(idx, clazz) is @Nullable in general (a Key.Evaluated position may hold
+    // null), but this order-preserving byte encoding is never actually null in practice; TupleOrdering.unpack's
+    // parameter (fdb-extensions, outside this module) is not annotated @Nullable, a pre-existing gap this file
+    // cannot fix directly.
+    protected List<Key.Evaluated> evaluateInverseInternal(Key.Evaluated result) {
         return Collections.singletonList(Key.Evaluated.fromTuple(TupleOrdering.unpack(result.getObject(0, byte[].class), direction)));
     }
 

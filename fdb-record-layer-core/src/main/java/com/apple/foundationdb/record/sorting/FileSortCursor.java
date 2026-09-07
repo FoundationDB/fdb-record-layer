@@ -28,8 +28,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -37,6 +36,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -48,27 +48,27 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class FileSortCursor<K, V> implements RecordCursor<V> {
-    @Nonnull
     private final RecordCursor<V> inputCursor;
-    @Nonnull
     private final FileSorter<K, V> sorter;
-    @Nonnull
     private final FileSortAdapter<K, V> adapter;
     @Nullable
     private final StoreTimer timer;
     private final int skip;
     private final int limit;
 
+    @Nullable
     private RecordCursorContinuation inputContinuation;
+    @Nullable
     private Iterator<Map.Entry<K, V>> inMemoryIterator;
     private int inMemoryPosition;
     @Nullable
     private K minimumKey;
+    @Nullable
     private SortedFileReader<V> fileReader;
     private boolean closed;
 
-    private FileSortCursor(@Nonnull FileSortAdapter<K, V> adapter, @Nonnull FileSorter<K, V> sorter,
-                           @Nonnull RecordCursor<V> inputCursor, @Nullable StoreTimer timer,
+    private FileSortCursor(FileSortAdapter<K, V> adapter, FileSorter<K, V> sorter,
+                           RecordCursor<V> inputCursor, @Nullable StoreTimer timer,
                            int skip, int limit) {
         this.inputCursor = inputCursor;
         this.sorter = sorter;
@@ -79,7 +79,6 @@ public class FileSortCursor<K, V> implements RecordCursor<V> {
         this.closed = false;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<V>> onNext() {
         if (inMemoryIterator != null) {
@@ -119,34 +118,42 @@ public class FileSortCursor<K, V> implements RecordCursor<V> {
         });
     }
 
-    @Nonnull
     private RecordCursorResult<V> nextFromIterator() {
+        final RecordCursorContinuation currentInputContinuation =
+                Objects.requireNonNull(inputContinuation, "inputContinuation must be set before nextFromIterator is called");
+        final Iterator<Map.Entry<K, V>> iterator =
+                Objects.requireNonNull(inMemoryIterator, "inMemoryIterator must be set before nextFromIterator is called");
         if (inMemoryPosition >= limit) {
-            FileSortCursorContinuation<K, V> continuation = new FileSortCursorContinuation<>(adapter, true, false, Collections.emptyList(), Collections.emptyList(), inputContinuation, inMemoryPosition, 0);
+            FileSortCursorContinuation<K, V> continuation = new FileSortCursorContinuation<>(adapter, true, false, Collections.emptyList(), Collections.emptyList(), currentInputContinuation, inMemoryPosition, 0);
             return RecordCursorResult.withoutNextValue(continuation, NoNextReason.RETURN_LIMIT_REACHED);
         }
-        if (inMemoryIterator.hasNext()) {
+        if (iterator.hasNext()) {
             // Return a sorted record.
-            Map.Entry<K, V> next = inMemoryIterator.next();
+            Map.Entry<K, V> next = iterator.next();
             minimumKey = next.getKey();
             inMemoryPosition++;
             Collection<V> remainingRecords = sorter.getMapSorter().getMap().tailMap(minimumKey, false).values();
-            FileSortCursorContinuation<K, V> continuation = new FileSortCursorContinuation<>(adapter, false, false, remainingRecords, sorter.getFiles(), inputContinuation, inMemoryPosition, 0);
+            FileSortCursorContinuation<K, V> continuation = new FileSortCursorContinuation<>(adapter, false, false, remainingRecords, sorter.getFiles(), currentInputContinuation, inMemoryPosition, 0);
             return RecordCursorResult.withNextValue(next.getValue(), continuation);
         }
-        FileSortCursorContinuation<K, V> continuation = new FileSortCursorContinuation<>(adapter, true, false, Collections.emptyList(), Collections.emptyList(), inputContinuation, inMemoryPosition, 0);
+        FileSortCursorContinuation<K, V> continuation = new FileSortCursorContinuation<>(adapter, true, false, Collections.emptyList(), Collections.emptyList(), currentInputContinuation, inMemoryPosition, 0);
         return RecordCursorResult.withoutNextValue(continuation, NoNextReason.SOURCE_EXHAUSTED);
     }
 
-    @Nonnull
     private RecordCursorResult<V> nextFromReader() {
+        final RecordCursorContinuation currentInputContinuation =
+                Objects.requireNonNull(inputContinuation, "inputContinuation must be set before nextFromReader is called");
+        // reader aliases the fileReader field (owned/closed elsewhere in this class), not a newly-created resource.
+        @SuppressWarnings("PMD.CloseResource")
+        final SortedFileReader<V> reader =
+                Objects.requireNonNull(fileReader, "fileReader must be set before nextFromReader is called");
         @Nullable V record;
         try {
-            record = fileReader.read();
+            record = reader.read();
         } catch (IOException | GeneralSecurityException ex) {
             throw new RecordCoreException(ex);
         }
-        FileSortCursorContinuation<K, V> continuation = new FileSortCursorContinuation<>(adapter, record == null, false, Collections.emptyList(), sorter.getFiles(), inputContinuation, fileReader.getRecordPosition(), fileReader.getFilePosition());
+        FileSortCursorContinuation<K, V> continuation = new FileSortCursorContinuation<>(adapter, record == null, false, Collections.emptyList(), sorter.getFiles(), currentInputContinuation, reader.getRecordPosition(), reader.getFilePosition());
         if (record != null) {
             return RecordCursorResult.withNextValue(record, continuation);
         } else {
@@ -172,22 +179,25 @@ public class FileSortCursor<K, V> implements RecordCursor<V> {
         return closed;
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return inputCursor.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
+    public boolean accept(final RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             inputCursor.accept(visitor);
         }
         return visitor.visitLeave(this);
     }
 
-    public static <K, V> FileSortCursor<K, V> create(@Nonnull FileSortAdapter<K, V> adapter,
-                                                     @Nonnull Function<byte[], RecordCursor<V>> inputCursorFunction,
+    @SuppressWarnings("NullAway") // RecordCursorContinuation#toBytes() is legitimately @Nullable (a null byte[]
+    // commonly means "start from the beginning"), but NullAway/JSpecify does not reliably track @Nullable on
+    // array (byte[]) type parameters of a generic Function, so a null continuation here is flagged as
+    // mismatched even though inputCursorFunction implementations (e.g. RecordQueryPlan#executePlan) accept it.
+    public static <K, V> FileSortCursor<K, V> create(FileSortAdapter<K, V> adapter,
+                                                     Function<byte[], RecordCursor<V>> inputCursorFunction,
                                                      @Nullable StoreTimer timer,
                                                      @Nullable byte[] continuation, int skip, int limit) {
         final FileSortCursorContinuation<K, V> parsedContinuation = FileSortCursorContinuation.from(continuation, adapter);

@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.provider.common.TransformedRecordSerializer
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -49,8 +49,7 @@ public class TextIndexTestUtils {
             TransformedRecordSerializer.newDefaultBuilder().setCompressWhenSerializing(true).build();
     public static final String SIMPLE_DEFAULT_NAME = "SimpleDocument$text";
 
-    @Nonnull
-    public static List<TestRecordsTextProto.SimpleDocument> toSimpleDocuments(@Nonnull List<String> textSamples) {
+    public static List<TestRecordsTextProto.SimpleDocument> toSimpleDocuments(List<String> textSamples) {
         return IntStream.range(0, textSamples.size())
                 .mapToObj(i -> TestRecordsTextProto.SimpleDocument.newBuilder().setDocId(i).setGroup(i % 2).setText(textSamples.get(i)).build())
                 .collect(Collectors.toList());
@@ -67,7 +66,7 @@ public class TextIndexTestUtils {
     public static void addRecordTypePrefix(RecordMetaDataBuilder metaDataBuilder) {
         for (String type : ALL_DOC_TYPES) {
             final RecordTypeBuilder typeBuilder = metaDataBuilder.getRecordType(type);
-            typeBuilder.setPrimaryKey(concat(recordType(), typeBuilder.getPrimaryKey()));
+            typeBuilder.setPrimaryKey(concat(recordType(), Objects.requireNonNull(typeBuilder.getPrimaryKey(), "record type must already have a primary key")));
         }
     }
 

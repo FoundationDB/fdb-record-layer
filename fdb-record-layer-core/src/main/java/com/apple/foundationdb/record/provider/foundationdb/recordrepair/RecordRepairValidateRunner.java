@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ThrottledRetryingIterator;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -41,14 +40,11 @@ public class RecordRepairValidateRunner extends RecordRepair {
     private final boolean allowRepair;
     private final int maxResultsReturned;
 
-    @Nonnull
     private final List<RecordRepairResult> invalidResults;
-    @Nonnull
     private final AtomicInteger validResultCount;
-    @Nonnull
     private final AtomicBoolean earlyReturn;
 
-    RecordRepairValidateRunner(@Nonnull final Builder config, boolean allowRepair) {
+    RecordRepairValidateRunner(final Builder config, boolean allowRepair) {
         super(config, allowRepair);
         this.allowRepair = allowRepair;
         this.maxResultsReturned = config.getMaxResultsReturned();
@@ -71,9 +67,8 @@ public class RecordRepairValidateRunner extends RecordRepair {
         });
     }
 
-    @Nonnull
     @Override
-    protected CompletableFuture<Void> handleOneItem(@Nonnull FDBRecordStore store, @Nonnull RecordCursorResult<Tuple> primaryKey, @Nonnull ThrottledRetryingIterator.QuotaManager quotaManager) {
+    protected CompletableFuture<Void> handleOneItem(FDBRecordStore store, RecordCursorResult<Tuple> primaryKey, ThrottledRetryingIterator.QuotaManager quotaManager) {
         return validateInternal(primaryKey, store, allowRepair).thenAccept(result -> {
             if (result.isValid()) {
                 validResultCount.incrementAndGet();

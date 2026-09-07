@@ -52,7 +52,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -76,7 +75,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Unmat
 @SuppressWarnings("PMD.TooManyStaticImports")
 @SpotBugsSuppressWarnings("SE_COMPARATOR_SHOULD_BE_SERIALIZABLE")
 public class PlanningCostModel implements CascadesCostModel {
-    @Nonnull
     private static final ImmutableSet<Class<? extends RelationalExpression>> interestingPlanClasses =
             ImmutableSet.of(
                     RecordQueryCoveringIndexPlan.class,
@@ -88,21 +86,19 @@ public class PlanningCostModel implements CascadesCostModel {
                     RecordQueryPredicatesFilterPlan.class,
                     RecordQueryScanPlan.class);
 
-    @Nonnull
     private final RecordQueryPlannerConfiguration configuration;
 
-    public PlanningCostModel(@Nonnull final RecordQueryPlannerConfiguration configuration) {
+    public PlanningCostModel(final RecordQueryPlannerConfiguration configuration) {
         this.configuration = configuration;
     }
 
-    @Nonnull
     @Override
     public RecordQueryPlannerConfiguration getConfiguration() {
         return configuration;
     }
 
     @Override
-    public int compare(@Nonnull final RelationalExpression a, @Nonnull final RelationalExpression b) {
+    public int compare(final RelationalExpression a, final RelationalExpression b) {
         if (a instanceof RecordQueryPlan && !(b instanceof RecordQueryPlan)) {
             return -1;
         }
@@ -155,7 +151,6 @@ public class PlanningCostModel implements CascadesCostModel {
                         RecordQueryScanPlan.class,
                         RecordQueryPlanWithIndex.class,
                         RecordQueryCoveringIndexPlan.class);
-
 
         final int numDataAccessB =
                 count(planOpsMapB,
@@ -352,8 +347,8 @@ public class PlanningCostModel implements CascadesCostModel {
      *         {@code OptionalInt.empty()} if the pair is not comparable on this criterion
      */
     @VisibleForTesting
-    OptionalInt compareVectorIndexEnginePreference(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapA,
-                                                   @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapB) {
+    OptionalInt compareVectorIndexEnginePreference(final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapA,
+                                                   final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapB) {
         final VectorIndexEngineKind preferredKind;
         switch (configuration.getVectorIndexEnginePreference()) {
             case PREFER_HNSW:
@@ -397,8 +392,7 @@ public class PlanningCostModel implements CascadesCostModel {
      * @return the engine backing the single vector index access, or {@code Optional.empty()} if the member makes no
      *         vector index access, or more than one
      */
-    @Nonnull
-    private static Optional<VectorIndexEngineKind> singleVectorIndexEngineKindMaybe(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMap) {
+    private static Optional<VectorIndexEngineKind> singleVectorIndexEngineKindMaybe(final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMap) {
         Optional<VectorIndexEngineKind> singleEngineKindMaybe = Optional.empty();
         for (final var dataAccess : FindExpressionVisitor.slice(planOpsMap, RecordQueryPlanWithIndex.class)) {
             if (!(dataAccess instanceof RecordQueryIndexPlan)) {
@@ -418,8 +412,7 @@ public class PlanningCostModel implements CascadesCostModel {
         return singleEngineKindMaybe;
     }
 
-    @Nonnull
-    private Cardinality maxOfMaxCardinalitiesOfAllDataAccesses(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMap) {
+    private Cardinality maxOfMaxCardinalitiesOfAllDataAccesses(final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMap) {
         return FindExpressionVisitor.slice(planOpsMap, RecordQueryScanPlan.class, RecordQueryPlanWithIndex.class, RecordQueryCoveringIndexPlan.class)
                 .stream()
                 .map(plan -> cardinalities().evaluate(plan).getMaxCardinality())
@@ -456,10 +449,10 @@ public class PlanningCostModel implements CascadesCostModel {
      * @return an {@link OptionalInt} that is the result of the comparison between a primary scan plan and an index
      *         scan plan, or {@code OptionalInt.empty()}.
      */
-    private OptionalInt comparePrimaryScanToIndexScan(@Nonnull RelationalExpression primaryScan,
-                                                      @Nonnull RelationalExpression indexScan,
-                                                      @Nonnull Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapPrimaryScan,
-                                                      @Nonnull Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapIndexScan,
+    private OptionalInt comparePrimaryScanToIndexScan(RelationalExpression primaryScan,
+                                                      RelationalExpression indexScan,
+                                                      Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapPrimaryScan,
+                                                      Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapIndexScan,
                                                       final int typeFilterCountPrimaryScan,
                                                       final int typeFilterCountIndexScan) {
         if (count(planOpsMapPrimaryScan, RecordQueryScanPlan.class) == 1 &&
@@ -519,8 +512,8 @@ public class PlanningCostModel implements CascadesCostModel {
      *         to be used.
      */
     @SuppressWarnings("java:S1172")
-    private static OptionalInt compareInOperator(@Nonnull final RelationalExpression leftExpression,
-                                                 @SuppressWarnings("unused") @Nonnull final RelationalExpression rightExpression) {
+    private static OptionalInt compareInOperator(final RelationalExpression leftExpression,
+                                                 @SuppressWarnings("unused") final RelationalExpression rightExpression) {
         if (!isInPlan(leftExpression)) {
             return OptionalInt.empty();
         }
@@ -556,11 +549,11 @@ public class PlanningCostModel implements CascadesCostModel {
         return OptionalInt.of(0);
     }
 
-    private static boolean isInPlan(@Nonnull final RelationalExpression expression) {
+    private static boolean isInPlan(final RelationalExpression expression) {
         return expression instanceof RecordQueryInJoinPlan || expression instanceof RecordQueryInUnionPlan;
     }
 
-    private static boolean isSingularIndexScanWithFetch(@Nonnull Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapIndexScan) {
+    private static boolean isSingularIndexScanWithFetch(Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapIndexScan) {
         return count(planOpsMapIndexScan, RecordQueryPlanWithIndex.class) == 1 ||
                (count(planOpsMapIndexScan, RecordQueryCoveringIndexPlan.class) == 1 &&
                 count(planOpsMapIndexScan, RecordQueryFetchFromPartialRecordPlan.class) == 1);
@@ -578,8 +571,8 @@ public class PlanningCostModel implements CascadesCostModel {
      *         expressions are not a DFS vs level-based pair
      */
     @SuppressWarnings("java:S1172")
-    private static OptionalInt compareRecursiveCteOperator(@Nonnull final RelationalExpression leftExpression,
-                                                           @Nonnull final RelationalExpression rightExpression) {
+    private static OptionalInt compareRecursiveCteOperator(final RelationalExpression leftExpression,
+                                                           final RelationalExpression rightExpression) {
         if (leftExpression instanceof RecordQueryRecursiveDfsJoinPlan &&
                 rightExpression instanceof RecordQueryRecursiveLevelUnionPlan) {
             return OptionalInt.of(-1);
@@ -613,7 +606,7 @@ public class PlanningCostModel implements CascadesCostModel {
     }
 
     @SafeVarargs
-    private static int count(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> expressionsMap, @Nonnull final Class<? extends RelationalExpression>... interestingClasses) {
+    private static int count(final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> expressionsMap, final Class<? extends RelationalExpression>... interestingClasses) {
         return FindExpressionVisitor.slice(expressionsMap, interestingClasses).size();
     }
 
@@ -621,7 +614,7 @@ public class PlanningCostModel implements CascadesCostModel {
      * Counts the number of “simple” per-tuple operations in {@code planOpsMap}. Operations considered simple are the
      * per-tuple operations {@code MAP} and {@code FILTER}.
      */
-    private static int countSimpleOps(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMap) {
+    private static int countSimpleOps(final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMap) {
         return count(planOpsMap,
                 RecordQueryMapPlan.class,
                 RecordQueryPredicatesFilterPlan.class);

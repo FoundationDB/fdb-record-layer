@@ -23,8 +23,7 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.annotation.API;
 import com.google.protobuf.ByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An interface for types that represent the continuation of a {@link RecordCursor}.
@@ -67,9 +66,8 @@ public interface RecordCursorContinuation {
      * If {@link #toBytes()} returns null, then {@code toByteString()} is supposed to return EMPTY.
      * @return a (possibly EMPTY) ByteString containing a binary serialization of this continuation
      */
-    @Nonnull
     default ByteString toByteString() {
-        final byte[] bytes = toBytes();
+        @Nullable final byte[] bytes = toBytes();
         return bytes == null ? ByteString.EMPTY : ByteString.copyFrom(bytes);
     }
 

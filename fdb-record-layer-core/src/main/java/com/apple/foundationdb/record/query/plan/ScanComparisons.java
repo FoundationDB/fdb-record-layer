@@ -56,8 +56,8 @@ import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Internal;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -80,23 +80,21 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons>, PlanSerializable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Scan-Comparisons");
 
-    @Nonnull
     protected final List<Comparisons.Comparison> equalityComparisons;
-    @Nonnull
     protected final Set<Comparisons.Comparison> inequalityComparisons;
 
     public static final ScanComparisons EMPTY = new ScanComparisons(Collections.emptyList(), Collections.emptySet());
     
-    public ScanComparisons(@Nonnull List<Comparisons.Comparison> equalityComparisons,
-                           @Nonnull Set<Comparisons.Comparison> inequalityComparisons) {
+    public ScanComparisons(List<Comparisons.Comparison> equalityComparisons,
+                           Set<Comparisons.Comparison> inequalityComparisons) {
         checkComparisonTypes(equalityComparisons, ComparisonType.EQUALITY);
         checkComparisonTypes(inequalityComparisons, ComparisonType.INEQUALITY);
         this.equalityComparisons = equalityComparisons;
         this.inequalityComparisons = inequalityComparisons;
     }
 
-    private static void checkComparisonTypes(@Nonnull Iterable<Comparisons.Comparison> comparisons,
-                                             @Nonnull ComparisonType comparisonType) {
+    private static void checkComparisonTypes(Iterable<Comparisons.Comparison> comparisons,
+                                             ComparisonType comparisonType) {
         for (Comparisons.Comparison comparison : comparisons) {
             if (getComparisonType(comparison) != comparisonType) {
                 throw new RecordCoreException("wrong comparison type for " + comparison +
@@ -105,12 +103,10 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         }
     }
 
-    @Nonnull
     public List<Comparisons.Comparison> getEqualityComparisons() {
         return equalityComparisons;
     }
 
-    @Nonnull
     public Set<Comparisons.Comparison> getInequalityComparisons() {
         return inequalityComparisons;
     }
@@ -146,8 +142,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         EQUALITY, INEQUALITY, NONE
     }
 
-    @Nonnull
-    public static ComparisonType getComparisonType(@Nonnull Comparisons.Comparison comparison) {
+    public static ComparisonType getComparisonType(Comparisons.Comparison comparison) {
         switch (comparison.getType()) {
             case EQUALS:
             case IS_NULL:
@@ -170,7 +165,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
     }
 
     @Nullable
-    public static ScanComparisons from(@Nonnull Comparisons.Comparison comparison) {
+    public static ScanComparisons from(Comparisons.Comparison comparison) {
         switch (getComparisonType(comparison)) {
             case EQUALITY:
                 return new ScanComparisons(Collections.singletonList(comparison),
@@ -184,7 +179,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
     }
 
     @Nullable
-    public ScanComparisons merge(@Nonnull ScanComparisons other) {
+    public ScanComparisons merge(ScanComparisons other) {
         if (equalityComparisons.equals(other.equalityComparisons)) {
             Set<Comparisons.Comparison> comparisons = new HashSet<>(inequalityComparisons);
             comparisons.addAll(other.inequalityComparisons);
@@ -194,7 +189,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
     }
 
     @Nullable
-    public ScanComparisons append(@Nonnull ScanComparisons other) {
+    public ScanComparisons append(ScanComparisons other) {
         if (isEquality()) {
             if (other.equalityComparisons.isEmpty()) {
                 return new ScanComparisons(equalityComparisons, other.inequalityComparisons);
@@ -221,8 +216,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
             return this;
         }
 
-        @Nonnull
-        public Builder addEqualityComparison(@Nonnull Comparisons.Comparison comparison) {
+        public Builder addEqualityComparison(Comparisons.Comparison comparison) {
             if (!inequalityComparisons.isEmpty()) {
                 throw new RecordCoreException("Cannot add equality comparison after inequalities");
             }
@@ -230,15 +224,13 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
             return this;
         }
 
-        @Nonnull
-        public Builder addInequalityComparison(@Nonnull Comparisons.Comparison comparison) {
+        public Builder addInequalityComparison(Comparisons.Comparison comparison) {
             inequalityComparisons.add(comparison);
             return this;
         }
 
         @API(API.Status.EXPERIMENTAL)
-        @Nonnull
-        public Builder addComparisonRange(@Nonnull ComparisonRange comparisonRange) {
+        public Builder addComparisonRange(ComparisonRange comparisonRange) {
             if (comparisonRange.isEquality()) {
                 addEqualityComparison(comparisonRange.getEqualityComparison());
             } else if (comparisonRange.isInequality()) {
@@ -251,40 +243,38 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
             return this;
         }
 
-        @Nonnull
-        public Builder addAll(@Nonnull ScanComparisons other) {
+        public Builder addAll(ScanComparisons other) {
             equalityComparisons.addAll(other.equalityComparisons);
             inequalityComparisons.addAll(other.inequalityComparisons);
             return this;
         }
 
-        @Nonnull
-        public Builder addAll(@Nonnull List<Comparisons.Comparison> newEqualityComparisons,
-                              @Nonnull Set<Comparisons.Comparison> newInequalityComparisons) {
+        public Builder addAll(List<Comparisons.Comparison> newEqualityComparisons,
+                              Set<Comparisons.Comparison> newInequalityComparisons) {
             equalityComparisons.addAll(newEqualityComparisons);
             inequalityComparisons.addAll(newInequalityComparisons);
             return this;
         }
 
-        @Nonnull
         @Override
-        protected ScanComparisons.Builder withComparisons(@Nonnull List<Comparisons.Comparison> equalityComparisons,
-                                                          @Nonnull Set<Comparisons.Comparison> inequalityComparisons) {
+        protected ScanComparisons.Builder withComparisons(List<Comparisons.Comparison> equalityComparisons,
+                                                          Set<Comparisons.Comparison> inequalityComparisons) {
             return new Builder().addAll(equalityComparisons, inequalityComparisons);
         }
 
-        @Nonnull
         public ScanComparisons build() {
             return new ScanComparisons(equalityComparisons, inequalityComparisons);
         }
     }
 
-    @Nonnull
     public TupleRange toTupleRange() {
         return toTupleRange(null, null);
     }
 
-    @Nonnull
+    // NullAway does not reliably track @Nullable through the call chain into Tuple.addObject below (an
+    // unannotated, external method conservatively treated as requiring non-null); Tuple happily stores a
+    // null element (as it does elsewhere in this codebase), so a genuinely-null comparand here is fine.
+    @SuppressWarnings("NullAway")
     public TupleRange toTupleRange(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
         if (isEmpty()) {
             return TupleRange.ALL;
@@ -320,15 +310,17 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         }
     }
 
-    protected static void addComparandToList(@Nonnull List<Object> items, @Nonnull Comparisons.Comparison comparison,
+    protected static void addComparandToList(List<Object> items, Comparisons.Comparison comparison,
                                              @Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
         if (comparison.hasMultiColumnComparand()) {
-            items.addAll(((Tuple)comparison.getComparand(store, context)).getItems());
+            // hasMultiColumnComparand() == true guarantees a non-null Tuple comparand.
+            items.addAll(((Tuple)Objects.requireNonNull(comparison.getComparand(store, context))).getItems());
         } else {
             items.add(toTupleItem(comparison.getComparand(store, context)));
         }
     }
 
+    @Nullable
     public static Object toTupleItem(@Nullable Object item) {
         if (item instanceof ByteString) {
             return ((ByteString) item).toByteArray();
@@ -342,7 +334,6 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         }
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> resultBuilder = ImmutableSet.builder();
@@ -353,15 +344,14 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         return resultBuilder.build();
     }
 
-    @Nonnull
     @Override
-    public ScanComparisons rebase(@Nonnull final AliasMap translationMap) {
+    public ScanComparisons rebase(final AliasMap translationMap) {
         return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap), false);
     }
 
     @Override
     @SuppressWarnings({"UnstableApiUsage", "PMD.CompareObjectsWithEquals"})
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+    public boolean semanticEquals(@Nullable final Object other, final AliasMap aliasMap) {
         if (this == other) {
             return true;
         }
@@ -393,9 +383,8 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         return Objects.hash(equalityComparisonsHash, inequalityComparisonsHash);
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public ScanComparisons translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
+    public ScanComparisons translateCorrelations(final TranslationMap translationMap, final boolean shouldSimplifyValues) {
         boolean needsCopy = false;
         final var translatedEqualityComparisonsBuilder = ImmutableList.<Comparisons.Comparison>builder();
         for (final var comparison : equalityComparisons) {
@@ -420,9 +409,8 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         return this;
     }
 
-    @Nonnull
-    protected ScanComparisons withComparisons(@Nonnull List<Comparisons.Comparison> equalityComparisons,
-                                              @Nonnull Set<Comparisons.Comparison> inequalityComparisons) {
+    protected ScanComparisons withComparisons(List<Comparisons.Comparison> equalityComparisons,
+                                              Set<Comparisons.Comparison> inequalityComparisons) {
         return new ScanComparisons(equalityComparisons, inequalityComparisons);
     }
 
@@ -439,7 +427,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return PlanHashable.planHash(mode, equalityComparisons) + PlanHashable.planHashUnordered(mode, inequalityComparisons);
@@ -452,7 +440,6 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         }
     }
 
-    @Nonnull
     public ExplainTokensWithPrecedence explain() {
         final var explainTokensListBuilder = ImmutableList.<ExplainTokens>builder();
         equalityComparisons.stream().map(Comparisons.Comparison::explain)
@@ -474,15 +461,13 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
                 .addOptionalWhitespace().addClosingSquareBracket());
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
     }
 
-    @Nonnull
     @Override
-    public PScanComparisons toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PScanComparisons toProto(final PlanSerializationContext serializationContext) {
         final PScanComparisons.Builder builder = PScanComparisons.newBuilder();
         for (final Comparisons.Comparison equalityComparison : equalityComparisons) {
             builder.addEqualityComparisons(equalityComparison.toComparisonProto(serializationContext));
@@ -493,8 +478,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         return builder.build();
     }
 
-    @Nonnull
-    public static ScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext, @Nonnull PScanComparisons scanComparisonsProto) {
+    public static ScanComparisons fromProto(final PlanSerializationContext serializationContext, PScanComparisons scanComparisonsProto) {
         final ImmutableList.Builder<Comparisons.Comparison> equalityComparisonsBuilder = ImmutableList.builder();
         for (int i = 0; i < scanComparisonsProto.getEqualityComparisonsCount(); i ++) {
             equalityComparisonsBuilder.add(Comparisons.Comparison.fromComparisonProto(serializationContext, scanComparisonsProto.getEqualityComparisons(i)));
@@ -506,8 +490,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         return new ScanComparisons(equalityComparisonsBuilder.build(), inequalityComparisonsBuilder.build());
     }
 
-    @Nonnull
-    public static BindingMatcher<ScanComparisons> range(@Nonnull String tupleString) {
+    public static BindingMatcher<ScanComparisons> range(String tupleString) {
         return typedWithDownstream(ScanComparisons.class,
                 Extractor.of(
                         scanComparisons -> {
@@ -520,12 +503,10 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
                 PrimitiveMatchers.equalsObject(tupleString));
     }
 
-    @Nonnull
     public static BindingMatcher<ScanComparisons> unbounded() {
         return new TypedMatcher<>(ScanComparisons.class) {
-            @Nonnull
             @Override
-            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final ScanComparisons in) {
+            public Stream<PlannerBindings> bindMatchesSafely(final RecordQueryPlannerConfiguration plannerConfiguration, final PlannerBindings outerBindings, final ScanComparisons in) {
                 return super.bindMatchesSafely(plannerConfiguration, outerBindings, in)
                         .flatMap(bindings -> {
                             if (in.isEmpty()) {
@@ -538,24 +519,20 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         };
     }
 
-    @Nonnull
-    public static BindingMatcher<ScanComparisons> equalities(@Nonnull CollectionMatcher<Comparisons.Comparison> equalityComparisonsCollectionMatcher) {
+    public static BindingMatcher<ScanComparisons> equalities(CollectionMatcher<Comparisons.Comparison> equalityComparisonsCollectionMatcher) {
         return typedWithDownstream(ScanComparisons.class,
                 Extractor.of(ScanComparisons::getEqualityComparisons, name -> "equalities(" + name + ")"),
                 equalityComparisonsCollectionMatcher);
     }
 
-    @Nonnull
     public static BindingMatcher<Comparisons.SimpleComparison> anySimpleComparison() {
         return typed(Comparisons.SimpleComparison.class);
     }
 
-    @Nonnull
     public static BindingMatcher<Comparisons.ParameterComparison> anyParameterComparison() {
         return typed(Comparisons.ParameterComparison.class);
     }
 
-    @Nonnull
     public static BindingMatcher<Comparisons.ValueComparison> anyValueComparison() {
         return typed(Comparisons.ValueComparison.class);
     }
@@ -569,17 +546,18 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         FDBRecordStoreBase<?> store;
         @Nullable
         private final EvaluationContext context;
-        @Nonnull
         private final Tuple baseTuple;
+        @Nullable
         private Object lowItem = null;
+        @Nullable
         private Object highItem = null;
         private EndpointType lowEndpoint;
         private EndpointType highEndpoint;
         private EndpointComparison hasLow = EndpointComparison.NONE;
         private EndpointComparison hasHigh = EndpointComparison.NONE;
 
-        public InequalityRangeCombiner(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context, @Nonnull Tuple baseTuple,
-                                       @Nonnull Set<Comparisons.Comparison> inequalityComparisons) {
+        public InequalityRangeCombiner(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context, Tuple baseTuple,
+                                       Set<Comparisons.Comparison> inequalityComparisons) {
             this.store = store;
             this.context = context;
             this.baseTuple = baseTuple;
@@ -603,29 +581,38 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
             }
             final EndpointComparison endpointComparison = comparison.hasMultiColumnComparand() ? EndpointComparison.MULTIPLE : EndpointComparison.VALUE;
             switch (comparison.getType()) {
-                case GREATER_THAN:
-                    if (lowItem == null || Comparisons.compare(lowItem, comparand) <= 0) {
-                        lowItem = comparand;
+                case GREATER_THAN: {
+                    // A null comparand here (e.g. an inequality bound to a null parameter) can't be
+                    // meaningfully compared against; evalComparison() treats that case as "never matches",
+                    // which this scan-range computation doesn't model, so fail fast instead of silently
+                    // computing a wrong range.
+                    final Object nonNullComparand = Objects.requireNonNull(comparand, "cannot use a null comparand as an inequality bound");
+                    if (lowItem == null || Comparisons.compare(lowItem, nonNullComparand) <= 0) {
+                        lowItem = nonNullComparand;
                         lowEndpoint = EndpointType.RANGE_EXCLUSIVE;
                         hasLow = endpointComparison;
                     }
                     break;
-                case GREATER_THAN_OR_EQUALS:
-                    if (lowItem == null || Comparisons.compare(lowItem, comparand) < 0) {
-                        lowItem = comparand;
+                }
+                case GREATER_THAN_OR_EQUALS: {
+                    final Object nonNullComparand = Objects.requireNonNull(comparand, "cannot use a null comparand as an inequality bound");
+                    if (lowItem == null || Comparisons.compare(lowItem, nonNullComparand) < 0) {
+                        lowItem = nonNullComparand;
                         lowEndpoint = EndpointType.RANGE_INCLUSIVE;
                         hasLow = endpointComparison;
                     }
                     break;
+                }
                 case NOT_NULL:
                     if (lowItem == null) {
                         lowEndpoint = EndpointType.RANGE_EXCLUSIVE;
                         hasLow = endpointComparison;
                     }
                     break;
-                case LESS_THAN:
-                    if (highItem == null || Comparisons.compare(highItem, comparand) >= 0) {
-                        highItem = comparand;
+                case LESS_THAN: {
+                    final Object nonNullComparand = Objects.requireNonNull(comparand, "cannot use a null comparand as an inequality bound");
+                    if (highItem == null || Comparisons.compare(highItem, nonNullComparand) >= 0) {
+                        highItem = nonNullComparand;
                         highEndpoint = EndpointType.RANGE_EXCLUSIVE;
                         hasHigh = endpointComparison;
                     }
@@ -634,9 +621,11 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
                         hasLow = EndpointComparison.VALUE;
                     }
                     break;
-                case LESS_THAN_OR_EQUALS:
-                    if (highItem == null || Comparisons.compare(highItem, comparand) > 0) {
-                        highItem = comparand;
+                }
+                case LESS_THAN_OR_EQUALS: {
+                    final Object nonNullComparand = Objects.requireNonNull(comparand, "cannot use a null comparand as an inequality bound");
+                    if (highItem == null || Comparisons.compare(highItem, nonNullComparand) > 0) {
+                        highItem = nonNullComparand;
                         highEndpoint = EndpointType.RANGE_INCLUSIVE;
                         hasHigh = endpointComparison;
                     }
@@ -645,13 +634,18 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
                         hasLow = EndpointComparison.VALUE;
                     }
                     break;
+                }
                 default:
                     throw new RecordCoreException("Unexpected inequality comparison " + comparison);
             }
         }
 
         @Nullable
-        private Tuple buildEndpointTuple(EndpointComparison hasItem, Object item) {
+        // NullAway does not reliably track @Nullable through the calls into Tuple.addObject/addAll below
+        // (unannotated, external methods conservatively treated as requiring non-null); item is the
+        // recorded lowItem/highItem value, which addComparison() only ever leaves null when hasItem is NONE.
+        @SuppressWarnings("NullAway")
+        private Tuple buildEndpointTuple(EndpointComparison hasItem, @Nullable Object item) {
             switch (hasItem) {
                 case VALUE:
                     return baseTuple.addObject(toTupleItem(item));
@@ -667,7 +661,6 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
             }
         }
 
-        @Nonnull
         public TupleRange toTupleRange() {
             Tuple low = buildEndpointTuple(hasLow, lowItem);
             Tuple high = buildEndpointTuple(hasHigh, highItem);

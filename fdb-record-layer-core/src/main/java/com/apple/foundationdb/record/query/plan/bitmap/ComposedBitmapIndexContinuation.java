@@ -38,10 +38,11 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A {@link RecordCursor} doing as bit-wise merge of bitmaps from two or more {@code BITMAP_VALUE} indexes.
@@ -52,38 +53,36 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 class ComposedBitmapIndexContinuation extends MergeCursorContinuation<RecordCursorProto.ComposedBitmapIndexContinuation.Builder, RecordCursorContinuation> {
-    @Nonnull
     private static final RecordCursorProto.ComposedBitmapIndexContinuation.CursorState EXHAUSTED_PROTO = RecordCursorProto.ComposedBitmapIndexContinuation.CursorState.newBuilder()
             .setExhausted(true)
             .build();
 
-    @Nonnull
     private static final RecordCursorProto.ComposedBitmapIndexContinuation.CursorState START_PROTO = RecordCursorProto.ComposedBitmapIndexContinuation.CursorState.newBuilder()
             .setExhausted(false)
             .build();
 
-    protected ComposedBitmapIndexContinuation(@Nonnull List<RecordCursorContinuation> continuations, @Nullable Message originalProto) {
+    protected ComposedBitmapIndexContinuation(List<RecordCursorContinuation> continuations, @Nullable Message originalProto) {
         super(continuations, originalProto);
     }
 
     @Override
-    protected void setFirstChild(@Nonnull RecordCursorProto.ComposedBitmapIndexContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
+    protected void setFirstChild(RecordCursorProto.ComposedBitmapIndexContinuation.Builder builder, RecordCursorContinuation continuation) {
         addChild(builder, continuation);
     }
 
     @Override
-    protected void setSecondChild(@Nonnull RecordCursorProto.ComposedBitmapIndexContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
+    protected void setSecondChild(RecordCursorProto.ComposedBitmapIndexContinuation.Builder builder, RecordCursorContinuation continuation) {
         addChild(builder, continuation);
 
     }
 
     @Override
-    protected void addOtherChild(@Nonnull RecordCursorProto.ComposedBitmapIndexContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
+    protected void addOtherChild(RecordCursorProto.ComposedBitmapIndexContinuation.Builder builder, RecordCursorContinuation continuation) {
         addChild(builder, continuation);
 
     }
 
-    private void addChild(@Nonnull RecordCursorProto.ComposedBitmapIndexContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
+    private void addChild(RecordCursorProto.ComposedBitmapIndexContinuation.Builder builder, RecordCursorContinuation continuation) {
         RecordCursorProto.ComposedBitmapIndexContinuation.CursorState cursorState;
         if (continuation.isEnd()) {
             cursorState = EXHAUSTED_PROTO;
@@ -100,7 +99,6 @@ class ComposedBitmapIndexContinuation extends MergeCursorContinuation<RecordCurs
         builder.addChildState(cursorState);
     }
 
-    @Nonnull
     @Override
     protected RecordCursorProto.ComposedBitmapIndexContinuation.Builder newProtoBuilder() {
         return RecordCursorProto.ComposedBitmapIndexContinuation.newBuilder();
@@ -115,8 +113,11 @@ class ComposedBitmapIndexContinuation extends MergeCursorContinuation<RecordCurs
         return getContinuations().get(i);
     }
 
-    @Nonnull
-    @SuppressWarnings("PMD.PreserveStackTrace")
+    // NullAway doesn't reliably narrow @Nullable byte[]
+    // via the enclosing `bytes == null` check below;
+    // parseFrom/loggable's parameters are genuinely
+    // non-null here.
+    @SuppressWarnings({"PMD.PreserveStackTrace", "NullAway"})
     static ComposedBitmapIndexContinuation from(@Nullable byte[] bytes, int numberOfChildren) {
         if (bytes == null) {
             return new ComposedBitmapIndexContinuation(Collections.nCopies(numberOfChildren, RecordCursorStartContinuation.START), null);
@@ -125,14 +126,13 @@ class ComposedBitmapIndexContinuation extends MergeCursorContinuation<RecordCurs
             return from(RecordCursorProto.ComposedBitmapIndexContinuation.parseFrom(bytes), numberOfChildren);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid continuation", ex)
-                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(bytes)));
         } catch (RecordCoreArgumentException ex) {
-            throw ex.addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+            throw ex.addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(bytes)));
         }
     }
 
-    @Nonnull
-    static ComposedBitmapIndexContinuation from(@Nonnull RecordCursorProto.ComposedBitmapIndexContinuation parsed, int numberOfChildren) {
+    static ComposedBitmapIndexContinuation from(RecordCursorProto.ComposedBitmapIndexContinuation parsed, int numberOfChildren) {
         ImmutableList.Builder<RecordCursorContinuation> builder = ImmutableList.builder();
         for (RecordCursorProto.ComposedBitmapIndexContinuation.CursorState state : parsed.getChildStateList()) {
             if (state.hasContinuation()) {

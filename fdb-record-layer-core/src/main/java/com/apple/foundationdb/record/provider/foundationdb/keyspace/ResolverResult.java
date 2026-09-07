@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -36,10 +36,16 @@ public class ResolverResult {
     @Nullable
     private final byte[] metadata;
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even
+    // for a null literal passed to another constructor that declares the same array @Nullable.
+    @SuppressWarnings("NullAway")
     public ResolverResult(long value) {
         this(value, null);
     }
 
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; metadata
+    // is correctly assigned null when the given metadata is null.
+    @SuppressWarnings("NullAway")
     public ResolverResult(long value, @Nullable byte[] metadata) {
         this.value = value;
         this.metadata = metadata == null ? null : Arrays.copyOf(metadata, metadata.length);
@@ -50,6 +56,7 @@ public class ResolverResult {
     }
 
     @Nullable
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
     public byte[] getMetadata() {
         return metadata == null ? null : Arrays.copyOf(metadata, metadata.length);
     }
@@ -70,6 +77,9 @@ public class ResolverResult {
     }
 
     @Override
+    // NullAway does not reliably track @Nullable on the byte[] metadata field across this call into
+    // ByteArrayUtil2.loggable, even though loggable's own parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     public String toString() {
         return "Value: " + value  + ", metadata: " + ByteArrayUtil2.loggable(metadata);
     }

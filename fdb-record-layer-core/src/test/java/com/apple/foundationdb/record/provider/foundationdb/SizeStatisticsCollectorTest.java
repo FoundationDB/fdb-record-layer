@@ -37,11 +37,10 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -90,7 +89,8 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
                         .build();
                 recordStore.saveRecord(simpleRecord);
             }
-            keyBytes = recordStore.getTimer().getCount(FDBStoreTimer.Counts.SAVE_RECORD_KEY_BYTES);
+            // context always has a timer configured by the test infrastructure
+            keyBytes = Objects.requireNonNull(recordStore.getTimer()).getCount(FDBStoreTimer.Counts.SAVE_RECORD_KEY_BYTES);
             valueBytes = recordStore.getTimer().getCount(FDBStoreTimer.Counts.SAVE_RECORD_VALUE_BYTES);
             commit(context);
         }
@@ -255,14 +255,11 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
      * result in the collector making progress.
      */
     private class SizeStatisticsCollector {
-        @Nonnull
         private SubspaceProvider subspaceProvider;
-        @Nonnull
         private Optional<SizeStatisticsCollectorCursor.SizeStatisticsResults> sizeStatsResults;
-        @Nullable
         private RecordCursorContinuation continuation;
 
-        private SizeStatisticsCollector(@Nonnull SubspaceProvider subspaceProvider) {
+        private SizeStatisticsCollector(SubspaceProvider subspaceProvider) {
             this.subspaceProvider = subspaceProvider;
             this.continuation = RecordCursorStartContinuation.START;
             this.sizeStatsResults = Optional.empty();
@@ -276,8 +273,7 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          *
          * @return a statistics collector of that store
          */
-        @Nonnull
-        private SizeStatisticsCollector(@Nonnull FDBRecordStore store) {
+        private SizeStatisticsCollector(FDBRecordStore store) {
             this(new SubspaceProviderBySubspace(store.recordsSubspace()));
         }
 
@@ -290,8 +286,7 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          *
          * @return a statistics collector of the given index
          */
-        @Nonnull
-        private SizeStatisticsCollector(@Nonnull FDBRecordStore store, @Nonnull String indexName) {
+        private SizeStatisticsCollector(FDBRecordStore store, String indexName) {
             this(store, store.getRecordMetaData().getIndex(indexName));
         }
 
@@ -304,8 +299,7 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          *
          * @return a statistics collector of the given index
          */
-        @Nonnull
-        private SizeStatisticsCollector(@Nonnull FDBRecordStore store, @Nonnull Index index) {
+        private SizeStatisticsCollector(FDBRecordStore store, Index index) {
             this(new SubspaceProviderBySubspace(store.indexSubspace(index)));
         }
 
@@ -316,8 +310,7 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          *
          * @return a statistics collector of the given subspace
          */
-        @Nonnull
-        private SizeStatisticsCollector(@Nonnull Subspace subspace) {
+        private SizeStatisticsCollector(Subspace subspace) {
             this(new SubspaceProviderBySubspace(subspace));
         }
 
@@ -337,8 +330,7 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          * @return a future that completes to <code>true</code> if this object is done collecting statistics or
          * <code>false</code> otherwise
          */
-        @Nonnull
-        private CompletableFuture<Boolean> collectAsync(@Nonnull FDBRecordContext context, @Nonnull ExecuteProperties executeProperties) {
+        private CompletableFuture<Boolean> collectAsync(FDBRecordContext context, ExecuteProperties executeProperties) {
             if (continuation.isEnd()) {
                 return AsyncUtil.READY_TRUE;
             }
@@ -348,7 +340,8 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
                 final SizeStatisticsCollectorCursor statsCursor = SizeStatisticsCollectorCursor.ofSubspace(subspace, context, scanProperties, continuation.toBytes());
 
                 return statsCursor.forEachResult(nextResult -> {
-                    sizeStatsResults = Optional.of(nextResult.get()); //wholesale replacement of initialized version with fully aggregated results
+                    // forEachResult only invokes the consumer for results that are guaranteed to have a value
+                    sizeStatsResults = Optional.of(Objects.requireNonNull(nextResult.get())); //wholesale replacement of initialized version with fully aggregated results
                     continuation = nextResult.getContinuation();
                 }).handle((result, err) -> {
                     if (err == null) {
@@ -374,7 +367,7 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          *
          * @return <code>true</code> if this object is done collecting statistics or <code>false</code> otherwise
          */
-        private boolean collect(@Nonnull FDBRecordContext context, @Nonnull ExecuteProperties executeProperties) {
+        private boolean collect(FDBRecordContext context, ExecuteProperties executeProperties) {
             return context.asyncToSync(FDBStoreTimer.Waits.WAIT_COLLECT_STATISTICS, collectAsync(context, executeProperties));
         }
 
@@ -469,7 +462,6 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
          *
          * @return an array with a distribution of the sizes of key-value pairs
          */
-        @Nonnull
         private long[] getSizeBuckets() {
             return sizeStatsResults.map(sizeStatsResults -> sizeStatsResults.getSizeBuckets()).orElse(new long[Integer.SIZE]);
         }

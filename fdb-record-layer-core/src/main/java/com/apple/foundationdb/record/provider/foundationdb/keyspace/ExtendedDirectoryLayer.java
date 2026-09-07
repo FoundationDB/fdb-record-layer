@@ -35,10 +35,10 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Bytes;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -59,13 +59,9 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
             Bytes.concat(DEFAULT_BASE_SUBSPACE.getKey(), DirectoryLayer.DEFAULT_NODE_SUBSPACE.getKey()));
     private static final Subspace DEFAULT_CONTENT_SUBSPACE = DEFAULT_BASE_SUBSPACE;
     private final boolean isRootLevel;
-    @Nonnull
     private CompletableFuture<Subspace> baseSubspaceFuture;
-    @Nonnull
     private CompletableFuture<Subspace> nodeSubspaceFuture;
-    @Nonnull
     private CompletableFuture<Subspace> stateSubspaceFuture;
-    @Nonnull
     private final Subspace contentSubspace;
 
     /**
@@ -74,11 +70,11 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
      * @param database database that will be used when resolving values
      * @param path the path at which the directory layer should store its mappings.
      */
-    public ExtendedDirectoryLayer(@Nonnull FDBDatabase database, @Nonnull ResolvedKeySpacePath path) {
+    public ExtendedDirectoryLayer(FDBDatabase database, ResolvedKeySpacePath path) {
         this(database, path.toPath(), CompletableFuture.completedFuture(path));
     }
 
-    private ExtendedDirectoryLayer(@Nonnull FDBDatabase database,
+    private ExtendedDirectoryLayer(FDBDatabase database,
                                    @Nullable KeySpacePath path,
                                    @Nullable CompletableFuture<ResolvedKeySpacePath> resolvedPathFuture) {
         super(database, path, resolvedPathFuture);
@@ -89,7 +85,9 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
             this.contentSubspace = DEFAULT_CONTENT_SUBSPACE;
         } else {
             this.isRootLevel = false;
-            this.baseSubspaceFuture = resolvedPathFuture.thenApply(ResolvedKeySpacePath::toSubspace);
+            // The superclass constructor already validated that path and resolvedPathFuture are both null or
+            // both non-null; we're in the "not both null" branch, so resolvedPathFuture is guaranteed non-null here.
+            this.baseSubspaceFuture = Objects.requireNonNull(resolvedPathFuture).thenApply(ResolvedKeySpacePath::toSubspace);
             this.nodeSubspaceFuture = baseSubspaceFuture.thenApply(base ->
                     new Subspace(Bytes.concat(base.getKey(), DirectoryLayer.DEFAULT_NODE_SUBSPACE.getKey())));
             this.contentSubspace = new Subspace(RESERVED_CONTENT_SUBSPACE_PREFIX);
@@ -104,16 +102,16 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
      *
      * @return The global <code>ExtendedDirectoryLayer</code> for this database
      */
-    public static ExtendedDirectoryLayer global(@Nonnull FDBDatabase database) {
+    public static ExtendedDirectoryLayer global(FDBDatabase database) {
         return new ExtendedDirectoryLayer(database, null, null);
     }
 
     @Override
-    protected CompletableFuture<ResolverResult> create(@Nonnull FDBRecordContext context, @Nonnull String key, @Nullable byte[] metadata) {
+    protected CompletableFuture<ResolverResult> create(FDBRecordContext context, String key, @Nullable byte[] metadata) {
         return context.instrument(FDBStoreTimer.Events.EXTENDED_DIRECTORY_LAYER_CREATE, createInternal(context, key, metadata));
     }
 
-    private CompletableFuture<ResolverResult> createInternal(@Nonnull FDBRecordContext context, String key, @Nullable byte[] metadata) {
+    private CompletableFuture<ResolverResult> createInternal(FDBRecordContext context, String key, @Nullable byte[] metadata) {
         FDBReverseDirectoryCache reverseCache = context.getDatabase().getReverseDirectoryCache();
         return getHca(context)
                 .thenCompose(hca -> hca.allocate(key))
@@ -128,11 +126,11 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
     }
 
     @Override
-    protected CompletableFuture<Optional<ResolverResult>> read(@Nonnull FDBRecordContext context, String key) {
+    protected CompletableFuture<Optional<ResolverResult>> read(FDBRecordContext context, String key) {
         return context.instrument(FDBStoreTimer.Events.EXTENDED_DIRECTORY_LAYER_READ, readInternal(context, key));
     }
 
-    private CompletableFuture<Optional<ResolverResult>> readInternal(@Nonnull FDBRecordContext context, String key) {
+    private CompletableFuture<Optional<ResolverResult>> readInternal(FDBRecordContext context, String key) {
         FDBReverseDirectoryCache reverseCache = context.getDatabase().getReverseDirectoryCache();
         return getMappingSubspaceAsync()
                 .thenCompose(mappingSubspace -> context.ensureActive().get(mappingSubspace.pack(key)))
@@ -147,7 +145,7 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
     }
 
     @Override
-    protected CompletableFuture<Optional<String>> readReverse(@Nonnull FDBRecordContext context, Long value) {
+    protected CompletableFuture<Optional<String>> readReverse(FDBRecordContext context, Long value) {
         FDBReverseDirectoryCache reverseCache = database.getReverseDirectoryCache();
         return reverseCache.get(context, wrap(value));
     }
@@ -168,7 +166,7 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
         return reverseCache.get(timer, wrap(value));
     }
 
-    private CompletableFuture<Optional<String>> readInReverseCacheSubpspace(FDBStoreTimer timer, Long value) {
+    private CompletableFuture<Optional<String>> readInReverseCacheSubpspace(@Nullable FDBStoreTimer timer, Long value) {
         return database.getReverseDirectoryCache().getInReverseDirectoryCacheSubspace(timer, wrap(value));
     }
 
@@ -179,7 +177,7 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
     }
 
     @Override
-    protected CompletableFuture<Void> putReverse(@Nonnull final FDBRecordContext context, final long value, @Nonnull final String key) {
+    protected CompletableFuture<Void> putReverse(final FDBRecordContext context, final long value, final String key) {
         return database.getReverseDirectoryCache().putOrReplaceForTesting(context, wrap(key), value);
     }
 
@@ -217,7 +215,7 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
         }).thenCompose(Function.identity());
     }
 
-    private CompletableFuture<HighContentionAllocator> getHca(@Nonnull FDBRecordContext context) {
+    private CompletableFuture<HighContentionAllocator> getHca(FDBRecordContext context) {
         return getCounterSubspaceAsync().thenCombine(getAllocationSubspaceAsync(), (counter, allocation) ->
                 isRootLevel ?
                 HighContentionAllocator.forRoot(context, counter, allocation) :
@@ -225,7 +223,7 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
     }
 
     @Override
-    public CompletableFuture<Void> updateMetadata(FDBRecordContext context, String key, byte[] metadata) {
+    public CompletableFuture<Void> updateMetadata(FDBRecordContext context, String key, @Nullable byte[] metadata) {
         throw new UnsupportedOperationException("cannot update metadata in ExtendedDirectoryLayer");
     }
 
@@ -238,7 +236,6 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
     }
 
     @Override
-    @Nonnull
     public CompletableFuture<Subspace> getMappingSubspaceAsync() {
         return nodeSubspaceFuture
                 .thenApply(nodeSubspace -> nodeSubspace.get(nodeSubspace.getKey()).get(0));
@@ -261,7 +258,9 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
 
 
     @Override
-    @Nonnull
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even
+    // for a null literal passed to a constructor that declares the same array @Nullable.
+    @SuppressWarnings("NullAway")
     public ResolverResult deserializeValue(byte[] value) {
         Tuple unpacked = contentSubspace.unpack(value);
         return unpacked.size() == 1 ?
@@ -270,14 +269,13 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
 
     }
 
-    private byte[] serializeValue(@Nonnull ResolverResult value) {
+    private byte[] serializeValue(ResolverResult value) {
         return value.getMetadata() == null ?
                contentSubspace.pack(Tuple.from(value.getValue())) :
                contentSubspace.pack(Tuple.from(value.getValue(), value.getMetadata()));
     }
 
     @Override
-    @Nonnull
     public CompletableFuture<Subspace> getBaseSubspaceAsync() {
         return baseSubspaceFuture;
     }

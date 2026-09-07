@@ -46,8 +46,8 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -55,6 +55,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -65,10 +66,9 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.INTERNAL)
 public class RankComparisons {
-    @Nonnull
     private final Map<QueryRecordFunctionWithComparison, RankComparison> comparisons = new HashMap<>();
 
-    public RankComparisons(@Nullable QueryComponent filter, @Nonnull List<Index> indexes) {
+    public RankComparisons(@Nullable QueryComponent filter, List<Index> indexes) {
         final List<QueryComponent> groupingFilters;
         if (filter instanceof AndComponent) {
             groupingFilters = ((AndComponent)filter).getChildren();
@@ -79,12 +79,12 @@ public class RankComparisons {
     }
 
     @Nullable
-    public RankComparison getPlanComparison(@Nonnull QueryRecordFunctionWithComparison comparison) {
+    public RankComparison getPlanComparison(QueryRecordFunctionWithComparison comparison) {
         return comparisons.get(comparison);
     }
 
-    @Nonnull
-    public QueryComponent planComparisonSubstitute(@Nonnull QueryComponent component) {
+    @Nullable
+    public QueryComponent planComparisonSubstitute(@Nullable QueryComponent component) {
         if (component instanceof QueryRecordFunctionWithComparison) {
             final RankComparison rankComparison = getPlanComparison((QueryRecordFunctionWithComparison)component);
             if (rankComparison != null) {
@@ -105,9 +105,8 @@ public class RankComparisons {
         return components.stream().map(this::planComparisonSubstitute).collect(Collectors.toList());
     }
 
-    @Nonnull
-    public RecordQueryPlan wrap(@Nonnull RecordQueryPlan plan, @Nullable Set<RankComparison> includedRankComparisons,
-                                @Nonnull RecordMetaData metaData) {
+    public RecordQueryPlan wrap(RecordQueryPlan plan, @Nullable Set<RankComparison> includedRankComparisons,
+                                RecordMetaData metaData) {
         if (comparisons.isEmpty()) {
             return plan;
         }
@@ -126,7 +125,7 @@ public class RankComparisons {
         return plan;
     }
 
-    public static String scoreForRankFunction(@Nonnull QueryRecordFunctionWithComparison comparison) {
+    public static String scoreForRankFunction(QueryRecordFunctionWithComparison comparison) {
         final String rankFunction = comparison.getFunction().getName();
         final Comparisons.Type comparisonType = comparison.getComparison().getType();
         final boolean isRightRange = comparisonType == Comparisons.Type.LESS_THAN || comparisonType == Comparisons.Type.LESS_THAN_OR_EQUALS;
@@ -139,7 +138,7 @@ public class RankComparisons {
         }
     }
 
-    public static boolean matchesSort(@Nonnull GroupingKeyExpression indexExpr, @Nullable KeyExpression sort) {
+    public static boolean matchesSort(GroupingKeyExpression indexExpr, @Nullable KeyExpression sort) {
         if (sort == null) {
             return true;
         }
@@ -147,14 +146,14 @@ public class RankComparisons {
         return sort.equals(grouped);
     }
 
-    public static boolean createsDuplicates(@Nonnull Index index, @Nonnull GroupingKeyExpression indexExpr) {
+    public static boolean createsDuplicates(Index index, GroupingKeyExpression indexExpr) {
         // A time window leaderboard index takes the best score for the record among repeated fields.
         return !IndexTypes.TIME_WINDOW_LEADERBOARD.equals(index.getType()) && indexExpr.createsDuplicates();
     }
 
     private void findComparisons(@Nullable QueryComponent filter,
-                                 @Nonnull List<Index> indexes, @Nonnull List<QueryComponent> groupingFilters,
-                                 @Nonnull AtomicInteger counter) {
+                                 List<Index> indexes, List<QueryComponent> groupingFilters,
+                                 AtomicInteger counter) {
         if (filter instanceof AndOrComponent) {
             for (QueryComponent child : ((ComponentWithChildren)filter).getChildren()) {
                 findComparisons(child, indexes, groupingFilters, counter);
@@ -164,9 +163,9 @@ public class RankComparisons {
         }
     }
 
-    private void findComparison(@Nonnull QueryRecordFunctionWithComparison comparison,
-                                @Nonnull List<Index> indexes, @Nonnull List<QueryComponent> potentialGroupFilters,
-                                @Nonnull AtomicInteger counter) {
+    private void findComparison(QueryRecordFunctionWithComparison comparison,
+                                List<Index> indexes, List<QueryComponent> potentialGroupFilters,
+                                AtomicInteger counter) {
         RecordFunction<?> recordFunction = comparison.getFunction();
         // TODO: Should share with indexMaintainerForAggregateFunction
         // TODO: Move index-specific query planning behavior outside of planner (https://github.com/FoundationDB/fdb-record-layer/issues/17)
@@ -220,24 +219,20 @@ public class RankComparisons {
      * A single rank function comparison.
      */
     public static class RankComparison {
-        @Nonnull
         private final QueryRecordFunctionWithComparison comparison;
 
-        @Nonnull
         private final Index index;
-        @Nonnull
         private final List<QueryComponent> groupFilters;
-        @Nonnull
         private final List<Comparisons.Comparison> groupComparisons;
         @Nullable
         private final QueryComponent substitute;
         @Nullable
         private final String bindingName;
 
-        protected RankComparison(@Nonnull QueryRecordFunctionWithComparison comparison,
-                                 @Nonnull Index index,
-                                 @Nonnull List<QueryComponent> groupFilters,
-                                 @Nonnull List<Comparisons.Comparison> groupComparisons,
+        protected RankComparison(QueryRecordFunctionWithComparison comparison,
+                                 Index index,
+                                 List<QueryComponent> groupFilters,
+                                 List<Comparisons.Comparison> groupComparisons,
                                  @Nullable QueryComponent substitute,
                                  @Nullable String bindingName) {
             this.comparison = comparison;
@@ -248,23 +243,24 @@ public class RankComparisons {
             this.bindingName = bindingName;
         }
 
-        @Nonnull
         public Index getIndex() {
             return index;
         }
 
-        @Nonnull
         public List<QueryComponent> getGroupFilters() {
             return groupFilters;
         }
 
-        @Nonnull
         public ScanComparisons getScanComparisons() {
-            final ScanComparisons rankComparison = ScanComparisons.from(comparison.getComparison());
+            // A rank comparison's underlying comparison is always EQUALITY or INEQUALITY (see
+            // ScanComparisons.ComparisonType), so ScanComparisons.from never actually returns null here.
+            final ScanComparisons rankComparison = Objects.requireNonNull(ScanComparisons.from(comparison.getComparison()));
             if (groupComparisons.isEmpty()) {
                 return rankComparison;
             } else {
-                return new ScanComparisons(groupComparisons, Collections.emptySet()).append(rankComparison);
+                // The ScanComparisons built here has no inequality comparisons, so isEquality() is always
+                // true and append() (which only returns null for a non-equality receiver) never does here.
+                return Objects.requireNonNull(new ScanComparisons(groupComparisons, Collections.emptySet()).append(rankComparison));
             }
         }
 
@@ -273,15 +269,16 @@ public class RankComparisons {
             return substitute;
         }
 
-        @Nonnull
-        public RecordQueryScoreForRankPlan.ScoreForRank getScoreForRank(@Nonnull RecordMetaData metaData) {
+        public RecordQueryScoreForRankPlan.ScoreForRank getScoreForRank(RecordMetaData metaData) {
             final String functionName = scoreForRankFunction(comparison);
             final IndexAggregateFunction function = new IndexAggregateFunction(functionName,
                     ((IndexRecordFunction<?>)comparison.getFunction()).getOperand(), index.getName());
             final List<Comparisons.Comparison> comparisons = new ArrayList<>(groupComparisons);
             comparisons.add(comparison.getComparison());
-            final BindingFunction bindingFunction = BindingFunction.comparisonBindingFunction(substitute, index, metaData);
-            return new RecordQueryScoreForRankPlan.ScoreForRank(bindingName, bindingFunction, function, comparisons);
+            // substitute/bindingName are set together (both null or both non-null) at construction time; a
+            // RankComparison without a substitute isn't expected to reach getScoreForRank().
+            final BindingFunction bindingFunction = BindingFunction.comparisonBindingFunction(Objects.requireNonNull(substitute), index, metaData);
+            return new RecordQueryScoreForRankPlan.ScoreForRank(Objects.requireNonNull(bindingName), bindingFunction, function, comparisons);
         }
     }
 }

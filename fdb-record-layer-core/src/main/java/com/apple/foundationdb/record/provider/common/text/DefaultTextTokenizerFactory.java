@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.provider.common.text;
 import com.apple.foundationdb.annotation.API;
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
-
 /**
  * Factory class for the {@link DefaultTextTokenizer}. That class is a singleton,
  * so it will return the already existing instance.
@@ -38,7 +36,6 @@ public class DefaultTextTokenizerFactory implements TextTokenizerFactory {
      *
      * @return the name of the default text tokenizer
      */
-    @Nonnull
     @Override
     public String getName() {
         return DefaultTextTokenizer.NAME;
@@ -49,7 +46,6 @@ public class DefaultTextTokenizerFactory implements TextTokenizerFactory {
      *
      * @return the instance of the {@link DefaultTextTokenizer}
      */
-    @Nonnull
     @Override
     public DefaultTextTokenizer getTokenizer() {
         return DefaultTextTokenizer.instance();

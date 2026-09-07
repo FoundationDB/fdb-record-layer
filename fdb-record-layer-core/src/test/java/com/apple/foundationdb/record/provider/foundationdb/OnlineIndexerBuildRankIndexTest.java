@@ -34,8 +34,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -63,7 +63,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 @SuppressWarnings("try")
 class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuildIndexTest {
 
-    private void rankRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
+    private void rankRebuild(List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                              int agents, boolean overlap) {
         final OnlineIndexerTestRecordHandler<TestRecords1Proto.MySimpleRecord> recordHandler = OnlineIndexerTestSimpleRecordHandler.instance();
         final Index index = new Index("newRankIndex", field("num_value_2").ungrouped(), IndexTypes.RANK);
@@ -176,11 +176,11 @@ class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuildIndexTest {
         singleRebuild(recordHandler, records, recordsWhileBuilding, null, agents, overlap, false, index, null, beforeBuild, afterBuild, afterReadable);
     }
 
-    private void rankRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding) {
+    private void rankRebuild(List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding) {
         rankRebuild(records, recordsWhileBuilding, 1, false);
     }
 
-    private void rankRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records) {
+    private void rankRebuild(List<TestRecords1Proto.MySimpleRecord> records) {
         rankRebuild(records, null);
     }
 

@@ -27,8 +27,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The scan bounds of a {@link IndexScanType#BY_DISTANCE by-distance} scan of a
@@ -48,21 +47,19 @@ import javax.annotation.Nullable;
  */
 @API(API.Status.EXPERIMENTAL)
 public class VectorIndexScanBounds implements IndexScanBounds {
-    @Nonnull
     private final TupleRange prefixRange;
 
-    @Nonnull
     private final Comparisons.Type comparisonType;
     @Nullable
     private final RealVector queryVector;
     private final int limit;
-    @Nonnull final VectorIndexScanOptions vectorIndexScanOptions;
+    final VectorIndexScanOptions vectorIndexScanOptions;
 
-    public VectorIndexScanBounds(@Nonnull final TupleRange prefixRange,
-                                 @Nonnull final Comparisons.Type comparisonType,
+    public VectorIndexScanBounds(final TupleRange prefixRange,
+                                 final Comparisons.Type comparisonType,
                                  @Nullable final RealVector queryVector,
                                  final int limit,
-                                 @Nonnull final VectorIndexScanOptions vectorIndexScanOptions) {
+                                 final VectorIndexScanOptions vectorIndexScanOptions) {
         this.prefixRange = prefixRange;
         this.comparisonType = comparisonType;
         this.queryVector = queryVector;
@@ -70,18 +67,15 @@ public class VectorIndexScanBounds implements IndexScanBounds {
         this.vectorIndexScanOptions = vectorIndexScanOptions;
     }
 
-    @Nonnull
     @Override
     public IndexScanType getScanType() {
         return IndexScanType.BY_DISTANCE;
     }
 
-    @Nonnull
     public TupleRange getPrefixRange() {
         return prefixRange;
     }
 
-    @Nonnull
     public Comparisons.Type getComparisonType() {
         return comparisonType;
     }
@@ -95,7 +89,6 @@ public class VectorIndexScanBounds implements IndexScanBounds {
         return limit;
     }
 
-    @Nonnull
     public VectorIndexScanOptions getVectorIndexScanOptions() {
         return vectorIndexScanOptions;
     }

@@ -35,7 +35,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 
@@ -50,7 +49,6 @@ import java.util.Objects;
  */
 @API(API.Status.EXPERIMENTAL)
 public class NormalizedResidualPredicateProperty implements ExpressionProperty<QueryPredicate> {
-    @Nonnull
     private static final NormalizedResidualPredicateProperty NORMALIZED_RESIDUAL_PREDICATE =
             new NormalizedResidualPredicateProperty();
 
@@ -58,28 +56,24 @@ public class NormalizedResidualPredicateProperty implements ExpressionProperty<Q
         // prevent outside instantiation
     }
 
-    @Nonnull
     @Override
     public NormalizedResidualPredicateVisitor createVisitor() {
         return new NormalizedResidualPredicateVisitor();
     }
 
-    @Nonnull
-    public QueryPredicate evaluate(@Nonnull final Reference reference) {
+    public QueryPredicate evaluate(final Reference reference) {
         return Objects.requireNonNull(reference.acceptVisitor(createVisitor()));
     }
 
-    @Nonnull
-    public QueryPredicate evaluate(@Nonnull final RelationalExpression expression) {
+    public QueryPredicate evaluate(final RelationalExpression expression) {
         return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
     }
 
-    @Nonnull
     public static NormalizedResidualPredicateProperty normalizedResidualPredicate() {
         return NORMALIZED_RESIDUAL_PREDICATE;
     }
 
-    public static long countNormalizedConjuncts(@Nonnull RelationalExpression expression) {
+    public static long countNormalizedConjuncts(RelationalExpression expression) {
         final var magicPredicate = normalizedResidualPredicate().evaluate(expression);
         return magicPredicate.isTautology()
                ? 0
@@ -90,9 +84,8 @@ public class NormalizedResidualPredicateProperty implements ExpressionProperty<Q
     }
 
     public static class NormalizedResidualPredicateVisitor implements SimpleExpressionVisitor<QueryPredicate> {
-        @Nonnull
         @Override
-        public QueryPredicate visitRecordQueryUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionPlan) {
+        public QueryPredicate visitRecordQueryUnionOnValuesPlan(final RecordQueryUnionOnValuesPlan unionPlan) {
             final var predicatesFromQuantifiers = visitQuantifiers(unionPlan).stream()
                     .filter(Objects::nonNull)
                     .filter(predicate -> !predicate.isTautology())
@@ -100,10 +93,9 @@ public class NormalizedResidualPredicateProperty implements ExpressionProperty<Q
             return OrPredicate.orOrTrue(predicatesFromQuantifiers);
         }
 
-        @Nonnull
         @Override
-        public QueryPredicate evaluateAtExpression(@Nonnull final RelationalExpression expression,
-                                                   @Nonnull final List<QueryPredicate> childResults) {
+        public QueryPredicate evaluateAtExpression(final RelationalExpression expression,
+                                                   final List<QueryPredicate> childResults) {
             final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
 
             childResults.stream()
@@ -120,10 +112,9 @@ public class NormalizedResidualPredicateProperty implements ExpressionProperty<Q
             return AndPredicate.and(resultPredicatesBuilder.build());
         }
 
-        @Nonnull
         @Override
-        public QueryPredicate evaluateAtRef(@Nonnull final Reference ref,
-                                            @Nonnull final List<QueryPredicate> memberResults) {
+        public QueryPredicate evaluateAtRef(final Reference ref,
+                                            final List<QueryPredicate> memberResults) {
             Verify.verify(memberResults.size() == 1);
             return Iterables.getOnlyElement(memberResults);
         }

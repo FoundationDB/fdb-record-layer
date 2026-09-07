@@ -22,8 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Shared instrumentation for vector index engines. Both the HNSW and Guardiann read/write listeners see the same raw
@@ -42,8 +41,8 @@ final class VectorIndexInstrumentation {
      * @param key the key that was read
      * @param value the value that was read, or {@code null} if absent
      */
-    static void recordKeyValueRead(@Nonnull final FDBStoreTimer timer, @Nonnull final byte[] key,
-                                   @Nullable final byte[] value) {
+    static void recordKeyValueRead(final FDBStoreTimer timer, final byte[] key,
+                                   final byte @Nullable [] value) {
         final int keyLength = key.length;
         final int valueLength = value == null ? 0 : value.length;
 
@@ -59,8 +58,8 @@ final class VectorIndexInstrumentation {
      * @param key the key that was written
      * @param value the value that was written
      */
-    static void recordKeyValueWritten(@Nonnull final FDBStoreTimer timer, @Nonnull final byte[] key,
-                                      @Nonnull final byte[] value) {
+    static void recordKeyValueWritten(final FDBStoreTimer timer, final byte[] key,
+                                      final byte[] value) {
         timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_KEY);
         timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_KEY_BYTES, key.length);
         timer.increment(FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES, value.length);

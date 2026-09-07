@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,24 +39,22 @@ import java.util.Optional;
  * UserDefinedMacroFunction that expands a body (referring to parameters) into a {@link Value} (through encapsulation) call site.
  */
 public class UserDefinedMacroFunction extends UserDefinedFunction {
-    @Nonnull
     private final List<CorrelationIdentifier> parameterIdentifiers;
-    @Nonnull
     private final Value bodyValue;
 
-    public UserDefinedMacroFunction(@Nonnull final String functionName,
-                                    @Nonnull final List<QuantifiedObjectValue> parameters,
-                                    @Nonnull final Value bodyValue) {
+    public UserDefinedMacroFunction(final String functionName,
+                                    final List<QuantifiedObjectValue> parameters,
+                                    final Value bodyValue) {
         super(functionName, parameters.stream().map(QuantifiedObjectValue::getResultType).collect(ImmutableList.toImmutableList()));
         this.parameterIdentifiers = parameters.stream().map(QuantifiedObjectValue::getAlias).collect(ImmutableList.toImmutableList());
         this.bodyValue = bodyValue;
     }
 
-    public UserDefinedMacroFunction(@Nonnull final String functionName,
-                                    @Nonnull final List<QuantifiedObjectValue> parameters,
-                                    @Nonnull final List<String> parameterNames,
-                                    @Nonnull final List<Optional<Value>> parameterDefaults,
-                                    @Nonnull final Value bodyValue) {
+    public UserDefinedMacroFunction(final String functionName,
+                                    final List<QuantifiedObjectValue> parameters,
+                                    final List<String> parameterNames,
+                                    final List<Optional<Value>> parameterDefaults,
+                                    final Value bodyValue) {
         super(functionName, parameterNames,
                 parameters.stream().map(QuantifiedObjectValue::getResultType).collect(ImmutableList.toImmutableList()),
                 parameterDefaults);
@@ -65,9 +62,8 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
         this.bodyValue = bodyValue;
     }
 
-    @Nonnull
     @Override
-    public Value encapsulate(@Nonnull final CallSiteArguments arguments) {
+    public Value encapsulate(final CallSiteArguments arguments) {
         if (arguments.isNamed()) {
             return encapsulateFromArgumentValues(
                     resolveParameterValuesFromArguments(arguments.asNamedArguments().namedArguments()));
@@ -75,7 +71,7 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
         return encapsulateFromArgumentValues(resolveParameterValuesFromArguments(arguments.getArgumentsList()));
     }
 
-    private Value encapsulateFromArgumentValues(@Nonnull List<Value> resolvedArgumentValues) {
+    private Value encapsulateFromArgumentValues(List<Value> resolvedArgumentValues) {
         final RegularTranslationMap.Builder translationMapBuilder = TranslationMap.regularBuilder();
         for (var paramIdx = 0; paramIdx < resolvedArgumentValues.size(); paramIdx++) {
             final int finalParamIdx = paramIdx;
@@ -85,7 +81,6 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
         return bodyValue.translateCorrelations(translationMapBuilder.build());
     }
 
-    @Nonnull
     @Override
     public RecordMetaDataProto.PUserDefinedFunction toProto() {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
@@ -115,8 +110,7 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
                 .build();
     }
 
-    @Nonnull
-    public static UserDefinedMacroFunction fromProto(@Nonnull final PUserDefinedMacroFunction function) {
+    public static UserDefinedMacroFunction fromProto(final PUserDefinedMacroFunction function) {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         final var parametersQuantifiedObjectValues = function.getArgumentsList().stream()

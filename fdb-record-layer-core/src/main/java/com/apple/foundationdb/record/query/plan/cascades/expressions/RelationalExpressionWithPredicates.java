@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -43,10 +42,8 @@ import java.util.function.Predicate;
  * A (relational) expression that has a predicate on it.
  */
 public interface RelationalExpressionWithPredicates extends RelationalExpression {
-    @Nonnull
     List<? extends QueryPredicate> getPredicates();
 
-    @Nonnull
     @Override
     default Set<Type> getDynamicTypes() {
         final ImmutableSet.Builder<Type> resultBuilder = ImmutableSet.builder();
@@ -64,7 +61,7 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
                             final var comparisons = ((PredicateWithComparisons)p).getComparisons();
                             for (final var comparison : comparisons) {
                                 if (comparison instanceof Comparisons.ValueComparison) {
-                                    typesBuilder.addAll(comparison.getValue().getDynamicTypes());
+                                    typesBuilder.addAll(Objects.requireNonNull(((Comparisons.ValueComparison)comparison).getValue()).getDynamicTypes());
                                 }
                             }
                         }
@@ -84,7 +81,6 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
         return resultBuilder.build();
     }
 
-    @Nonnull
     default ImmutableSet<FieldValue> fieldValuesFromPredicates() {
         return fieldValuesFromPredicates(getPredicates());
     }
@@ -94,8 +90,7 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
      * @param predicates a collection of predicates
      * @return a set of {@link FieldValue}s
      */
-    @Nonnull
-    static ImmutableSet<FieldValue> fieldValuesFromPredicates(@Nonnull final Collection<? extends QueryPredicate> predicates) {
+    static ImmutableSet<FieldValue> fieldValuesFromPredicates(final Collection<? extends QueryPredicate> predicates) {
         return fieldValuesFromPredicates(predicates, queryPredicate -> true);
     }
 
@@ -106,15 +101,14 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
      *        {@link PredicateWithValue}s the caller is interested in
      * @return a set of {@link FieldValue}s
      */
-    @Nonnull
-    static ImmutableSet<FieldValue> fieldValuesFromPredicates(@Nonnull final Collection<? extends QueryPredicate> predicates,
-                                                              @Nonnull final Predicate<PredicateWithValue> filteringPredicate) {
+    static ImmutableSet<FieldValue> fieldValuesFromPredicates(final Collection<? extends QueryPredicate> predicates,
+                                                              final Predicate<PredicateWithValue> filteringPredicate) {
         return predicates
                 .stream()
                 .flatMap(predicate -> predicate.preOrderStream()
                         .filter(p -> p instanceof PredicateWithValue && filteringPredicate.test((PredicateWithValue)p))
                         .map(p -> (PredicateWithValue)p)
-                        .flatMap(predicateWithValue -> predicateWithValue.getValue().preOrderStream().filter(FieldValue.class::isInstance))
+                        .flatMap(predicateWithValue -> Objects.requireNonNull(predicateWithValue.getValue()).preOrderStream().filter(FieldValue.class::isInstance))
                         .map(value -> (FieldValue)value))
                 .map(fieldValue -> {
                     final Set<CorrelationIdentifier> fieldCorrelatedTo = fieldValue.getChild().getCorrelatedTo();

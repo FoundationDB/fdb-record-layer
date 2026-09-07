@@ -58,8 +58,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -80,52 +79,49 @@ import java.util.function.Supplier;
 public class RangeValue extends AbstractValue implements StreamingValue, CreatesDynamicTypesValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Range-Value");
 
-    @Nonnull
     private final Value endExclusive;
 
-    @Nonnull
     private final Value beginInclusive;
 
-    @Nonnull
     private final Value step;
 
-    @Nonnull
     private final Value currentRangeValue;
 
-    public RangeValue(@Nonnull final Value endExclusive, @Nonnull final Value beginInclusive,
-                      @Nonnull final Value step) {
+    public RangeValue(final Value endExclusive, final Value beginInclusive,
+                      final Value step) {
         this.endExclusive = endExclusive;
         this.beginInclusive = beginInclusive;
         this.step = step;
         currentRangeValue = RecordConstructorValue.ofColumns(ImmutableList.of(Column.of(Optional.of("ID"), LiteralValue.ofScalar(-1L))));
     }
 
-    @Nonnull
     @Override
     public Type.Record getResultType() {
         return (Type.Record)currentRangeValue.getResultType();
     }
 
-    @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> evalAsStream(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                      @Nonnull final EvaluationContext context,
+    public <M extends Message> RecordCursor<QueryResult> evalAsStream(final FDBRecordStoreBase<M> store,
+                                                                      final EvaluationContext context,
                                                                       @Nullable final byte[] continuation,
-                                                                      @Nonnull final ExecuteProperties executeProperties) {
+                                                                      final ExecuteProperties executeProperties) {
         final long endExclusiveValue = (Long)Verify.verifyNotNull(endExclusive.eval(store, context));
         final var beginInclusiveValue = (Long)Verify.verifyNotNull(this.beginInclusive.eval(store, context));
         final var stepValue = (Long)Verify.verifyNotNull(step.eval(store, context));
-        return new Cursor(store.getExecutor(), endExclusiveValue, beginInclusiveValue, stepValue, rangeValueAsLong -> Objects.requireNonNull(currentRangeValue.replace(v -> {
-            if (v instanceof LiteralValue) {
-                return LiteralValue.ofScalar(rangeValueAsLong);
-            }
-            return v;
-        })).eval(store, context), continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+        final Function<Long, Object> currentValueForRangeValueFunction = rangeValueAsLong -> {
+            final Function<Value, @Nullable Value> substituteCurrentValueFunction = v -> {
+                if (v instanceof LiteralValue) {
+                    return LiteralValue.ofScalar(rangeValueAsLong);
+                }
+                return v;
+            };
+            return Objects.requireNonNull(Objects.requireNonNull(currentRangeValue.replace(substituteCurrentValueFunction)).eval(store, context));
+        };
+        return new Cursor(store.getExecutor(), endExclusiveValue, beginInclusiveValue, stepValue, currentValueForRangeValueFunction, continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var endExplainTokens = Iterables.get(explainSuppliers, 0).get().getExplainTokens();
         final var beginExplainTokens = Iterables.get(explainSuppliers, 1).get().getExplainTokens();
         final var stepExplainTokens = Iterables.get(explainSuppliers, 2).get().getExplainTokens();
@@ -137,13 +133,12 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
                         new ExplainTokens().addKeyword("STEP").addWhitespace().addNested(stepExplainTokens))));
     }
 
-    @Nonnull
     @Override
     public CardinalitiesProperty.Cardinalities getCardinalities() {
         try {
-            long beginLong = ((Number) beginInclusive.evalWithoutStore(EvaluationContext.EMPTY)).longValue();
-            long endLong = ((Number) endExclusive.evalWithoutStore(EvaluationContext.EMPTY)).longValue();
-            long stepLong = ((Number) step.evalWithoutStore(EvaluationContext.EMPTY)).longValue();
+            long beginLong = ((Number) Objects.requireNonNull(beginInclusive.evalWithoutStore(EvaluationContext.EMPTY))).longValue();
+            long endLong = ((Number) Objects.requireNonNull(endExclusive.evalWithoutStore(EvaluationContext.EMPTY))).longValue();
+            long stepLong = ((Number) Objects.requireNonNull(step.evalWithoutStore(EvaluationContext.EMPTY))).longValue();
 
             var cardinality = CardinalitiesProperty.Cardinality.ofCardinality(Math.floorDiv(endLong - beginLong, stepLong));
             return new CardinalitiesProperty.Cardinalities(cardinality, cardinality);
@@ -154,7 +149,7 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, final EvaluationContext context) {
         throw new IllegalStateException("unable to eval an streaming value with eval()");
     }
 
@@ -163,20 +158,18 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         return PlanHashable.objectPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH);
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setRangeValue(toProto(serializationContext)).build();
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode hashMode) {
+    public int planHash(final PlanHashMode hashMode) {
         return PlanHashable.objectsPlanHash(hashMode, BASE_HASH, getChildren());
     }
 
-    @Nonnull
     @Override
-    public PRangeValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRangeValue toProto(final PlanSerializationContext serializationContext) {
         final PRangeValue.Builder builder = PRangeValue.newBuilder();
         builder.setEndExclusiveChild(endExclusive.toValueProto(serializationContext));
         builder.setBeginInclusiveChild(beginInclusive.toValueProto(serializationContext));
@@ -184,7 +177,6 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         return builder.build();
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         final ImmutableList.Builder<Value> childrenBuilder = ImmutableList.builder();
@@ -194,7 +186,6 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         return childrenBuilder.build();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // intentional.
     public Value withChildren(final Iterable<? extends Value> newChildren) {
@@ -211,19 +202,17 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         return new RangeValue(newEndExclusive, newBeginInclusive, newStep);
     }
 
-    @Nonnull
-    public static RangeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                       @Nonnull final PRangeValue rangeValueProto) {
+    public static RangeValue fromProto(final PlanSerializationContext serializationContext,
+                                       final PRangeValue rangeValueProto) {
         final var endExclusive = Value.fromValueProto(serializationContext, rangeValueProto.getEndExclusiveChild());
         final var beginInclusive = Value.fromValueProto(serializationContext, rangeValueProto.getBeginInclusiveChild());
         final var step = Value.fromValueProto(serializationContext, rangeValueProto.getStepChild());
         return new RangeValue(endExclusive, beginInclusive, step);
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         if (other == this) {
             return ConstrainedBoolean.alwaysTrue();
         }
@@ -253,23 +242,20 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PRangeValue, RangeValue> {
-        @Nonnull
         @Override
         public Class<PRangeValue> getProtoMessageClass() {
             return PRangeValue.class;
         }
 
-        @Nonnull
         @Override
-        public RangeValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                    @Nonnull final PRangeValue rangeValueProto) {
+        public RangeValue fromProto(final PlanSerializationContext serializationContext,
+                                    final PRangeValue rangeValueProto) {
             return RangeValue.fromProto(serializationContext, rangeValueProto);
         }
     }
 
     public static class Cursor implements RecordCursor<QueryResult> {
 
-        @Nonnull
         private final Executor executor;
 
         private final long endExclusive;
@@ -280,17 +266,18 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
 
         private boolean closed = false;
 
-        @Nonnull
         private final Function<Long, Object> rangeValueCreator;
 
-        Cursor(@Nonnull final Executor executor, final long endExclusive, final long beginInclusive,
-                final long step, @Nonnull final Function<Long, Object> rangeValueCreator, @Nullable final byte[] continuation) {
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not reliably narrow a @Nullable byte[] after a
+        // null check inside a ternary; `continuation` is provably non-null in the false-branch below.
+        Cursor(final Executor executor, final long endExclusive, final long beginInclusive,
+                final long step, final Function<Long, Object> rangeValueCreator, @Nullable final byte[] continuation) {
             this(executor, endExclusive, step, rangeValueCreator,
                     continuation == null ? beginInclusive : Continuation.from(continuation, endExclusive, step).getNextPosition());
         }
 
-        private Cursor(@Nonnull final Executor executor, final long endExclusive, final long step,
-                       @Nonnull final Function<Long, Object> rangeValueCreator, final long nextPosition) {
+        private Cursor(final Executor executor, final long endExclusive, final long step,
+                       final Function<Long, Object> rangeValueCreator, final long nextPosition) {
             checkValidRange(nextPosition, endExclusive, step);
             this.executor = executor;
             this.endExclusive = endExclusive;
@@ -299,13 +286,11 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
             this.rangeValueCreator = rangeValueCreator;
         }
 
-        @Nonnull
         @Override
         public CompletableFuture<RecordCursorResult<QueryResult>> onNext() {
             return CompletableFuture.completedFuture(getNext());
         }
 
-        @Nonnull
         @Override
         public RecordCursorResult<QueryResult> getNext() {
             RecordCursorResult<QueryResult> nextResult;
@@ -330,13 +315,12 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         }
 
         @Override
-        public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+        public boolean accept(RecordCursorVisitor visitor) {
             visitor.visitEnter(this);
             return visitor.visitLeave(this);
         }
 
         @Override
-        @Nonnull
         public Executor getExecutor() {
             return executor;
         }
@@ -376,7 +360,6 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
                 return nextPosition;
             }
 
-            @Nonnull
             @Override
             public ByteString toByteString() {
                 if (isEnd()) {
@@ -392,22 +375,22 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
                 return toByteString().toByteArray();
             }
 
-            @Nonnull
-            public static Continuation from(@Nonnull final RecordCursorProto.RangeCursorContinuation message,
+            public static Continuation from(final RecordCursorProto.RangeCursorContinuation message,
                                             final long endExclusive, final long step) {
                 final var nextPosition = message.getNextPosition();
                 return new Continuation(endExclusive, nextPosition, step);
             }
 
-            @Nonnull
-            public static Continuation from(@Nonnull final byte[] unparsedContinuationBytes, final long endExclusive,
+            public static Continuation from(final byte[] unparsedContinuationBytes, final long endExclusive,
                                             final long step) {
                 try {
                     final var parsed = RecordCursorProto.RangeCursorContinuation.parseFrom(unparsedContinuationBytes);
                     return from(parsed, endExclusive, step);
                 } catch (InvalidProtocolBufferException ex) {
+                    // unparsedContinuationBytes is non-null here, so ByteArrayUtil2.loggable(...) (which only
+                    // returns null for a null input) is guaranteed to return non-null too.
                     throw new RecordCoreException("invalid continuation", ex)
-                            .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(unparsedContinuationBytes));
+                            .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(unparsedContinuationBytes)));
                 }
             }
         }
@@ -419,8 +402,7 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
     @AutoService(BuiltInFunction.class)
     public static class RangeFn extends BuiltInTableFunction {
 
-        @Nonnull
-        private static StreamingValue encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
+        private static StreamingValue encapsulateInternal(final List<? extends Typed> arguments) {
             Verify.verify(!arguments.isEmpty());
             final Value endExclusive;
             final Value beginInclusiveMaybe;
@@ -450,7 +432,7 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         }
     }
 
-    private static void checkValidBoundaryType(@Nonnull final Value value) {
+    private static void checkValidBoundaryType(final Value value) {
         final var type = value.getResultType();
         SemanticException.check(type.isPrimitive(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
         final var maxType = Type.maximumType(type, Type.primitiveType(Type.TypeCode.LONG));

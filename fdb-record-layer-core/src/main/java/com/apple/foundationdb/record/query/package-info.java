@@ -27,4 +27,7 @@
  * to give a {@link com.apple.foundationdb.record.RecordCursor} of records.
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.record.query;
+
+import org.jspecify.annotations.NullMarked;

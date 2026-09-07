@@ -58,9 +58,9 @@ import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.support.ParameterDeclarations;
 
-import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -672,7 +672,6 @@ class BooleanValueTest {
                     Arguments.of(List.of(F, INT_1), new RelOpValue.IsDistinctFromFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.IS_DISTINCT_FROM, 1))),
                     Arguments.of(List.of(INT_1, F), new RelOpValue.IsDistinctFromFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.IS_DISTINCT_FROM, 1))),
 
-
                     Arguments.of(List.of(INT_1), new RelOpValue.IsNullFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(INT_1), new RelOpValue.NotNullFn(), ConstantPredicate.TRUE),
 
@@ -699,7 +698,6 @@ class BooleanValueTest {
 
                     Arguments.of(List.of(UUID_NULL), new RelOpValue.IsNullFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(UUID_NULL), new RelOpValue.NotNullFn(), ConstantPredicate.FALSE),
-
 
                     Arguments.of(List.of(F), new RelOpValue.IsNullFn(), new ValuePredicate(F, new Comparisons.NullComparison(Comparisons.Type.IS_NULL))),
                     Arguments.of(List.of(F), new RelOpValue.NotNullFn(), new ValuePredicate(F, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))),
@@ -961,12 +959,11 @@ class BooleanValueTest {
             Assertions.fail("expected an exception to be thrown");
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof VerifyException);
-            Assertions.assertTrue(e.getMessage().contains("unexpected negative parameter index"));
+            Assertions.assertTrue(Objects.requireNonNull(e.getMessage()).contains("unexpected negative parameter index"));
         }
     }
 
-    @Nonnull
-    protected static Value verifySerialization(@Nonnull final Value value) {
+    protected static Value verifySerialization(final Value value) {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         final PValue planProto = value.toValueProto(serializationContext);

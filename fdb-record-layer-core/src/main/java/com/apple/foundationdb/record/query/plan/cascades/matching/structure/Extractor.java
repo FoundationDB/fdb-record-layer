@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
-import javax.annotation.Nonnull;
 import java.util.function.UnaryOperator;
 
 /**
@@ -31,28 +30,24 @@ import java.util.function.UnaryOperator;
  * @param <U> the type that is extracted into
  */
 public class Extractor<T, U> implements UnapplyWithConfiguration<T, U> {
-    @Nonnull
     private final UnapplyWithConfiguration<T, U> unapplyFn;
-    @Nonnull
     private final UnaryOperator<String> explainFn;
 
-    public Extractor(@Nonnull final Unapply<T, U> unapplyFn, @Nonnull final UnaryOperator<String> explainFn) {
+    public Extractor(final Unapply<T, U> unapplyFn, final UnaryOperator<String> explainFn) {
         this((plannerConfiguration, t) -> unapplyFn.unapply(t), explainFn);
     }
 
-    public Extractor(@Nonnull final UnapplyWithConfiguration<T, U> unapplyFn, @Nonnull final UnaryOperator<String> explainFn) {
+    public Extractor(final UnapplyWithConfiguration<T, U> unapplyFn, final UnaryOperator<String> explainFn) {
         this.unapplyFn = unapplyFn;
         this.explainFn = explainFn;
     }
 
     @Override
-    @Nonnull
-    public U unapply(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final T t) {
+    public U unapply(final RecordQueryPlannerConfiguration plannerConfiguration, final T t) {
         return unapplyFn.unapply(plannerConfiguration, t);
     }
 
-    @Nonnull
-    public String explainExtraction(@Nonnull final String name) {
+    public String explainExtraction(final String name) {
         return explainFn.apply(name);
     }
 
@@ -60,11 +55,11 @@ public class Extractor<T, U> implements UnapplyWithConfiguration<T, U> {
         return new Extractor<>(t -> t, name -> name);
     }
 
-    public static <T, U> Extractor<T, U> of(@Nonnull final Unapply<T, U> unapply, final UnaryOperator<String> explainFn) {
+    public static <T, U> Extractor<T, U> of(final Unapply<T, U> unapply, final UnaryOperator<String> explainFn) {
         return new Extractor<>(unapply, explainFn);
     }
 
-    public static <T, U> Extractor<T, U> of(@Nonnull final UnapplyWithConfiguration<T, U> unapply, final UnaryOperator<String> explainFn) {
+    public static <T, U> Extractor<T, U> of(final UnapplyWithConfiguration<T, U> unapply, final UnaryOperator<String> explainFn) {
         return new Extractor<>(unapply, explainFn);
     }
 }

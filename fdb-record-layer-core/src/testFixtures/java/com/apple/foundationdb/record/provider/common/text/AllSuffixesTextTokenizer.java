@@ -20,8 +20,7 @@
 
 package com.apple.foundationdb.record.provider.common.text;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Iterator;
 
 /**
@@ -31,22 +30,19 @@ import java.util.Iterator;
  */
 public class AllSuffixesTextTokenizer implements TextTokenizer {
 
-    @Nonnull
     private static final AllSuffixesTextTokenizer INSTANCE = new AllSuffixesTextTokenizer();
-    @Nonnull
     public static final String NAME = "all_suffixes";
 
     private AllSuffixesTextTokenizer() {
     }
 
     private static final class SuffixingIterator implements Iterator<String> {
-        @Nonnull
         private final Iterator<? extends CharSequence> underlying;
         @Nullable
         private String current;
         private int pos;
 
-        public SuffixingIterator(@Nonnull Iterator<? extends CharSequence> underlying) {
+        public SuffixingIterator(Iterator<? extends CharSequence> underlying) {
             this.underlying = underlying;
             this.current = null;
             this.pos = -1;
@@ -69,9 +65,8 @@ public class AllSuffixesTextTokenizer implements TextTokenizer {
         }
     }
 
-    @Nonnull
     @Override
-    public Iterator<? extends CharSequence> tokenize(@Nonnull String text, int version, @Nonnull TokenizerMode mode) {
+    public Iterator<? extends CharSequence> tokenize(String text, int version, TokenizerMode mode) {
         final Iterator<? extends CharSequence> underlying = DefaultTextTokenizer.instance().tokenize(text, version, mode);
         if (mode == TokenizerMode.QUERY) {
             return underlying;
@@ -85,13 +80,11 @@ public class AllSuffixesTextTokenizer implements TextTokenizer {
         return DefaultTextTokenizer.instance().getMaxVersion();
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return NAME;
     }
 
-    @Nonnull
     public static AllSuffixesTextTokenizer instance() {
         return INSTANCE;
     }

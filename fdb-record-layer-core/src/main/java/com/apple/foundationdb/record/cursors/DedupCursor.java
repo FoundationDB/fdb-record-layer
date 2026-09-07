@@ -32,8 +32,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -60,7 +59,6 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 public class DedupCursor<T> implements RecordCursor<T> {
     /** Inner cursor. */
-    @Nonnull
     private final RecordCursor<T> inner;
     /** The result returned from the cursor. */
     @Nullable
@@ -69,7 +67,6 @@ public class DedupCursor<T> implements RecordCursor<T> {
     @Nullable
     private T lastValue;
     /** The method that can pack a value into a byte[]. */
-    @Nonnull
     private final Function<T, byte[]> packValue;
 
     /**
@@ -82,9 +79,12 @@ public class DedupCursor<T> implements RecordCursor<T> {
      * @param continuation the cursor continuation (null if none)
      */
     @API(API.Status.EXPERIMENTAL)
-    public DedupCursor(@Nonnull Function<byte[], RecordCursor<T>> innerCursorFactory,
-                       @Nonnull Function<byte[], T> unpackValue,
-                       @Nonnull Function<T, byte[]> packValue,
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters/locals, even across explicit null checks;
+    // passing a null continuation to innerCursorFactory intentionally means "start from the beginning".
+    @SuppressWarnings("NullAway")
+    public DedupCursor(Function<byte[], RecordCursor<T>> innerCursorFactory,
+                       Function<byte[], T> unpackValue,
+                       Function<T, byte[]> packValue,
                        @Nullable byte[] continuation) {
         this.packValue = packValue;
 
@@ -99,13 +99,12 @@ public class DedupCursor<T> implements RecordCursor<T> {
                 }
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("Error parsing continuation", ex)
-                        .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuation));
+                        .addLogInfo("raw_bytes", Objects.requireNonNull(ByteArrayUtil2.loggable(continuation)));
             }
         }
         inner = innerCursorFactory.apply(innerContinuation);
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (nextResult != null && !nextResult.hasNext()) {
@@ -118,7 +117,8 @@ public class DedupCursor<T> implements RecordCursor<T> {
             final boolean hasNext = innerResult.hasNext();
             // keep looping if we have more records and value is the same as before
             return hasNext && Objects.equals(innerResult.get(), lastValue);
-        }), getExecutor()).thenApply(vignore -> applyResult(currentResult.get()));
+        }), getExecutor()).thenApply(vignore -> applyResult(
+                Objects.requireNonNull(currentResult.get(), "currentResult should have been set by the loop body above")));
     }
 
     @Nullable
@@ -149,14 +149,13 @@ public class DedupCursor<T> implements RecordCursor<T> {
         return inner.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return inner.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             inner.accept(visitor);
         }
@@ -168,26 +167,28 @@ public class DedupCursor<T> implements RecordCursor<T> {
      * The continuation holds on to the state of the internal cursor as well as the last item seen (if any).
      */
     private class DedupCursorContinuation implements RecordCursorContinuation {
-        @Nonnull
         private final RecordCursorContinuation innerContinuation;
         @Nullable
         private final T lastValue;
+        @Nullable
         private byte[] cachedBytes;
 
-        private DedupCursorContinuation(@Nonnull RecordCursorContinuation innerContinuation, @Nullable T lastValue) {
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
+        private DedupCursorContinuation(RecordCursorContinuation innerContinuation, @Nullable T lastValue) {
             this.innerContinuation = innerContinuation;
             this.lastValue = lastValue;
         }
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
         public byte[] toBytes() {
             if (isEnd()) {
                 return null;
             } else {
                 //form bytes exactly once
                 if (cachedBytes == null) {
-                    byte[] lastValuePacked = pack(lastValue);
+                    @Nullable byte[] lastValuePacked = pack(lastValue);
                     final RecordCursorProto.DedupContinuation.Builder builder = RecordCursorProto.DedupContinuation.newBuilder()
                             .setInnerContinuation(innerContinuation.toByteString());
                     if (lastValuePacked != null) {
@@ -204,7 +205,9 @@ public class DedupCursor<T> implements RecordCursor<T> {
             return innerContinuation.isEnd();
         }
 
-        private byte[] pack(final T value) {
+        @Nullable
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
+        private byte[] pack(@Nullable final T value) {
             return (value == null) ? null : packValue.apply(value);
         }
     }

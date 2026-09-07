@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorEndContinuation;
-import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -33,31 +32,31 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
-class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.UnionContinuation.Builder, RecordCursorContinuation> {
-    @Nonnull
-    private static final RecordCursorProto.UnionContinuation.CursorState EXHAUSTED_PROTO = RecordCursorProto.UnionContinuation.CursorState.newBuilder()
+import static com.apple.foundationdb.record.RecordCursorProto.UnionContinuation;
+
+class UnionCursorContinuation extends MergeCursorContinuation<UnionContinuation.Builder, RecordCursorContinuation> {
+    private static final UnionContinuation.CursorState EXHAUSTED_PROTO = UnionContinuation.CursorState.newBuilder()
             .setExhausted(true)
             .build();
-    @Nonnull
-    private static final RecordCursorProto.UnionContinuation.CursorState START_PROTO = RecordCursorProto.UnionContinuation.CursorState.newBuilder()
+    private static final UnionContinuation.CursorState START_PROTO = UnionContinuation.CursorState.newBuilder()
             .setExhausted(false)
             .build();
 
-    protected UnionCursorContinuation(@Nonnull List<RecordCursorContinuation> continuations, @Nullable RecordCursorProto.UnionContinuation originalProto) {
+    protected UnionCursorContinuation(List<RecordCursorContinuation> continuations, @Nullable UnionContinuation originalProto) {
         super(continuations, originalProto);
     }
 
-    protected UnionCursorContinuation(@Nonnull List<RecordCursorContinuation> continuations) {
+    protected UnionCursorContinuation(List<RecordCursorContinuation> continuations) {
         this(continuations, null);
     }
 
     @Override
-    protected void setFirstChild(@Nonnull RecordCursorProto.UnionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
+    protected void setFirstChild(UnionContinuation.Builder builder, RecordCursorContinuation continuation) {
         if (continuation.isEnd()) {
             builder.setFirstExhausted(true);
         } else {
@@ -69,7 +68,7 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
     }
 
     @Override
-    protected void setSecondChild(@Nonnull RecordCursorProto.UnionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
+    protected void setSecondChild(UnionContinuation.Builder builder, RecordCursorContinuation continuation) {
         if (continuation.isEnd()) {
             builder.setSecondExhausted(true);
         } else {
@@ -81,8 +80,8 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
     }
 
     @Override
-    protected void addOtherChild(@Nonnull RecordCursorProto.UnionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
-        RecordCursorProto.UnionContinuation.CursorState cursorState;
+    protected void addOtherChild(UnionContinuation.Builder builder, RecordCursorContinuation continuation) {
+        UnionContinuation.CursorState cursorState;
         if (continuation.isEnd()) {
             cursorState = EXHAUSTED_PROTO;
         } else {
@@ -90,7 +89,7 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
             if (asBytes.isEmpty()) {
                 cursorState = START_PROTO;
             } else {
-                cursorState = RecordCursorProto.UnionContinuation.CursorState.newBuilder()
+                cursorState = UnionContinuation.CursorState.newBuilder()
                         .setContinuation(asBytes)
                         .build();
             }
@@ -99,9 +98,8 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
     }
 
     @Override
-    @Nonnull
-    protected RecordCursorProto.UnionContinuation.Builder newProtoBuilder() {
-        return RecordCursorProto.UnionContinuation.newBuilder();
+    protected UnionContinuation.Builder newProtoBuilder() {
+        return UnionContinuation.newBuilder();
     }
 
     @Override
@@ -110,29 +108,28 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
         return getContinuations().stream().allMatch(RecordCursorContinuation::isEnd);
     }
 
-    @Nonnull
-    static UnionCursorContinuation from(@Nonnull UnionCursorBase<?, ?> cursor) {
+    static UnionCursorContinuation from(UnionCursorBase<?, ?> cursor) {
         return new UnionCursorContinuation(cursor.getChildContinuations());
     }
 
-    @SuppressWarnings("PMD.PreserveStackTrace")
-    @Nonnull
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+    // parameters, even across explicit null checks.
+    @SuppressWarnings({"PMD.PreserveStackTrace", "NullAway"})
     static UnionCursorContinuation from(@Nullable byte[] bytes, int numberOfChildren) {
         if (bytes == null) {
             return new UnionCursorContinuation(Collections.nCopies(numberOfChildren, RecordCursorStartContinuation.START));
         }
         try {
-            return UnionCursorContinuation.from(RecordCursorProto.UnionContinuation.parseFrom(bytes), numberOfChildren);
+            return UnionCursorContinuation.from(UnionContinuation.parseFrom(bytes), numberOfChildren);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid continuation", ex)
-                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(bytes)));
         } catch (RecordCoreArgumentException ex) {
-            throw ex.addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
+            throw ex.addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(bytes)));
         }
     }
 
-    @Nonnull
-    static UnionCursorContinuation from(@Nonnull RecordCursorProto.UnionContinuation parsed, int numberOfChildren) {
+    static UnionCursorContinuation from(UnionContinuation parsed, int numberOfChildren) {
         ImmutableList.Builder<RecordCursorContinuation> builder = ImmutableList.builder();
         if (parsed.hasFirstContinuation()) {
             builder.add(ByteArrayContinuation.fromNullable(parsed.getFirstContinuation().toByteArray()));
@@ -148,7 +145,7 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
         } else {
             builder.add(RecordCursorStartContinuation.START);
         }
-        for (RecordCursorProto.UnionContinuation.CursorState state : parsed.getOtherChildStateList()) {
+        for (UnionContinuation.CursorState state : parsed.getOtherChildStateList()) {
             if (state.hasContinuation()) {
                 builder.add(ByteArrayContinuation.fromNullable(state.getContinuation().toByteArray()));
             } else if (state.getExhausted()) {

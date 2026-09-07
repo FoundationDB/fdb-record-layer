@@ -27,8 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.properties.NormalizedResidualPredicateProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountByLevelProperty;
 
-import javax.annotation.Nonnull;
-
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.outerJoinCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.selectCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.tableFunctionCount;
@@ -41,14 +39,12 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Predi
 @SpotBugsSuppressWarnings("SE_COMPARATOR_SHOULD_BE_SERIALIZABLE")
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class RewritingCostModel implements CascadesCostModel {
-    @Nonnull
     private final RecordQueryPlannerConfiguration configuration;
 
-    public RewritingCostModel(@Nonnull final RecordQueryPlannerConfiguration configuration) {
+    public RewritingCostModel(final RecordQueryPlannerConfiguration configuration) {
         this.configuration = configuration;
     }
 
-    @Nonnull
     @Override
     public RecordQueryPlannerConfiguration getConfiguration() {
         return configuration;

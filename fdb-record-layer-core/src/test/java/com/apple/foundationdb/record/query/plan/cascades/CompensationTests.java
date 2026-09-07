@@ -42,8 +42,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -51,19 +51,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class CompensationTests {
     private static final Compensation SOME_COMPENSATION = new Compensation() {
-        @Nonnull
         @Override
-        public RelationalExpression apply(@Nonnull final Memoizer memoizer,
-                                          @Nonnull final RelationalExpression relationalExpression,
-                                          @Nonnull final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
+        public RelationalExpression apply(final Memoizer memoizer,
+                                          final RelationalExpression relationalExpression,
+                                          final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
             throw new UnsupportedOperationException();
         }
 
-        @Nonnull
         @Override
-        public RelationalExpression applyFinal(@Nonnull final Memoizer memoizer,
-                                               @Nonnull final RelationalExpression relationalExpression,
-                                               @Nonnull final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
+        public RelationalExpression applyFinal(final Memoizer memoizer,
+                                               final RelationalExpression relationalExpression,
+                                               final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
             throw new UnsupportedOperationException();
         }
     };
@@ -105,7 +103,6 @@ public class CompensationTests {
                                 .isSameAs(ResultCompensationFunction.impossibleCompensation()));
     }
 
-    @Nonnull
     private static Stream<Arguments> intersectArguments() {
         final var memoizer = Memoizer.noMemoization(PlannerStage.PLANNED);
         final var fuse = fuse();
@@ -114,9 +111,8 @@ public class CompensationTests {
                 intersectArgumentsForMatch(memoizer, fuse));
     }
 
-    @Nonnull
-    private static Stream<Arguments> intersectArgumentsBasic(@Nonnull final Memoizer memoizer,
-                                                             @Nonnull final RelationalExpression baseExpression) {
+    private static Stream<Arguments> intersectArgumentsBasic(final Memoizer memoizer,
+                                                             final RelationalExpression baseExpression) {
         final var compensationA =
                 selectWithPredicateCompensation(CorrelationIdentifier.of("a"),
                         alias ->
@@ -137,9 +133,8 @@ public class CompensationTests {
         );
     }
 
-    @Nonnull
-    private static Stream<Arguments> intersectArgumentsForMatch(@Nonnull final Memoizer memoizer,
-                                                                @Nonnull final RelationalExpression baseExpression) {
+    private static Stream<Arguments> intersectArgumentsForMatch(final Memoizer memoizer,
+                                                                final RelationalExpression baseExpression) {
 
         final var a = CorrelationIdentifier.of("a");
         final var reference = memoizer.memoizeExploratoryExpression(baseExpression);
@@ -184,10 +179,10 @@ public class CompensationTests {
 
     @ParameterizedTest
     @MethodSource("intersectArguments")
-    void testIntersect(@Nonnull final Memoizer memoizer,
-                       @Nonnull final RelationalExpression base,
-                       @Nonnull final Compensation compensationA,
-                       @Nonnull final Compensation compensationB,
+    void testIntersect(final Memoizer memoizer,
+                       final RelationalExpression base,
+                       final Compensation compensationA,
+                       final Compensation compensationB,
                        @Nullable final RelationalExpression expected) {
         final var intersectedCompensation = compensationA.intersect(compensationB);
         if (expected == null) {
@@ -198,7 +193,6 @@ public class CompensationTests {
         }
     }
 
-    @Nonnull
     private static Stream<Arguments> intersectArgumentsFinal() {
         final var memoizer = Memoizer.noMemoization(PlannerStage.PLANNED);
 
@@ -224,10 +218,10 @@ public class CompensationTests {
 
     @ParameterizedTest
     @MethodSource("intersectArgumentsFinal")
-    void testBasicIntersectFinal(@Nonnull final Memoizer memoizer,
-                                 @Nonnull final RelationalExpression base,
-                                 @Nonnull final Compensation compensationA,
-                                 @Nonnull final Compensation compensationB,
+    void testBasicIntersectFinal(final Memoizer memoizer,
+                                 final RelationalExpression base,
+                                 final Compensation compensationA,
+                                 final Compensation compensationB,
                                  @Nullable final RelationalExpression expected) {
         final var intersectedCompensation = compensationA.intersect(compensationB);
         if (expected == null) {
@@ -238,7 +232,6 @@ public class CompensationTests {
         }
     }
 
-    @Nonnull
     private static Stream<Arguments> unionArguments() {
         final var memoizer = Memoizer.noMemoization(PlannerStage.PLANNED);
         final var fuse = fuse();
@@ -246,9 +239,8 @@ public class CompensationTests {
                 unionArgumentsForMatch(memoizer, fuse));
     }
 
-    @Nonnull
-    private static Stream<Arguments> unionArgumentsBasic(@Nonnull final Memoizer memoizer,
-                                                         @Nonnull final RelationalExpression baseExpression) {
+    private static Stream<Arguments> unionArgumentsBasic(final Memoizer memoizer,
+                                                         final RelationalExpression baseExpression) {
         final var compensationA =
                 selectWithPredicateCompensation(CorrelationIdentifier.of("a"),
                         alias ->
@@ -269,9 +261,8 @@ public class CompensationTests {
         );
     }
 
-    @Nonnull
-    private static Stream<Arguments> unionArgumentsForMatch(@Nonnull final Memoizer memoizer,
-                                                            @Nonnull final RelationalExpression baseExpression) {
+    private static Stream<Arguments> unionArgumentsForMatch(final Memoizer memoizer,
+                                                            final RelationalExpression baseExpression) {
 
         final var a = CorrelationIdentifier.of("a");
         final var reference = memoizer.memoizeExploratoryExpression(baseExpression);
@@ -320,10 +311,10 @@ public class CompensationTests {
 
     @ParameterizedTest
     @MethodSource("unionArguments")
-    void testUnion(@Nonnull final Memoizer memoizer,
-                   @Nonnull final RelationalExpression base,
-                   @Nonnull final Compensation compensationA,
-                   @Nonnull final Compensation compensationB,
+    void testUnion(final Memoizer memoizer,
+                   final RelationalExpression base,
+                   final Compensation compensationA,
+                   final Compensation compensationB,
                    @Nullable final RelationalExpression expected) {
         final var unionedCompensation = compensationA.union(compensationB);
         if (expected == null) {
@@ -334,7 +325,6 @@ public class CompensationTests {
         }
     }
 
-    @Nonnull
     private static Stream<Arguments> unionArgumentsFinal() {
         final var memoizer = Memoizer.noMemoization(PlannerStage.PLANNED);
 
@@ -360,10 +350,10 @@ public class CompensationTests {
 
     @ParameterizedTest
     @MethodSource("unionArgumentsFinal")
-    void testBasicUnionFinal(@Nonnull final Memoizer memoizer,
-                             @Nonnull final RelationalExpression base,
-                             @Nonnull final Compensation compensationA,
-                             @Nonnull final Compensation compensationB,
+    void testBasicUnionFinal(final Memoizer memoizer,
+                             final RelationalExpression base,
+                             final Compensation compensationA,
+                             final Compensation compensationB,
                              @Nullable final RelationalExpression expected) {
         final var unionedCompensation = compensationA.union(compensationB);
         if (expected == null) {
@@ -374,31 +364,26 @@ public class CompensationTests {
         }
     }
 
-    @Nonnull
     private static Function<CorrelationIdentifier, TranslationMap> translationMapFunction() {
         return alias -> TranslationMap.empty();
     }
 
-    @Nonnull
     private static FullUnorderedScanExpression fuse() {
         return new FullUnorderedScanExpression(ImmutableSet.of("someType"),
                 someRecordType(), new AccessHints());
     }
 
-    @Nonnull
     private static Type.Record someRecordType() {
         return RuleTestHelper.TYPE_S;
     }
 
-    @Nonnull
-    private static Compensation selectWithPredicateCompensation(@Nonnull final CorrelationIdentifier alias,
-                                                                @Nonnull final Function<CorrelationIdentifier, Iterable<QueryPredicate>> predicatesFunction) {
+    private static Compensation selectWithPredicateCompensation(final CorrelationIdentifier alias,
+                                                                final Function<CorrelationIdentifier, Iterable<QueryPredicate>> predicatesFunction) {
         return new Compensation() {
-            @Nonnull
             @Override
-            public RelationalExpression apply(@Nonnull final Memoizer memoizer,
-                                              @Nonnull final RelationalExpression relationalExpression,
-                                              @Nonnull final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
+            public RelationalExpression apply(final Memoizer memoizer,
+                                              final RelationalExpression relationalExpression,
+                                              final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
                 final var reference = memoizer.memoizeExploratoryExpression(relationalExpression);
                 final var quantifier = Quantifier.forEach(reference, alias);
                 return GraphExpansion.builder()
@@ -408,11 +393,10 @@ public class CompensationTests {
                         .buildSimpleSelectOverQuantifier(quantifier);
             }
 
-            @Nonnull
             @Override
-            public RelationalExpression applyFinal(@Nonnull final Memoizer memoizer,
-                                                   @Nonnull final RelationalExpression relationalExpression,
-                                                   @Nonnull final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
+            public RelationalExpression applyFinal(final Memoizer memoizer,
+                                                   final RelationalExpression relationalExpression,
+                                                   final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
                 final var reference = memoizer.memoizeExploratoryExpression(relationalExpression);
                 final var quantifier = Quantifier.forEach(reference, alias);
                 return GraphExpansion.builder()

@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Set;
 
 /**
@@ -57,10 +57,9 @@ public final class ContextSessionKey<T> {
      */
     public static final ContextSessionKey<Set<String>> READABLE_INDEXES_UPDATED = new ContextSessionKey<>("readableIndexesUpdated");
 
-    @Nonnull
     private final String name;
 
-    ContextSessionKey(@Nonnull String name) {
+    ContextSessionKey(String name) {
         this.name = name;
     }
 

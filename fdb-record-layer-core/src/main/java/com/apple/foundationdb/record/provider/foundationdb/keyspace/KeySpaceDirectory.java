@@ -40,8 +40,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
@@ -77,15 +76,11 @@ public class KeySpaceDirectory {
 
     @Nullable
     protected KeySpaceDirectory parent;
-    @Nonnull
     protected final String name;
-    @Nonnull
     protected final KeyType keyType;
     @Nullable
     protected final Object value;
-    @Nonnull
     protected final Map<String, KeySpaceDirectory> subdirsByName = new HashMap<>();
-    @Nonnull
     protected final List<KeySpaceDirectory> subdirs = new ArrayList<>();
     @Nullable
     protected Function<KeySpacePath, KeySpacePath> wrapper;
@@ -108,7 +103,7 @@ public class KeySpaceDirectory {
      * type of directory being created
      */
     @SuppressWarnings({"PMD.CompareObjectsWithEquals", "this-escape"})
-    public KeySpaceDirectory(@Nonnull String name, @Nonnull KeyType keyType, @Nullable Object value,
+    public KeySpaceDirectory(String name, KeyType keyType, @Nullable Object value,
                              @Nullable Function<KeySpacePath, KeySpacePath> wrapper) {
 
         this.name = name;
@@ -133,7 +128,7 @@ public class KeySpaceDirectory {
      * @param wrapper if non-null, specifies a function that may be used to wrap any <code>KeySpacePath</code>
      * objects returned from {@link KeySpace#resolveFromKeyAsync(FDBRecordContext, Tuple)}
      */
-    public KeySpaceDirectory(@Nonnull String name, @Nonnull KeyType keyType, @Nullable Function<KeySpacePath, KeySpacePath> wrapper) {
+    public KeySpaceDirectory(String name, KeyType keyType, @Nullable Function<KeySpacePath, KeySpacePath> wrapper) {
         this(name, keyType, keyType.getAnyValue(), wrapper);
     }
 
@@ -142,11 +137,11 @@ public class KeySpaceDirectory {
      * @param name the name of the directory
      * @param keyType the data type of the values that may be contained within the directory
      */
-    public KeySpaceDirectory(@Nonnull String name, @Nonnull KeyType keyType) {
+    public KeySpaceDirectory(String name, KeyType keyType) {
         this(name, keyType, keyType.getAnyValue(), null);
     }
 
-    public KeySpaceDirectory(@Nonnull String name, @Nonnull KeyType keyType, @Nullable Object value) {
+    public KeySpaceDirectory(String name, KeyType keyType, @Nullable Object value) {
         this(name, keyType, value, null);
     }
 
@@ -169,6 +164,9 @@ public class KeySpaceDirectory {
      * directory.
      * @param value constant value to validate
      */
+    // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
+    // even though log values are commonly null (e.g. this directory's own null constant value).
+    @SuppressWarnings("NullAway")
     protected void validateConstant(@Nullable Object value) {
         if (!keyType.isMatch(value)) {
             throw new RecordCoreArgumentException("Illegal constant value provided for directory",
@@ -189,6 +187,9 @@ public class KeySpaceDirectory {
      * @throws RecordCoreArgumentException if the value is not valid
      */
     @API(API.Status.EXPERIMENTAL)
+    // RecordCoreArgumentException's addLogInfo/varargs are not annotated @Nullable even though
+    // log values are commonly null (e.g. an invalid null value provided by a caller).
+    @SuppressWarnings("NullAway")
     public void validateValue(@Nullable Object value) {
         // Validate that the value is valid for this directory
         if (!isValueValid(value)) {
@@ -244,10 +245,9 @@ public class KeySpaceDirectory {
      * or <code>Optional.empty()</code> if this directory is not compatible with the element at
      * {@code keyIndex} position in the {@code key}
      */
-    @Nonnull
-    protected CompletableFuture<Optional<ResolvedKeySpacePath>> pathFromKey(@Nonnull FDBRecordContext context,
+    protected CompletableFuture<Optional<ResolvedKeySpacePath>> pathFromKey(FDBRecordContext context,
                                                                             @Nullable ResolvedKeySpacePath parent,
-                                                                            @Nonnull Tuple key,
+                                                                            Tuple key,
                                                                             final int keySize,
                                                                             final int keyIndex) {
         final Object tupleValue = key.get(keyIndex);
@@ -284,8 +284,11 @@ public class KeySpaceDirectory {
      * @return a future that completes with the matching keyspace path
      * @throws RecordCoreArgumentException if no compatible child can be found
      */
-    @Nonnull
-    public CompletableFuture<ResolvedKeySpacePath> findChildForValue(@Nonnull FDBRecordContext context,
+    // Tuple.from below intentionally accepts a null value here (an unannotated, external API conservatively
+    // treated by NullAway as requiring non-null); a null value is a meaningful, supported keyspace path
+    // value, and Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
+    public CompletableFuture<ResolvedKeySpacePath> findChildForValue(FDBRecordContext context,
                                                                      @Nullable ResolvedKeySpacePath parent,
                                                                      @Nullable Object value) {
         final Tuple key = Tuple.from(value);
@@ -305,19 +308,18 @@ public class KeySpaceDirectory {
      * @return a future that completes with the matching keyspace path
      * @throws RecordCoreArgumentException if no compatible child can be found
      */
-    @Nonnull
-    protected CompletableFuture<ResolvedKeySpacePath> findChildForKey(@Nonnull FDBRecordContext context,
+    protected CompletableFuture<ResolvedKeySpacePath> findChildForKey(FDBRecordContext context,
                                                                       @Nullable ResolvedKeySpacePath parent,
-                                                                      @Nonnull Tuple key,
+                                                                      Tuple key,
                                                                       final int keySize,
                                                                       final int keyIndex) {
         return nextChildForKey(0, context, parent, key, keySize, keyIndex);
     }
 
     protected CompletableFuture<ResolvedKeySpacePath> nextChildForKey(final int childIndex,
-                                                                      @Nonnull FDBRecordContext context,
+                                                                      FDBRecordContext context,
                                                                       @Nullable ResolvedKeySpacePath parent,
-                                                                      @Nonnull Tuple key,
+                                                                      Tuple key,
                                                                       final int keySize,
                                                                       final int keyIndex) {
         if (childIndex >= subdirs.size()) {
@@ -344,8 +346,10 @@ public class KeySpaceDirectory {
      * @throws RecordCoreArgumentException if a subdirectory of the same name already exists, or a subdirectory of the
      *   same type already exists with the same constant value
      */
-    @Nonnull
-    public KeySpaceDirectory addSubdirectory(@Nonnull KeySpaceDirectory subdirectory) {
+    // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
+    // even though existingSubdir.getValue() can genuinely be null (an unconstrained directory).
+    @SuppressWarnings("NullAway")
+    public KeySpaceDirectory addSubdirectory(KeySpaceDirectory subdirectory) {
         for (KeySpaceDirectory existingSubdir : subdirsByName.values()) {
             if (existingSubdir.getName().equals(subdirectory.getName())) {
                 throw new RecordCoreArgumentException("Subdirectory already exists",
@@ -410,11 +414,11 @@ public class KeySpaceDirectory {
      * @param dir the existing peer directory
      * @return true if the directories can co-exist, false otherwise
      */
-    protected boolean isCompatible(@Nonnull KeySpaceDirectory parent, @Nonnull KeySpaceDirectory dir) {
+    protected boolean isCompatible(KeySpaceDirectory parent, KeySpaceDirectory dir) {
         return true;
     }
 
-    private void setParent(@Nonnull KeySpaceDirectory parent) {
+    private void setParent(KeySpaceDirectory parent) {
         if (this.parent != null) {
             throw new RecordCoreArgumentException("Cannot re-parent a directory");
         }
@@ -435,8 +439,7 @@ public class KeySpaceDirectory {
      * @return the subdirectory with the specified <code>name</code>
      * @throws NoSuchDirectoryException if the directory does not exist
      */
-    @Nonnull
-    public KeySpaceDirectory getSubdirectory(@Nonnull String name) {
+    public KeySpaceDirectory getSubdirectory(String name) {
         KeySpaceDirectory dir = subdirsByName.get(name);
         if (dir == null) {
             throw new NoSuchDirectoryException(this, name);
@@ -451,32 +454,29 @@ public class KeySpaceDirectory {
      * @param path the path to be wrapped
      * @return the wrapped path or the path provided if no wrapper is installed
      */
-    @Nonnull
-    protected KeySpacePath wrap(@Nonnull KeySpacePath path) {
+    protected KeySpacePath wrap(KeySpacePath path) {
         if (wrapper != null) {
             return wrapper.apply(path);
         }
         return path;
     }
 
-    @Nonnull
     protected RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(@Nullable KeySpacePath listFrom,
-                                                                       @Nonnull FDBRecordContext context,
-                                                                       @Nonnull String subdirName,
+                                                                       FDBRecordContext context,
+                                                                       String subdirName,
                                                                        @Nullable byte[] continuation,
-                                                                       @Nonnull ScanProperties scanProperties) {
+                                                                       ScanProperties scanProperties) {
         return listSubdirectoryAsync(listFrom, context, subdirName, null, continuation, scanProperties);
     }
 
-    @Nonnull
     @SuppressWarnings({"squid:S2095", // SonarQube doesn't realize that the cursor is wrapped and returned
                        "PMD.CompareObjectsWithEquals"})
     protected RecordCursor<ResolvedKeySpacePath> listSubdirectoryAsync(@Nullable KeySpacePath listFrom,
-                                                                       @Nonnull FDBRecordContext context,
-                                                                       @Nonnull String subdirName,
+                                                                       FDBRecordContext context,
+                                                                       String subdirName,
                                                                        @Nullable ValueRange<?> valueRange,
                                                                        @Nullable byte[] continuation,
-                                                                       @Nonnull ScanProperties scanProperties) {
+                                                                       ScanProperties scanProperties) {
         if (listFrom != null && listFrom.getDirectory() != this) {
             throw new RecordCoreException("Provided path does not belong to this directory")
                     .addLogInfo("path", listFrom, "directory", this.getName());
@@ -526,11 +526,13 @@ public class KeySpaceDirectory {
         );
     }
 
-    @Nonnull
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private CompletableFuture<KeyRange> getValueRange(@Nonnull FDBRecordContext context,
+    // Tuple.from below intentionally accepts a null resolved value (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); PathValue.getResolvedValue() is
+    // genuinely nullable, and Tuple encodes a null element just fine.
+    @SuppressWarnings({"PMD.CompareObjectsWithEquals", "NullAway"})
+    private CompletableFuture<KeyRange> getValueRange(FDBRecordContext context,
                                                       @Nullable ValueRange<?> valueRange,
-                                                      @Nonnull Subspace subspace) {
+                                                      Subspace subspace) {
         final byte[] startKey;
         final byte[] stopKey;
         final EndpointType startType;
@@ -598,12 +600,15 @@ public class KeySpaceDirectory {
                 LogMessageKeys.RANGE, range);
     }
 
-    @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<Optional<Tuple>> nextTuple(@Nonnull FDBRecordContext context,
-                                                         @Nonnull Subspace subspace,
-                                                         @Nonnull KeyRange range,
-                                                         @Nonnull Optional<Tuple> lastTuple,
-                                                         @Nonnull ScanProperties scanProperties) {
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+    // parameters of KeyValueCursorBase.Builder#setContinuation (out of
+    // scope to fix here); null intentionally means "start from the beginning".
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"})
+    private CompletableFuture<Optional<Tuple>> nextTuple(FDBRecordContext context,
+                                                         Subspace subspace,
+                                                         KeyRange range,
+                                                         Optional<Tuple> lastTuple,
+                                                         ScanProperties scanProperties) {
         final KeyValueCursor cursor;
         if (!lastTuple.isPresent()) {
             cursor = KeyValueCursor.Builder.withSubspace(subspace)
@@ -631,7 +636,7 @@ public class KeySpaceDirectory {
 
         return cursor.onNext().thenApply(next -> {
             if (next.hasNext()) {
-                KeyValue kv = next.get();
+                KeyValue kv = Objects.requireNonNull(next.get());
                 return Optional.of(subspace.unpack(kv.getKey()));
             }
             return Optional.empty();
@@ -642,7 +647,6 @@ public class KeySpaceDirectory {
      * Returns the set of subdirectories contained within this directory.
      * @return the set of subdirectories contained within this directory
      */
-    @Nonnull
     public List<KeySpaceDirectory> getSubdirectories() {
         return subdirs;
     }
@@ -655,8 +659,7 @@ public class KeySpaceDirectory {
      * @param value the value to be resolved
      * @return a future containing the resolved value
      */
-    @Nonnull
-    protected final CompletableFuture<PathValue> toTupleValueAsync(@Nonnull FDBRecordContext context, @Nullable Object value) {
+    protected final CompletableFuture<PathValue> toTupleValueAsync(FDBRecordContext context, @Nullable Object value) {
         return toTupleValueAsyncImpl(context, value)
                 .thenApply( pathValue -> {
                     validateResolvedValue(pathValue.getResolvedValue());
@@ -665,7 +668,7 @@ public class KeySpaceDirectory {
     }
 
     @Nullable
-    protected PathValue toTupleValue(@Nonnull FDBRecordContext context, @Nullable Object value) {
+    protected PathValue toTupleValue(FDBRecordContext context, @Nullable Object value) {
         return context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, toTupleValueAsync(context, value));
     }
 
@@ -680,8 +683,10 @@ public class KeySpaceDirectory {
      * @throws RecordCoreArgumentException if the value provided for this directory is incompatible with the
      *   definition of this directory
      */
-    @Nonnull
-    protected CompletableFuture<PathValue> toTupleValueAsyncImpl(@Nonnull FDBRecordContext context, @Nullable Object value) {
+    // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
+    // even though value can genuinely be null.
+    @SuppressWarnings("NullAway")
+    protected CompletableFuture<PathValue> toTupleValueAsyncImpl(FDBRecordContext context, @Nullable Object value) {
         if (this.isConstant() && !areEqual(this.value, value)) {
             throw new RecordCoreArgumentException("Illegal value provided",
                     "provided_value", value,
@@ -698,6 +703,9 @@ public class KeySpaceDirectory {
      * @throws RecordCoreArgumentException if the value is not suitable for storing in this directory
      */
     @Nullable
+    // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable
+    // even though value can genuinely be null.
+    @SuppressWarnings("NullAway")
     protected Object validateResolvedValue(@Nullable Object value) {
         if (!keyType.isMatch(value)) {
             throw new RecordCoreArgumentException("Illegal value type provided for directory",
@@ -723,7 +731,6 @@ public class KeySpaceDirectory {
      * Returns the name of this directory.
      * @return the name of this directory
      */
-    @Nonnull
     public String getName() {
         return name;
     }
@@ -733,7 +740,6 @@ public class KeySpaceDirectory {
      * directory implementation to ornament the name in any fashion it sees fit.
      * @return the display name of the directory in the tree output
      */
-    @Nonnull
     public String getNameInTree() {
         return name;
     }
@@ -742,7 +748,6 @@ public class KeySpaceDirectory {
      * Returns the type of values this directory stores.
      * @return the type of values this directory stores
      */
-    @Nonnull
     public KeyType getKeyType() {
         return keyType;
     }
@@ -860,7 +865,7 @@ public class KeySpaceDirectory {
             }
         } catch (IOException e) {
             // Should never happen
-            throw new RecordCoreException(e.getMessage(), e);
+            throw new RecordCoreException(Objects.requireNonNullElse(e.getMessage(), "error writing keyspace directory tree"), e);
         }
     }
 
@@ -927,8 +932,7 @@ public class KeySpaceDirectory {
         UUID(UUID.class, (byte) 0x30, (byte) 0x31);
 
         // Function that tests a value to see if it is of this type
-        @Nonnull
-        final Function<Object, Boolean> matcher;
+        final Function<@Nullable Object, Boolean> matcher;
         // Value used by a directory to indicate that it can accept any value of this type
         @Nullable
         final Object anyValue;
@@ -936,15 +940,15 @@ public class KeySpaceDirectory {
         final byte typeLowBounds;
         final byte typeHighBounds;
 
-        KeyType(@Nonnull Class<?> expectedType, byte typeLowBounds, byte typeHighBounds) {
+        KeyType(Class<?> expectedType, byte typeLowBounds, byte typeHighBounds) {
             this(v -> v != null && expectedType.isAssignableFrom(v.getClass()), ANY_VALUE, typeLowBounds, typeHighBounds);
         }
 
-        KeyType(@Nonnull Function<Object, Boolean> matcher, byte typeLowBounds, byte typeHighBounds) {
+        KeyType(Function<@Nullable Object, Boolean> matcher, byte typeLowBounds, byte typeHighBounds) {
             this(matcher, ANY_VALUE, typeLowBounds, typeHighBounds);
         }
 
-        KeyType(@Nonnull Function<Object, Boolean> matcher, @Nullable Object anyValue,
+        KeyType(Function<@Nullable Object, Boolean> matcher, @Nullable Object anyValue,
                 byte typeLowBounds, byte typeHighBounds) {
             this.matcher = matcher;
             this.typeLowBounds = typeLowBounds;
@@ -961,6 +965,7 @@ public class KeySpaceDirectory {
             return matcher.apply(value);
         }
 
+        @Nullable
         public Object getAnyValue() {
             return anyValue;
         }
@@ -973,6 +978,10 @@ public class KeySpaceDirectory {
             return typeHighBounds;
         }
 
+        // RecordCoreArgumentException's varargs constructor parameter is not annotated @Nullable;
+        // value is guaranteed non-null here because the NULL type's matcher (v -> v == null)
+        // would already have matched and returned above if value were null.
+        @SuppressWarnings("NullAway")
         public static KeyType typeOf(@Nullable Object value) {
             for (KeyType type : values()) {
                 if (type.matcher.apply(value)) {
@@ -982,7 +991,7 @@ public class KeySpaceDirectory {
 
             throw new RecordCoreArgumentException("No directory type matches value",
                     "value", value,
-                    "value_type", value.getClass().getName());
+                    "value_type", Objects.requireNonNull(value).getClass().getName());
         }
     }
 

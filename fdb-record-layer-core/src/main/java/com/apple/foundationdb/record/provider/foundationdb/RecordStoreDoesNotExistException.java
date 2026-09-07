@@ -23,8 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Exception thrown when {@link FDBRecordStore.Builder#open} is called, but the record store does not exist yet.
@@ -33,7 +32,7 @@ import javax.annotation.Nullable;
 @SuppressWarnings("serial")
 @API(API.Status.UNSTABLE)
 public class RecordStoreDoesNotExistException extends RecordCoreStorageException {
-    public RecordStoreDoesNotExistException(@Nonnull String msg, @Nullable Object ... keyValues) {
+    public RecordStoreDoesNotExistException(String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
     }
 }

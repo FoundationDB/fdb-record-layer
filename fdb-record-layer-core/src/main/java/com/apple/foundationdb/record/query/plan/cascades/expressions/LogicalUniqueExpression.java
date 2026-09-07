@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
 
@@ -41,14 +40,13 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class LogicalUniqueExpression extends AbstractRelationalExpressionWithChildren {
-    @Nonnull
     private final Quantifier inner;
 
-    public LogicalUniqueExpression(@Nonnull Reference innerRef) {
+    public LogicalUniqueExpression(Reference innerRef) {
         this(Quantifier.forEach(innerRef));
     }
 
-    public LogicalUniqueExpression(@Nonnull Quantifier inner) {
+    public LogicalUniqueExpression(Quantifier inner) {
         this.inner = inner;
     }
 
@@ -57,27 +55,23 @@ public class LogicalUniqueExpression extends AbstractRelationalExpressionWithChi
         return 1;
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public LogicalUniqueExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public LogicalUniqueExpression translateCorrelations(final TranslationMap translationMap,
                                                          final boolean shouldSimplifyValues,
-                                                         @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                         final List<? extends Quantifier> translatedQuantifiers) {
         return new LogicalUniqueExpression(Iterables.getOnlyElement(translatedQuantifiers));
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return inner.getFlowedObjectValue();
@@ -85,7 +79,7 @@ public class LogicalUniqueExpression extends AbstractRelationalExpressionWithChi
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalences) {
+    public boolean equalsWithoutChildren(final RelationalExpression otherExpression, final AliasMap equivalences) {
         if (this == otherExpression) {
             return true;
         }

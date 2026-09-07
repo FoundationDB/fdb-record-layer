@@ -51,6 +51,10 @@ public class FDBComparatorPlanAbortEnabledTest extends FDBComparatorPlanTest {
     }
 
     @Override
+    // The base method's return type is non-null (other overrides genuinely return a result), but this
+    // override's assertThrows() call always throws before reaching the return statement -- the return null
+    // here is unreachable at runtime and exists only to satisfy the compiler.
+    @SuppressWarnings("NullAway")
     protected RecordCursorResult<FDBQueriedRecord<Message>> assertDifferentPlansWithContinuation(
             final RecordQueryPlan planUnderTest,
             final byte[] continuation,

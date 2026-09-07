@@ -35,8 +35,8 @@ import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,7 +49,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * specific tests here.
  */
 class ArrayAggValueTest {
-    @Nonnull
     private static final Type LONG_TYPE = Type.primitiveType(Type.TypeCode.LONG, false);
 
     /**
@@ -58,12 +57,10 @@ class ArrayAggValueTest {
      * repository, which is what makes a restored element share its descriptor with a freshly collected one.
      */
     private static final class Fixture {
-        @Nonnull
         private final ArrayAggValue value;
-        @Nonnull
         private final TypeRepository typeRepository;
 
-        private Fixture(@Nonnull final Type elementType, final boolean ignoreNulls) {
+        private Fixture(final Type elementType, final boolean ignoreNulls) {
             // The element type is derived from the child, and `notNullable()` is a no-op for the non-nullable types
             // used here, so the child type doubles as the element type.
             this.value = new ArrayAggValue(new LiteralValue<>(elementType, null), ignoreNulls);
@@ -73,7 +70,6 @@ class ArrayAggValueTest {
             this.typeRepository = TypeRepository.newBuilder().addTypeIfNeeded(value.getResultType()).build();
         }
 
-        @Nonnull
         private Accumulator accumulator() {
             return value.createAccumulatorWithInitialState(typeRepository, null);
         }
@@ -81,8 +77,7 @@ class ArrayAggValueTest {
         /**
          * Restores a new accumulator from the partial state of the given one, in the way a continuation would.
          */
-        @Nonnull
-        private Accumulator restore(@Nonnull final Accumulator accumulator) {
+        private Accumulator restore(final Accumulator accumulator) {
             final List<RecordCursorProto.AccumulatorState> states = accumulator.getAccumulatorStates();
             assertThat(states).hasSize(1);
             return value.createAccumulatorWithInitialState(typeRepository, states);
@@ -92,11 +87,10 @@ class ArrayAggValueTest {
          * Builds a two-field record message against this fixture's repository, i.e. the way an element arriving from
          * the input would already be represented.
          */
-        @Nonnull
-        private Message record(@Nonnull final Type.Record recordType, final long a, final long b) {
+        private Message record(final Type.Record recordType, final long a, final long b) {
             final Descriptors.Descriptor descriptor = typeRepository.getMessageDescriptor(recordType);
             assertThat(descriptor).isNotNull();
-            return DynamicMessage.newBuilder(descriptor)
+            return DynamicMessage.newBuilder(Objects.requireNonNull(descriptor))
                     .setField(descriptor.findFieldByName("a"), a)
                     .setField(descriptor.findFieldByName("b"), b)
                     .build();
@@ -106,16 +100,14 @@ class ArrayAggValueTest {
     /**
      * Returns the aggregated elements of the given accumulator.
      */
-    @Nonnull
     @SuppressWarnings("unchecked")
-    private static List<Object> finish(@Nonnull final Accumulator accumulator) {
-        return (List<Object>)accumulator.finish();
+    private static List<Object> finish(final Accumulator accumulator) {
+        return (List<Object>) Objects.requireNonNull(accumulator.finish());
     }
 
     /**
      * The two-field record type used by the record-element tests.
      */
-    @Nonnull
     private static Type.Record recordElementType() {
         return Type.Record.fromFields(false, List.of(
                 Type.Record.Field.of(LONG_TYPE, Optional.of("a")),

@@ -61,8 +61,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -96,43 +95,37 @@ import static org.junit.jupiter.api.Assertions.fail;
  * <i>seem</i> like they should be illegal but are actually fine.
  */
 class MetaDataEvolutionValidatorTest {
-    @Nonnull
     private final MetaDataEvolutionValidator validator = MetaDataEvolutionValidator.getDefaultInstance();
 
-    static void assertInvalid(@Nonnull String errMsg, @Nonnull MetaDataEvolutionValidator validator,
-                              @Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData) {
+    static void assertInvalid(String errMsg, MetaDataEvolutionValidator validator,
+                              RecordMetaData oldMetaData, RecordMetaData newMetaData) {
         MetaDataException err = assertThrows(MetaDataException.class, () -> validator.validate(oldMetaData, newMetaData));
         assertThat(err.getMessage(), containsString(errMsg));
     }
 
-    static void assertInvalid(@Nonnull String errMsg, @Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData) {
+    static void assertInvalid(String errMsg, RecordMetaData oldMetaData, RecordMetaData newMetaData) {
         assertInvalid(errMsg, MetaDataEvolutionValidator.getDefaultInstance(), oldMetaData, newMetaData);
     }
 
-    static void assertInvalid(@Nonnull String errMsg, @Nonnull MetaDataEvolutionValidator validator,
-                              @Nonnull Descriptor oldUnionDescriptor, @Nonnull Descriptor newUnionDescriptor) {
+    static void assertInvalid(String errMsg, MetaDataEvolutionValidator validator,
+                              Descriptor oldUnionDescriptor, Descriptor newUnionDescriptor) {
         MetaDataException err = assertThrows(MetaDataException.class, () -> validator.validateUnion(oldUnionDescriptor, newUnionDescriptor));
         assertThat(err.getMessage(), containsString(errMsg));
     }
 
-    static void assertInvalid(@Nonnull String errMsg, @Nonnull Descriptor oldUnionDescriptor, @Nonnull Descriptor newUnionDescriptor) {
+    static void assertInvalid(String errMsg, Descriptor oldUnionDescriptor, Descriptor newUnionDescriptor) {
         assertInvalid(errMsg, MetaDataEvolutionValidator.getDefaultInstance(), oldUnionDescriptor, newUnionDescriptor);
     }
 
-    static void assertInvalid(@Nonnull String errMsg, @Nonnull FileDescriptor oldFileDescriptor, @Nonnull FileDescriptor newFileDescriptor) {
+    static void assertInvalid(String errMsg, FileDescriptor oldFileDescriptor, FileDescriptor newFileDescriptor) {
         assertInvalid(errMsg, oldFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME), newFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
     }
 
     private static class FieldRenameChecker {
-        @Nonnull
         private final MetaDataEvolutionValidator baseValidator;
-        @Nonnull
         private final MetaDataEvolutionValidator noRenamesValidator;
-        @Nonnull
         private final MetaDataEvolutionValidator deprecatedOnlyValidator;
-        @Nonnull
         private final MetaDataEvolutionValidator anyRenameValidator;
-        @Nonnull
         private final MetaDataEvolutionValidator allRenamesValidator;
 
         public FieldRenameChecker(MetaDataEvolutionValidator baseValidator) {
@@ -171,19 +164,18 @@ class MetaDataEvolutionValidatorTest {
             assertTrue(allRenamesValidator.allowsFieldRenames());
         }
 
-        @Nonnull
         public MetaDataEvolutionValidator getBaseValidator() {
             return baseValidator;
         }
 
-        public void assertInvalidRenaming(@Nonnull String errMsg, boolean deprecatedOnly, @Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData) {
+        public void assertInvalidRenaming(String errMsg, boolean deprecatedOnly, RecordMetaData oldMetaData, RecordMetaData newMetaData) {
             assertInvalid("field renamed", noRenamesValidator, oldMetaData, newMetaData);
             assertInvalid(deprecatedOnly ? errMsg : "field renamed", deprecatedOnlyValidator, oldMetaData, newMetaData);
             assertInvalid(errMsg, anyRenameValidator, oldMetaData, newMetaData);
             assertInvalid(errMsg, allRenamesValidator, oldMetaData, newMetaData);
         }
 
-        public void assertValidRenaming(boolean deprecatedOnly, @Nonnull RecordMetaData oldMetaData, @Nonnull RecordMetaData newMetaData) {
+        public void assertValidRenaming(boolean deprecatedOnly, RecordMetaData oldMetaData, RecordMetaData newMetaData) {
             assertInvalid("field renamed", noRenamesValidator, oldMetaData, newMetaData);
             if (deprecatedOnly) {
                 deprecatedOnlyValidator.validate(oldMetaData, newMetaData);
@@ -194,11 +186,11 @@ class MetaDataEvolutionValidatorTest {
             allRenamesValidator.validate(oldMetaData, newMetaData);
         }
 
-        public void assertValidRenaming(boolean deprecatedOnly, @Nonnull FileDescriptor oldFileDescriptor, @Nonnull FileDescriptor newFileDescriptor) {
+        public void assertValidRenaming(boolean deprecatedOnly, FileDescriptor oldFileDescriptor, FileDescriptor newFileDescriptor) {
             assertValidRenaming(deprecatedOnly, oldFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME), newFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME));
         }
 
-        public void assertValidRenaming(boolean deprecatedOnly, @Nonnull Descriptor oldUnionDescriptor, @Nonnull Descriptor newUnionDescriptor) {
+        public void assertValidRenaming(boolean deprecatedOnly, Descriptor oldUnionDescriptor, Descriptor newUnionDescriptor) {
             assertInvalid("field renamed", noRenamesValidator, oldUnionDescriptor, newUnionDescriptor);
             if (deprecatedOnly) {
                 deprecatedOnlyValidator.validateUnion(oldUnionDescriptor, newUnionDescriptor);
@@ -244,9 +236,8 @@ class MetaDataEvolutionValidatorTest {
 
     // Schema evolution tests
 
-    @Nonnull
-    static RecordMetaData replaceRecordsDescriptor(@Nonnull RecordMetaData metaData, @Nonnull FileDescriptor newDescriptor,
-                                                    @Nonnull Consumer<RecordMetaDataProto.MetaData.Builder> metaDataMutation) {
+    static RecordMetaData replaceRecordsDescriptor(RecordMetaData metaData, FileDescriptor newDescriptor,
+                                                    Consumer<RecordMetaDataProto.MetaData.Builder> metaDataMutation) {
         RecordMetaDataProto.MetaData.Builder protoBuilder = metaData.toProto().toBuilder()
                 .setVersion(metaData.getVersion() + 1)
                 .setRecords(newDescriptor.toProto())
@@ -255,13 +246,11 @@ class MetaDataEvolutionValidatorTest {
         return RecordMetaData.build(protoBuilder.build());
     }
 
-    @Nonnull
-    static RecordMetaData replaceRecordsDescriptor(@Nonnull RecordMetaData metaData, @Nonnull FileDescriptor newDescriptor) {
+    static RecordMetaData replaceRecordsDescriptor(RecordMetaData metaData, FileDescriptor newDescriptor) {
         return replaceRecordsDescriptor(metaData, newDescriptor, ignore -> { });
     }
 
-    @Nonnull
-    static FileDescriptor mutateFile(@Nonnull FileDescriptor originalFile, @Nonnull Consumer<DescriptorProtos.FileDescriptorProto.Builder> fileMutation) {
+    static FileDescriptor mutateFile(FileDescriptor originalFile, Consumer<DescriptorProtos.FileDescriptorProto.Builder> fileMutation) {
         DescriptorProtos.FileDescriptorProto.Builder fileBuilder = originalFile.toProto().toBuilder();
         fileMutation.accept(fileBuilder);
         try {
@@ -271,13 +260,11 @@ class MetaDataEvolutionValidatorTest {
         }
     }
 
-    @Nonnull
-    static FileDescriptor mutateFile(@Nonnull Consumer<DescriptorProtos.FileDescriptorProto.Builder> fileMutation) {
+    static FileDescriptor mutateFile(Consumer<DescriptorProtos.FileDescriptorProto.Builder> fileMutation) {
         return mutateFile(TestRecords1Proto.getDescriptor(), fileMutation);
     }
 
-    @Nonnull
-    static FileDescriptor mutateMessageType(@Nonnull String messageName, @Nonnull FileDescriptor originalFile, @Nonnull Consumer<DescriptorProtos.DescriptorProto.Builder> typeMutation) {
+    static FileDescriptor mutateMessageType(String messageName, FileDescriptor originalFile, Consumer<DescriptorProtos.DescriptorProto.Builder> typeMutation) {
         return mutateFile(originalFile, fileBuilder ->
                 fileBuilder.getMessageTypeBuilderList().forEach(message -> {
                     if (message.getName().equals(messageName)) {
@@ -287,14 +274,12 @@ class MetaDataEvolutionValidatorTest {
         );
     }
 
-    @Nonnull
-    static FileDescriptor mutateMessageType(@Nonnull String messageName, @Nonnull Consumer<DescriptorProtos.DescriptorProto.Builder> typeMutation) {
+    static FileDescriptor mutateMessageType(String messageName, Consumer<DescriptorProtos.DescriptorProto.Builder> typeMutation) {
         return mutateMessageType(messageName, TestRecords1Proto.getDescriptor(), typeMutation);
     }
 
-    @Nonnull
-    static FileDescriptor mutateField(@Nonnull String messageName, @Nonnull String fieldName, @Nonnull FileDescriptor originalFile,
-                                      @Nonnull Consumer<DescriptorProtos.FieldDescriptorProto.Builder> fieldMutation) {
+    static FileDescriptor mutateField(String messageName, String fieldName, FileDescriptor originalFile,
+                                      Consumer<DescriptorProtos.FieldDescriptorProto.Builder> fieldMutation) {
         return mutateMessageType(messageName, originalFile, message ->
                 message.getFieldBuilderList().forEach(field -> {
                     if (field.getName().equals(fieldName)) {
@@ -304,13 +289,11 @@ class MetaDataEvolutionValidatorTest {
         );
     }
 
-    @Nonnull
-    static FileDescriptor mutateField(@Nonnull String messageName, @Nonnull String fieldName, @Nonnull Consumer<DescriptorProtos.FieldDescriptorProto.Builder> fieldMutation) {
+    static FileDescriptor mutateField(String messageName, String fieldName, Consumer<DescriptorProtos.FieldDescriptorProto.Builder> fieldMutation) {
         return mutateField(messageName, fieldName, TestRecords1Proto.getDescriptor(), fieldMutation);
     }
 
-    @Nonnull
-    static DescriptorProtos.FieldDescriptorProto.Builder addField(@Nonnull DescriptorProtos.DescriptorProto.Builder message) {
+    static DescriptorProtos.FieldDescriptorProto.Builder addField(DescriptorProtos.DescriptorProto.Builder message) {
         int maxFieldNumber = message.getFieldBuilderList().stream()
                 .mapToInt(DescriptorProtos.FieldDescriptorProto.Builder::getNumber)
                 .max()
@@ -319,7 +302,7 @@ class MetaDataEvolutionValidatorTest {
                 .setNumber(maxFieldNumber + 1);
     }
 
-    static void deprecateField(@Nonnull DescriptorProtos.FieldDescriptorProto.Builder field) {
+    static void deprecateField(DescriptorProtos.FieldDescriptorProto.Builder field) {
         field.getOptionsBuilder().setDeprecated(true);
     }
 
@@ -945,7 +928,6 @@ class MetaDataEvolutionValidatorTest {
         fieldRenameChecker.assertValidRenaming(false, metaData1, replaceRecordsDescriptor(metaData1, renamedFile));
     }
 
-    @Nonnull
     static Stream<Named<Boolean>> deprecatedArgs() {
         return ParameterizedTestUtils.booleans("deprecated");
     }
@@ -1071,7 +1053,7 @@ class MetaDataEvolutionValidatorTest {
         fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData4);
     }
 
-    private void updateNameField(@Nonnull DescriptorProtos.DescriptorProto.Builder descriptor, boolean deprecateOld) {
+    private void updateNameField(DescriptorProtos.DescriptorProto.Builder descriptor, boolean deprecateOld) {
         // Rename name to name_a
         descriptor.getFieldBuilderList().stream()
                 .filter(field -> field.getName().equals("name"))
@@ -1679,8 +1661,7 @@ class MetaDataEvolutionValidatorTest {
 
     // Record types tests
 
-    @Nonnull
-    private RecordMetaData addNewRecordType(@Nonnull RecordMetaData metaData, @Nonnull Consumer<RecordMetaDataProto.RecordType.Builder> newRecordTypeHook) {
+    private RecordMetaData addNewRecordType(RecordMetaData metaData, Consumer<RecordMetaDataProto.RecordType.Builder> newRecordTypeHook) {
         RecordMetaDataProto.RecordType.Builder newRecordTypeBuilder = RecordMetaDataProto.RecordType.newBuilder()
                 .setName("NewRecord")
                 .setPrimaryKey(Key.Expressions.field("rec_no").toKeyExpression())
@@ -1695,8 +1676,7 @@ class MetaDataEvolutionValidatorTest {
         );
     }
 
-    @Nonnull
-    private RecordMetaData addNewRecordType(@Nonnull RecordMetaData metaData) {
+    private RecordMetaData addNewRecordType(RecordMetaData metaData) {
         return addNewRecordType(metaData, ignore -> { });
     }
 
@@ -2015,8 +1995,7 @@ class MetaDataEvolutionValidatorTest {
 
     // Index tests
 
-    @Nonnull
-    private RecordMetaDataProto.Index changeOption(@Nonnull RecordMetaDataProto.Index indexProto, @Nonnull String key, @Nullable String value) {
+    private RecordMetaDataProto.Index changeOption(RecordMetaDataProto.Index indexProto, String key, @Nullable String value) {
         RecordMetaDataProto.Index.Builder builder = indexProto.toBuilder();
         boolean found = false;
         for (int i = 0; i < builder.getOptionsCount(); i++) {
@@ -2037,18 +2016,15 @@ class MetaDataEvolutionValidatorTest {
         return builder.build();
     }
 
-    @Nonnull
-    private RecordMetaDataProto.Index makeUnique(@Nonnull RecordMetaDataProto.Index indexProto) {
+    private RecordMetaDataProto.Index makeUnique(RecordMetaDataProto.Index indexProto) {
         return changeOption(indexProto, IndexOptions.UNIQUE_OPTION, "true");
     }
 
-    @Nonnull
-    private RecordMetaDataProto.Index clearOptions(@Nonnull RecordMetaDataProto.Index indexProto) {
+    private RecordMetaDataProto.Index clearOptions(RecordMetaDataProto.Index indexProto) {
         return indexProto.toBuilder().clearOptions().build();
     }
 
-    @Nonnull
-    private RecordMetaData replaceIndex(@Nonnull RecordMetaData metaData, @Nonnull String indexName, UnaryOperator<RecordMetaDataProto.Index> indexReplacement) {
+    private RecordMetaData replaceIndex(RecordMetaData metaData, String indexName, UnaryOperator<RecordMetaDataProto.Index> indexReplacement) {
         RecordMetaDataProto.MetaData metaDataProto = metaData.toProto();
         RecordMetaDataProto.MetaData.Builder metaDataProtoBuilder = metaDataProto.toBuilder();
         metaDataProtoBuilder.setVersion(metaData.getVersion() + 1);
@@ -2154,7 +2130,7 @@ class MetaDataEvolutionValidatorTest {
         laxerValidator.validate(metaData1, metaData2);
     }
 
-    private void validateIndexMutation(@Nonnull String errMsg, @Nonnull RecordMetaData metaData1, @Nonnull String indexName, UnaryOperator<RecordMetaDataProto.Index> indexReplacement) {
+    private void validateIndexMutation(String errMsg, RecordMetaData metaData1, String indexName, UnaryOperator<RecordMetaDataProto.Index> indexReplacement) {
         MetaDataEvolutionValidator laxerValidator = MetaDataEvolutionValidator.newBuilder()
                 .setAllowIndexRebuilds(true)
                 .build();
@@ -2215,6 +2191,10 @@ class MetaDataEvolutionValidatorTest {
     }
 
     @Test
+    // null below is intentional: it clears the primary key component positions. NullAway/JSpecify
+    // does not reliably track @Nullable on array parameters, even though this int[] parameter is
+    // already correctly annotated @Nullable.
+    @SuppressWarnings("NullAway")
     void indexPrimaryKeyComponentsChanged() {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.addIndex("MySimpleRecord", "rec_no", "rec_no");
@@ -2468,12 +2448,12 @@ class MetaDataEvolutionValidatorTest {
     }
 
     private static class IndexValidatorWithNoOptionsCheck extends IndexValidator {
-        public IndexValidatorWithNoOptionsCheck(@Nonnull final Index index) {
+        public IndexValidatorWithNoOptionsCheck(final Index index) {
             super(index);
         }
 
         @Override
-        public void validateChangedOptions(@Nonnull final Index oldIndex, @Nonnull final Set<String> changedOptions) {
+        public void validateChangedOptions(final Index oldIndex, final Set<String> changedOptions) {
             // Always say it's good to go
         }
     }

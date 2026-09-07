@@ -22,8 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-
 /**
  * One entry of a {@link VectorIndexTaskCounts} snapshot: a partition {@code prefix} paired with the number of deferred
  * maintenance tasks currently outstanding for it. A merge streams these (only the positive ones) to decide how much
@@ -33,5 +31,5 @@ import javax.annotation.Nonnull;
  * @param count the number of outstanding tasks recorded for {@code prefix} (always positive when produced by
  *        {@link VectorIndexTaskCounts#prefixesWithOutstandingWork})
  */
-record PrefixTaskCount(@Nonnull Tuple prefix, long count) {
+record PrefixTaskCount(Tuple prefix, long count) {
 }

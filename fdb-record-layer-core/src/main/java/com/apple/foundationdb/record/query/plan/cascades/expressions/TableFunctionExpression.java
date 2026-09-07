@@ -42,8 +42,8 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -56,37 +56,31 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class TableFunctionExpression extends AbstractRelationalExpressionWithoutChildren implements InternalPlannerGraphRewritable {
-    @Nonnull
     private final StreamingValue value;
 
-    public TableFunctionExpression(@Nonnull final StreamingValue value) {
+    public TableFunctionExpression(final StreamingValue value) {
         this.value = value;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return new QueriedValue(value.getResultType());
     }
 
-    @Nonnull
     @Override
     public Set<Type> getDynamicTypes() {
         return value.getDynamicTypes();
     }
 
-    @Nonnull
     public StreamingValue getValue() {
         return value;
     }
 
-    @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return Collections.emptyList();
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return value.getCorrelatedTo();
@@ -94,8 +88,8 @@ public class TableFunctionExpression extends AbstractRelationalExpressionWithout
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -124,12 +118,11 @@ public class TableFunctionExpression extends AbstractRelationalExpressionWithout
         return semanticHashCode();
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public TableFunctionExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public TableFunctionExpression translateCorrelations(final TranslationMap translationMap,
                                                    final boolean shouldSimplifyValues,
-                                                   @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                   final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
         if (translationMap.definesOnlyIdentities()) {
             return this;
@@ -141,12 +134,11 @@ public class TableFunctionExpression extends AbstractRelationalExpressionWithout
         return this;
     }
 
-    @Nonnull
     @Override
-    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
-                                          @Nonnull final AliasMap bindingAliasMap,
-                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
-                                          @Nonnull final EvaluationContext evaluationContext) {
+    public Iterable<MatchInfo> subsumedBy(final RelationalExpression candidateExpression,
+                                          final AliasMap bindingAliasMap,
+                                          final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                          final EvaluationContext evaluationContext) {
         if (!isCompatiblyAndCompletelyBound(bindingAliasMap, candidateExpression.getQuantifiers())) {
             return ImmutableList.of();
         }
@@ -154,20 +146,18 @@ public class TableFunctionExpression extends AbstractRelationalExpressionWithout
         return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, TranslationMap.empty());
     }
 
-    @Nonnull
     @Override
-    public Compensation compensate(@Nonnull final PartialMatch partialMatch,
-                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+    public Compensation compensate(final PartialMatch partialMatch,
+                                   final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nullable final PullUp pullUp,
-                                   @Nonnull final CorrelationIdentifier nestingAlias) {
+                                   final CorrelationIdentifier nestingAlias) {
         // subsumedBy() is based on equality and this expression is always a leaf, thus we return empty here as
         // if there is a match, it's exact
         return Compensation.noCompensation();
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewriteInternalPlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
                         "TFunc",

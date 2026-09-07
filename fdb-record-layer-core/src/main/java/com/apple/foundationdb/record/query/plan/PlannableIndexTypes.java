@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -47,50 +46,42 @@ public class PlannableIndexTypes {
             Sets.newHashSet()
             );
 
-    @Nonnull
     private final Set<String> valueTypes;
-    @Nonnull
     private final Set<String> rankTypes;
-    @Nonnull
     private final Set<String> textTypes;
-    @Nonnull
     private final Set<String> unstoredNonPrimaryKeyTypes;
 
 
     // TODO extend with more in the future?
 
-    public PlannableIndexTypes(@Nonnull Set<String> valueTypes,
-                               @Nonnull Set<String> rankTypes,
-                               @Nonnull Set<String> textTypes) {
+    public PlannableIndexTypes(Set<String> valueTypes,
+                               Set<String> rankTypes,
+                               Set<String> textTypes) {
         this(valueTypes, rankTypes, textTypes, Sets.newHashSet());
     }
 
-    public PlannableIndexTypes(@Nonnull Set<String> valueTypes,
-                               @Nonnull Set<String> rankTypes,
-                               @Nonnull Set<String> textTypes,
-                               @Nonnull Set<String> unstoredNonPrimaryKeyTypes) {
+    public PlannableIndexTypes(Set<String> valueTypes,
+                               Set<String> rankTypes,
+                               Set<String> textTypes,
+                               Set<String> unstoredNonPrimaryKeyTypes) {
         this.valueTypes = valueTypes;
         this.rankTypes = rankTypes;
         this.textTypes = textTypes;
         this.unstoredNonPrimaryKeyTypes = unstoredNonPrimaryKeyTypes;
     }
 
-    @Nonnull
     public Set<String> getValueTypes() {
         return valueTypes;
     }
 
-    @Nonnull
     public Set<String> getRankTypes() {
         return rankTypes;
     }
 
-    @Nonnull
     public Set<String> getTextTypes() {
         return textTypes;
     }
 
-    @Nonnull
     public Set<String> getUnstoredNonPrimaryKeyTypes() {
         return unstoredNonPrimaryKeyTypes;
     }

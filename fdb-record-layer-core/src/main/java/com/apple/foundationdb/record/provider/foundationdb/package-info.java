@@ -39,4 +39,7 @@
  * A query returns a {@link com.apple.foundationdb.record.RecordCursor} of {@link com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord FDBQueriedRecord}s, which extend {@code FDBStoredRecord}.
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.record.provider.foundationdb;
+
+import org.jspecify.annotations.NullMarked;

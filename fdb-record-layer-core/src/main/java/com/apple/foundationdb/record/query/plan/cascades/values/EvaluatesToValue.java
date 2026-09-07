@@ -39,8 +39,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -54,42 +53,37 @@ public class EvaluatesToValue extends AbstractValue implements Value.RangeMatcha
         IS_NOT_NULL
     }
 
-    @Nonnull
     private final Value child;
-    @Nonnull
     private final Evaluation evaluation;
 
-    private EvaluatesToValue(@Nonnull final Value child, @Nonnull final Evaluation evaluation) {
+    private EvaluatesToValue(final Value child, final Evaluation evaluation) {
         this.child = child;
         this.evaluation = evaluation;
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, evaluation, child);
     }
 
-    @Nonnull
     @Override
     public Value getChild() {
         return child;
     }
 
-    @Nonnull
     public Evaluation getEvaluation() {
         return evaluation;
     }
 
-    @Nonnull
     @Override
-    public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
+    public ValueWithChild withNewChild(final Value rebasedChild) {
         return of(rebasedChild, evaluation);
     }
 
     @Nullable
     @Override
     public <M extends Message> Boolean eval(@Nullable final FDBRecordStoreBase<M> store,
-                                            @Nonnull final EvaluationContext context) {
+                                            final EvaluationContext context) {
         final var value = child.eval(store, context);
         switch (evaluation) {
             case IS_TRUE:
@@ -107,7 +101,7 @@ public class EvaluatesToValue extends AbstractValue implements Value.RangeMatcha
 
     @Nullable
     @Override
-    public Boolean evalWithoutStore(@Nonnull final EvaluationContext context) {
+    public Boolean evalWithoutStore(final EvaluationContext context) {
         return eval(null, context);
     }
 
@@ -118,9 +112,8 @@ public class EvaluatesToValue extends AbstractValue implements Value.RangeMatcha
         return semanticEquals(o, AliasMap.emptyMap());
     }
 
-    @Nonnull
     @Override
-    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(final Value other) {
         return super.equalsWithoutChildren(other)
                 .filter(ignored -> evaluation.equals(((EvaluatesToValue)other).getEvaluation()));
     }
@@ -135,18 +128,16 @@ public class EvaluatesToValue extends AbstractValue implements Value.RangeMatcha
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, evaluation);
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var child = Iterables.getOnlyElement(explainSuppliers).get().getExplainTokens();
         return ExplainTokensWithPrecedence.of(ExplainTokensWithPrecedence.Precedence.ALWAYS_PARENS,
                 child.addWhitespace().addIdentifier("EVALUATES").addWhitespace().addKeyword("TO")
                         .addWhitespace().addIdentifier(evaluation.toString()));
     }
 
-    @Nonnull
     @Override
-    public PEvaluatesToValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PEvaluatesToValue toProto(final PlanSerializationContext serializationContext) {
         final PEvaluation evaluationProto;
         switch (evaluation) {
             case IS_TRUE:
@@ -171,15 +162,13 @@ public class EvaluatesToValue extends AbstractValue implements Value.RangeMatcha
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder().setEvaluatesToValue(toProto(serializationContext)).build();
     }
 
-    @Nonnull
-    public static EvaluatesToValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                             @Nonnull final PEvaluatesToValue ofTypeValueProto) {
+    public static EvaluatesToValue fromProto(final PlanSerializationContext serializationContext,
+                                             final PEvaluatesToValue ofTypeValueProto) {
         final Evaluation evaluation;
         final PEvaluation evaluationProto = ofTypeValueProto.getEvaluation();
         switch (evaluationProto) {
@@ -201,34 +190,28 @@ public class EvaluatesToValue extends AbstractValue implements Value.RangeMatcha
         return of(Value.fromValueProto(serializationContext, Objects.requireNonNull(ofTypeValueProto.getChild())), evaluation);
     }
 
-    @Nonnull
-    private static EvaluatesToValue of(@Nonnull final Value value, @Nonnull final Evaluation evaluation) {
+    private static EvaluatesToValue of(final Value value, final Evaluation evaluation) {
         return new EvaluatesToValue(value, evaluation);
     }
 
-    @Nonnull
-    public static EvaluatesToValue isTrue(@Nonnull final Value value) {
+    public static EvaluatesToValue isTrue(final Value value) {
         return of(value, Evaluation.IS_TRUE);
     }
 
-    @Nonnull
-    public static EvaluatesToValue isFalse(@Nonnull final Value value) {
+    public static EvaluatesToValue isFalse(final Value value) {
         return of(value, Evaluation.IS_FALSE);
     }
 
-    @Nonnull
-    public static EvaluatesToValue isNull(@Nonnull final Value value) {
+    public static EvaluatesToValue isNull(final Value value) {
         return of(value, Evaluation.IS_NULL);
     }
 
-    @Nonnull
-    public static EvaluatesToValue isNotNull(@Nonnull final Value value) {
+    public static EvaluatesToValue isNotNull(final Value value) {
         return of(value, Evaluation.IS_NOT_NULL);
     }
 
-    @Nonnull
-    public static EvaluatesToValue of(@Nonnull final ConstantObjectValue constantObjectValue,
-                                      @Nonnull final EvaluationContext evaluationContext) {
+    public static EvaluatesToValue of(final ConstantObjectValue constantObjectValue,
+                                      final EvaluationContext evaluationContext) {
         final var plainValue = constantObjectValue.evalWithoutStore(evaluationContext);
         if (plainValue == null) {
             return isNull(constantObjectValue);
@@ -241,7 +224,6 @@ public class EvaluatesToValue extends AbstractValue implements Value.RangeMatcha
         }
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of(getChild());
@@ -252,16 +234,14 @@ public class EvaluatesToValue extends AbstractValue implements Value.RangeMatcha
      */
     @AutoService(PlanDeserializer.class)
     public static class Deserializer implements PlanDeserializer<PEvaluatesToValue, EvaluatesToValue> {
-        @Nonnull
         @Override
         public Class<PEvaluatesToValue> getProtoMessageClass() {
             return PEvaluatesToValue.class;
         }
 
-        @Nonnull
         @Override
-        public EvaluatesToValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                     @Nonnull final PEvaluatesToValue ofTypeValueProto) {
+        public EvaluatesToValue fromProto(final PlanSerializationContext serializationContext,
+                                     final PEvaluatesToValue ofTypeValueProto) {
             return EvaluatesToValue.fromProto(serializationContext, ofTypeValueProto);
         }
     }

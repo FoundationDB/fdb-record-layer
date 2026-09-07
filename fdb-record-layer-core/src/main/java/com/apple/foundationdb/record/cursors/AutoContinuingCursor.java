@@ -33,8 +33,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
@@ -74,9 +74,7 @@ import java.util.function.BiFunction;
 public class AutoContinuingCursor<T> implements RecordCursor<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AutoContinuingCursor.class);
 
-    @Nonnull
     private final FDBDatabaseRunner runner;
-    @Nonnull
     private final BiFunction<FDBRecordContext, byte[], RecordCursor<T>> nextCursorGenerator;
 
     @Nullable
@@ -94,8 +92,8 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
      * @param runner the runner from which it can open new contexts
      * @param nextCursorGenerator the method which can generate the underlying cursor given a record context and a continuation
      */
-    public AutoContinuingCursor(@Nonnull FDBDatabaseRunner runner,
-                                @Nonnull BiFunction<FDBRecordContext, byte[], RecordCursor<T>> nextCursorGenerator) {
+    public AutoContinuingCursor(FDBDatabaseRunner runner,
+                                BiFunction<FDBRecordContext, byte[], RecordCursor<T>> nextCursorGenerator) {
         this(runner, nextCursorGenerator, 0);
     }
 
@@ -107,15 +105,14 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
      *   {@link com.apple.foundationdb.FDBError#TRANSACTION_TOO_OLD}, will be caught and a the cursor automatically
      *   continued
      */
-    public AutoContinuingCursor(@Nonnull FDBDatabaseRunner runner,
-                                @Nonnull BiFunction<FDBRecordContext, byte[], RecordCursor<T>> nextCursorGenerator,
+    public AutoContinuingCursor(FDBDatabaseRunner runner,
+                                BiFunction<FDBRecordContext, byte[], RecordCursor<T>> nextCursorGenerator,
                                 int maxRetriesOnRetriableException) {
         this.runner = runner;
         this.nextCursorGenerator = nextCursorGenerator;
         this.maxRetriesOnRetriableException = maxRetriesOnRetriableException;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         return AsyncUtil.whileTrue(() ->
@@ -128,15 +125,19 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
                         return false;
                     }
                 }), getExecutor())
-                .thenApply(ignore -> lastResult);
+                .thenApply(ignore -> Objects.requireNonNull(lastResult, "lastResult should be set once the retry loop completes"));
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even across explicit null checks.
     private CompletableFuture<RecordCursorResult<T>> onNextWithRetry(final int attempt) {
         if (currentCursor == null) {
             openContextAndGenerateCursor(null);
         }
+        // cursor aliases the currentCursor field (owned/closed elsewhere in this class), not a newly-created resource.
+        @SuppressWarnings("PMD.CloseResource")
+        final RecordCursor<T> cursor = Objects.requireNonNull(currentCursor, "currentCursor should have been initialized above");
 
-        return MoreAsyncUtil.handleOnException(() -> currentCursor.onNext(), exception -> {
+        return MoreAsyncUtil.handleOnException(() -> cursor.onNext(), exception -> {
             if (!FDBExceptions.isRetriable(exception) || attempt >= maxRetriesOnRetriableException) {
                 throw FDBExceptions.wrapException(exception);
             }
@@ -145,8 +146,10 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
         });
     }
 
-    @Nonnull
     @Override
+    // FDBDatabaseRunner#asyncToSync is declared with a plain <T> (not <T extends @Nullable Object>), so NullAway
+    // treats its return as possibly-null even though onNext() guarantees a non-null result here.
+    @SuppressWarnings("NullAway")
     public RecordCursorResult<T> getNext() {
         return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onNext());
     }
@@ -174,14 +177,13 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
         return currentContext == null || currentContext.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return runner.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this) && currentCursor != null) {
             currentCursor.accept(visitor);
         }

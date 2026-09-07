@@ -34,8 +34,8 @@ import com.google.common.escape.Escapers;
 import com.google.common.graph.ImmutableNetwork;
 import com.google.common.graph.Network;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.io.PrintWriter;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -108,11 +108,14 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @param graphAttributes map of global attributes
      * @param clusterProvider for partitioning the graph into clusters if warranted
      */
-    public DotExporter(@Nonnull final ComponentIdProvider<N> vertexIDProvider,
-                       @Nonnull final ComponentAttributeProvider<N> vertexAttributeProvider,
-                       @Nonnull final ComponentAttributeProvider<E> edgeAttributeProvider,
-                       @Nonnull final Map<String, Attribute> graphAttributes,
-                       @Nonnull final ClusterProvider<N, E> clusterProvider) {
+    // the edge id provider is a stub -- dot does not support ids for edges, and
+    // getEdgeID() (which would dereference its result) is never invoked for this exporter
+    @SuppressWarnings("NullAway")
+    public DotExporter(final ComponentIdProvider<N> vertexIDProvider,
+                       final ComponentAttributeProvider<N> vertexAttributeProvider,
+                       final ComponentAttributeProvider<E> edgeAttributeProvider,
+                       final Map<String, Attribute> graphAttributes,
+                       final ClusterProvider<N, E> clusterProvider) {
         super(vertexIDProvider,
                 vertexAttributeProvider,
                 ignored -> null, // dot does not support ids for edges
@@ -129,7 +132,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @return <code>true</code> if it is valid; <code>false</code> otherwise.
      */
     @Override
-    protected boolean isValidId(@Nonnull final String idCandidate) {
+    protected boolean isValidId(final String idCandidate) {
         return ALPHA_DIG.matcher(idCandidate).matches()
                || DOUBLE_QUOTE.matcher(idCandidate).matches()
                || DOT_NUMBER.matcher(idCandidate).matches() || HTML.matcher(idCandidate).matches();
@@ -137,7 +140,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    protected void renderHeader(@Nonnull final ExporterContext context, @Nonnull final ImmutableNetwork<N, E> graph) {
+    protected void renderHeader(final ExporterContext context, final ImmutableNetwork<N, E> graph) {
         final PrintWriter out = context.getPrintWriter();
         if (!graph.allowsParallelEdges()) {
             out.print(DONT_ALLOW_MULTIPLE_EDGES_KEYWORD);
@@ -155,7 +158,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    protected void renderGraphAttributes(@Nonnull final ExporterContext context, @Nonnull final Map<String, Attribute> attributes) {
+    protected void renderGraphAttributes(final ExporterContext context, final Map<String, Attribute> attributes) {
         final PrintWriter out = context.getPrintWriter();
         // graph attributes
         for (final Entry<String, Attribute> attr : attributes.entrySet()) {
@@ -171,7 +174,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    private void renderCorrelations(@Nonnull final ExporterContext context, final N n, final String indentation) {
+    private void renderCorrelations(final ExporterContext context, final N n, final String indentation) {
         final ImmutableNetwork<N, E> network = context.getNetwork();
         final PrintWriter out = context.getPrintWriter();
 
@@ -211,9 +214,8 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
         }
     }
 
-    @Nonnull
-    private List<N> collectCorrelatedNodes(@Nonnull final Network<N, E> network, final N n,
-                                           @Nonnull final Set<CorrelationIdentifier> correlationSources) {
+    private List<N> collectCorrelatedNodes(final Network<N, E> network, final N n,
+                                           final Set<CorrelationIdentifier> correlationSources) {
         final ImmutableList.Builder<N> correlatedNodesBuilder = ImmutableList.builder();
         final Set<E> childrenEdges = network.inEdges(n);
         for (final E currentEdge : childrenEdges) {
@@ -245,7 +247,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     }
 
     @SuppressWarnings({"unchecked", "PMD.CloseResource"})
-    private void renderInvisibleEdges(@Nonnull final ExporterContext context, final N n, final String indentation) {
+    private void renderInvisibleEdges(final ExporterContext context, final N n, final String indentation) {
         final ImmutableNetwork<N, E> network = context.getNetwork();
         final PrintWriter out = context.getPrintWriter();
 
@@ -357,9 +359,9 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    protected void renderNode(@Nonnull final ExporterContext context,
-                              @Nonnull final N node,
-                              @Nonnull final Map<String, Attribute> attributes) {
+    protected void renderNode(final ExporterContext context,
+                              final N node,
+                              final Map<String, Attribute> attributes) {
         final PrintWriter out = context.getPrintWriter();
         out.print(INDENT);
         out.print(getVertexID(node));
@@ -392,11 +394,11 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     @Override
     @SuppressWarnings({"squid:S3358", "PMD.CloseResource"})
-    protected void renderEdge(@Nonnull final ExporterContext context,
+    protected void renderEdge(final ExporterContext context,
                               final boolean isDirected,
-                              @Nonnull final N source,
-                              @Nonnull final N target,
-                              @Nonnull final Map<String, Attribute> attributes) {
+                              final N source,
+                              final N target,
+                              final Map<String, Attribute> attributes) {
         final PrintWriter out = context.getPrintWriter();
         out.print(INDENT);
         out.print(getVertexID(source));
@@ -431,15 +433,15 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     }
 
     @Override
-    protected void renderClusters(@Nonnull final ExporterContext context, @Nonnull final Collection<Cluster<N, E>> clusters) {
+    protected void renderClusters(final ExporterContext context, final Collection<Cluster<N, E>> clusters) {
         renderClusters(context, context.getNetwork().nodes(), clusters, "cluster", INDENT);
     }
 
-    protected void renderClusters(@Nonnull final ExporterContext context,
-                                  @Nonnull final Set<N> currentNodes,
-                                  @Nonnull final Collection<Cluster<N, E>> nestedClusters,
-                                  @Nonnull final String prefix,
-                                  @Nonnull String indentation) {
+    protected void renderClusters(final ExporterContext context,
+                                  final Set<N> currentNodes,
+                                  final Collection<Cluster<N, E>> nestedClusters,
+                                  final String prefix,
+                                  String indentation) {
 
         Set<N> remainingNodes = Sets.newHashSet(currentNodes);
         int i = 1;
@@ -470,11 +472,11 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @param indentation indentation
      */
     @SuppressWarnings("PMD.CloseResource")
-    protected void renderCluster(@Nonnull ExporterContext context,
-                                 @Nonnull String clusterId,
-                                 @Nonnull Cluster<N, E> cluster,
-                                 @Nonnull Map<String, Attribute> attributes,
-                                 @Nonnull String indentation) {
+    protected void renderCluster(ExporterContext context,
+                                 String clusterId,
+                                 Cluster<N, E> cluster,
+                                 Map<String, Attribute> attributes,
+                                 String indentation) {
         final PrintWriter out = context.getPrintWriter();
         out.print(indentation);
         out.print("subgraph " + clusterId + " { ");
@@ -499,7 +501,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      *
      */
     @Override
-    protected void renderFooter(@Nonnull final ExporterContext context) {
+    protected void renderFooter(final ExporterContext context) {
         context.getPrintWriter().print("}");
     }
 
@@ -508,8 +510,8 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @param context context
      * @param attributes attributes
      */
-    private void renderAttributes(@Nonnull final ExporterContext context,
-                                  @Nonnull final Map<String, Attribute> attributes) {
+    private void renderAttributes(final ExporterContext context,
+                                  final Map<String, Attribute> attributes) {
         for (final Map.Entry<String, Attribute> entry : attributes.entrySet()) {
             final Attribute value = entry.getValue();
             if (value.isVisible(context)) {
@@ -519,10 +521,9 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     }
 
     @SuppressWarnings({"squid:S3358", "unchecked"})
-    @Nonnull
-    public String getNodeLabel(@Nonnull final Attribute name,
+    public String getNodeLabel(final Attribute name,
                                @Nullable final Attribute details,
-                               @Nonnull final Map<String, Attribute> nodeAttributes) {
+                               final Map<String, Attribute> nodeAttributes) {
         if (details == null || ((List<?>)details.getReference()).isEmpty()) {
             return "<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"8\">" +
                    htmlFromMultiline(escaper.escape(name.getReference().toString())) +
@@ -550,8 +551,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
                detailsString + "</table>>";
     }
 
-    @Nonnull
-    private static String htmlFromMultiline(@Nonnull final String detail) {
+    private static String htmlFromMultiline(final String detail) {
         final String[] detailLines = detail.split("\n");
         final String nestedDetail;
         if (detailLines.length > 1) {
@@ -570,15 +570,13 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
         return "<tr><td align=\"left\">" + nestedDetail + "</td></tr>";
     }
 
-    @Nonnull
-    private String escapeCollection(@Nonnull final Collection<Attribute> attributes) {
+    private String escapeCollection(final Collection<Attribute> attributes) {
         return "[" + attributes.stream().map(a -> escaper.escape(a.toString())).collect(Collectors.joining(", ")) + "]";
     }
 
-    @Nonnull
-    private String substituteVariables(@Nonnull final String detail,
-                                       @Nonnull final Map<String, Attribute> nodeAttributes,
-                                       @Nonnull final Function<Attribute, String> toStringFn) {
+    private String substituteVariables(final String detail,
+                                       final Map<String, Attribute> nodeAttributes,
+                                       final Function<@Nullable Attribute, String> toStringFn) {
         final Matcher matcher = VARIABLE.matcher(detail);
 
         final StringBuilder builder = new StringBuilder();
@@ -594,8 +592,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
         return builder.toString();
     }
 
-    @Nonnull
-    public String getEdgeLabel(@Nonnull final Attribute label) {
+    public String getEdgeLabel(final Attribute label) {
         return "<&nbsp;" + escaper.escape(label.getReference().toString()) + ">";
     }
 
@@ -604,8 +601,8 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @param context context
      * @param attributes attributes
      */
-    private void renderClusterAttributes(@Nonnull final ExporterContext context,
-                                         @Nonnull final Map<String, Attribute> attributes) {
+    private void renderClusterAttributes(final ExporterContext context,
+                                         final Map<String, Attribute> attributes) {
         for (final Map.Entry<String, Attribute> entry : attributes.entrySet()) {
             final Attribute value = entry.getValue();
             if (value.isVisible(context)) {
@@ -622,10 +619,10 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * @param suffix -- suffix
      */
     @SuppressWarnings("PMD.CloseResource")
-    private void renderAttribute(@Nonnull final ExporterContext context,
-                                 @Nonnull final String attrName,
+    private void renderAttribute(final ExporterContext context,
+                                 final String attrName,
                                  @Nullable final Attribute attribute,
-                                 @Nonnull final String suffix) {
+                                 final String suffix) {
         if (attribute != null) {
             final PrintWriter out = context.getPrintWriter();
             out.print(attrName + "=");

@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -58,12 +57,12 @@ public interface RecordValidator {
      * @param primaryKey the primary key of the record
      * @return a future to be completed with the validation result
      */
-    CompletableFuture<RecordRepairResult> validateRecordAsync(@Nonnull Tuple primaryKey);
+    CompletableFuture<RecordRepairResult> validateRecordAsync(Tuple primaryKey);
 
     /**
      * Repair a record based on the previously executed validation.
      * @param validationResult the result of the previously executed validation
      * @return a future to be completed with the repair result
      */
-    CompletableFuture<RecordRepairResult> repairRecordAsync(@Nonnull RecordRepairResult validationResult);
+    CompletableFuture<RecordRepairResult> repairRecordAsync(RecordRepairResult validationResult);
 }

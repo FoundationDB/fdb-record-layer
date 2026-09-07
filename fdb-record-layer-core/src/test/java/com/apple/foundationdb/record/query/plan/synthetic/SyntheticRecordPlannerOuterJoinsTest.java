@@ -51,6 +51,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
@@ -68,6 +69,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @API(API.Status.EXPERIMENTAL)
 public class SyntheticRecordPlannerOuterJoinsTest extends AbstractSyntheticRecordPlannerTest {
     @Test
+    // Tuple.from below intentionally accepts null elements as test data (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
     void outerJoins() {
         metaDataBuilder.addIndex("MySimpleRecord", "other_rec_no");
         final JoinedRecordTypeBuilder innerJoined = metaDataBuilder.addJoinedRecordType("InnerJoined");
@@ -146,8 +150,8 @@ public class SyntheticRecordPlannerOuterJoinsTest extends AbstractSyntheticRecor
             Multiset<Tuple> results3 = HashMultiset.create(plan3.execute(recordStore).map(FDBSyntheticRecord::getPrimaryKey).asList().join());
             assertEquals(expected3, results3);
 
-            FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(2));
-            SyntheticRecordFromStoredRecordPlan plan4 = planner.fromStoredType(record.getRecordType(), false);
+            FDBStoredRecord<Message> record = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(2)));
+            SyntheticRecordFromStoredRecordPlan plan4 = Objects.requireNonNull(planner.fromStoredType(record.getRecordType(), false));
             assertThat(plan4, SyntheticPlanMatchers.syntheticRecordConcat(Collections.nCopies(3,
                     SyntheticPlanMatchers.joinedRecord(List.of(
                             PlanMatchers.typeFilter(Matchers.contains("MyOtherRecord"),

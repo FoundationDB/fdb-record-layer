@@ -39,8 +39,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -54,10 +54,8 @@ import java.util.stream.Collectors;
  * This interface represents the result of matching one expression against an expression from a {@link MatchCandidate}.
  */
 public interface MatchInfo {
-    @Nonnull
     List<MatchedOrderingPart> getMatchedOrderingParts();
 
-    @Nonnull
     MaxMatchMap getMaxMatchMap();
 
     boolean isAdjusted();
@@ -66,17 +64,13 @@ public interface MatchInfo {
         return !isAdjusted();
     }
 
-    @Nonnull
     RegularMatchInfo getRegularMatchInfo();
 
-    @Nonnull
-    Map<QueryPredicate, PredicateMapping> collectPulledUpPredicateMappings(@Nonnull RelationalExpression candidateExpression,
-                                                                           @Nonnull Set<QueryPredicate> interestingPredicates);
+    Map<QueryPredicate, PredicateMapping> collectPulledUpPredicateMappings(RelationalExpression candidateExpression,
+                                                                           Set<QueryPredicate> interestingPredicates);
 
-    @Nonnull
     GroupByMappings getGroupByMappings();
 
-    @Nonnull
     default AdjustedBuilder adjustedBuilder() {
         return new AdjustedBuilder(this,
                 getMatchedOrderingParts(),
@@ -84,14 +78,12 @@ public interface MatchInfo {
                 getGroupByMappings());
     }
 
-    @Nonnull
-    default GroupByMappings adjustGroupByMappings(@Nonnull final Quantifier candidateQuantifier) {
+    default GroupByMappings adjustGroupByMappings(final Quantifier candidateQuantifier) {
         return adjustGroupByMappings(candidateQuantifier.getAlias(), candidateQuantifier.getRangesOver().get());
     }
 
-    @Nonnull
-    default GroupByMappings adjustGroupByMappings(@Nonnull final CorrelationIdentifier candidateAlias,
-                                                  @Nonnull final RelationalExpression candidateLowerExpression) {
+    default GroupByMappings adjustGroupByMappings(final CorrelationIdentifier candidateAlias,
+                                                  final RelationalExpression candidateLowerExpression) {
         final var groupByMappings = getGroupByMappings();
 
         final var matchedGroupingsMap = groupByMappings.getMatchedGroupingsMap();
@@ -104,10 +96,9 @@ public interface MatchInfo {
                 groupByMappings.getUnmatchedAggregatesMap());
     }
 
-    @Nonnull
-    static ImmutableBiMap<Value, Value> adjustMatchedValueMap(@Nonnull final CorrelationIdentifier candidateAlias,
-                                                              @Nonnull final RelationalExpression candidateLowerExpression,
-                                                              @Nonnull final Map<Value, Value> matchedValueMap) {
+    static ImmutableBiMap<Value, Value> adjustMatchedValueMap(final CorrelationIdentifier candidateAlias,
+                                                              final RelationalExpression candidateLowerExpression,
+                                                              final Map<Value, Value> matchedValueMap) {
         final var adjustedMatchedAggregateMapBuilder = ImmutableBiMap.<Value, Value>builder();
         for (final var matchedAggregateMapEntry : matchedValueMap.entrySet()) {
             final var queryAggregateValue = matchedAggregateMapEntry.getKey();
@@ -135,38 +126,29 @@ public interface MatchInfo {
         /**
          * Parameter bindings for this match.
          */
-        @Nonnull
         private final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap;
 
-        @Nonnull
         private final AliasMap bindingAliasMap;
 
-        @Nonnull
         private final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap;
 
-        @Nonnull
         private final Supplier<Map<CorrelationIdentifier, PartialMatch>> aliasToPartialMatchMapSupplier;
 
         /**
          * Conjuncts the constraints from the predicate map into a single {@link QueryPlanConstraint}.
          */
-        @Nonnull
         private final Supplier<QueryPlanConstraint> constraintsSupplier;
 
-        @Nonnull
         private final PredicateMultiMap predicateMap;
 
-        @Nonnull
         private final List<MatchedOrderingPart> matchedOrderingParts;
 
         /**
          * A map of maximum matches between the query result {@code Value} and the corresponding candidate's result
          * {@code Value}.
          */
-        @Nonnull
         private final MaxMatchMap maxMatchMap;
 
-        @Nonnull
         private final GroupByMappings groupByMappings;
 
         @Nullable
@@ -175,18 +157,17 @@ public interface MatchInfo {
         /**
          * Field to hold additional query plan constraints that need to be imposed on the potentially realized match.
          */
-        @Nonnull
         private final QueryPlanConstraint additionalPlanConstraint;
 
-        private RegularMatchInfo(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
-                                 @Nonnull final AliasMap bindingAliasMap,
-                                 @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
-                                 @Nonnull final PredicateMultiMap predicateMap,
-                                 @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
-                                 @Nonnull final MaxMatchMap maxMatchMap,
-                                 @Nonnull final GroupByMappings groupByMappings,
+        private RegularMatchInfo(final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
+                                 final AliasMap bindingAliasMap,
+                                 final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                 final PredicateMultiMap predicateMap,
+                                 final List<MatchedOrderingPart> matchedOrderingParts,
+                                 final MaxMatchMap maxMatchMap,
+                                 final GroupByMappings groupByMappings,
                                  @Nullable final List<Value> rollUpToGroupingValues,
-                                 @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
+                                 final QueryPlanConstraint additionalPlanConstraint) {
             this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
             this.bindingAliasMap = bindingAliasMap;
             this.partialMatchMap = partialMatchMap.toImmutable();
@@ -205,45 +186,37 @@ public interface MatchInfo {
             this.additionalPlanConstraint = additionalPlanConstraint;
         }
 
-        @Nonnull
         public Map<CorrelationIdentifier, ComparisonRange> getParameterBindingMap() {
             return parameterBindingMap;
         }
 
-        @Nonnull
         public AliasMap getBindingAliasMap() {
             return bindingAliasMap;
         }
 
-        @Nonnull
         public IdentityBiMap<Quantifier, PartialMatch> getPartialMatchMap() {
             return partialMatchMap;
         }
 
-        @Nonnull
-        public Optional<PartialMatch> getChildPartialMatchMaybe(@Nonnull final Quantifier quantifier) {
+        public Optional<PartialMatch> getChildPartialMatchMaybe(final Quantifier quantifier) {
             return Optional.ofNullable(partialMatchMap.getUnwrapped(quantifier));
         }
 
-        @Nonnull
-        public Optional<PartialMatch> getChildPartialMatchMaybe(@Nonnull final CorrelationIdentifier alias) {
+        public Optional<PartialMatch> getChildPartialMatchMaybe(final CorrelationIdentifier alias) {
             return Optional.ofNullable(aliasToPartialMatchMapSupplier.get().get(alias));
         }
 
-        @Nonnull
         public PredicateMultiMap getPredicateMap() {
             return predicateMap;
         }
 
-        @Nonnull
         public QueryPlanConstraint getConstraint() {
             return constraintsSupplier.get();
         }
 
-        @Nonnull
         @Override
-        public Map<QueryPredicate, PredicateMapping> collectPulledUpPredicateMappings(@Nonnull final RelationalExpression candidateExpression,
-                                                                                      @Nonnull final Set<QueryPredicate> interestingPredicates) {
+        public Map<QueryPredicate, PredicateMapping> collectPulledUpPredicateMappings(final RelationalExpression candidateExpression,
+                                                                                      final Set<QueryPredicate> interestingPredicates) {
             final var resultsMap = new LinkedIdentityMap<QueryPredicate, PredicateMapping>();
             predicateMap.entries()
                     .stream()
@@ -260,19 +233,16 @@ public interface MatchInfo {
             return resultsMap;
         }
 
-        @Nonnull
         @Override
         public List<MatchedOrderingPart> getMatchedOrderingParts() {
             return matchedOrderingParts;
         }
 
-        @Nonnull
         @Override
         public MaxMatchMap getMaxMatchMap() {
             return maxMatchMap;
         }
 
-        @Nonnull
         @Override
         public GroupByMappings getGroupByMappings() {
             return groupByMappings;
@@ -283,7 +253,6 @@ public interface MatchInfo {
             return rollUpToGroupingValues;
         }
 
-        @Nonnull
         public QueryPlanConstraint getAdditionalPlanConstraint() {
             return additionalPlanConstraint;
         }
@@ -293,13 +262,11 @@ public interface MatchInfo {
             return false;
         }
 
-        @Nonnull
         @Override
         public RegularMatchInfo getRegularMatchInfo() {
             return this;
         }
 
-        @Nonnull
         private QueryPlanConstraint computeConstraints() {
             final var childConstraints = partialMatchMap.values().stream().map(
                     partialMatch -> partialMatch.get().getRegularMatchInfo().getConstraint()).collect(Collectors.toList());
@@ -317,24 +284,22 @@ public interface MatchInfo {
             return QueryPlanConstraint.composeConstraints(allConstraints);
         }
 
-        @Nonnull
-        public static Optional<MatchInfo> tryFromMatchMap(@Nonnull final AliasMap bindingAliasMap,
-                                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
-                                                          @Nonnull final MaxMatchMap maxMatchMap) {
+        public static Optional<MatchInfo> tryFromMatchMap(final AliasMap bindingAliasMap,
+                                                          final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                                          final MaxMatchMap maxMatchMap) {
             return tryMerge(bindingAliasMap, partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
                     maxMatchMap, GroupByMappings.empty(), null,
                     maxMatchMap.getQueryPlanConstraint());
         }
 
-        @Nonnull
-        public static Optional<MatchInfo> tryMerge(@Nonnull final AliasMap bindingAliasMap,
-                                                   @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
-                                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
-                                                   @Nonnull final PredicateMultiMap predicateMap,
-                                                   @Nonnull final MaxMatchMap maxMatchMap,
-                                                   @Nonnull final GroupByMappings additionalGroupByMappings,
+        public static Optional<MatchInfo> tryMerge(final AliasMap bindingAliasMap,
+                                                   final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                                   final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
+                                                   final PredicateMultiMap predicateMap,
+                                                   final MaxMatchMap maxMatchMap,
+                                                   final GroupByMappings additionalGroupByMappings,
                                                    @Nullable final List<Value> rollUpToGroupingValues,
-                                                   @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
+                                                   final QueryPlanConstraint additionalPlanConstraint) {
             final var parameterMapsBuilder = ImmutableList.<Map<CorrelationIdentifier, ComparisonRange>>builder();
             final var matchInfos = PartialMatch.matchInfosFromMap(partialMatchMap);
 
@@ -422,10 +387,9 @@ public interface MatchInfo {
             return Optional.of(resultMap);
         }
 
-        @Nonnull
-        private static GroupByMappings pullUpAndMergeGroupByMappings(@Nonnull final AliasMap bindingAliasMap,
-                                                                     @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
-                                                                     @Nonnull final GroupByMappings additionalGroupByMappings) {
+        private static GroupByMappings pullUpAndMergeGroupByMappings(final AliasMap bindingAliasMap,
+                                                                     final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                                                     final GroupByMappings additionalGroupByMappings) {
             final var matchedGroupingsMapBuilder = ImmutableBiMap.<Value, Value>builder();
             matchedGroupingsMapBuilder.putAll(additionalGroupByMappings.getMatchedGroupingsMap());
             final var matchedAggregateMapBuilder = ImmutableBiMap.<Value, Value>builder();
@@ -451,9 +415,8 @@ public interface MatchInfo {
                     matchedAggregateMapBuilder.build(), unatchedAggregateMapBuilder.build());
         }
 
-        @Nonnull
-        public static GroupByMappings pullUpAggregateCandidateMappings(@Nonnull final PartialMatch partialMatch,
-                                                                       @Nonnull final PullUp pullUp) {
+        public static GroupByMappings pullUpAggregateCandidateMappings(final PartialMatch partialMatch,
+                                                                       final PullUp pullUp) {
             final var matchInfo = partialMatch.getMatchInfo();
             final var groupByMappings = matchInfo.getGroupByMappings();
 
@@ -479,10 +442,9 @@ public interface MatchInfo {
                     matchedAggregatesMapBuilder.build(), groupByMappings.getUnmatchedAggregatesMap());
         }
 
-        @Nonnull
-        public static GroupByMappings pullUpGroupByMappings(@Nonnull final PartialMatch partialMatch,
-                                                            @Nonnull final CorrelationIdentifier queryAlias,
-                                                            @Nonnull final CorrelationIdentifier candidateAlias) {
+        public static GroupByMappings pullUpGroupByMappings(final PartialMatch partialMatch,
+                                                            final CorrelationIdentifier queryAlias,
+                                                            final CorrelationIdentifier candidateAlias) {
             final var matchInfo = partialMatch.getMatchInfo();
             final var queryExpression = partialMatch.getQueryExpression();
             final var resultValue = queryExpression.getResultValue();
@@ -522,12 +484,12 @@ public interface MatchInfo {
             return GroupByMappings.of(matchedGroupingsMap, matchedAggregatesMap, unmatchedAggregateMapBuilder.build());
         }
 
-        private static ImmutableBiMap<Value, Value> pullUpMatchedValueMap(@Nonnull final PartialMatch partialMatch,
-                                                                          @Nonnull final BiMap<Value, Value> matchedValueMap,
-                                                                          @Nonnull final Value queryResultValue,
-                                                                          @Nonnull final CorrelationIdentifier queryAlias,
-                                                                          @Nonnull final CorrelationIdentifier candidateAlias,
-                                                                          @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+        private static ImmutableBiMap<Value, Value> pullUpMatchedValueMap(final PartialMatch partialMatch,
+                                                                          final BiMap<Value, Value> matchedValueMap,
+                                                                          final Value queryResultValue,
+                                                                          final CorrelationIdentifier queryAlias,
+                                                                          final CorrelationIdentifier candidateAlias,
+                                                                          final Set<CorrelationIdentifier> constantAliases) {
             final var matchedAggregatesMapBuilder = ImmutableBiMap.<Value, Value>builder();
             for (final var entry : matchedValueMap.entrySet()) {
                 final var queryValue = entry.getKey();
@@ -584,50 +546,42 @@ public interface MatchInfo {
      * </ul>
      */
     class AdjustedMatchInfo implements MatchInfo {
-        @Nonnull
         private final MatchInfo underlying;
 
-        @Nonnull
         private final List<MatchedOrderingPart> matchedOrderingParts;
 
         /**
          * A map of maximum matches between the query result {@code Value} and the corresponding candidate's result
          * {@code Value}.
          */
-        @Nonnull
         private final MaxMatchMap maxMatchMap;
 
-        @Nonnull
         private final GroupByMappings groupByMappings;
 
-        private AdjustedMatchInfo(@Nonnull final MatchInfo underlying,
-                                  @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
-                                  @Nonnull final MaxMatchMap maxMatchMap,
-                                  @Nonnull final GroupByMappings groupByMappings) {
+        private AdjustedMatchInfo(final MatchInfo underlying,
+                                  final List<MatchedOrderingPart> matchedOrderingParts,
+                                  final MaxMatchMap maxMatchMap,
+                                  final GroupByMappings groupByMappings) {
             this.underlying = underlying;
             this.matchedOrderingParts = matchedOrderingParts;
             this.maxMatchMap = maxMatchMap;
             this.groupByMappings = groupByMappings;
         }
 
-        @Nonnull
         public MatchInfo getUnderlying() {
             return underlying;
         }
 
-        @Nonnull
         @Override
         public List<MatchedOrderingPart> getMatchedOrderingParts() {
             return matchedOrderingParts;
         }
 
-        @Nonnull
         @Override
         public MaxMatchMap getMaxMatchMap() {
             return maxMatchMap;
         }
 
-        @Nonnull
         @Override
         public GroupByMappings getGroupByMappings() {
             return groupByMappings;
@@ -638,16 +592,14 @@ public interface MatchInfo {
             return true;
         }
 
-        @Nonnull
         @Override
         public RegularMatchInfo getRegularMatchInfo() {
             return underlying.getRegularMatchInfo();
         }
 
-        @Nonnull
         @Override
-        public Map<QueryPredicate, PredicateMapping> collectPulledUpPredicateMappings(@Nonnull final RelationalExpression candidateExpression,
-                                                                                      @Nonnull final Set<QueryPredicate> interestingPredicates) {
+        public Map<QueryPredicate, PredicateMapping> collectPulledUpPredicateMappings(final RelationalExpression candidateExpression,
+                                                                                      final Set<QueryPredicate> interestingPredicates) {
             final var resultsMap = new LinkedIdentityMap<QueryPredicate, PredicateMapping>();
 
             final var matchInfo = getUnderlying();
@@ -680,65 +632,55 @@ public interface MatchInfo {
      */
     @SuppressWarnings("unused")
     class AdjustedBuilder {
-        @Nonnull
         private final MatchInfo underlying;
 
-        @Nonnull
         private List<MatchedOrderingPart> matchedOrderingParts;
 
         /**
          * A map of maximum matches between the query result {@code Value} and the corresponding candidate's result
          * {@code Value}.
          */
-        @Nonnull
         private MaxMatchMap maxMatchMap;
 
-        @Nonnull
         private GroupByMappings groupByMappings;
 
-        private AdjustedBuilder(@Nonnull final MatchInfo underlying,
-                                @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
-                                @Nonnull final MaxMatchMap maxMatchMap,
-                                @Nonnull final GroupByMappings groupByMappings) {
+        private AdjustedBuilder(final MatchInfo underlying,
+                                final List<MatchedOrderingPart> matchedOrderingParts,
+                                final MaxMatchMap maxMatchMap,
+                                final GroupByMappings groupByMappings) {
             this.underlying = underlying;
             this.matchedOrderingParts = matchedOrderingParts;
             this.maxMatchMap = maxMatchMap;
             this.groupByMappings = groupByMappings;
         }
 
-        @Nonnull
         public List<MatchedOrderingPart> getMatchedOrderingParts() {
             return matchedOrderingParts;
         }
 
-        public AdjustedBuilder setMatchedOrderingParts(@Nonnull final List<MatchedOrderingPart> matchedOrderingParts) {
+        public AdjustedBuilder setMatchedOrderingParts(final List<MatchedOrderingPart> matchedOrderingParts) {
             this.matchedOrderingParts = matchedOrderingParts;
             return this;
         }
 
-        @Nonnull
-        public AdjustedBuilder setGroupByMappings(@Nonnull final GroupByMappings groupByMappings) {
+        public AdjustedBuilder setGroupByMappings(final GroupByMappings groupByMappings) {
             this.groupByMappings = groupByMappings;
             return this;
         }
 
-        @Nonnull
         public MaxMatchMap getMaxMatchMap() {
             return maxMatchMap;
         }
 
-        @Nonnull
-        public AdjustedBuilder setMaxMatchMap(@Nonnull final MaxMatchMap maxMatchMap) {
+        public AdjustedBuilder setMaxMatchMap(final MaxMatchMap maxMatchMap) {
             this.maxMatchMap = maxMatchMap;
             return this;
         }
 
-        @Nonnull
         public GroupByMappings getGroupByMappings() {
             return groupByMappings;
         }
 
-        @Nonnull
         public MatchInfo build() {
             return new AdjustedMatchInfo(
                     underlying,

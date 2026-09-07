@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.Transaction;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -39,27 +38,26 @@ interface TaskEventRegister {
      * Records that a deferred maintenance task was enqueued in {@code transaction}.
      * @param transaction the transaction the enqueue happened in
      */
-    void onTaskEnqueued(@Nonnull Transaction transaction);
+    void onTaskEnqueued(Transaction transaction);
 
     /**
      * Records that a deferred maintenance task was executed (and thereby removed from the queue) in {@code transaction}.
      * @param transaction the transaction the execution happened in
      */
-    void onTaskExecuted(@Nonnull Transaction transaction);
+    void onTaskExecuted(Transaction transaction);
 
     /**
      * A register that does nothing — handed to engines that track no task events (e.g. HNSW), so callers can treat the
      * register as {@link Nonnull} and skip null checks.
      */
-    @Nonnull
     TaskEventRegister NOOP = new TaskEventRegister() {
         @Override
-        public void onTaskEnqueued(@Nonnull final Transaction transaction) {
+        public void onTaskEnqueued(final Transaction transaction) {
             // nothing to record
         }
 
         @Override
-        public void onTaskExecuted(@Nonnull final Transaction transaction) {
+        public void onTaskExecuted(final Transaction transaction) {
             // nothing to record
         }
     };
@@ -71,9 +69,8 @@ interface TaskEventRegister {
      * @param additional further registers notified after {@code first}, in order
      * @return a register forwarding {@code onTaskEnqueued}/{@code onTaskExecuted} to {@code first} then {@code additional}
      */
-    @Nonnull
-    static TaskEventRegister compose(@Nonnull final TaskEventRegister first,
-                                     @Nonnull final TaskEventRegister... additional) {
+    static TaskEventRegister compose(final TaskEventRegister first,
+                                     final TaskEventRegister... additional) {
         final ImmutableList.Builder<TaskEventRegister> builder = ImmutableList.builder();
         builder.add(first);
         for (final TaskEventRegister register : additional) {
@@ -90,8 +87,7 @@ interface TaskEventRegister {
      * @return {@link #NOOP} if {@code registers} is empty, the sole element if there is exactly one, otherwise a
      *         register forwarding {@code onTaskEnqueued}/{@code onTaskExecuted} to all of them in order
      */
-    @Nonnull
-    static TaskEventRegister compose(@Nonnull final List<TaskEventRegister> registers) {
+    static TaskEventRegister compose(final List<TaskEventRegister> registers) {
         if (registers.isEmpty()) {
             return NOOP;
         }
@@ -101,14 +97,14 @@ interface TaskEventRegister {
         final List<TaskEventRegister> all = ImmutableList.copyOf(registers);
         return new TaskEventRegister() {
             @Override
-            public void onTaskEnqueued(@Nonnull final Transaction transaction) {
+            public void onTaskEnqueued(final Transaction transaction) {
                 for (final TaskEventRegister register : all) {
                     register.onTaskEnqueued(transaction);
                 }
             }
 
             @Override
-            public void onTaskExecuted(@Nonnull final Transaction transaction) {
+            public void onTaskExecuted(final Transaction transaction) {
                 for (final TaskEventRegister register : all) {
                     register.onTaskExecuted(transaction);
                 }

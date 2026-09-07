@@ -83,6 +83,9 @@ public class KeyValueCursorTest {
 
 
     @BeforeEach
+    // "return null;" below is the standard idiom for a Transaction -> Void lambda passed to
+    // Database.run; NullAway infers the lambda's type argument as non-null Void rather than @Nullable Void.
+    @SuppressWarnings("NullAway")
     public void runBefore() {
         fdb = dbExtension.getDatabase();
         path = pathManager.createPath(TestKeySpace.RAW_DATA);
@@ -101,6 +104,13 @@ public class KeyValueCursorTest {
 
     @ParameterizedTest
     @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though there
+    // is no real value to return. Also passes @Nullable byte[] continuation values into
+    // KeyValueCursorBase.Builder#setContinuation (a parameter position NullAway does not reliably
+    // recognize as nullable) and dereferences RecordCursorResult#get() results that are @Nullable
+    // in general but known present here by the test's own setup.
+    @SuppressWarnings("NullAway")
     public void all(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             byte[] continuation = null;
@@ -146,6 +156,13 @@ public class KeyValueCursorTest {
 
     @ParameterizedTest
     @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though there
+    // is no real value to return. Also passes @Nullable byte[] continuation values into
+    // KeyValueCursorBase.Builder#setContinuation (a parameter position NullAway does not reliably
+    // recognize as nullable) and dereferences RecordCursorResult#get() results that are @Nullable
+    // in general but known present here by the test's own setup.
+    @SuppressWarnings("NullAway")
     public void allInARange(KeyValueCursorBase.SerializationMode serializationMode) throws InvalidProtocolBufferException {
         // pick 2 examples that can be serialized as RecordCursorProto.KeyValueCursorContinuation, but was correctly rejected by the magic number check
         byte[] lowBytes = new byte[]{ 0x11, (byte) 0xac,  (byte) 0xcd, (byte) 0x73, 0x01, (byte) 0xdd, 0x42, (byte) 0x98, 0x5e, 0x0A, 0x04, 0x0f, (byte) 0xdb, 0x00, 0x14 };
@@ -223,6 +240,13 @@ public class KeyValueCursorTest {
 
     @ParameterizedTest
     @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though there
+    // is no real value to return. Also passes @Nullable byte[] continuation values into
+    // KeyValueCursorBase.Builder#setContinuation (a parameter position NullAway does not reliably
+    // recognize as nullable) and dereferences RecordCursorResult#get() results that are @Nullable
+    // in general but known present here by the test's own setup.
+    @SuppressWarnings("NullAway")
     public void beginsWith(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
@@ -262,6 +286,12 @@ public class KeyValueCursorTest {
 
     @ParameterizedTest
     @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though there
+    // is no real value to return. Also passes @Nullable byte[] continuation values into
+    // KeyValueCursorBase.Builder#setContinuation, a parameter position NullAway does not
+    // reliably recognize as nullable.
+    @SuppressWarnings("NullAway")
     public void inclusiveRange(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
@@ -322,6 +352,13 @@ public class KeyValueCursorTest {
     }
 
     @Test
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though there
+    // is no real value to return. Also passes null/@Nullable byte[] continuation values into
+    // scanPrefixString/KeyValueCursorBase.Builder#setContinuation (a parameter position NullAway
+    // does not reliably recognize as nullable) and passes cursor.getNext().get() results, which
+    // are @Nullable in general but known present here by the test's own setup, into assertKeyValue.
+    @SuppressWarnings("NullAway")
     public void prefixString() {
         // Populate data
         fdb.database().run(tr -> {
@@ -371,6 +408,12 @@ public class KeyValueCursorTest {
 
     @ParameterizedTest
     @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though there
+    // is no real value to return. Also passes @Nullable byte[] continuation values into
+    // KeyValueCursorBase.Builder#setContinuation, a parameter position NullAway does not
+    // reliably recognize as nullable.
+    @SuppressWarnings("NullAway")
     public void exclusiveRange(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
@@ -411,6 +454,13 @@ public class KeyValueCursorTest {
 
     @ParameterizedTest
     @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though there
+    // is no real value to return. Also passes @Nullable byte[] continuation values into
+    // KeyValueCursorBase.Builder#setContinuation (a parameter position NullAway does not reliably
+    // recognize as nullable) and dereferences RecordCursorIterator#next() results that are
+    // @Nullable in general but known present here by the test's own setup.
+    @SuppressWarnings("NullAway")
     public void inclusiveNull(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             RecordCursorIterator<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
@@ -435,6 +485,12 @@ public class KeyValueCursorTest {
 
     @ParameterizedTest
     @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though there
+    // is no real value to return. Also passes @Nullable byte[] continuation values into
+    // KeyValueCursorBase.Builder#setContinuation, a parameter position NullAway does not
+    // reliably recognize as nullable.
+    @SuppressWarnings("NullAway")
     public void exclusiveNull(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             RecordCursorIterator<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
@@ -454,6 +510,12 @@ public class KeyValueCursorTest {
 
     @ParameterizedTest
     @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though there
+    // is no real value to return. Also passes @Nullable byte[] continuation values into
+    // KeyValueCursorBase.Builder#setContinuation, a parameter position NullAway does not
+    // reliably recognize as nullable.
+    @SuppressWarnings("NullAway")
     public void noNextReasons(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
@@ -490,6 +552,10 @@ public class KeyValueCursorTest {
 
     @ParameterizedTest
     @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though
+    // there is no real value to return.
+    @SuppressWarnings("NullAway")
     public void simpleScanLimit(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(2);
@@ -510,6 +576,10 @@ public class KeyValueCursorTest {
 
     @ParameterizedTest
     @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though
+    // there is no real value to return.
+    @SuppressWarnings("NullAway")
     public void limitNotReached(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(4);
@@ -535,6 +605,10 @@ public class KeyValueCursorTest {
 
     @ParameterizedTest
     @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though
+    // there is no real value to return.
+    @SuppressWarnings("NullAway")
     public void sharedLimiter(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(4);
@@ -564,6 +638,10 @@ public class KeyValueCursorTest {
 
     @ParameterizedTest
     @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though
+    // there is no real value to return.
+    @SuppressWarnings("NullAway")
     public void limiterWithLookahead(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(1);
@@ -585,6 +663,12 @@ public class KeyValueCursorTest {
 
     @ParameterizedTest
     @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though there
+    // is no real value to return. Also passes @Nullable byte[] continuation values into
+    // KeyValueCursorBase.Builder#setContinuation, a parameter position NullAway does not
+    // reliably recognize as nullable.
+    @SuppressWarnings("NullAway")
     public void emptyScan(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
@@ -605,6 +689,12 @@ public class KeyValueCursorTest {
 
     @ParameterizedTest
     @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though there
+    // is no real value to return. Also passes @Nullable byte[] continuation values into
+    // KeyValueCursorBase.Builder#setContinuation, a parameter position NullAway does not
+    // reliably recognize as nullable.
+    @SuppressWarnings("NullAway")
     public void emptyScanSplit(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
             RecordCursor<KeyValue> kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
@@ -632,6 +722,10 @@ public class KeyValueCursorTest {
     }
 
     @Test
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though
+    // there is no real value to return.
+    @SuppressWarnings("NullAway")
     public void buildWithoutScanProperties() {
         fdb.run(context -> {
             assertThrows(RecordCoreException.class, () -> KeyValueCursor.Builder.withSubspace(subspace)
@@ -643,6 +737,10 @@ public class KeyValueCursorTest {
     }
 
     @Test
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though
+    // there is no real value to return.
+    @SuppressWarnings("NullAway")
     public void buildWithRequiredProperties() {
         fdb.run(context -> {
             try {

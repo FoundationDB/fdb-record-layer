@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyComparison;
@@ -43,27 +42,22 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class NotOverComparisonRule extends QueryPredicateSimplificationRule<NotPredicate> {
-    @Nonnull
     private static final BindingMatcher<Value> anyValueMatcher = anyValue();
-    @Nonnull
     private static final BindingMatcher<Comparisons.Comparison> anyComparisonMatcher = anyComparison();
-    @Nonnull
     private static final BindingMatcher<ValuePredicate> anyValuePredicateMatcher = valuePredicate(anyValueMatcher, anyComparisonMatcher);
-    @Nonnull
     private static final BindingMatcher<NotPredicate> rootMatcher = notPredicate(ListMatcher.exactly(anyValuePredicateMatcher));
 
     public NotOverComparisonRule() {
         super(rootMatcher);
     }
 
-    @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
         return Optional.of(NotPredicate.class);
     }
 
     @Override
-    public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
+    public void onMatch(final QueryPredicateSimplificationRuleCall call) {
         final var bindings = call.getBindings();
         final var value = bindings.get(anyValueMatcher);
         final var comparison = bindings.get(anyComparisonMatcher);

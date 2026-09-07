@@ -106,6 +106,9 @@ class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that simple queries on nested fields can use bounds on a record scan.
      */
     @DualPlannerTest
+    // Tuple.from below intentionally accepts a null element as test data (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); Tuple encodes a null element just fine.
+    @SuppressWarnings("NullAway")
     void hierarchical() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openHierarchicalRecordStore(context);

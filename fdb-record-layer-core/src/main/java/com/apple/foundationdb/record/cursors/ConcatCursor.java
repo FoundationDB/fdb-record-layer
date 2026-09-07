@@ -35,8 +35,8 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -51,13 +51,9 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 public class ConcatCursor<T> implements RecordCursor<T> {
 
-    @Nonnull
     private final FDBRecordContext context;
-    @Nonnull
     private final ScanProperties scanProperties;
-    @Nonnull
     private final TriFunction<FDBRecordContext, ScanProperties, byte[], RecordCursor<T>> firstFunction;
-    @Nonnull
     private final TriFunction<FDBRecordContext, ScanProperties, byte[], RecordCursor<T>> secondFunction;
     @Nullable
     private RecordCursor<T> firstCursor;
@@ -70,10 +66,11 @@ public class ConcatCursor<T> implements RecordCursor<T> {
     private int rowLimit;
 
     @API(API.Status.EXPERIMENTAL)
-    public ConcatCursor(@Nonnull FDBRecordContext context,
-                        @Nonnull ScanProperties scanProperties,
-                        @Nonnull TriFunction<FDBRecordContext, ScanProperties, byte[], RecordCursor<T>> func1,
-                        @Nonnull TriFunction<FDBRecordContext, ScanProperties, byte[], RecordCursor<T>> func2,
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields/parameters, even across explicit null checks.
+    public ConcatCursor(FDBRecordContext context,
+                        ScanProperties scanProperties,
+                        TriFunction<FDBRecordContext, ScanProperties, byte[], RecordCursor<T>> func1,
+                        TriFunction<FDBRecordContext, ScanProperties, byte[], RecordCursor<T>> func2,
                         @Nullable byte[] continuation) {
 
         this.context = context;
@@ -104,7 +101,7 @@ public class ConcatCursor<T> implements RecordCursor<T> {
                 }
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("Error parsing ConcatCursor continuation", ex)
-                        .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuation));
+                        .addLogInfo("raw_bytes", Objects.requireNonNull(ByteArrayUtil2.loggable(continuation)));
             }
         } else {
             //no continuation, start at the beginning of the first cursor
@@ -114,11 +111,11 @@ public class ConcatCursor<T> implements RecordCursor<T> {
         }
     }
 
-    @Nonnull
     @Override
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters (passing null to mean "start from the beginning").
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (secondCursor == null) {
-            return firstCursor.onNext().thenCompose(result -> {
+            return Objects.requireNonNull(firstCursor, "firstCursor should be set when secondCursor is null").onNext().thenCompose(result -> {
                 if (result.hasNext() || !result.getNoNextReason().isSourceExhausted()) {
                     return CompletableFuture.completedFuture(result);
                 } else {
@@ -133,7 +130,6 @@ public class ConcatCursor<T> implements RecordCursor<T> {
     }
 
     // return concat result from underlying cursor result
-    @Nonnull
     private RecordCursorResult<T> postProcess(RecordCursorResult<T> result) {
         nextResult = getConcatResult(result);
         return nextResult;
@@ -141,9 +137,8 @@ public class ConcatCursor<T> implements RecordCursor<T> {
 
     //if haven't exhausted both cursors and no limits reached, form a result that encapsulates the value returned by
     //the current underlying cursor, plus a continuation that allows us to restart at same cursor at its next position
-    @Nonnull
     private RecordCursorResult<T> getConcatResult(RecordCursorResult<T> nextResult) {
-        @Nonnull RecordCursorResult<T> concatResult;
+        RecordCursorResult<T> concatResult;
         if (!nextResult.hasNext()) {
             if (secondCursor != null && nextResult.getNoNextReason().isSourceExhausted()) {
                 concatResult = RecordCursorResult.exhausted(); //continuation not valid here
@@ -173,17 +168,16 @@ public class ConcatCursor<T> implements RecordCursor<T> {
         return (secondCursor == null || secondCursor.isClosed()) && (firstCursor == null || firstCursor.isClosed());
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return context.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             if (secondCursor == null) {
-                firstCursor.accept(visitor);
+                Objects.requireNonNull(firstCursor, "firstCursor should be set when secondCursor is null").accept(visitor);
             } else {
                 secondCursor.accept(visitor);
             }
@@ -193,9 +187,7 @@ public class ConcatCursor<T> implements RecordCursor<T> {
 
     //form a continuation that allows us to restart with the current cursor at its next position
     private class ConcatCursorContinuation implements RecordCursorContinuation {
-        @Nonnull
         private final RecordCursorResult<T> nextResult;
-        @Nonnull
         private final Function<ByteString, RecordCursorProto.ConcatContinuation> continuationFunction;
         private final boolean isEnd;
         @Nullable
@@ -203,7 +195,8 @@ public class ConcatCursor<T> implements RecordCursor<T> {
         @Nullable
         private ByteString cachedByteString;
 
-        private ConcatCursorContinuation(boolean secondCursor, @Nonnull RecordCursorResult<T> nextResult) {
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
+        private ConcatCursorContinuation(boolean secondCursor, RecordCursorResult<T> nextResult) {
             this.nextResult = nextResult;
             cachedBytes = null;
             isEnd = secondCursor && nextResult.getContinuation().isEnd() ? true : false;
@@ -213,6 +206,7 @@ public class ConcatCursor<T> implements RecordCursor<T> {
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
         public byte[] toBytes() {
             if (isEnd()) {
                 return null;
@@ -226,7 +220,6 @@ public class ConcatCursor<T> implements RecordCursor<T> {
         }
 
         @Override
-        @Nonnull
         public ByteString toByteString() {
             if (isEnd()) {
                 return ByteString.EMPTY;

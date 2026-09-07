@@ -39,8 +39,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -71,11 +70,11 @@ public class ResolverValidator {
      * @param entryListener consumer that will be handed validated entries
      */
     public static void validate(@Nullable final FDBStoreTimer timer,
-                                @Nonnull final LocatableResolver resolver,
-                                @Nonnull final ExecuteProperties.Builder executeProperties,
+                                final LocatableResolver resolver,
+                                final ExecuteProperties.Builder executeProperties,
                                 final int reverseLookupPipelineSize,
                                 final boolean badEntriesOnly,
-                                @Nonnull final Consumer<ValidatedEntry> entryListener) {
+                                final Consumer<ValidatedEntry> entryListener) {
         try (FDBDatabaseRunner runner = resolver.database.newRunner()) {
             try (RecordCursor<ValidatedEntry> cursor = new AutoContinuingCursor<>(
                     runner,
@@ -110,11 +109,11 @@ public class ResolverValidator {
      * @param scanProperties scan properties that control the nature of the scan
      * @return a cursor returning the disposition of all scanned entries in the resolvers mapping table
      */
-    public static RecordCursor<ValidatedEntry> validate(@Nonnull final LocatableResolver resolver,
-                                                        @Nonnull final FDBRecordContext context,
+    public static RecordCursor<ValidatedEntry> validate(final LocatableResolver resolver,
+                                                        final FDBRecordContext context,
                                                         @Nullable final byte[] continuation,
                                                         final boolean repairMissingEntries,
-                                                        @Nonnull final ScanProperties scanProperties) {
+                                                        final ScanProperties scanProperties) {
         return validate(resolver, context, continuation, 10, repairMissingEntries, scanProperties);
     }
 
@@ -148,12 +147,15 @@ public class ResolverValidator {
      * @param scanProperties scan properties that control the nature of the scan
      * @return a cursor returning the disposition of all scanned entries in the resolvers mapping table
      */
-    public static RecordCursor<ValidatedEntry> validate(@Nonnull final LocatableResolver resolver,
-                                                        @Nonnull final FDBRecordContext context,
+    // NullAway does not reliably track @Nullable on the byte[] metadata across the call into
+    // ByteArrayUtil2.loggable below, even though loggable's own parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
+    public static RecordCursor<ValidatedEntry> validate(final LocatableResolver resolver,
+                                                        final FDBRecordContext context,
                                                         @Nullable final byte[] continuation,
                                                         final int reverseLookupPipelineSize,
                                                         final boolean repairMissingEntries,
-                                                        @Nonnull final ScanProperties scanProperties) {
+                                                        final ScanProperties scanProperties) {
         return resolver.scan(context, continuation, scanProperties)
                 .mapPipelined(keyValue -> {
                     // The reverse directory cache has an entry in the directory layer that it does not,
@@ -174,7 +176,11 @@ public class ResolverValidator {
                                             .addLogInfo(LogMessageKeys.RESOLVER, resolver)
                                             .addLogInfo(LogMessageKeys.RESOLVER_KEY, keyValue.getKey())
                                             .addLogInfo(LogMessageKeys.RESOLVER_VALUE, keyValue.getValue().getValue())
-                                            .addLogInfo(LogMessageKeys.RESOLVER_METADATA, ByteArrayUtil2.loggable(keyValue.getValue().getMetadata()));
+                                            // metadata is often absent (null); loggable(null) also returns null, so
+                                            // fall back to the literal string "null" rather than risk an NPE here
+                                            // while already handling another exception.
+                                            .addLogInfo(LogMessageKeys.RESOLVER_METADATA,
+                                                    Objects.requireNonNullElse(ByteArrayUtil2.loggable(keyValue.getValue().getMetadata()), "null"));
                                 }
 
                                 if (!reverseKey.equals(keyValue.getKey())) {
@@ -192,9 +198,9 @@ public class ResolverValidator {
                 reverseLookupPipelineSize);
     }
 
-    private static CompletableFuture<ValidatedEntry> repairReverseEntry(@Nonnull LocatableResolver resolver,
-                                                                        @Nonnull FDBRecordContext context,
-                                                                        @Nonnull ValidatedEntry validatedEntry) {
+    private static CompletableFuture<ValidatedEntry> repairReverseEntry(LocatableResolver resolver,
+                                                                        FDBRecordContext context,
+                                                                        ValidatedEntry validatedEntry) {
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(KeyValueLogMessage.of("Repairing reverse mapping",
                     LogMessageKeys.RESOLVER, resolver,
@@ -268,29 +274,25 @@ public class ResolverValidator {
      * Represents a bad/incorrect entry in the resolvers mapping.
      */
     public static class ValidatedEntry {
-        @Nonnull
         private final ValidationResult result;
-        @Nonnull
         private final ResolverKeyValue keyValue;
-        @Nonnull
         private final String reverseValue;
 
         @API(API.Status.INTERNAL)
-        protected ValidatedEntry(@Nonnull final ValidationResult result,
-                              @Nonnull final ResolverKeyValue keyValue) {
+        protected ValidatedEntry(final ValidationResult result,
+                              final ResolverKeyValue keyValue) {
             this(result, keyValue, keyValue.getKey());
         }
 
         @API(API.Status.INTERNAL)
-        protected ValidatedEntry(@Nonnull final ValidationResult result,
-                              @Nonnull final ResolverKeyValue keyValue,
-                              @Nonnull final String reverseValue) {
+        protected ValidatedEntry(final ValidationResult result,
+                              final ResolverKeyValue keyValue,
+                              final String reverseValue) {
             this.result = result;
             this.keyValue = keyValue;
             this.reverseValue = reverseValue;
         }
 
-        @Nonnull
         public ValidationResult getValidationResult() {
             return result;
         }
@@ -299,7 +301,6 @@ public class ResolverValidator {
          * Return the key in the resolver mapping.
          * @return the key in the resolver mapping
          */
-        @Nonnull
         public String getKey() {
             return keyValue.getKey();
         }
@@ -308,7 +309,6 @@ public class ResolverValidator {
          * The value for the key in the mapping.
          * @return the value for the key in the mapping
          */
-        @Nonnull
         public ResolverResult getValue() {
             return keyValue.getValue();
         }
@@ -320,7 +320,6 @@ public class ResolverValidator {
          *
          * @return the key found in the reverse directory associated with the value found in the forward mapping
          */
-        @Nonnull
         public String getReverseValue() {
             return reverseValue;
         }

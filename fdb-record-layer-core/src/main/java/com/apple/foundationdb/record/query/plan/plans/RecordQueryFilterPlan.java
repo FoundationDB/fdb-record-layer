@@ -51,8 +51,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -67,23 +67,21 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryFilterPlan.class);
 
-    @Nonnull
     private final List<QueryComponent> filters;
-    @Nonnull
     private final QueryComponent conjunctedFilter;
 
     @HeuristicPlanner
-    public RecordQueryFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull List<QueryComponent> filters) {
+    public RecordQueryFilterPlan(RecordQueryPlan inner, List<QueryComponent> filters) {
         this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(inner))), filters);
     }
 
     @HeuristicPlanner
-    public RecordQueryFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull QueryComponent filter) {
+    public RecordQueryFilterPlan(RecordQueryPlan inner, QueryComponent filter) {
         this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(inner))), ImmutableList.of(filter));
     }
 
-    public RecordQueryFilterPlan(@Nonnull Quantifier.Physical inner,
-                                 @Nonnull List<QueryComponent> filters) {
+    public RecordQueryFilterPlan(Quantifier.Physical inner,
+                                 List<QueryComponent> filters) {
         super(inner);
         this.filters = ImmutableList.copyOf(filters);
         this.conjunctedFilter = this.filters.size() == 1 ? Iterables.getOnlyElement(this.filters) : Query.and(this.filters);
@@ -96,48 +94,43 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
 
     @Nullable
     @Override
-    protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store,
-                                                     @Nonnull EvaluationContext context,
-                                                     @Nonnull QueryResult datum) {
+    protected <M extends Message> Boolean evalFilter(FDBRecordStoreBase<M> store,
+                                                     EvaluationContext context,
+                                                     QueryResult datum) {
         return conjunctedFilter.eval(store, context, datum.getQueriedRecord());
     }
 
     @Nullable
     @Override
-    protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store,
-                                                                             @Nonnull EvaluationContext context,
-                                                                             @Nonnull QueryResult datum) {
+    protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(FDBRecordStoreBase<M> store,
+                                                                             EvaluationContext context,
+                                                                             QueryResult datum) {
         return conjunctedFilter.evalAsync(store, context, datum.getQueriedRecord());
     }
 
-    @Nonnull
     @Override
     public String toString() {
         return ExplainPlanVisitor.toStringForDebugging(this);
     }
 
-    @Nonnull
     @Override
     public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
-    @Nonnull
     @Override
-    public RecordQueryFilterPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryFilterPlan translateCorrelations(final TranslationMap translationMap,
                                                        final boolean shouldSimplifyValues,
-                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+                                                       final List<? extends Quantifier> translatedQuantifiers) {
         return new RecordQueryFilterPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), getFilters());
     }
 
-    @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final Reference childRef) {
+    public RecordQueryPlanWithChild withChild(final Reference childRef) {
         return new RecordQueryFilterPlan(Quantifier.physical(childRef, getInner().getAlias()), getFilters());
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return getInner().getFlowedObjectValue();
@@ -145,8 +138,8 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -177,7 +170,7 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return getInnerPlan().planHash(mode) + getConjunctedFilter().planHash(mode);
@@ -188,19 +181,16 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
         }
     }
 
-    @Nonnull
     public List<QueryComponent> getFilters() {
         return filters;
     }
 
-    @Nonnull
     public QueryComponent getConjunctedFilter() {
         return conjunctedFilter;
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.PREDICATE_FILTER_OPERATOR,
@@ -209,15 +199,13 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
                 childGraphs);
     }
 
-    @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public Message toProto(final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("serialization of this plan is not supported");
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("serialization of this plan is not supported");
     }
 }

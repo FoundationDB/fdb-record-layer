@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormali
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.stream.Collectors;
 
@@ -52,21 +51,19 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public final class AbsorptionRule<P extends AndOrPredicate> extends QueryPredicateSimplificationRule<P> {
-    @Nonnull
     private final Class<P> majorClass;
-    @Nonnull
     private final BindingMatcher<QueryPredicate> termMatcher;
 
-    private AbsorptionRule(@Nonnull final Class<P> majorClass,
-                           @Nonnull final BindingMatcher<QueryPredicate> termMatcher,
-                           @Nonnull final BindingMatcher<P> rootMatcher) {
+    private AbsorptionRule(final Class<P> majorClass,
+                           final BindingMatcher<QueryPredicate> termMatcher,
+                           final BindingMatcher<P> rootMatcher) {
         super(rootMatcher);
         this.majorClass = majorClass;
         this.termMatcher = termMatcher;
     }
 
     @Override
-    public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
+    public void onMatch(final QueryPredicateSimplificationRuleCall call) {
         final var bindings = call.getBindings();
         final var majorTerms = bindings.getAll(termMatcher);
 
@@ -108,9 +105,8 @@ public final class AbsorptionRule<P extends AndOrPredicate> extends QueryPredica
         }
     }
 
-    @Nonnull
-    private QueryPredicate with(@Nonnull final Class<? extends AndOrPredicate> majorOrMinorClass,
-                                @Nonnull final Collection<? extends QueryPredicate> terms) {
+    private QueryPredicate with(final Class<? extends AndOrPredicate> majorOrMinorClass,
+                                final Collection<? extends QueryPredicate> terms) {
         if (majorOrMinorClass == OrPredicate.class) {
             return OrPredicate.or(terms);
         } else if (majorOrMinorClass == AndPredicate.class) {
@@ -119,8 +115,7 @@ public final class AbsorptionRule<P extends AndOrPredicate> extends QueryPredica
         throw new RecordCoreException("unsupported major or minor");
     }
 
-    @Nonnull
-    private static Class<? extends AndOrPredicate> minorForMajor(@Nonnull final Class<? extends AndOrPredicate> majorClass) {
+    private static Class<? extends AndOrPredicate> minorForMajor(final Class<? extends AndOrPredicate> majorClass) {
         if (majorClass == AndPredicate.class) {
             return OrPredicate.class;
         } else if (majorClass == OrPredicate.class) {
@@ -129,8 +124,7 @@ public final class AbsorptionRule<P extends AndOrPredicate> extends QueryPredica
         throw new RecordCoreException("unsupported major");
     }
 
-    @Nonnull
-    public static <P extends AndOrPredicate> AbsorptionRule<P> withMajor(@Nonnull final Class<P> majorClass) {
+    public static <P extends AndOrPredicate> AbsorptionRule<P> withMajor(final Class<P> majorClass) {
         final var termMatcher = anyPredicate();
         return new AbsorptionRule<>(majorClass,
                 termMatcher,

@@ -22,8 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.RecordCursorProto;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 /**
@@ -34,6 +33,5 @@ public interface Accumulator {
 
     @Nullable Object finish();
 
-    @Nonnull
     List<RecordCursorProto.AccumulatorState> getAccumulatorStates();
 }

@@ -31,7 +31,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 
 import static org.junit.jupiter.params.ParameterizedInvocationConstants.ARGUMENTS_WITH_NAMES_PLACEHOLDER;
 
@@ -87,6 +86,10 @@ class RemoteFetchSplitRecordsTest extends RemoteFetchTestBase {
     @Tag(Tags.Slow)
     @ParameterizedTest(name = "indexPrefetchManySplitRecordTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")
     @MethodSource("fetchMethodAndStreamMode")
+    // NullAway/JSpecify does not track that RemoteFetchTestBase.executeAndVerifyData()'s
+    // continuation parameter is always used defensively even without a @Nullable annotation
+    // (RemoteFetchTestBase itself passes null the same way for a fresh scan).
+    @SuppressWarnings("NullAway")
     void indexPrefetchManySplitRecordTest(IndexFetchMethod useIndexPrefetch, CursorStreamingMode streamingMode) throws Exception {
         // TODO: This test actually runs the API in a way that returns results that are too large: Over 50MB
         // FDB will fix the issue to limit the bytes returned and then this test would need to adjust accordingly.
@@ -128,7 +131,6 @@ class RemoteFetchSplitRecordsTest extends RemoteFetchTestBase {
         }
     }
 
-    @Nonnull
     private final RecordMetaDataHook simpleMetadataHook = metaDataBuilder -> {
         // UseSplitRecords can be set to different values to impact the way the store is opened
         metaDataBuilder.setSplitLongRecords(true);

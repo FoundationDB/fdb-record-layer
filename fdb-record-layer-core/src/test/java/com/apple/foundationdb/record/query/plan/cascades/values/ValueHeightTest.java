@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Random;
 
 /**
@@ -32,10 +31,8 @@ import java.util.Random;
  */
 public class ValueHeightTest {
 
-    @Nonnull
     private static final Random random = new Random();
 
-    @Nonnull
     private static Value valueOfDepth(int depth) {
         if (depth == 0) {
             return LiteralValue.ofScalar(random.nextInt(1000));

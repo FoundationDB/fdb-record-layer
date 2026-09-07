@@ -80,7 +80,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -99,7 +98,6 @@ public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Valu
         // prevent outside instantiation
     }
 
-    @Nonnull
     @Override
     public RelationalExpressionVisitor<Optional<List<Value>>> createVisitor() {
         return ExpressionProperty.toExpressionVisitor(new PrimaryKeyVisitor());
@@ -110,38 +108,31 @@ public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Valu
         return getClass().getSimpleName();
     }
 
-    @Nonnull
-    public Optional<List<Value>> evaluate(@Nonnull final Reference reference) {
+    public Optional<List<Value>> evaluate(final Reference reference) {
         return evaluate(reference.getOnlyElementAsPlan());
     }
 
-    @Nonnull
-    public Optional<List<Value>> evaluate(@Nonnull final RecordQueryPlan recordQueryPlan) {
+    public Optional<List<Value>> evaluate(final RecordQueryPlan recordQueryPlan) {
         return createVisitor().visit(recordQueryPlan);
     }
 
-    @Nonnull
     public static PrimaryKeyProperty primaryKey() {
         return PRIMARY_KEY;
     }
 
-    @Nonnull
     @SuppressWarnings("OptionalGetWithoutIsPresent")
-    public static Optional<List<Value>> commonPrimaryKeyValuesMaybeFromOptionals(@Nonnull Iterable<Optional<List<Value>>> primaryKeyOptionals) {
+    public static Optional<List<Value>> commonPrimaryKeyValuesMaybeFromOptionals(Iterable<Optional<List<Value>>> primaryKeyOptionals) {
         if (Streams.stream(primaryKeyOptionals).anyMatch(Optional::isEmpty)) {
             return Optional.empty();
         }
         return commonPrimaryKeyMaybe(Streams.stream(primaryKeyOptionals).map(Optional::get).collect(ImmutableList.toImmutableList()));
     }
 
-    @Nonnull
-    private static Optional<List<Value>> commonPrimaryKeyMaybe(@Nonnull Iterable<List<Value>> primaryKeys) {
+    private static Optional<List<Value>> commonPrimaryKeyMaybe(Iterable<List<Value>> primaryKeys) {
         List<Value> common = null;
-        var first = true;
         for (final var primaryKey : primaryKeys) {
-            if (first) {
+            if (common == null) {
                 common = primaryKey;
-                first = false;
             } else if (!common.equals(primaryKey)) {
                 return Optional.empty();
             }
@@ -155,46 +146,39 @@ public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Valu
      * e.g. primary keys, or if the result does not flow them.
      */
     public static class PrimaryKeyVisitor implements RecordQueryPlanVisitor<Optional<List<Value>>> {
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan updatePlan) {
+        public Optional<List<Value>> visitUpdatePlan(final RecordQueryUpdatePlan updatePlan) {
             // TODO make better
             return Optional.empty();
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitPredicatesFilterPlan(@Nonnull final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {
+        public Optional<List<Value>> visitPredicatesFilterPlan(final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {
             return primaryKeyFromSingleChild(predicatesFilterPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitLoadByKeysPlan(@Nonnull final RecordQueryLoadByKeysPlan element) {
+        public Optional<List<Value>> visitLoadByKeysPlan(final RecordQueryLoadByKeysPlan element) {
             return Optional.empty();
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitInValuesJoinPlan(@Nonnull final RecordQueryInValuesJoinPlan inValuesJoinPlan) {
+        public Optional<List<Value>> visitInValuesJoinPlan(final RecordQueryInValuesJoinPlan inValuesJoinPlan) {
             return visitInJoinPlan(inValuesJoinPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitInComparandJoinPlan(@Nonnull final RecordQueryInComparandJoinPlan inComparandJoinPlan) {
+        public Optional<List<Value>> visitInComparandJoinPlan(final RecordQueryInComparandJoinPlan inComparandJoinPlan) {
             return visitInJoinPlan(inComparandJoinPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
+        public Optional<List<Value>> visitAggregateIndexPlan(final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
             return Optional.empty();
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitCoveringIndexPlan(@Nonnull final RecordQueryCoveringIndexPlan coveringIndexPlan) {
+        public Optional<List<Value>> visitCoveringIndexPlan(final RecordQueryCoveringIndexPlan coveringIndexPlan) {
             final var indexPlan = coveringIndexPlan.getIndexPlan();
             if (indexPlan instanceof RecordQueryIndexPlan) {
                 return visitIndexPlan((RecordQueryIndexPlan)indexPlan);
@@ -202,245 +186,206 @@ public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Valu
             return Optional.empty();
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitDeletePlan(@Nonnull final RecordQueryDeletePlan deletePlan) {
+        public Optional<List<Value>> visitDeletePlan(final RecordQueryDeletePlan deletePlan) {
             return primaryKeyFromSingleChild(deletePlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitIntersectionOnKeyExpressionPlan(@Nonnull final RecordQueryIntersectionOnKeyExpressionPlan intersectionOnKeyExpressionPlan) {
+        public Optional<List<Value>> visitIntersectionOnKeyExpressionPlan(final RecordQueryIntersectionOnKeyExpressionPlan intersectionOnKeyExpressionPlan) {
             return commonPrimaryKeyFromChildren(intersectionOnKeyExpressionPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitMapPlan(@Nonnull final RecordQueryMapPlan mapPlan) {
+        public Optional<List<Value>> visitMapPlan(final RecordQueryMapPlan mapPlan) {
             return primaryKeyFromSingleChild(mapPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitComparatorPlan(@Nonnull final RecordQueryComparatorPlan comparatorPlan) {
+        public Optional<List<Value>> visitComparatorPlan(final RecordQueryComparatorPlan comparatorPlan) {
             return commonPrimaryKeyFromChildren(comparatorPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitUnorderedDistinctPlan(@Nonnull final RecordQueryUnorderedDistinctPlan unorderedDistinctPlan) {
+        public Optional<List<Value>> visitUnorderedDistinctPlan(final RecordQueryUnorderedDistinctPlan unorderedDistinctPlan) {
             return primaryKeyFromSingleChild(unorderedDistinctPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitSelectorPlan(@Nonnull final RecordQuerySelectorPlan selectorPlan) {
+        public Optional<List<Value>> visitSelectorPlan(final RecordQuerySelectorPlan selectorPlan) {
             return commonPrimaryKeyFromChildren(selectorPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitRangePlan(@Nonnull final RecordQueryRangePlan element) {
+        public Optional<List<Value>> visitRangePlan(final RecordQueryRangePlan element) {
             return Optional.empty();
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitTempTableScanPlan(@Nonnull final TempTableScanPlan element) {
+        public Optional<List<Value>> visitTempTableScanPlan(final TempTableScanPlan element) {
             return Optional.empty();
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitExplodePlan(@Nonnull final RecordQueryExplodePlan element) {
+        public Optional<List<Value>> visitExplodePlan(final RecordQueryExplodePlan element) {
             return Optional.empty();
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitInsertPlan(@Nonnull final RecordQueryInsertPlan insertPlan) {
+        public Optional<List<Value>> visitInsertPlan(final RecordQueryInsertPlan insertPlan) {
             // TODO make better
             return Optional.empty();
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitTableFunctionPlan(@Nonnull final RecordQueryTableFunctionPlan element) {
+        public Optional<List<Value>> visitTableFunctionPlan(final RecordQueryTableFunctionPlan element) {
             return Optional.empty();
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitTempTableInsertPlan(@Nonnull final TempTableInsertPlan tempTableInsertPlan) {
+        public Optional<List<Value>> visitTempTableInsertPlan(final TempTableInsertPlan tempTableInsertPlan) {
             // table queues do not support primary key currently.
             return Optional.empty();
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitIntersectionOnValuesPlan(@Nonnull final RecordQueryIntersectionOnValuesPlan intersectionOnValuesPlan) {
+        public Optional<List<Value>> visitIntersectionOnValuesPlan(final RecordQueryIntersectionOnValuesPlan intersectionOnValuesPlan) {
             return commonPrimaryKeyFromChildren(intersectionOnValuesPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitScoreForRankPlan(@Nonnull final RecordQueryScoreForRankPlan scoreForRankPlan) {
+        public Optional<List<Value>> visitScoreForRankPlan(final RecordQueryScoreForRankPlan scoreForRankPlan) {
             return primaryKeyFromSingleChild(scoreForRankPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan) {
+        public Optional<List<Value>> visitIndexPlan(final RecordQueryIndexPlan indexPlan) {
             return Optional.of(ScalarTranslationVisitor.translateKeyExpression(indexPlan.getCommonPrimaryKey(), Objects.requireNonNull(indexPlan.getResultType().getInnerType())));
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitRecursiveLevelUnionPlan(@Nonnull final RecordQueryRecursiveLevelUnionPlan recursiveUnionPlan) {
+        public Optional<List<Value>> visitRecursiveLevelUnionPlan(final RecordQueryRecursiveLevelUnionPlan recursiveUnionPlan) {
             return commonPrimaryKeyFromChildren(recursiveUnionPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan firstOrDefaultPlan) {
+        public Optional<List<Value>> visitFirstOrDefaultPlan(final RecordQueryFirstOrDefaultPlan firstOrDefaultPlan) {
             return primaryKeyFromSingleChild(firstOrDefaultPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitDefaultOnEmptyPlan(@Nonnull final RecordQueryDefaultOnEmptyPlan defaultOnEmptyPlan) {
+        public Optional<List<Value>> visitDefaultOnEmptyPlan(final RecordQueryDefaultOnEmptyPlan defaultOnEmptyPlan) {
             return Optional.empty();
         }
 
-        @Nonnull
-        public Optional<List<Value>> visitInJoinPlan(@Nonnull final RecordQueryInJoinPlan inJoinPlan) {
+        public Optional<List<Value>> visitInJoinPlan(final RecordQueryInJoinPlan inJoinPlan) {
             return primaryKeyFromSingleChild(inJoinPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitFilterPlan(@Nonnull final RecordQueryFilterPlan filterPlan) {
+        public Optional<List<Value>> visitFilterPlan(final RecordQueryFilterPlan filterPlan) {
             return primaryKeyFromSingleChild(filterPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitUnorderedPrimaryKeyDistinctPlan(@Nonnull final RecordQueryUnorderedPrimaryKeyDistinctPlan unorderedPrimaryKeyDistinctPlan) {
+        public Optional<List<Value>> visitUnorderedPrimaryKeyDistinctPlan(final RecordQueryUnorderedPrimaryKeyDistinctPlan unorderedPrimaryKeyDistinctPlan) {
             return primaryKeyFromSingleChild(unorderedPrimaryKeyDistinctPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitUnionOnKeyExpressionPlan(@Nonnull final RecordQueryUnionOnKeyExpressionPlan unionOnKeyExpressionPlan) {
+        public Optional<List<Value>> visitUnionOnKeyExpressionPlan(final RecordQueryUnionOnKeyExpressionPlan unionOnKeyExpressionPlan) {
             return commonPrimaryKeyFromChildren(unionOnKeyExpressionPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitTextIndexPlan(@Nonnull final RecordQueryTextIndexPlan element) {
+        public Optional<List<Value>> visitTextIndexPlan(final RecordQueryTextIndexPlan element) {
             return Optional.empty();
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitFetchFromPartialRecordPlan(@Nonnull final RecordQueryFetchFromPartialRecordPlan fetchFromPartialRecordPlan) {
+        public Optional<List<Value>> visitFetchFromPartialRecordPlan(final RecordQueryFetchFromPartialRecordPlan fetchFromPartialRecordPlan) {
             return primaryKeyFromSingleChild(fetchFromPartialRecordPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan typeFilterPlan) {
+        public Optional<List<Value>> visitTypeFilterPlan(final RecordQueryTypeFilterPlan typeFilterPlan) {
             return primaryKeyFromSingleChild(typeFilterPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitInUnionOnKeyExpressionPlan(@Nonnull final RecordQueryInUnionOnKeyExpressionPlan inUnionOnKeyExpressionPlan) {
+        public Optional<List<Value>> visitInUnionOnKeyExpressionPlan(final RecordQueryInUnionOnKeyExpressionPlan inUnionOnKeyExpressionPlan) {
             return primaryKeyFromSingleChild(inUnionOnKeyExpressionPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan element) {
+        public Optional<List<Value>> visitMultiIntersectionOnValuesPlan(final RecordQueryMultiIntersectionOnValuesPlan element) {
             return Optional.empty();
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitInParameterJoinPlan(@Nonnull final RecordQueryInParameterJoinPlan inParameterJoinPlan) {
+        public Optional<List<Value>> visitInParameterJoinPlan(final RecordQueryInParameterJoinPlan inParameterJoinPlan) {
             return visitInJoinPlan(inParameterJoinPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitFlatMapPlan(@Nonnull final RecordQueryFlatMapPlan flatMapPlan) {
+        public Optional<List<Value>> visitFlatMapPlan(final RecordQueryFlatMapPlan flatMapPlan) {
             if (flatMapPlan.isInheritOuterRecordProperties()) {
                 return primaryKeyFromSingleQuantifier(flatMapPlan.getOuterQuantifier());
             }
             return Optional.empty();
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitStreamingAggregationPlan(@Nonnull final RecordQueryStreamingAggregationPlan element) {
+        public Optional<List<Value>> visitStreamingAggregationPlan(final RecordQueryStreamingAggregationPlan element) {
             return Optional.empty();
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
+        public Optional<List<Value>> visitUnionOnValuesPlan(final RecordQueryUnionOnValuesPlan unionOnValuesPlan) {
             return commonPrimaryKeyFromChildren(unionOnValuesPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitUnorderedUnionPlan(@Nonnull final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
+        public Optional<List<Value>> visitUnorderedUnionPlan(final RecordQueryUnorderedUnionPlan unorderedUnionPlan) {
             return commonPrimaryKeyFromChildren(unorderedUnionPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitScanPlan(@Nonnull final RecordQueryScanPlan scanPlan) {
+        public Optional<List<Value>> visitScanPlan(final RecordQueryScanPlan scanPlan) {
             return scanPlan.getMatchCandidateMaybe().flatMap(WithPrimaryKeyMatchCandidate::getPrimaryKeyValuesMaybe);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitInUnionOnValuesPlan(@Nonnull final RecordQueryInUnionOnValuesPlan inUnionOnValuesPlan) {
+        public Optional<List<Value>> visitInUnionOnValuesPlan(final RecordQueryInUnionOnValuesPlan inUnionOnValuesPlan) {
             return primaryKeyFromSingleChild(inUnionOnValuesPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitComposedBitmapIndexQueryPlan(@Nonnull final ComposedBitmapIndexQueryPlan element) {
+        public Optional<List<Value>> visitComposedBitmapIndexQueryPlan(final ComposedBitmapIndexQueryPlan element) {
             return Optional.empty();
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitDamPlan(@Nonnull final RecordQueryDamPlan damPlan) {
+        public Optional<List<Value>> visitDamPlan(final RecordQueryDamPlan damPlan) {
             return primaryKeyFromSingleChild(damPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitSortPlan(@Nonnull final RecordQuerySortPlan sortPlan) {
+        public Optional<List<Value>> visitSortPlan(final RecordQuerySortPlan sortPlan) {
             return primaryKeyFromSingleChild(sortPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitRecursiveDfsJoinPlan(@Nonnull final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
+        public Optional<List<Value>> visitRecursiveDfsJoinPlan(final RecordQueryRecursiveDfsJoinPlan recursiveDfsJoinPlan) {
             return commonPrimaryKeyFromChildren(recursiveDfsJoinPlan);
         }
 
-        @Nonnull
         @Override
-        public Optional<List<Value>> visitDefault(@Nonnull final RecordQueryPlan element) {
+        public Optional<List<Value>> visitDefault(final RecordQueryPlan element) {
             return Optional.empty();
         }
 
-        private Optional<List<Value>> primaryKeyFromSingleChild(@Nonnull final RelationalExpression expression) {
+        private Optional<List<Value>> primaryKeyFromSingleChild(final RelationalExpression expression) {
             final var quantifiers = expression.getQuantifiers();
             if (quantifiers.size() == 1) {
                 return primaryKeyFromSingleQuantifier(Iterables.getOnlyElement(quantifiers));
@@ -448,12 +393,11 @@ public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Valu
             throw new RecordCoreException("cannot compute property for expression");
         }
 
-        private Optional<List<Value>> primaryKeyFromSingleQuantifier(@Nonnull final Quantifier quantifier) {
+        private Optional<List<Value>> primaryKeyFromSingleQuantifier(final Quantifier quantifier) {
             return evaluateForReference(quantifier.getRangesOver());
         }
 
-        @Nonnull
-        private List<Optional<List<Value>>> primaryKeysFromChildren(@Nonnull final RecordQueryPlan recordQueryPlan) {
+        private List<Optional<List<Value>>> primaryKeysFromChildren(final RecordQueryPlan recordQueryPlan) {
             return recordQueryPlan.getQuantifiers()
                     .stream()
                     .filter(quantifier -> quantifier instanceof Quantifier.ForEach || quantifier instanceof Quantifier.Physical)
@@ -461,14 +405,13 @@ public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Valu
                     .collect(ImmutableList.toImmutableList());
         }
 
-        @Nonnull
-        private Optional<List<Value>> commonPrimaryKeyFromChildren(@Nonnull final RecordQueryPlan recordQueryPlan) {
+        private Optional<List<Value>> commonPrimaryKeyFromChildren(final RecordQueryPlan recordQueryPlan) {
             final var primaryKeysFromChildren = primaryKeysFromChildren(recordQueryPlan);
 
             return commonPrimaryKeyValuesMaybeFromOptionals(primaryKeysFromChildren);
         }
 
-        private Optional<List<Value>> evaluateForReference(@Nonnull Reference reference) {
+        private Optional<List<Value>> evaluateForReference(Reference reference) {
             final var memberPrimaryKeysCollection =
                     reference.getPropertyForPlans(PRIMARY_KEY).values();
 

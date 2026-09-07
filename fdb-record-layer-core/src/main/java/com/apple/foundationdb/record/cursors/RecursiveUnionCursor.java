@@ -37,8 +37,8 @@ import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -69,17 +69,14 @@ import java.util.function.Function;
  */
 public class RecursiveUnionCursor<T> implements RecordCursor<T> {
 
-    @Nonnull
     private RecordCursor<T> activeStateCursor;
 
-    @Nonnull
     private final Executor executor;
 
-    @Nonnull
     private final RecursiveStateManager<T> recursiveStateManager;
 
-    public RecursiveUnionCursor(@Nonnull final RecursiveStateManager<T> recursiveStateManager,
-                                @Nonnull final Executor executor) {
+    public RecursiveUnionCursor(final RecursiveStateManager<T> recursiveStateManager,
+                                final Executor executor) {
         this.recursiveStateManager = recursiveStateManager;
         this.executor = executor;
         activeStateCursor = recursiveStateManager.getActiveStateCursor();
@@ -95,7 +92,6 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
      * </ul>
      * @return the next cursor item of the underlying active state cursor.
      */
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         return activeStateCursor.onNext().thenCompose(cursorResult -> {
@@ -120,16 +116,14 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         });
     }
 
-    @Nonnull
-    private CompletableFuture<RecordCursorResult<T>> wrapLastResult(@Nonnull RecordCursorResult<T> innerCursorResult) {
+    private CompletableFuture<RecordCursorResult<T>> wrapLastResult(RecordCursorResult<T> innerCursorResult) {
         return CompletableFuture.completedFuture(RecordCursorResult.withoutNextValue(
                 new Continuation(recursiveStateManager.isInitialState(), innerCursorResult.getContinuation(),
                         recursiveStateManager.getRecursiveUnionTempTable()),
                 innerCursorResult.getNoNextReason()));
     }
 
-    @Nonnull
-    private CompletableFuture<RecordCursorResult<T>> wrapNextResult(@Nonnull RecordCursorResult<T> innerCursorResult) {
+    private CompletableFuture<RecordCursorResult<T>> wrapNextResult(RecordCursorResult<T> innerCursorResult) {
         final var continuation = new Continuation(recursiveStateManager.isInitialState(), innerCursorResult.getContinuation(),
                 recursiveStateManager.getRecursiveUnionTempTable());
         return CompletableFuture.completedFuture(RecordCursorResult.withNextValue(innerCursorResult.get(), continuation));
@@ -145,14 +139,13 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         return activeStateCursor.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return executor;
     }
 
     @Override
-    public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
+    public boolean accept(final RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             activeStateCursor.accept(visitor);
         }
@@ -169,16 +162,14 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         private final boolean isInitialState;
 
         // the continuation of the currently active child cursor.
-        @Nonnull
         private final RecordCursorContinuation activeStateContinuation;
 
         // the temp table owned by RecursiveUnionQueryPlan.
-        @Nonnull
         private final TempTable tempTable;
 
         Continuation(boolean isInitialState,
-                     @Nonnull final RecordCursorContinuation activeStateContinuation,
-                     @Nonnull final TempTable tempTable) {
+                     final RecordCursorContinuation activeStateContinuation,
+                     final TempTable tempTable) {
             this.isInitialState = isInitialState;
             this.activeStateContinuation = activeStateContinuation;
             this.tempTable = tempTable;
@@ -191,7 +182,6 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         }
 
         @Override
-        @Nonnull
         public ByteString toByteString() {
             return RecordCursorProto.RecursiveCursorContinuation.newBuilder()
                     .setIsInitialState(isInitialState())
@@ -212,9 +202,8 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
          * @param tempTableDeserializer a {@link TempTable} deserializer.
          * @return a new {@link Continuation} instance.
          */
-        @Nonnull
-        public static Continuation from(@Nonnull final RecordCursorProto.RecursiveCursorContinuation message,
-                                        @Nonnull final Function<PTempTable, TempTable> tempTableDeserializer) {
+        public static Continuation from(final RecordCursorProto.RecursiveCursorContinuation message,
+                                        final Function<PTempTable, TempTable> tempTableDeserializer) {
             final var childContinuation = message.hasActiveStateContinuation()
                                           ? ByteArrayContinuation.fromNullable(message.getActiveStateContinuation().toByteArray())
                                           : RecordCursorStartContinuation.START;
@@ -223,7 +212,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
                 parsedTempTable = PTempTable.parseFrom(message.getTempTable().toByteString());
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("invalid continuation", ex)
-                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(message.toByteArray()));
+                        .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(message.toByteArray())));
             }
             return new Continuation(message.getIsInitialState(), childContinuation, tempTableDeserializer.apply(parsedTempTable));
         }
@@ -235,15 +224,14 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
          * @param tempTableDeserializer The {@link TempTable} deserializer.
          * @return a parsed {@link Continuation}.
          */
-        @Nonnull
-        public static Continuation from(@Nonnull byte[] unparsedContinuationBytes,
-                                        @Nonnull final Function<PTempTable, TempTable> tempTableDeserializer) {
+        public static Continuation from(byte[] unparsedContinuationBytes,
+                                        final Function<PTempTable, TempTable> tempTableDeserializer) {
             try {
                 final var parsed = RecordCursorProto.RecursiveCursorContinuation.parseFrom(unparsedContinuationBytes);
                 return from(parsed, tempTableDeserializer);
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("invalid continuation", ex)
-                        .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(unparsedContinuationBytes));
+                        .addLogInfo(LogMessageKeys.RAW_BYTES, Objects.requireNonNull(ByteArrayUtil2.loggable(unparsedContinuationBytes)));
             }
         }
 
@@ -251,12 +239,10 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
             return isInitialState;
         }
 
-        @Nonnull
         public RecordCursorContinuation getActiveStateContinuation() {
             return activeStateContinuation;
         }
 
-        @Nonnull
         public TempTable getTempTable() {
             return tempTable;
         }
@@ -287,14 +273,12 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
          * Retrieve the currently active cursor, an active cursor is either the {@code initial} cursor or the {@code recursive} cursor.
          * @return The currently active cursor.
          */
-        @Nonnull
         RecordCursor<T> getActiveStateCursor();
 
         /**
          * Retrieve the {@link TempTable} that is owned by the {@link RecordQueryRecursiveLevelUnionPlan}.
          * @return The {@link TempTable} that is owned by the {@link RecordQueryRecursiveLevelUnionPlan}.
          */
-        @Nonnull
         TempTable getRecursiveUnionTempTable();
 
         /**

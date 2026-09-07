@@ -41,7 +41,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -588,7 +587,6 @@ class OrderingTest {
                 PartiallyOrderedSet.of(ImmutableSet.of(a, b, c, d, e, x), ImmutableSetMultimap.of(c, a, c, b, d, c, d, e, d, x)),
                 false);
 
-
         var requestedOrdering = RequestedOrdering.ofParts(requested(), RequestedOrdering.Distinctness.NOT_DISTINCT, false, Set.of());
         // #pattern of _, _, c, _, _, d = 2!*2! = 4
         // #pattern of _, _, _, c, _, d = 2*3!*1! = 12
@@ -786,7 +784,6 @@ class OrderingTest {
                 ImmutableList.of(a, c, x),
                 false);
 
-
         final var mergedOrdering =
                 Ordering.merge(ImmutableList.of(one, two), Ordering.UNION, (left, right) -> false);
 
@@ -871,8 +868,7 @@ class OrderingTest {
         assertTrue(mergedOrdering.satisfies(requestedOrdering));
     }
 
-    @Nonnull
-    private static RecordConstructorValue select(@Nonnull final String... projection) {
+    private static RecordConstructorValue select(final String... projection) {
 
         final var rcv = ValueTestHelpers.qov();
         final List<Column<? extends Value>> columns = Arrays.stream(projection)
@@ -883,8 +879,7 @@ class OrderingTest {
         return RecordConstructorValue.ofColumns(columns);
     }
 
-    @Nonnull
-    private static SetMultimap<Value, Binding> bindingMap(@Nonnull final Object... valueObjectPairs) {
+    private static SetMultimap<Value, Binding> bindingMap(final Object... valueObjectPairs) {
         final var resultBindingMap = ImmutableSetMultimap.<Value, Binding>builder();
         int i;
         for (i = 0; i < valueObjectPairs.length;) {
@@ -914,8 +909,7 @@ class OrderingTest {
         return resultBindingMap.build();
     }
 
-    @Nonnull
-    private static List<RequestedOrderingPart> requested(@Nonnull final Object... objects) {
+    private static List<RequestedOrderingPart> requested(final Object... objects) {
         final var resultRequestedOrderingParts = ImmutableList.<RequestedOrderingPart>builder();
         int i;
         for (i = 0; i < objects.length;) {

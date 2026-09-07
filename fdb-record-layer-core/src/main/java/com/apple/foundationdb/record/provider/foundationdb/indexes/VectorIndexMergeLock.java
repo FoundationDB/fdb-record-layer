@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongSupplier;
@@ -62,18 +61,14 @@ final class VectorIndexMergeLock {
      * back-off), short enough to reclaim a crashed holder's prefix promptly. */
     static final long DEFAULT_LEASE_WINDOW_MILLIS = 60_000L;
 
-    @Nonnull
     private final Subspace lockSubspace;
-    @Nonnull
     private final byte[] deleteGuardKey;
-    @Nonnull
     private final UUID ownerId;
     private final long leaseWindowMillis;
-    @Nonnull
     private final LongSupplier clock;
 
-    VectorIndexMergeLock(@Nonnull final Subspace indexSecondarySubspace, @Nonnull final UUID ownerId,
-                         final long leaseWindowMillis, @Nonnull final LongSupplier clock) {
+    VectorIndexMergeLock(final Subspace indexSecondarySubspace, final UUID ownerId,
+                         final long leaseWindowMillis, final LongSupplier clock) {
         this.lockSubspace = indexSecondarySubspace.subspace(Tuple.from(VectorIndexSecondarySubspaceKeys.MERGE_LOCK));
         this.deleteGuardKey = deleteGuardKeyFor(indexSecondarySubspace);
         this.ownerId = ownerId;
@@ -90,8 +85,7 @@ final class VectorIndexMergeLock {
      * @param prefix the partition prefix
      * @return a future of the live owner id, or {@code null} if the prefix is free/stale (claimable)
      */
-    @Nonnull
-    CompletableFuture<UUID> currentOwner(@Nonnull final FDBRecordContext context, @Nonnull final Tuple prefix) {
+    CompletableFuture<UUID> currentOwner(final FDBRecordContext context, final Tuple prefix) {
         return context.readTransaction(true).get(lockSubspace.pack(prefix))
                 .thenApply(value -> {
                     if (value == null) {
@@ -127,7 +121,7 @@ final class VectorIndexMergeLock {
      * @param prefix the partition prefix
      */
     @SuppressWarnings("PMD.CloseResource")
-    void acquire(@Nonnull final FDBRecordContext context, @Nonnull final Tuple prefix) {
+    void acquire(final FDBRecordContext context, final Tuple prefix) {
         final Transaction transaction = context.ensureActive();
         transaction.set(lockSubspace.pack(prefix), Tuple.from(ownerId, clock.getAsLong()).pack());
         transaction.addReadConflictKey(deleteGuardKey);
@@ -140,8 +134,7 @@ final class VectorIndexMergeLock {
      * @param prefix the partition prefix
      * @return a future that completes when the release (if any) has been staged in the transaction
      */
-    @Nonnull
-    CompletableFuture<Void> release(@Nonnull final FDBRecordContext context, @Nonnull final Tuple prefix) {
+    CompletableFuture<Void> release(final FDBRecordContext context, final Tuple prefix) {
         final byte[] key = lockSubspace.pack(prefix);
         return context.ensureActive().get(key).thenAccept(value -> {
             if (value != null && ownerId.equals(Tuple.fromBytes(value).getUUID(0))) {
@@ -156,8 +149,7 @@ final class VectorIndexMergeLock {
      * {@code deleteWhere}. One key for the whole index (independent of prefix) keeps this trivially correct for a
      * partial grouping-prefix delete — no range covering the affected partitions is needed.
      */
-    @Nonnull
-    private static byte[] deleteGuardKeyFor(@Nonnull final Subspace indexSecondarySubspace) {
+    private static byte[] deleteGuardKeyFor(final Subspace indexSecondarySubspace) {
         return indexSecondarySubspace.pack(Tuple.from(VectorIndexSecondarySubspaceKeys.MERGE_LOCK_DELETE_GUARD));
     }
 
@@ -178,9 +170,9 @@ final class VectorIndexMergeLock {
      * @param indexSecondarySubspace the index's secondary subspace (where the lease and guard live)
      * @param prefix the grouping prefix being deleted
      */
-    static void addDeleteWhereConflicts(@Nonnull final Transaction transaction,
-                                        @Nonnull final Subspace indexSecondarySubspace,
-                                        @Nonnull final Tuple prefix) {
+    static void addDeleteWhereConflicts(final Transaction transaction,
+                                        final Subspace indexSecondarySubspace,
+                                        final Tuple prefix) {
         final Subspace lockSubspace =
                 indexSecondarySubspace.subspace(Tuple.from(VectorIndexSecondarySubspaceKeys.MERGE_LOCK));
         transaction.clear(Range.startsWith(lockSubspace.pack(prefix)));

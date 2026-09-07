@@ -112,8 +112,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -125,6 +124,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -244,54 +244,53 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         setupPlanner(null);
     }
 
-    @Nonnull
-    private static FDBStoreTimer getTimer(@Nonnull FDBRecordStore recordStore) {
+    private static FDBStoreTimer getTimer(FDBRecordStore recordStore) {
         final FDBStoreTimer timer = recordStore.getTimer();
         assertNotNull(timer, "store has not been initialized with a timer");
         return timer;
     }
 
-    private static void resetTimer(@Nonnull FDBRecordStore recordStore) {
+    private static void resetTimer(FDBRecordStore recordStore) {
         getTimer(recordStore).reset();
     }
 
-    private static int getCount(@Nonnull FDBRecordStore recordStore, @Nonnull StoreTimer.Event event) {
+    private static int getCount(FDBRecordStore recordStore, StoreTimer.Event event) {
         return getTimer(recordStore).getCount(event);
     }
 
-    private static int getLoadIndexKeyCount(@Nonnull FDBRecordStore recordStore) {
+    private static int getLoadIndexKeyCount(FDBRecordStore recordStore) {
         return getCount(recordStore, FDBStoreTimer.Counts.LOAD_INDEX_KEY);
     }
 
-    private static int getSaveIndexKeyCount(@Nonnull FDBRecordStore recordStore) {
+    private static int getSaveIndexKeyCount(FDBRecordStore recordStore) {
         return getCount(recordStore, FDBStoreTimer.Counts.SAVE_INDEX_KEY);
     }
 
-    private static int getSaveIndexKeyBytes(@Nonnull FDBRecordStore recordStore) {
+    private static int getSaveIndexKeyBytes(FDBRecordStore recordStore) {
         return getCount(recordStore, FDBStoreTimer.Counts.SAVE_INDEX_KEY_BYTES);
     }
 
-    private static int getSaveIndexValueBytes(@Nonnull FDBRecordStore recordStore) {
+    private static int getSaveIndexValueBytes(FDBRecordStore recordStore) {
         return getCount(recordStore, FDBStoreTimer.Counts.SAVE_INDEX_VALUE_BYTES);
     }
 
-    private static int getDeleteIndexKeyCount(@Nonnull FDBRecordStore recordStore) {
+    private static int getDeleteIndexKeyCount(FDBRecordStore recordStore) {
         return getCount(recordStore, FDBStoreTimer.Counts.DELETE_INDEX_KEY);
     }
 
-    private static int getDeleteIndexKeyBytes(@Nonnull FDBRecordStore recordStore) {
+    private static int getDeleteIndexKeyBytes(FDBRecordStore recordStore) {
         return getCount(recordStore, FDBStoreTimer.Counts.DELETE_INDEX_KEY_BYTES);
     }
 
-    private static int getDeleteIndexValueBytes(@Nonnull FDBRecordStore recordStore) {
+    private static int getDeleteIndexValueBytes(FDBRecordStore recordStore) {
         return getCount(recordStore, FDBStoreTimer.Counts.DELETE_INDEX_VALUE_BYTES);
     }
 
-    private static int getLoadTextEntryCount(@Nonnull FDBRecordStore recordStore) {
+    private static int getLoadTextEntryCount(FDBRecordStore recordStore) {
         return getCount(recordStore, FDBStoreTimer.Counts.LOAD_TEXT_ENTRY);
     }
 
-    private static void validateSorted(@Nonnull List<IndexEntry> entryList) {
+    private static void validateSorted(List<IndexEntry> entryList) {
         if (entryList.isEmpty()) {
             return;
         }
@@ -304,13 +303,14 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
-    private static List<IndexEntry> scanIndex(@Nonnull FDBRecordStore store, @Nonnull Index index, @Nonnull TupleRange range, @Nonnull ScanProperties scanProperties) throws ExecutionException, InterruptedException {
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanIndex's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
+    private static List<IndexEntry> scanIndex(FDBRecordStore store, Index index, TupleRange range, ScanProperties scanProperties) throws ExecutionException, InterruptedException {
         return store.scanIndex(index, BY_TEXT_TOKEN, range, null, scanProperties).asList().get();
     }
 
-    @Nonnull
-    private static List<IndexEntry> scanIndex(@Nonnull FDBRecordStore store, @Nonnull Index index, @Nonnull TupleRange range) throws ExecutionException, InterruptedException {
+    private static List<IndexEntry> scanIndex(FDBRecordStore store, Index index, TupleRange range) throws ExecutionException, InterruptedException {
         List<IndexEntry> results = scanIndex(store, index, range, ScanProperties.FORWARD_SCAN);
         validateSorted(results);
         List<IndexEntry> backwardResults = new ArrayList<>(scanIndex(store, index, range, ScanProperties.REVERSE_SCAN));
@@ -337,6 +337,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 }
                 ScanProperties scanProperties = propertiesBuilder.build().asScanProperties(i % 2 == 0);
                 int retrieved = 0;
+                // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+                // scanIndex's continuation parameter is declared @Nullable byte[].
+                @SuppressWarnings("NullAway")
                 RecordCursorIterator<IndexEntry> cursor = store.scanIndex(index, BY_TEXT_TOKEN, range, continuation, scanProperties).asIterator();
                 while (cursor.hasNext()) {
                     paginatedResults.add(cursor.next());
@@ -366,8 +369,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @SuppressWarnings("unchecked")
-    @Nonnull
-    private List<Map.Entry<Tuple, List<Integer>>> toMapEntries(@Nonnull List<IndexEntry> indexEntries, @Nullable Tuple prefix) {
+    private List<Map.Entry<Tuple, List<Integer>>> toMapEntries(List<IndexEntry> indexEntries, @Nullable Tuple prefix) {
         List<Map.Entry<Tuple, List<Integer>>> mapEntries = new ArrayList<>(indexEntries.size());
         for (IndexEntry entry : indexEntries) {
             List<Integer> positionList = (List<Integer>)entry.getValue().get(0);
@@ -381,24 +383,20 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         return mapEntries;
     }
 
-    @Nonnull
-    private List<Map.Entry<Tuple, List<Integer>>> scanMapEntries(@Nonnull FDBRecordStore store, @Nonnull Index index, @Nonnull Tuple prefix) throws ExecutionException, InterruptedException {
+    private List<Map.Entry<Tuple, List<Integer>>> scanMapEntries(FDBRecordStore store, Index index, Tuple prefix) throws ExecutionException, InterruptedException {
         return toMapEntries(scanIndex(store, index, TupleRange.allOf(prefix)), prefix);
     }
 
-    @Nonnull
-    private List<BunchedMapScanEntry<Tuple, List<Integer>, String>> scanMulti(@Nonnull FDBRecordStore store, @Nonnull Subspace mapSubspace) throws ExecutionException, InterruptedException {
+    private List<BunchedMapScanEntry<Tuple, List<Integer>, String>> scanMulti(FDBRecordStore store, Subspace mapSubspace) throws ExecutionException, InterruptedException {
         SubspaceSplitter<String> splitter = new SubspaceSplitter<String>() {
-            @Nonnull
             @Override
-            public Subspace subspaceOf(@Nonnull byte[] keyBytes) {
+            public Subspace subspaceOf(byte[] keyBytes) {
                 Tuple t = mapSubspace.unpack(keyBytes);
                 return mapSubspace.subspace(TupleHelpers.subTuple(t, 0, 1));
             }
 
-            @Nonnull
             @Override
-            public String subspaceTag(@Nonnull Subspace subspace) {
+            public String subspaceTag(Subspace subspace) {
                 return mapSubspace.unpack(subspace.getKey()).getString(0);
             }
         };
@@ -406,8 +404,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         return AsyncUtil.collectRemaining(iterator).get();
     }
 
-    @Nonnull
-    private List<Pair<Tuple, Integer>> scanTokenizerVersions(@Nonnull FDBRecordStore store, @Nonnull Index index) throws ExecutionException, InterruptedException {
+    private List<Pair<Tuple, Integer>> scanTokenizerVersions(FDBRecordStore store, Index index) throws ExecutionException, InterruptedException {
         final Subspace tokenizerVersionSubspace = store.indexSecondarySubspace(index).subspace(TextIndexMaintainer.TOKENIZER_VERSION_SUBSPACE_TUPLE);
         return recordStore.ensureContextActive().getRange(tokenizerVersionSubspace.range()).asList().get().stream()
                 .map(kv -> Pair.of(tokenizerVersionSubspace.unpack(kv.getKey()), (int)Tuple.fromBytes(kv.getValue()).getLong(0)))
@@ -478,6 +475,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     entryOf(Tuple.from("hours", 1623), Collections.singletonList(87)),
                     entryOf(Tuple.from("households", 1623), Collections.singletonList(1))
             ), entryList);
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // scanIndexRecords's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
             List<Message> recordList = recordStore.scanIndexRecords(index.getName(), BY_TEXT_TOKEN, TupleRange.prefixedBy("h"), null, ScanProperties.FORWARD_SCAN)
                     .map(FDBIndexedRecord::getRecord)
                     .asList()
@@ -800,6 +800,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     entryOf(Tuple.from(1066L), Collections.singletonList(3)),
                     entryOf(Tuple.from(1623L), Arrays.asList(18, 108))
             ), entryList);
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // scanIndexRecords's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
             List<Message> recordList = recordStore.scanIndexRecords(COMPLEX_TEXT_BY_GROUP.getName(), BY_TEXT_TOKEN, TupleRange.allOf(Tuple.from(0L, "to")), null, ScanProperties.FORWARD_SCAN)
                     .map(FDBIndexedRecord::getRecord)
                     .asList()
@@ -975,7 +978,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void saveTwoRecordsConcurrently(@Nonnull RecordMetaDataHook hook, @Nonnull Message record1, @Nonnull Message record2, boolean shouldSucceed) throws Exception {
+    private void saveTwoRecordsConcurrently(RecordMetaDataHook hook, Message record1, Message record2, boolean shouldSucceed) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
             recordStore.saveRecord(record1);
@@ -992,6 +995,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // scanRecords's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
             Set<Message> records = new HashSet<>(recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
                     .map(FDBStoredRecord::getRecord)
                     .asList()
@@ -1362,10 +1368,13 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void scanWithZeroScanRecordLimit(@Nonnull Index index, @Nonnull String token, boolean reverse) throws Exception {
+    private void scanWithZeroScanRecordLimit(Index index, String token, boolean reverse) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             ScanProperties scanProperties = ExecuteProperties.newBuilder().setScannedRecordsLimit(0).build().asScanProperties(reverse);
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // scanIndex's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
             RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, BY_TEXT_TOKEN, TupleRange.allOf(Tuple.from(token)), null, scanProperties);
             RecordCursorResult<IndexEntry> result = cursor.getNext();
             if (!result.hasNext()) {
@@ -1378,7 +1387,10 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void scanMultipleWithScanRecordLimits(@Nonnull Index index, @Nonnull List<String> tokens, int scanRecordLimit, boolean reverse) throws Exception {
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanIndex's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
+    private void scanMultipleWithScanRecordLimits(Index index, List<String> tokens, int scanRecordLimit, boolean reverse) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             ScanProperties scanProperties = ExecuteProperties.newBuilder().setScannedRecordsLimit(scanRecordLimit).build().asScanProperties(reverse);
@@ -1411,7 +1423,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void scanWithContinuations(@Nonnull Index index, @Nonnull String token, int limit, boolean reverse) throws Exception {
+    private void scanWithContinuations(Index index, String token, int limit, boolean reverse) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             final List<IndexEntry> firstResults = scanIndex(recordStore, index, TupleRange.allOf(Tuple.from(token)));
@@ -1420,6 +1432,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             byte[] continuation = null;
 
             do {
+                // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+                // scanIndex's continuation parameter is declared @Nullable byte[].
+                @SuppressWarnings("NullAway")
                 RecordCursorIterator<IndexEntry> cursor = recordStore.scanIndex(index, BY_TEXT_TOKEN, TupleRange.allOf(Tuple.from(token)), continuation, reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN).asIterator();
                 for (int i = 0; i < limit || limit == 0; i++) {
                     if (cursor.hasNext()) {
@@ -1443,12 +1458,15 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    void scanWithSkip(@Nonnull Index index, @Nonnull String token, int skip, int limit, boolean reverse) throws Exception {
+    void scanWithSkip(Index index, String token, int skip, int limit, boolean reverse) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             final List<IndexEntry> fullResults = scanIndex(recordStore, index, TupleRange.allOf(Tuple.from(token)));
             validateSorted(fullResults);
             final ScanProperties scanProperties = ExecuteProperties.newBuilder().setReturnedRowLimit(limit).setSkip(skip).build().asScanProperties(reverse);
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // scanIndex's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
             final RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, BY_TEXT_TOKEN, TupleRange.allOf(Tuple.from(token)), null, scanProperties);
             List<IndexEntry> scanResults = cursor.asList().get();
             RecordCursorResult<IndexEntry> noNextResult = cursor.getNext();
@@ -1501,6 +1519,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanIndex's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
     void invalidScans() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -1512,9 +1533,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
-    private RecordCursor<Tuple> queryDocuments(@Nullable List<String> recordTypes, @Nullable List<KeyExpression> requiredResults, @Nonnull QueryComponent filter, int planHash,
-                                               @Nonnull Matcher<RecordQueryPlan> planMatcher) {
+    private RecordCursor<Tuple> queryDocuments(@Nullable List<String> recordTypes, @Nullable List<KeyExpression> requiredResults, QueryComponent filter, int planHash,
+                                               Matcher<RecordQueryPlan> planMatcher) {
         RecordQuery.Builder queryBuilder = RecordQuery.newBuilder();
         if (recordTypes != null) {
             if (recordTypes.size() == 1) {
@@ -1546,18 +1566,16 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         return recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey);
     }
 
-    @Nonnull
-    private List<Long> querySimpleDocumentsWithScan(@Nonnull QueryComponent filter, int planHash) throws InterruptedException, ExecutionException {
+    private List<Long> querySimpleDocumentsWithScan(QueryComponent filter, int planHash) throws InterruptedException, ExecutionException {
         return queryDocuments(Collections.singletonList(SIMPLE_DOC), Collections.singletonList(field("doc_id")), filter, planHash,
-                    filter(BooleanNormalizer.getDefaultInstance().normalize(filter), typeFilter(contains(SIMPLE_DOC), PlanMatchers.scan(unbounded()))))
+                    filter(Objects.requireNonNull(BooleanNormalizer.getDefaultInstance().normalize(filter)), typeFilter(contains(SIMPLE_DOC), PlanMatchers.scan(unbounded()))))
                 .map(t -> t.getLong(0))
                 .asList()
                 .get();
     }
 
-    @Nonnull
-    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, @Nonnull String indexName, int planHash, boolean isCoveringIndexExpected,
-                                                     @Nonnull Matcher<? super Comparisons.TextComparison> comparisonMatcher) throws InterruptedException, ExecutionException {
+    private List<Long> querySimpleDocumentsWithIndex(QueryComponent filter, String indexName, int planHash, boolean isCoveringIndexExpected,
+                                                     Matcher<? super Comparisons.TextComparison> comparisonMatcher) throws InterruptedException, ExecutionException {
         Matcher<RecordQueryPlan> textMatcher = textIndexScan(allOf(indexName(indexName), textComparison(comparisonMatcher)));
         Matcher<RecordQueryPlan> indexMatcher = anyOf(textMatcher, coveringIndexScan(textMatcher));
         if (isCoveringIndexExpected) {
@@ -1571,7 +1589,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Nullable
-    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, @Nonnull String indexName, @Nonnull QueryComponent textFilter, int planHash, boolean isCoveringIndexExpected) throws InterruptedException, ExecutionException {
+    private List<Long> querySimpleDocumentsWithIndex(QueryComponent filter, String indexName, QueryComponent textFilter, int planHash, boolean isCoveringIndexExpected) throws InterruptedException, ExecutionException {
         if (textFilter instanceof ComponentWithComparison && ((ComponentWithComparison)textFilter).getComparison() instanceof Comparisons.TextComparison) {
             return querySimpleDocumentsWithIndex(filter, indexName, planHash, isCoveringIndexExpected, equalTo(((ComponentWithComparison)textFilter).getComparison()));
         } else if (textFilter instanceof AndOrComponent) {
@@ -1585,8 +1603,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         return null;
     }
 
-    @Nonnull
-    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, @Nonnull String indexName, int planHash, boolean isCoveringIndexExpected) throws InterruptedException, ExecutionException {
+    private List<Long> querySimpleDocumentsWithIndex(QueryComponent filter, String indexName, int planHash, boolean isCoveringIndexExpected) throws InterruptedException, ExecutionException {
         List<Long> queryResults = querySimpleDocumentsWithIndex(filter, indexName, filter, planHash, isCoveringIndexExpected);
         if (queryResults != null) {
             return queryResults;
@@ -1595,8 +1612,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
-    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, int planHash, boolean isCoveringIndexExpected) throws InterruptedException, ExecutionException {
+    private List<Long> querySimpleDocumentsWithIndex(QueryComponent filter, int planHash, boolean isCoveringIndexExpected) throws InterruptedException, ExecutionException {
         return querySimpleDocumentsWithIndex(filter, TextIndexTestUtils.SIMPLE_DEFAULT_NAME, planHash, isCoveringIndexExpected);
     }
 
@@ -1751,6 +1767,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             while (!done) {
                 final int priorKeysLoaded = getLoadTextEntryCount(recordStore);
                 ExecuteProperties executeProperties = ExecuteProperties.newBuilder().setScannedRecordsLimit(50).build();
+                // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+                // executeQuery's continuation parameter is declared @Nullable byte[].
+                @SuppressWarnings("NullAway")
                 RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, continuation, executeProperties);
                 assertEquals(Collections.emptyList(), cursor.asList().get());
                 RecordCursorResult<FDBQueriedRecord<Message>> noNextResult = cursor.getNext();
@@ -2176,22 +2195,19 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
-    private List<Tuple> queryComplexDocumentsWithPlan(@Nonnull QueryComponent filter, int planHash, Matcher<RecordQueryPlan> planMatcher) throws InterruptedException, ExecutionException {
+    private List<Tuple> queryComplexDocumentsWithPlan(QueryComponent filter, int planHash, Matcher<RecordQueryPlan> planMatcher) throws InterruptedException, ExecutionException {
         return queryDocuments(Collections.singletonList(COMPLEX_DOC), Arrays.asList(field("group"), field("doc_id")), filter, planHash, planMatcher)
                 .asList()
                 .get();
     }
 
-    @Nonnull
-    private List<Tuple> queryComplexDocumentsWithScan(@Nonnull QueryComponent textFilter, long group, int planHash) throws InterruptedException, ExecutionException {
+    private List<Tuple> queryComplexDocumentsWithScan(QueryComponent textFilter, long group, int planHash) throws InterruptedException, ExecutionException {
         final Matcher<RecordQueryPlan> planMatcher = filter(textFilter,
                 typeFilter(equalTo(Collections.singleton(COMPLEX_DOC)), PlanMatchers.scan(bounds(hasTupleString("[[" + group + "],[" + group + "]]")))));
         return queryComplexDocumentsWithPlan(Query.and(Query.field("group").equalsValue(group), textFilter), planHash, planMatcher);
     }
 
-    @Nonnull
-    private List<Tuple> queryComplexDocumentsWithIndex(@Nonnull QueryComponent textFilter, @Nullable QueryComponent additionalFilter, boolean skipFilterCheck, long group, int planHash) throws InterruptedException, ExecutionException {
+    private List<Tuple> queryComplexDocumentsWithIndex(QueryComponent textFilter, @Nullable QueryComponent additionalFilter, boolean skipFilterCheck, long group, int planHash) throws InterruptedException, ExecutionException {
         if (!(textFilter instanceof ComponentWithComparison)) {
             throw new RecordCoreArgumentException("filter without comparison provided as text filter");
         }
@@ -2218,18 +2234,15 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         return queryComplexDocumentsWithPlan(filter, planHash, planMatcher);
     }
 
-    @Nonnull
-    private List<Tuple> queryComplexDocumentsWithIndex(@Nonnull QueryComponent textFilter, @Nullable QueryComponent additionalFilter, long group, int planHash) throws InterruptedException, ExecutionException {
+    private List<Tuple> queryComplexDocumentsWithIndex(QueryComponent textFilter, @Nullable QueryComponent additionalFilter, long group, int planHash) throws InterruptedException, ExecutionException {
         return queryComplexDocumentsWithIndex(textFilter, additionalFilter, false, group, planHash);
     }
 
-    @Nonnull
-    private List<Tuple> queryComplexDocumentsWithIndex(@Nonnull QueryComponent textFilter, long group, int planHash) throws InterruptedException, ExecutionException {
+    private List<Tuple> queryComplexDocumentsWithIndex(QueryComponent textFilter, long group, int planHash) throws InterruptedException, ExecutionException {
         return queryComplexDocumentsWithIndex(textFilter, null, group, planHash);
     }
 
-    @Nonnull
-    private List<Tuple> queryComplexDocumentsWithOr(@Nonnull OrComponent orFilter, long group, int planHash) throws InterruptedException, ExecutionException {
+    private List<Tuple> queryComplexDocumentsWithOr(OrComponent orFilter, long group, int planHash) throws InterruptedException, ExecutionException {
         final Matcher<RecordQueryPlan> textPlanMatcher = textIndexScan(allOf(
                 indexName(COMPLEX_TEXT_BY_GROUP.getName()),
                 groupingBounds(allOf(notNullValue(), hasTupleString("[[" + group + "],[" + group + "]]"))),
@@ -2477,8 +2490,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
-    private List<Long> queryMultiTypeDocuments(@Nonnull QueryComponent textFilter, @Nonnull List<String> recordTypes, int planHash) throws InterruptedException, ExecutionException {
+    private List<Long> queryMultiTypeDocuments(QueryComponent textFilter, List<String> recordTypes, int planHash) throws InterruptedException, ExecutionException {
         if (!(textFilter instanceof ComponentWithComparison)) {
             throw new RecordCoreArgumentException("filter without comparison provided as text filter");
         }
@@ -2557,8 +2569,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
-    private List<Long> queryMapDocumentsWithScan(@Nonnull QueryComponent filter, int planHash) throws InterruptedException, ExecutionException {
+    private List<Long> queryMapDocumentsWithScan(QueryComponent filter, int planHash) throws InterruptedException, ExecutionException {
         return queryDocuments(Collections.singletonList(MAP_DOC), Collections.singletonList(field("doc_id")), filter, planHash,
                 filter(filter, typeFilter(equalTo(Collections.singleton(MAP_DOC)), PlanMatchers.scan(unbounded()))))
                 .map(t -> t.getLong(0))
@@ -2566,8 +2577,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 .get();
     }
 
-    @Nonnull
-    private List<Long> queryMapDocumentsWithIndex(@Nonnull String key, @Nonnull QueryComponent textFilter, int planHash, boolean isCoveringIndexExpected) throws InterruptedException, ExecutionException {
+    private List<Long> queryMapDocumentsWithIndex(String key, QueryComponent textFilter, int planHash, boolean isCoveringIndexExpected) throws InterruptedException, ExecutionException {
         if (!(textFilter instanceof ComponentWithComparison)) {
             throw new RecordCoreArgumentException("filter without comparison provided as text filter");
         }
@@ -2587,8 +2597,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 .get();
     }
 
-    @Nonnull
-    private List<Long> queryMapDocumentsWithGroupedIndex(@Nonnull String key, @Nonnull QueryComponent textFilter, long group, int planHash) throws InterruptedException, ExecutionException {
+    private List<Long> queryMapDocumentsWithGroupedIndex(String key, QueryComponent textFilter, long group, int planHash) throws InterruptedException, ExecutionException {
         if (!(textFilter instanceof ComponentWithComparison)) {
             throw new RecordCoreArgumentException("filter without comparison provided as text filter");
         }
@@ -2733,8 +2742,10 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
-    private Set<Long> performQueryWithRecordStoreScan(@Nonnull RecordMetaDataHook hook, @Nonnull QueryComponent filter) throws Exception {
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // scanRecords's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
+    private Set<Long> performQueryWithRecordStoreScan(RecordMetaDataHook hook, QueryComponent filter) throws Exception {
         final ScanProperties scanProperties = new ScanProperties(ExecuteProperties.newBuilder().setTimeLimit(3000).build());
         Set<Long> results = new HashSet<>();
         byte[] continuation = null;
@@ -2755,8 +2766,10 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         return results;
     }
 
-    @Nonnull
-    private Set<Long> performQueryWithIndexScan(@Nonnull RecordMetaDataHook hook, @Nonnull Index index, @Nonnull QueryComponent filter) throws Exception {
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+    // executeQuery's continuation parameter is declared @Nullable byte[].
+    @SuppressWarnings("NullAway")
+    private Set<Long> performQueryWithIndexScan(RecordMetaDataHook hook, Index index, QueryComponent filter) throws Exception {
         final ExecuteProperties executeProperties = ExecuteProperties.newBuilder().setTimeLimit(3000).build();
         final RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType(SIMPLE_DOC)
@@ -2802,7 +2815,6 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         return results;
     }
 
-    @Nonnull
     public static Stream<Arguments> indexArguments() {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         Index simpleIndex = metaDataBuilder.getIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
@@ -2817,7 +2829,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
      */
     @MethodSource("indexArguments")
     @ParameterizedTest
-    void queryScanEquivalence(@Nonnull Index index) throws Exception {
+    void queryScanEquivalence(Index index) throws Exception {
         final Random r = new Random(0xba5eba1L + index.getName().hashCode());
         final int recordCount = 100;
         final int recordBatch = 25;
@@ -2967,8 +2979,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
-    private <T extends Exception> T invalidateIndex(@Nonnull Class<T> clazz, @Nonnull String recordType, @Nonnull Index index) {
+    private <T extends Exception> T invalidateIndex(Class<T> clazz, String recordType, Index index) {
         return assertThrows(clazz, () -> {
             RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
             metaDataBuilder.addIndex(recordType, index);
@@ -2977,8 +2988,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         });
     }
 
-    @Nonnull
-    private <T extends Exception> T invalidateIndex(@Nonnull Class<T> clazz, @Nonnull Index index) {
+    private <T extends Exception> T invalidateIndex(Class<T> clazz, Index index) {
         return invalidateIndex(clazz, SIMPLE_DOC, index);
     }
 
@@ -3026,7 +3036,6 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 new Index(testIndex, field("text"), IndexTypes.TEXT, ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, PrefixTextTokenizer.NAME, IndexOptions.TEXT_TOKENIZER_VERSION_OPTION, "one")));
     }
 
-    @Nonnull
     private List<String> getStandardLexicon() {
         List<String> words = new ArrayList<>();
         for (String sample : TextSamples.ALL) {
@@ -3035,8 +3044,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         return words;
     }
 
-    @Nonnull
-    private double[] getZipfProportions(@Nonnull List<String> lexicon) {
+    private double[] getZipfProportions(List<String> lexicon) {
         // Use a zipf distribution for tokens. This is roughly the distribution of words in human
         // text, though in real text, the more common words are also shorter, so this is somewhat bogus.
         double hN = 0.0;
@@ -3056,8 +3064,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         return proportions;
     }
 
-    @Nonnull
-    private List<String> getRandomWords(@Nonnull Random r, @Nonnull List<String> lexicon, @Nonnull double[] proportions, int tokenAverage, int tokenSd) {
+    private List<String> getRandomWords(Random r, List<String> lexicon, double[] proportions, int tokenAverage, int tokenSd) {
         int tokenCount = (int)Math.abs(r.nextGaussian() * tokenSd + tokenAverage);
         List<String> words = new ArrayList<>(tokenCount);
         for (int j = 0; j < tokenCount; j++) {
@@ -3075,8 +3082,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         return words;
     }
 
-    @Nonnull
-    private List<SimpleDocument> getRandomRecords(@Nonnull Random r, int count, @Nonnull List<String> lexicon, int tokenAverage, int tokenSd) {
+    private List<SimpleDocument> getRandomRecords(Random r, int count, List<String> lexicon, int tokenAverage, int tokenSd) {
         List<SimpleDocument> list = new ArrayList<>(count);
 
         double[] proportions = getZipfProportions(lexicon);
@@ -3094,13 +3100,11 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         return list;
     }
 
-    @Nonnull
-    private List<SimpleDocument> getRandomRecords(@Nonnull Random r, int count, @Nonnull List<String> lexicon) {
+    private List<SimpleDocument> getRandomRecords(Random r, int count, List<String> lexicon) {
         return getRandomRecords(r, count, lexicon, 1000, 100);
     }
 
-    @Nonnull
-    private List<SimpleDocument> getRandomRecords(@Nonnull Random r, int count) {
+    private List<SimpleDocument> getRandomRecords(Random r, int count) {
         return getRandomRecords(r, count, getStandardLexicon());
     }
 
@@ -3119,6 +3123,9 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             }
 
             int textSize = 0;
+            // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even though
+            // scanRecords's continuation parameter is declared @Nullable byte[].
+            @SuppressWarnings("NullAway")
             RecordCursorIterator<String> cursor = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN)
                     .map(record -> {
                         Message msg = record.getRecord();
@@ -3127,7 +3134,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     })
                     .asIterator();
             while (cursor.hasNext()) {
-                textSize += cursor.next().length();
+                textSize += Objects.requireNonNull(cursor.next()).length();
             }
 
             LOGGER.info("Usage:");
@@ -3209,6 +3216,10 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
     @Tag(Tags.Performance)
     @Test
+    // fdb.run's generic Function<? super FDBRecordContext, ? extends T> return type is inferred as Void here;
+    // "return null;" is the idiomatic way to complete a Void-returning lambda, but the unbounded generic type
+    // parameter isn't annotated to express that Void's only value is null.
+    @SuppressWarnings("NullAway")
     void textIndexPerf1000ParallelInsert() throws Exception {
         // Create 1000 records
         Random r = new Random();

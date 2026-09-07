@@ -31,8 +31,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -127,7 +127,7 @@ class DataInKeySpacePathUtilTest {
 
         final DataInKeySpacePath result = DataInKeySpacePathUtil.bumpIncarnationIfStoreInfo(entry);
 
-        if (STORE_INFO_REMAINDER.equals(remainder)) {
+        if (Objects.equals(STORE_INFO_REMAINDER, remainder)) {
             assertNotSame(entry, result);
             final RecordMetaDataProto.DataStoreInfo resultInfo =
                     RecordMetaDataProto.DataStoreInfo.parseFrom(result.getValue());
@@ -173,12 +173,12 @@ class DataInKeySpacePathUtilTest {
 
     // --- Helper methods ---
 
-    private static DataInKeySpacePath storeInfoEntry(@Nonnull FormatVersion formatVersion, int incarnation) {
+    private static DataInKeySpacePath storeInfoEntry(FormatVersion formatVersion, int incarnation) {
         final RecordMetaDataProto.DataStoreInfo storeInfo = buildStoreInfo(formatVersion, incarnation);
         return new DataInKeySpacePath(DUMMY_PATH, STORE_INFO_REMAINDER, storeInfo.toByteString());
     }
 
-    private static RecordMetaDataProto.DataStoreInfo buildStoreInfo(@Nonnull FormatVersion formatVersion, int incarnation) {
+    private static RecordMetaDataProto.DataStoreInfo buildStoreInfo(FormatVersion formatVersion, int incarnation) {
         final RecordMetaDataProto.DataStoreInfo.Builder builder = RecordMetaDataProto.DataStoreInfo.newBuilder();
         FormatVersionTestUtils.addToStoreInfo(builder, formatVersion);
         if (incarnation != 0) {

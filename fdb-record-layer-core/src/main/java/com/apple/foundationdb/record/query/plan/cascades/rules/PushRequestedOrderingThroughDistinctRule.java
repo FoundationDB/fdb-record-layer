@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
@@ -54,7 +53,7 @@ public class PushRequestedOrderingThroughDistinctRule extends AbstractCascadesRu
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(final CascadesRuleCall call) {
         final var requestedOrderingsOptional = call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;

@@ -30,8 +30,7 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Locale;
 import java.util.TreeMap;
@@ -93,8 +92,7 @@ class OrderFunctionKeyExpressionTest {
         }
     }
 
-    @Nonnull
-    private static FunctionKeyExpression orderExpression(@Nonnull TupleOrdering.Direction direction) {
+    private static FunctionKeyExpression orderExpression(TupleOrdering.Direction direction) {
         return function(OrderFunctionKeyExpressionFactory.FUNCTION_NAME_PREFIX + direction.name().toLowerCase(Locale.ROOT), STR_FIELD);
     }
 }

@@ -37,11 +37,12 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.google.protobuf.ZeroCopyByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Serialize records during sorting, either in a continuation or in a file.
@@ -49,30 +50,25 @@ import java.util.Map;
  */
 @API(API.Status.EXPERIMENTAL)
 public class SortedRecordSerializer<M extends Message> {
-    @Nonnull
     private final RecordSerializer<M> serializer;
-    @Nonnull
     private final RecordMetaData recordMetaData;
     @Nullable
     private final StoreTimer timer;
 
-    public SortedRecordSerializer(@Nonnull final RecordSerializer<M> serializer, @Nonnull final RecordMetaData recordMetaData, @Nullable final StoreTimer timer) {
+    public SortedRecordSerializer(final RecordSerializer<M> serializer, final RecordMetaData recordMetaData, @Nullable final StoreTimer timer) {
         this.serializer = serializer;
         this.recordMetaData = recordMetaData;
         this.timer = timer;
     }
 
     static class Sorted<M extends Message> extends FDBQueriedRecord<M> {
-        @Nonnull
         private final Tuple primaryKey;
-        @Nonnull
         private final RecordType recordType;
-        @Nonnull
         private final M protoRecord;
         @Nullable
         private final FDBRecordVersion version;
 
-        public Sorted(@Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M protoRecord, FDBRecordVersion version) {
+        public Sorted(Tuple primaryKey, RecordType recordType, M protoRecord, @Nullable FDBRecordVersion version) {
             this.primaryKey = primaryKey;
             this.recordType = recordType;
             this.protoRecord = protoRecord;
@@ -91,19 +87,16 @@ public class SortedRecordSerializer<M extends Message> {
             return null;
         }
 
-        @Nonnull
         @Override
         public Tuple getPrimaryKey() {
             return primaryKey;
         }
 
-        @Nonnull
         @Override
         public RecordType getRecordType() {
             return recordType;
         }
 
-        @Nonnull
         @Override
         public M getRecord() {
             return protoRecord;
@@ -134,7 +127,7 @@ public class SortedRecordSerializer<M extends Message> {
 
         @Nullable
         @Override
-        public FDBQueriedRecord<M> getConstituent(@Nonnull String constituentName) {
+        public FDBQueriedRecord<M> getConstituent(String constituentName) {
             return null;
         }
 
@@ -145,35 +138,31 @@ public class SortedRecordSerializer<M extends Message> {
         }
     }
 
-    public void write(@Nonnull FDBRecord<M> rec, CodedOutputStream stream) throws IOException {
+    public void write(FDBRecord<M> rec, CodedOutputStream stream) throws IOException {
         stream.writeMessageNoTag(toProto(rec));
     }
 
-    @Nonnull
-    public byte[] serialize(@Nonnull FDBRecord<M> rec) {
+    public byte[] serialize(FDBRecord<M> rec) {
         return toProto(rec).toByteArray();
     }
 
-    @Nonnull
-    public RecordSortingProto.SortedRecord toProto(@Nonnull FDBRecord<M> rec) {
+    public RecordSortingProto.SortedRecord toProto(FDBRecord<M> rec) {
         final RecordSortingProto.SortedRecord.Builder builder = RecordSortingProto.SortedRecord.newBuilder();
         builder.setPrimaryKey(ZeroCopyByteString.wrap(rec.getPrimaryKey().pack()));
         builder.setMessage(ZeroCopyByteString.wrap(serializer.serialize(recordMetaData, rec.getRecordType(), rec.getRecord(), timer)));
         if (rec.hasVersion()) {
-            builder.setVersion(ZeroCopyByteString.wrap(rec.getVersion().toBytes()));
+            builder.setVersion(ZeroCopyByteString.wrap(Objects.requireNonNull(rec.getVersion()).toBytes()));
         }
         return builder.build();
     }
 
-    @Nonnull
-    public FDBQueriedRecord<M> read(@Nonnull CodedInputStream stream) throws IOException {
+    public FDBQueriedRecord<M> read(CodedInputStream stream) throws IOException {
         final RecordSortingProto.SortedRecord.Builder builder =  RecordSortingProto.SortedRecord.newBuilder();
         stream.readMessage(builder, ExtensionRegistryLite.getEmptyRegistry());
         return deserialize(builder.build());
     }
 
-    @Nonnull
-    public FDBQueriedRecord<M> deserialize(@Nonnull byte[] serialized) {
+    public FDBQueriedRecord<M> deserialize(byte[] serialized) {
         final RecordSortingProto.SortedRecord sortedRecord;
         try {
             sortedRecord = RecordSortingProto.SortedRecord.parseFrom(serialized);
@@ -183,8 +172,7 @@ public class SortedRecordSerializer<M extends Message> {
         return deserialize(sortedRecord);
     }
 
-    @Nonnull
-    public FDBQueriedRecord<M> deserialize(@Nonnull RecordSortingProto.SortedRecord sortedRecord) {
+    public FDBQueriedRecord<M> deserialize(RecordSortingProto.SortedRecord sortedRecord) {
         final byte[] primaryKeyBytes = sortedRecord.getPrimaryKey().toByteArray();
         final Tuple primaryKey = Tuple.fromBytes(primaryKeyBytes);
         final byte[] recordBytes = sortedRecord.getMessage().toByteArray();
@@ -199,18 +187,16 @@ public class SortedRecordSerializer<M extends Message> {
         return new Sorted<>(primaryKey, recordType, record, version);
     }
 
-    public void writeSortKeyAndRecord(@Nonnull Tuple sortKey, @Nonnull FDBRecord<M> rec, @Nonnull CodedOutputStream stream) throws IOException {
+    public void writeSortKeyAndRecord(Tuple sortKey, FDBRecord<M> rec, CodedOutputStream stream) throws IOException {
         stream.writeByteArrayNoTag(sortKey.pack());
         write(rec, stream);
     }
 
-    @Nonnull
-    public Map.Entry<Tuple, FDBQueriedRecord<M>> readSortKeyAndRecord(@Nonnull CodedInputStream stream) throws IOException {
+    public Map.Entry<Tuple, FDBQueriedRecord<M>> readSortKeyAndRecord(CodedInputStream stream) throws IOException {
         return new AbstractMap.SimpleEntry<>(Tuple.fromBytes(stream.readByteArray()), read(stream));
     }
 
-    @Nonnull
-    public FDBQueriedRecord<M> skipSortKeyAndReadRecord(@Nonnull CodedInputStream stream) throws IOException {
+    public FDBQueriedRecord<M> skipSortKeyAndReadRecord(CodedInputStream stream) throws IOException {
         stream.skipRawBytes(stream.readRawVarint32());
         return read(stream);
     }

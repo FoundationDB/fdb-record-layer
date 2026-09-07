@@ -25,8 +25,8 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Key;
 import com.google.protobuf.ByteString;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.function.Function;
 
@@ -37,10 +37,9 @@ import java.util.function.Function;
  */
 @API(API.Status.UNSTABLE)
 public class Field {
-    @Nonnull
     private final String fieldName;
 
-    public Field(@Nonnull String fieldName) {
+    public Field(String fieldName) {
         this.fieldName = fieldName;
     }
 
@@ -61,8 +60,7 @@ public class Field {
      * @param child a component asserting about the content of the submessage in this field
      * @return a new component ready for evaluation
      */
-    @Nonnull
-    public QueryComponent matches(@Nonnull QueryComponent child) {
+    public QueryComponent matches(QueryComponent child) {
         return new NestedField(fieldName, child);
     }
 
@@ -72,7 +70,6 @@ public class Field {
      * If the repeated field is empty, the match result will be UNKNOWN.
      * @return an OneOfThem that can have further assertions called on it about the value of the given field
      */
-    @Nonnull
     public OneOfThem oneOfThem() {
         return new OneOfThem(fieldName);
     }
@@ -83,7 +80,6 @@ public class Field {
      * @param emptyMode whether an empty repeated field should cause an UNKNOWN result instead of failing to match any (and so returning FALSE)
      * @return an OneOfThem that can have further assertions called on it about the value of the given field
      */
-    @Nonnull
     public OneOfThem oneOfThem(OneOfThemEmptyMode emptyMode) {
         return new OneOfThem(fieldName, emptyMode);
     }
@@ -94,8 +90,7 @@ public class Field {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent equalsValue(@Nonnull Object comparand) {
+    public QueryComponent equalsValue(Object comparand) {
         return fieldWithComparison(fieldName, Comparisons.Type.EQUALS, comparand);
     }
 
@@ -105,8 +100,7 @@ public class Field {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent notEquals(@Nonnull Object comparand) {
+    public QueryComponent notEquals(Object comparand) {
         return fieldWithComparison(fieldName, Comparisons.Type.NOT_EQUALS, comparand);
     }
 
@@ -116,8 +110,7 @@ public class Field {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent greaterThan(@Nonnull Object comparand) {
+    public QueryComponent greaterThan(Object comparand) {
         return new FieldWithComparison(fieldName,
                 new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, comparand));
     }
@@ -128,8 +121,7 @@ public class Field {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent greaterThanOrEquals(@Nonnull Object comparand) {
+    public QueryComponent greaterThanOrEquals(Object comparand) {
         return new FieldWithComparison(fieldName,
                 new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, comparand));
     }
@@ -140,8 +132,7 @@ public class Field {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent lessThan(@Nonnull Object comparand) {
+    public QueryComponent lessThan(Object comparand) {
         return new FieldWithComparison(fieldName,
                 new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, comparand));
     }
@@ -152,8 +143,7 @@ public class Field {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent lessThanOrEquals(@Nonnull Object comparand) {
+    public QueryComponent lessThanOrEquals(Object comparand) {
         return new FieldWithComparison(fieldName,
                 new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, comparand));
     }
@@ -165,8 +155,7 @@ public class Field {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent startsWith(@Nonnull String comparand) {
+    public QueryComponent startsWith(String comparand) {
         return fieldWithComparison(fieldName, Comparisons.Type.STARTS_WITH, comparand);
     }
 
@@ -177,8 +166,7 @@ public class Field {
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent startsWith(@Nonnull ByteString comparand) {
+    public QueryComponent startsWith(ByteString comparand) {
         return fieldWithComparison(fieldName, Comparisons.Type.STARTS_WITH, comparand);
     }
 
@@ -186,7 +174,6 @@ public class Field {
      * Returns true if the field has not been set and uses the default value.
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
     public QueryComponent isNull() {
         return new FieldWithComparison(fieldName, new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
     }
@@ -195,7 +182,6 @@ public class Field {
      * Returns true if the field does not use the default value.
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
     public QueryComponent notNull() {
         return new FieldWithComparison(fieldName, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
     }
@@ -204,7 +190,6 @@ public class Field {
      * Returns true if the repeated field does not have any occurrences.
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
     public QueryComponent isEmpty() {
         return new EmptyComparison(fieldName, true);
     }
@@ -213,7 +198,6 @@ public class Field {
      * Returns true if the repeated field has occurrences.
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
     public QueryComponent notEmpty() {
         return new EmptyComparison(fieldName, false);
     }
@@ -223,8 +207,7 @@ public class Field {
      * @param comparand a list of elements
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent in(@Nonnull List<?> comparand) {
+    public QueryComponent in(List<?> comparand) {
         return new FieldWithComparison(fieldName, new Comparisons.ListComparison(Comparisons.Type.IN, comparand));
     }
 
@@ -233,14 +216,12 @@ public class Field {
      * @param param a param that will be bound to a list in the execution context
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent in(@Nonnull String param) {
+    public QueryComponent in(String param) {
         return new FieldWithComparison(fieldName, new Comparisons.ParameterComparison(Comparisons.Type.IN, param));
     }
 
-    @Nonnull
-    private QueryComponent fieldWithComparison(@Nonnull String fieldName, @Nonnull Comparisons.Type type,
-                                               @Nonnull Object comparand) {
+    private QueryComponent fieldWithComparison(String fieldName, Comparisons.Type type,
+                                               Object comparand) {
         if (comparand instanceof List) {
             @SuppressWarnings("rawtypes")
             List list = (List) comparand;
@@ -266,7 +247,6 @@ public class Field {
      *
      * @return an intermediate object to use to select the appropriate predicate
      */
-    @Nonnull
     public Text text() {
         return new FieldText(fieldName);
     }
@@ -281,7 +261,6 @@ public class Field {
      * @param tokenizerName the name of the tokenizer to use to tokenize the record and (if necessary) the query string
      * @return an intermediate object to use to select the appropriate predicate
      */
-    @Nonnull
     public Text text(@Nullable String tokenizerName) {
         return new FieldText(fieldName, tokenizerName);
     }
@@ -301,7 +280,6 @@ public class Field {
      *                             and no index can be found to satisfy the query
      * @return an intermediate object to use to select the appropriate predicate
      */
-    @Nonnull
     public Text text(@Nullable String tokenizerName, @Nullable String defaultTokenizerName) {
         return new FieldText(fieldName, tokenizerName, defaultTokenizerName);
     }
@@ -312,8 +290,7 @@ public class Field {
      * @param param the name of the parameter
      * @return a new component for doing the actual evaluation
      */
-    @Nonnull
-    public QueryComponent equalsParameter(@Nonnull String param) {
+    public QueryComponent equalsParameter(String param) {
         return new FieldWithComparison(fieldName, new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, param));
     }
 
@@ -327,7 +304,6 @@ public class Field {
      * @param valueMatcher a function to apply to the value {@link Field} or {@code null} not to restrict the value
      * @return a new component that will return the record if the map field has an entry matching the key and value criteria
      */
-    @Nonnull
     public QueryComponent mapMatches(@Nullable Function<Field, QueryComponent> keyMatcher,
                                      @Nullable Function<Field, QueryComponent> valueMatcher) {
         final QueryComponent component;

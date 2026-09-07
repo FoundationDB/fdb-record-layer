@@ -31,6 +31,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
@@ -62,9 +63,9 @@ public class ExceptionLoggingDetailsExtensionTest {
                 new RecordCoreException("parent with unique children", new RecordCoreException("child", "inner_key", "inner_value")).addLogInfo("outer_key", "outer_value"), Map.of("outer_key", "outer_value", "inner_key", "inner_value"),
                 new RecordCoreException("parent with shared children", new RecordCoreException("child", "shared_key", "inner_value")).addLogInfo("shared_key", "outer_value"), Map.of("shared_key", "outer_value"),
                 createCycle(), Map.of("shared_key", "err1", "unique_key_1", 1, "unique_key_2", 2, "unique_key_3", 3),
-                createCycle().getCause(), Map.of("shared_key", "err3", "unique_key_1", 1, "unique_key_2", 2, "unique_key_3", 3),
-                createCycle().getCause().getCause(), Map.of("shared_key", "err2", "unique_key_1", 1, "unique_key_2", 2, "unique_key_3", 3),
-                createCycle().getCause().getCause().getCause(), Map.of("shared_key", "err1", "unique_key_1", 1, "unique_key_2", 2, "unique_key_3", 3)
+                Objects.requireNonNull(createCycle().getCause()), Map.of("shared_key", "err3", "unique_key_1", 1, "unique_key_2", 2, "unique_key_3", 3),
+                Objects.requireNonNull(createCycle().getCause().getCause()), Map.of("shared_key", "err2", "unique_key_1", 1, "unique_key_2", 2, "unique_key_3", 3),
+                Objects.requireNonNull(createCycle().getCause().getCause().getCause()), Map.of("shared_key", "err1", "unique_key_1", 1, "unique_key_2", 2, "unique_key_3", 3)
         );
         return errors.entrySet().stream()
                 .flatMap(entry -> Stream.of(

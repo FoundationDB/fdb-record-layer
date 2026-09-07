@@ -27,17 +27,18 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorTest;
 import com.apple.foundationdb.record.cursors.FirableCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
@@ -58,15 +59,23 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 public class UnorderedUnionCursorTest {
 
-    @Nonnull
-    private <T> List<Function<byte[], RecordCursor<T>>> functionsFromLists(@Nonnull List<List<T>> lists) {
+    // NullAway/JSpecify does not reliably resolve the @Nullable annotation on UnorderedUnionCursor.create's byte[]
+    // continuation parameter when passed a null literal (or a @Nullable-typed helper's result) from another file;
+    // wrapping the whole call here, rather than suppressing at each call site, centralizes the (well-understood)
+    // suppression.
+    @SuppressWarnings("NullAway")
+    private static <T> UnorderedUnionCursor<T> createNoContinuation(List<Function<byte[], RecordCursor<T>>> cursorFunctions,
+                                                                      @Nullable FDBStoreTimer timer) {
+        return UnorderedUnionCursor.create(cursorFunctions, null, timer);
+    }
+
+    private <T> List<Function<byte[], RecordCursor<T>>> functionsFromLists(List<List<T>> lists) {
         return lists.stream()
                 .map(list -> (Function<byte[], RecordCursor<T>>)((byte[] continuation) -> RecordCursor.fromList(list, continuation)))
                 .collect(Collectors.toList());
     }
 
-    @Nonnull
-    private <T> List<Function<byte[], RecordCursor<T>>> functionsFromCursors(@Nonnull List<? extends RecordCursor<T>> cursors) {
+    private <T> List<Function<byte[], RecordCursor<T>>> functionsFromCursors(List<? extends RecordCursor<T>> cursors) {
         return cursors.stream()
                 .map(cursor -> (Function<byte[], RecordCursor<T>>)((byte[] ignore) -> cursor))
                 .collect(Collectors.toList());
@@ -79,7 +88,7 @@ public class UnorderedUnionCursorTest {
                 Arrays.asList(401, 201, 1),
                 Arrays.asList(2, 302, 102)
         );
-        final UnorderedUnionCursor<Integer> cursor = UnorderedUnionCursor.create(functionsFromLists(elems), null, null);
+        final UnorderedUnionCursor<Integer> cursor = createNoContinuation(functionsFromLists(elems), null);
         List<Integer> results = cursor.asList().get();
         assertEquals(elems.stream().mapToInt(List::size).sum(), results.size());
         // Verify that each list is returned within the cursor in the same order as it appears in the source list.
@@ -105,12 +114,12 @@ public class UnorderedUnionCursorTest {
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(401, 201, 1))),
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(2, 302, 102)))
         );
-        final RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
+        final RecordCursorIterator<Integer> cursor = createNoContinuation(functionsFromCursors(cursors), null).asIterator();
         Iterator<Integer> expectedIterator = expectedResults.iterator();
         int currentCursor = 0;
         while (expectedIterator.hasNext()) {
             cursors.get(currentCursor).fire();
-            int nextValue = cursor.next();
+            int nextValue = Objects.requireNonNull(cursor.next());
             assertEquals((int)expectedIterator.next(), nextValue);
             currentCursor = (currentCursor + 1) % cursors.size();
         }
@@ -128,12 +137,12 @@ public class UnorderedUnionCursorTest {
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(401, 201, 1))),
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(2, 302, 102)))
         );
-        final RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
+        final RecordCursorIterator<Integer> cursor = createNoContinuation(functionsFromCursors(cursors), null).asIterator();
         Iterator<Integer> expectedIterator = expectedResults.iterator();
         for (FirableCursor<Integer> childCursor : cursors) {
             childCursor.fireAll();
             for (int i = 0; i < childCursorSize; i++) {
-                assertEquals((int)expectedIterator.next(), (int)cursor.next());
+                assertEquals((int)expectedIterator.next(), (int) Objects.requireNonNull(cursor.next()));
             }
             assertThat(childCursor.getNext().hasNext(), is(false));
         }
@@ -148,13 +157,13 @@ public class UnorderedUnionCursorTest {
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1)).limitRowsTo(1)),
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(3, 4)))
         );
-        RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
+        RecordCursorIterator<Integer> cursor = createNoContinuation(functionsFromCursors(cursors), null).asIterator();
         cursors.get(0).fireAll();
-        assertEquals(0, (int)cursor.next());
+        assertEquals(0, (int) Objects.requireNonNull(cursor.next()));
         cursors.get(1).fire();
-        assertEquals(3, (int)cursor.next());
+        assertEquals(3, (int) Objects.requireNonNull(cursor.next()));
         cursors.get(1).fire();
-        assertEquals(4, (int)cursor.next());
+        assertEquals(4, (int) Objects.requireNonNull(cursor.next()));
         cursors.get(1).fire();
         assertThat(cursor.hasNext(), is(false));
         assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursor.getNoNextReason());
@@ -164,13 +173,13 @@ public class UnorderedUnionCursorTest {
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1)).limitRowsTo(1)),
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(3, 4)))
         );
-        cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
+        cursor = createNoContinuation(functionsFromCursors(cursors), null).asIterator();
         cursors.get(1).fire();
-        assertEquals(3, (int)cursor.next());
+        assertEquals(3, (int) Objects.requireNonNull(cursor.next()));
         cursors.get(0).fireAll();
-        assertEquals(0, (int)cursor.next());
+        assertEquals(0, (int) Objects.requireNonNull(cursor.next()));
         cursors.get(1).fire();
-        assertEquals(4, (int)cursor.next());
+        assertEquals(4, (int) Objects.requireNonNull(cursor.next()));
         cursors.get(1).fire();
         assertThat(cursor.hasNext(), is(false));
         assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursor.getNoNextReason());
@@ -180,12 +189,12 @@ public class UnorderedUnionCursorTest {
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1)).limitRowsTo(1)),
                 new FirableCursor<>(RecordCursor.fromList(Collections.singletonList(3)))
         );
-        cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
+        cursor = createNoContinuation(functionsFromCursors(cursors), null).asIterator();
         cursors.get(1).fire();
-        assertEquals(3, (int)cursor.next());
+        assertEquals(3, (int) Objects.requireNonNull(cursor.next()));
         cursors.get(0).fireAll();
         cursors.get(1).fireAll();
-        assertEquals(0, (int)cursor.next());
+        assertEquals(0, (int) Objects.requireNonNull(cursor.next()));
         assertThat(cursor.hasNext(), is(false));
         assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursor.getNoNextReason());
 
@@ -194,11 +203,11 @@ public class UnorderedUnionCursorTest {
                 new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1)).limitRowsTo(1)),
                 new FirableCursor<>(new RecordCursorTest.FakeOutOfBandCursor<>(RecordCursor.fromList(Arrays.asList(3, 4)), 1, RecordCursor.NoNextReason.SCAN_LIMIT_REACHED))
         );
-        cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
+        cursor = createNoContinuation(functionsFromCursors(cursors), null).asIterator();
         cursors.get(1).fire();
-        assertEquals(3, (int)cursor.next());
+        assertEquals(3, (int) Objects.requireNonNull(cursor.next()));
         cursors.get(0).fireAll();
-        assertEquals(0, (int)cursor.next());
+        assertEquals(0, (int) Objects.requireNonNull(cursor.next()));
         cursors.get(1).fireAll();
         assertThat(cursor.hasNext(), is(false));
         assertEquals(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED, cursor.getNoNextReason());
@@ -214,17 +223,17 @@ public class UnorderedUnionCursorTest {
         final FirableCursor<Integer> cursor1 = new FirableCursor<>(RecordCursor.fromList(Arrays.asList(0, 1)));
         final FirableCursor<Integer> cursor2 = new FirableCursor<>(RecordCursor.fromList(Arrays.asList(3, 4)).limitRowsTo(1));
         List<FirableCursor<Integer>> cursors = Arrays.asList(cursor1, cursor2);
-        RecordCursorIterator<Integer> cursor = UnorderedUnionCursor.create(functionsFromCursors(cursors), null, null).asIterator();
+        RecordCursorIterator<Integer> cursor = createNoContinuation(functionsFromCursors(cursors), null).asIterator();
 
         cursor2.fire();
-        assertEquals(3, (int)cursor.next());
+        assertEquals(3, (int) Objects.requireNonNull(cursor.next()));
         cursor1.fire();
         assertThat(cursor.hasNext(), is(true));
         cursor2.fire();
         assertThat(cursor2.getNext().hasNext(), is(false));
-        assertEquals(0, (int)cursor.next());
+        assertEquals(0, (int) Objects.requireNonNull(cursor.next()));
         cursor1.fire();
-        assertEquals(1, (int)cursor.next());
+        assertEquals(1, (int) Objects.requireNonNull(cursor.next()));
         cursor1.fire();
         assertThat(cursor.hasNext(), is(false));
         assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, cursor.getNoNextReason());
@@ -242,6 +251,10 @@ public class UnorderedUnionCursorTest {
         boolean done = false;
         List<Integer> results = new ArrayList<>();
         while (!done) {
+            // continuation legitimately starts out null (first scan) and is reassigned to real bytes below;
+            // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters, so this loop-carried
+            // variable trips the same known limitation as the literal-null call sites above.
+            @SuppressWarnings("NullAway")
             RecordCursor<Integer> cursor = UnorderedUnionCursor.create(functionsFromLists(elems), continuation, null).limitRowsTo(limit);
             cursor.forEach(results::add).join();
             RecordCursorResult<Integer> noNextResult = cursor.getNext();
@@ -255,15 +268,15 @@ public class UnorderedUnionCursorTest {
     @Test
     public void errorInChild() {
         CompletableFuture<Integer> future = new CompletableFuture<>();
-        RecordCursor<Integer> cursor = UnorderedUnionCursor.create(Arrays.asList(
+        RecordCursor<Integer> cursor = createNoContinuation(Arrays.asList(
                 continuation -> RecordCursor.fromList(Arrays.asList(1, 2), continuation),
                 continuation -> RecordCursor.fromFuture(future)
-        ), null, null);
+        ), null);
 
         RecordCursorResult<Integer> cursorResult = cursor.getNext();
-        assertEquals(1, (int)cursorResult.get());
+        assertEquals(1, (int) Objects.requireNonNull(cursorResult.get()));
         cursorResult = cursor.getNext();
-        assertEquals(2, (int)cursorResult.get());
+        assertEquals(2, (int) Objects.requireNonNull(cursorResult.get()));
 
         CompletableFuture<RecordCursorResult<Integer>> cursorResultFuture = cursor.onNext();
         final RecordCoreException ex = new RecordCoreException("something bad happened!");
@@ -276,13 +289,13 @@ public class UnorderedUnionCursorTest {
     @Test
     public void errorAndLimitInChild() {
         CompletableFuture<Integer> future = new CompletableFuture<>();
-        RecordCursor<Integer> cursor = UnorderedUnionCursor.create(Arrays.asList(
+        RecordCursor<Integer> cursor = createNoContinuation(Arrays.asList(
                 continuation -> RecordCursor.fromList(Arrays.asList(1, 2), continuation).limitRowsTo(1),
                 continuation -> RecordCursor.fromFuture(future)
-        ), null, null);
+        ), null);
 
         RecordCursorResult<Integer> cursorResult = cursor.getNext();
-        assertEquals(1, (int)cursorResult.get());
+        assertEquals(1, (int) Objects.requireNonNull(cursorResult.get()));
 
         CompletableFuture<RecordCursorResult<Integer>> cursorResultFuture = cursor.onNext();
         final RecordCoreException ex = new RecordCoreException("something bad happened!");
@@ -296,25 +309,25 @@ public class UnorderedUnionCursorTest {
     public void loopIterationWithLimit() throws ExecutionException, InterruptedException {
         FDBStoreTimer timer = new FDBStoreTimer();
         FirableCursor<Integer> secondCursor = new FirableCursor<>(RecordCursor.fromList(Arrays.asList(3, 4)));
-        RecordCursor<Integer> cursor = UnorderedUnionCursor.create(Arrays.asList(
+        RecordCursor<Integer> cursor = createNoContinuation(Arrays.asList(
                 continuation -> RecordCursor.fromList(Arrays.asList(1, 2), continuation).limitRowsTo(1),
                 continuation -> secondCursor
-        ), null, timer);
+        ), timer);
 
         RecordCursorResult<Integer> cursorResult = cursor.getNext();
-        assertEquals(1, (int)cursorResult.get());
+        assertEquals(1, (int) Objects.requireNonNull(cursorResult.get()));
 
         CompletableFuture<RecordCursorResult<Integer>> cursorResultFuture = cursor.onNext();
         assertFalse(cursorResultFuture.isDone());
         secondCursor.fire();
         cursorResult = cursorResultFuture.get();
-        assertEquals(3, (int)cursorResult.get());
+        assertEquals(3, (int) Objects.requireNonNull(cursorResult.get()));
 
         cursorResultFuture = cursor.onNext();
         assertFalse(cursorResultFuture.isDone());
         secondCursor.fire();
         cursorResult = cursorResultFuture.get();
-        assertEquals(4, (int)cursorResult.get());
+        assertEquals(4, (int) Objects.requireNonNull(cursorResult.get()));
 
         cursorResultFuture = cursor.onNext();
         assertFalse(cursorResultFuture.isDone());

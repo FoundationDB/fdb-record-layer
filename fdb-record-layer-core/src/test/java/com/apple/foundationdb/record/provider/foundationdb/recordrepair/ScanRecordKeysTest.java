@@ -44,8 +44,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -69,6 +69,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * keys can still be picked up by the scan operation.
  */
 public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
+    // NullAway/JSpecify does not reliably propagate @Nullable byte[] annotations for cross-file
+    // (bytecode-read) method parameters, so a properly-@Nullable-typed continuation still gets
+    // flagged as a mismatch at call sites in this file. Declaring the return type here as plain
+    // (non-null) byte[] sidesteps that: passing a "non-null-typed" value into a @Nullable-declared
+    // parameter is always accepted, regardless of how that parameter's own nullability was read.
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
+    }
+
     private static final int ROW_LIMIT = 19;
     private static final int BYTES_LIMIT = 2000;
 
@@ -324,7 +334,7 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private List<Tuple> scanKeys(final UseContinuations useContinuations, FormatVersion formatVersion, final RecordMetaDataHook hook, final ScanProperties scanProperties) throws Exception {
+    private List<Tuple> scanKeys(final UseContinuations useContinuations, FormatVersion formatVersion, final RecordMetaDataHook hook, @Nullable final ScanProperties scanProperties) throws Exception {
         final List<Tuple> actualKeys;
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
@@ -334,11 +344,11 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
         return actualKeys;
     }
 
-    private List<Tuple> scanKeys(@Nonnull FDBRecordStore store, @Nullable ScanProperties scanProperties, boolean withContinuations) throws InterruptedException, ExecutionException {
+    private List<Tuple> scanKeys(FDBRecordStore store, @Nullable ScanProperties scanProperties, boolean withContinuations) throws InterruptedException, ExecutionException {
         if (scanProperties == null) {
             scanProperties = ScanProperties.FORWARD_SCAN;
         }
-        RecordCursor<Tuple> recordKeyCursor = store.scanRecordKeys(null, scanProperties);
+        RecordCursor<Tuple> recordKeyCursor = store.scanRecordKeys(noContinuation(), scanProperties);
         if (!withContinuations) {
             return recordKeyCursor.asList().get();
         } else {
@@ -374,7 +384,7 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
     private void assertRecordsCorrupted(final FormatVersion formatVersion, final RecordMetaDataHook hook) {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            final ExecutionException exception = assertThrows(ExecutionException.class, () -> store.scanRecords(TupleRange.allOf(null), null, ScanProperties.FORWARD_SCAN).asList().get());
+            final ExecutionException exception = assertThrows(ExecutionException.class, () -> store.scanRecords(TupleRange.allOf(null), noContinuation(), ScanProperties.FORWARD_SCAN).asList().get());
             assertInstanceOf(RecordCoreException.class, exception.getCause());
         }
     }
@@ -393,13 +403,11 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
         return result;
     }
 
-    @Nonnull
     private static List<Tuple> getExpectedPrimaryKeys() {
         return getExpectedPrimaryKeys(i -> true);
     }
 
-    @Nonnull
-    private static List<Tuple> getExpectedPrimaryKeys(@Nonnull IntPredicate filter) {
+    private static List<Tuple> getExpectedPrimaryKeys(IntPredicate filter) {
         return IntStream.range(1, 51).filter(filter).boxed().map(Tuple::from).collect(Collectors.toList());
     }
 }

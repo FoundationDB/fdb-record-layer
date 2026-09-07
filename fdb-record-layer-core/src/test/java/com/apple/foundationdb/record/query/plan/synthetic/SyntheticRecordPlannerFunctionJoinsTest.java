@@ -47,6 +47,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -128,7 +129,7 @@ public class SyntheticRecordPlannerFunctionJoinsTest extends AbstractSyntheticRe
                         .map(TestRecordsJoinIndexProto.MyOtherRecord::getNumValue3)
                         .collect(Collectors.toList());
 
-                try (RecordCursor<IndexEntry> cursor = recordStore.scanIndex(
+                try (@SuppressWarnings("NullAway") RecordCursor<IndexEntry> cursor = recordStore.scanIndex(
                         joinIndex, IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from(simpleRecord.getStrValue())), null, ScanProperties.FORWARD_SCAN)) {
                     List<Integer> foundNumValue3s = cursor.map(IndexEntry::getKey)
                             .map(key -> key.getLong(1))
@@ -179,6 +180,10 @@ public class SyntheticRecordPlannerFunctionJoinsTest extends AbstractSyntheticRe
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
 
+            // continuation is intentionally omitted (no continuation from a previous scan); NullAway/JSpecify
+            // does not reliably track @Nullable on byte[] parameters, so passing null literal trips a known
+            // limitation.
+            @SuppressWarnings("NullAway")
             List<FDBSyntheticRecord> recs = recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("simple.str_value_other.num_value_3"),
                             IndexScanType.BY_VALUE, TupleRange.allOf(Tuple.from("even", 2)), null, ScanProperties.FORWARD_SCAN)
                     .mapPipelined(entry -> recordStore.loadSyntheticRecord(entry.getPrimaryKey()), 1)
@@ -186,8 +191,8 @@ public class SyntheticRecordPlannerFunctionJoinsTest extends AbstractSyntheticRe
             for (FDBSyntheticRecord record : recs) {
                 TestRecordsJoinIndexProto.MySimpleRecord.Builder simple = TestRecordsJoinIndexProto.MySimpleRecord.newBuilder();
                 TestRecordsJoinIndexProto.MyOtherRecord.Builder other = TestRecordsJoinIndexProto.MyOtherRecord.newBuilder();
-                simple.mergeFrom(record.getConstituent("simple").getRecord());
-                other.mergeFrom(record.getConstituent("other").getRecord());
+                simple.mergeFrom(Objects.requireNonNull(record.getConstituent("simple")).getRecord());
+                other.mergeFrom(Objects.requireNonNull(record.getConstituent("other")).getRecord());
                 assertEquals(200, simple.getRecNo());
                 assertEquals(1002, other.getRecNo());
                 assertEquals(record.getPrimaryKey(), record.getRecordType().getPrimaryKey().evaluateSingleton(record).toTuple());
@@ -228,13 +233,17 @@ public class SyntheticRecordPlannerFunctionJoinsTest extends AbstractSyntheticRe
             final FDBRecordStore recordStore = recordStoreBuilder.setContext(context).open();
 
             Index index = recordStore.getRecordMetaData().getIndex("simple.num_value_2_by_other.num_value");
+            // continuation is intentionally omitted (no continuation from a previous scan); NullAway/JSpecify
+            // does not reliably track @Nullable on byte[] parameters, so passing null literal trips a known
+            // limitation.
+            @SuppressWarnings("NullAway")
             RecordCursor<IndexEntry> cursor = recordStore.scanIndex(index, IndexScanType.BY_RANK, TupleRange.allOf(Tuple.from(0, 1)), null, ScanProperties.FORWARD_SCAN);
             Tuple pkey = cursor.first().get().map(IndexEntry::getPrimaryKey).orElse(null);
             assertFalse(cursor.getNext().hasNext());
             // 201, 1002 and 200, 1003 both have score 3, but in different groups.
             assertEquals(Tuple.from(-1, Tuple.from(201), Tuple.from(1002)), pkey);
 
-            FDBSyntheticRecord record = recordStore.loadSyntheticRecord(pkey).join();
+            FDBSyntheticRecord record = recordStore.loadSyntheticRecord(Objects.requireNonNull(pkey)).join();
             IndexRecordFunction<Long> rankFunction = ((IndexRecordFunction<Long>)Query.rank(group).getFunction())
                     .cloneWithIndex(index.getName());
             assertEquals(1, recordStore.evaluateRecordFunction(rankFunction, record).join().longValue());

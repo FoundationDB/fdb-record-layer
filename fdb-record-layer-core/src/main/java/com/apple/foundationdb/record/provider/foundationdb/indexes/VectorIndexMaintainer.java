@@ -74,8 +74,7 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -115,7 +114,6 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     // zero and drops out, the window slides forward until every outstanding prefix has fallen inside it.
     private static final int MAX_PREFIXES_EXAMINED = 16;
 
-    @Nonnull
     private final VectorIndexEngine engine;
 
     public VectorIndexMaintainer(IndexMaintainerState state) {
@@ -123,7 +121,6 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         this.engine = VectorIndexEngine.fromIndex(state.index, state.store.indexSecondarySubspace(state.index));
     }
 
-    @Nonnull
     private VectorIndexEngine getEngine() {
         return engine;
     }
@@ -135,11 +132,10 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
      * @param scanProperties skip, limit and other properties of the scan
      * @return a {@link RecordCursor} of index entries
      */
-    @Nonnull
     @Override
     @SuppressWarnings("resource")
-    public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanBounds scanBounds, @Nullable final byte[] continuation,
-                                         @Nonnull final ScanProperties scanProperties) {
+    public RecordCursor<IndexEntry> scan(final IndexScanBounds scanBounds, @Nullable final byte[] continuation,
+                                         final ScanProperties scanProperties) {
         if (!scanBounds.getScanType().equals(IndexScanType.BY_DISTANCE)) {
             throw new RecordCoreException("Can only scan vector index by value.");
         }
@@ -198,13 +194,12 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
      * @param scanProperties the scan properties for this scan
      * @return a {@link RecordCursor} returning the index entries for this scan
      */
-    @Nonnull
-    @SuppressWarnings("resource")
+    @SuppressWarnings({"resource", "NullAway"}) // NullAway/JSpecify does not currently track @Nullable on array (byte[]) parameters, even across explicit null checks.
     private RecordCursor<IndexEntry> scanSinglePartition(@Nullable final Tuple prefixTuple,
                                                          @Nullable final byte[] continuation,
-                                                         @Nonnull final Subspace partitionSubspace,
-                                                         @Nonnull final VectorIndexScanBounds vectorIndexScanBounds,
-                                                         @Nonnull final ScanProperties scanProperties) {
+                                                         final Subspace partitionSubspace,
+                                                         final VectorIndexScanBounds vectorIndexScanBounds,
+                                                         final ScanProperties scanProperties) {
         if (continuation != null) {
             final RecordCursorProto.VectorIndexScanContinuation parsedContinuation =
                     Continuation.fromBytes(continuation);
@@ -235,12 +230,11 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @SuppressWarnings({"resource", "checkstyle:MethodName"})
-    @Nonnull
     private CompletableFuture<RecordCursor<IndexEntry>>
             kNearestNeighborSearch(@Nullable final Tuple prefixTuple,
-                                   @Nonnull final Subspace partitionSubspace,
+                                   final Subspace partitionSubspace,
                                    final boolean snapshot,
-                                   @Nonnull final VectorIndexScanBounds vectorIndexScanBounds) {
+                                   final VectorIndexScanBounds vectorIndexScanBounds) {
         return getEngine().search(state.context, snapshot, partitionSubspace, vectorIndexScanBounds)
                 .thenApply(resultEntries -> {
                     final ImmutableList.Builder<IndexEntry> nearestNeighborEntriesBuilder = ImmutableList.builder();
@@ -259,8 +253,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                 });
     }
 
-    @Nonnull
-    private IndexEntry toIndexEntry(@Nullable final Tuple prefixTuple, @Nonnull final ResultEntry resultEntry) {
+    private IndexEntry toIndexEntry(@Nullable final Tuple prefixTuple, final ResultEntry resultEntry) {
         final List<Object> keyItems = Lists.newArrayList();
         if (prefixTuple != null) {
             keyItems.addAll(prefixTuple.getItems());
@@ -273,18 +266,16 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                 Tuple.fromList(valueItems));
     }
 
-    @Nonnull
     @Override
-    public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanType scanType, @Nonnull final TupleRange range,
-                                         @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+    public RecordCursor<IndexEntry> scan(final IndexScanType scanType, final TupleRange range,
+                                         @Nullable final byte[] continuation, final ScanProperties scanProperties) {
         throw new IllegalStateException("index maintainer does not support this scan api");
     }
 
-    @Nonnull
     private Function<byte[], RecordCursor<Tuple>> prefixSkipScan(final int prefixSize,
                                                                  @Nullable final StoreTimer timer,
-                                                                 @Nonnull final VectorIndexScanBounds vectorIndexScanBounds,
-                                                                 @Nonnull final ScanProperties innerScanProperties) {
+                                                                 final VectorIndexScanBounds vectorIndexScanBounds,
+                                                                 final ScanProperties innerScanProperties) {
         Verify.verify(prefixSize > 0);
         return outerContinuation -> {
             final ChainedCursor<Tuple> chainedCursor = new ChainedCursor<>(state.context,
@@ -300,11 +291,14 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         };
     }
 
-    @SuppressWarnings({"resource", "PMD.CloseResource"})
-    private CompletableFuture<Optional<Tuple>> nextPrefixTuple(@Nonnull final TupleRange prefixRange,
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+    // parameters of KeyValueCursorBase.Builder#setContinuation (out of scope
+    // to fix here); passing null intentionally means "start from the beginning".
+    @SuppressWarnings({"resource", "PMD.CloseResource", "NullAway"})
+    private CompletableFuture<Optional<Tuple>> nextPrefixTuple(final TupleRange prefixRange,
                                                                final int prefixSize,
                                                                @Nullable final Tuple lastPrefixTuple,
-                                                               @Nonnull final ScanProperties scanProperties) {
+                                                               final ScanProperties scanProperties) {
         final Subspace indexSubspace = getIndexSubspace();
         final KeyValueCursor cursor;
         if (lastPrefixTuple == null) {
@@ -339,17 +333,16 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(final FDBIndexableRecord<M> savedRecord,
                                                                           final boolean remove,
-                                                                          @Nonnull final List<IndexEntry> indexEntries) {
+                                                                          final List<IndexEntry> indexEntries) {
         Verify.verify(indexEntries.size() == 1);
         final IndexEntry indexEntry = indexEntries.get(0);
         return updateIndexEntry(new IndexEntry(state.index, indexEntry.getKey(), indexEntry.getValue(),
                 savedRecord.getPrimaryKey()), remove);
     }
 
-    @Nonnull
-    private CompletableFuture<Void> updateIndexEntry(@Nonnull final IndexEntry indexEntry, final boolean remove) {
+    private CompletableFuture<Void> updateIndexEntry(final IndexEntry indexEntry, final boolean remove) {
         final KeyWithValueExpression keyWithValueExpression = getKeyWithValueExpression(state.index.getRootExpression());
         final int prefixSize = keyWithValueExpression.getColumnSize();
         final Subspace indexSubspace = getIndexSubspace();
@@ -428,7 +421,6 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    @Nonnull
     public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord,
                                                               @Nullable final FDBIndexableRecord<M> newRecord) {
         // Serialize the computed index entries rather than the whole record.
@@ -438,19 +430,18 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         final List<IndexEntry> oldEntries = filteredIndexEntries(oldRecord);
         if (oldEntries != null) {
             Verify.verify(oldEntries.size() == 1);
-            builder.addOldEntries(toProto(oldEntries.get(0), oldRecord.getPrimaryKey()));
+            builder.addOldEntries(toProto(oldEntries.get(0), Objects.requireNonNull(oldRecord).getPrimaryKey()));
         }
         final List<IndexEntry> newEntries = filteredIndexEntries(newRecord);
         if (newEntries != null) {
             Verify.verify(newEntries.size() == 1);
-            builder.addNewEntries(toProto(newEntries.get(0), newRecord.getPrimaryKey()));
+            builder.addNewEntries(toProto(newEntries.get(0), Objects.requireNonNull(newRecord).getPrimaryKey()));
         }
         return Any.pack(builder.build());
     }
 
     @Override
-    @Nonnull
-    public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
+    public CompletableFuture<Void> updateFromQueue(final Any data) {
         final IndexBuildProto.OldAndNewIndexEntries entries;
         try {
             entries = data.unpack(IndexBuildProto.OldAndNewIndexEntries.class);
@@ -467,8 +458,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         return future;
     }
 
-    @Nonnull
-    private IndexBuildProto.IndexEntry toProto(@Nonnull final IndexEntry entry, @Nonnull final Tuple primaryKey) {
+    private IndexBuildProto.IndexEntry toProto(final IndexEntry entry, final Tuple primaryKey) {
         return IndexBuildProto.IndexEntry.newBuilder()
                 .setKey(ByteString.copyFrom(entry.getKey().pack()))
                 .setValue(ByteString.copyFrom(entry.getValue().pack()))
@@ -476,8 +466,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                 .build();
     }
 
-    @Nonnull
-    private IndexEntry fromProto(@Nonnull final IndexBuildProto.IndexEntry entry) {
+    private IndexEntry fromProto(final IndexBuildProto.IndexEntry entry) {
         return new IndexEntry(state.index,
                 Tuple.fromBytes(entry.getKey().toByteArray()),
                 Tuple.fromBytes(entry.getValue().toByteArray()),
@@ -485,7 +474,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    public boolean canDeleteWhere(@Nonnull final QueryToKeyMatcher matcher, @Nonnull final Key.Evaluated evaluated) {
+    public boolean canDeleteWhere(final QueryToKeyMatcher matcher, final Key.Evaluated evaluated) {
         if (!super.canDeleteWhere(matcher, evaluated)) {
             return false;
         }
@@ -493,7 +482,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     }
 
     @Override
-    public CompletableFuture<Void> deleteWhere(@Nonnull final Transaction tr, @Nonnull final Tuple prefix) {
+    public CompletableFuture<Void> deleteWhere(final Transaction tr, final Tuple prefix) {
         Verify.verify(getKeyWithValueExpression(state.index.getRootExpression()).getColumnSize() >= prefix.size());
         final VectorIndexTaskCounts taskCounts = getEngine().getTaskCounts();
         if (taskCounts != null) {
@@ -523,7 +512,6 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
      *
      * @return a future that completes when this transaction's claim or drain has been staged
      */
-    @Nonnull
     @Override
     @SuppressWarnings({"PMD.CloseResource", "resource"}) // async iterator is closed explicitly
     public CompletableFuture<Void> mergeIndex() {
@@ -623,13 +611,12 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
      * Always signals more-work afterward: this partition may have leftover and other partitions may still need
      * claiming, so the driver runs again; a later invocation that finds nothing to do reports equal counts and stops.
      */
-    @Nonnull
-    private CompletableFuture<Void> drainOwnedPrefix(@Nonnull final VectorIndexMergeLock lock,
-                                                     @Nonnull final PrefixTaskCount owned,
-                                                     @Nonnull final Subspace indexSubspace,
-                                                     @Nonnull final VectorIndexTaskCounts taskCounts,
+    private CompletableFuture<Void> drainOwnedPrefix(final VectorIndexMergeLock lock,
+                                                     final PrefixTaskCount owned,
+                                                     final Subspace indexSubspace,
+                                                     final VectorIndexTaskCounts taskCounts,
                                                      final int taskBudget,
-                                                     @Nonnull final IndexDeferredMaintenanceControl mergeControl) {
+                                                     final IndexDeferredMaintenanceControl mergeControl) {
         final Tuple prefix = owned.prefix();
         lock.acquire(state.context, prefix); // refresh the lease timestamp so it stays live while we drain
         // Mirror updateIndexKeys: an unpartitioned index (empty prefix) lives directly in the index subspace.
@@ -665,7 +652,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
      * Reports the merge outcome to the driver: {@code mergesTried} is what we executed; {@code mergesFound} is one more
      * than that when there is (or may be) more to do, which is how {@code IndexingMerger} decides to re-invoke.
      */
-    private static void reportProgress(@Nonnull final IndexDeferredMaintenanceControl mergeControl, final int executed,
+    private static void reportProgress(final IndexDeferredMaintenanceControl mergeControl, final int executed,
                                        final boolean moreWork) {
         mergeControl.setMergesTried(executed);
         mergeControl.setMergesFound(moreWork ? executed + 1 : executed);
@@ -704,7 +691,6 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
      * total. Always {@code false} for engines that do not defer work (HNSW).
      * @return a future that is {@code true} iff some partition has outstanding tasks
      */
-    @Nonnull
     CompletableFuture<Boolean> hasOutstandingWork() {
         final VectorIndexTaskCounts taskCounts = getEngine().getTaskCounts();
         if (taskCounts == null) {
@@ -722,8 +708,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
      * @return the root as a {@link KeyWithValueExpression}
      * @throws RecordCoreException if the root is not a {@link KeyWithValueExpression}
      */
-    @Nonnull
-    private static KeyWithValueExpression getKeyWithValueExpression(@Nonnull final KeyExpression root) {
+    private static KeyWithValueExpression getKeyWithValueExpression(final KeyExpression root) {
         if (root instanceof KeyWithValueExpression) {
             return (KeyWithValueExpression)root;
         }
@@ -731,9 +716,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     }
 
     private static final class Continuation implements RecordCursorContinuation {
-        @Nonnull
         private final List<IndexEntry> indexEntries;
-        @Nonnull
         private final RecordCursorContinuation innerContinuation;
 
         @Nullable
@@ -741,23 +724,21 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
         @Nullable
         private byte[] cachedBytes;
 
-        private Continuation(@Nonnull final List<IndexEntry> indexEntries,
-                             @Nonnull final RecordCursorContinuation innerContinuation) {
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) fields; cachedBytes is correctly left uninitialized (lazily computed).
+        private Continuation(final List<IndexEntry> indexEntries,
+                             final RecordCursorContinuation innerContinuation) {
             this.indexEntries = ImmutableList.copyOf(indexEntries);
             this.innerContinuation = innerContinuation;
         }
 
-        @Nonnull
         public List<IndexEntry> getIndexEntries() {
             return indexEntries;
         }
 
-        @Nonnull
         public RecordCursorContinuation getInnerContinuation() {
             return innerContinuation;
         }
 
-        @Nonnull
         @Override
         public ByteString toByteString() {
             if (isEnd()) {
@@ -784,6 +765,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
 
         @Nullable
         @Override
+        @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types.
         public byte[] toBytes() {
             if (isEnd()) {
                 return null;
@@ -799,13 +781,12 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
             return getInnerContinuation().isEnd();
         }
 
-        @Nonnull
-        private static RecordCursorProto.VectorIndexScanContinuation fromBytes(@Nonnull byte[] continuationBytes) {
+        private static RecordCursorProto.VectorIndexScanContinuation fromBytes(byte[] continuationBytes) {
             try {
                 return RecordCursorProto.VectorIndexScanContinuation.parseFrom(continuationBytes);
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("error parsing continuation", ex)
-                        .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuationBytes));
+                        .addLogInfo("raw_bytes", Objects.requireNonNull(ByteArrayUtil2.loggable(continuationBytes)));
             }
         }
     }

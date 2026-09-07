@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructo
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -42,11 +41,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class LiftConstructorRule extends ValueSimplificationRule<RecordConstructorValue> {
-    @Nonnull
     private static final BindingMatcher<RecordConstructorValue> innerRecordMatcher =
             recordConstructorValue(all(anyValue()));
 
-    @Nonnull
     private static final BindingMatcher<RecordConstructorValue> rootMatcher =
             recordConstructorValue(any(innerRecordMatcher));
 
@@ -55,7 +52,7 @@ public class LiftConstructorRule extends ValueSimplificationRule<RecordConstruct
     }
 
     @Override
-    public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
+    public void onMatch(final ValueSimplificationRuleCall call) {
         final var bindings = call.getBindings();
         final var outerRecordConstructorValue = bindings.get(rootMatcher);
         final var innerRecordConstructorValue = bindings.get(innerRecordMatcher);

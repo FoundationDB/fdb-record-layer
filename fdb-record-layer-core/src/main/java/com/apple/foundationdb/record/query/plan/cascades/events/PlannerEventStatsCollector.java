@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.events;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -53,7 +53,7 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.EventL
      * @param collector the new collector. If {@code collector} is {@code null}, the current stats collector
      *        will be removed.
      */
-    static void setCollector(final PlannerEventStatsCollector collector) {
+    static void setCollector(@Nullable final PlannerEventStatsCollector collector) {
         if (collector == null) {
             PlannerEventListeners.removeListener(PlannerEventStatsCollector.class);
             return;
@@ -76,7 +76,6 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.EventL
      * @return an {@link Optional} that contains the current thread-local instance of {@link PlannerEventStatsCollector},
      *         or an empty {@link Optional} otherwise.
      */
-    @Nonnull
     static Optional<PlannerEventStatsCollector> getCollectorMaybe() {
         return Optional.ofNullable(getCollector());
     }
@@ -86,7 +85,7 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.EventL
      * Does not do anything if there is no collector currently set.
      * @param action consumer to invoke
      */
-    static void withCollector(@Nonnull final Consumer<PlannerEventStatsCollector> action) {
+    static void withCollector(final Consumer<PlannerEventStatsCollector> action) {
         getCollectorMaybe().ifPresent(action);
     }
 
@@ -97,8 +96,7 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.EventL
      * @return an {@link Optional} with the result of the function call if there is a collector instance set,
      *         or an empty {@link Optional} instead.
      */
-    @Nonnull
-    static <T> Optional<T> flatMapCollector(@Nonnull final Function<PlannerEventStatsCollector, Optional<T>> function) {
+    static <T> Optional<T> flatMapCollector(final Function<PlannerEventStatsCollector, Optional<T>> function) {
         return getCollectorMaybe().flatMap(function);
     }
 
@@ -117,7 +115,6 @@ public interface PlannerEventStatsCollector extends PlannerEventListeners.EventL
      * emitted until this point.
      * @return planner event statistics as a {@link PlannerEventStatsMaps} instance.
      */
-    @Nonnull
     Optional<PlannerEventStatsMaps> getStatsMaps();
 
     /**

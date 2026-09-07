@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Optional;
@@ -41,22 +40,21 @@ public class MatchPartitionMatchers {
         // do not instantiate
     }
 
-    @Nonnull
-    public static <C extends Collection<? extends PartialMatch>> BindingMatcher<MatchPartition> ofMatches(@Nonnull final BindingMatcher<C> downstream) {
+    public static <C extends Collection<? extends PartialMatch>> BindingMatcher<MatchPartition> ofMatches(final BindingMatcher<C> downstream) {
         return typedWithDownstream(MatchPartition.class,
                 Extractor.of(MatchPartition::getPartialMatches, name -> "partialMatches(" + name + ")"),
                 downstream);
     }
 
-    public static <R extends RelationalExpression, C extends Collection<? extends PartialMatch>> BindingMatcher<MatchPartition> ofExpressionAndMatches(@Nonnull final BindingMatcher<R> downstreamExpression,
-                                                                                                                                                       @Nonnull final BindingMatcher<C> downstreamMatches) {
+    public static <R extends RelationalExpression, C extends Collection<? extends PartialMatch>> BindingMatcher<MatchPartition> ofExpressionAndMatches(final BindingMatcher<R> downstreamExpression,
+                                                                                                                                                       final BindingMatcher<C> downstreamMatches) {
         return ofExpressionOptionalAndMatches(OptionalIfPresentMatcher.present(downstreamExpression),
                 downstreamMatches);
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public static <O extends Optional<RelationalExpression>, C extends Collection<? extends PartialMatch>> BindingMatcher<MatchPartition> ofExpressionOptionalAndMatches(@Nonnull final BindingMatcher<O> downstreamExpressionOptional,
-                                                                                                                                                                         @Nonnull final BindingMatcher<C> downstreamMatches) {
+    public static <O extends Optional<RelationalExpression>, C extends Collection<? extends PartialMatch>> BindingMatcher<MatchPartition> ofExpressionOptionalAndMatches(final BindingMatcher<O> downstreamExpressionOptional,
+                                                                                                                                                                         final BindingMatcher<C> downstreamMatches) {
         return typedWithDownstream(MatchPartition.class,
                 Extractor.identity(),
                 AllOfMatcher.matchingAllOf(MatchPartition.class,

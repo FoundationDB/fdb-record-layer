@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer.ReferenceBuilder;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 
 /**
@@ -46,8 +45,7 @@ public interface ExploratoryMemoizer {
      *
      * @return a new or a reused reference
      */
-    @Nonnull
-    Reference memoizeExploratoryExpression(@Nonnull RelationalExpression expression);
+    Reference memoizeExploratoryExpression(RelationalExpression expression);
 
     /**
      * Memoize the given collection of {@link RelationalExpression}s. If a reference of previously memoized expressions
@@ -63,8 +61,7 @@ public interface ExploratoryMemoizer {
      * @return a new or reused reference
      * @see #memoizeExploratoryExpression(RelationalExpression)
      * */
-    @Nonnull
-    Reference memoizeExploratoryExpressions(@Nonnull Collection<? extends RelationalExpression> expressions);
+    Reference memoizeExploratoryExpressions(Collection<? extends RelationalExpression> expressions);
 
     /**
      * Return a new {@link ReferenceBuilder} for exploratory expressions. The expression passed in is memoized when
@@ -74,6 +71,5 @@ public interface ExploratoryMemoizer {
      * @param expression the expression to potentially memoize
      * @return a new {@link ReferenceBuilder}
      */
-    @Nonnull
-    ReferenceBuilder memoizeExploratoryExpressionBuilder(@Nonnull RelationalExpression expression);
+    ReferenceBuilder memoizeExploratoryExpressionBuilder(RelationalExpression expression);
 }

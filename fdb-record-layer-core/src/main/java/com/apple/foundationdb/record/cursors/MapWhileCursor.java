@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -60,25 +60,20 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
         BEFORE
     }
 
-    @Nonnull
     private final RecordCursor<T> inner;
-    @Nonnull
     private final Function<T, Optional<V>> func;
-    @Nonnull
     private final StopContinuation stopContinuation;
-    @Nonnull
     private RecordCursorResult<V> nextResult = RecordCursorResult.withNextValue(null, RecordCursorStartContinuation.START);
 
     @SuppressWarnings("PMD.UnusedFormalParameter") // for compatibility reasons
-    public MapWhileCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<T, Optional<V>> func,
-                          @Nonnull StopContinuation stopContinuation, @Nullable byte[] initialContinuation,
-                          @Nonnull NoNextReason noNextReason) {
+    public MapWhileCursor(RecordCursor<T> inner, Function<T, Optional<V>> func,
+                          StopContinuation stopContinuation, @Nullable byte[] initialContinuation,
+                          NoNextReason noNextReason) {
         this.inner = inner;
         this.func = func;
         this.stopContinuation = stopContinuation;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<V>> onNext() {
         if (!nextResult.hasNext()) {
@@ -91,7 +86,7 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
                     nextResult = RecordCursorResult.withoutNextValue(innerResult);
                     return nextResult;
                 }
-                final Optional<V> maybeRecord = func.apply(innerResult.get());
+                final Optional<V> maybeRecord = func.apply(Objects.requireNonNull(innerResult.get()));
                 if (maybeRecord.isPresent()) {
                     nextResult = RecordCursorResult.withNextValue(maybeRecord.get(), innerResult.getContinuation());
                     return nextResult;
@@ -125,14 +120,13 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
         return inner.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return inner.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             inner.accept(visitor);
         }

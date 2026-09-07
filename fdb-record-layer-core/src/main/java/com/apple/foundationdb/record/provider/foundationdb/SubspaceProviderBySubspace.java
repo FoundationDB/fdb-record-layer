@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 
-import javax.annotation.Nonnull;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -33,41 +33,39 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.INTERNAL)
 public class SubspaceProviderBySubspace implements SubspaceProvider {
-    @Nonnull
     private Subspace subspace;
     private int memoizedHashCode = 0;
 
     @API(API.Status.INTERNAL)
-    public SubspaceProviderBySubspace(@Nonnull Subspace subspace) {
+    public SubspaceProviderBySubspace(Subspace subspace) {
         this.subspace = subspace;
     }
 
-    @Nonnull
     @Override
-    public Subspace getSubspace(@Nonnull FDBRecordContext context) {
+    public Subspace getSubspace(FDBRecordContext context) {
         return subspace;
     }
 
-    @Nonnull
     @Override
-    public CompletableFuture<Subspace> getSubspaceAsync(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<Subspace> getSubspaceAsync(FDBRecordContext context) {
         return CompletableFuture.completedFuture(subspace);
     }
 
-    @Nonnull
     @Override
     public LogMessageKeys logKey() {
         return LogMessageKeys.SUBSPACE;
     }
 
     @Override
-    public String toString(@Nonnull FDBRecordContext context) {
+    public String toString(FDBRecordContext context) {
         return toString();
     }
 
     @Override
     public String toString() {
-        return ByteArrayUtil2.loggable(subspace.pack());
+        // subspace is always non-null, so pack() (and hence loggable()) never actually returns null here;
+        // ByteArrayUtil2.loggable is only @Nullable to accommodate its @Nullable byte[] parameter.
+        return Objects.requireNonNull(ByteArrayUtil2.loggable(subspace.pack()));
     }
 
     @Override

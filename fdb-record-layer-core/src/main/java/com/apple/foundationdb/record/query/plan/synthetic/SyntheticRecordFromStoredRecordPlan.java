@@ -29,8 +29,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Set;
 
 /**
@@ -49,7 +49,6 @@ public interface SyntheticRecordFromStoredRecordPlan extends PlanHashable  {
      * If given a record whose type is not in this set, the plan may return an empty cursor or throw an exception.
      * @return the set of record type names
      */
-    @Nonnull
     Set<String> getStoredRecordTypes();
 
     /**
@@ -57,7 +56,6 @@ public interface SyntheticRecordFromStoredRecordPlan extends PlanHashable  {
      *
      * @return the set of record type names
      */
-    @Nonnull
     Set<String> getSyntheticRecordTypes();
 
     /**
@@ -69,11 +67,10 @@ public interface SyntheticRecordFromStoredRecordPlan extends PlanHashable  {
      * @param <M> type of raw record
      * @return a cursor of synthetic records
      */
-    @Nonnull
-    <M extends Message> RecordCursor<FDBSyntheticRecord> execute(@Nonnull FDBRecordStore store,
-                                                                 @Nonnull FDBStoredRecord<M> record,
+    <M extends Message> RecordCursor<FDBSyntheticRecord> execute(FDBRecordStore store,
+                                                                 FDBStoredRecord<M> record,
                                                                  @Nullable byte[] continuation,
-                                                                 @Nonnull ExecuteProperties executeProperties);
+                                                                 ExecuteProperties executeProperties);
 
     /**
      * Execute this plan.
@@ -82,9 +79,9 @@ public interface SyntheticRecordFromStoredRecordPlan extends PlanHashable  {
      * @param <M> type of raw record
      * @return a cursor of synthetic records
      */
-    @Nonnull
-    default <M extends Message> RecordCursor<FDBSyntheticRecord> execute(@Nonnull FDBRecordStore store,
-                                                                         @Nonnull FDBStoredRecord<M> record) {
+    @SuppressWarnings("NullAway") // NullAway doesn't reliably track @Nullable on byte[] parameters; continuation is declared @Nullable above.
+    default <M extends Message> RecordCursor<FDBSyntheticRecord> execute(FDBRecordStore store,
+                                                                         FDBStoredRecord<M> record) {
         return execute(store, record, null, ExecuteProperties.SERIAL_EXECUTE);
     }
 

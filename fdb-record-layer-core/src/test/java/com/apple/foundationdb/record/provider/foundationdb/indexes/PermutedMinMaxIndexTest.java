@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
@@ -51,13 +52,13 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -82,13 +83,11 @@ class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
 
     protected static final String INDEX_NAME = "permuted";
 
-    @Nonnull
     protected static RecordMetaDataHook hook(boolean min) {
         return hook(min, Key.Expressions.concatenateFields("str_value_indexed", "num_value_2", "num_value_3_indexed").group(1), 1);
     }
 
-    @Nonnull
-    protected static RecordMetaDataHook hook(boolean min, @Nonnull GroupingKeyExpression groupingKeyExpression, int permutedSize) {
+    protected static RecordMetaDataHook hook(boolean min, GroupingKeyExpression groupingKeyExpression, int permutedSize) {
         return md -> {
             md.addIndex("MySimpleRecord", new Index(INDEX_NAME,
                     groupingKeyExpression,
@@ -803,9 +802,9 @@ class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
             final BiConsumer<IndexEntry, TestRecords1Proto.MySimpleRecord> validator = (indexEntry, simpleRecord) -> {
                 assertTrue(simpleRecord.hasNumValue2());
-                assertEquals(((Number)indexEntry.getKeyValue(2)).intValue(), simpleRecord.getNumValue2());
+                assertEquals(((Number)Objects.requireNonNull(indexEntry.getKeyValue(2))).intValue(), simpleRecord.getNumValue2());
                 assertTrue(simpleRecord.hasNumValue3Indexed());
-                assertEquals(((Number)indexEntry.getKeyValue(3)).intValue(), simpleRecord.getNumValue3Indexed());
+                assertEquals(((Number)Objects.requireNonNull(indexEntry.getKeyValue(3))).intValue(), simpleRecord.getNumValue3Indexed());
             };
             final Function<TestRecords1Proto.MySimpleRecord, NonnullPair<Integer, Integer>> extractor = simpleRecord -> NonnullPair.of(simpleRecord.getNumValue2(), simpleRecord.getNumValue3Indexed());
 
@@ -825,25 +824,25 @@ class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
 
     }
 
-    private List<Pair<Long, Long>> executePermutedIndexScan(@Nonnull RecordQueryPlan plan, @Nonnull Index index, @Nullable EvaluationContext evaluationContext) {
+    private List<Pair<Long, Long>> executePermutedIndexScan(RecordQueryPlan plan, Index index, @Nullable EvaluationContext evaluationContext) {
         return executePermutedIndexScan(plan, index, evaluationContext,
                 (indexEntry, simple) -> {
                     assertTrue(simple.hasNumValue2());
-                    assertEquals(((Number)indexEntry.getKeyValue(2)).intValue(), simple.getNumValue2());
+                    assertEquals(((Number)Objects.requireNonNull(indexEntry.getKeyValue(2))).intValue(), simple.getNumValue2());
                 },
                 simple -> (long) simple.getNumValue2());
     }
 
-    @Nonnull
-    private <T> List<Pair<T, Long>> executePermutedIndexScan(@Nonnull RecordQueryPlan plan, @Nonnull Index index, @Nullable EvaluationContext evaluationContext,
-                                                             @Nonnull BiConsumer<IndexEntry, TestRecords1Proto.MySimpleRecord> validator,
-                                                             @Nonnull Function<TestRecords1Proto.MySimpleRecord, T> extractor) {
+    private <T> List<Pair<T, Long>> executePermutedIndexScan(RecordQueryPlan plan, Index index, @Nullable EvaluationContext evaluationContext,
+                                                             BiConsumer<IndexEntry, TestRecords1Proto.MySimpleRecord> validator,
+                                                             Function<TestRecords1Proto.MySimpleRecord, T> extractor) {
         return plan.execute(recordStore, evaluationContext == null ? EvaluationContext.EMPTY : evaluationContext)
                 .map(rec -> {
                     assertEquals(index, rec.getIndex());
                     TestRecords1Proto.MySimpleRecord simple = TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build();
-                    validator.accept(rec.getIndexEntry(), simple);
-                    Tuple indexKey = rec.getIndexEntry().getKey();
+                    final IndexEntry indexEntry = Objects.requireNonNull(rec.getIndexEntry());
+                    validator.accept(indexEntry, simple);
+                    Tuple indexKey = indexEntry.getKey();
                     assertNotNull(indexKey);
                     return Pair.of(extractor.apply(simple), indexKey.getLong(1));
                 })
@@ -911,7 +910,7 @@ class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void saveRecord(int recNo, @Nonnull String strValue, int value2, int value3, int... repeater) {
+    private void saveRecord(int recNo, String strValue, int value2, int value3, int... repeater) {
         recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                 .setRecNo(recNo)
                 .setStrValueIndexed(strValue)
@@ -922,19 +921,26 @@ class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
                 .build());
     }
 
-    @Nonnull
-    private List<Tuple> scanGroup(@Nonnull Tuple group, boolean reverse) {
-        return recordStore.scanIndex(recordStore.getRecordMetaData().getIndex(INDEX_NAME), IndexScanType.BY_GROUP,
-                TupleRange.allOf(group), null, reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN)
+    // NullAway/JSpecify does not reliably resolve the @Nullable annotation on FDBRecordStoreBase's inherited
+    // scanIndex(..., byte[], ScanProperties) default method when it is called (with no continuation) from
+    // outside FDBRecordStore itself; wrapping the call here, rather than suppressing at each call site,
+    // centralizes the (well-understood) suppression.
+    @SuppressWarnings("NullAway")
+    private RecordCursor<IndexEntry> scanIndexNoContinuation(Index index, IndexScanType scanType, TupleRange range, ScanProperties scanProperties) {
+        return recordStore.scanIndex(index, scanType, range, null, scanProperties);
+    }
+
+    private List<Tuple> scanGroup(Tuple group, boolean reverse) {
+        return scanIndexNoContinuation(recordStore.getRecordMetaData().getIndex(INDEX_NAME), IndexScanType.BY_GROUP,
+                TupleRange.allOf(group), reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN)
                 .map(entry -> TupleHelpers.subTuple(entry.getKey(), group.size(), entry.getKeySize()))
                 .asList()
                 .join();
     }
 
-    @Nonnull
-    private List<Tuple> scanValue(@Nonnull Tuple prefix, boolean reverse) {
-        return recordStore.scanIndex(recordStore.getRecordMetaData().getIndex(INDEX_NAME), IndexScanType.BY_VALUE,
-                TupleRange.allOf(prefix), null, reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN)
+    private List<Tuple> scanValue(Tuple prefix, boolean reverse) {
+        return scanIndexNoContinuation(recordStore.getRecordMetaData().getIndex(INDEX_NAME), IndexScanType.BY_VALUE,
+                TupleRange.allOf(prefix), reverse ? ScanProperties.REVERSE_SCAN : ScanProperties.FORWARD_SCAN)
                 .map(entry -> TupleHelpers.subTuple(entry.getKey(), prefix.size(), entry.getKeySize()))
                 .asList()
                 .join();

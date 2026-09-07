@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -40,18 +39,16 @@ public class ExpressionsPartitionMatchers {
         // do not instantiate
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked")
-    public static BindingMatcher<Reference> expressionPartitions(@Nonnull final BindingMatcher<? extends Iterable<? extends ExpressionPartition<? extends RelationalExpression>>> downstream) {
+    public static BindingMatcher<Reference> expressionPartitions(final BindingMatcher<? extends Iterable<? extends ExpressionPartition<? extends RelationalExpression>>> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(Reference.class,
                 Extractor.of(Reference::toExpressionPartitions, name -> "expressionPartitions(" + name + ")"),
                 downstream);
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked")
-    public static BindingMatcher<Collection<? extends ExpressionPartition<? extends RelationalExpression>>> filterPartition(@Nonnull final Predicate<ExpressionPartition<? extends RelationalExpression>> predicate,
-                                                                                                                            @Nonnull final BindingMatcher<? extends Iterable<? extends ExpressionPartition<? extends RelationalExpression>>> downstream) {
+    public static BindingMatcher<Collection<? extends ExpressionPartition<? extends RelationalExpression>>> filterPartition(final Predicate<ExpressionPartition<? extends RelationalExpression>> predicate,
+                                                                                                                            final BindingMatcher<? extends Iterable<? extends ExpressionPartition<? extends RelationalExpression>>> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(
                 (Class<Collection<? extends ExpressionPartition<? extends RelationalExpression>>>)(Class<?>)Collection.class,
                 Extractor.of(planPartitions ->
@@ -62,21 +59,18 @@ public class ExpressionsPartitionMatchers {
                 downstream);
     }
 
-    @Nonnull
-    public static BindingMatcher<Collection<ExpressionPartition<RelationalExpression>>> rollUpPartitions(@Nonnull final BindingMatcher<? extends Iterable<ExpressionPartition<RelationalExpression>>> downstream) {
+    public static BindingMatcher<Collection<ExpressionPartition<RelationalExpression>>> rollUpPartitions(final BindingMatcher<? extends Iterable<ExpressionPartition<RelationalExpression>>> downstream) {
         return rollUpPartitionsTo(downstream, ImmutableSet.of());
     }
 
-    @Nonnull
-    public static BindingMatcher<Collection<ExpressionPartition<RelationalExpression>>> rollUpPartitionsTo(@Nonnull final BindingMatcher<? extends Iterable<ExpressionPartition<RelationalExpression>>> downstream,
-                                                                                                           @Nonnull final ExpressionProperty<?> interestingProperty) {
+    public static BindingMatcher<Collection<ExpressionPartition<RelationalExpression>>> rollUpPartitionsTo(final BindingMatcher<? extends Iterable<ExpressionPartition<RelationalExpression>>> downstream,
+                                                                                                           final ExpressionProperty<?> interestingProperty) {
         return rollUpPartitionsTo(downstream, ImmutableSet.of(interestingProperty));
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked")
-    public static BindingMatcher<Collection<ExpressionPartition<RelationalExpression>>> rollUpPartitionsTo(@Nonnull final BindingMatcher<? extends Iterable<ExpressionPartition<RelationalExpression>>> downstream,
-                                                                                                           @Nonnull final Set<ExpressionProperty<?>> interestingProperties) {
+    public static BindingMatcher<Collection<ExpressionPartition<RelationalExpression>>> rollUpPartitionsTo(final BindingMatcher<? extends Iterable<ExpressionPartition<RelationalExpression>>> downstream,
+                                                                                                           final Set<ExpressionProperty<?>> interestingProperties) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(
                 (Class<Collection<ExpressionPartition<RelationalExpression>>>)(Class<?>)Collection.class,
                 Extractor.of(partitions -> ExpressionPartitions.rollUpTo(partitions, interestingProperties),
@@ -84,15 +78,13 @@ public class ExpressionsPartitionMatchers {
                 downstream);
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked")
     public static BindingMatcher<ExpressionPartition<RelationalExpression>> anyExpressionPartition() {
         return typed((Class<ExpressionPartition<RelationalExpression>>)(Class<?>)ExpressionPartition.class);
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked")
-    public static <E extends RelationalExpression, P extends ExpressionPartition<E>> BindingMatcher<P> expressions(@Nonnull final BindingMatcher<? extends Iterable<E>> downstream) {
+    public static <E extends RelationalExpression, P extends ExpressionPartition<E>> BindingMatcher<P> expressions(final BindingMatcher<? extends Iterable<E>> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<P>)(Class<?>)ExpressionPartition.class,
                 Extractor.of(ExpressionPartition::getExpressions,
                         name -> "expressions(" + name + ")"),

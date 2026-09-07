@@ -26,8 +26,8 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -38,20 +38,17 @@ import java.util.function.Function;
  */
 @API(API.Status.UNSTABLE)
 public class FilterCursor<T> implements RecordCursor<T> {
-    @Nonnull
     private final RecordCursor<T> inner;
-    @Nonnull
     private final Function<T, Boolean> pred;
     private boolean hasNext;
     @Nullable
     private RecordCursorResult<T> nextResult;
 
-    public FilterCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<T, Boolean> pred) {
+    public FilterCursor(RecordCursor<T> inner, Function<T, Boolean> pred) {
         this.inner = inner;
         this.pred = pred;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
         if (nextResult != null && !nextResult.hasNext()) {
@@ -59,7 +56,7 @@ public class FilterCursor<T> implements RecordCursor<T> {
         }
         return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
             nextResult = innerResult;
-            hasNext = innerResult.hasNext() && (Boolean.TRUE.equals(pred.apply(innerResult.get()))); // relies on short circuiting
+            hasNext = innerResult.hasNext() && (Boolean.TRUE.equals(pred.apply(Objects.requireNonNull(innerResult.get())))); // relies on short circuiting
             return innerResult.hasNext() && !hasNext; // keep looping only if we might find more records and we filtered a record out
         }), getExecutor()).thenApply(vignore -> nextResult);
     }
@@ -74,14 +71,13 @@ public class FilterCursor<T> implements RecordCursor<T> {
         return inner.isClosed();
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return inner.getExecutor();
     }
 
     @Override
-    public boolean accept(@Nonnull RecordCursorVisitor visitor) {
+    public boolean accept(RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
             inner.accept(visitor);
         }

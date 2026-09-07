@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 
-import javax.annotation.Nonnull;
 import java.util.Deque;
 
 /**
@@ -35,14 +34,12 @@ public interface PlannerEventWithState extends PlannerEvent {
      * Getter.
      * @return the current planner phase.
      */
-    @Nonnull
     PlannerPhase getPlannerPhase();
 
     /**
      * Getter.
      * @return the root reference of the event
      */
-    @Nonnull
     Reference getRootReference();
 
     /**
@@ -50,6 +47,5 @@ public interface PlannerEventWithState extends PlannerEvent {
      *
      * @return the current task stack of the planner
      */
-    @Nonnull
     Deque<CascadesPlanner.Task> getTaskStack();
 }

@@ -29,8 +29,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
@@ -43,12 +43,10 @@ import java.util.Set;
 class SyntheticRecordByTypePlan implements SyntheticRecordFromStoredRecordPlan  {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Synthetic-Record-By-Type-Plan");
 
-    @Nonnull
     private final Map<String, SyntheticRecordFromStoredRecordPlan> subPlans;
-    @Nonnull
     private final Set<String> syntheticRecordTypes;
 
-    public SyntheticRecordByTypePlan(@Nonnull Map<String, SyntheticRecordFromStoredRecordPlan> subPlans) {
+    public SyntheticRecordByTypePlan(Map<String, SyntheticRecordFromStoredRecordPlan> subPlans) {
         this.subPlans = subPlans;
 
         syntheticRecordTypes = new HashSet<>();
@@ -57,29 +55,25 @@ class SyntheticRecordByTypePlan implements SyntheticRecordFromStoredRecordPlan  
         }
     }
 
-    @Nonnull
     public Map<String, SyntheticRecordFromStoredRecordPlan> getSubPlans() {
         return subPlans;
     }
 
     @Override
-    @Nonnull
     public Set<String> getStoredRecordTypes() {
         return subPlans.keySet();
     }
 
     @Override
-    @Nonnull
     public Set<String> getSyntheticRecordTypes() {
         return syntheticRecordTypes;
     }
 
     @Override
-    @Nonnull
-    public <M extends Message> RecordCursor<FDBSyntheticRecord> execute(@Nonnull FDBRecordStore store,
-                                                                        @Nonnull FDBStoredRecord<M> record,
+    public <M extends Message> RecordCursor<FDBSyntheticRecord> execute(FDBRecordStore store,
+                                                                        FDBStoredRecord<M> record,
                                                                         @Nullable byte[] continuation,
-                                                                        @Nonnull ExecuteProperties executeProperties) {
+                                                                        ExecuteProperties executeProperties) {
         final SyntheticRecordFromStoredRecordPlan subPlan = subPlans.get(record.getRecordType().getName());
         if (subPlan == null) {
             return RecordCursor.empty();
@@ -111,7 +105,7 @@ class SyntheticRecordByTypePlan implements SyntheticRecordFromStoredRecordPlan  
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 int hash = 1;

@@ -43,6 +43,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.support.ParameterDeclarations;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -321,7 +322,7 @@ class ArithmeticValueTest {
                 Assertions.fail("expected an exception to be thrown");
             } catch (Exception e) {
                 Assertions.assertInstanceOf(VerifyException.class, e);
-                Assertions.assertTrue(e.getMessage().contains("unable to encapsulate arithmetic operation due to type mismatch(es)"));
+                Assertions.assertTrue(Objects.requireNonNull(e.getMessage()).contains("unable to encapsulate arithmetic operation due to type mismatch(es)"));
             }
         } else {
             Typed value = function.encapsulate(CallSiteArguments.ofPositional(args));

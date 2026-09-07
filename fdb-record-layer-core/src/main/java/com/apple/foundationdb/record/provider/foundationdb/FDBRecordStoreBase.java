@@ -75,8 +75,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -144,7 +144,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param serializer typed serializer to use
      * @return a new typed record store
      */
-    default <N extends Message> FDBTypedRecordStore<N> getTypedRecordStore(@Nonnull RecordSerializer<N> serializer) {
+    default <N extends Message> FDBTypedRecordStore<N> getTypedRecordStore(RecordSerializer<N> serializer) {
         return new FDBTypedRecordStore<>(getUntypedRecordStore(), serializer);
     }
 
@@ -152,10 +152,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Get the record context (transaction) to use for the record store.
      * @return context the record context / transaction to use
      */
-    @Nonnull
     FDBRecordContext getContext();
 
-    @Nonnull
     default Executor getExecutor() {
         return getContext().getExecutor();
     }
@@ -178,17 +176,14 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * If the state is not already loaded, it is loaded synchronously.
      * @return the store state for this store
      */
-    @Nonnull
     RecordStoreState getRecordStoreState();
 
     /**
      * Get the serializer used to convert records into byte arrays.
      * @return the serializer to use
      */
-    @Nonnull
     RecordSerializer<M> getSerializer();
 
-    @Nonnull
     IndexMaintainerFactoryRegistry getIndexMaintainerRegistry();
 
     /**
@@ -196,8 +191,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param index the index
      * @return the {@link IndexMaintainer} for the index passed in
      */
-    @Nonnull
-    IndexMaintainer getIndexMaintainer(@Nonnull Index index);
+    IndexMaintainer getIndexMaintainer(Index index);
 
     /**
      * Get the current incarnation of the store.
@@ -223,7 +217,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @throws RecordCoreException if the updated incarnation is less than the current one
      */
     @API(API.Status.EXPERIMENTAL)
-    CompletableFuture<Void> updateIncarnation(@Nonnull IntFunction<Integer> updater);
+    CompletableFuture<Void> updateIncarnation(IntFunction<Integer> updater);
 
     /**
      * Hook for checking if store state for client changes.
@@ -241,7 +235,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          *
          * @return the user version to store in the record info header
          */
-        default CompletableFuture<Integer> checkUserVersion(@Nonnull RecordMetaDataProto.DataStoreInfo storeHeader,
+        default CompletableFuture<Integer> checkUserVersion(RecordMetaDataProto.DataStoreInfo storeHeader,
                                                             RecordMetaDataProvider metaData) {
             final boolean newStore = storeHeader.getFormatVersion() == 0;
             final int oldMetaDataVersion = newStore ? -1 : storeHeader.getMetaDataversion();
@@ -352,7 +346,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @see #needRebuildIndex(Index, long, boolean)
          */
         @API(API.Status.EXPERIMENTAL)
-        @Nonnull
         default CompletableFuture<IndexState> needRebuildIndex(Index index,
                                                                Supplier<CompletableFuture<Long>> lazyRecordCount,
                                                                Supplier<CompletableFuture<Long>> lazyEstimatedSize,
@@ -519,8 +512,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param rec the record to save
      * @return a future that completes with the stored record form of the saved record
      */
-    @Nonnull
-    default CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final M rec) {
+    default CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(final M rec) {
         return saveRecordAsync(rec, (FDBRecordVersion)null);
     }
 
@@ -530,8 +522,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param existenceCheck when to throw an exception if a record with the same primary key does or does not already exist
      * @return a future that completes with the stored record form of the saved record
      */
-    @Nonnull
-    default CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final M rec, @Nonnull RecordExistenceCheck existenceCheck) {
+    default CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(final M rec, RecordExistenceCheck existenceCheck) {
         return saveRecordAsync(rec, existenceCheck, null, VersionstampSaveBehavior.DEFAULT);
     }
 
@@ -541,8 +532,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param version the associated record version
      * @return a future that completes with the stored record form of the saved record
      */
-    @Nonnull
-    default CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final M rec, @Nullable FDBRecordVersion version) {
+    default CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(final M rec, @Nullable FDBRecordVersion version) {
         return saveRecordAsync(rec, version, VersionstampSaveBehavior.DEFAULT);
     }
 
@@ -553,8 +543,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param behavior the save behavior w.r.t. the given <code>version</code>
      * @return a future that completes with the stored record form of the saved record
      */
-    @Nonnull
-    default CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final M rec, @Nullable FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
+    default CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(final M rec, @Nullable FDBRecordVersion version, final VersionstampSaveBehavior behavior) {
         return saveRecordAsync(rec, RecordExistenceCheck.NONE, version, behavior);
     }
 
@@ -566,16 +555,13 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param behavior the save behavior w.r.t. the given <code>version</code>
      * @return a future that completes with the stored record form of the saved record
      */
-    @Nonnull
-    CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull M rec, @Nonnull RecordExistenceCheck existenceCheck,
-                                                          @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior);
+    CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(M rec, RecordExistenceCheck existenceCheck,
+                                                          @Nullable FDBRecordVersion version, VersionstampSaveBehavior behavior);
 
-    @Nonnull
-    CompletableFuture<FDBStoredRecord<M>> dryRunSaveRecordAsync(@Nonnull M rec, @Nonnull RecordExistenceCheck existenceCheck,
-                                                          @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior);
+    CompletableFuture<FDBStoredRecord<M>> dryRunSaveRecordAsync(M rec, RecordExistenceCheck existenceCheck,
+                                                          @Nullable FDBRecordVersion version, VersionstampSaveBehavior behavior);
 
-    @Nonnull
-    default CompletableFuture<FDBStoredRecord<M>> dryRunSaveRecordAsync(@Nonnull final M rec, @Nonnull RecordExistenceCheck existenceCheck) {
+    default CompletableFuture<FDBStoredRecord<M>> dryRunSaveRecordAsync(final M rec, RecordExistenceCheck existenceCheck) {
         return dryRunSaveRecordAsync(rec, existenceCheck, null, VersionstampSaveBehavior.DEFAULT);
     }
 
@@ -584,8 +570,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param rec the record to be saved
      * @return wrapping object containing saved record and metadata
      */
-    @Nonnull
-    default FDBStoredRecord<M> saveRecord(@Nonnull final M rec) {
+    default FDBStoredRecord<M> saveRecord(final M rec) {
         return saveRecord(rec, (FDBRecordVersion)null);
     }
 
@@ -595,8 +580,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param existenceCheck when to throw an exception if a record with the same primary key does or does not already exist
      * @return wrapping object containing saved record and metadata
      */
-    @Nonnull
-    default FDBStoredRecord<M> saveRecord(@Nonnull final M rec, @Nonnull RecordExistenceCheck existenceCheck) {
+    default FDBStoredRecord<M> saveRecord(final M rec, RecordExistenceCheck existenceCheck) {
         return saveRecord(rec, existenceCheck, null, VersionstampSaveBehavior.DEFAULT);
     }
 
@@ -608,8 +592,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param version the version to associate with the record when saving
      * @return wrapping object containing saved record and metadata
      */
-    @Nonnull
-    default FDBStoredRecord<M> saveRecord(@Nonnull final M rec, @Nullable final FDBRecordVersion version) {
+    default FDBStoredRecord<M> saveRecord(final M rec, @Nullable final FDBRecordVersion version) {
         return saveRecord(rec, version, VersionstampSaveBehavior.DEFAULT);
     }
 
@@ -624,8 +607,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param behavior the save behavior w.r.t. the given <code>version</code>
      * @return wrapping object containing saved record and metadata
      */
-    @Nonnull
-    default FDBStoredRecord<M> saveRecord(@Nonnull final M rec, @Nullable final FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
+    default FDBStoredRecord<M> saveRecord(final M rec, @Nullable final FDBRecordVersion version, final VersionstampSaveBehavior behavior) {
         return saveRecord(rec, RecordExistenceCheck.NONE, version, behavior);
     }
 
@@ -641,9 +623,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param behavior the save behavior w.r.t. the given <code>version</code>
      * @return wrapping object containing saved record and metadata
      */
-    @Nonnull
-    default FDBStoredRecord<M> saveRecord(@Nonnull final M rec, @Nonnull RecordExistenceCheck existenceCheck,
-                                         @Nullable final FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
+    default FDBStoredRecord<M> saveRecord(final M rec, RecordExistenceCheck existenceCheck,
+                                         @Nullable final FDBRecordVersion version, final VersionstampSaveBehavior behavior) {
         return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_RECORD, saveRecordAsync(rec, existenceCheck, version, behavior));
     }
 
@@ -652,8 +633,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param rec the record to be saved
      * @return a future that completes with the stored record form of the saved record
      */
-    @Nonnull
-    default CompletableFuture<FDBStoredRecord<M>> insertRecordAsync(@Nonnull final M rec) {
+    default CompletableFuture<FDBStoredRecord<M>> insertRecordAsync(final M rec) {
         return saveRecordAsync(rec, RecordExistenceCheck.ERROR_IF_EXISTS);
     }
 
@@ -662,8 +642,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param rec the record to be saved
      * @return wrapping object containing saved record and metadata
      */
-    @Nonnull
-    default FDBStoredRecord<M> insertRecord(@Nonnull final M rec) {
+    default FDBStoredRecord<M> insertRecord(final M rec) {
         return saveRecord(rec, RecordExistenceCheck.ERROR_IF_EXISTS);
     }
 
@@ -672,8 +651,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param rec the record to be saved
      * @return a future that completes with the stored record form of the saved record
      */
-    @Nonnull
-    default CompletableFuture<FDBStoredRecord<M>> updateRecordAsync(@Nonnull final M rec) {
+    default CompletableFuture<FDBStoredRecord<M>> updateRecordAsync(final M rec) {
         return saveRecordAsync(rec, RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
     }
 
@@ -682,8 +660,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param rec the record to be saved
      * @return wrapping object containing saved record and metadata
      */
-    @Nonnull
-    default FDBStoredRecord<M> updateRecord(@Nonnull final M rec) {
+    default FDBStoredRecord<M> updateRecord(final M rec) {
         return saveRecord(rec, RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
     }
 
@@ -693,7 +670,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a {@link FDBStoredRecord} for the record or <code>null</code>.
      */
     @Nullable
-    default FDBStoredRecord<M> loadRecord(@Nonnull final Tuple primaryKey) {
+    default FDBStoredRecord<M> loadRecord(final Tuple primaryKey) {
         return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD, loadRecordAsync(primaryKey));
     }
 
@@ -704,7 +681,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a {@link FDBStoredRecord} for the record or <code>null</code>.
      */
     @Nullable
-    default FDBStoredRecord<M> loadRecord(@Nonnull final Tuple primaryKey, final boolean snapshot) {
+    default FDBStoredRecord<M> loadRecord(final Tuple primaryKey, final boolean snapshot) {
         return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD, loadRecordAsync(primaryKey, snapshot));
     }
 
@@ -713,8 +690,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param primaryKey the key for the record to be loaded
      * @return a CompletableFuture that will return a message or null if there was no record with that key
      */
-    @Nonnull
-    default CompletableFuture<FDBStoredRecord<M>> loadRecordAsync(@Nonnull final Tuple primaryKey) {
+    default CompletableFuture<FDBStoredRecord<M>> loadRecordAsync(final Tuple primaryKey) {
         return loadRecordAsync(primaryKey, false);
     }
 
@@ -724,14 +700,12 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param snapshot whether to load at snapshot isolation
      * @return a CompletableFuture that will return a message or null if there was no record with that key
      */
-    @Nonnull
-    default CompletableFuture<FDBStoredRecord<M>> loadRecordAsync(@Nonnull final Tuple primaryKey, final boolean snapshot) {
+    default CompletableFuture<FDBStoredRecord<M>> loadRecordAsync(final Tuple primaryKey, final boolean snapshot) {
         return loadRecordInternal(primaryKey, ExecuteState.NO_LIMITS, snapshot);
     }
 
-    @Nonnull
     @API(API.Status.INTERNAL)
-    CompletableFuture<FDBStoredRecord<M>> loadRecordInternal(@Nonnull Tuple primaryKey, @Nonnull ExecuteState executeState, boolean snapshot);
+    CompletableFuture<FDBStoredRecord<M>> loadRecordInternal(Tuple primaryKey, ExecuteState executeState, boolean snapshot);
 
     /**
      * Get record into FDB RYW cache.
@@ -740,17 +714,15 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param primaryKey the primary key for the record to retrieve
      * @return a future that will return {@code null} when the record is preloaded
      */
-    @Nonnull
-    CompletableFuture<Void> preloadRecordAsync(@Nonnull Tuple primaryKey);
+    CompletableFuture<Void> preloadRecordAsync(Tuple primaryKey);
 
     /**
      * Load a {@link FDBSyntheticRecord synthetic record} by loading its stored constituent records and synthesizing it from them.
      * @param primaryKey the primary key of the synthetic record, which includes the primary keys of the constituents
      * @return a future which completes to the synthesized record
      */
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    default CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull Tuple primaryKey) {
+    default CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(Tuple primaryKey) {
         return loadSyntheticRecord(primaryKey, IndexOrphanBehavior.ERROR);
     }
 
@@ -766,9 +738,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param orphanBehavior what to do if any of the record's constituents is missing
      * @return a future which completes to the synthesized record
      */
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(@Nonnull Tuple primaryKey, IndexOrphanBehavior orphanBehavior);
+    CompletableFuture<FDBSyntheticRecord> loadSyntheticRecord(Tuple primaryKey, IndexOrphanBehavior orphanBehavior);
 
     /**
      * Check if a record exists in the record store with the given primary key.
@@ -779,8 +750,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *     <code>false</code> otherwise
      * @see #recordExistsAsync(Tuple, IsolationLevel)
      */
-    @Nonnull
-    default CompletableFuture<Boolean> recordExistsAsync(@Nonnull final Tuple primaryKey) {
+    default CompletableFuture<Boolean> recordExistsAsync(final Tuple primaryKey) {
         return recordExistsAsync(primaryKey, IsolationLevel.SERIALIZABLE);
     }
 
@@ -795,8 +765,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a future that will complete to <code>true</code> if some record in record store has that primary key and
      *     <code>false</code> otherwise
      */
-    @Nonnull
-    CompletableFuture<Boolean> recordExistsAsync(@Nonnull Tuple primaryKey, @Nonnull IsolationLevel isolationLevel);
+    CompletableFuture<Boolean> recordExistsAsync(Tuple primaryKey, IsolationLevel isolationLevel);
 
     /**
      * Check if a record exists in the record store with the given primary key.
@@ -806,7 +775,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return <code>true</code> if some record in record store has that primary key and <code>false</code> otherwise
      * @see #recordExistsAsync(Tuple)
      */
-    default boolean recordExists(@Nonnull final Tuple primaryKey) {
+    default boolean recordExists(final Tuple primaryKey) {
         return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_RECORD_EXISTS, recordExistsAsync(primaryKey));
     }
 
@@ -819,7 +788,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return <code>true</code> if some record in record store has that primary key and <code>false</code> otherwise
      * @see #recordExistsAsync(Tuple)
      */
-    default boolean recordExists(@Nonnull final Tuple primaryKey, @Nonnull final IsolationLevel isolationLevel) {
+    default boolean recordExists(final Tuple primaryKey, final IsolationLevel isolationLevel) {
         return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_RECORD_EXISTS, recordExistsAsync(primaryKey, isolationLevel));
     }
 
@@ -847,7 +816,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param primaryKey the primary key of the record to add a read conflict on
      * @see com.apple.foundationdb.Transaction#addReadConflictRange(byte[], byte[])
      */
-    void addRecordReadConflict(@Nonnull Tuple primaryKey);
+    void addRecordReadConflict(Tuple primaryKey);
 
     /**
      * Add a write conflict as if one had modified the record with the given primary key. This will cause any concurrent
@@ -867,7 +836,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param primaryKey the primary key of the record to add a write conflict on
      * @see com.apple.foundationdb.Transaction#addWriteConflictRange(byte[], byte[])
      */
-    void addRecordWriteConflict(@Nonnull Tuple primaryKey);
+    void addRecordWriteConflict(Tuple primaryKey);
 
     /**
      * Scan the records in the database.
@@ -877,8 +846,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *
      * @return a cursor that will scan everything in the range, picking up at continuation, and honoring the given scan properties
      */
-    @Nonnull
-    default RecordCursor<FDBStoredRecord<M>> scanRecords(@Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    default RecordCursor<FDBStoredRecord<M>> scanRecords(@Nullable byte[] continuation, ScanProperties scanProperties) {
         return scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, scanProperties);
     }
 
@@ -891,8 +859,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *
      * @return a cursor that will scan everything in the range, picking up at continuation, and honoring the given scan properties
      */
-    @Nonnull
-    default RecordCursor<FDBStoredRecord<M>> scanRecords(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    default RecordCursor<FDBStoredRecord<M>> scanRecords(TupleRange range, @Nullable byte[] continuation, ScanProperties scanProperties) {
         return scanRecords(range.getLow(), range.getHigh(), range.getLowEndpoint(), range.getHighEndpoint(), continuation, scanProperties);
     }
 
@@ -908,11 +875,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *
      * @return a cursor that will scan everything in the range, picking up at continuation, and honoring the given scan properties
      */
-    @Nonnull
     RecordCursor<FDBStoredRecord<M>> scanRecords(@Nullable Tuple low, @Nullable Tuple high,
-                                                 @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint,
+                                                 EndpointType lowEndpoint, EndpointType highEndpoint,
                                                  @Nullable byte[] continuation,
-                                                 @Nonnull ScanProperties scanProperties);
+                                                 ScanProperties scanProperties);
 
     /**
      * Scan a range and return the record primary keys within it.
@@ -928,9 +894,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *
      * @return a cursor of Tuples representing the Pks of the records in the range
      */
-    @Nonnull
     @API(API.Status.INTERNAL)
-    default RecordCursor<Tuple> scanRecordKeys(@Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    default RecordCursor<Tuple> scanRecordKeys(@Nullable byte[] continuation, ScanProperties scanProperties) {
         // for backwards compatibility, allowing implementers to support later
         throw new UnsupportedOperationException("scanRecordKeys should be implemented");
     }
@@ -945,10 +910,18 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *
      * @return a future that will complete with the number of records in the range
      */
-    @Nonnull
     default CompletableFuture<Integer> countRecords(@Nullable Tuple low, @Nullable Tuple high,
-                                                    @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint) {
-        return countRecords(low, high, lowEndpoint, highEndpoint, null, ScanProperties.FORWARD_SCAN);
+                                                    EndpointType lowEndpoint, EndpointType highEndpoint) {
+        return countRecords(low, high, lowEndpoint, highEndpoint, noContinuation(), ScanProperties.FORWARD_SCAN);
+    }
+
+    // NullAway/JSpecify does not reliably recognize a null literal as matching a @Nullable byte[] continuation
+    // parameter at call sites in this file; centralizing the (well-understood) suppression here, rather than
+    // repeating it at every "no continuation" call site, keeps things readable.
+    @Nullable
+    @SuppressWarnings("NullAway")
+    private static byte[] noContinuation() {
+        return null;
     }
 
     /**
@@ -963,11 +936,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *
      * @return a future that will complete with the number of records in the range
      */
-    @Nonnull
     CompletableFuture<Integer> countRecords(@Nullable Tuple low, @Nullable Tuple high,
-                                            @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint,
+                                            EndpointType lowEndpoint, EndpointType highEndpoint,
                                             @Nullable byte[] continuation,
-                                            @Nonnull ScanProperties scanProperties);
+                                            ScanProperties scanProperties);
 
     /**
      * Scan the entries in an index.
@@ -977,9 +949,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param scanProperties skip, limit and other scan properties
      * @return a cursor that will scan the index, picking up at continuation, and honoring the given scan properties
      */
-    @Nonnull
-    RecordCursor<IndexEntry> scanIndex(@Nonnull Index index, @Nonnull IndexScanBounds scanBounds, @Nullable byte[] continuation,
-                                       @Nonnull ScanProperties scanProperties);
+    RecordCursor<IndexEntry> scanIndex(Index index, IndexScanBounds scanBounds, @Nullable byte[] continuation,
+                                       ScanProperties scanProperties);
 
     /**
      * Scan the entries in an index.
@@ -990,10 +961,9 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param scanProperties skip, limit and other scan properties
      * @return a cursor that will scan the index, picking up at continuation, and honoring the given scan properties
      */
-    @Nonnull
-    default RecordCursor<IndexEntry> scanIndex(@Nonnull Index index, @Nonnull IndexScanType scanType,
-                                               @Nonnull TupleRange range, @Nullable byte[] continuation,
-                                               @Nonnull ScanProperties scanProperties) {
+    default RecordCursor<IndexEntry> scanIndex(Index index, IndexScanType scanType,
+                                               TupleRange range, @Nullable byte[] continuation,
+                                               ScanProperties scanProperties) {
         return scanIndex(index, new IndexScanRange(scanType, range), continuation, scanProperties);
     }
 
@@ -1002,8 +972,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param indexName the name of the index
      * @return a cursor that return records pointed to by the index
      */
-    @Nonnull
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(@Nonnull final String indexName) {
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(final String indexName) {
         return scanIndexRecords(indexName, IsolationLevel.SERIALIZABLE);
     }
 
@@ -1013,9 +982,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param isolationLevel the isolation level to use when reading
      * @return a cursor that return records pointed to by the index
      */
-    @Nonnull
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(@Nonnull final String indexName, IsolationLevel isolationLevel) {
-        return scanIndexRecords(indexName, IndexScanType.BY_VALUE, TupleRange.ALL, null,
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(final String indexName, IsolationLevel isolationLevel) {
+        return scanIndexRecords(indexName, IndexScanType.BY_VALUE, TupleRange.ALL, noContinuation(),
                 new ScanProperties(ExecuteProperties.newBuilder().setIsolationLevel(isolationLevel).build()));
     }
 
@@ -1028,12 +996,11 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param scanProperties skip, limit and other scan properties
      * @return a cursor that return records pointed to by the index
      */
-    @Nonnull
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(@Nonnull final String indexName,
-                                                               @Nonnull final IndexScanType scanType,
-                                                               @Nonnull final TupleRange range,
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(final String indexName,
+                                                               final IndexScanType scanType,
+                                                               final TupleRange range,
                                                                @Nullable byte[] continuation,
-                                                               @Nonnull ScanProperties scanProperties) {
+                                                               ScanProperties scanProperties) {
         return scanIndexRecords(indexName, scanType, range, continuation, IndexOrphanBehavior.ERROR, scanProperties);
     }
 
@@ -1048,13 +1015,12 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param scanProperties skip, limit and other scan properties
      * @return a cursor that return records pointed to by the index
      */
-    @Nonnull
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(@Nonnull final String indexName,
-                                                               @Nonnull final IndexScanType scanType,
-                                                               @Nonnull final TupleRange range,
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(final String indexName,
+                                                               final IndexScanType scanType,
+                                                               final TupleRange range,
                                                                @Nullable byte[] continuation,
-                                                               @Nonnull IndexOrphanBehavior orphanBehavior,
-                                                               @Nonnull ScanProperties scanProperties) {
+                                                               IndexOrphanBehavior orphanBehavior,
+                                                               ScanProperties scanProperties) {
         final Index index = getRecordMetaData().getIndex(indexName);
         return scanIndexRecords(index, scanType, range, continuation, orphanBehavior, scanProperties);
     }
@@ -1070,13 +1036,12 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param scanProperties skip, limit and other scan properties
      * @return a cursor that return records pointed to by the index
      */
-    @Nonnull
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(@Nonnull final Index index,
-                                                               @Nonnull final IndexScanType scanType,
-                                                               @Nonnull final TupleRange range,
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(final Index index,
+                                                               final IndexScanType scanType,
+                                                               final TupleRange range,
                                                                @Nullable byte[] continuation,
-                                                               @Nonnull IndexOrphanBehavior orphanBehavior,
-                                                               @Nonnull ScanProperties scanProperties) {
+                                                               IndexOrphanBehavior orphanBehavior,
+                                                               ScanProperties scanProperties) {
         return fetchIndexRecords(scanIndex(index, scanType, range, continuation, scanProperties), orphanBehavior,
                 scanProperties.getExecuteProperties().getState());
     }
@@ -1102,13 +1067,12 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor that return records pointed to by the index
      */
     @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(@Nonnull final String indexName,
-                                                               @Nonnull final IndexFetchMethod fetchMethod,
-                                                               @Nonnull final IndexScanBounds scanBounds,
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(final String indexName,
+                                                               final IndexFetchMethod fetchMethod,
+                                                               final IndexScanBounds scanBounds,
                                                                @Nullable byte[] continuation,
-                                                               @Nonnull IndexOrphanBehavior orphanBehavior,
-                                                               @Nonnull ScanProperties scanProperties) {
+                                                               IndexOrphanBehavior orphanBehavior,
+                                                               ScanProperties scanProperties) {
         return scanIndexRecords(getRecordMetaData().getIndex(indexName), fetchMethod, scanBounds, continuation, orphanBehavior, scanProperties);
     }
 
@@ -1133,13 +1097,12 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor that return records pointed to by the index
      */
     @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(@Nonnull final Index index,
-                                                               @Nonnull final IndexFetchMethod fetchMethod,
-                                                               @Nonnull final IndexScanBounds scanBounds,
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(final Index index,
+                                                               final IndexFetchMethod fetchMethod,
+                                                               final IndexScanBounds scanBounds,
                                                                @Nullable byte[] continuation,
-                                                               @Nonnull IndexOrphanBehavior orphanBehavior,
-                                                               @Nonnull ScanProperties scanProperties) {
+                                                               IndexOrphanBehavior orphanBehavior,
+                                                               ScanProperties scanProperties) {
         int commonPrimaryKeyLength = -1;
         if (fetchMethod != IndexFetchMethod.SCAN_AND_FETCH) {
             commonPrimaryKeyLength = getCommonPrimaryKeyLength(index);
@@ -1169,14 +1132,13 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor that return records pointed to by the index
      */
     @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(@Nonnull final Index index,
-                                                               @Nonnull final IndexFetchMethod fetchMethod,
-                                                               @Nonnull final IndexScanBounds scanBounds,
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(final Index index,
+                                                               final IndexFetchMethod fetchMethod,
+                                                               final IndexScanBounds scanBounds,
                                                                int commonPrimaryKeyLength,
                                                                @Nullable byte[] continuation,
-                                                               @Nonnull IndexOrphanBehavior orphanBehavior,
-                                                               @Nonnull ScanProperties scanProperties) {
+                                                               IndexOrphanBehavior orphanBehavior,
+                                                               ScanProperties scanProperties) {
         if (!(scanBounds instanceof IndexScanRange)) {
             throw new RecordCoreArgumentException("scanIndexRecords can only be used with IndexScanRange bounds");
         }
@@ -1231,13 +1193,12 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which there is no associated record
      * @return a cursor that return records pointed to by the index
      */
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(@Nonnull final String indexName,
-                                                                   @Nonnull final IndexScanBounds scanBounds,
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(final String indexName,
+                                                                   final IndexScanBounds scanBounds,
                                                                    @Nullable byte[] continuation,
-                                                                   @Nonnull ScanProperties scanProperties,
-                                                                   @Nonnull final IndexOrphanBehavior orphanBehavior) {
+                                                                   ScanProperties scanProperties,
+                                                                   final IndexOrphanBehavior orphanBehavior) {
         final Index index = getRecordMetaData().getIndex(indexName);
         return scanIndexRemoteFetch(index, scanBounds, continuation, scanProperties, orphanBehavior);
     }
@@ -1253,13 +1214,12 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which there is no associated record
      * @return a cursor that return records pointed to by the index
      */
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(@Nonnull final Index index,
-                                                                   @Nonnull final IndexScanBounds scanBounds,
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(final Index index,
+                                                                   final IndexScanBounds scanBounds,
                                                                    @Nullable byte[] continuation,
-                                                                   @Nonnull ScanProperties scanProperties,
-                                                                   @Nonnull final IndexOrphanBehavior orphanBehavior) {
+                                                                   ScanProperties scanProperties,
+                                                                   final IndexOrphanBehavior orphanBehavior) {
         int commonPrimaryKeyLength = getCommonPrimaryKeyLength(index);
         return scanIndexRemoteFetch(index, scanBounds, commonPrimaryKeyLength, continuation, scanProperties, orphanBehavior);
     }
@@ -1276,14 +1236,13 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *    there is no associated record
      * @return a cursor that return records pointed to by the index
      */
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(@Nonnull Index index,
-                                                           @Nonnull IndexScanBounds scanBounds,
+    RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetch(Index index,
+                                                           IndexScanBounds scanBounds,
                                                            int commonPrimaryKeyLength,
                                                            @Nullable byte[] continuation,
-                                                           @Nonnull ScanProperties scanProperties,
-                                                           @Nonnull IndexOrphanBehavior orphanBehavior);
+                                                           ScanProperties scanProperties,
+                                                           IndexOrphanBehavior orphanBehavior);
 
     /**
      * Build an IndexedRecord from parts returned by the index maintainer's {@link IndexMaintainer#scanRemoteFetch} call.
@@ -1293,9 +1252,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param indexedRawRecord the raw records (the set of key-value pairs returned from scanRemoteFetch)
      * @return a future containing (when completed) the reconstructed record
      */
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    CompletableFuture<FDBIndexedRecord<M>> buildSingleRecord(@Nonnull FDBIndexedRawRecord indexedRawRecord);
+    CompletableFuture<FDBIndexedRecord<M>> buildSingleRecord(FDBIndexedRawRecord indexedRawRecord);
 
     /**
      * Given a cursor that iterates over entries in an index, attempts to fetch the associated records for those entries.
@@ -1305,9 +1263,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *    there is no associated record
      * @return a cursor returning indexed record entries
      */
-    @Nonnull
-    default RecordCursor<FDBIndexedRecord<M>> fetchIndexRecords(@Nonnull RecordCursor<IndexEntry> indexCursor,
-                                                                @Nonnull IndexOrphanBehavior orphanBehavior) {
+    default RecordCursor<FDBIndexedRecord<M>> fetchIndexRecords(RecordCursor<IndexEntry> indexCursor,
+                                                                IndexOrphanBehavior orphanBehavior) {
         return fetchIndexRecords(indexCursor, orphanBehavior, ExecuteState.NO_LIMITS);
     }
 
@@ -1320,11 +1277,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param executeState the {@link ExecuteState} associated with this query execution
      * @return A cursor returning indexed record entries.
      */
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    default RecordCursor<FDBIndexedRecord<M>> fetchIndexRecords(@Nonnull RecordCursor<IndexEntry> indexCursor,
-                                                                @Nonnull IndexOrphanBehavior orphanBehavior,
-                                                                @Nonnull ExecuteState executeState) {
+    default RecordCursor<FDBIndexedRecord<M>> fetchIndexRecords(RecordCursor<IndexEntry> indexCursor,
+                                                                IndexOrphanBehavior orphanBehavior,
+                                                                ExecuteState executeState) {
         RecordCursor<FDBIndexedRecord<M>> recordCursor = indexCursor.mapPipelined(entry ->
                 loadIndexEntryRecord(entry, orphanBehavior, executeState), getPipelineSize(PipelineOperation.INDEX_TO_RECORD));
         if (orphanBehavior == IndexOrphanBehavior.SKIP) {
@@ -1339,11 +1295,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param values a left-subset of values of indexed fields
      * @return a cursor that return records pointed to by the index
      */
-    @Nonnull
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecordsEqual(@Nonnull final String indexName, @Nonnull final Object... values) {
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecordsEqual(final String indexName, final Object... values) {
         final Tuple tuple = Tuple.from(values);
         final TupleRange range = TupleRange.allOf(tuple);
-        return scanIndexRecords(indexName, IndexScanType.BY_VALUE, range, null, ScanProperties.FORWARD_SCAN);
+        return scanIndexRecords(indexName, IndexScanType.BY_VALUE, range, noContinuation(), ScanProperties.FORWARD_SCAN);
     }
 
     /**
@@ -1352,13 +1307,12 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param values a left-subset of values of indexed fields
      * @return a cursor of the records pointed to by the index
      */
-    @Nonnull
     @API(API.Status.EXPERIMENTAL)
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetchRecordsEqual(@Nonnull final String indexName, @Nonnull final Object... values) {
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRemoteFetchRecordsEqual(final String indexName, final Object... values) {
         final Tuple tuple = Tuple.from(values);
         final TupleRange range = TupleRange.allOf(tuple);
         final IndexScanBounds bounds = new IndexScanRange(IndexScanType.BY_VALUE, range);
-        return scanIndexRemoteFetch(indexName, bounds, null, ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.ERROR);
+        return scanIndexRemoteFetch(indexName, bounds, noContinuation(), ScanProperties.FORWARD_SCAN, IndexOrphanBehavior.ERROR);
     }
 
     /**
@@ -1368,14 +1322,17 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param high the high value for the first indexed field
      * @return a cursor that return records pointed to by the index
      */
-    @Nonnull
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecordsBetween(@Nonnull final String indexName,
+    // Tuple.from below intentionally accepts a null low/high value here (an unannotated, external API
+    // conservatively treated by NullAway as requiring non-null); a null bound is a meaningful, supported
+    // tuple element (e.g. to scan from/to the absence of a value for the first indexed field).
+    @SuppressWarnings("NullAway")
+    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecordsBetween(final String indexName,
                                                                       @Nullable final Object low, @Nullable final Object high) {
         final Tuple lowTuple = Tuple.from(low);
         final Tuple highTuple = Tuple.from(high);
         final TupleRange range = new TupleRange(lowTuple, highTuple,
                 EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
-        return scanIndexRecords(indexName, IndexScanType.BY_VALUE, range, null, ScanProperties.FORWARD_SCAN);
+        return scanIndexRecords(indexName, IndexScanType.BY_VALUE, range, noContinuation(), ScanProperties.FORWARD_SCAN);
     }
 
     /**
@@ -1384,9 +1341,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param isolationLevel whether to use snapshot read
      * @return a future that completes with {@code true} if the given index entry still points to a record
      */
-    @Nonnull
-    default CompletableFuture<Boolean> hasIndexEntryRecord(@Nonnull final IndexEntry entry,
-                                                           @Nonnull final IsolationLevel isolationLevel) {
+    default CompletableFuture<Boolean> hasIndexEntryRecord(final IndexEntry entry,
+                                                           final IsolationLevel isolationLevel) {
         return recordExistsAsync(entry.getPrimaryKey(), isolationLevel);
     }
 
@@ -1396,9 +1352,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param orphanBehavior the {@link IndexOrphanBehavior} to apply if the record is not found
      * @return the record referred to by the given index entry
      */
-    @Nonnull
-    default CompletableFuture<FDBIndexedRecord<M>> loadIndexEntryRecord(@Nonnull final IndexEntry entry,
-                                                                        @Nonnull final IndexOrphanBehavior orphanBehavior) {
+    default CompletableFuture<FDBIndexedRecord<M>> loadIndexEntryRecord(final IndexEntry entry,
+                                                                        final IndexOrphanBehavior orphanBehavior) {
         return loadIndexEntryRecord(entry, orphanBehavior, ExecuteState.NO_LIMITS);
     }
 
@@ -1409,10 +1364,9 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param executeState an execution state object to be used to enforce limits on query execution
      * @return the record referred to by the given index entry
      */
-    @Nonnull
-    default CompletableFuture<FDBIndexedRecord<M>> loadIndexEntryRecord(@Nonnull final IndexEntry entry,
-                                                                        @Nonnull final IndexOrphanBehavior orphanBehavior,
-                                                                        @Nonnull final ExecuteState executeState) {
+    default CompletableFuture<FDBIndexedRecord<M>> loadIndexEntryRecord(final IndexEntry entry,
+                                                                        final IndexOrphanBehavior orphanBehavior,
+                                                                        final ExecuteState executeState) {
         final Tuple primaryKey = entry.getPrimaryKey();
         return loadRecordInternal(primaryKey, executeState, false).thenApply(rec -> {
             if (rec == null) {
@@ -1425,11 +1379,18 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                         if (getTimer() != null) {
                             getTimer().increment(FDBStoreTimer.Counts.BAD_INDEX_ENTRY);
                         }
-                        throw new RecordCoreStorageException("record not found from index entry").addLogInfo(
+                    {
+                        final RecordCoreStorageException ex = new RecordCoreStorageException("record not found from index entry");
+                        ex.addLogInfo(
                                 LogMessageKeys.INDEX_NAME, entry.getIndex().getName(),
                                 LogMessageKeys.PRIMARY_KEY, primaryKey,
-                                LogMessageKeys.INDEX_KEY, entry.getKey(),
-                                getSubspaceProvider().logKey(), getSubspaceProvider().toString(getContext()));
+                                LogMessageKeys.INDEX_KEY, entry.getKey());
+                        final SubspaceProvider subspaceProvider = getSubspaceProvider();
+                        if (subspaceProvider != null) {
+                            ex.addLogInfo(subspaceProvider.logKey(), subspaceProvider.toString(getContext()));
+                        }
+                        throw ex;
+                    }
                     default:
                         throw new RecordCoreException("Unexpected index orphan behavior: " + orphanBehavior);
                 }
@@ -1445,8 +1406,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param primaryKey the primary key for the record
      * @return the key to use for an index entry, the two tuples appended with redundant parts of the primary key removed
      */
-    @Nonnull
-    static Tuple indexEntryKey(@Nonnull Index index, @Nonnull Tuple valueKey, @Nonnull Tuple primaryKey) {
+    static Tuple indexEntryKey(Index index, Tuple valueKey, Tuple primaryKey) {
         List<Object> primaryKeys = primaryKey.getItems();
         index.trimPrimaryKey(primaryKeys);
         if (primaryKeys.isEmpty()) {
@@ -1468,8 +1428,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param scanProperties skip, limit and other scan properties
      * @return a cursor that will return uniqueness violations stored for the given index in the given store
      */
-    @Nonnull
-    default RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(@Nonnull Index index, @Nonnull Tuple valueKey, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    default RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(Index index, Tuple valueKey, @Nullable byte[] continuation, ScanProperties scanProperties) {
         TupleRange range = TupleRange.allOf(valueKey);
         return scanUniquenessViolations(index, range, continuation, scanProperties);
     }
@@ -1486,8 +1445,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param scanProperties skip, limit and other scan properties
      * @return a cursor that will return uniqueness violations stored for the given index in the given store
      */
-    @Nonnull
-    default RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(@Nonnull Index index, @Nonnull Key.Evaluated indexKey, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    default RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(Index index, Key.Evaluated indexKey, @Nullable byte[] continuation, ScanProperties scanProperties) {
         return scanUniquenessViolations(index, indexKey.toTuple(), continuation, scanProperties);
     }
 
@@ -1501,9 +1459,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param valueKey the key (as a tuple) of the index whose violations to scan
      * @return a cursor that will return uniqueness violations stored for the given index in the given store
      */
-    @Nonnull
-    default RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(@Nonnull Index index, @Nonnull Tuple valueKey) {
-        return scanUniquenessViolations(index, valueKey, null, ScanProperties.FORWARD_SCAN);
+    default RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(Index index, Tuple valueKey) {
+        return scanUniquenessViolations(index, valueKey, noContinuation(), ScanProperties.FORWARD_SCAN);
     }
 
     /**
@@ -1517,9 +1474,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param indexKey the key of the index whose violations to scan
      * @return a cursor that will return uniqueness violations stored for the given index in the given store
      */
-    @Nonnull
-    default RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(@Nonnull Index index, @Nonnull Key.Evaluated indexKey) {
-        return scanUniquenessViolations(index, indexKey, null, ScanProperties.FORWARD_SCAN);
+    default RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(Index index, Key.Evaluated indexKey) {
+        return scanUniquenessViolations(index, indexKey, noContinuation(), ScanProperties.FORWARD_SCAN);
     }
 
     /**
@@ -1533,8 +1489,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param scanProperties skip, limit and other scan properties
      * @return a cursor that will return uniqueness violations stored for the given index in the given store
      */
-    @Nonnull
-    default RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(@Nonnull Index index, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+    default RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(Index index, @Nullable byte[] continuation, ScanProperties scanProperties) {
         return scanUniquenessViolations(index, TupleRange.ALL, continuation, scanProperties);
     }
 
@@ -1548,9 +1503,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param limit the maximum number of uniqueness violations to report
      * @return a cursor that will return uniqueness violations stored for the given index in the given store
      */
-    @Nonnull
-    default RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(@Nonnull Index index, int limit) {
-        return scanUniquenessViolations(index, null, new ScanProperties(ExecuteProperties.newBuilder()
+    default RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(Index index, int limit) {
+        return scanUniquenessViolations(index, noContinuation(), new ScanProperties(ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(limit)
                 .setIsolationLevel(IsolationLevel.SERIALIZABLE)
                 .build()));
@@ -1565,8 +1519,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param index the index to scan the uniqueness violations of
      * @return a cursor that will return uniqueness violations stored for the given index in the given store
      */
-    @Nonnull
-    default RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(@Nonnull Index index) {
+    default RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(Index index) {
         return scanUniquenessViolations(index, Integer.MAX_VALUE);
     }
 
@@ -1589,10 +1542,9 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param scanProperties skip, limit and other scan properties
      * @return a cursor that will return uniqueness violations stored for the given index in the given store
      */
-    @Nonnull
-    RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(@Nonnull Index index, @Nonnull TupleRange range,
+    RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(Index index, TupleRange range,
                                                                           @Nullable byte[] continuation,
-                                                                          @Nonnull ScanProperties scanProperties);
+                                                                          ScanProperties scanProperties);
 
     /**
      * Removes all of the records that have the given value set as their index index value (are thus causing
@@ -1604,8 +1556,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param primaryKey the primary key of the record that should remain (or <code>null</code> to remove all of them)
      * @return a future that will complete when all of the records have been removed
      */
-    @Nonnull
-    default CompletableFuture<Void> resolveUniquenessViolation(@Nonnull Index index, @Nonnull Key.Evaluated indexKey, @Nullable Tuple primaryKey) {
+    default CompletableFuture<Void> resolveUniquenessViolation(Index index, Key.Evaluated indexKey, @Nullable Tuple primaryKey) {
         return resolveUniquenessViolation(index, indexKey.toTuple(), primaryKey);
     }
 
@@ -1619,8 +1570,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param primaryKey the primary key of the record that should remain (or <code>null</code> to remove all of them)
      * @return a future that will complete when all of the records have been removed
      */
-    @Nonnull
-    CompletableFuture<Void> resolveUniquenessViolation(@Nonnull Index index, @Nonnull Tuple valueKey, @Nullable Tuple primaryKey);
+    CompletableFuture<Void> resolveUniquenessViolation(Index index, Tuple valueKey, @Nullable Tuple primaryKey);
 
     /**
      * Return the key portion of <code>entry</code>, which should be the key with the index value
@@ -1630,21 +1580,18 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param primaryKey the primary key for a record
      * @return a tuple that is the two keys appended together
      */
-    @Nonnull
-    static Tuple uniquenessViolationKey(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey) {
+    static Tuple uniquenessViolationKey(Tuple valueKey, Tuple primaryKey) {
         return valueKey.addAll(primaryKey);
     }
 
-    @Nonnull
-    CompletableFuture<Boolean> dryRunDeleteRecordAsync(@Nonnull Tuple primaryKey);
+    CompletableFuture<Boolean> dryRunDeleteRecordAsync(Tuple primaryKey);
 
     /**
      * Async version of {@link #deleteRecord}.
      * @param primaryKey the primary key of the record to delete
      * @return a future that completes {@code true} if the record was present to be deleted
      */
-    @Nonnull
-    CompletableFuture<Boolean> deleteRecordAsync(@Nonnull Tuple primaryKey);
+    CompletableFuture<Boolean> deleteRecordAsync(Tuple primaryKey);
 
     /**
      * Delete the record with the given primary key.
@@ -1653,7 +1600,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *
      * @return true if something was there to delete, false if the record didn't exist
      */
-    default boolean deleteRecord(@Nonnull Tuple primaryKey) {
+    default boolean deleteRecord(Tuple primaryKey) {
         return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_DELETE_RECORD, deleteRecordAsync(primaryKey));
     }
 
@@ -1690,7 +1637,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *
      * @param component the query filter for records to delete efficiently
      */
-    default void deleteRecordsWhere(@Nonnull QueryComponent component) {
+    default void deleteRecordsWhere(QueryComponent component) {
         getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_DELETE_RECORD, deleteRecordsWhereAsync(component));
     }
 
@@ -1705,7 +1652,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param recordType the type of records to delete
      * @param component the query filter for records to delete efficiently or {@code null} to delete all records of the given type
      */
-    default void deleteRecordsWhere(@Nonnull String recordType, @Nullable QueryComponent component) {
+    default void deleteRecordsWhere(String recordType, @Nullable QueryComponent component) {
         getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_DELETE_RECORD, deleteRecordsWhereAsync(recordType, component));
     }
 
@@ -1715,8 +1662,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param component the query filter for records to delete efficiently
      * @return a future that will be complete when the delete is done
      */
-    @Nonnull
-    CompletableFuture<Void> deleteRecordsWhereAsync(@Nonnull QueryComponent component);
+    CompletableFuture<Void> deleteRecordsWhereAsync(QueryComponent component);
 
     /**
      * Async version of {@link #deleteRecordsWhere(String, QueryComponent)}.
@@ -1724,8 +1670,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param component the query filter for records to delete efficiently or {@code null} to delete all records of the given type
      * @return a future that will be complete when the delete is done
      */
-    @Nonnull
-    default CompletableFuture<Void> deleteRecordsWhereAsync(@Nonnull String recordType, @Nullable QueryComponent component) {
+    default CompletableFuture<Void> deleteRecordsWhereAsync(String recordType, @Nullable QueryComponent component) {
         return deleteRecordsWhereAsync(FDBRecordStore.mergeRecordTypeAndComponent(recordType, component));
     }
 
@@ -1734,7 +1679,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * type.
      */
     interface PipelineSizer {
-        int getPipelineSize(@Nonnull PipelineOperation pipelineOperation);
+        int getPipelineSize(PipelineOperation pipelineOperation);
     }
 
     /**
@@ -1742,7 +1687,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * type.
      * @return the pipeline sizer
      */
-    @Nonnull
     PipelineSizer getPipelineSizer();
 
     /**
@@ -1750,7 +1694,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param pipelineOperation the operation
      * @return the number of elements to pipeline
      */
-    default int getPipelineSize(@Nonnull PipelineOperation pipelineOperation) {
+    default int getPipelineSize(PipelineOperation pipelineOperation) {
         return getPipelineSizer().getPipelineSize(pipelineOperation);
     }
 
@@ -1768,7 +1712,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *
      * @return a future that will contain an estimate for the size of the store
      */
-    @Nonnull
     CompletableFuture<Long> estimateStoreSizeAsync();
 
     /**
@@ -1783,7 +1726,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a future that will contain an estimate for the size of all records in the store
      * @see #estimateStoreSizeAsync()
      */
-    @Nonnull
     default CompletableFuture<Long> estimateRecordsSizeAsync() {
         return estimateRecordsSizeAsync(TupleRange.ALL);
     }
@@ -1801,8 +1743,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a future that will contain an estimate for the size of all records in the store
      * @see #estimateStoreSizeAsync()
      */
-    @Nonnull
-    CompletableFuture<Long> estimateRecordsSizeAsync(@Nonnull TupleRange range);
+    CompletableFuture<Long> estimateRecordsSizeAsync(TupleRange range);
 
     /**
      * Get the number of records in the record store.
@@ -1810,7 +1751,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * There must be a suitable {@code COUNT} type index defined.
      * @return a future that will complete to the number of records in the store
      */
-    @Nonnull
     default CompletableFuture<Long> getSnapshotRecordCount() {
         return getSnapshotRecordCount(EmptyKeyExpression.EMPTY, Key.Evaluated.EMPTY);
     }
@@ -1823,8 +1763,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param value the value of {@code key} to match
      * @return a future that will complete to the number of records
      */
-    @Nonnull
-    default CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value) {
+    default CompletableFuture<Long> getSnapshotRecordCount(KeyExpression key, Key.Evaluated value) {
         // Using IndexQueryabilityFilter.TRUE probably isn't ideal here, but is used to preserve backwards
         // compatibility
         return getSnapshotRecordCount(key, value, IndexQueryabilityFilter.TRUE);
@@ -1841,9 +1780,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * record count key, that may be used, and will not be checked against this filter.
      * @return a future that will complete to the number of records
      */
-    @Nonnull
-    CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value,
-                                                   @Nonnull IndexQueryabilityFilter indexQueryabilityFilter);
+    CompletableFuture<Long> getSnapshotRecordCount(KeyExpression key, Key.Evaluated value,
+                                                   IndexQueryabilityFilter indexQueryabilityFilter);
 
     /**
      * Get the number of records in the record store of the given record type.
@@ -1852,8 +1790,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param recordTypeName record type for which to count records
      * @return a future that will complete to the number of records
      */
-    @Nonnull
-    default CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName) {
+    default CompletableFuture<Long> getSnapshotRecordCountForRecordType(String recordTypeName) {
         // Using IndexQueryabilityFilter.TRUE probably isn't ideal here, but is used to preserve backwards
         // compatibility
         return getSnapshotRecordCountForRecordType(recordTypeName, IndexQueryabilityFilter.TRUE);
@@ -1868,22 +1805,21 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param indexQueryabilityFilter a filter to restrict which indexes can be used when planning.
      * @return a future that will complete to the number of records
      */
-    @Nonnull
-    CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName,
-                                                                @Nonnull IndexQueryabilityFilter indexQueryabilityFilter);
+    CompletableFuture<Long> getSnapshotRecordCountForRecordType(String recordTypeName,
+                                                                IndexQueryabilityFilter indexQueryabilityFilter);
 
     default CompletableFuture<Long> getSnapshotRecordUpdateCount() {
         return getSnapshotRecordUpdateCount(EmptyKeyExpression.EMPTY, Key.Evaluated.EMPTY);
     }
 
-    default CompletableFuture<Long> getSnapshotRecordUpdateCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value) {
+    default CompletableFuture<Long> getSnapshotRecordUpdateCount(KeyExpression key, Key.Evaluated value) {
         // Using IndexQueryabilityFilter.TRUE probably isn't ideal here, but is used to preserve backwards
         // compatibility
         return getSnapshotRecordUpdateCount(key, value, IndexQueryabilityFilter.TRUE);
     }
 
-    default CompletableFuture<Long> getSnapshotRecordUpdateCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value,
-                                                                 @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+    default CompletableFuture<Long> getSnapshotRecordUpdateCount(KeyExpression key, Key.Evaluated value,
+                                                                 IndexQueryabilityFilter indexQueryabilityFilter) {
         return evaluateAggregateFunction(
                 Collections.emptyList(), IndexFunctionHelper.countUpdates(key), TupleRange.allOf(value.toTuple()),
                 IsolationLevel.SNAPSHOT, indexQueryabilityFilter)
@@ -1897,9 +1833,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param <T> the type of the result
      * @return a future that will complete with the result of evaluating the function against the record
      */
-    @Nonnull
-    default <T> CompletableFuture<T> evaluateRecordFunction(@Nonnull RecordFunction<T> function,
-                                                            @Nonnull FDBRecord<M> rec) {
+    default <T> CompletableFuture<T> evaluateRecordFunction(RecordFunction<T> function,
+                                                            FDBRecord<M> rec) {
         return evaluateRecordFunction(EvaluationContext.EMPTY, function, rec);
     }
 
@@ -1911,10 +1846,9 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param <T> the type of the result
      * @return a future that will complete with the result of evaluating the function against the record
      */
-    @Nonnull
-    default <T> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext evaluationContext,
-                                                            @Nonnull RecordFunction<T> function,
-                                                            @Nonnull FDBRecord<M> rec) {
+    default <T> CompletableFuture<T> evaluateRecordFunction(EvaluationContext evaluationContext,
+                                                            RecordFunction<T> function,
+                                                            FDBRecord<M> rec) {
         if (function instanceof IndexRecordFunction<?>) {
             IndexRecordFunction<T> indexRecordFunction = (IndexRecordFunction<T>)function;
             return evaluateIndexRecordFunction(evaluationContext, indexRecordFunction, rec);
@@ -1933,10 +1867,9 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param rec the record to evaluate against
      * @return a future that will complete with the result of evaluating the function against the record
      */
-    @Nonnull
-    <T> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull EvaluationContext evaluationContext,
-                                                         @Nonnull IndexRecordFunction<T> function,
-                                                         @Nonnull FDBRecord<M> rec);
+    <T> CompletableFuture<T> evaluateIndexRecordFunction(EvaluationContext evaluationContext,
+                                                         IndexRecordFunction<T> function,
+                                                         FDBRecord<M> rec);
 
     /**
      * Evaluate a {@link StoreRecordFunction} against a record.
@@ -1945,9 +1878,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param rec the record to evaluate against
      * @return a future that will complete with the result of evaluating the function against the record
      */
-    @Nonnull
-    default <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull StoreRecordFunction<T> function,
-                                                           @Nonnull FDBRecord<M> rec) {
+    default <T> CompletableFuture<T> evaluateStoreFunction(StoreRecordFunction<T> function,
+                                                           FDBRecord<M> rec) {
         return evaluateStoreFunction(EvaluationContext.EMPTY, function, rec);
     }
 
@@ -1959,10 +1891,9 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param rec the record to evaluate against
      * @return a future that will complete with the result of evaluating the function against the record
      */
-    @Nonnull
-    <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull EvaluationContext evaluationContext,
-                                                   @Nonnull StoreRecordFunction<T> function,
-                                                   @Nonnull FDBRecord<M> rec);
+    <T> CompletableFuture<T> evaluateStoreFunction(EvaluationContext evaluationContext,
+                                                   StoreRecordFunction<T> function,
+                                                   FDBRecord<M> rec);
 
     /**
      * Evaluate an {@link IndexAggregateFunction} against a range of the store.
@@ -1976,12 +1907,11 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param isolationLevel whether to use snapshot reads
      * @return a future that will complete with the result of evaluating the aggregate
      */
-    @Nonnull
-    default CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull EvaluationContext evaluationContext,
-                                                               @Nonnull List<String> recordTypeNames,
-                                                               @Nonnull IndexAggregateFunction aggregateFunction,
-                                                               @Nonnull TupleRange range,
-                                                               @Nonnull IsolationLevel isolationLevel) {
+    default CompletableFuture<Tuple> evaluateAggregateFunction(EvaluationContext evaluationContext,
+                                                               List<String> recordTypeNames,
+                                                               IndexAggregateFunction aggregateFunction,
+                                                               TupleRange range,
+                                                               IsolationLevel isolationLevel) {
         return evaluateAggregateFunction(recordTypeNames, aggregateFunction,
                 aggregateFunction.adjustRange(evaluationContext, range), isolationLevel);
     }
@@ -1994,11 +1924,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param isolationLevel whether to use snapshot reads
      * @return a future that will complete with the result of evaluating the aggregate
      */
-    @Nonnull
-    default CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull List<String> recordTypeNames,
-                                                               @Nonnull IndexAggregateFunction aggregateFunction,
-                                                               @Nonnull Key.Evaluated value,
-                                                               @Nonnull IsolationLevel isolationLevel) {
+    default CompletableFuture<Tuple> evaluateAggregateFunction(List<String> recordTypeNames,
+                                                               IndexAggregateFunction aggregateFunction,
+                                                               Key.Evaluated value,
+                                                               IsolationLevel isolationLevel) {
         return evaluateAggregateFunction(recordTypeNames, aggregateFunction, TupleRange.allOf(value.toTuple()), isolationLevel);
     }
 
@@ -2010,11 +1939,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param isolationLevel whether to use snapshot reads
      * @return a future that will complete with the result of evaluating the aggregate
      */
-    @Nonnull
-    default CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull List<String> recordTypeNames,
-                                                               @Nonnull IndexAggregateFunction aggregateFunction,
-                                                               @Nonnull TupleRange range,
-                                                               @Nonnull IsolationLevel isolationLevel) {
+    default CompletableFuture<Tuple> evaluateAggregateFunction(List<String> recordTypeNames,
+                                                               IndexAggregateFunction aggregateFunction,
+                                                               TupleRange range,
+                                                               IsolationLevel isolationLevel) {
         // Using IndexQueryabilityFilter.TRUE probably isn't ideal here, but is used to preserve backwards
         // compatibility
         return evaluateAggregateFunction(recordTypeNames, aggregateFunction, range, isolationLevel,
@@ -2031,12 +1959,11 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * consulted if the aggregateFunction already has a readable index
      * @return a future that will complete with the result of evaluating the aggregate
      */
-    @Nonnull
-    CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull List<String> recordTypeNames,
-                                                       @Nonnull IndexAggregateFunction aggregateFunction,
-                                                       @Nonnull TupleRange range,
-                                                       @Nonnull IsolationLevel isolationLevel,
-                                                       @Nonnull IndexQueryabilityFilter indexQueryabilityFilter);
+    CompletableFuture<Tuple> evaluateAggregateFunction(List<String> recordTypeNames,
+                                                       IndexAggregateFunction aggregateFunction,
+                                                       TupleRange range,
+                                                       IsolationLevel isolationLevel,
+                                                       IndexQueryabilityFilter indexQueryabilityFilter);
 
     /**
      * Get a query result record from a stored record.
@@ -2044,8 +1971,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param storedRecord the stored record to convert to a queried record
      * @return a {@link FDBQueriedRecord} corresponding to {@code storedRecord}
      */
-    @Nonnull
-    default FDBQueriedRecord<M> queriedRecord(@Nonnull FDBStoredRecord<M> storedRecord) {
+    default FDBQueriedRecord<M> queriedRecord(FDBStoredRecord<M> storedRecord) {
         return FDBQueriedRecord.stored(storedRecord);
     }
 
@@ -2055,8 +1981,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param indexedRecord the indexed record to convert to a queried record
      * @return a {@link FDBQueriedRecord} corresponding to {@code indexedRecord}
      */
-    @Nonnull
-    default FDBQueriedRecord<M> queriedRecord(@Nonnull FDBIndexedRecord<M> indexedRecord) {
+    default FDBQueriedRecord<M> queriedRecord(FDBIndexedRecord<M> indexedRecord) {
         return FDBQueriedRecord.indexed(indexedRecord);
     }
 
@@ -2071,9 +1996,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param hasPrimaryKey whether the index entry has a primary key
      * @return a {@link FDBQueriedRecord} corresponding to {@code indexEntry}
      */
-    @Nonnull
-    default FDBQueriedRecord<M> coveredIndexQueriedRecord(@Nonnull Index index, @Nonnull IndexEntry indexEntry, @Nonnull RecordType recordType,
-                                                          @Nonnull M partialRecord, boolean hasPrimaryKey) {
+    default FDBQueriedRecord<M> coveredIndexQueriedRecord(Index index, IndexEntry indexEntry, RecordType recordType,
+                                                          M partialRecord, boolean hasPrimaryKey) {
         return FDBQueriedRecord.covered(index, indexEntry,
                 hasPrimaryKey ? indexEntry.getPrimaryKey() : TupleHelpers.EMPTY,
                 recordType, partialRecord);
@@ -2085,8 +2009,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor for query results
      * @see RecordQueryPlan#execute
      */
-    @Nonnull
-    default RecordCursor<FDBQueriedRecord<M>> executeQuery(@Nonnull RecordQuery query) {
+    default RecordCursor<FDBQueriedRecord<M>> executeQuery(RecordQuery query) {
         return executeQuery(planQuery(query));
     }
 
@@ -2098,10 +2021,9 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor for query results
      * @see RecordQueryPlan#execute
      */
-    @Nonnull
-    default RecordCursor<FDBQueriedRecord<M>> executeQuery(@Nonnull RecordQuery query,
+    default RecordCursor<FDBQueriedRecord<M>> executeQuery(RecordQuery query,
                                                            @Nullable byte[] continuation,
-                                                           @Nonnull ExecuteProperties executeProperties) {
+                                                           ExecuteProperties executeProperties) {
         return executeQuery(planQuery(query), continuation, executeProperties);
     }
 
@@ -2111,8 +2033,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor for query results
      * @see RecordQueryPlan#execute
      */
-    @Nonnull
-    default RecordCursor<FDBQueriedRecord<M>> executeQuery(@Nonnull RecordQueryPlan plan) {
+    default RecordCursor<FDBQueriedRecord<M>> executeQuery(RecordQueryPlan plan) {
         return plan.execute(this, EvaluationContext.EMPTY);
     }
 
@@ -2124,10 +2045,9 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor for query results
      * @see RecordQueryPlan#execute
      */
-    @Nonnull
-    default RecordCursor<FDBQueriedRecord<M>> executeQuery(@Nonnull RecordQueryPlan plan,
+    default RecordCursor<FDBQueriedRecord<M>> executeQuery(RecordQueryPlan plan,
                                                            @Nullable byte[] continuation,
-                                                           @Nonnull ExecuteProperties executeProperties) {
+                                                           ExecuteProperties executeProperties) {
         return plan.execute(this, EvaluationContext.EMPTY, continuation, executeProperties);
     }
 
@@ -2140,11 +2060,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor for query results of type {@link QueryResult}
      * @see RecordQueryPlan#execute
      */
-    @Nonnull
-    default RecordCursor<QueryResult> executeQuery(@Nonnull RecordQueryPlan plan,
+    default RecordCursor<QueryResult> executeQuery(RecordQueryPlan plan,
                                                    @Nullable byte[] continuation,
-                                                   @Nonnull EvaluationContext evaluationContext,
-                                                   @Nonnull ExecuteProperties executeProperties) {
+                                                   EvaluationContext evaluationContext,
+                                                   ExecuteProperties executeProperties) {
         return plan.executePlan(this, evaluationContext, continuation, executeProperties);
     }
 
@@ -2155,7 +2074,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *
      * @return a {@link CascadesPlanner} implementation initialized with state from this record store
      */
-    @Nonnull
     default CascadesPlanner getCascadesPlanner() {
         return new CascadesPlanner(getRecordMetaData(), getRecordStoreState(), getIndexMaintainerRegistry());
     }
@@ -2169,8 +2087,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a query plan
      * @see RecordQueryPlanner#plan(RecordQuery) 
      */
-    @Nonnull
-    RecordQueryPlan planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph);
+    RecordQueryPlan planQuery(RecordQuery query, ParameterRelationshipGraph parameterRelationshipGraph);
 
     /**
      * Plan a query with customized {@link RecordQueryPlannerConfiguration} rather than the default one.
@@ -2182,8 +2099,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a query plan
      * @see RecordQueryPlanner#plan(RecordQuery)
      */
-    RecordQueryPlan planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph,
-                              @Nonnull RecordQueryPlannerConfiguration plannerConfiguration);
+    RecordQueryPlan planQuery(RecordQuery query, ParameterRelationshipGraph parameterRelationshipGraph,
+                              RecordQueryPlannerConfiguration plannerConfiguration);
 
     /**
      * Plan a query.
@@ -2191,8 +2108,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a query plan
      * @see RecordQueryPlanner#plan(RecordQuery)
      */
-    @Nonnull
-    default RecordQueryPlan planQuery(@Nonnull RecordQuery query) {
+    default RecordQueryPlan planQuery(RecordQuery query) {
         return planQuery(query, ParameterRelationshipGraph.empty());
     }
 
@@ -2215,8 +2131,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @param serializer the serializer to use
          * @return this builder
          */
-        @Nonnull
-        BaseBuilder<M, R> setSerializer(@Nonnull RecordSerializer<M> serializer);
+        BaseBuilder<M, R> setSerializer(RecordSerializer<M> serializer);
 
         /**
          * Get the storage format version for this store.
@@ -2241,7 +2156,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @deprecated This is deprecated, and instead, one should use {@link #setFormatVersion(FormatVersion)}.
          */
         @Deprecated(forRemoval = true)
-        @Nonnull
         BaseBuilder<M, R> setFormatVersion(int formatVersion);
 
         /**
@@ -2280,7 +2194,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @param metaDataProvider the meta-data source to use
          * @return this builder
          */
-        @Nonnull
         BaseBuilder<M, R> setMetaDataProvider(@Nullable RecordMetaDataProvider metaDataProvider);
 
         /**
@@ -2296,7 +2209,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @param metaDataStore the meta-data store to use
          * @return this builder
          */
-        @Nonnull
         BaseBuilder<M, R> setMetaDataStore(@Nullable FDBMetaDataStore metaDataStore);
 
         /**
@@ -2307,11 +2219,20 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         FDBRecordContext getContext();
 
         /**
+         * Get the record context (transaction) to use for the record store, requiring that it has been set.
+         * The various build/open/create methods below require a context, so calling any of them without first
+         * calling {@link #setContext} is a usage error.
+         * @return the (non-null) record context / transaction to use
+         */
+        default FDBRecordContext requireContext() {
+            return Objects.requireNonNull(getContext(), "record context must be supplied before building/opening a store");
+        }
+
+        /**
          * Set the record context (transaction) to use for the record store.
          * @param context the record context / transaction to use
          * @return this builder
          */
-        @Nonnull
         BaseBuilder<M, R> setContext(@Nullable FDBRecordContext context);
 
         /**
@@ -2326,7 +2247,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @param subspaceProvider the subspace provider
          * @return this builder
          */
-        @Nonnull
         BaseBuilder<M, R> setSubspaceProvider(@Nullable SubspaceProvider subspaceProvider);
 
         /**
@@ -2336,7 +2256,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @param subspace the subspace to use
          * @return this builder
          */
-        @Nonnull
         @API(API.Status.UNSTABLE)
         BaseBuilder<M, R> setSubspace(@Nullable Subspace subspace);
 
@@ -2347,7 +2266,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @param keySpacePath the key space path to use
          * @return this builder
          */
-        @Nonnull
         BaseBuilder<M, R> setKeySpacePath(@Nullable KeySpacePath keySpacePath);
 
         /**
@@ -2362,14 +2280,12 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @param userVersionChecker the checker function to use
          * @return this builder
          */
-        @Nonnull
         BaseBuilder<M, R> setUserVersionChecker(@Nullable UserVersionChecker userVersionChecker);
 
         /**
          * Get the registry of index maintainers to be used by the record store.
          * @return the index registry to use
          */
-        @Nonnull
         IndexMaintainerFactoryRegistry getIndexMaintainerRegistry();
 
         /**
@@ -2379,14 +2295,12 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @see FDBRecordStore#getIndexMaintainer
          * @see RecordMetaDataBuilder#setIndexMaintainerRegistry
          */
-        @Nonnull
-        BaseBuilder<M, R> setIndexMaintainerRegistry(@Nonnull IndexMaintainerFactoryRegistry indexMaintainerRegistry);
+        BaseBuilder<M, R> setIndexMaintainerRegistry(IndexMaintainerFactoryRegistry indexMaintainerRegistry);
 
         /**
          * Get the {@link IndexMaintenanceFilter index filter} to be used by the record store.
          * @return the index filter to use
          */
-        @Nonnull
         IndexMaintenanceFilter getIndexMaintenanceFilter();
 
         /**
@@ -2394,14 +2308,12 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @param indexMaintenanceFilter the index filter to use
          * @return this builder
          */
-        @Nonnull
-        BaseBuilder<M, R> setIndexMaintenanceFilter(@Nonnull IndexMaintenanceFilter indexMaintenanceFilter);
+        BaseBuilder<M, R> setIndexMaintenanceFilter(IndexMaintenanceFilter indexMaintenanceFilter);
 
         /**
          * Get the {@link FDBRecordStoreBase.PipelineSizer object} to be used to determine the depth of pipelines run by the record store.
          * @return the sizer to use
          */
-        @Nonnull
         PipelineSizer getPipelineSizer();
 
         /**
@@ -2410,8 +2322,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @return this builder
          * @see FDBRecordStoreBase#getPipelineSize
          */
-        @Nonnull
-        BaseBuilder<M, R> setPipelineSizer(@Nonnull PipelineSizer pipelineSizer);
+        BaseBuilder<M, R> setPipelineSizer(PipelineSizer pipelineSizer);
 
         /**
          * Get the store state cache to be used by the record store. If the builder returns {@code null}, the produced
@@ -2433,8 +2344,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @return this builder
          */
         @API(API.Status.EXPERIMENTAL)
-        @Nonnull
-        BaseBuilder<M, R> setStoreStateCache(@Nonnull FDBRecordStoreStateCache storeStateCache);
+        BaseBuilder<M, R> setStoreStateCache(FDBRecordStoreStateCache storeStateCache);
 
         /**
          * Get the reason to use when bypassing a {@link RecordMetaDataProto.DataStoreInfo.StoreLockState.State#FULL_STORE}
@@ -2462,7 +2372,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @return this builder
          */
         @API(API.Status.EXPERIMENTAL)
-        @Nonnull
         BaseBuilder<M, R> setBypassFullStoreLockReason(@Nullable String reason);
 
         /**
@@ -2473,7 +2382,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @see FDBRecordStore#setStateCacheabilityAsync(boolean)
          */
         @API(API.Status.EXPERIMENTAL)
-        @Nonnull
         FDBRecordStore.StateCacheabilityOnOpen getStateCacheabilityOnOpen();
 
         /**
@@ -2485,8 +2393,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @see FDBRecordStore#setStateCacheabilityAsync(boolean)
          */
         @API(API.Status.EXPERIMENTAL)
-        @Nonnull
-        BaseBuilder<M, R> setStateCacheabilityOnOpen(@Nonnull FDBRecordStore.StateCacheabilityOnOpen stateCacheabilityOnOpen);
+        BaseBuilder<M, R> setStateCacheabilityOnOpen(FDBRecordStore.StateCacheabilityOnOpen stateCacheabilityOnOpen);
 
         /**
          * Make a copy of this builder.
@@ -2498,50 +2405,44 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * </pre>
          * @return a new builder with the same state as this builder
          */
-        @Nonnull
         BaseBuilder<M, R> copyBuilder();
 
         /**
          * Build the record store.
          * @return a new record store with the desired state.
          */
-        @Nonnull
         R build();
 
         /**
          * Synchronous version of {@link #uncheckedOpenAsync}.
          * @return a store with the appropriate parameters set
          */
-        @Nonnull
         default R uncheckedOpen() {
-            return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_STORE_STATE, uncheckedOpenAsync());
+            return requireContext().asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_STORE_STATE, uncheckedOpenAsync());
         }
 
         /**
          * Synchronous version of {@link #createAsync}.
          * @return a store with the appropriate parameters set
          */
-        @Nonnull
         default R create() {
-            return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createAsync());
+            return requireContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createAsync());
         }
 
         /**
          * Synchronous version of {@link #openAsync}.
          * @return a store with the appropriate parameters set
          */
-        @Nonnull
         default R open() {
-            return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, openAsync());
+            return requireContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, openAsync());
         }
 
         /**
          * Synchronous version of {@link #createOrOpenAsync}.
          * @return a store with the appropriate parameters set
          */
-        @Nonnull
         default R createOrOpen() {
-            return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createOrOpenAsync());
+            return requireContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createOrOpenAsync());
         }
 
         /**
@@ -2549,16 +2450,14 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @param existenceCheck whether the store must already exist
          * @return an open record store
          */
-        @Nonnull
-        default R createOrOpen(@Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
-            return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createOrOpenAsync(existenceCheck));
+        default R createOrOpen(FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
+            return requireContext().asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION, createOrOpenAsync(existenceCheck));
         }
 
         /**
          * Opens a <code>FDBRecordStore</code> instance without calling {@link FDBRecordStore#checkVersion(UserVersionChecker, StoreExistenceCheck)}.
          * @return a future that will contain a store with the appropriate parameters set when ready
          */
-        @Nonnull
         CompletableFuture<R> uncheckedOpenAsync();
 
         /**
@@ -2566,7 +2465,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * The store must not have already been written to the specified subspace.
          * @return a future that will contain a store with the appropriate parameters set when ready
          */
-        @Nonnull
         default CompletableFuture<R> createAsync() {
             return createOrOpenAsync(FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS);
         }
@@ -2576,7 +2474,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * The store must have already been written to the specified subspace.
          * @return a future that will contain a store with the appropriate parameters set when ready
          */
-        @Nonnull
         default CompletableFuture<R> openAsync() {
             return createOrOpenAsync(FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS);
         }
@@ -2585,7 +2482,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * Opens a <code>FDBRecordStore</code> instance in the given path with the given meta-data.
          * @return a future that will contain a store with the appropriate parameters set when ready
          */
-        @Nonnull
         default CompletableFuture<R> createOrOpenAsync() {
             return createOrOpenAsync(FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_NOT_EMPTY);
         }
@@ -2595,8 +2491,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          * @param existenceCheck whether the store must already exist
          * @return a future that will contain a store with the appropriate parameters set when ready
          */
-        @Nonnull
-        CompletableFuture<R> createOrOpenAsync(@Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck);
+        CompletableFuture<R> createOrOpenAsync(FDBRecordStoreBase.StoreExistenceCheck existenceCheck);
 
     }
 
@@ -2604,10 +2499,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     default RecordCursor<FDBIndexedRecord<M>> remoteFetchFallbackFrom(final Index index,
                                                                       final IndexScanType scanType,
                                                                       final TupleRange scanRange,
-                                                                      final byte[] continuation,
+                                                                      @Nullable final byte[] continuation,
                                                                       final IndexOrphanBehavior orphanBehavior,
                                                                       final ScanProperties scanProperties,
-                                                                      final RecordCursorResult<FDBIndexedRecord<M>> lastSuccessfulResult) {
+                                                                      @Nullable final RecordCursorResult<FDBIndexedRecord<M>> lastSuccessfulResult) {
         if (lastSuccessfulResult == null) {
             // The fallbackCursor did not have any result from the primary yet - just fallback to the index scan
             return scanIndexRecords(index, scanType, scanRange, continuation, orphanBehavior, scanProperties);
@@ -2626,7 +2521,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      */
     @API(API.Status.INTERNAL)
     @Nullable
-    default KeyExpression getCommonPrimaryKey(@Nonnull Index index) {
+    default KeyExpression getCommonPrimaryKey(Index index) {
         RecordMetaData metaData = getRecordMetaData();
         Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
         return RecordMetaData.commonPrimaryKey(recordTypes);
@@ -2644,7 +2539,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return the length of the primary key common to all record types defined for the index, or -1 if no such key exists
      */
     @API(API.Status.INTERNAL)
-    default int getCommonPrimaryKeyLength(@Nonnull Index index) {
+    default int getCommonPrimaryKeyLength(Index index) {
         RecordMetaData metaData = getRecordMetaData();
         Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
         return RecordMetaData.commonPrimaryKeyLength(recordTypes);

@@ -39,6 +39,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -56,7 +57,8 @@ public class MetaDataProtoEditorIntegrationTest extends FDBRecordStoreTestBase {
                 saveDynamicRecord(metaData, rename.apply("T1"), Map.of("ID", 1L)));
 
         mixedModeUtility.doRead((metaData, typeName) -> {
-            final FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(1L));
+            // the record was just saved by doWrite() above, so it is guaranteed to be present
+            final FDBStoredRecord<Message> record = Objects.requireNonNull(recordStore.loadRecord(Tuple.from(1L)));
             assertEquals(mixedModeUtility.readTypeName.apply("T1"), record.getRecordType().getName());
         });
     }
