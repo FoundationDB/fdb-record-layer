@@ -21,4 +21,7 @@
 /**
  * Use ICU4J instead of JRE {@code Collator} classes.
  */
+@NullMarked
 package com.apple.foundationdb.record.icu;
+
+import org.jspecify.annotations.NullMarked;
