@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
 
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -57,7 +56,7 @@ public final class PreparedParams {
      * (value-bound) execution.
      */
     @Nonnull
-    private final Map<String, Type> declaredTypes;
+    private final Map<String, String> declarations;
 
     private int nextParam = 1;
 
@@ -69,11 +68,11 @@ public final class PreparedParams {
     private PreparedParams(@Nonnull Map<Integer, Object> unnamedParams,
                            @Nonnull Map<String, Object> namedParameters,
                            int nextParam,
-                           @Nonnull Map<String, Type> declaredTypes) {
+                           @Nonnull Map<String, String> declarations) {
         this.unnamedParams = unnamedParams;
         this.namedParams = namedParameters;
         this.nextParam = nextParam;
-        this.declaredTypes = declaredTypes;
+        this.declarations = declarations;
     }
 
     public int currentUnnamedParamIndex() {
@@ -101,21 +100,24 @@ public final class PreparedParams {
     }
 
     /**
-     * The declared type for a named parameter that carries a type but no value (value-free warm-up), or empty when
-     * the parameter is value-bound or unknown.
+     * The SQL text of a named parameter's type declaration, or empty when the parameter declares none. Text rather than
+     * a resolved type because a declaration may name a schema template type, which is resolved against the template the
+     * query is planned with; that happens on the planning path, where the schema template is in hand.
+     *
+     * <p>Only consulted for a parameter that carries no value: a value-bound parameter takes its type from the value.
+     * So a declaration may be supplied for every parameter, and the ones that are also bound simply never read it.</p>
      */
     @Nonnull
-    public Optional<Type> declaredTypeMaybe(@Nonnull String name) {
-        return Optional.ofNullable(declaredTypes.get(name));
+    public Optional<String> declarationMaybe(@Nonnull String name) {
+        return Optional.ofNullable(declarations.get(name));
     }
 
     /**
-     * Returns a copy of these parameters with {@code declaredTypes} attached (value-free warm-up types). Existing
-     * value maps are preserved.
+     * Returns a copy of these parameters with type declarations attached. Existing value maps are preserved.
      */
     @Nonnull
-    public PreparedParams withDeclaredTypes(@Nonnull Map<String, Type> declaredTypes) {
-        return new PreparedParams(unnamedParams, namedParams, nextParam, ImmutableMap.copyOf(declaredTypes));
+    public PreparedParams withDeclarations(@Nonnull Map<String, String> declarations) {
+        return new PreparedParams(unnamedParams, namedParams, nextParam, ImmutableMap.copyOf(declarations));
     }
 
     public boolean isEmpty() {
@@ -151,9 +153,9 @@ public final class PreparedParams {
     @Nonnull
     public static PreparedParams copyOf(@Nonnull PreparedParams other, boolean withCurrentUnnamedParamIndex) {
         if (withCurrentUnnamedParamIndex) {
-            return new PreparedParams(other.unnamedParams, other.namedParams, other.currentUnnamedParamIndex(), other.declaredTypes);
+            return new PreparedParams(other.unnamedParams, other.namedParams, other.currentUnnamedParamIndex(), other.declarations);
         } else {
-            return new PreparedParams(other.unnamedParams, other.namedParams, 1, other.declaredTypes);
+            return new PreparedParams(other.unnamedParams, other.namedParams, 1, other.declarations);
         }
     }
 }
