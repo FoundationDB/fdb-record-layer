@@ -71,25 +71,27 @@ public class AsyncLock {
     /**
      * Constructs a new {@link AsyncLock} from the calling lock by stacking the new read future to its pending tasks.
      *
+     * @param newTimer timer to use to instrument the new lock
      * @return A pair of the new {@link AsyncLock} to be handed over to the consumer.
      */
-    AsyncLock withNewRead() {
+    AsyncLock withNewRead(@Nullable final StoreTimer newTimer) {
         final CompletableFuture<Void> waitFuture = pendingWrites;
         final CompletableFuture<Void> taskFuture = new CompletableFuture<>();
         final CompletableFuture<Void> newPendingReads = CompletableFuture.allOf(this.pendingReads, waitFuture.thenCompose(ignore -> taskFuture));
-        return new AsyncLock(timer, newPendingReads, this.pendingWrites, taskFuture, waitFuture);
+        return new AsyncLock(newTimer, newPendingReads, this.pendingWrites, taskFuture, waitFuture);
     }
 
     /**
      * Constructs a new {@link AsyncLock} from the calling lock by stacking the new write future to its pending tasks.
      *
+     * @param newTimer timer to use to instrument the new lock
      * @return A pair of the new {@link AsyncLock} to be handed over to the consumer.
      */
-    AsyncLock withNewWrite() {
+    AsyncLock withNewWrite(@Nullable final StoreTimer newTimer) {
         final CompletableFuture<Void> waitFuture = CompletableFuture.allOf(this.pendingReads, this.pendingWrites);
         final CompletableFuture<Void> taskFuture = new CompletableFuture<>();
         final CompletableFuture<Void> newPendingWrites = waitFuture.thenCompose(ignore -> taskFuture);
-        return new AsyncLock(timer, AsyncUtil.DONE, newPendingWrites, taskFuture, waitFuture);
+        return new AsyncLock(newTimer, AsyncUtil.DONE, newPendingWrites, taskFuture, waitFuture);
     }
 
     /**

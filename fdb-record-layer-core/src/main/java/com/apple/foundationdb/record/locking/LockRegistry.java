@@ -108,7 +108,7 @@ public class LockRegistry {
      */
     @Nonnull
     public CompletableFuture<AsyncLock> acquireReadLock(@Nonnull final LockIdentifier id) {
-        return acquire(id, AsyncLock::withNewRead);
+        return acquire(id, lock -> lock.withNewRead(timer));
     }
 
     /**
@@ -120,7 +120,7 @@ public class LockRegistry {
      */
     @Nonnull
     public CompletableFuture<AsyncLock> acquireWriteLock(@Nonnull final LockIdentifier id) {
-        return acquire(id, AsyncLock::withNewWrite);
+        return acquire(id, lock -> lock.withNewWrite(timer));
     }
 
     @Nonnull
@@ -144,7 +144,7 @@ public class LockRegistry {
      */
     @Nonnull
     public <T> CompletableFuture<T> doWithReadLock(@Nonnull final LockIdentifier id, @Nonnull final Supplier<CompletableFuture<T>> operation) {
-        return doOp(id, operation, AsyncLock::withNewRead);
+        return doOp(id, operation, lock -> lock.withNewRead(timer));
     }
 
     /**
@@ -158,7 +158,7 @@ public class LockRegistry {
      */
     @Nonnull
     public <T> CompletableFuture<T> doWithWriteLock(@Nonnull final LockIdentifier id, @Nonnull final Supplier<CompletableFuture<T>> operation) {
-        return doOp(id, operation, AsyncLock::withNewWrite);
+        return doOp(id, operation, lock -> lock.withNewWrite(timer));
     }
 
     @Nonnull

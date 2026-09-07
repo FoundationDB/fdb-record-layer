@@ -22,22 +22,29 @@ package com.apple.foundationdb.record.locking;
 
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.RandomSeedSource;
 import com.google.common.collect.ImmutableList;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -62,12 +69,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Test for {@link LockRegistry}.
  */
 public class LockRegistryTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LockRegistryTest.class);
 
     @Nonnull
     private final ExecutorService executorService = Executors.newFixedThreadPool(8);
 
     @Nonnull
-    final LockRegistry registry = new LockRegistry(null);
+    final FDBStoreTimer timer = new FDBStoreTimer();
+    @Nonnull
+    final LockRegistry registry = new LockRegistry(timer);
 
     @Nonnull
     final LockIdentifier identifier = new LockIdentifier(new Subspace(Tuple.from(1, 2, 3)));
@@ -79,6 +89,15 @@ public class LockRegistryTest {
                 Arguments.of(1000),
                 Arguments.of(5000)
         );
+    }
+
+    @AfterEach
+    void logRegistryStats() {
+        if (LOGGER.isInfoEnabled()) {
+            KeyValueLogMessage message = KeyValueLogMessage.build("ran lock registry test");
+            message.addKeysAndValues(timer.getKeysAndValues());
+            LOGGER.info(message.toString());
+        }
     }
 
     @ParameterizedTest
@@ -481,11 +500,11 @@ public class LockRegistryTest {
     @ParameterizedTest(name = "lockRegistryStressTest[seed={0}]")
     @RandomSeedSource(value = {0x0fdb5eed, 0xba5eba11})
     void lockRegistryStressTest(long seed) throws Exception {
-        final Map<LockIdentifier, AtomicInteger> expectedValues = new ConcurrentHashMap<>();
+        final Map<LockIdentifier, AtomicInteger> expectedValues = new HashMap<>();
         final Map<LockIdentifier, AtomicInteger> currentValues = new ConcurrentHashMap<>();
 
         final Deque<CompletableFuture<Void>> currentWork = new ArrayDeque<>();
-        final RuntimeException errorFromTask = new RuntimeException("thrown in task");
+        final RuntimeException errorThrownInTasks = new RuntimeException("thrown in task");
         final Random random = new Random(seed);
         final int opCount = 10000;
         final int concurrency = 100;
@@ -493,45 +512,12 @@ public class LockRegistryTest {
         int done = 0;
         while (done < opCount) {
             while (started < opCount && currentWork.size() < concurrency) {
-                // Pick a random lock via a Gaussian distribution. This ensures that we have a mix of
-                // locks with a contention (those near the median) as well as locks which are rarely
-                // hit, so the held lock goes in and out of existence
-                int idNum = (int) random.nextGaussian(0, 5);
-                final LockIdentifier lockId = new LockIdentifier(new Subspace(Tuple.from(idNum)));
-                final AtomicInteger expected = expectedValues.computeIfAbsent(lockId, ignore -> new AtomicInteger());
-                // Fail a sample of tasks to validate that we aren't accidentally chaining a callback off of only a successful future
-                final boolean fail = random.nextDouble() < 0.2;
-                if (random.nextDouble() < 0.1) {
-                    // Write operation.
-                    int newValue = expected.incrementAndGet();
-                    currentWork.add(registry.doWithWriteLock(lockId, supplyWithRandomDelay(random, () -> {
-                        final AtomicInteger currentValue = currentValues.computeIfAbsent(lockId, ignore -> new AtomicInteger());
-                        int newCurrentValue = currentValue.incrementAndGet();
-                        assertThat(newCurrentValue)
-                                .as("new value for lock ID %s should match expected", lockId)
-                                .isEqualTo(newValue);
-                        if (fail) {
-                            throw errorFromTask;
-                        }
-                    })));
-                } else {
-                    // Read operation.
-                    final int expectedInt = expected.intValue();
-                    currentWork.add(registry.doWithReadLock(lockId, supplyWithRandomDelay(random, () -> {
-                        final AtomicInteger currentValue = currentValues.computeIfAbsent(lockId, ignore -> new AtomicInteger());
-                        assertThat(currentValue.get())
-                                .as("value for lock ID %s should match expected", lockId)
-                                .isEqualTo(expectedInt);
-                        if (fail) {
-                            throw errorFromTask;
-                        }
-                    })));
-                }
+                currentWork.add(createRandomTask(random, errorThrownInTasks, expectedValues, currentValues));
                 started++;
             }
-            waitForTask(Objects.requireNonNull(currentWork.peekFirst()), errorFromTask);
+            waitForTask(Objects.requireNonNull(currentWork.peekFirst()), errorThrownInTasks);
             while (!currentWork.isEmpty() && currentWork.peekFirst().isDone()) {
-                waitForTask(currentWork.removeFirst(), errorFromTask);
+                waitForTask(currentWork.removeFirst(), errorThrownInTasks);
                 done++;
             }
         }
@@ -539,6 +525,63 @@ public class LockRegistryTest {
                 .isEmpty();
         assertThat(registry.getHeldLocks())
                 .isEmpty();
+        // Make sure that after all operations have completed, the expected values and current values match
+        assertThat(currentValues)
+                .hasSameSizeAs(expectedValues)
+                .allSatisfy((lockId, currentValue) ->
+                        assertThat(expectedValues)
+                                .hasEntrySatisfying(lockId, expectedValue ->
+                                        assertThat(expectedValue.get())
+                                                .as("current and expected values for lock ID %s should match after all tasks are run", lockId)
+                                                .isEqualTo(currentValue.get())
+                                )
+                );
+        assertThat(timer.getCount(FDBStoreTimer.DetailEvents.LOCKS_REGISTERED))
+                .isEqualTo(opCount);
+        assertThat(timer.getCount(FDBStoreTimer.DetailEvents.LOCKS_ACQUIRED))
+                .isEqualTo(opCount);
+        assertThat(timer.getCount(FDBStoreTimer.Counts.LOCKS_ATTEMPTED))
+                .isEqualTo(opCount);
+        assertThat(timer.getCount(FDBStoreTimer.Counts.LOCKS_RELEASED))
+                .isEqualTo(opCount);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> createRandomTask(@Nonnull Random r, @Nonnull RuntimeException errorThrownInTask, @Nonnull Map<LockIdentifier, AtomicInteger> expectedValues, @Nonnull Map<LockIdentifier, AtomicInteger> currentValues) {
+        // Pick a random lock via a Gaussian distribution. This ensures that we have a mix of
+        // locks with a contention (those with IDs near the median) as well as lock IDs which
+        // are rarely hit
+        final int idNum = (int) r.nextGaussian(0, 5);
+        final LockIdentifier lockId = new LockIdentifier(new Subspace(Tuple.from(idNum)));
+        final AtomicInteger expected = expectedValues.computeIfAbsent(lockId, ignore -> new AtomicInteger());
+        // Fail a sample of tasks to validate that we aren't accidentally chaining a callback off of only a successful future
+        final boolean fail = r.nextDouble() < 0.2;
+        if (r.nextDouble() < 0.1) {
+            // Write operation.
+            int newValue = expected.incrementAndGet();
+            return registry.doWithWriteLock(lockId, supplyWithRandomDelay(r, () -> {
+                final AtomicInteger currentValue = currentValues.computeIfAbsent(lockId, ignore -> new AtomicInteger());
+                int newCurrentValue = currentValue.incrementAndGet();
+                assertThat(newCurrentValue)
+                        .as("new value for lock ID %s should match expected", lockId)
+                        .isEqualTo(newValue);
+                if (fail) {
+                    throw errorThrownInTask;
+                }
+            }));
+        } else {
+            // Read operation.
+            final int expectedInt = expected.intValue();
+            return registry.doWithReadLock(lockId, supplyWithRandomDelay(r, () -> {
+                final AtomicInteger currentValue = currentValues.computeIfAbsent(lockId, ignore -> new AtomicInteger());
+                assertThat(currentValue.get())
+                        .as("value for lock ID %s should match expected", lockId)
+                        .isEqualTo(expectedInt);
+                if (fail) {
+                    throw errorThrownInTask;
+                }
+            }));
+        }
     }
 
     private void waitForTask(@Nonnull CompletableFuture<Void> future, @Nonnull RuntimeException allowedError) throws InterruptedException, TimeoutException {
