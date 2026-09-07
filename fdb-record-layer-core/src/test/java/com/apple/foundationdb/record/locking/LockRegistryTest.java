@@ -21,10 +21,12 @@
 package com.apple.foundationdb.record.locking;
 
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
+import com.apple.test.RandomSeedSource;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -33,14 +35,23 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -445,5 +456,105 @@ public class LockRegistryTest {
             assertThat(f)
                     .isNotDone();
         }
+    }
+
+    /**
+     * Stress test of the lock registry. It operates by maintaining two maps, an {@code expectedValues}
+     * mapping and a {@code currentValues} mapping. It then creates a series of random read and write
+     * operations. Each operation operates on a randomly selected {@link LockIdentifier}. It will execute
+     * the task immediately against the {@code expectedValues} structure, and then also schedule a second task
+     * to operate against the {@code curretnValues} structure that (1) acquires a lock from the registry and
+     * (2) injects a random delay. In this way, this test asserts that the execution order imposed by the
+     * lock registry is the same as a single-threaded executor. That is, any read must wait for any previously
+     * scheduled write on the value associated with the lock ID to complete, and any write must wait for
+     * any previously scheduled read or write.
+     *
+     * <p>
+     * This test is not deterministic, as the exact completion order can depend on thread scheduling.
+     * However, a seed is provided for the pseudo-random number generator that is used to generate the
+     * tasks and the delays so that there is some amount of repeatability.
+     * </p>
+     *
+     * @param seed used to construct the pseudo-random number generator for semi-repeatable test cases
+     * @throws Exception an error hit while running the test
+     */
+    @ParameterizedTest(name = "lockRegistryStressTest[seed={0}]")
+    @RandomSeedSource(value = {0x0fdb5eed, 0xba5eba11})
+    void lockRegistryStressTest(long seed) throws Exception {
+        final Map<LockIdentifier, AtomicInteger> expectedValues = new ConcurrentHashMap<>();
+        final Map<LockIdentifier, AtomicInteger> currentValues = new ConcurrentHashMap<>();
+
+        final Deque<CompletableFuture<Void>> currentWork = new ArrayDeque<>();
+        final RuntimeException errorFromTask = new RuntimeException("thrown in task");
+        final Random random = new Random(seed);
+        final int opCount = 10000;
+        final int concurrency = 100;
+        int started = 0;
+        int done = 0;
+        while (done < opCount) {
+            while (started < opCount && currentWork.size() < concurrency) {
+                // Pick a random lock via a Gaussian distribution. This ensures that we have a mix of
+                // locks with a contention (those near the median) as well as locks which are rarely
+                // hit, so the held lock goes in and out of existence
+                int idNum = (int) random.nextGaussian(0, 5);
+                final LockIdentifier lockId = new LockIdentifier(new Subspace(Tuple.from(idNum)));
+                final AtomicInteger expected = expectedValues.computeIfAbsent(lockId, ignore -> new AtomicInteger());
+                // Fail a sample of tasks to validate that we aren't accidentally chaining a callback off of only a successful future
+                final boolean fail = random.nextDouble() < 0.2;
+                if (random.nextDouble() < 0.1) {
+                    // Write operation.
+                    int newValue = expected.incrementAndGet();
+                    currentWork.add(registry.doWithWriteLock(lockId, supplyWithRandomDelay(random, () -> {
+                        final AtomicInteger currentValue = currentValues.computeIfAbsent(lockId, ignore -> new AtomicInteger());
+                        int newCurrentValue = currentValue.incrementAndGet();
+                        assertThat(newCurrentValue)
+                                .as("new value for lock ID %s should match expected", lockId)
+                                .isEqualTo(newValue);
+                        if (fail) {
+                            throw errorFromTask;
+                        }
+                    })));
+                } else {
+                    // Read operation.
+                    final int expectedInt = expected.intValue();
+                    currentWork.add(registry.doWithReadLock(lockId, supplyWithRandomDelay(random, () -> {
+                        final AtomicInteger currentValue = currentValues.computeIfAbsent(lockId, ignore -> new AtomicInteger());
+                        assertThat(currentValue.get())
+                                .as("value for lock ID %s should match expected", lockId)
+                                .isEqualTo(expectedInt);
+                        if (fail) {
+                            throw errorFromTask;
+                        }
+                    })));
+                }
+                started++;
+            }
+            waitForTask(Objects.requireNonNull(currentWork.peekFirst()), errorFromTask);
+            while (!currentWork.isEmpty() && currentWork.peekFirst().isDone()) {
+                waitForTask(currentWork.removeFirst(), errorFromTask);
+                done++;
+            }
+        }
+        assertThat(currentWork)
+                .isEmpty();
+        assertThat(registry.getHeldLocks())
+                .isEmpty();
+    }
+
+    private void waitForTask(@Nonnull CompletableFuture<Void> future, @Nonnull RuntimeException allowedError) throws InterruptedException, TimeoutException {
+        try {
+            future.get(1, TimeUnit.SECONDS);
+        } catch (ExecutionException e) {
+            // If the task fails, it should fail with the allowed error.
+            // We do not use assertThatThrownBy here, as only a sample of tasks fail.
+            assertThat(e.getCause())
+                    .isSameAs(allowedError);
+        }
+    }
+
+    @Nonnull
+    private Supplier<CompletableFuture<Void>> supplyWithRandomDelay(@Nonnull Random random, @Nonnull Runnable r) {
+        long delay = random.nextInt(10);
+        return () -> MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS).thenRunAsync(r, executorService);
     }
 }
