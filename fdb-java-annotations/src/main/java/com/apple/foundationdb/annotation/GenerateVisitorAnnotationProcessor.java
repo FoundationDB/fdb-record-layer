@@ -22,7 +22,6 @@ package com.apple.foundationdb.annotation;
 
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
@@ -78,11 +77,10 @@ import java.util.Set;
 @AutoService(Processor.class)
 public class GenerateVisitorAnnotationProcessor extends AbstractProcessor {
     @Override
-    public synchronized void init(@Nonnull final ProcessingEnvironment processingEnv) {
+    public synchronized void init(final ProcessingEnvironment processingEnv) {
         super.init(processingEnv);
     }
 
-    @Nonnull
     @Override
     public SourceVersion getSupportedSourceVersion() {
         return SourceVersion.latestSupported();

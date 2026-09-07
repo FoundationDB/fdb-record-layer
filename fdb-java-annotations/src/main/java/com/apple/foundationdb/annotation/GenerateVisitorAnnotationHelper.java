@@ -121,12 +121,12 @@ class GenerateVisitorAnnotationHelper {
         return true;
     }
 
-    private static void generateCode(@Nonnull final Types typeUtils,
-                                     @Nonnull final Filer filer,
-                                     @Nonnull GenerateVisitor generateVisitor,
-                                     @Nonnull final PackageElement packageElement,
-                                     @Nonnull final TypeElement rootTypeElement,
-                                     @Nonnull final List<TypeMirror> subClassTypeMirrors) throws IOException {
+    private static void generateCode(final Types typeUtils,
+                                     final Filer filer,
+                                     GenerateVisitor generateVisitor,
+                                     final PackageElement packageElement,
+                                     final TypeElement rootTypeElement,
+                                     final List<TypeMirror> subClassTypeMirrors) throws IOException {
         final var rootTypeMirror = rootTypeElement.asType();
         final var interfaceName = rootTypeElement.getSimpleName() + generateVisitor.classSuffix();
         final var typeVariableName = TypeVariableName.get("T");
@@ -138,15 +138,15 @@ class GenerateVisitorAnnotationHelper {
         generateImplementationWithDefaults(typeUtils, filer, generateVisitor, packageElement, subClassTypeMirrors, className, interfaceName, typeVariableName, defaultMethodName);
     }
 
-    private static void generateInterface(@Nonnull final Types typeUtils,
-                                          @Nonnull final Filer filer,
-                                          @Nonnull final GenerateVisitor generateVisitor,
-                                          @Nonnull final PackageElement packageElement,
-                                          @Nonnull final List<TypeMirror> subClassTypeMirrors,
-                                          @Nonnull final TypeMirror rootTypeMirror,
-                                          @Nonnull final String interfaceName,
-                                          @Nonnull final TypeVariableName typeVariableName,
-                                          @Nonnull final String defaultMethodName) throws IOException {
+    private static void generateInterface(final Types typeUtils,
+                                          final Filer filer,
+                                          final GenerateVisitor generateVisitor,
+                                          final PackageElement packageElement,
+                                          final List<TypeMirror> subClassTypeMirrors,
+                                          final TypeMirror rootTypeMirror,
+                                          final String interfaceName,
+                                          final TypeVariableName typeVariableName,
+                                          final String defaultMethodName) throws IOException {
         final TypeSpec.Builder typeBuilder =
                 TypeSpec.interfaceBuilder(interfaceName)
                         .addModifiers(Modifier.PUBLIC)
@@ -216,15 +216,15 @@ class GenerateVisitorAnnotationHelper {
                 .writeTo(Objects.requireNonNull(filer));
     }
 
-    private static void generateImplementationWithDefaults(@Nonnull final Types typeUtils,
-                                                           @Nonnull final Filer filer,
-                                                           @Nonnull final GenerateVisitor generateVisitor,
-                                                           @Nonnull final PackageElement packageElement,
-                                                           @Nonnull final List<TypeMirror> subClassTypeMirrors,
-                                                           @Nonnull final String className,
-                                                           @Nonnull final String interfaceName,
-                                                           @Nonnull final TypeVariableName typeVariableName,
-                                                           @Nonnull final String defaultMethodName) throws IOException {
+    private static void generateImplementationWithDefaults(final Types typeUtils,
+                                                           final Filer filer,
+                                                           final GenerateVisitor generateVisitor,
+                                                           final PackageElement packageElement,
+                                                           final List<TypeMirror> subClassTypeMirrors,
+                                                           final String className,
+                                                           final String interfaceName,
+                                                           final TypeVariableName typeVariableName,
+                                                           final String defaultMethodName) throws IOException {
         final TypeSpec.Builder typeBuilder =
                 TypeSpec.interfaceBuilder(className)
                         .addModifiers(Modifier.PUBLIC)
@@ -254,7 +254,7 @@ class GenerateVisitorAnnotationHelper {
                 .writeTo(Objects.requireNonNull(filer));
     }
 
-    private static String methodNameOfVisitMethod(@Nonnull final GenerateVisitor generateVisitor, @Nonnull TypeElement typeElement) {
+    private static String methodNameOfVisitMethod(final GenerateVisitor generateVisitor, TypeElement typeElement) {
         return generateVisitor.methodPrefix() + typeElement.getSimpleName().toString().replace(generateVisitor.stripPrefix(), "");
     }
 

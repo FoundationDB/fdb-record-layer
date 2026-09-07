@@ -33,4 +33,7 @@
  * None of the annotations have dependencies on
  * </p>
  */
+@NullMarked
 package com.apple.foundationdb.annotation;
+
+import org.jspecify.annotations.NullMarked;
