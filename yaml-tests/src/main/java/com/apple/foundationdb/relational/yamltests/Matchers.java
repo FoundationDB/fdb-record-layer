@@ -44,8 +44,7 @@ import com.google.protobuf.Message;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.SequenceNode;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -60,91 +59,85 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 public class Matchers {
 
-    @Nonnull
-    public static List<?> arrayList(@Nonnull final Object obj) {
+    public static List<?> arrayList(final Object obj) {
         return arrayList(obj, obj.toString());
     }
 
-    @Nonnull
-    public static List<?> arrayList(@Nonnull final Object obj, @Nonnull final String desc) {
+    public static List<?> arrayList(final Object obj, final String desc) {
         if (obj instanceof List) {
             return (List<?>) obj;
         }
         return fail(String.format(Locale.ROOT, "Expecting '%s' to be of type '%s'", desc, List.class.getSimpleName()));
     }
 
-    @Nonnull
-    public static Map<?, ?> map(@Nonnull final Object obj) {
+    public static Map<?, ?> map(final Object obj) {
         return map(obj, obj.toString());
     }
 
-    @Nonnull
-    public static Map<?, ?> map(@Nonnull final Object obj, @Nonnull final String desc) {
+    public static Map<?, ?> map(@Nullable final Object obj, final String desc) {
         if (obj instanceof Map<?, ?>) {
             return (Map<?, ?>) obj;
         }
         return fail(String.format(Locale.ROOT, "Expecting %s to be of type %s", desc, Map.class.getSimpleName()));
     }
 
-    public static Map.Entry<?, ?> mapEntry(@Nonnull final Object obj, @Nonnull final String desc) {
+    public static Map.Entry<?, ?> mapEntry(final Object obj, final String desc) {
         if (obj instanceof Map.Entry<?, ?>) {
             return (Map.Entry<?, ?>) obj;
         }
-        fail(String.format(Locale.ROOT, "Expecting %s to be of type %s", desc, Map.Entry.class.getSimpleName()));
-        return null;
+        return fail(String.format(Locale.ROOT, "Expecting %s to be of type %s", desc, Map.Entry.class.getSimpleName()));
     }
 
-    public static Object first(@Nonnull final List<?> obj) {
+    public static Object first(final List<?> obj) {
         return first(obj, obj.toString());
     }
 
-    public static Object first(@Nonnull final List<?> obj, @Nonnull final String desc) {
+    public static Object first(final List<?> obj, final String desc) {
         if (obj.isEmpty()) {
             fail(String.format(Locale.ROOT, "Expecting %s to contain at least one element, however it is empty", desc));
         }
         return obj.get(0);
     }
 
-    public static Object second(@Nonnull final List<?> obj) {
+    public static Object second(final List<?> obj) {
         if (obj.size() <= 1) {
             fail(String.format(Locale.ROOT, "Expecting %s to contain at least two elements, however it contains %s element", obj, obj.size()));
         }
         return obj.get(1);
     }
 
-    public static Object third(@Nonnull final List<?> obj) {
+    public static Object third(final List<?> obj) {
         if (obj.size() <= 2) {
             fail(String.format(Locale.ROOT, "Expecting %s to contain at least three elements, however it contains %s element", obj, obj.size()));
         }
         return obj.get(2);
     }
 
-    public static String string(@Nonnull final Object obj, @Nonnull final String desc) {
+    public static String string(@Nullable final Object obj, final String desc) {
         if (obj instanceof String) {
             // <NULL> should return null maybe?
             return (String) obj;
         }
-        fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s", desc, String.class.getSimpleName(), obj.getClass().getSimpleName()));
-        return null;
+        return fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s", desc, String.class.getSimpleName(), obj == null ? "null" : obj.getClass().getSimpleName()));
     }
 
-    public static boolean matches(@Nonnull final Object expected, @Nonnull final Object actual) {
+    public static boolean matches(@Nullable final Object expected, @Nullable final Object actual) {
         return Objects.equals(expected, actual);
     }
 
-    public static String string(@Nonnull final Object obj) {
+    public static String string(final Object obj) {
         return string(obj, obj.toString());
     }
 
-    public static boolean isString(@Nonnull final Object obj) {
+    public static boolean isString(final Object obj) {
         return obj instanceof String;
     }
 
-    public static boolean isBoolean(@Nonnull final Object obj) {
+    public static boolean isBoolean(final Object obj) {
         return obj instanceof Boolean;
     }
 
-    public static boolean bool(@Nonnull final Object obj) {
+    public static boolean bool(final Object obj) {
         if (obj instanceof Boolean) {
             // <NULL> should return null maybe?
             return (Boolean) obj;
@@ -153,11 +146,11 @@ public class Matchers {
         return false; // never reached.
     }
 
-    public static boolean isLong(@Nonnull final Object obj) {
+    public static boolean isLong(final Object obj) {
         return obj instanceof Long;
     }
 
-    public static long longValue(@Nonnull final Object obj) {
+    public static long longValue(final Object obj) {
         if (obj instanceof Long) {
             return (Long) obj;
         }
@@ -168,11 +161,11 @@ public class Matchers {
         return -1; // never reached.
     }
 
-    public static boolean isInt(@Nonnull final Object obj) {
+    public static boolean isInt(final Object obj) {
         return obj instanceof Integer;
     }
 
-    public static int intValue(@Nonnull final Object obj) {
+    public static int intValue(final Object obj) {
         if (obj instanceof Integer) {
             return (Integer) obj;
         }
@@ -180,11 +173,11 @@ public class Matchers {
         return -1; // never reached.
     }
 
-    public static boolean isDouble(@Nonnull final Object object) {
+    public static boolean isDouble(final Object object) {
         return object instanceof Double;
     }
 
-    public static double doubleValue(@Nonnull final Object obj) {
+    public static double doubleValue(final Object obj) {
         if (obj instanceof Double) {
             return (Double) obj;
         }
@@ -192,11 +185,11 @@ public class Matchers {
         return -1; // never reached.
     }
 
-    public static boolean isArray(@Nonnull final Object object) {
+    public static boolean isArray(final Object object) {
         return object instanceof List;
     }
 
-    public static boolean isMap(@Nonnull final Object obj) {
+    public static boolean isMap(final Object obj) {
         return obj instanceof Map<?, ?>;
     }
 
@@ -204,32 +197,28 @@ public class Matchers {
         return obj == null;
     }
 
-    @Nonnull
-    public static Message message(@Nonnull final Object obj) {
+    public static Message message(final Object obj) {
         if (obj instanceof Message) {
             return (Message) obj;
         }
         return fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s.", obj, Message.class.getSimpleName(), obj.getClass().getSimpleName()));
     }
 
-    @Nonnull
-    public static <T> T notNull(@Nullable final T object, @Nonnull final String desc) {
+    public static <T> T notNull(@Nullable final T object, final String desc) {
         if (object == null) {
-            fail(String.format(Locale.ROOT, "unexpected %s to be null", desc));
+            return fail(String.format(Locale.ROOT, "unexpected %s to be null", desc));
         }
         return object;
     }
 
-    @Nonnull
-    public static Map.Entry<?, ?> firstEntry(@Nonnull final Object obj, @Nonnull final String desc) {
+    public static Map.Entry<?, ?> firstEntry(final Object obj, final String desc) {
         if (obj instanceof Map) {
             return ((Map<?, ?>) obj).entrySet().iterator().next();
         }
         return fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s.", desc, Map.class.getSimpleName(), obj.getClass().getSimpleName()));
     }
 
-    @Nonnull
-    public static Map.Entry<?, ?> onlyEntry(@Nonnull final Object obj, @Nonnull final String desc) {
+    public static Map.Entry<?, ?> onlyEntry(final Object obj, final String desc) {
         if (obj instanceof Map) {
             final var map = ((Map<?, ?>) obj);
             if (map.size() != 1) {
@@ -240,59 +229,50 @@ public class Matchers {
         return fail(String.format(Locale.ROOT, "Expecting %s to be of type %s, however it is of type %s.", desc, Map.class.getSimpleName(), obj.getClass().getSimpleName()));
     }
 
-    @Nonnull
-    public static Object valueElseKey(@Nonnull final Map.Entry<?, ?> entry) {
+    public static Object valueElseKey(final Map.Entry<?, ?> entry) {
         if (isNull(entry.getKey()) && isNull(entry.getValue())) {
             fail(String.format(Locale.ROOT, "encountered YAML-style 'null' which is not supported, consider using '%s' instead", IsNullTag.usage()));
         }
         return entry.getValue() == null ? entry.getKey() : entry.getValue();
     }
 
-    @Nonnull
-    public static Function<Integer, Object> valueByIndex(@Nonnull final RelationalResultSet resultSet) {
+    public static Function<Integer, Object> valueByIndex(final RelationalResultSet resultSet) {
         return i -> {
             try {
                 return resultSet.getObject(i);
             } catch (SQLException e) {
-                fail(e.getMessage(), e);
+                return fail(e.getMessage(), e);
             }
-            return null;
         };
     }
 
-    @Nonnull
-    public static Function<Integer, Object> valueByIndex(@Nonnull final RelationalStruct resultSet) {
+    public static Function<Integer, Object> valueByIndex(final RelationalStruct resultSet) {
         return i -> {
             try {
                 return resultSet.getObject(i);
             } catch (SQLException e) {
-                fail(e.getMessage(), e);
+                return fail(e.getMessage(), e);
             }
-            return null;
         };
     }
 
-    @Nonnull
-    public static Function<String, Object> valueByName(@Nonnull final RelationalResultSet resultSet) {
+    public static Function<String, Object> valueByName(final RelationalResultSet resultSet) {
         return i -> {
             try {
                 return resultSet.getObject(i);
             } catch (SQLException e) {
-                fail(e.getMessage(), e);
+                return fail(e.getMessage(), e);
             }
-            return null;
         };
     }
 
-    @Nonnull
-    public static Function<String, Object> valueByName(@Nonnull final RelationalStruct resultSet) {
+    public static Function<String, Object> valueByName(final RelationalStruct resultSet) {
         return i -> {
             try {
                 return resultSet.getObject(i);
             } catch (SQLException e) {
-                fail(e.getMessage(), e);
+                return fail(e.getMessage(), e);
             }
-            return null;
         };
     }
 
@@ -323,7 +303,7 @@ public class Matchers {
             return SUCCESS;
         }
 
-        public static ResultSetMatchResult fail(@Nonnull final String explanation) {
+        public static ResultSetMatchResult fail(final String explanation) {
             return new ResultSetMatchResult(false, explanation);
         }
 
@@ -354,7 +334,6 @@ public class Matchers {
 
     public static class ResultSetPrettyPrinter {
 
-        @Nonnull
         private final List<List<String>> resultSet;
 
         public ResultSetPrettyPrinter() {
@@ -403,8 +382,7 @@ public class Matchers {
          * @param rows the rows to render, each a list of already-stringified cell values
          * @return the rendered table
          */
-        @Nonnull
-        private static String renderTable(@Nonnull final List<List<String>> rows) {
+        private static String renderTable(final List<List<String>> rows) {
             final int columnCount = rows.stream().mapToInt(List::size).max().orElse(0);
             final int[] columnWidths = new int[columnCount];
             for (final var row : rows) {
@@ -428,8 +406,7 @@ public class Matchers {
          * @param columnWidths the rendered width of each column, excluding cell padding
          * @return the rule line, terminated with a newline
          */
-        @Nonnull
-        private static String buildRule(@Nonnull final int[] columnWidths) {
+        private static String buildRule(final int[] columnWidths) {
             final var sb = new StringBuilder();
             for (final int width : columnWidths) {
                 sb.append('+').append("-".repeat(width + 2));
@@ -445,8 +422,7 @@ public class Matchers {
          * @param columnWidths the rendered width of each column, excluding cell padding
          * @return the row line, terminated with a newline
          */
-        @Nonnull
-        private static String buildRow(@Nonnull final List<String> row, @Nonnull final int[] columnWidths) {
+        private static String buildRow(final List<String> row, final int[] columnWidths) {
             final var sb = new StringBuilder();
             for (int i = 0; i < columnWidths.length; i++) {
                 final String cell = i < row.size() ? row.get(i) : "";
@@ -467,7 +443,7 @@ public class Matchers {
         return input;
     }
 
-    public static Pair<ResultSetMatchResult, ResultSetPrettyPrinter> matchResultSet(final Object expected, final RelationalResultSet actual, final boolean isExpectedOrdered) throws SQLException {
+    public static Pair<ResultSetMatchResult, ResultSetPrettyPrinter> matchResultSet(@Nullable final Object expected, @Nullable final RelationalResultSet actual, final boolean isExpectedOrdered) throws SQLException {
         if (expected instanceof IgnoreTag) {
             return ImmutablePair.of(ResultSetMatchResult.success(), null);
         }
@@ -518,7 +494,7 @@ public class Matchers {
         return ImmutablePair.of(ResultSetMatchResult.success(), null);
     }
 
-    private static ImmutablePair<ResultSetMatchResult, ResultSetPrettyPrinter> matchUnorderedResultSet(final RelationalResultSet actual, final @Nonnull Multiset<?> expectedAsMultiSet) throws SQLException {
+    private static ImmutablePair<ResultSetMatchResult, ResultSetPrettyPrinter> matchUnorderedResultSet(final RelationalResultSet actual, final Multiset<?> expectedAsMultiSet) throws SQLException {
         final ResultSetPrettyPrinter resultSetPrettyPrinter = new ResultSetPrettyPrinter();
         final var expectedRowCount = expectedAsMultiSet.size();
         var actualRowsCounter = 1;
@@ -556,7 +532,7 @@ public class Matchers {
         return ImmutablePair.of(ResultSetMatchResult.success(), null);
     }
 
-    public static void printCurrentAndRemaining(@Nonnull final RelationalResultSet resultSet, @Nonnull final ResultSetPrettyPrinter printer) throws SQLException {
+    public static void printCurrentAndRemaining(final RelationalResultSet resultSet, final ResultSetPrettyPrinter printer) throws SQLException {
         final var colCount = resultSet.getMetaData().getColumnCount();
         printer.newRow();
         for (int i = 1; i <= colCount; i++) {
@@ -565,7 +541,7 @@ public class Matchers {
         printRemaining(resultSet, printer);
     }
 
-    public static boolean printRemaining(@Nonnull final RelationalResultSet resultSet, @Nonnull final ResultSetPrettyPrinter printer) throws SQLException {
+    public static boolean printRemaining(final RelationalResultSet resultSet, final ResultSetPrettyPrinter printer) throws SQLException {
         boolean thereWasRemainingRows = false;
         final var colCount = resultSet.getMetaData().getColumnCount();
         while (resultSet.next()) {
@@ -578,11 +554,10 @@ public class Matchers {
         return thereWasRemainingRows;
     }
 
-    @Nonnull
-    private static ResultSetMatchResult matchRow(@Nonnull final Map<?, ?> expected,
+    private static ResultSetMatchResult matchRow(final Map<?, ?> expected,
                                                  final int actualEntriesCount,
-                                                 @Nonnull final Function<String, Object> entryByNameAccessor,
-                                                 @Nonnull final Function<Integer, Object> entryByNumberAccessor,
+                                                 final Function<String, Object> entryByNameAccessor,
+                                                 final Function<Integer, Object> entryByNumberAccessor,
                                                  int rowNumber) throws SQLException {
         final var expectedColCount = expected.entrySet().size();
         if (actualEntriesCount != expectedColCount) {
@@ -591,13 +566,12 @@ public class Matchers {
         return matchMap(expected, actualEntriesCount, entryByNameAccessor, entryByNumberAccessor, rowNumber, "");
     }
 
-    @Nonnull
-    private static ResultSetMatchResult matchMap(@Nonnull final Map<?, ?> expected,
+    private static ResultSetMatchResult matchMap(final Map<?, ?> expected,
                                                  final int actualEntriesCount,
-                                                 @Nonnull final Function<String, Object> entryByNameAccessor,
-                                                 @Nonnull final Function<Integer, Object> entryByNumberAccessor,
+                                                 final Function<String, Object> entryByNameAccessor,
+                                                 final Function<Integer, Object> entryByNumberAccessor,
                                                  int rowNumber,
-                                                 @Nonnull String cellRef) throws SQLException {
+                                                 String cellRef) throws SQLException {
         int counter = 1;
         final var expectedColCount = expected.entrySet().size();
         if (actualEntriesCount != expectedColCount) {
@@ -620,9 +594,9 @@ public class Matchers {
     }
 
     private static ResultSetMatchResult matchField(@Nullable final Object expected,
-                                                   @Nullable final Object actual,
+                                                   @Nullable Object actual,
                                                    int rowNumber,
-                                                   @Nonnull String cellRef) throws SQLException {
+                                                   String cellRef) throws SQLException {
         if (expected instanceof IgnoreTag.IgnoreMatcher) {
             return ResultSetMatchResult.success();
         }
@@ -640,6 +614,10 @@ public class Matchers {
         if (expected instanceof Matchable) {
             return ((Matchable)expected).matches(actual, rowNumber, cellRef);
         }
+
+        // expected is not an IsNullTag.IsNullMatcher (it would have been caught by the Matchable branch
+        // above), so per the check above, actual is guaranteed non-null from here on.
+        actual = Objects.requireNonNull(actual);
 
         // (nested) message
         if (expected instanceof Map<?, ?>) {
@@ -740,8 +718,7 @@ public class Matchers {
      * @param actual actual value.
      * @return {@code true} if {@code expected} matches {@code actual}, otherwise {@code false}.
      */
-    @Nonnull
-    private static ResultSetMatchResult matchIntField(@Nonnull final Integer expected, @Nonnull final Object actual, int rowNumber, @Nonnull String cellRef) {
+    private static ResultSetMatchResult matchIntField(final Integer expected, final Object actual, int rowNumber, String cellRef) {
         if (actual instanceof Integer) {
             if (Objects.equals(expected, actual)) {
                 return ResultSetMatchResult.success();
@@ -761,8 +738,7 @@ public class Matchers {
      * @param actual actual value.
      * @return success if {@code expected} matches {@code actual}, otherwise fail.
      */
-    @Nonnull
-    private static ResultSetMatchResult matchFloatField(@Nonnull final Float expected, @Nonnull final Object actual, int rowNumber, @Nonnull String cellRef) {
+    private static ResultSetMatchResult matchFloatField(final Float expected, final Object actual, int rowNumber, String cellRef) {
         if (actual instanceof Float) {
             if (Objects.equals(expected, actual)) {
                 return ResultSetMatchResult.success();
@@ -776,8 +752,7 @@ public class Matchers {
         return ResultSetMatchResult.fail(String.format(Locale.ROOT, "cell mismatch at row: %d cellRef: %s%n expected 🟢 does not match 🟡.%n🟢 %s (Float) %n🟡 %s (%s)", rowNumber, cellRef, expected, actual, actual.getClass().getSimpleName()));
     }
 
-    @Nonnull
-    public static RealVector constructVectorFromString(int precision, @Nonnull final SequenceNode yamlElementsNode) {
+    public static RealVector constructVectorFromString(int precision, final SequenceNode yamlElementsNode) {
         final var elements = yamlElementsNode.getValue().stream().map(v -> Assert.castUnchecked(v, ScalarNode.class).getValue())
                 .collect(ImmutableList.toImmutableList());
 
@@ -811,8 +786,7 @@ public class Matchers {
         }
     }
 
-    @Nonnull
-    public static String constructRandomString(@Nonnull final ScalarNode yamlElementsNode) {
+    public static String constructRandomString(final ScalarNode yamlElementsNode) {
         return RandomStringParser.parse(yamlElementsNode.getValue());
     }
 }

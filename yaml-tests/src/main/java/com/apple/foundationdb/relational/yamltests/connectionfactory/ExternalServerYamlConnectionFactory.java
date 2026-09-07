@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -38,15 +37,14 @@ import java.util.Set;
 
 public class ExternalServerYamlConnectionFactory implements YamlConnectionFactory {
     private static final Logger LOG = LogManager.getLogger(ExternalServerYamlConnectionFactory.class);
-    @Nonnull
     private final Clusters<ExternalServer> clusters;
 
-    public ExternalServerYamlConnectionFactory(@Nonnull Clusters<ExternalServer> clusters) {
+    public ExternalServerYamlConnectionFactory(Clusters<ExternalServer> clusters) {
         this.clusters = clusters;
     }
 
     @Override
-    public YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException {
+    public YamlConnection getNewConnection(URI connectPath, int clusterIndex) throws SQLException {
         return createConnection(connectPath, clusters.get(clusterIndex));
     }
 
@@ -55,7 +53,7 @@ public class ExternalServerYamlConnectionFactory implements YamlConnectionFactor
         return clusters.size();
     }
 
-    private YamlConnection createConnection(@Nonnull URI connectPath, @Nonnull ExternalServer server) throws SQLException {
+    private YamlConnection createConnection(URI connectPath, ExternalServer server) throws SQLException {
         String uriStr = connectPath.toString().replaceFirst("embed:", "relational://localhost:" + server.getPort());
         if (LOG.isInfoEnabled()) {
             LOG.info(KeyValueLogMessage.of("Rewrote connection string for external server",

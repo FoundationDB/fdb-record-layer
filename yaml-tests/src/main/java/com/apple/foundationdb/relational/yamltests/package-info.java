@@ -58,4 +58,7 @@
  * </ul>
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.yamltests;
+
+import org.jspecify.annotations.NullMarked;

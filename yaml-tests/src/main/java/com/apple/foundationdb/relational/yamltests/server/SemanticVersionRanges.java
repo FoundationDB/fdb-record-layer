@@ -24,7 +24,6 @@ import com.google.common.collect.Range;
 import com.google.common.collect.RangeSet;
 import com.google.common.collect.TreeRangeSet;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -43,8 +42,7 @@ public final class SemanticVersionRanges {
      * Returns the {@code [v, MAX)} range, meaning versions {@code v} and above.
      * Mirrors the {@code initialVersionAtLeast} directive.
      */
-    @Nonnull
-    public static Range<SemanticVersion> atLeast(@Nonnull SemanticVersion v) {
+    public static Range<SemanticVersion> atLeast(SemanticVersion v) {
         return Range.closedOpen(v, SemanticVersion.max());
     }
 
@@ -52,15 +50,13 @@ public final class SemanticVersionRanges {
      * The {@code [MIN, v)} range, meaning versions strictly below {@code v}.
      * Mirrors the {@code initialVersionLessThan} directive.
      */
-    @Nonnull
-    public static Range<SemanticVersion> lessThan(@Nonnull SemanticVersion v) {
+    public static Range<SemanticVersion> lessThan(SemanticVersion v) {
         return Range.closedOpen(SemanticVersion.min(), v);
     }
 
     /**
      * The full {@code [MIN, MAX)} range. This is the implicit range for an entry that declares no version constraint.
      */
-    @Nonnull
     public static Range<SemanticVersion> all() {
         return Range.closedOpen(SemanticVersion.min(), SemanticVersion.max());
     }
@@ -69,8 +65,7 @@ public final class SemanticVersionRanges {
      * Returns the sub-ranges of {@code [MIN, MAX)} that are not covered by any of the supplied ranges. An empty
      * result means the supplied ranges comprehensively cover every possible version.
      */
-    @Nonnull
-    public static Set<Range<SemanticVersion>> uncovered(@Nonnull Collection<Range<SemanticVersion>> ranges) {
+    public static Set<Range<SemanticVersion>> uncovered(Collection<Range<SemanticVersion>> ranges) {
         RangeSet<SemanticVersion> rangeSet = TreeRangeSet.create();
         ranges.forEach(rangeSet::add);
         return rangeSet.complement().subRangeSet(all()).asRanges();
@@ -80,8 +75,7 @@ public final class SemanticVersionRanges {
      * Returns the pairwise non-empty intersections of the supplied ranges, i.e. the regions where two or more ranges
      * overlap. An empty result means the supplied ranges are mutually exclusive.
      */
-    @Nonnull
-    public static Set<Range<SemanticVersion>> overlapping(@Nonnull List<Range<SemanticVersion>> ranges) {
+    public static Set<Range<SemanticVersion>> overlapping(List<Range<SemanticVersion>> ranges) {
         final Set<Range<SemanticVersion>> overlaps = new HashSet<>();
         for (int i = 0; i < ranges.size(); i++) {
             for (int j = i + 1; j < ranges.size(); j++) {

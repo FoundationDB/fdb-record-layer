@@ -22,9 +22,9 @@ package com.apple.foundationdb.relational.yamltests.command.parameterinjection;
 
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -42,16 +42,14 @@ import java.util.stream.Collectors;
  */
 public class ListParameter implements Parameter {
 
-    @Nonnull
     private final List<Parameter> values;
 
-    public ListParameter(@Nonnull List<Parameter> values) {
+    public ListParameter(List<Parameter> values) {
         this.values = values;
     }
 
-    @Nonnull
     @Override
-    public ListParameter bind(@Nonnull Random random) {
+    public ListParameter bind(Random random) {
         if (!isUnbound()) {
             return this;
         }
@@ -63,14 +61,17 @@ public class ListParameter implements Parameter {
         return values.stream().anyMatch(Parameter::isUnbound);
     }
 
-    @Nonnull
     List<Parameter> getValues() {
         return this.values;
     }
 
     @Override
     @Nullable
-    public Object getSqlObject(Connection connection) throws SQLException {
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track nullability of array element writes;
+    // array legitimately holds SQL NULL entries (see the Objects::nonNull filtering below), same as before this migration.
+    @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE",
+            justification = "connection is @Nullable to match the wider Parameter#getSqlObject contract (other implementations, e.g. UnboundParameter, tolerate a null connection); this implementation happens to always need a real Connection to build the java.sql.Array.")
+    public Object getSqlObject(@Nullable Connection connection) throws SQLException {
         ensureBoundedness();
         var array = new Object[values.size()];
         for (int i = 0; i < values.size(); i++) {
@@ -80,8 +81,7 @@ public class ListParameter implements Parameter {
     }
 
     // Best-effort approach to determine the type of constituent elements.
-    @Nonnull
-    private String getSqlTypeName(@Nonnull Object[] array) {
+    private String getSqlTypeName(Object[] array) {
         if (array.length == 0) {
             return SqlTypeNamesSupport.getSqlTypeName(Types.NULL);
         }
@@ -107,11 +107,9 @@ public class ListParameter implements Parameter {
         } else if (firstNonNull instanceof Struct) {
             return SqlTypeNamesSupport.getSqlTypeName(Types.STRUCT);
         }
-        Assert.failUnchecked("ListParameter does not support array of type: " + array[0].getClass().getSimpleName());
-        return null;
+        throw Assert.failUnchecked("ListParameter does not support array of type: " + array[0].getClass().getSimpleName());
     }
 
-    @Nonnull
     @Override
     public String getSqlText() {
         ensureBoundedness();

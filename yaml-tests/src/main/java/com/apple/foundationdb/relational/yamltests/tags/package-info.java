@@ -64,4 +64,7 @@
  * with {@code @AutoService(CustomTag.class)}, and update the list above. See existing tags in this package for examples.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.yamltests.tags;
+
+import org.jspecify.annotations.NullMarked;

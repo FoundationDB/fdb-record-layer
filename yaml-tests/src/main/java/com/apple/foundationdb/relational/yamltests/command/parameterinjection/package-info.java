@@ -23,4 +23,7 @@
  * place. This package holds all the valid parameter descriptions.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.yamltests.command.parameterinjection;
+
+import org.jspecify.annotations.NullMarked;

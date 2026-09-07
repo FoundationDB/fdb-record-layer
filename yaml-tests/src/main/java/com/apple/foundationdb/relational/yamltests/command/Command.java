@@ -45,8 +45,7 @@ import com.apple.foundationdb.relational.yamltests.generated.schemainstance.Sche
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.Locale;
@@ -61,23 +60,19 @@ public abstract class Command {
 
     private static final Logger logger = LogManager.getLogger(Command.class);
 
-    @Nonnull
     private final YamlReference reference;
-    @Nonnull
     final YamlExecutionContext executionContext;
 
-    Command(@Nonnull final YamlReference reference, @Nonnull YamlExecutionContext executionContext) {
+    Command(final YamlReference reference, YamlExecutionContext executionContext) {
         this.reference = reference;
         this.executionContext = executionContext;
     }
 
-    @Nonnull
     public YamlReference getReference() {
         return reference;
     }
 
-    @Nonnull
-    public static Command parse(@Nonnull final YamlReference.YamlResource resource, @Nonnull Object object, @Nonnull final String blockName, @Nonnull final YamlExecutionContext executionContext) {
+    public static Command parse(final YamlReference.YamlResource resource, Object object, final String blockName, final YamlExecutionContext executionContext) {
         final var command = Matchers.notNull(Matchers.firstEntry(Matchers.arrayList(object, "command").get(0), "command"), "command");
         final var linedObject = CustomYamlConstructor.LinedObject.cast(command.getKey(), () -> "Invalid command key-value pair: " + command);
         final var reference = resource.withLineNumber(linedObject.getLineNumber());
@@ -92,15 +87,14 @@ public abstract class Command {
                 case COMMAND_QUERY:
                     return QueryCommand.parse(resource, object, blockName, executionContext);
                 default:
-                    Assert.failUnchecked(String.format(Locale.ROOT, "Could not find command '%s'", key));
-                    return null;
+                    throw Assert.failUnchecked(String.format(Locale.ROOT, "Could not find command '%s'", key));
             }
         } catch (Exception e) {
             throw YamlExecutionContext.wrapContext(e, () -> "‼️ Error parsing command at " + reference, "command", reference);
         }
     }
 
-    public final void execute(@Nonnull final YamlConnection connection) {
+    public final void execute(final YamlConnection connection) {
         try {
             executeInternal(connection);
         } catch (Throwable e) {
@@ -110,10 +104,10 @@ public abstract class Command {
         }
     }
 
-    abstract void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException;
+    abstract void executeInternal(YamlConnection connection) throws SQLException, RelationalException;
 
-    private static void applyMetadataOperationEmbedded(@Nonnull EmbeddedRelationalConnection connection,
-                                                       @Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState)
+    private static void applyMetadataOperationEmbedded(EmbeddedRelationalConnection connection,
+                                                       RecordLayerConfig rlConfig, ApplyState applyState)
             throws SQLException, RelationalException {
         StoreCatalog backingCatalog = connection.getBackingCatalog();
         RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
@@ -129,7 +123,7 @@ public abstract class Command {
         connection.setAutoCommit(true);
     }
 
-    private static void applyMetadataOperationDirectly(@Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState,
+    private static void applyMetadataOperationDirectly(RecordLayerConfig rlConfig, ApplyState applyState,
                                                        @Nullable String clusterFile) throws RelationalException {
         final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase(clusterFile);
         final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
@@ -152,10 +146,10 @@ public abstract class Command {
     }
 
     @SuppressWarnings({"PMD.CloseResource"}) // We "borrow" from the connection via tryGetEmbedded, but the connection will close it
-    private static Command getLoadSchemaTemplateCommand(@Nonnull final YamlReference reference, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
+    private static Command getLoadSchemaTemplateCommand(final YamlReference reference, final YamlExecutionContext executionContext, String value) {
         return new Command(reference, executionContext) {
             @Override
-            public void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException {
+            public void executeInternal(YamlConnection connection) throws SQLException, RelationalException {
                 logger.debug("⏳ Loading template '{}'", value);
                 // current connection should be __SYS/catalog
                 // save schema template
@@ -175,10 +169,10 @@ public abstract class Command {
     }
 
     @SuppressWarnings({"PMD.CloseResource"}) // We "borrow" from the connection via tryGetEmbedded, but the connection will close it
-    private static Command getSetSchemaStateCommand(@Nonnull final YamlReference reference, @Nonnull final YamlExecutionContext executionContext, @Nonnull String value) {
+    private static Command getSetSchemaStateCommand(final YamlReference reference, final YamlExecutionContext executionContext, String value) {
         return new Command(reference, executionContext) {
             @Override
-            public void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException {
+            public void executeInternal(YamlConnection connection) throws SQLException, RelationalException {
                 logger.debug("⏳ Setting schema state '{}'", value);
                 SchemaInstanceOuterClass.SchemaInstance schemaInstance = CommandUtil.fromJson(value);
                 RecordLayerConfig rlConfig = new RecordLayerConfig.RecordLayerConfigBuilder()

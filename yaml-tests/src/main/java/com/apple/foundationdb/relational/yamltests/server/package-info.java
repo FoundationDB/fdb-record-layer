@@ -21,4 +21,7 @@
 /**
  * Utilities for interacting with an external server while running yaml tests.
  */
+@NullMarked
 package com.apple.foundationdb.relational.yamltests.server;
+
+import org.jspecify.annotations.NullMarked;

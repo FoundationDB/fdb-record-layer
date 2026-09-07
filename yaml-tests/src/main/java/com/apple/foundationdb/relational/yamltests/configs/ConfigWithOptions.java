@@ -23,22 +23,17 @@ package com.apple.foundationdb.relational.yamltests.configs;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
-import javax.annotation.Nonnull;
-
 /**
  * An implementation of {@link YamlTestConfig} that sets additional options on top of a base config.
  */
 public class ConfigWithOptions implements YamlTestConfig {
-    @Nonnull
     private final YamlTestConfig underlying;
-    @Nonnull
     private final YamlExecutionContext.ContextOptions runnerOptions;
 
-    public ConfigWithOptions(@Nonnull final YamlTestConfig underlying, @Nonnull YamlExecutionContext.ContextOptions newOptions) {
+    public ConfigWithOptions(final YamlTestConfig underlying, YamlExecutionContext.ContextOptions newOptions) {
         this.underlying = underlying;
         this.runnerOptions = underlying.getRunnerOptions().mergeFrom(newOptions);
     }
-
 
     @Override
     public YamlConnectionFactory createConnectionFactory() {
@@ -46,7 +41,7 @@ public class ConfigWithOptions implements YamlTestConfig {
     }
 
     @Override
-    public @Nonnull YamlExecutionContext.ContextOptions getRunnerOptions() {
+    public YamlExecutionContext.ContextOptions getRunnerOptions() {
         return runnerOptions;
     }
 

@@ -37,7 +37,6 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -126,7 +125,6 @@ public class CustomYamlConstructor extends SafeConstructor {
                             Map.Entry::getValue));
         }
 
-        @Nonnull
         public Object getObject() {
             return object;
         }
@@ -135,7 +133,7 @@ public class CustomYamlConstructor extends SafeConstructor {
             return lineNumber;
         }
 
-        public static LinedObject cast(@Nonnull Object obj, @Nonnull Supplier<String> msg) {
+        public static LinedObject cast(Object obj, Supplier<String> msg) {
             Assert.thatUnchecked(obj instanceof LinedObject, ErrorCode.INTERNAL_ERROR, msg);
             return (LinedObject) obj;
         }

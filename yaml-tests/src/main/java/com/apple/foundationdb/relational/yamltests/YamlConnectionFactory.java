@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.yamltests;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.Set;
@@ -42,7 +41,7 @@ public interface YamlConnectionFactory {
      *
      * @throws SQLException if we cannot connect or the cluster index is not supported
      */
-    YamlConnection getNewConnection(@Nonnull URI connectPath, int clusterIndex) throws SQLException;
+    YamlConnection getNewConnection(URI connectPath, int clusterIndex) throws SQLException;
 
     /**
      * The versions that the connection has, other than the current code.

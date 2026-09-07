@@ -31,8 +31,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -60,13 +59,12 @@ public class ExternalServer implements Clusters.BoundToCluster {
     private static final Logger logger = LogManager.getLogger(ExternalServer.class);
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
 
-    @Nonnull
     private final File serverJar;
     private int grpcPort;
     private int httpPort;
     private final SemanticVersion version;
+    @Nullable
     private Process serverProcess;
-    @Nonnull
     private final String clusterFile;
 
     /**
@@ -74,8 +72,8 @@ public class ExternalServer implements Clusters.BoundToCluster {
      *
      * @param serverJar the path to the jar to run
      */
-    public ExternalServer(@Nonnull final File serverJar,
-                          @Nonnull final String clusterFile) throws IOException {
+    public ExternalServer(final File serverJar,
+                          final String clusterFile) throws IOException {
         this.clusterFile = clusterFile;
 
         this.serverJar = serverJar;
@@ -129,7 +127,6 @@ public class ExternalServer implements Clusters.BoundToCluster {
         return version;
     }
 
-    @Nonnull
     @Override
     public String clusterFile() {
         return clusterFile;
@@ -257,7 +254,8 @@ public class ExternalServer implements Clusters.BoundToCluster {
             validateConnectionVersion(connection);
             return true;
         } catch (RuntimeException e) {
-            if (e.getMessage().contains("UNAVAILABLE")) {
+            final String message = e.getMessage();
+            if (message != null && message.contains("UNAVAILABLE")) {
                 // Error returned when the server hasn't started yet. Currently, this comes directly from gRPC, though
                 // potentially we should be wrapping it with some kind of SQLException
                 return false;
@@ -266,7 +264,7 @@ public class ExternalServer implements Clusters.BoundToCluster {
         }
     }
 
-    public void validateConnectionVersion(@Nonnull Connection connection) throws SQLException {
+    public void validateConnectionVersion(Connection connection) throws SQLException {
         // Validate that the server has the expected version. Connect and make a request to the meta-data API,
         // and validate that the database product version matches the external server's version
         final DatabaseMetaData metaData = connection.getMetaData();
@@ -284,7 +282,7 @@ public class ExternalServer implements Clusters.BoundToCluster {
      * The provided set must be mutable, as it will be updated during run as ports are allocated
      * @return a port that is not currently in use on the system.
      */
-    private int getAvailablePort(@Nonnull final Set<Integer> unavailablePorts) {
+    private int getAvailablePort(final Set<Integer> unavailablePorts) {
         // running locally on my laptop, testing if a port is available takes 0 milliseconds, so no need to optimize
         for (int i = 1111; i < 9999; i++) {
             // Add the port immediately to the set of unavailable ports. We do this because there are
@@ -315,11 +313,11 @@ public class ExternalServer implements Clusters.BoundToCluster {
         }
     }
 
-    public static void startMultiple(@Nonnull Collection<ExternalServer> servers) throws Exception {
+    public static void startMultiple(Collection<ExternalServer> servers) throws Exception {
         startMultiple(servers, new HashSet<>());
     }
 
-    public static void startMultiple(@Nonnull Collection<ExternalServer> servers, @Nonnull Set<Integer> unavailablePorts) throws Exception {
+    public static void startMultiple(Collection<ExternalServer> servers, Set<Integer> unavailablePorts) throws Exception {
         final Map<Integer, ExternalServer> allocatedPorts = new HashMap<>();
         for (ExternalServer server : servers) {
             server.start(unavailablePorts);
@@ -330,7 +328,7 @@ public class ExternalServer implements Clusters.BoundToCluster {
         }
     }
 
-    private static void checkPortIsUnique(int port, @Nonnull ExternalServer server, @Nonnull Map<Integer, ExternalServer> allocatedPorts) throws RelationalException {
+    private static void checkPortIsUnique(int port, ExternalServer server, Map<Integer, ExternalServer> allocatedPorts) throws RelationalException {
         @Nullable ExternalServer preExistingServer = allocatedPorts.putIfAbsent(port, server);
         if (preExistingServer != null) {
             Assert.fail("allocated duplicate port (" + server.getPort() + ") to servers for versions " + server.getVersion() + " and " + preExistingServer.getVersion());

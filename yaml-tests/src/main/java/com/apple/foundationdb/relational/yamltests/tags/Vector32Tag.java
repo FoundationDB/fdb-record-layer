@@ -27,18 +27,13 @@ import org.yaml.snakeyaml.constructor.Construct;
 import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.Tag;
 
-import javax.annotation.Nonnull;
-
 @AutoService(CustomTag.class)
 public final class Vector32Tag extends AbstractVectorTag {
 
-    @Nonnull
     private static final Tag tag = new Tag("!v32");
 
-    @Nonnull
     private static final Construct CONSTRUCT_INSTANCE = new AbstractConstruct() {
         @Override
-        @Nonnull
         public Matchable construct(Node node) {
             return new VectorMatcher<FloatRealVector>(node, 32);
         }
@@ -47,13 +42,11 @@ public final class Vector32Tag extends AbstractVectorTag {
     public Vector32Tag() {
     }
 
-    @Nonnull
     @Override
     public Tag getTag() {
         return tag;
     }
 
-    @Nonnull
     @Override
     public Construct getConstruct() {
         return CONSTRUCT_INSTANCE;

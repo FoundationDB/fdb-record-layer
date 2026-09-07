@@ -41,8 +41,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opentest4j.TestAbortedException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -156,13 +155,9 @@ public final class TestBlock extends ConnectedBlock {
         PREPARED
     }
 
-    @Nonnull
     final String blockName;
-    @Nonnull
     private final List<Consumer<YamlConnection>> executableTestsWithCacheCheck;
-    @Nonnull
     private final TestBlockOptions options;
-    @Nonnull
     private final List<QueryCommand> queryCommands;
     @Nullable
     private RuntimeException maybeFailureException;
@@ -199,7 +194,7 @@ public final class TestBlock extends ConnectedBlock {
         private SupportedVersionCheck supportedVersionCheck = SupportedVersionCheck.supported();
         private Options connectionOptions = Options.none();
 
-        private void verifyPreset(@Nonnull String preset) {
+        private void verifyPreset(String preset) {
             switch (preset) {
                 case PRESET_MULTI_REPETITION_ORDERED:
                 case PRESET_MULTI_REPETITION_RANDOMIZED:
@@ -214,7 +209,7 @@ public final class TestBlock extends ConnectedBlock {
             }
         }
 
-        private void setWithPreset(@Nonnull String preset) {
+        private void setWithPreset(String preset) {
             verifyPreset(preset);
             if (PRESET_MULTI_REPETITION_ORDERED.equals(preset) || PRESET_MULTI_REPETITION_RANDOMIZED.equals(preset) || PRESET_MULTI_REPETITION_PARALLELIZED.equals(preset)) {
                 repetition = 5;
@@ -231,7 +226,7 @@ public final class TestBlock extends ConnectedBlock {
             }
         }
 
-        private void setWithOptionsMap(@Nonnull Map<?, ?> optionsMap, Set<SemanticVersion> versionsUnderTest) {
+        private void setWithOptionsMap(Map<?, ?> optionsMap, Set<SemanticVersion> versionsUnderTest) {
             setOptionExecutionModeAndRepetition(optionsMap);
             if (optionsMap.containsKey(OPTION_SEED)) {
                 this.seed = Matchers.longValue(optionsMap.get(OPTION_SEED));
@@ -260,8 +255,7 @@ public final class TestBlock extends ConnectedBlock {
             }
         }
 
-        @Nonnull
-        public static Options parseConnectionOptions(@Nonnull final Map<?, ?> map) {
+        public static Options parseConnectionOptions(final Map<?, ?> map) {
             final var optionsBuilder = Options.builder();
             for (final var entry : map.entrySet()) {
                 final var name = Options.Name.valueOf(Matchers.string(entry.getKey()));
@@ -281,7 +275,7 @@ public final class TestBlock extends ConnectedBlock {
             return optionsBuilder.build();
         }
 
-        private void setWithExecutionContext(@Nonnull YamlExecutionContext executionContext) {
+        private void setWithExecutionContext(YamlExecutionContext executionContext) {
             // Use the system-provided seed if that is available from the context.
             executionContext.getSeed().ifPresent(s -> seed = Matchers.longValue(s));
             if (YamlExecutionContext.isNightly()) {
@@ -341,8 +335,8 @@ public final class TestBlock extends ConnectedBlock {
         }
     }
 
-    public static List<Block> parse(int blockNumber, @Nonnull final YamlReference reference, @Nonnull final Object document,
-                                    @Nonnull final YamlExecutionContext executionContext) {
+    public static List<Block> parse(int blockNumber, final YamlReference reference, final Object document,
+                                    final YamlExecutionContext executionContext) {
         try {
             // Since `options` is also a top-level block, the `CustomYamlConstructor` will add the line numbers,
             // changing it from a `String` to a `LinedObject` so that we know the line numbers when logging an error,
@@ -392,13 +386,16 @@ public final class TestBlock extends ConnectedBlock {
 
                 queryCommands.add(queryCommand);
                 var runAsPreparedMix = getRunAsPreparedMix(options.statementType, options.repetition, randomGenerator);
+                // getRunAsPreparedMix() always constructs its pair from non-null values.
+                final List<Boolean> perRepetitionPreparedFlags = Objects.requireNonNull(runAsPreparedMix.getLeft());
+                final boolean cacheCheckPreparedFlag = Objects.requireNonNull(runAsPreparedMix.getRight());
                 for (int i = 0; i < options.repetition; i++) {
                     executables.add(createTestExecutable(queryCommand, false, randomGenerator,
-                            runAsPreparedMix.getLeft().get(i), options.connectionOptions));
+                            perRepetitionPreparedFlags.get(i), options.connectionOptions));
                 }
                 if (options.checkCache) {
                     executableTestsWithCacheCheck.add(createTestExecutable(queryCommand, true,
-                            randomGenerator, runAsPreparedMix.getRight(), options.connectionOptions));
+                            randomGenerator, cacheCheckPreparedFlag, options.connectionOptions));
                 }
             }
             if (options.mode != ExecutionMode.ORDERED) {
@@ -414,10 +411,10 @@ public final class TestBlock extends ConnectedBlock {
         }
     }
 
-    private TestBlock(@Nonnull final YamlReference reference, @Nonnull final String blockName, @Nonnull final List<QueryCommand> queryCommands,
-                      @Nonnull final List<Consumer<YamlConnection>> executables,
-                      @Nonnull final List<Consumer<YamlConnection>> executableTestsWithCacheCheck, @Nonnull final ConnectionTarget connectionTarget,
-                      @Nonnull final TestBlockOptions options, @Nonnull final YamlExecutionContext executionContext) {
+    private TestBlock(final YamlReference reference, final String blockName, final List<QueryCommand> queryCommands,
+                      final List<Consumer<YamlConnection>> executables,
+                      final List<Consumer<YamlConnection>> executableTestsWithCacheCheck, final ConnectionTarget connectionTarget,
+                      final TestBlockOptions options, final YamlExecutionContext executionContext) {
         super(reference, executables, connectionTarget, executionContext);
         this.blockName = blockName;
         this.queryCommands = queryCommands;
@@ -460,8 +457,7 @@ public final class TestBlock extends ConnectedBlock {
         executableTestsWithCacheCheck.clear();
     }
 
-    @Nonnull
-    private Throwable unwrapExecutionExceptionIfNeeded(@Nonnull final Throwable t) {
+    private Throwable unwrapExecutionExceptionIfNeeded(final Throwable t) {
         if (t instanceof ExecutionException) {
             if (t.getCause() != null) {
                 return t.getCause();
@@ -470,7 +466,6 @@ public final class TestBlock extends ConnectedBlock {
         return t;
     }
 
-    @Nonnull
     public Optional<RuntimeException> getFailureExceptionIfPresent() {
         return maybeFailureException == null ? Optional.empty() : Optional.of(maybeFailureException);
     }
@@ -506,7 +501,7 @@ public final class TestBlock extends ConnectedBlock {
         }
     }
 
-    private static Pair<List<Boolean>, Boolean> getRunAsPreparedMix(StatementType type, int repetitions, @Nonnull Random random) {
+    private static Pair<List<Boolean>, Boolean> getRunAsPreparedMix(StatementType type, int repetitions, Random random) {
         if (type == StatementType.SIMPLE) {
             return Pair.of(Collections.nCopies(repetitions, false), false);
         }
@@ -528,10 +523,9 @@ public final class TestBlock extends ConnectedBlock {
         }
     }
 
-    @Nonnull
     private static Consumer<YamlConnection> createTestExecutable(QueryCommand queryCommand, boolean checkCache,
-                                                                 @Nonnull Random random, boolean runAsPreparedStatement,
-                                                                 @Nonnull Options connectionOptions) {
+                                                                 Random random, boolean runAsPreparedStatement,
+                                                                 Options connectionOptions) {
         final var executor = queryCommand.instantiateExecutor(random, runAsPreparedStatement);
         return connection -> {
             try {

@@ -23,32 +23,26 @@ package com.apple.foundationdb.relational.yamltests;
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
 import java.nio.file.Path;
 import java.util.Objects;
 
 public final class MetricsInfo {
-    @Nonnull
     private final PlannerMetricsProto.Info underlying;
-    @Nonnull
     private final Path filePath;
     private final int lineNumber;
 
-    MetricsInfo(@Nonnull PlannerMetricsProto.Info metricsInfo,
-                @Nonnull Path filePath,
+    MetricsInfo(PlannerMetricsProto.Info metricsInfo,
+                Path filePath,
                 int lineNumber) {
         this.underlying = metricsInfo;
         this.filePath = filePath;
         this.lineNumber = lineNumber;
     }
 
-
-    @Nonnull
     public PlannerMetricsProto.Info getUnderlying() {
         return underlying;
     }
 
-    @Nonnull
     public Path getFilePath() {
         return filePath;
     }
@@ -57,12 +51,10 @@ public final class MetricsInfo {
         return lineNumber;
     }
 
-    @Nonnull
     public String getExplain() {
         return underlying.getExplain();
     }
 
-    @Nonnull
     public PlannerMetricsProto.CountersAndTimers getCountersAndTimers() {
         return underlying.getCountersAndTimers();
     }
@@ -93,8 +85,8 @@ public final class MetricsInfo {
      * @param actual the actual metrics values
      * @return true if any of the tracked metrics differ
      */
-    public static boolean areMetricsDifferent(@Nonnull final MetricsInfo expected,
-                                              @Nonnull final MetricsInfo actual) {
+    public static boolean areMetricsDifferent(final MetricsInfo expected,
+                                              final MetricsInfo actual) {
         final var metricsDescriptor = PlannerMetricsProto.CountersAndTimers.getDescriptor();
 
         return YamlMetricsMaintainer.TRACKED_METRIC_FIELDS.stream()
@@ -110,9 +102,9 @@ public final class MetricsInfo {
      * @param fieldDescriptor the field to compare
      * @return true if the metric values differ
      */
-    private static boolean isMetricDifferent(@Nonnull final MetricsInfo expected,
-                                             @Nonnull final MetricsInfo actual,
-                                             @Nonnull final Descriptors.FieldDescriptor fieldDescriptor) {
+    private static boolean isMetricDifferent(final MetricsInfo expected,
+                                             final MetricsInfo actual,
+                                             final Descriptors.FieldDescriptor fieldDescriptor) {
         final long expectedMetric = (long) expected.getUnderlying().getCountersAndTimers().getField(fieldDescriptor);
         final long actualMetric = (long) actual.getUnderlying().getCountersAndTimers().getField(fieldDescriptor);
         return expectedMetric != actualMetric;

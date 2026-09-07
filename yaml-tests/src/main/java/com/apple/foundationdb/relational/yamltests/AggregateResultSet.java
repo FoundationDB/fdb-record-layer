@@ -26,7 +26,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import org.junit.jupiter.api.Assertions;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 import java.sql.SQLException;
 import java.util.Iterator;
 
@@ -53,6 +53,7 @@ public class AggregateResultSet extends AbstractAggregateResultSet {
     }
 
     @Override
+    @Nullable
     protected RelationalResultSet advanceRow() throws SQLException {
         if (!hasNext()) {
             return null;
@@ -65,7 +66,6 @@ public class AggregateResultSet extends AbstractAggregateResultSet {
         return rowIterator.next();
     }
 
-    @Nonnull
     @Override
     public Continuation getContinuation() throws SQLException {
         if (hasNext()) {

@@ -43,12 +43,12 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 import org.opentest4j.AssertionFailedError;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 
 import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.reportTestFailure;
@@ -116,16 +116,15 @@ public abstract class QueryConfig {
     private static final Set<String> RESULT_CONSUMING_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT);
 
     @Nullable private final Object value;
-    @Nonnull private final YamlReference reference;
+    private final YamlReference reference;
     @Nullable private final String configName;
 
-    protected QueryConfig(@Nullable String configName, @Nullable Object value, @Nonnull final YamlReference reference) {
+    protected QueryConfig(@Nullable String configName, @Nullable Object value, final YamlReference reference) {
         this.configName = configName;
         this.value = value;
         this.reference = reference;
     }
 
-    @Nonnull
     protected YamlReference getReference() {
         return reference;
     }
@@ -142,7 +141,8 @@ public abstract class QueryConfig {
 
     protected String getValueString() {
         if (value instanceof byte[]) {
-            return ByteArrayUtil2.loggable((byte[]) value);
+            // loggable() only returns null for a null input array, which value is not, per the instanceof check above.
+            return Objects.requireNonNull(ByteArrayUtil2.loggable((byte[]) value));
         } else if (value != null) {
             return value.toString();
         } else {
@@ -150,12 +150,12 @@ public abstract class QueryConfig {
         }
     }
 
-    protected String decorateQuery(@Nonnull String query) {
+    protected String decorateQuery(String query) {
         return query;
     }
 
-    final void checkResult(@Nonnull String currentQuery, @Nonnull Object actual, @Nonnull String queryDescription,
-                           @Nonnull YamlConnection connection, @Nonnull List<String> setups) {
+    final void checkResult(String currentQuery, Object actual, String queryDescription,
+                           YamlConnection connection, List<String> setups) {
         try {
             checkResultInternal(currentQuery, actual, queryDescription, setups);
         } catch (AssertionFailedError e) {
@@ -169,7 +169,7 @@ public abstract class QueryConfig {
         }
     }
 
-    final void checkError(@Nonnull SQLException actual, @Nonnull String queryDescription, final YamlConnection connection) {
+    final void checkError(SQLException actual, String queryDescription, final YamlConnection connection) {
         try {
             checkErrorInternal(actual, queryDescription);
         } catch (AssertionFailedError e) {
@@ -183,10 +183,10 @@ public abstract class QueryConfig {
         }
     }
 
-    protected abstract void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                                @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException;
+    protected abstract void checkResultInternal(String currentQuery, Object actual,
+                                                String queryDescription, List<String> setups) throws SQLException;
 
-    void checkErrorInternal(@Nonnull SQLException e, @Nonnull String queryDescription) throws SQLException {
+    void checkErrorInternal(SQLException e, String queryDescription) throws SQLException {
         final var diffMessage = "‼️ statement failed with the following error at " + getReference() + ":\n" +
                 "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
                 e.getMessage() + "\n" +
@@ -197,19 +197,21 @@ public abstract class QueryConfig {
     }
 
     private static QueryConfig getCheckResultConfig(boolean isExpectedOrdered, @Nullable String configName,
-                                                    @Nullable Object value, @Nonnull final YamlReference reference) {
+                                                    @Nullable Object value, final YamlReference reference) {
         return new QueryConfig(configName, value, reference) {
 
             @Override
-            protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                               @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
+            protected void checkResultInternal(String currentQuery, Object actual,
+                                               String queryDescription, List<String> setups) throws SQLException {
                 logger.debug("⛳️ Matching results of query '{}'", queryDescription);
                 try (RelationalResultSet resultSet = (RelationalResultSet)actual) {
                     final var matchResult = Matchers.matchResultSet(getVal(), resultSet, isExpectedOrdered);
-                    if (!matchResult.getLeft().equals(Matchers.ResultSetMatchResult.success())) {
+                    // matchResultSet() always populates the left side of the pair with a match result.
+                    final var matchResultLeft = Matchers.notNull(matchResult.getLeft(), "match result");
+                    if (!matchResultLeft.equals(Matchers.ResultSetMatchResult.success())) {
                         var toReport = "‼️ result mismatch at " + getReference() + ":\n" +
                                 "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n" +
-                                Matchers.notNull(matchResult.getLeft().getExplanation(), "failure error message") + "\n" +
+                                Matchers.notNull(matchResultLeft.getExplanation(), "failure error message") + "\n" +
                                 "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤\n";
                         final var valueString = getValueString();
                         if (!valueString.isEmpty()) {
@@ -230,25 +232,25 @@ public abstract class QueryConfig {
         };
     }
 
-    private static QueryConfig getCheckExplainConfig(boolean isExact, @Nonnull String blockName,
-                                                     @Nonnull String configName, @Nullable Object value,
-                                                     @Nonnull final YamlReference reference, @Nonnull YamlExecutionContext executionContext) {
+    private static QueryConfig getCheckExplainConfig(boolean isExact, String blockName,
+                                                     String configName, @Nullable Object value,
+                                                     final YamlReference reference, YamlExecutionContext executionContext) {
         return new CheckExplainConfig(configName, value, reference, executionContext, isExact, blockName);
     }
 
-    private static QueryConfig getCheckResultMetadataConfig(@Nonnull String configName, @Nullable Object value,
-                                                            @Nonnull final YamlReference reference,
-                                                            @Nonnull YamlExecutionContext executionContext) {
+    private static QueryConfig getCheckResultMetadataConfig(String configName, @Nullable Object value,
+                                                            final YamlReference reference,
+                                                            YamlExecutionContext executionContext) {
         return new CheckResultMetadataConfig(configName, value, reference, executionContext);
     }
 
-    private static QueryConfig getCheckErrorConfig(@Nullable Object value, @Nonnull final YamlReference reference) {
+    private static QueryConfig getCheckErrorConfig(@Nullable Object value, final YamlReference reference) {
         final String expectedCode = resolveErrorCode(value, reference);
         return new QueryConfig(QUERY_CONFIG_ERROR, value, reference) {
 
             @Override
-            protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                               @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
+            protected void checkResultInternal(String currentQuery, Object actual,
+                                               String queryDescription, List<String> setups) throws SQLException {
                 Matchers.ResultSetPrettyPrinter resultSetPrettyPrinter = new Matchers.ResultSetPrettyPrinter();
                 if (actual instanceof ErrorCapturingResultSet) {
                     Matchers.printRemaining((ErrorCapturingResultSet) actual, resultSetPrettyPrinter);
@@ -269,7 +271,7 @@ public abstract class QueryConfig {
             }
 
             @Override
-            void checkErrorInternal(@Nonnull SQLException e, @Nonnull String queryDescription) {
+            void checkErrorInternal(SQLException e, String queryDescription) {
                 logger.debug("⛳️ Checking error code resulted from executing '{}'", queryDescription);
                 final String actualCode = e.getSQLState();
                 if (!actualCode.equals(expectedCode)) {
@@ -286,9 +288,9 @@ public abstract class QueryConfig {
      * Accepts either a raw 5-character SQLSTATE code (e.g. {@code "42601"}) or an
      * {@link ErrorCode} enum name (e.g. {@code "SYNTAX_ERROR"}) for readability.
      */
-    private static String resolveErrorCode(@Nullable Object value, @Nonnull YamlReference reference) {
+    private static String resolveErrorCode(@Nullable Object value, YamlReference reference) {
         if (value == null) {
-            return null;
+            throw new IllegalArgumentException("'error' config at " + reference + " requires a SQLSTATE code or ErrorCode enum name, but no value was given");
         }
         final String str = value.toString();
         if (str.length() == 5) {
@@ -316,12 +318,12 @@ public abstract class QueryConfig {
         return errorCode.name() + " (" + code + ")";
     }
 
-    private static QueryConfig getCheckCountConfig(@Nullable Object value, @Nonnull final YamlReference reference) {
+    private static QueryConfig getCheckCountConfig(@Nullable Object value, final YamlReference reference) {
         return new QueryConfig(QUERY_CONFIG_COUNT, value, reference) {
 
             @Override
-            protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                               @Nonnull String queryDescription, @Nonnull List<String> setups) {
+            protected void checkResultInternal(String currentQuery, Object actual,
+                                               String queryDescription, List<String> setups) {
                 logger.debug("⛳️ Matching count of update query '{}'", queryDescription);
                 if (!Matchers.matches(getVal(), actual)) {
                     reportTestFailure("‼️ Expected count value " + getVal() + ", but got " + actual + " at line " + getReference());
@@ -332,18 +334,18 @@ public abstract class QueryConfig {
         };
     }
 
-    private static QueryConfig getCheckPlanHashConfig(@Nullable Object value, @Nonnull YamlReference reference) {
+    private static QueryConfig getCheckPlanHashConfig(@Nullable Object value, YamlReference reference) {
         return new QueryConfig(QUERY_CONFIG_PLAN_HASH, value, reference) {
 
             @Override
-            protected String decorateQuery(@Nonnull String query) {
+            protected String decorateQuery(String query) {
                 return "EXPLAIN " + query;
             }
 
             @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable persists beyond method
             @Override
-            protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                               @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
+            protected void checkResultInternal(String currentQuery, Object actual,
+                                               String queryDescription, List<String> setups) throws SQLException {
                 logger.debug("⛳️ Matching plan hash of query '{}'", queryDescription);
                 final var resultSet = (RelationalResultSet) actual;
                 resultSet.next();
@@ -356,12 +358,12 @@ public abstract class QueryConfig {
         };
     }
 
-    public static QueryConfig getNoCheckConfig(@Nonnull final YamlReference reference) {
+    public static QueryConfig getNoCheckConfig(final YamlReference reference) {
         return new QueryConfig(QUERY_CONFIG_NO_CHECKS, null, reference) {
             @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable persists beyond method
             @Override
-            protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                               @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
+            protected void checkResultInternal(String currentQuery, Object actual,
+                                               String queryDescription, List<String> setups) throws SQLException {
                 if (actual instanceof final RelationalResultSet resultSet) {
                     // slurp
                     boolean valid = true;
@@ -374,47 +376,46 @@ public abstract class QueryConfig {
         };
     }
 
-    private static QueryConfig getMaxRowConfig(@Nonnull Object value, @Nonnull final YamlReference reference) {
+    private static QueryConfig getMaxRowConfig(Object value, final YamlReference reference) {
         return new QueryConfig(QUERY_CONFIG_MAX_ROWS, value, reference) {
             @Override
-            protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                               @Nonnull String queryDescription, @Nonnull List<String> setups) {
+            protected void checkResultInternal(String currentQuery, Object actual,
+                                               String queryDescription, List<String> setups) {
                 Assert.failUnchecked("No results to check on a maxRow config");
             }
         };
     }
 
-    private static QueryConfig getSetupConfig(final Object value, @Nonnull final YamlReference reference) {
+    private static QueryConfig getSetupConfig(final Object value, final YamlReference reference) {
         return new QueryConfig(QUERY_CONFIG_SETUP, value, reference) {
             @Override
-            protected void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
-                                               @Nonnull final String queryDescription, @Nonnull List<String> setups) {
+            protected void checkResultInternal(final String currentQuery, final Object actual,
+                                               final String queryDescription, List<String> setups) {
                 Assert.failUnchecked("No results to check on a setup config");
             }
         };
     }
 
-    private static QueryConfig getDebuggerConfig(@Nonnull Object value, @Nonnull final YamlReference reference) {
+    private static QueryConfig getDebuggerConfig(Object value, final YamlReference reference) {
         return new QueryConfig(QUERY_CONFIG_DEBUGGER, DebuggerImplementation.valueOf(((String)value).toUpperCase(Locale.ROOT)),
                 reference) {
             @Override
-            protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                               @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
+            protected void checkResultInternal(String currentQuery, Object actual,
+                                               String queryDescription, List<String> setups) throws SQLException {
                 Assert.failUnchecked("No results to check on a debugger config");
             }
         };
     }
 
-    @Nonnull
-    public static QueryConfig getSupportedVersionConfig(Object rawVersion, @Nonnull final YamlReference reference, final YamlExecutionContext executionContext) {
+    public static QueryConfig getSupportedVersionConfig(Object rawVersion, final YamlReference reference, final YamlExecutionContext executionContext) {
         final SupportedVersionCheck check = SupportedVersionCheck.parse(rawVersion, executionContext.getConnectionFactory().getVersionsUnderTest());
         if (!check.isSupported()) {
             return new SkipConfig(QUERY_CONFIG_SUPPORTED_VERSION, rawVersion, reference, check.getMessage());
         }
         return new QueryConfig(QUERY_CONFIG_SUPPORTED_VERSION, rawVersion, reference) {
             @Override
-            protected void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
-                                               @Nonnull final String queryDescription, @Nonnull final List<String> setups) {
+            protected void checkResultInternal(final String currentQuery, final Object actual,
+                                               final String queryDescription, final List<String> setups) {
                 // Nothing to do, this query is supported
                 // SupportedVersion configs are not executed
                 Assertions.fail("Supported version configs are not meant to be executed.");
@@ -429,21 +430,20 @@ public abstract class QueryConfig {
      * @param reference the {@link YamlReference} in the test file
      * @return an instance of a NoOp config
      */
-    public static QueryConfig getNoOpConfig(@Nonnull final YamlReference reference) {
+    public static QueryConfig getNoOpConfig(final YamlReference reference) {
         return new QueryConfig(QUERY_CONFIG_NO_OP, null, reference) {
             @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable persists beyond method
             @Override
-            protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                               @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
+            protected void checkResultInternal(String currentQuery, Object actual,
+                                               String queryDescription, List<String> setups) throws SQLException {
                 // This should not be executed
                 Assertions.fail("NoOp Config should not be executed");
             }
         };
     }
 
-    @Nonnull
-    public static List<QueryConfig> parseConfigs(String blockName, @Nonnull final YamlReference commandReference,
-                                                 @Nonnull List<?> objects, @Nonnull YamlExecutionContext executionContext) {
+    public static List<QueryConfig> parseConfigs(String blockName, final YamlReference commandReference,
+                                                 List<?> objects, YamlExecutionContext executionContext) {
         List<QueryConfig> configs = new ArrayList<>();
         // After the first result config, require all future results are also result configs. That is, we should
         // not interleave explain, maxRows, etc., and result configurations, and the results should be the last
@@ -473,7 +473,7 @@ public abstract class QueryConfig {
         return configs;
     }
 
-    private static QueryConfig getInitialVersionCheckConfig(Object key, Object value, @Nonnull final YamlReference reference) {
+    private static QueryConfig getInitialVersionCheckConfig(Object key, Object value, final YamlReference reference) {
         try {
             SemanticVersion versionArgument = PreambleBlock.parseVersion(value);
             if (QUERY_CONFIG_INITIAL_VERSION_AT_LEAST.equals(key)) {
@@ -490,7 +490,7 @@ public abstract class QueryConfig {
         }
     }
 
-    private static QueryConfig parseConfig(String blockName, String key, Object value, @Nonnull final YamlReference reference, YamlExecutionContext executionContext) {
+    private static QueryConfig parseConfig(String blockName, String key, Object value, final YamlReference reference, YamlExecutionContext executionContext) {
         if (QUERY_CONFIG_SUPPORTED_VERSION.equals(key)) {
             return getSupportedVersionConfig(value, reference, executionContext);
         } else if (VERSION_DEPENDENT_RESULT_CONFIGS.contains(key)) {
@@ -536,7 +536,7 @@ public abstract class QueryConfig {
         }
     }
 
-    private static void validateConfigs(List<QueryConfig> configs, @Nonnull final YamlReference reference) {
+    private static void validateConfigs(List<QueryConfig> configs, final YamlReference reference) {
         Assert.thatUnchecked(configs.stream().skip(1)
                         .noneMatch(config -> QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(config.getConfigName())),
                 "supported_version must be the first config in a query (after the query itself)");
@@ -565,14 +565,14 @@ public abstract class QueryConfig {
     public static class SkipConfig extends QueryConfig {
         private final String message;
 
-        public SkipConfig(final String configMap, final Object value, @Nonnull final YamlReference reference, final String message) {
+        public SkipConfig(final String configMap, final Object value, final YamlReference reference, final String message) {
             super(configMap, value, reference);
             this.message = message;
         }
 
         @Override
-        protected void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
-                                           @Nonnull final String queryDescription, @Nonnull final List<String> setups) {
+        protected void checkResultInternal(final String currentQuery, final Object actual,
+                                           final String queryDescription, final List<String> setups) {
             Assertions.fail("Skipped config should not be executed: at " + getReference() + " " + message);
         }
 
@@ -585,7 +585,7 @@ public abstract class QueryConfig {
         private final SemanticVersion minVersion;
         private final SemanticVersion maxVersion;
 
-        public InitialVersionCheckConfig(final String configName, final Object value, @Nonnull final YamlReference reference,
+        public InitialVersionCheckConfig(final String configName, final Object value, final YamlReference reference,
                                          SemanticVersion minVersion, SemanticVersion maxVersion) {
             super(configName, value, reference);
             this.minVersion = minVersion;
@@ -598,17 +598,15 @@ public abstract class QueryConfig {
         }
 
         @Override
-        protected void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
-                                           @Nonnull final String queryDescription, @Nonnull final List<String> setups) throws SQLException {
+        protected void checkResultInternal(final String currentQuery, final Object actual,
+                                           final String queryDescription, final List<String> setups) throws SQLException {
             Assertions.fail("Check version config should not be executed: at " + getReference());
         }
 
-        @Nonnull
         public SemanticVersion getMinVersion() {
             return minVersion;
         }
 
-        @Nonnull
         public SemanticVersion getMaxVersion() {
             return maxVersion;
         }

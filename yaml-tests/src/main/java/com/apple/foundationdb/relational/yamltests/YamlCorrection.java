@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -49,5 +48,5 @@ public interface YamlCorrection {
      * Apply this correction to the in-memory line list of the YAMSQL file.
      * @param lines mutable list of lines for the file (1-based line {@code n} is at index {@code n-1})
      */
-    void apply(@Nonnull List<String> lines);
+    void apply(List<String> lines);
 }

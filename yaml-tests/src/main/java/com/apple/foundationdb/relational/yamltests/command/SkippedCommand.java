@@ -28,7 +28,6 @@ import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 
 /**
@@ -38,20 +37,18 @@ import java.sql.SQLException;
  */
 public class SkippedCommand extends Command {
     private static final Logger logger = LogManager.getLogger(SkippedCommand.class);
-    @Nonnull
     private final String message;
-    @Nonnull
     private final String query;
 
-    SkippedCommand(@Nonnull final YamlReference reference, @Nonnull final YamlExecutionContext executionContext,
-                   @Nonnull String message, @Nonnull final String query) {
+    SkippedCommand(final YamlReference reference, final YamlExecutionContext executionContext,
+                   String message, final String query) {
         super(reference, executionContext);
         this.message = message;
         this.query = query;
     }
 
     @Override
-    void executeInternal(@Nonnull final YamlConnection connection) throws SQLException, RelationalException {
+    void executeInternal(final YamlConnection connection) throws SQLException, RelationalException {
         Assert.fail("Skipped commands should not be called");
     }
 

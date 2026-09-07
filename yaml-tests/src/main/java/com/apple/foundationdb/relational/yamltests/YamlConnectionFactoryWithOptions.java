@@ -23,26 +23,23 @@ package com.apple.foundationdb.relational.yamltests;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.Set;
 
 public class YamlConnectionFactoryWithOptions implements YamlConnectionFactory {
 
-    @Nonnull
     private final YamlConnectionFactory underlying;
 
-    @Nonnull
     private final Options options;
 
-    public YamlConnectionFactoryWithOptions(@Nonnull final YamlConnectionFactory underlying, @Nonnull final Options options) {
+    public YamlConnectionFactoryWithOptions(final YamlConnectionFactory underlying, final Options options) {
         this.underlying = underlying;
         this.options = options;
     }
 
     @Override
-    public YamlConnection getNewConnection(@Nonnull final URI connectPath, int clusterIndex) throws SQLException {
+    public YamlConnection getNewConnection(final URI connectPath, int clusterIndex) throws SQLException {
         final var connection = underlying.getNewConnection(connectPath, clusterIndex);
         connection.setConnectionOptions(options);
         return connection;
@@ -63,9 +60,8 @@ public class YamlConnectionFactoryWithOptions implements YamlConnectionFactory {
         return underlying.isMultiServer();
     }
 
-    @Nonnull
-    public static YamlConnectionFactoryWithOptions newInstance(@Nonnull final YamlConnectionFactory underlying,
-                                                               @Nonnull final Options options) {
+    public static YamlConnectionFactoryWithOptions newInstance(final YamlConnectionFactory underlying,
+                                                               final Options options) {
         return new YamlConnectionFactoryWithOptions(underlying, options);
     }
 }

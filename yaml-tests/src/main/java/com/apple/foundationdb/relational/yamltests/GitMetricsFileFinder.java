@@ -27,8 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -59,10 +58,9 @@ public final class GitMetricsFileFinder {
      * @return set of paths to changed metrics YAML files
      * @throws RelationalException if git command fails or repository is not valid
      */
-    @Nonnull
-    public static Set<Path> findChangedMetricsYamlFiles(@Nonnull final String baseRef,
-                                                        @Nonnull final String headRef,
-                                                        @Nonnull final Path repositoryRoot) throws RelationalException {
+    public static Set<Path> findChangedMetricsYamlFiles(final String baseRef,
+                                                        final String headRef,
+                                                        final Path repositoryRoot) throws RelationalException {
         final List<String> changedFiles = getChangedFiles(baseRef, headRef, repositoryRoot);
         final ImmutableSet.Builder<Path> metricsFiles = ImmutableSet.builder();
 
@@ -84,10 +82,9 @@ public final class GitMetricsFileFinder {
      * @return list of relative file paths that have changed
      * @throws RelationalException if git command fails
      */
-    @Nonnull
-    private static List<String> getChangedFiles(@Nonnull final String baseRef,
-                                                @Nonnull final String headRef,
-                                                @Nonnull final Path repositoryRoot) throws RelationalException {
+    private static List<String> getChangedFiles(final String baseRef,
+                                                final String headRef,
+                                                final Path repositoryRoot) throws RelationalException {
         final var command = List.of("git", "diff", "--name-only", baseRef + "..." + headRef);
         try {
             if (logger.isDebugEnabled()) {
@@ -130,7 +127,7 @@ public final class GitMetricsFileFinder {
      * @param filePath the file path to check
      * @return true if the file is a metrics file
      */
-    private static boolean isMetricsYamlFile(@Nonnull final String filePath) {
+    private static boolean isMetricsYamlFile(final String filePath) {
         return filePath.endsWith(".metrics.yaml");
     }
 
@@ -149,9 +146,9 @@ public final class GitMetricsFileFinder {
      * @throws RelationalException if git command fails
      */
     @Nullable
-    public static Path getFileAtReference(@Nonnull final String filePath,
-                                          @Nonnull final String gitRef,
-                                          @Nonnull final Path repositoryRoot) throws RelationalException {
+    public static Path getFileAtReference(final String filePath,
+                                          final String gitRef,
+                                          final Path repositoryRoot) throws RelationalException {
         try {
             final var tempFile = Files.createTempFile("metrics-diff-", gitRef + ".metrics.yaml");
             final var command = List.of("git", "show", gitRef + ":" + filePath);

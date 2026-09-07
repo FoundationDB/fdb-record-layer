@@ -32,7 +32,6 @@ import com.apple.foundationdb.relational.yamltests.utils.ExportSchemaTemplateUti
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.stream.Collectors;
@@ -60,12 +59,12 @@ import java.util.stream.Collectors;
 @Disabled("for updating test files that should be checked in")
 class MetaDataExportUtilityTests {
 
-    private static void exportMetaData(@Nonnull RecordMetaData metaData, @Nonnull String name) throws IOException {
+    private static void exportMetaData(RecordMetaData metaData, String name) throws IOException {
         Path path = Path.of("src", "test", "resources", name);
         ExportSchemaTemplateUtil.export(metaData, path);
     }
 
-    private void setAllPrimaryKeys(@Nonnull RecordMetaDataBuilder metaDataBuilder, @Nonnull KeyExpression primaryKey) {
+    private void setAllPrimaryKeys(RecordMetaDataBuilder metaDataBuilder, KeyExpression primaryKey) {
         metaDataBuilder.getUnionDescriptor().getFields().forEach( f -> {
             final String typeName = f.getMessageType().getName();
             metaDataBuilder.getRecordType(typeName).setPrimaryKey(primaryKey);

@@ -28,8 +28,6 @@ import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
-import javax.annotation.Nonnull;
-
 /**
  * YAML tag for ignoring column name validation in result sets.
  * <br>
@@ -38,10 +36,8 @@ import javax.annotation.Nonnull;
 @AutoService(CustomTag.class)
 public final class PosTag implements CustomTag {
 
-    @Nonnull
     private static final Tag tag = new Tag("!pos");
 
-    @Nonnull
     private static final Construct CONSTRUCT_INSTANCE = new AbstractConstruct() {
         @Override
         public Object construct(Node node) {
@@ -56,27 +52,23 @@ public final class PosTag implements CustomTag {
     public PosTag() {
     }
 
-    @Nonnull
     @Override
     public Tag getTag() {
         return tag;
     }
 
-    @Nonnull
     @Override
     public Construct getConstruct() {
         return CONSTRUCT_INSTANCE;
     }
 
     public static final class ColumnPosition {
-        @Nonnull
         private final Integer pos;
 
-        public ColumnPosition(@Nonnull final Integer columnPosition) {
+        public ColumnPosition(final Integer columnPosition) {
             this.pos = columnPosition;
         }
 
-        @Nonnull
         public Integer getValue() {
             return pos;
         }

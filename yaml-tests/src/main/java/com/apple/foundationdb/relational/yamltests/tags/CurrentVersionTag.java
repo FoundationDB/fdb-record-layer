@@ -27,15 +27,11 @@ import org.yaml.snakeyaml.constructor.Construct;
 import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.Tag;
 
-import javax.annotation.Nonnull;
-
 @AutoService(CustomTag.class)
 public class CurrentVersionTag implements CustomTag {
 
-    @Nonnull
     private static final Tag tag = new Tag("!current_version");
 
-    @Nonnull
     private static final Construct CONSTRUCT_INSTANCE = new AbstractConstruct() {
         @Override
         public Object construct(Node node) {
@@ -46,13 +42,11 @@ public class CurrentVersionTag implements CustomTag {
     public CurrentVersionTag() {
     }
 
-    @Nonnull
     @Override
     public Tag getTag() {
         return tag;
     }
 
-    @Nonnull
     @Override
     public Construct getConstruct() {
         return CONSTRUCT_INSTANCE;

@@ -22,8 +22,6 @@ package com.apple.foundationdb.relational.yamltests.configs;
 
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
-import javax.annotation.Nonnull;
-
 /**
  * A configuration that runs an underlying configuration, but heals {@code resultMetadata} blocks in YAMSQL files
  * where expected and actual column metadata differ.
@@ -32,7 +30,7 @@ import javax.annotation.Nonnull;
  * </p>
  */
 public class CorrectResultMetadata extends ConfigWithOptions {
-    public CorrectResultMetadata(@Nonnull final YamlTestConfig underlying) {
+    public CorrectResultMetadata(final YamlTestConfig underlying) {
         super(underlying, YamlExecutionContext.ContextOptions.of(YamlExecutionContext.OPTION_CORRECT_RESULT_METADATA, true));
     }
 }

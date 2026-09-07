@@ -28,7 +28,6 @@ import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
@@ -51,21 +50,18 @@ public abstract class ConnectedBlock extends ReferencedBlock implements Block {
 
     static final String BLOCK_CONNECT = "connect";
 
-    @Nonnull
     YamlExecutionContext executionContext;
-    @Nonnull
     private final ConnectionTarget connectionTarget;
-    @Nonnull
     final List<Consumer<YamlConnection>> executables;
 
-    ConnectedBlock(@Nonnull YamlReference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull ConnectionTarget connectionTarget, @Nonnull YamlExecutionContext executionContext) {
+    ConnectedBlock(YamlReference reference, List<Consumer<YamlConnection>> executables, ConnectionTarget connectionTarget, YamlExecutionContext executionContext) {
         super(reference);
         this.executables = executables;
         this.connectionTarget = connectionTarget;
         this.executionContext = executionContext;
     }
 
-    protected final void executeExecutables(@Nonnull Collection<Consumer<YamlConnection>> list) {
+    protected final void executeExecutables(Collection<Consumer<YamlConnection>> list) {
         connectToDatabaseAndExecute(connection -> list.forEach(t -> t.accept(connection)));
     }
 

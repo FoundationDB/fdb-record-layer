@@ -29,17 +29,14 @@ import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.UUID;
 
 @AutoService(CustomTag.class)
 public final class UuidTag implements CustomTag {
 
-    @Nonnull
     private static final Tag tag = new Tag("!uuid");
 
-    @Nonnull
     private static final Construct CONSTRUCT_INSTANCE = new AbstractConstruct() {
         @Override
         public Matchable construct(final Node node) {
@@ -53,34 +50,29 @@ public final class UuidTag implements CustomTag {
     public UuidTag() {
     }
 
-    @Nonnull
     @Override
     public Tag getTag() {
         return tag;
     }
 
-    @Nonnull
     @Override
     public Construct getConstruct() {
         return CONSTRUCT_INSTANCE;
     }
 
     public static final class UuidMatcher implements Matchable {
-        @Nonnull
         private final String value;
 
-        public UuidMatcher(@Nonnull final String value) {
+        public UuidMatcher(final String value) {
             this.value = value;
         }
 
-        @Nonnull
         public String getValue() {
             return value;
         }
 
-        @Nonnull
         @Override
-        public Matchers.ResultSetMatchResult matches(@Nullable Object other, int rowNumber, @Nonnull String cellRef) {
+        public Matchers.ResultSetMatchResult matches(@Nullable Object other, int rowNumber, String cellRef) {
             final var maybeNull = Matchable.shouldNotBeNull(other, rowNumber, cellRef);
             if (maybeNull.isPresent()) {
                 return maybeNull.get();

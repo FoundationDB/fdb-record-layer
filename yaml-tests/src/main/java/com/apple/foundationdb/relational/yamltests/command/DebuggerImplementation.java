@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.PlannerRepl;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import org.jline.terminal.TerminalBuilder;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.function.Supplier;
 
@@ -43,16 +42,14 @@ public enum DebuggerImplementation {
     });
 
     private final boolean allowedInCI;
-    @Nonnull
     private final Supplier<Debugger> debuggerSupplier;
 
-    DebuggerImplementation(boolean allowedInCI, @Nonnull final Supplier<Debugger> debuggerCreator) {
+    DebuggerImplementation(boolean allowedInCI, final Supplier<Debugger> debuggerCreator) {
         this.allowedInCI = allowedInCI;
         this.debuggerSupplier = debuggerCreator;
     }
 
-    @Nonnull
-    public Debugger newDebugger(@Nonnull YamlExecutionContext context) {
+    public Debugger newDebugger(YamlExecutionContext context) {
         if (!allowedInCI && YamlExecutionContext.isInCI()) {
             throw new UnsupportedOperationException("somebody checked in a test with a debugger option");
         }

@@ -34,11 +34,13 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 import org.opentest4j.AssertionFailedError;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
+import static com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto.Info;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -165,7 +167,7 @@ class CheckExplainConfigTest {
         final var struct = metricsMatch ? metricsStruct(10, 5) : metricsStruct(20, 5);
         final var err = assertThrows(AssertionFailedError.class,
                 () -> exactConfig(executionContext, PLAN_A).invoke(mockResultSet(PLAN_A, PLAN_DOT, struct)));
-        assertTrue(err.getMessage().contains("No planner metrics"));
+        assertTrue(Objects.requireNonNull(err.getMessage()).contains("No planner metrics"));
     }
 
     static Stream<Arguments> planMatchMetricsDifferCorrectMetricsArgs() {
@@ -199,7 +201,7 @@ class CheckExplainConfigTest {
         final var executionContext = mockExecutionContext(correctExplains, false, false, filesMaintainer, metricsMaintainer);
         final var err = assertThrows(AssertionFailedError.class,
                 () -> exactConfig(executionContext, PLAN_A).invoke(mockResultSet(PLAN_A, PLAN_DOT, metricsStruct(20, 5))));
-        assertTrue(err.getMessage().contains("Planner metrics have changed"));
+        assertTrue(Objects.requireNonNull(err.getMessage()).contains("Planner metrics have changed"));
     }
 
     static Stream<Arguments> planMatchBypassGuardArgs() {
@@ -231,7 +233,7 @@ class CheckExplainConfigTest {
         final var executionContext = mockExecutionContext(true, false, false, filesMaintainer, metricsMaintainer);
         final var err = assertThrows(AssertionFailedError.class,
                 () -> exactConfig(executionContext, PLAN_A).invoke(mockResultSet(PLAN_A, PLAN_DOT, metricsStruct(20, 5))));
-        assertTrue(err.getMessage().contains("No planner metrics"));
+        assertTrue(Objects.requireNonNull(err.getMessage()).contains("No planner metrics"));
     }
 
     static Stream<Arguments> planMismatchWritesExplainUpdatedMetricsArgs() {
@@ -275,7 +277,7 @@ class CheckExplainConfigTest {
         final var executionContext = mockExecutionContext(true, false, false, filesMaintainer, metricsMaintainer);
         final var err = assertThrows(AssertionFailedError.class,
                 () -> exactConfig(executionContext, PLAN_A).invoke(mockResultSet(PLAN_B, PLAN_DOT, metricsStruct(10, 5))));
-        assertTrue(err.getMessage().contains("No planner metrics"));
+        assertTrue(Objects.requireNonNull(err.getMessage()).contains("No planner metrics"));
         assertExplainCorrectionQueued(filesMaintainer, PLAN_B);
     }
 
@@ -342,7 +344,7 @@ class CheckExplainConfigTest {
         final var executionContext = mockExecutionContext(true, false, false, filesMaintainer, metricsMaintainer);
         final var err = assertThrows(AssertionFailedError.class,
                 () -> exactConfig(executionContext, PLAN_A).invoke(mockResultSet(PLAN_B, PLAN_DOT, metricsStruct(20, 5))));
-        assertTrue(err.getMessage().contains("No planner metrics"));
+        assertTrue(Objects.requireNonNull(err.getMessage()).contains("No planner metrics"));
         assertExplainCorrectionQueued(filesMaintainer, PLAN_B);
     }
 
@@ -355,7 +357,7 @@ class CheckExplainConfigTest {
         final var executionContext = mockExecutionContext(true, false, false, filesMaintainer, metricsMaintainer);
         final var err = assertThrows(AssertionFailedError.class,
                 () -> exactConfig(executionContext, PLAN_A).invoke(mockResultSet(PLAN_B, PLAN_DOT, metricsStruct(20, 5))));
-        assertTrue(err.getMessage().contains("Planner metrics have changed"));
+        assertTrue(Objects.requireNonNull(err.getMessage()).contains("Planner metrics have changed"));
         assertExplainCorrectionQueued(filesMaintainer, PLAN_B);
     }
 
@@ -395,26 +397,26 @@ class CheckExplainConfigTest {
         final var struct = hasActualMetrics ? (metricsMatch ? metricsStruct(10, 5) : metricsStruct(20, 5)) : null;
         final var err = assertThrows(AssertionFailedError.class,
                 () -> exactConfig(executionContext, PLAN_A).invoke(mockResultSet(PLAN_B, PLAN_DOT, struct)));
-        assertTrue(err.getMessage().contains("plan mismatch"));
+        assertTrue(Objects.requireNonNull(err.getMessage()).contains("plan mismatch"));
     }
 
-    private static void assertNoFileCorrections(@Nonnull YamlFilesMaintainer filesMaintainer) {
+    private static void assertNoFileCorrections(YamlFilesMaintainer filesMaintainer) {
         assertTrue(filesMaintainer.getPendingCorrections(RESOURCE).isEmpty());
     }
 
-    private static void assertMetricsNotWritten(@Nonnull YamlMetricsMaintainer metricsMaintainer) {
+    private static void assertMetricsNotWritten(YamlMetricsMaintainer metricsMaintainer) {
         assertFalse(metricsMaintainer.isMetricsDirty());
         Assertions.assertNull(metricsMaintainer.getActualMetrics(buildIdentifier()));
     }
 
-    private static void assertMetricsPreserved(@Nonnull YamlMetricsMaintainer metricsMaintainer,
-                                                @Nonnull PlannerMetricsProto.Info expected) {
+    private static void assertMetricsPreserved(YamlMetricsMaintainer metricsMaintainer,
+                                                PlannerMetricsProto.Info expected) {
         assertFalse(metricsMaintainer.isMetricsDirty());
         Assertions.assertEquals(expected, metricsMaintainer.getActualMetrics(buildIdentifier()));
     }
 
-    private static void assertMetricsWritten(@Nonnull YamlMetricsMaintainer metricsMaintainer,
-                                              @Nonnull String expectedPlan, long expectedTaskCount) {
+    private static void assertMetricsWritten(YamlMetricsMaintainer metricsMaintainer,
+                                              String expectedPlan, long expectedTaskCount) {
         assertTrue(metricsMaintainer.isMetricsDirty());
         final var stored = metricsMaintainer.getActualMetrics(buildIdentifier());
         Assertions.assertNotNull(stored);
@@ -425,8 +427,8 @@ class CheckExplainConfigTest {
     /** Builds a mocked context wiring in the provided maintainers and option flags. */
     private static YamlExecutionContext mockExecutionContext(boolean correctExplains, boolean correctMetrics,
                                                              boolean addExplains,
-                                                             @Nonnull YamlFilesMaintainer filesMaintainer,
-                                                             @Nonnull YamlMetricsMaintainer metricsMaintainer) {
+                                                             YamlFilesMaintainer filesMaintainer,
+                                                             YamlMetricsMaintainer metricsMaintainer) {
         final var executionContext = Mockito.mock(YamlExecutionContext.class);
         Mockito.when(executionContext.shouldCorrectExplains()).thenReturn(correctExplains);
         Mockito.when(executionContext.shouldCorrectMetrics()).thenReturn(correctMetrics);
@@ -443,26 +445,26 @@ class CheckExplainConfigTest {
         return filesMaintainer;
     }
 
-    private static YamlMetricsMaintainer getMetricsMaintainer(@Nullable PlannerMetricsProto.Info metricsInfo) {
+    private static YamlMetricsMaintainer getMetricsMaintainer(@Nullable Info metricsInfo) {
         final ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> expectedMetricsMap =
                 metricsInfo == null ? ImmutableMap.of() :
                 ImmutableMap.of(buildIdentifier(), metricsInfo);
         return new YamlMetricsMaintainer(RESOURCE, expectedMetricsMap);
     }
 
-    private static TestableConfig syntheticConfig(@Nonnull YamlExecutionContext executionContext) {
+    private static TestableConfig syntheticConfig(YamlExecutionContext executionContext) {
         return new TestableConfig(REFERENCE, executionContext, null, true);
     }
 
-    private static TestableConfig exactConfig(@Nonnull YamlExecutionContext executionContext, @Nonnull String expected) {
+    private static TestableConfig exactConfig(YamlExecutionContext executionContext, String expected) {
         return new TestableConfig(REFERENCE, executionContext, expected, true);
     }
 
-    private static TestableConfig containsConfig(@Nonnull YamlExecutionContext executionContext, @Nonnull String fragment) {
+    private static TestableConfig containsConfig(YamlExecutionContext executionContext, String fragment) {
         return new TestableConfig(REFERENCE, executionContext, fragment, false);
     }
 
-    private static RelationalResultSet mockResultSet(@Nonnull String plan, @Nonnull String planDot,
+    private static RelationalResultSet mockResultSet(String plan, String planDot,
                                                      @Nullable RelationalStruct metricsStruct) throws SQLException {
         final var rs = Mockito.mock(RelationalResultSet.class);
         Mockito.when(rs.getString(1)).thenReturn(plan);
@@ -484,7 +486,7 @@ class CheckExplainConfigTest {
         return s;
     }
 
-    private static PlannerMetricsProto.Info metricsInfo(@Nonnull String plan, long taskCount, long transformCount) {
+    private static PlannerMetricsProto.Info metricsInfo(String plan, long taskCount, long transformCount) {
         return PlannerMetricsProto.Info.newBuilder()
                 .setExplain(plan)
                 .setDot(PLAN_DOT)
@@ -507,8 +509,8 @@ class CheckExplainConfigTest {
                 .build();
     }
 
-    private static void assertExplainCorrectionQueued(@Nonnull YamlFilesMaintainer filesMaintainer,
-                                                       @Nonnull String expectedPlan) {
+    private static void assertExplainCorrectionQueued(YamlFilesMaintainer filesMaintainer,
+                                                       String expectedPlan) {
         final var corrections = filesMaintainer.getPendingCorrections(RESOURCE);
         Assertions.assertEquals(1, corrections.size());
         final var correction = corrections.get(0);
@@ -520,12 +522,12 @@ class CheckExplainConfigTest {
     }
 
     static class TestableConfig extends CheckExplainConfig {
-        TestableConfig(@Nonnull YamlReference reference, @Nonnull YamlExecutionContext executionContext,
+        TestableConfig(YamlReference reference, YamlExecutionContext executionContext,
                        @Nullable Object value, boolean isExact) {
             super(QueryConfig.QUERY_CONFIG_EXPLAIN, value, reference, executionContext, isExact, "testBlock");
         }
 
-        void invoke(@Nonnull Object actual) throws SQLException {
+        void invoke(Object actual) throws SQLException {
             checkResultInternal("SELECT 1", actual, "SELECT 1", List.of());
         }
     }

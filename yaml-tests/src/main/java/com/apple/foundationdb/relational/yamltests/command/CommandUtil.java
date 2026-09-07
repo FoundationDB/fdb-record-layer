@@ -35,7 +35,6 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.util.JsonFormat;
 import org.junit.jupiter.api.Assertions;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -49,6 +48,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.regex.Matcher;
@@ -67,11 +67,14 @@ public class CommandUtil {
     public static SchemaTemplate fromProto(String loadCommandString) {
         RecordMetaData metaData;
         Pair<String, String> templateNameAndSourceName = parseLoadTemplateString(loadCommandString);
-        if (templateNameAndSourceName.getRight().endsWith(".json")) {
-            metaData = loadRecordMetaDataFromJson(templateNameAndSourceName.getRight());
+        // parseLoadTemplateString() always constructs its pair from two non-null tokens.
+        final String templateName = Objects.requireNonNull(templateNameAndSourceName.getLeft());
+        final String sourceName = Objects.requireNonNull(templateNameAndSourceName.getRight());
+        if (sourceName.endsWith(".json")) {
+            metaData = loadRecordMetaDataFromJson(sourceName);
         } else {
             try {
-                Class<?> act = Class.forName(templateNameAndSourceName.getRight());
+                Class<?> act = Class.forName(sourceName);
                 Method method = act.getMethod("getDescriptor");
                 Descriptors.FileDescriptor o = (Descriptors.FileDescriptor) method.invoke(null);
                 metaData = RecordMetaData.build(o);
@@ -80,7 +83,7 @@ public class CommandUtil {
                 throw new RuntimeException(e);
             }
         }
-        return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, templateNameAndSourceName.getLeft(), 1);
+        return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, templateName, 1);
     }
 
     public static SchemaInstanceOuterClass.SchemaInstance fromJson(String loadCommandString) {
@@ -233,10 +236,9 @@ public class CommandUtil {
         CYAN("\u001B[36m"),
         WHITE("\u001B[37m");
 
-        @Nonnull
         private final String ansi;
 
-        Color(@Nonnull final String ansi) {
+        Color(final String ansi) {
             this.ansi = ansi;
         }
 

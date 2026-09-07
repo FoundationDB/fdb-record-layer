@@ -37,7 +37,6 @@ import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 
 import com.google.common.collect.Range;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -64,8 +63,8 @@ public class SetupBlock extends ConnectedBlock {
 
     public static final String SETUP_BLOCK = "setup";
 
-    protected SetupBlock(@Nonnull YamlReference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull ConnectionTarget connectionTarget,
-                         @Nonnull YamlExecutionContext executionContext) {
+    protected SetupBlock(YamlReference reference, List<Consumer<YamlConnection>> executables, ConnectionTarget connectionTarget,
+                         YamlExecutionContext executionContext) {
         super(reference, executables, connectionTarget, executionContext);
     }
 
@@ -86,7 +85,7 @@ public class SetupBlock extends ConnectedBlock {
         public static final String OPTIONS = "options";
         public static final String CONNECTION_OPTIONS = "connection_options";
 
-        public static List<Block> parse(@Nonnull YamlReference reference, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
+        public static List<Block> parse(YamlReference reference, Object document, YamlExecutionContext executionContext) {
             try {
                 Options connectionOptions = Options.none();
                 final var setupMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, "setup"));
@@ -104,7 +103,7 @@ public class SetupBlock extends ConnectedBlock {
 
                 final var stepsObject = setupMap.getOrDefault(STEPS, null);
                 if (stepsObject == null) {
-                    Assert.failUnchecked("Illegal Format: No steps provided in setup block.");
+                    throw Assert.failUnchecked("Illegal Format: No steps provided in setup block.");
                 }
                 final var executables = new ArrayList<Consumer<YamlConnection>>();
                 for (final var step : Matchers.arrayList(stepsObject, "setup steps")) {
@@ -119,13 +118,12 @@ public class SetupBlock extends ConnectedBlock {
             }
         }
 
-        private ManualSetupBlock(@Nonnull YamlReference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull ConnectionTarget connectionTarget,
-                                 @Nonnull YamlExecutionContext executionContext) {
+        private ManualSetupBlock(YamlReference reference, List<Consumer<YamlConnection>> executables, ConnectionTarget connectionTarget,
+                                 YamlExecutionContext executionContext) {
             super(reference, executables, connectionTarget, executionContext);
         }
 
-        @Nonnull
-        private static Consumer<YamlConnection> createSetupExecutable(Command setupCommand, @Nonnull Options connectionOptions) {
+        private static Consumer<YamlConnection> createSetupExecutable(Command setupCommand, Options connectionOptions) {
             return connection -> {
                 try {
                     connection.setConnectionOptions(connectionOptions);
@@ -145,9 +143,7 @@ public class SetupBlock extends ConnectedBlock {
         public static final String INITIAL_VERSION_AT_LEAST = "initialVersionAtLeast";
         public static final String INITIAL_VERSION_LESS_THAN = "initialVersionLessThan";
 
-        @Nonnull
         private List<Block> finalizingBlocks;
-
 
         /**
          * A {@code schema_template} variant specified in the .yamsql file.
@@ -157,17 +153,17 @@ public class SetupBlock extends ConnectedBlock {
          * @param createSchemaTemplateSql  the {@code CREATE SCHEMA TEMPLATE} statement built from the variant’s
          *                                 {@code definition} body
          */
-        private record Variant(@Nonnull YamlReference reference, @Nonnull Range<SemanticVersion> range,
-                               @Nonnull String createSchemaTemplateSql) {
+        private record Variant(YamlReference reference, Range<SemanticVersion> range,
+                               String createSchemaTemplateSql) {
         }
 
         /**
          * A resolved {@link Variant} holding the {@link QueryCommand} to execute.
          */
-        private record VariantCommands(@Nonnull Range<SemanticVersion> range, @Nonnull QueryCommand command) {
+        private record VariantCommands(Range<SemanticVersion> range, QueryCommand command) {
         }
 
-        public static List<Block> parse(@Nonnull final YamlReference reference, @Nonnull Object document, @Nonnull YamlExecutionContext executionContext) {
+        public static List<Block> parse(final YamlReference reference, Object document, YamlExecutionContext executionContext) {
             try {
                 final String identifier = "YAML_" + UUID.randomUUID().toString().toUpperCase(Locale.ROOT).replace("-", "").substring(0, 16);
                 final String schemaTemplateName = identifier + "_TEMPLATE";
@@ -212,27 +208,23 @@ public class SetupBlock extends ConnectedBlock {
             }
         }
 
-        @Nonnull
-        private static Consumer<YamlConnection> asExecutable(@Nonnull String step, @Nonnull YamlReference reference,
-                                                             @Nonnull YamlExecutionContext executionContext) {
+        private static Consumer<YamlConnection> asExecutable(String step, YamlReference reference,
+                                                             YamlExecutionContext executionContext) {
             return QueryCommand.withQueryString(reference, step, executionContext)::execute;
         }
 
-        @Nonnull
         private static String buildCreateSchemaTemplateSql(final String schemaTemplateName, final String body) {
             return "CREATE SCHEMA TEMPLATE " + schemaTemplateName + " " + body;
         }
 
-        @Nonnull
-        private static List<Variant> parseSingleVariant(@Nonnull Object document, @Nonnull YamlReference reference,
-                                                        @Nonnull String schemaTemplateName) {
+        private static List<Variant> parseSingleVariant(Object document, YamlReference reference,
+                                                        String schemaTemplateName) {
             final String body = Matchers.string(document, "schema template description");
             return List.of(new Variant(reference, SemanticVersionRanges.all(),
                     buildCreateSchemaTemplateSql(schemaTemplateName, body)));
         }
 
-        @Nonnull
-        private static List<Variant> parseVariantList(@Nonnull Object document, @Nonnull YamlReference reference, @Nonnull String schemaTemplateName) {
+        private static List<Variant> parseVariantList(Object document, YamlReference reference, String schemaTemplateName) {
             final List<?> rawVariants = Matchers.arrayList(document, "schema_template variants");
             Assert.thatUnchecked(!rawVariants.isEmpty(), "schema_template list form must declare at least one variant");
             final List<Variant> parsed = new ArrayList<>(rawVariants.size());
@@ -250,7 +242,7 @@ public class SetupBlock extends ConnectedBlock {
             return parsed;
         }
 
-        private static int extractVariantLineNumber(@Nonnull Map<?, ?> rawVariantMap, @Nonnull YamlReference outerReference) {
+        private static int extractVariantLineNumber(Map<?, ?> rawVariantMap, YamlReference outerReference) {
             return rawVariantMap.keySet().stream()
                     .filter(CustomYamlConstructor.LinedObject.class::isInstance)
                     .mapToInt(k -> ((CustomYamlConstructor.LinedObject) k).getLineNumber())
@@ -258,8 +250,7 @@ public class SetupBlock extends ConnectedBlock {
                     .orElse(outerReference.getLineNumber());
         }
 
-        @Nonnull
-        private static Range<SemanticVersion> parseVariantRange(@Nonnull Map<?, ?> variantMap) {
+        private static Range<SemanticVersion> parseVariantRange(Map<?, ?> variantMap) {
             final boolean hasAtLeast = variantMap.containsKey(INITIAL_VERSION_AT_LEAST);
             final boolean hasLessThan = variantMap.containsKey(INITIAL_VERSION_LESS_THAN);
             if (!hasAtLeast && !hasLessThan) {
@@ -278,7 +269,7 @@ public class SetupBlock extends ConnectedBlock {
             return Range.closedOpen(lowerBound, upperBound);
         }
 
-        private static void validateVariants(@Nonnull List<Variant> variants, @Nonnull YamlReference reference) {
+        private static void validateVariants(List<Variant> variants, YamlReference reference) {
             final List<Range<SemanticVersion>> ranges = variants.stream().map(Variant::range).collect(Collectors.toList());
 
             // Check for overlapping ranges.
@@ -300,15 +291,14 @@ public class SetupBlock extends ConnectedBlock {
             }
         }
 
-        private SchemaTemplateBlock(@Nonnull final YamlReference reference, @Nonnull final String schemaTemplateName,
-                                    @Nonnull final String databaseName, @Nonnull List<Consumer<YamlConnection>> executables,
-                                    @Nonnull YamlExecutionContext executionContext) {
+        private SchemaTemplateBlock(final YamlReference reference, final String schemaTemplateName,
+                                    final String databaseName, List<Consumer<YamlConnection>> executables,
+                                    YamlExecutionContext executionContext) {
             super(reference, executables, executionContext.inferConnectionTarget(reference.getResource(), 0), executionContext);
             this.finalizingBlocks = List.of(DestructTemplateBlock.withDatabaseAndSchema(reference, executionContext, schemaTemplateName, databaseName));
         }
 
         @Override
-        @Nonnull
         public List<Block> getAndClearFinalizingBlocks() {
             final var toReturn = List.copyOf(finalizingBlocks);
             finalizingBlocks = List.of();
@@ -318,8 +308,8 @@ public class SetupBlock extends ConnectedBlock {
 
     private static final class DestructTemplateBlock extends SetupBlock {
 
-        public static DestructTemplateBlock withDatabaseAndSchema(@Nonnull final YamlReference reference, @Nonnull YamlExecutionContext executionContext,
-                                                                  @Nonnull String schemaTemplateName, @Nonnull String databasePath) {
+        public static DestructTemplateBlock withDatabaseAndSchema(final YamlReference reference, YamlExecutionContext executionContext,
+                                                                  String schemaTemplateName, String databasePath) {
             try {
                 final var steps = new ArrayList<String>();
                 steps.add("DROP DATABASE " + databasePath);
@@ -335,7 +325,7 @@ public class SetupBlock extends ConnectedBlock {
             }
         }
 
-        private DestructTemplateBlock(@Nonnull final YamlReference reference, @Nonnull List<Consumer<YamlConnection>> executables, @Nonnull YamlExecutionContext executionContext) {
+        private DestructTemplateBlock(final YamlReference reference, List<Consumer<YamlConnection>> executables, YamlExecutionContext executionContext) {
             super(reference, executables, executionContext.inferConnectionTarget(reference.getResource(), 0), executionContext);
         }
     }

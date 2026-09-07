@@ -23,15 +23,11 @@ package com.apple.foundationdb.relational.yamltests.block;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.YamlReference;
 
-import javax.annotation.Nonnull;
-
 public abstract class SupportBlock implements Block {
 
     @Override
-    @Nonnull
     public YamlReference getReference() {
-        Assert.failUnchecked("Support blocks do not have reference");
-        return null;
+        throw Assert.failUnchecked("Support blocks do not have reference");
     }
 
     @Override

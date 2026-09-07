@@ -54,8 +54,7 @@ import org.junit.jupiter.api.extension.TestTemplateInvocationContext;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
 import org.opentest4j.TestAbortedException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -69,12 +68,15 @@ import java.util.stream.Stream;
  */
 public class YamlTestExtension implements TestTemplateInvocationContextProvider, BeforeAllCallback, AfterAllCallback {
     private static final Logger logger = LogManager.getLogger(YamlTestExtension.class);
+    // Set by beforeAll(), which JUnit always calls before any test template method; null only if beforeAll hasn't
+    // run yet (or failed partway through), which afterAll() below accounts for.
+    @Nullable
     private List<YamlTestConfig> testConfigs;
+    @Nullable
     private List<YamlTestConfig> maintainConfigs;
     /** External servers grouped by jar version. Each {@link Clusters} has one server per cluster file (same order as {@link #clusterFiles}). */
     @Nullable
     private List<Clusters<ExternalServer>> externalServerGroups;
-    @Nonnull
     private final List<String> clusterFiles;
     private final boolean includeMethodInDescriptions;
 
@@ -91,7 +93,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
      * necessary, but if integrating some other tools this might be necessary.
      */
     @API(API.Status.DEPRECATED)
-    public YamlTestExtension(@Nonnull final String clusterFile, final boolean includeMethodInDescriptions) {
+    public YamlTestExtension(final String clusterFile, final boolean includeMethodInDescriptions) {
         this(List.of(clusterFile), includeMethodInDescriptions);
     }
 
@@ -101,7 +103,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
      * @param includeMethodInDescriptions Set this to {@code true} if publishing test results to something that cannot
      * handle complex test hierarchies.
      */
-    public YamlTestExtension(@Nonnull final List<String> clusterFiles, final boolean includeMethodInDescriptions) {
+    public YamlTestExtension(final List<String> clusterFiles, final boolean includeMethodInDescriptions) {
         this.clusterFiles = clusterFiles;
         this.includeMethodInDescriptions = includeMethodInDescriptions;
     }
@@ -156,7 +158,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                     // The configs for multi-server testing
                     externalServerConfigs).collect(Collectors.toList());
         }
-        for (final YamlTestConfig testConfig : Iterables.concat(testConfigs, maintainConfigs)) {
+        for (final YamlTestConfig testConfig : Iterables.concat(Objects.requireNonNull(testConfigs), Objects.requireNonNull(maintainConfigs))) {
             testConfig.beforeAll();
         }
     }
@@ -170,15 +172,17 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     }
 
     private Stream<YamlTestConfig> externalServerConfigs(final boolean singleExternalVersionOnly) {
+        // Only called from beforeAll(), after externalServerGroups has been populated a few lines above.
+        final List<Clusters<ExternalServer>> groups = Objects.requireNonNull(externalServerGroups);
         if (singleExternalVersionOnly) {
-            return externalServerGroups.stream()
+            return groups.stream()
                     // Create an ExternalServer config with two connections to the same servers for each version
                     // (with and without forced continuations)
                     .flatMap(group ->
                             Stream.of(new ExternalMultiServerConfig(0, group, group),
                                     new ForceContinuations(new ExternalMultiServerConfig(0, group, group))));
         } else {
-            return externalServerGroups.stream().flatMap(group ->
+            return groups.stream().flatMap(group ->
                     // (4 configs for each server version available)
                     Stream.of(new JDBCMultiServerConfig(0, group),
                             new ForceContinuations(new JDBCMultiServerConfig(0, group)),
@@ -248,7 +252,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             // just not being there. This may waste some resources if all the tests being run exclude a config that has
             // expensive @BeforeAll.
             final var annotation = testMethod.getAnnotation(ExcludeYamlTestConfig.class);
-            return testConfigs
+            return Objects.requireNonNull(testConfigs)
                     .stream()
                     .map(config -> new Context(config, annotation.reason(), annotation.value(),
                             includeMethodInDescriptions, testMethod.getName()));
@@ -260,14 +264,14 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                     testMethod.getAnnotation(MaintainYamlTestConfig.class);
             return provideInvocationContextsForMaintenance(annotation, testMethod.getName());
         }
-        return testConfigs
+        return Objects.requireNonNull(testConfigs)
                 .stream()
                 .map(config -> new Context(config, "", null, includeMethodInDescriptions, testMethod.getName()));
     }
 
     private Stream<TestTemplateInvocationContext> provideInvocationContextsForMaintenance(
-            @Nonnull final MaintainYamlTestConfig annotation, @Nonnull final String methodName) {
-        return maintainConfigs
+            final MaintainYamlTestConfig annotation, final String methodName) {
+        return Objects.requireNonNull(maintainConfigs)
                 .stream()
                 .map(config -> new Context(config, "maintenance not needed",
                         Objects.requireNonNull(annotation.value()), includeMethodInDescriptions, methodName));
@@ -278,19 +282,16 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
      * method and a {@link YamlTestConfig}).
      */
     private static class Context implements TestTemplateInvocationContext {
-        @Nonnull
         private final YamlTestConfig config;
-        @Nonnull
         private final String excludedReason;
         @Nullable
         private final YamlTestConfigFilters configFilters;
         private final boolean includeMethodInDescriptions;
-        @Nonnull
         private final String methodName;
 
-        public Context(@Nonnull final YamlTestConfig config, @Nonnull final String excludedReason,
+        public Context(final YamlTestConfig config, final String excludedReason,
                        @Nullable final YamlTestConfigFilters configFilters,
-                       final boolean includeMethodInDescriptions, @Nonnull final String methodName) {
+                       final boolean includeMethodInDescriptions, final String methodName) {
             this.config = config;
             this.excludedReason = excludedReason;
             this.configFilters = configFilters;
@@ -318,14 +319,13 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
      */
     private static final class ClassParameterResolver implements ParameterResolver {
 
-        @Nonnull
         private final YamlTestConfig config;
         @Nullable
         private final YamlTestConfigFilters filters;
         @Nullable
         private final String excludedReason;
 
-        public ClassParameterResolver(@Nonnull final YamlTestConfig config,
+        public ClassParameterResolver(final YamlTestConfig config,
                                       @Nullable final YamlTestConfigFilters filters,
                                       @Nullable final String excludedReason) {
             this.config = config;

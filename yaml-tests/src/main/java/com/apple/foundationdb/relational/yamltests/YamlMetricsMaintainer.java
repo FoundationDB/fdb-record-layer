@@ -33,8 +33,9 @@ import org.junit.jupiter.api.Assertions;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
+import static com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto.Info;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -80,12 +81,9 @@ public class YamlMetricsMaintainer {
             "insert_reused_count"
     );
 
-    @Nonnull
     private final YamlReference.YamlResource resource;
-    @Nonnull
-    private final ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> expectedMetricsMap;
-    @Nonnull
-    private final Map<QueryAndLocation, PlannerMetricsProto.Info> actualMetricsMap;
+    private final ImmutableMap<PlannerMetricsProto.Identifier, Info> expectedMetricsMap;
+    private final Map<QueryAndLocation, Info> actualMetricsMap;
     private volatile boolean isDirty = false;
 
     private static final Comparator<QueryAndLocation> ACTUAL_METRICS_ORDER =
@@ -93,15 +91,15 @@ public class YamlMetricsMaintainer {
                     .thenComparing(QueryAndLocation::getBlockName)
                     .thenComparing(QueryAndLocation::getQuery);
 
-    public YamlMetricsMaintainer(@Nonnull YamlReference.YamlResource resource) throws RelationalException {
+    public YamlMetricsMaintainer(YamlReference.YamlResource resource) throws RelationalException {
         this.resource = resource;
         this.expectedMetricsMap = loadMetricsResource(resource);
         this.actualMetricsMap = new TreeMap<>(ACTUAL_METRICS_ORDER);
     }
 
     /** Testing constructor: bypasses file loading. */
-    YamlMetricsMaintainer(@Nonnull YamlReference.YamlResource resource,
-                          @Nonnull ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> expectedMetrics) {
+    YamlMetricsMaintainer(YamlReference.YamlResource resource,
+                          ImmutableMap<PlannerMetricsProto.Identifier, Info> expectedMetrics) {
         this.resource = resource;
         this.expectedMetricsMap = expectedMetrics;
         this.actualMetricsMap = new TreeMap<>(ACTUAL_METRICS_ORDER);
@@ -114,7 +112,7 @@ public class YamlMetricsMaintainer {
 
     @VisibleForTesting
     @Nullable
-    PlannerMetricsProto.Info getActualMetrics(@Nonnull final PlannerMetricsProto.Identifier identifier) {
+    Info getActualMetrics(final PlannerMetricsProto.Identifier identifier) {
         return actualMetricsMap.entrySet().stream()
                 .filter(e -> e.getKey().getIdentifier().equals(identifier))
                 .map(Map.Entry::getValue)
@@ -123,14 +121,14 @@ public class YamlMetricsMaintainer {
     }
 
     @Nullable
-    public PlannerMetricsProto.Info getMetrics(@Nonnull PlannerMetricsProto.Identifier identifier) {
+    public Info getMetrics(PlannerMetricsProto.Identifier identifier) {
         return expectedMetricsMap.get(identifier);
     }
 
     @SuppressWarnings("UnusedReturnValue")
-    public synchronized PlannerMetricsProto.Info putMetrics(@Nonnull final PlannerMetricsProto.Identifier identifier,
-                                                            @Nonnull final YamlReference reference,
-                                                            @Nonnull final PlannerMetricsProto.Info info) {
+    public synchronized Info putMetrics(final PlannerMetricsProto.Identifier identifier,
+                                                            final YamlReference reference,
+                                                            final Info info) {
         return actualMetricsMap.put(new QueryAndLocation(identifier, reference), info);
     }
 
@@ -156,7 +154,7 @@ public class YamlMetricsMaintainer {
         // query in the same block a second time, there will be pain. Don't do that! We log a warning for this case
         // but continue.
         //
-        final var condensedMetricsMap = new LinkedHashMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>();
+        final var condensedMetricsMap = new LinkedHashMap<PlannerMetricsProto.Identifier, Info>();
         for (final var entry : actualMetricsMap.entrySet()) {
             final var queryAndLocation = entry.getKey();
             final var identifier = queryAndLocation.getIdentifier();
@@ -230,12 +228,11 @@ public class YamlMetricsMaintainer {
         }
     }
 
-    @Nonnull
-    private static ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> loadMetricsResource(@Nonnull final YamlReference.YamlResource resource) throws RelationalException {
+    private static ImmutableMap<PlannerMetricsProto.Identifier, Info> loadMetricsResource(final YamlReference.YamlResource resource) throws RelationalException {
         final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         final var fis = classLoader.getResourceAsStream(metricsBinaryProtoFileName(resource.getPath()));
         final var resultMapBuilder =
-                ImmutableMap.<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>builder();
+                ImmutableMap.<PlannerMetricsProto.Identifier, Info>builder();
         if (fis == null) {
             return resultMapBuilder.build();
         }
@@ -252,51 +249,42 @@ public class YamlMetricsMaintainer {
         }
     }
 
-    @Nonnull
-    private static String baseName(@Nonnull final String resourcePath) {
+    private static String baseName(final String resourcePath) {
         final var tokens = resourcePath.split("\\.(?=[^\\.]+$)");
         Verify.verify(tokens.length == 2);
         Verify.verify("yamsql".equals(tokens[1]));
         return tokens[0];
     }
 
-    @Nonnull
-    private static String metricsBinaryProtoFileName(@Nonnull final String resourcePath) {
+    private static String metricsBinaryProtoFileName(final String resourcePath) {
         return baseName(resourcePath) + ".metrics.binpb";
     }
 
-    @Nonnull
-    private static String metricsYamlFileName(@Nonnull final String resourcePath) {
+    private static String metricsYamlFileName(final String resourcePath) {
         return baseName(resourcePath) + ".metrics.yaml";
     }
 
     private static class QueryAndLocation {
-        @Nonnull
         private final PlannerMetricsProto.Identifier identifier;
-        @Nonnull
         private final YamlReference reference;
 
-        public QueryAndLocation(@Nonnull final PlannerMetricsProto.Identifier identifier, @Nonnull final YamlReference reference) {
+        public QueryAndLocation(final PlannerMetricsProto.Identifier identifier, final YamlReference reference) {
             this.identifier = identifier;
             this.reference = reference;
         }
 
-        @Nonnull
         public PlannerMetricsProto.Identifier getIdentifier() {
             return identifier;
         }
 
-        @Nonnull
         public String getBlockName() {
             return identifier.getBlockName();
         }
 
-        @Nonnull
         public String getQuery() {
             return identifier.getQuery();
         }
 
-        @Nonnull
         public YamlReference getReference() {
             return reference;
         }

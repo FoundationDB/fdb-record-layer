@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.yamltests.connectionfactory;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
@@ -35,7 +34,6 @@ import java.util.stream.Collectors;
  * @param <T> the type of server or driver held by each entry
  */
 public class Clusters<T extends Clusters.BoundToCluster> implements Iterable<T> {
-    @Nonnull
     private final List<T> entries;
 
     /** Private constructor to support the static {@link Clusters#empty()}. */
@@ -43,7 +41,7 @@ public class Clusters<T extends Clusters.BoundToCluster> implements Iterable<T> 
         this.entries = List.of();
     }
 
-    private Clusters(@Nonnull List<T> entries) {
+    private Clusters(List<T> entries) {
         if (entries.isEmpty()) {
             throw new IllegalArgumentException("At least one cluster entry is required");
         }
@@ -90,7 +88,6 @@ public class Clusters<T extends Clusters.BoundToCluster> implements Iterable<T> 
     /**
      * Returns the cluster files in order.
      */
-    @Nonnull
     public List<String> clusterFiles() {
         return entries.stream().map(BoundToCluster::clusterFile).collect(Collectors.toList());
     }
@@ -109,7 +106,6 @@ public class Clusters<T extends Clusters.BoundToCluster> implements Iterable<T> 
      * @return the entry at that index
      * @throws SQLException if the index is out of range
      */
-    @Nonnull
     public T get(int clusterIndex) throws SQLException {
         if (clusterIndex < 0 || clusterIndex >= entries.size()) {
             throw new SQLException("Cluster index " + clusterIndex + " not available (only " +
@@ -119,7 +115,6 @@ public class Clusters<T extends Clusters.BoundToCluster> implements Iterable<T> 
     }
 
     @Override
-    @Nonnull
     public Iterator<T> iterator() {
         return entries.iterator();
     }
@@ -130,22 +125,18 @@ public class Clusters<T extends Clusters.BoundToCluster> implements Iterable<T> 
      * @param <T> the type of server or driver
      */
     public static class Entry<T> implements BoundToCluster {
-        @Nonnull
         private final T server;
-        @Nonnull
         private final String clusterFile;
 
-        public Entry(@Nonnull T server, @Nonnull String clusterFile) {
+        public Entry(T server, String clusterFile) {
             this.server = server;
             this.clusterFile = clusterFile;
         }
 
-        @Nonnull
         public T server() {
             return server;
         }
 
-        @Nonnull
         @Override
         public String clusterFile() {
             return clusterFile;
@@ -156,7 +147,6 @@ public class Clusters<T extends Clusters.BoundToCluster> implements Iterable<T> 
      * An interface for a server (or driver) and its associated cluster file.
      */
     public interface BoundToCluster {
-        @Nonnull
         String clusterFile();
     }
 }
