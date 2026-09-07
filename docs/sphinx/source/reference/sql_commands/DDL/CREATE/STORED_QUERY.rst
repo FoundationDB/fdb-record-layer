@@ -19,7 +19,12 @@ Syntax
 .. code-block:: sql
 
     CREATE STORED QUERY query_name
-        [ ( parameter_name data_type [ NOT NULL ], ... ) ]
+        [ ( parameter_name data_type [ NOT NULL ], ... )
+          PREPARE FOR (
+              ( parameter_name { IS [ NOT ] NULL | = { TRUE | FALSE } }, ... ),
+              ...
+          )
+        ]
         [ DECLARE
               FUNCTION function_name ( [IN] parameter_name data_type [DEFAULT default_value], ... )
                   AS ( query );
@@ -34,7 +39,10 @@ Parameters
     The name of the stored query, unique within the schema template. The name identifies the stored query in metadata; it is not used to invoke the query.
 
 signature
-    Optional. Declares typed named parameters, which the body refers to by name. See `Signature`_ below.
+    Optional. Declares typed named parameters, which the body refers to by name. See `Signature`_ below. A signature requires a ``PREPARE FOR`` block, and a ``PREPARE FOR`` block requires a signature.
+
+``PREPARE FOR`` block
+    Required whenever a signature is present. Lists the combinations of parameter states that each get their own warmed plan. Every case must pin every declared parameter. See `Prepared cases`_ below.
 
 ``DECLARE`` block
     Optional. Declares one or more transaction-local functions that the stored query body may call, using the same syntax as :ref:`CREATE TEMPORARY FUNCTION <create_temporary_function>`. Multiple functions are separated by semicolons.
@@ -50,6 +58,7 @@ A stored query may declare parameters, which is how it stands in for a runtime q
 .. code-block:: sql
 
     CREATE STORED QUERY by_col1(param_a BIGINT)
+        PREPARE FOR ((param_a IS NOT NULL))
         AS SELECT * FROM t1 WHERE col1 = param_a
 
 In the body a parameter is written as a **bare identifier**, with no ``?`` — unlike the runtime statement it stands for, where the same reference is ``?param_a``. It becomes exactly that internally, so the stored form above is equivalent to ``SELECT * FROM t1 WHERE col1 = ?PARAM_A``. A parameter may also be referred to inside a declared function's body.
@@ -66,11 +75,53 @@ The two are compared as raw strings, so the name a client uses is the declared i
 .. code-block:: sql
 
     CREATE STORED QUERY by_zone("CK___zone_key" BIGINT, adopter_a INTEGER)
+        PREPARE FOR (("CK___zone_key" IS NOT NULL, adopter_a IS NOT NULL))
         AS SELECT * FROM t1 WHERE zone_key = "CK___zone_key" AND adopter = adopter_a
 
-``"CK___zone_key"`` is quoted, so it keeps its spelling and a client binds ``?CK___zone_key``. ``adopter_a`` is not, so it becomes ``ADOPTER_A`` and a client binds ``?ADOPTER_A``. Quote a parameter — in the signature and in every reference in the body — whenever the client's spelling is not already upper case.
+``"CK___zone_key"`` is quoted, so it keeps its spelling and a client binds ``?CK___zone_key``. ``adopter_a`` is not, so it becomes ``ADOPTER_A`` and a client binds ``?ADOPTER_A``. Quote a parameter — in the signature, in the prepared cases, and in every reference in the body — whenever the client's spelling is not already upper case.
 
 A parameter name must not collide with a parameter of a declared function, since inside that function's body the two references would be indistinguishable.
+
+Prepared cases
+==============
+
+Most plans depend only on the type of a value, so one plan serves every value of that type. A few depend on the value itself: a ``NULL``, or a boolean ``TRUE`` or ``FALSE``, lets the planner fold predicates away, drop index probes and delete whole branches. ``PREPARE FOR`` lists the combinations worth their own plan, and each is warmed separately.
+
+Four states can be written for a parameter:
+
+.. list-table::
+    :header-rows: 1
+    :widths: 20 80
+
+    * - written
+      - warmed for
+    * - ``p IS NOT NULL``
+      - any non-null value of ``p``'s declared type
+    * - ``p IS NULL``
+      - a null binding only, with the predicate folded away at plan time
+    * - ``p = TRUE``
+      - a ``true`` binding only
+    * - ``p = FALSE``
+      - a ``false`` binding only
+
+``= TRUE`` and ``= FALSE`` require the parameter to be declared ``BOOLEAN``. ``IS NULL`` cannot be written for a parameter declared ``NOT NULL``, since that would contradict the declaration.
+
+Every case must pin **every** declared parameter:
+
+.. code-block:: sql
+
+    CREATE STORED QUERY by_zone("CK___zone_key" BIGINT, zone_wide BOOLEAN)
+        PREPARE FOR (
+            ("CK___zone_key" IS NULL,     zone_wide = FALSE),
+            ("CK___zone_key" IS NOT NULL, zone_wide = FALSE)
+        )
+        AS SELECT * FROM t1 WHERE zone_key = "CK___zone_key" AND wide = zone_wide
+
+Two plans are warmed here. The first has ``"CK___zone_key"`` bound to null while planning, so the planner folds that predicate; the second leaves it without a value and only knows it is not null, so the plan keeps the predicate and can use a zone index.
+
+Because each case pins every parameter to a definite state, no two cases can overlap, and there is no rule about which one wins. A binding no case matches — ``zone_wide`` bound to ``true`` above — is not an error: the runtime misses the cache, plans the query with the values in hand and returns correct rows. Only the warm-up is missed. Add a case for a combination that turns out to be hot.
+
+A parameter left unpinned is rejected. For a nullable parameter the plan would have to be built with no value and a nullable type, and no single plan is correct for both a null and a non-null binding. For a parameter declared ``NOT NULL`` the omission would in fact be safe, since the declaration already excludes null — it is rejected all the same, so that a case names every parameter and can be read without checking the declarations.
 
 Examples
 ========
@@ -84,7 +135,7 @@ Declare a stored query as part of a schema template:
         CREATE INDEX i1 AS SELECT col1 FROM t1
         CREATE STORED QUERY by_col1 AS SELECT * FROM t1 WHERE col1 = 10
 
-``by_col1`` warms a plan for ``col1 = 10``. Because literal values are stripped during planning, any runtime query of the same shape reuses it regardless of the constant:
+``by_col1`` declares no parameters, so it needs no ``PREPARE FOR``. It warms a plan for ``col1 = 10``. Because literal values are stripped during planning, any runtime query of the same shape reuses it regardless of the constant:
 
 .. code-block:: sql
 
@@ -111,17 +162,18 @@ Temporary functions in scope are part of the plan-cache key, so a runtime query 
 
 The function definition must match the one declared in the stored query; the invocation's literal is stripped, so any argument value reuses the plan.
 
-A signature and a ``DECLARE`` block combine, and a parameter may be captured inside a function's body:
+A signature and a ``DECLARE`` block combine, and a parameter may be captured inside a function's body. ``PREPARE FOR`` comes before ``DECLARE``:
 
 .. code-block:: sql
 
     CREATE STORED QUERY by_fn(param_a BIGINT, param_b BIGINT)
+        PREPARE FOR ((param_a IS NOT NULL, param_b IS NOT NULL))
         DECLARE
             FUNCTION f1(IN p BIGINT) AS (SELECT * FROM t1 WHERE col1 = p AND col2 = param_a)
         AS
             SELECT id FROM f1(param_b)
 
-Here ``param_a`` is captured by ``f1``'s body while ``param_b`` is passed as its argument. The runtime counterpart installs the same temporary function and issues the same query, binding ``?PARAM_A`` and ``?PARAM_B``.
+Here ``param_a`` is captured by ``f1``'s body while ``param_b`` is passed as its argument. The runtime counterpart installs the same temporary function and issues the same query, binding ``?PARAM_A`` and ``?PARAM_B``. The declared function is planned together with the body, once per case, since a captured parameter changes the function's plan too.
 
 See Also
 ========
