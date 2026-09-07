@@ -64,6 +64,18 @@ In the body a parameter is written as a **bare identifier**, with no ``?`` — u
 
 A parameter is **nullable by default**, as a column is. Write ``NOT NULL`` to declare that it never receives a null.
 
+A parameter may be of any type a prepared statement parameter can be. A type declared by the schema template — a struct or an enum — needs the ``TYPE`` keyword, unlike a column definition, which takes the bare name:
+
+.. code-block:: sql
+
+    CREATE TYPE AS STRUCT stats_t (start_date BIGINT, hometown STRING)
+    CREATE TABLE reviewer (id BIGINT, stats stats_t, PRIMARY KEY(id))   -- column: bare name
+    CREATE STORED QUERY by_stats(p TYPE stats_t)                        -- parameter: TYPE keyword
+        PREPARE FOR ((p IS NOT NULL))
+        AS SELECT id FROM reviewer WHERE stats = p
+
+Such a parameter is not warmed yet: see `What is not warmed`_.
+
 Naming
 ------
 
@@ -130,6 +142,17 @@ A parameter declared ``NOT NULL`` may be left out, since ``IS NOT NULL`` is the 
     CREATE STORED QUERY by_zone("CK___zone_key" BIGINT NOT NULL, adopter_a INTEGER)
         PREPARE FOR (adopter_a IS NOT NULL)
         AS SELECT * FROM t1 WHERE zone_key = "CK___zone_key" AND adopter = adopter_a
+
+What is not warmed
+==================
+
+A failure to warm is never an error at ``CREATE`` time and never affects a runtime query: the reason is logged, the counter ``OFFLINE_STORED_QUERIES_QUERIES_FAILED`` is bumped, and that stored query is skipped. Queries in the same schema template are unaffected — each is warmed on its own.
+
+A query over a filtered (sparse) index is not warmed. The planner needs the concrete value to prove that the index predicate covers the range, and a parameter pinned ``IS NOT NULL`` supplies a type only.
+
+A parameter declared with a **schema template type** — a struct, an enum, or an array of either — is not warmed when a case leaves it without a value, i.e. pins it ``IS NOT NULL``. Warm-up has to build the type from the declaration, and a name declared by the template cannot be resolved from persisted metadata yet. Everything else resolves, including ``VECTOR(128, FLOAT)``, ``UUID`` and arrays of primitives.
+
+This is not a runtime limitation. A client binds a struct with ``setObject`` and the type comes from the value itself, so such a query plans and runs normally — only cold. Pinning the same parameter ``IS NULL`` is warmed too, since that case binds a real value and needs no type.
 
 Examples
 ========
