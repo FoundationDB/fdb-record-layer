@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 
 public interface RecordMetaDataStore {
@@ -37,5 +36,5 @@ public interface RecordMetaDataStore {
      * @return the metadata for the schema.
      * @throws RelationalException if the metadata cannot be loaded.
      */
-    RecordMetaDataProvider loadMetaData(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) throws RelationalException;
+    RecordMetaDataProvider loadMetaData(Transaction txn, URI dbUri, String schemaName) throws RelationalException;
 }

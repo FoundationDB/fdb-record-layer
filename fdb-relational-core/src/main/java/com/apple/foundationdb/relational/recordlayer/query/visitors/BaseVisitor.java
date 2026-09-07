@@ -53,9 +53,7 @@ import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSql
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
 import com.apple.foundationdb.relational.util.Assert;
 import org.antlr.v4.runtime.tree.ParseTree;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
@@ -71,51 +69,39 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     private final boolean caseSensitive;
 
-    @Nonnull
     protected final MutablePlanGenerationContext mutablePlanGenerationContext;
 
-    @Nonnull
     private final DdlQueryFactory ddlQueryFactory;
 
-    @Nonnull
     private final URI dbUri;
 
     /**
      * The current plan fragment. This will initially be empty, prior to the first call to {@link #pushPlanFragment()}.
      */
-    @Nonnull
     protected Optional<LogicalPlanFragment> currentPlanFragment;
 
-    @Nonnull
     private final ExpressionVisitor expressionVisitor;
 
-    @Nonnull
     private final IdentifierVisitor identifierVisitor;
 
-    @Nonnull
     private final QueryVisitor queryVisitor;
 
-    @Nonnull
     private final MetadataPlanVisitor metadataPlanVisitor;
 
-    @Nonnull
     private final DdlVisitor ddlVisitor;
 
-    @Nonnull
     private RecordLayerSchemaTemplate metadata;
 
-    @Nonnull
     private SemanticAnalyzer semanticAnalyzer;
 
-    @Nonnull
     private final LogicalOperatorCatalog logicalOperatorCatalog;
 
     @SuppressWarnings("this-escape")
-    public BaseVisitor(@Nonnull MutablePlanGenerationContext mutablePlanGenerationContext,
-                       @Nonnull RecordLayerSchemaTemplate metadata,
-                       @Nonnull DdlQueryFactory ddlQueryFactory,
-                       @Nonnull MetadataOperationsFactory metadataOperationsFactory,
-                       @Nonnull URI dbUri,
+    public BaseVisitor(MutablePlanGenerationContext mutablePlanGenerationContext,
+                       RecordLayerSchemaTemplate metadata,
+                       DdlQueryFactory ddlQueryFactory,
+                       MetadataOperationsFactory metadataOperationsFactory,
+                       URI dbUri,
                        boolean caseSensitive) {
         this.mutablePlanGenerationContext = mutablePlanGenerationContext;
         this.metadata = metadata;
@@ -133,47 +119,39 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         this.logicalOperatorCatalog = LogicalOperatorCatalog.newInstance();
     }
 
-    @Nonnull
     public MutablePlanGenerationContext getPlanGenerationContext() {
         return mutablePlanGenerationContext;
     }
 
-    @Nonnull
     protected IdentifierVisitor getIdentifierVisitor() {
         return identifierVisitor;
     }
 
-    @Nonnull
-    public Plan<?> generateLogicalPlan(@Nonnull ParseTree parseTree) {
+    public Plan<?> generateLogicalPlan(ParseTree parseTree) {
         final var result = visit(parseTree);
         return Assert.castUnchecked(result, Plan.class, ErrorCode.INTERNAL_ERROR, () -> "Could not generate a logical plan");
     }
 
-    @Nonnull
     public RecordLayerSchemaTemplate getSchemaTemplate() {
         return metadata;
     }
 
-    @Nonnull
-    public RecordLayerSchemaTemplate replaceSchemaTemplate(@Nonnull RecordLayerSchemaTemplate newCatalog) {
+    public RecordLayerSchemaTemplate replaceSchemaTemplate(RecordLayerSchemaTemplate newCatalog) {
         final var oldMetadata = metadata;
         metadata = newCatalog;
         semanticAnalyzer = new SemanticAnalyzer(metadata, createFunctionCatalog(metadata), mutablePlanGenerationContext, isCaseSensitive());
         return oldMetadata;
     }
 
-    @Nonnull
     public SemanticAnalyzer getSemanticAnalyzer() {
         return semanticAnalyzer;
     }
 
-    @Nonnull
     public LogicalOperatorCatalog getLogicalOperatorCatalog() {
         return logicalOperatorCatalog;
     }
 
-    @Nonnull
-    public SqlFunctionCatalog createFunctionCatalog(@Nonnull final RecordLayerSchemaTemplate metadata) {
+    public SqlFunctionCatalog createFunctionCatalog(final RecordLayerSchemaTemplate metadata) {
         return SqlFunctionCatalog.newInstance(metadata, isCaseSensitive());
     }
 
@@ -181,12 +159,10 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return caseSensitive;
     }
 
-    @Nonnull
     LogicalOperators getLogicalOperators() {
         return currentPlanFragment.orElseThrow().getLogicalOperators();
     }
 
-    @Nonnull
     LogicalOperators getLogicalOperatorsIncludingOuter() {
         return currentPlanFragment.orElseThrow().getLogicalOperatorsIncludingOuter();
     }
@@ -207,7 +183,6 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
      *
      * @see #popPlanFragment
      */
-    @Nonnull
     public LogicalPlanFragment pushPlanFragment() {
         currentPlanFragment = Optional.of(currentPlanFragment.map(LogicalPlanFragment::addChild).orElse(LogicalPlanFragment.ofRoot()));
         return currentPlanFragment.get();
@@ -230,13 +205,11 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
      * @throws com.apple.foundationdb.relational.api.exceptions.RelationalException if no fragment has been pushed
      * @see #pushPlanFragment
      */
-    @Nonnull
     LogicalPlanFragment getCurrentPlanFragment() {
         Assert.thatUnchecked(currentPlanFragment.isPresent());
         return currentPlanFragment.get();
     }
 
-    @Nonnull
     Optional<LogicalPlanFragment> getCurrentPlanFragmentMaybe() {
         return currentPlanFragment;
     }
@@ -245,29 +218,29 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return getPlanGenerationContext().isForDdl();
     }
 
-    @Nonnull
-    protected String normalizeString(@Nonnull final String value) {
+    // SemanticAnalyzer.normalizeString() is @Nullable only when its input is null; value here is @NonNull, so the
+    // result is never null. Assert.notNullUnchecked enforces that invariant at runtime with a clear
+    // RelationalException, but NullAway can't see that since Assert lives in the not-yet-migrated
+    // fdb-relational-api module.
+    @SuppressWarnings("NullAway")
+    protected String normalizeString(final String value) {
         return Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(value, caseSensitive));
     }
 
-    @Nonnull
-    public Expression resolveFunction(@Nonnull String functionName, @Nonnull Expression... arguments) {
+    public Expression resolveFunction(String functionName, Expression... arguments) {
         return resolveFunction(functionName, Expressions.of(arguments));
     }
 
-    @Nonnull
-    public Expression resolveFunction(@Nonnull String functionName, @Nonnull Expressions arguments) {
+    public Expression resolveFunction(String functionName, Expressions arguments) {
         return getSemanticAnalyzer().resolveFunction(functionName, arguments.toCallSiteArguments(true), true);
     }
 
-    @Nonnull
-    public Expression resolveFunction(@Nonnull String functionName, boolean flattenSingleItemRecords, @Nonnull Expression... arguments) {
+    public Expression resolveFunction(String functionName, boolean flattenSingleItemRecords, Expression... arguments) {
         return getSemanticAnalyzer().resolveFunction(functionName,
                 Expressions.of(arguments).toCallSiteArguments(flattenSingleItemRecords), flattenSingleItemRecords);
     }
 
-    @Nonnull
-    public LogicalOperator resolveTableValuedFunction(@Nonnull Identifier functionName, @Nonnull Expressions arguments) {
+    public LogicalOperator resolveTableValuedFunction(Identifier functionName, Expressions arguments) {
         return getSemanticAnalyzer().resolveTableFunction(functionName, arguments, true);
     }
 
@@ -276,175 +249,147 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return nextResult != null ? nextResult : aggregate;
     }
 
-    @Nonnull
     @Override
-    public Object visitRoot(@Nonnull RelationalParser.RootContext ctx) {
+    public Object visitRoot(RelationalParser.RootContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitStatements(@Nonnull RelationalParser.StatementsContext ctx) {
+    public Object visitStatements(RelationalParser.StatementsContext ctx) {
         return visitChildren(ctx);
     }
 
     @Nullable
     @Override
-    public Object visitStatement(@Nonnull RelationalParser.StatementContext ctx) {
+    public Object visitStatement(RelationalParser.StatementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public QueryPlan.LogicalQueryPlan visitDmlStatement(@Nonnull RelationalParser.DmlStatementContext ctx) {
+    public QueryPlan.LogicalQueryPlan visitDmlStatement(RelationalParser.DmlStatementContext ctx) {
         return queryVisitor.visitDmlStatement(ctx);
     }
 
-    @Nonnull
     @Override
     public Object visitDdlStatement(RelationalParser.DdlStatementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitTransactionStatement(@Nonnull RelationalParser.TransactionStatementContext ctx) {
+    public Object visitTransactionStatement(RelationalParser.TransactionStatementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitPreparedStatement(@Nonnull RelationalParser.PreparedStatementContext ctx) {
+    public Object visitPreparedStatement(RelationalParser.PreparedStatementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitAdministrationStatement(@Nonnull RelationalParser.AdministrationStatementContext ctx) {
+    public Object visitAdministrationStatement(RelationalParser.AdministrationStatementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitUtilityStatement(@Nonnull RelationalParser.UtilityStatementContext ctx) {
+    public Object visitUtilityStatement(RelationalParser.UtilityStatementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitTemplateClause(@Nonnull RelationalParser.TemplateClauseContext ctx) {
+    public Object visitTemplateClause(RelationalParser.TemplateClauseContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public ProceduralPlan visitCreateSchemaStatement(@Nonnull RelationalParser.CreateSchemaStatementContext ctx) {
+    public ProceduralPlan visitCreateSchemaStatement(RelationalParser.CreateSchemaStatementContext ctx) {
         return ddlVisitor.visitCreateSchemaStatement(ctx);
     }
 
-    @Nonnull
     @Override
-    public ProceduralPlan visitCreateSchemaTemplateStatement(@Nonnull RelationalParser.CreateSchemaTemplateStatementContext ctx) {
+    public ProceduralPlan visitCreateSchemaTemplateStatement(RelationalParser.CreateSchemaTemplateStatementContext ctx) {
         return ddlVisitor.visitCreateSchemaTemplateStatement(ctx);
     }
 
-    @Nonnull
     @Override
-    public ProceduralPlan visitCreateDatabaseStatement(@Nonnull RelationalParser.CreateDatabaseStatementContext ctx) {
+    public ProceduralPlan visitCreateDatabaseStatement(RelationalParser.CreateDatabaseStatementContext ctx) {
         return ddlVisitor.visitCreateDatabaseStatement(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitOptionsClause(@Nonnull RelationalParser.OptionsClauseContext ctx) {
+    public Object visitOptionsClause(RelationalParser.OptionsClauseContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitOption(@Nonnull RelationalParser.OptionContext ctx) {
+    public Object visitOption(RelationalParser.OptionContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public ProceduralPlan visitDropDatabaseStatement(@Nonnull RelationalParser.DropDatabaseStatementContext ctx) {
+    public ProceduralPlan visitDropDatabaseStatement(RelationalParser.DropDatabaseStatementContext ctx) {
         return ddlVisitor.visitDropDatabaseStatement(ctx);
     }
 
-    @Nonnull
     @Override
-    public ProceduralPlan visitDropSchemaTemplateStatement(@Nonnull RelationalParser.DropSchemaTemplateStatementContext ctx) {
+    public ProceduralPlan visitDropSchemaTemplateStatement(RelationalParser.DropSchemaTemplateStatementContext ctx) {
         return ddlVisitor.visitDropSchemaTemplateStatement(ctx);
     }
 
-    @Nonnull
     @Override
-    public ProceduralPlan visitDropSchemaStatement(@Nonnull RelationalParser.DropSchemaStatementContext ctx) {
+    public ProceduralPlan visitDropSchemaStatement(RelationalParser.DropSchemaStatementContext ctx) {
         return ddlVisitor.visitDropSchemaStatement(ctx);
     }
 
-    @Nonnull
     @Override
-    public RecordLayerTable visitStructDefinition(@Nonnull RelationalParser.StructDefinitionContext ctx) {
+    public RecordLayerTable visitStructDefinition(RelationalParser.StructDefinitionContext ctx) {
         return ddlVisitor.visitStructDefinition(ctx);
     }
 
-    @Nonnull
     @Override
-    public RecordLayerTable visitTableDefinition(@Nonnull RelationalParser.TableDefinitionContext ctx) {
+    public RecordLayerTable visitTableDefinition(RelationalParser.TableDefinitionContext ctx) {
         return ddlVisitor.visitTableDefinition(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitColumnDefinition(@Nonnull RelationalParser.ColumnDefinitionContext ctx) {
+    public Object visitColumnDefinition(RelationalParser.ColumnDefinitionContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public DataType visitFunctionColumnType(@Nonnull final RelationalParser.FunctionColumnTypeContext ctx) {
+    public DataType visitFunctionColumnType(final RelationalParser.FunctionColumnTypeContext ctx) {
         return ddlVisitor.visitFunctionColumnType(ctx);
     }
 
-    @Nonnull
     @Override
-    public Boolean visitNullColumnConstraint(@Nonnull RelationalParser.NullColumnConstraintContext ctx) {
+    public Boolean visitNullColumnConstraint(RelationalParser.NullColumnConstraintContext ctx) {
         return ddlVisitor.visitNullColumnConstraint(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitPrimaryKeyDefinition(@Nonnull RelationalParser.PrimaryKeyDefinitionContext ctx) {
+    public Object visitPrimaryKeyDefinition(RelationalParser.PrimaryKeyDefinitionContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
     public List<Identifier> visitFullIdList(RelationalParser.FullIdListContext ctx) {
         return identifierVisitor.visitFullIdList(ctx);
     }
 
-    @Nonnull
     @Override
-    public DataType.Named visitEnumDefinition(@Nonnull RelationalParser.EnumDefinitionContext ctx) {
+    public DataType.Named visitEnumDefinition(RelationalParser.EnumDefinitionContext ctx) {
         return ddlVisitor.visitEnumDefinition(ctx);
     }
 
-    @Nonnull
     @Override
-    public RecordLayerIndex visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext ctx) {
+    public RecordLayerIndex visitIndexAsSelectDefinition(RelationalParser.IndexAsSelectDefinitionContext ctx) {
         return ddlVisitor.visitIndexAsSelectDefinition(ctx);
     }
 
-    @Nonnull
     @Override
-    public RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx) {
+    public RecordLayerIndex visitIndexOnSourceDefinition(RelationalParser.IndexOnSourceDefinitionContext ctx) {
         return ddlVisitor.visitIndexOnSourceDefinition(ctx);
     }
 
-    @Nonnull
     @Override
     public RecordLayerIndex visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext ctx) {
         return ddlVisitor.visitVectorIndexDefinition(ctx);
@@ -485,9 +430,8 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return ddlVisitor.visitStatementBody(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitUserDefinedMacroFunctionStatementBody(@Nonnull RelationalParser.UserDefinedMacroFunctionStatementBodyContext ctx) {
+    public Expression visitUserDefinedMacroFunctionStatementBody(RelationalParser.UserDefinedMacroFunctionStatementBodyContext ctx) {
         return ddlVisitor.visitUserDefinedMacroFunctionStatementBody(ctx);
     }
 
@@ -576,57 +520,48 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitCharSet(@Nonnull RelationalParser.CharSetContext ctx) {
+    public Object visitCharSet(RelationalParser.CharSetContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitIntervalType(@Nonnull RelationalParser.IntervalTypeContext ctx) {
+    public Object visitIntervalType(RelationalParser.IntervalTypeContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSchemaId(@Nonnull RelationalParser.SchemaIdContext ctx) {
+    public Object visitSchemaId(RelationalParser.SchemaIdContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitPath(@Nonnull RelationalParser.PathContext ctx) {
+    public Object visitPath(RelationalParser.PathContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSchemaTemplateId(@Nonnull RelationalParser.SchemaTemplateIdContext ctx) {
+    public Object visitSchemaTemplateId(RelationalParser.SchemaTemplateIdContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitDeleteStatement(@Nonnull RelationalParser.DeleteStatementContext ctx) {
+    public LogicalOperator visitDeleteStatement(RelationalParser.DeleteStatementContext ctx) {
         return queryVisitor.visitDeleteStatement(ctx);
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitInsertStatement(@Nonnull RelationalParser.InsertStatementContext ctx) {
+    public LogicalOperator visitInsertStatement(RelationalParser.InsertStatementContext ctx) {
         return queryVisitor.visitInsertStatement(ctx);
     }
 
-    @Nonnull
     @Override
     public QueryPlan.LogicalQueryPlan visitSelectStatement(RelationalParser.SelectStatementContext ctx) {
         return queryVisitor.visitSelectStatement(ctx);
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitQuery(@Nonnull RelationalParser.QueryContext ctx) {
+    public LogicalOperator visitQuery(RelationalParser.QueryContext ctx) {
         return queryVisitor.visitQuery(ctx);
     }
 
@@ -636,14 +571,13 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return queryVisitor.visitCtes(ctx);
     }
 
-    @Nonnull
     @Override
     public LogicalOperator visitNamedQuery(RelationalParser.NamedQueryContext ctx) {
         return queryVisitor.visitNamedQuery(ctx);
     }
 
     @Override
-    public LogicalOperator visitTableFunction(@Nonnull final RelationalParser.TableFunctionContext ctx) {
+    public LogicalOperator visitTableFunction(final RelationalParser.TableFunctionContext ctx) {
         return expressionVisitor.visitTableFunction(ctx);
     }
 
@@ -657,114 +591,98 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return identifierVisitor.visitTableFunctionName(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitContinuationAtom(@Nonnull RelationalParser.ContinuationAtomContext ctx) {
+    public Expression visitContinuationAtom(RelationalParser.ContinuationAtomContext ctx) {
         return expressionVisitor.visitContinuationAtom(ctx);
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitQueryTermDefault(@Nonnull RelationalParser.QueryTermDefaultContext ctx) {
+    public LogicalOperator visitQueryTermDefault(RelationalParser.QueryTermDefaultContext ctx) {
         return Assert.castUnchecked(visitChildren(ctx), LogicalOperator.class);
     }
 
-    @Nonnull
     @Override
     public LogicalOperator visitSetQuery(RelationalParser.SetQueryContext ctx) {
         return queryVisitor.visitSetQuery(ctx);
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitInsertStatementValueSelect(@Nonnull RelationalParser.InsertStatementValueSelectContext ctx) {
+    public LogicalOperator visitInsertStatementValueSelect(RelationalParser.InsertStatementValueSelectContext ctx) {
         return queryVisitor.visitInsertStatementValueSelect(ctx);
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitInsertStatementValueValues(@Nonnull RelationalParser.InsertStatementValueValuesContext ctx) {
+    public LogicalOperator visitInsertStatementValueValues(RelationalParser.InsertStatementValueValuesContext ctx) {
         return queryVisitor.visitInsertStatementValueValues(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expressions visitUpdatedElement(@Nonnull RelationalParser.UpdatedElementContext ctx) {
+    public Expressions visitUpdatedElement(RelationalParser.UpdatedElementContext ctx) {
         return expressionVisitor.visitUpdatedElement(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitAssignmentField(@Nonnull RelationalParser.AssignmentFieldContext ctx) {
+    public Object visitAssignmentField(RelationalParser.AssignmentFieldContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitUpdateStatement(@Nonnull RelationalParser.UpdateStatementContext ctx) {
+    public LogicalOperator visitUpdateStatement(RelationalParser.UpdateStatementContext ctx) {
         return queryVisitor.visitUpdateStatement(ctx);
     }
 
-    @Nonnull
     @Override
-    public List<OrderByExpression> visitOrderByClause(@Nonnull RelationalParser.OrderByClauseContext ctx) {
+    public List<OrderByExpression> visitOrderByClause(RelationalParser.OrderByClauseContext ctx) {
         return expressionVisitor.visitOrderByClause(ctx);
     }
 
-    @Nonnull
     @Override
-    public OrderByExpression visitOrderByExpression(@Nonnull RelationalParser.OrderByExpressionContext ctx) {
+    public OrderByExpression visitOrderByExpression(RelationalParser.OrderByExpressionContext ctx) {
         return expressionVisitor.visitOrderByExpression(ctx);
     }
 
     @Override
     @Nullable
-    public Void visitTableSources(@Nonnull RelationalParser.TableSourcesContext ctx) {
+    public Void visitTableSources(RelationalParser.TableSourcesContext ctx) {
         return queryVisitor.visitTableSources(ctx);
     }
 
     @Nullable
     @Override
-    public Void visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx) {
+    public Void visitTableSourceBase(RelationalParser.TableSourceBaseContext ctx) {
         return queryVisitor.visitTableSourceBase(ctx);
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitAtomTableItem(@Nonnull RelationalParser.AtomTableItemContext ctx) {
+    public LogicalOperator visitAtomTableItem(RelationalParser.AtomTableItemContext ctx) {
         return queryVisitor.visitAtomTableItem(ctx);
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitSubqueryTableItem(@Nonnull RelationalParser.SubqueryTableItemContext ctx) {
+    public LogicalOperator visitSubqueryTableItem(RelationalParser.SubqueryTableItemContext ctx) {
         return queryVisitor.visitSubqueryTableItem(ctx);
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitInlineTableItem(@Nonnull RelationalParser.InlineTableItemContext ctx) {
+    public LogicalOperator visitInlineTableItem(RelationalParser.InlineTableItemContext ctx) {
         return queryVisitor.visitInlineTableItem(ctx);
     }
 
     @Override
-    public LogicalOperator visitTableValuedFunction(@Nonnull final RelationalParser.TableValuedFunctionContext ctx) {
+    public LogicalOperator visitTableValuedFunction(final RelationalParser.TableValuedFunctionContext ctx) {
         return queryVisitor.visitTableValuedFunction(ctx);
     }
 
-    @Nonnull
     @Override
-    public Set<String> visitIndexHint(@Nonnull RelationalParser.IndexHintContext ctx) {
+    public Set<String> visitIndexHint(RelationalParser.IndexHintContext ctx) {
         return queryVisitor.visitIndexHint(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitIndexHintType(@Nonnull RelationalParser.IndexHintTypeContext ctx) {
+    public Object visitIndexHintType(RelationalParser.IndexHintTypeContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
     public NonnullPair<String, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitInlineTableDefinition(final RelationalParser.InlineTableDefinitionContext ctx) {
         return expressionVisitor.visitInlineTableDefinition(ctx);
@@ -772,812 +690,681 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nullable
     @Override
-    public Object visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
+    public Object visitInnerJoin(RelationalParser.InnerJoinContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitStraightJoin(@Nonnull RelationalParser.StraightJoinContext ctx) {
+    public Object visitStraightJoin(RelationalParser.StraightJoinContext ctx) {
         throw new RelationalException("STRAIGHT_JOIN is not supported", ErrorCode.UNSUPPORTED_QUERY).toUncheckedWrappedException();
     }
 
-    @Nonnull
     @Override
-    public Object visitOuterJoin(@Nonnull RelationalParser.OuterJoinContext ctx) {
+    public Object visitOuterJoin(RelationalParser.OuterJoinContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitNaturalJoin(@Nonnull RelationalParser.NaturalJoinContext ctx) {
+    public Object visitNaturalJoin(RelationalParser.NaturalJoinContext ctx) {
         throw new RelationalException("NATURAL JOIN is not supported", ErrorCode.UNSUPPORTED_QUERY).toUncheckedWrappedException();
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitSimpleTable(@Nonnull RelationalParser.SimpleTableContext ctx) {
+    public LogicalOperator visitSimpleTable(RelationalParser.SimpleTableContext ctx) {
         return queryVisitor.visitSimpleTable(ctx);
     }
 
-    @Nonnull
     @Override
     public LogicalOperator visitParenthesisQuery(RelationalParser.ParenthesisQueryContext ctx) {
         return queryVisitor.visitParenthesisQuery(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expressions visitSelectElements(@Nonnull RelationalParser.SelectElementsContext ctx) {
+    public Expressions visitSelectElements(RelationalParser.SelectElementsContext ctx) {
         return expressionVisitor.visitSelectElements(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitSelectStarElement(@Nonnull RelationalParser.SelectStarElementContext ctx) {
+    public Expression visitSelectStarElement(RelationalParser.SelectStarElementContext ctx) {
         return expressionVisitor.visitSelectStarElement(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSelectQualifierStarElement(@Nonnull RelationalParser.SelectQualifierStarElementContext ctx) {
+    public Object visitSelectQualifierStarElement(RelationalParser.SelectQualifierStarElementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitSelectExpressionElement(@Nonnull RelationalParser.SelectExpressionElementContext ctx) {
+    public Expression visitSelectExpressionElement(RelationalParser.SelectExpressionElementContext ctx) {
         return expressionVisitor.visitSelectExpressionElement(ctx);
     }
 
     @Override
     @Nullable
-    public Void visitFromClause(@Nonnull RelationalParser.FromClauseContext ctx) {
+    public Void visitFromClause(RelationalParser.FromClauseContext ctx) {
         return queryVisitor.visitFromClause(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expressions visitGroupByClause(@Nonnull RelationalParser.GroupByClauseContext ctx) {
+    public Expressions visitGroupByClause(RelationalParser.GroupByClauseContext ctx) {
         return expressionVisitor.visitGroupByClause(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitWhereExpr(@Nonnull RelationalParser.WhereExprContext ctx) {
+    public Expression visitWhereExpr(RelationalParser.WhereExprContext ctx) {
         return expressionVisitor.visitWhereExpr(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitHavingClause(@Nonnull RelationalParser.HavingClauseContext ctx) {
+    public Expression visitHavingClause(RelationalParser.HavingClauseContext ctx) {
         return expressionVisitor.visitHavingClause(ctx);
     }
 
-    @Nonnull
     @Override
     public Expression visitQualifyClause(final RelationalParser.QualifyClauseContext ctx) {
         return expressionVisitor.visitQualifyClause(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitGroupByItem(@Nonnull RelationalParser.GroupByItemContext ctx) {
+    public Expression visitGroupByItem(RelationalParser.GroupByItemContext ctx) {
         return expressionVisitor.visitGroupByItem(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitLimitClause(@Nonnull RelationalParser.LimitClauseContext ctx) {
+    public Expression visitLimitClause(RelationalParser.LimitClauseContext ctx) {
         return expressionVisitor.visitLimitClause(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitLimitClauseAtom(@Nonnull RelationalParser.LimitClauseAtomContext ctx) {
+    public Expression visitLimitClauseAtom(RelationalParser.LimitClauseAtomContext ctx) {
         return expressionVisitor.visitLimitClauseAtom(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitStatementOptions(@Nonnull RelationalParser.StatementOptionsContext ctx) {
+    public Object visitStatementOptions(RelationalParser.StatementOptionsContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitStatementOption(@Nonnull RelationalParser.StatementOptionContext ctx) {
+    public Object visitStatementOption(RelationalParser.StatementOptionContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitStartTransaction(@Nonnull RelationalParser.StartTransactionContext ctx) {
+    public Object visitStartTransaction(RelationalParser.StartTransactionContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitCommitStatement(@Nonnull RelationalParser.CommitStatementContext ctx) {
+    public Object visitCommitStatement(RelationalParser.CommitStatementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitRollbackStatement(@Nonnull RelationalParser.RollbackStatementContext ctx) {
+    public Object visitRollbackStatement(RelationalParser.RollbackStatementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSetAutocommitStatement(@Nonnull RelationalParser.SetAutocommitStatementContext ctx) {
+    public Object visitSetAutocommitStatement(RelationalParser.SetAutocommitStatementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSetTransactionStatement(@Nonnull RelationalParser.SetTransactionStatementContext ctx) {
+    public Object visitSetTransactionStatement(RelationalParser.SetTransactionStatementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitTransactionOption(@Nonnull RelationalParser.TransactionOptionContext ctx) {
+    public Object visitTransactionOption(RelationalParser.TransactionOptionContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitTransactionLevel(@Nonnull RelationalParser.TransactionLevelContext ctx) {
+    public Object visitTransactionLevel(RelationalParser.TransactionLevelContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitPrepareStatement(@Nonnull RelationalParser.PrepareStatementContext ctx) {
+    public Object visitPrepareStatement(RelationalParser.PrepareStatementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitExecuteStatement(@Nonnull RelationalParser.ExecuteStatementContext ctx) {
+    public Object visitExecuteStatement(RelationalParser.ExecuteStatementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public QueryPlan.MetadataQueryPlan visitShowDatabasesStatement(@Nonnull RelationalParser.ShowDatabasesStatementContext ctx) {
+    public QueryPlan.MetadataQueryPlan visitShowDatabasesStatement(RelationalParser.ShowDatabasesStatementContext ctx) {
         return metadataPlanVisitor.visitShowDatabasesStatement(ctx);
     }
 
-    @Nonnull
     @Override
-    public QueryPlan.MetadataQueryPlan visitShowSchemaTemplatesStatement(@Nonnull RelationalParser.ShowSchemaTemplatesStatementContext ctx) {
+    public QueryPlan.MetadataQueryPlan visitShowSchemaTemplatesStatement(RelationalParser.ShowSchemaTemplatesStatementContext ctx) {
         return metadataPlanVisitor.visitShowSchemaTemplatesStatement(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSetVariable(@Nonnull RelationalParser.SetVariableContext ctx) {
+    public Object visitSetVariable(RelationalParser.SetVariableContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSetCharset(@Nonnull RelationalParser.SetCharsetContext ctx) {
+    public Object visitSetCharset(RelationalParser.SetCharsetContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSetNames(@Nonnull RelationalParser.SetNamesContext ctx) {
+    public Object visitSetNames(RelationalParser.SetNamesContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSetTransaction(@Nonnull RelationalParser.SetTransactionContext ctx) {
+    public Object visitSetTransaction(RelationalParser.SetTransactionContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSetAutocommit(@Nonnull RelationalParser.SetAutocommitContext ctx) {
+    public Object visitSetAutocommit(RelationalParser.SetAutocommitContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSetNewValueInsideTrigger(@Nonnull RelationalParser.SetNewValueInsideTriggerContext ctx) {
+    public Object visitSetNewValueInsideTrigger(RelationalParser.SetNewValueInsideTriggerContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitVariableClause(@Nonnull RelationalParser.VariableClauseContext ctx) {
+    public Object visitVariableClause(RelationalParser.VariableClauseContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitKillStatement(@Nonnull RelationalParser.KillStatementContext ctx) {
+    public Object visitKillStatement(RelationalParser.KillStatementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitResetStatement(@Nonnull RelationalParser.ResetStatementContext ctx) {
+    public Object visitResetStatement(RelationalParser.ResetStatementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitTableIndexes(@Nonnull RelationalParser.TableIndexesContext ctx) {
+    public Object visitTableIndexes(RelationalParser.TableIndexesContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitLoadedTableIndexes(@Nonnull RelationalParser.LoadedTableIndexesContext ctx) {
+    public Object visitLoadedTableIndexes(RelationalParser.LoadedTableIndexesContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public QueryPlan.MetadataQueryPlan visitSimpleDescribeSchemaStatement(@Nonnull RelationalParser.SimpleDescribeSchemaStatementContext ctx) {
+    public QueryPlan.MetadataQueryPlan visitSimpleDescribeSchemaStatement(RelationalParser.SimpleDescribeSchemaStatementContext ctx) {
         return metadataPlanVisitor.visitSimpleDescribeSchemaStatement(ctx);
     }
 
-    @Nonnull
     @Override
-    public QueryPlan.MetadataQueryPlan visitSimpleDescribeSchemaTemplateStatement(@Nonnull RelationalParser.SimpleDescribeSchemaTemplateStatementContext ctx) {
+    public QueryPlan.MetadataQueryPlan visitSimpleDescribeSchemaTemplateStatement(RelationalParser.SimpleDescribeSchemaTemplateStatementContext ctx) {
         return metadataPlanVisitor.visitSimpleDescribeSchemaTemplateStatement(ctx);
     }
 
-    @Nonnull
     @Override
-    public QueryPlan.LogicalQueryPlan visitFullDescribeStatement(@Nonnull RelationalParser.FullDescribeStatementContext ctx) {
+    public QueryPlan.LogicalQueryPlan visitFullDescribeStatement(RelationalParser.FullDescribeStatementContext ctx) {
         return queryVisitor.visitFullDescribeStatement(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitHelpStatement(@Nonnull RelationalParser.HelpStatementContext ctx) {
+    public Object visitHelpStatement(RelationalParser.HelpStatementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitDescribeStatements(@Nonnull RelationalParser.DescribeStatementsContext ctx) {
+    public Object visitDescribeStatements(RelationalParser.DescribeStatementsContext ctx) {
         return queryVisitor.visitDescribeStatements(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitDescribeConnection(@Nonnull RelationalParser.DescribeConnectionContext ctx) {
+    public Object visitDescribeConnection(RelationalParser.DescribeConnectionContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Identifier visitFullId(@Nonnull RelationalParser.FullIdContext ctx) {
+    public Identifier visitFullId(RelationalParser.FullIdContext ctx) {
         return identifierVisitor.visitFullId(ctx);
     }
 
-    @Nonnull
     @Override
-    public Identifier visitTableName(@Nonnull RelationalParser.TableNameContext ctx) {
+    public Identifier visitTableName(RelationalParser.TableNameContext ctx) {
         return identifierVisitor.visitTableName(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitFullColumnName(@Nonnull RelationalParser.FullColumnNameContext ctx) {
+    public Expression visitFullColumnName(RelationalParser.FullColumnNameContext ctx) {
         return expressionVisitor.visitFullColumnName(ctx);
     }
 
-    @Nonnull
     @Override
-    public Identifier visitIndexColumnName(@Nonnull RelationalParser.IndexColumnNameContext ctx) {
+    public Identifier visitIndexColumnName(RelationalParser.IndexColumnNameContext ctx) {
         return identifierVisitor.visitIndexColumnName(ctx);
     }
 
-    @Nonnull
     @Override
-    public Identifier visitCharsetName(@Nonnull RelationalParser.CharsetNameContext ctx) {
+    public Identifier visitCharsetName(RelationalParser.CharsetNameContext ctx) {
         return identifierVisitor.visitCharsetName(ctx);
     }
 
-    @Nonnull
     @Override
-    public Identifier visitCollationName(@Nonnull RelationalParser.CollationNameContext ctx) {
+    public Identifier visitCollationName(RelationalParser.CollationNameContext ctx) {
         return identifierVisitor.visitCollationName(ctx);
     }
 
-    @Nonnull
     @Override
-    public Identifier visitUid(@Nonnull RelationalParser.UidContext ctx) {
+    public Identifier visitUid(RelationalParser.UidContext ctx) {
         return identifierVisitor.visitUid(ctx);
     }
 
-    @Nonnull
     @Override
-    public Identifier visitSimpleId(@Nonnull RelationalParser.SimpleIdContext ctx) {
+    public Identifier visitSimpleId(RelationalParser.SimpleIdContext ctx) {
         return identifierVisitor.visitSimpleId(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitNullNotnull(@Nonnull RelationalParser.NullNotnullContext ctx) {
+    public Object visitNullNotnull(RelationalParser.NullNotnullContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitDecimalLiteral(@Nonnull RelationalParser.DecimalLiteralContext ctx) {
+    public Expression visitDecimalLiteral(RelationalParser.DecimalLiteralContext ctx) {
         return expressionVisitor.visitDecimalLiteral(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitStringLiteral(@Nonnull RelationalParser.StringLiteralContext ctx) {
+    public Expression visitStringLiteral(RelationalParser.StringLiteralContext ctx) {
         return expressionVisitor.visitStringLiteral(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitBooleanLiteral(@Nonnull RelationalParser.BooleanLiteralContext ctx) {
+    public Expression visitBooleanLiteral(RelationalParser.BooleanLiteralContext ctx) {
         return expressionVisitor.visitBooleanLiteral(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitBytesLiteral(@Nonnull RelationalParser.BytesLiteralContext ctx) {
+    public Expression visitBytesLiteral(RelationalParser.BytesLiteralContext ctx) {
         return expressionVisitor.visitBytesLiteral(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitNullLiteral(@Nonnull RelationalParser.NullLiteralContext ctx) {
+    public Expression visitNullLiteral(RelationalParser.NullLiteralContext ctx) {
         return expressionVisitor.visitNullLiteral(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitStringConstant(@Nonnull RelationalParser.StringConstantContext ctx) {
+    public Expression visitStringConstant(RelationalParser.StringConstantContext ctx) {
         return expressionVisitor.visitStringConstant(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitDecimalConstant(@Nonnull RelationalParser.DecimalConstantContext ctx) {
+    public Expression visitDecimalConstant(RelationalParser.DecimalConstantContext ctx) {
         return expressionVisitor.visitDecimalConstant(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitNegativeDecimalConstant(@Nonnull RelationalParser.NegativeDecimalConstantContext ctx) {
+    public Expression visitNegativeDecimalConstant(RelationalParser.NegativeDecimalConstantContext ctx) {
         return expressionVisitor.visitNegativeDecimalConstant(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitBytesConstant(@Nonnull RelationalParser.BytesConstantContext ctx) {
+    public Expression visitBytesConstant(RelationalParser.BytesConstantContext ctx) {
         return expressionVisitor.visitBytesConstant(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitBooleanConstant(@Nonnull RelationalParser.BooleanConstantContext ctx) {
+    public Expression visitBooleanConstant(RelationalParser.BooleanConstantContext ctx) {
         return expressionVisitor.visitBooleanConstant(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitBitStringConstant(@Nonnull RelationalParser.BitStringConstantContext ctx) {
+    public Expression visitBitStringConstant(RelationalParser.BitStringConstantContext ctx) {
         return expressionVisitor.visitBitStringConstant(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitNullConstant(@Nonnull RelationalParser.NullConstantContext ctx) {
+    public Expression visitNullConstant(RelationalParser.NullConstantContext ctx) {
         return expressionVisitor.visitNullConstant(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitStringDataType(@Nonnull RelationalParser.StringDataTypeContext ctx) {
+    public Object visitStringDataType(RelationalParser.StringDataTypeContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitNationalStringDataType(@Nonnull RelationalParser.NationalStringDataTypeContext ctx) {
+    public Object visitNationalStringDataType(RelationalParser.NationalStringDataTypeContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitNationalVaryingStringDataType(@Nonnull RelationalParser.NationalVaryingStringDataTypeContext ctx) {
+    public Object visitNationalVaryingStringDataType(RelationalParser.NationalVaryingStringDataTypeContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitDimensionDataType(@Nonnull RelationalParser.DimensionDataTypeContext ctx) {
+    public Object visitDimensionDataType(RelationalParser.DimensionDataTypeContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSimpleDataType(@Nonnull RelationalParser.SimpleDataTypeContext ctx) {
+    public Object visitSimpleDataType(RelationalParser.SimpleDataTypeContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitCollectionDataType(@Nonnull RelationalParser.CollectionDataTypeContext ctx) {
+    public Object visitCollectionDataType(RelationalParser.CollectionDataTypeContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSpatialDataType(@Nonnull RelationalParser.SpatialDataTypeContext ctx) {
+    public Object visitSpatialDataType(RelationalParser.SpatialDataTypeContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitLongVarcharDataType(@Nonnull RelationalParser.LongVarcharDataTypeContext ctx) {
+    public Object visitLongVarcharDataType(RelationalParser.LongVarcharDataTypeContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitLongVarbinaryDataType(@Nonnull RelationalParser.LongVarbinaryDataTypeContext ctx) {
+    public Object visitLongVarbinaryDataType(RelationalParser.LongVarbinaryDataTypeContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitCollectionOptions(@Nonnull RelationalParser.CollectionOptionsContext ctx) {
+    public Object visitCollectionOptions(RelationalParser.CollectionOptionsContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitConvertedDataType(@Nonnull RelationalParser.ConvertedDataTypeContext ctx) {
+    public Object visitConvertedDataType(RelationalParser.ConvertedDataTypeContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitLengthOneDimension(@Nonnull RelationalParser.LengthOneDimensionContext ctx) {
+    public Object visitLengthOneDimension(RelationalParser.LengthOneDimensionContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitLengthTwoDimension(@Nonnull RelationalParser.LengthTwoDimensionContext ctx) {
+    public Object visitLengthTwoDimension(RelationalParser.LengthTwoDimensionContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitLengthTwoOptionalDimension(@Nonnull RelationalParser.LengthTwoOptionalDimensionContext ctx) {
+    public Object visitLengthTwoOptionalDimension(RelationalParser.LengthTwoOptionalDimensionContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public List<Identifier> visitUidList(@Nonnull RelationalParser.UidListContext ctx) {
+    public List<Identifier> visitUidList(RelationalParser.UidListContext ctx) {
         return identifierVisitor.visitUidList(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitUidWithNestings(@Nonnull RelationalParser.UidWithNestingsContext ctx) {
+    public Object visitUidWithNestings(RelationalParser.UidWithNestingsContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestingsInParens(@Nonnull RelationalParser.UidListWithNestingsInParensContext ctx) {
+    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestingsInParens(RelationalParser.UidListWithNestingsInParensContext ctx) {
         return expressionVisitor.visitUidListWithNestingsInParens(ctx);
     }
 
-    @Nonnull
     @Override
-    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestings(@Nonnull RelationalParser.UidListWithNestingsContext ctx) {
+    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestings(RelationalParser.UidListWithNestingsContext ctx) {
         return expressionVisitor.visitUidListWithNestings(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitTables(@Nonnull RelationalParser.TablesContext ctx) {
+    public Object visitTables(RelationalParser.TablesContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitIndexColumnNames(@Nonnull RelationalParser.IndexColumnNamesContext ctx) {
+    public Object visitIndexColumnNames(RelationalParser.IndexColumnNamesContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expressions visitExpressions(@Nonnull RelationalParser.ExpressionsContext ctx) {
+    public Expressions visitExpressions(RelationalParser.ExpressionsContext ctx) {
         return expressionVisitor.visitExpressions(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitExpressionsWithDefaults(@Nonnull RelationalParser.ExpressionsWithDefaultsContext ctx) {
+    public Object visitExpressionsWithDefaults(RelationalParser.ExpressionsWithDefaultsContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitRecordConstructorForInsert(@Nonnull RelationalParser.RecordConstructorForInsertContext ctx) {
+    public Expression visitRecordConstructorForInsert(RelationalParser.RecordConstructorForInsertContext ctx) {
         return expressionVisitor.visitRecordConstructorForInsert(ctx);
     }
 
-    @Nonnull
     @Override
     public Expression visitRecordConstructorForInlineTable(final RelationalParser.RecordConstructorForInlineTableContext ctx) {
         return expressionVisitor.visitRecordConstructorForInlineTable(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitRecordConstructor(@Nonnull RelationalParser.RecordConstructorContext ctx) {
+    public Expression visitRecordConstructor(RelationalParser.RecordConstructorContext ctx) {
         return expressionVisitor.visitRecordConstructor(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitOfTypeClause(@Nonnull RelationalParser.OfTypeClauseContext ctx) {
+    public Object visitOfTypeClause(RelationalParser.OfTypeClauseContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitArrayConstructor(@Nonnull RelationalParser.ArrayConstructorContext ctx) {
+    public Expression visitArrayConstructor(RelationalParser.ArrayConstructorContext ctx) {
         return expressionVisitor.visitArrayConstructor(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitUserVariables(@Nonnull RelationalParser.UserVariablesContext ctx) {
+    public Object visitUserVariables(RelationalParser.UserVariablesContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitDefaultValue(@Nonnull RelationalParser.DefaultValueContext ctx) {
+    public Object visitDefaultValue(RelationalParser.DefaultValueContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitCurrentTimestamp(@Nonnull RelationalParser.CurrentTimestampContext ctx) {
+    public Object visitCurrentTimestamp(RelationalParser.CurrentTimestampContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitExpressionOrDefault(@Nonnull RelationalParser.ExpressionOrDefaultContext ctx) {
+    public Object visitExpressionOrDefault(RelationalParser.ExpressionOrDefaultContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitExpressionWithOptionalName(@Nonnull RelationalParser.ExpressionWithOptionalNameContext ctx) {
+    public Expression visitExpressionWithOptionalName(RelationalParser.ExpressionWithOptionalNameContext ctx) {
         return expressionVisitor.visitExpressionWithOptionalName(ctx);
     }
 
     @Nullable
     @Override
-    public Object visitIfExists(@Nonnull RelationalParser.IfExistsContext ctx) {
+    public Object visitIfExists(RelationalParser.IfExistsContext ctx) {
         return visitChildren(ctx);
     }
 
     @Nullable
     @Override
-    public Object visitIfNotExists(@Nonnull RelationalParser.IfNotExistsContext ctx) {
+    public Object visitIfNotExists(RelationalParser.IfNotExistsContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitAggregateFunctionCall(@Nonnull RelationalParser.AggregateFunctionCallContext ctx) {
+    public Expression visitAggregateFunctionCall(RelationalParser.AggregateFunctionCallContext ctx) {
         return expressionVisitor.visitAggregateFunctionCall(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSpecificFunctionCall(@Nonnull RelationalParser.SpecificFunctionCallContext ctx) {
+    public Object visitSpecificFunctionCall(RelationalParser.SpecificFunctionCallContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx) {
+    public Expression visitScalarFunctionCall(RelationalParser.ScalarFunctionCallContext ctx) {
         return expressionVisitor.visitScalarFunctionCall(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
+    public Expression visitUserDefinedScalarFunctionCall(RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
         return expressionVisitor.visitUserDefinedScalarFunctionCall(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSimpleFunctionCall(@Nonnull RelationalParser.SimpleFunctionCallContext ctx) {
+    public Object visitSimpleFunctionCall(RelationalParser.SimpleFunctionCallContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitDataTypeFunctionCall(@Nonnull RelationalParser.DataTypeFunctionCallContext ctx) {
+    public Object visitDataTypeFunctionCall(RelationalParser.DataTypeFunctionCallContext ctx) {
         return expressionVisitor.visitDataTypeFunctionCall(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitValuesFunctionCall(@Nonnull RelationalParser.ValuesFunctionCallContext ctx) {
+    public Object visitValuesFunctionCall(RelationalParser.ValuesFunctionCallContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitCaseExpressionFunctionCall(@Nonnull RelationalParser.CaseExpressionFunctionCallContext ctx) {
+    public Object visitCaseExpressionFunctionCall(RelationalParser.CaseExpressionFunctionCallContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitCaseFunctionCall(@Nonnull RelationalParser.CaseFunctionCallContext ctx) {
+    public Expression visitCaseFunctionCall(RelationalParser.CaseFunctionCallContext ctx) {
         return expressionVisitor.visitCaseFunctionCall(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitCharFunctionCall(@Nonnull RelationalParser.CharFunctionCallContext ctx) {
+    public Object visitCharFunctionCall(RelationalParser.CharFunctionCallContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitPositionFunctionCall(@Nonnull RelationalParser.PositionFunctionCallContext ctx) {
+    public Object visitPositionFunctionCall(RelationalParser.PositionFunctionCallContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitSubstrFunctionCall(@Nonnull RelationalParser.SubstrFunctionCallContext ctx) {
+    public Object visitSubstrFunctionCall(RelationalParser.SubstrFunctionCallContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitTrimFunctionCall(@Nonnull RelationalParser.TrimFunctionCallContext ctx) {
+    public Object visitTrimFunctionCall(RelationalParser.TrimFunctionCallContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitWeightFunctionCall(@Nonnull RelationalParser.WeightFunctionCallContext ctx) {
+    public Object visitWeightFunctionCall(RelationalParser.WeightFunctionCallContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitExtractFunctionCall(@Nonnull RelationalParser.ExtractFunctionCallContext ctx) {
+    public Object visitExtractFunctionCall(RelationalParser.ExtractFunctionCallContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitGetFormatFunctionCall(@Nonnull RelationalParser.GetFormatFunctionCallContext ctx) {
+    public Object visitGetFormatFunctionCall(RelationalParser.GetFormatFunctionCallContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitCaseFuncAlternative(@Nonnull RelationalParser.CaseFuncAlternativeContext ctx) {
+    public Object visitCaseFuncAlternative(RelationalParser.CaseFuncAlternativeContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitLevelWeightList(@Nonnull RelationalParser.LevelWeightListContext ctx) {
+    public Object visitLevelWeightList(RelationalParser.LevelWeightListContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitLevelWeightRange(@Nonnull RelationalParser.LevelWeightRangeContext ctx) {
+    public Object visitLevelWeightRange(RelationalParser.LevelWeightRangeContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitLevelInWeightListElement(@Nonnull RelationalParser.LevelInWeightListElementContext ctx) {
+    public Object visitLevelInWeightListElement(RelationalParser.LevelInWeightListElementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitAggregateWindowedFunction(@Nonnull RelationalParser.AggregateWindowedFunctionContext ctx) {
+    public Expression visitAggregateWindowedFunction(RelationalParser.AggregateWindowedFunctionContext ctx) {
         return expressionVisitor.visitAggregateWindowedFunction(ctx);
     }
 
-    @Nonnull
     @Override
-    public Boolean visitNullTreatmentClause(@Nonnull RelationalParser.NullTreatmentClauseContext ctx) {
+    public Boolean visitNullTreatmentClause(RelationalParser.NullTreatmentClauseContext ctx) {
         return expressionVisitor.visitNullTreatmentClause(ctx);
     }
 
-    @Nonnull
     @Override
     public Expression visitNonAggregateFunctionCall(final RelationalParser.NonAggregateFunctionCallContext ctx) {
         return expressionVisitor.visitNonAggregateFunctionCall(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx) {
+    public Expression visitNonAggregateWindowedFunction(RelationalParser.NonAggregateWindowedFunctionContext ctx) {
         return expressionVisitor.visitNonAggregateWindowedFunction(ctx);
     }
 
-    @Nonnull
     @Override
-    public WindowSpecExpression visitOverClause(@Nonnull RelationalParser.OverClauseContext ctx) {
+    public WindowSpecExpression visitOverClause(RelationalParser.OverClauseContext ctx) {
         return expressionVisitor.visitOverClause(ctx);
     }
 
-    @Nonnull
     @Override
     public Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
         return expressionVisitor.visitPartitionClause(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitWindowName(@Nonnull RelationalParser.WindowNameContext ctx) {
+    public Object visitWindowName(RelationalParser.WindowNameContext ctx) {
         return visitChildren(ctx);
     }
 
 
-    @Nonnull
     @Override
     public Expressions visitWindowOptionsClause(final RelationalParser.WindowOptionsClauseContext ctx) {
         return expressionVisitor.visitWindowOptionsClause(ctx);
     }
 
-    @Nonnull
     @Override
     public Expression visitWindowOption(final RelationalParser.WindowOptionContext ctx) {
         return expressionVisitor.visitWindowOption(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitScalarFunctionName(@Nonnull RelationalParser.ScalarFunctionNameContext ctx) {
+    public Object visitScalarFunctionName(RelationalParser.ScalarFunctionNameContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expressions visitFunctionArgs(@Nonnull RelationalParser.FunctionArgsContext ctx) {
+    public Expressions visitFunctionArgs(RelationalParser.FunctionArgsContext ctx) {
         return expressionVisitor.visitFunctionArgs(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitFunctionArg(@Nonnull RelationalParser.FunctionArgContext ctx) {
+    public Object visitFunctionArg(RelationalParser.FunctionArgContext ctx) {
         return visitChildren(ctx);
     }
 
@@ -1586,191 +1373,160 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return expressionVisitor.visitNamedFunctionArg(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitNotExpression(@Nonnull RelationalParser.NotExpressionContext ctx) {
+    public Expression visitNotExpression(RelationalParser.NotExpressionContext ctx) {
         return expressionVisitor.visitNotExpression(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitLogicalExpression(@Nonnull RelationalParser.LogicalExpressionContext ctx) {
+    public Expression visitLogicalExpression(RelationalParser.LogicalExpressionContext ctx) {
         return expressionVisitor.visitLogicalExpression(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitPredicatedExpression(@Nonnull RelationalParser.PredicatedExpressionContext ctx) {
+    public Expression visitPredicatedExpression(RelationalParser.PredicatedExpressionContext ctx) {
         return expressionVisitor.visitPredicatedExpression(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitBinaryComparisonPredicate(@Nonnull RelationalParser.BinaryComparisonPredicateContext ctx) {
+    public Expression visitBinaryComparisonPredicate(RelationalParser.BinaryComparisonPredicateContext ctx) {
         return expressionVisitor.visitBinaryComparisonPredicate(ctx);
     }
 
     @Override
-    public Expression visitSubscriptExpression(@Nonnull RelationalParser.SubscriptExpressionContext ctx) {
+    public Expression visitSubscriptExpression(RelationalParser.SubscriptExpressionContext ctx) {
         return expressionVisitor.visitSubscriptExpression(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitInList(@Nonnull RelationalParser.InListContext ctx) {
+    public Expression visitInList(RelationalParser.InListContext ctx) {
         return expressionVisitor.visitInList(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitConstantExpressionAtom(@Nonnull RelationalParser.ConstantExpressionAtomContext ctx) {
+    public Object visitConstantExpressionAtom(RelationalParser.ConstantExpressionAtomContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitFunctionCallExpressionAtom(@Nonnull RelationalParser.FunctionCallExpressionAtomContext ctx) {
+    public Expression visitFunctionCallExpressionAtom(RelationalParser.FunctionCallExpressionAtomContext ctx) {
         return expressionVisitor.visitFunctionCallExpressionAtom(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitFullColumnNameExpressionAtom(@Nonnull RelationalParser.FullColumnNameExpressionAtomContext ctx) {
+    public Object visitFullColumnNameExpressionAtom(RelationalParser.FullColumnNameExpressionAtomContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitBitExpressionAtom(@Nonnull RelationalParser.BitExpressionAtomContext ctx) {
+    public Expression visitBitExpressionAtom(RelationalParser.BitExpressionAtomContext ctx) {
         return expressionVisitor.visitBitExpressionAtom(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitPreparedStatementParameterAtom(@Nonnull RelationalParser.PreparedStatementParameterAtomContext ctx) {
+    public Expression visitPreparedStatementParameterAtom(RelationalParser.PreparedStatementParameterAtomContext ctx) {
         return expressionVisitor.visitPreparedStatementParameterAtom(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitRecordConstructorExpressionAtom(@Nonnull RelationalParser.RecordConstructorExpressionAtomContext ctx) {
+    public Object visitRecordConstructorExpressionAtom(RelationalParser.RecordConstructorExpressionAtomContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitArrayConstructorExpressionAtom(@Nonnull RelationalParser.ArrayConstructorExpressionAtomContext ctx) {
+    public Object visitArrayConstructorExpressionAtom(RelationalParser.ArrayConstructorExpressionAtomContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitMathExpressionAtom(@Nonnull RelationalParser.MathExpressionAtomContext ctx) {
+    public Expression visitMathExpressionAtom(RelationalParser.MathExpressionAtomContext ctx) {
         return expressionVisitor.visitMathExpressionAtom(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitExistsExpressionAtom(@Nonnull RelationalParser.ExistsExpressionAtomContext ctx) {
+    public Expression visitExistsExpressionAtom(RelationalParser.ExistsExpressionAtomContext ctx) {
         return expressionVisitor.visitExistsExpressionAtom(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitPreparedStatementParameter(@Nonnull RelationalParser.PreparedStatementParameterContext ctx) {
+    public Expression visitPreparedStatementParameter(RelationalParser.PreparedStatementParameterContext ctx) {
         return expressionVisitor.visitPreparedStatementParameter(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitUnaryOperator(@Nonnull RelationalParser.UnaryOperatorContext ctx) {
+    public Object visitUnaryOperator(RelationalParser.UnaryOperatorContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitComparisonOperator(@Nonnull RelationalParser.ComparisonOperatorContext ctx) {
+    public Object visitComparisonOperator(RelationalParser.ComparisonOperatorContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitLogicalOperator(@Nonnull RelationalParser.LogicalOperatorContext ctx) {
+    public Object visitLogicalOperator(RelationalParser.LogicalOperatorContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitBitOperator(@Nonnull RelationalParser.BitOperatorContext ctx) {
+    public Object visitBitOperator(RelationalParser.BitOperatorContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitMathOperator(@Nonnull RelationalParser.MathOperatorContext ctx) {
+    public Object visitMathOperator(RelationalParser.MathOperatorContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitJsonOperator(@Nonnull RelationalParser.JsonOperatorContext ctx) {
+    public Object visitJsonOperator(RelationalParser.JsonOperatorContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitCharsetNameBase(@Nonnull RelationalParser.CharsetNameBaseContext ctx) {
+    public Object visitCharsetNameBase(RelationalParser.CharsetNameBaseContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitIntervalTypeBase(@Nonnull RelationalParser.IntervalTypeBaseContext ctx) {
+    public Object visitIntervalTypeBase(RelationalParser.IntervalTypeBaseContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitKeywordsCanBeId(@Nonnull RelationalParser.KeywordsCanBeIdContext ctx) {
+    public Object visitKeywordsCanBeId(RelationalParser.KeywordsCanBeIdContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitFunctionNameBase(@Nonnull RelationalParser.FunctionNameBaseContext ctx) {
+    public Object visitFunctionNameBase(RelationalParser.FunctionNameBaseContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitFunctionNameKeyword(@Nonnull RelationalParser.FunctionNameKeywordContext ctx) {
+    public Object visitFunctionNameKeyword(RelationalParser.FunctionNameKeywordContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public Object visitExecuteContinuationStatement(@Nonnull RelationalParser.ExecuteContinuationStatementContext ctx) {
+    public Object visitExecuteContinuationStatement(RelationalParser.ExecuteContinuationStatementContext ctx) {
         return visitChildren(ctx);
     }
 
-    @Nonnull
     @Override
-    public QueryPlan visitCopyExportStatement(@Nonnull RelationalParser.CopyExportStatementContext ctx) {
+    public QueryPlan visitCopyExportStatement(RelationalParser.CopyExportStatementContext ctx) {
         return metadataPlanVisitor.visitCopyExportStatement(ctx);
     }
 
-    @Nonnull
     @Override
-    public QueryPlan visitCopyImportStatement(@Nonnull RelationalParser.CopyImportStatementContext ctx) {
+    public QueryPlan visitCopyImportStatement(RelationalParser.CopyImportStatementContext ctx) {
         return metadataPlanVisitor.visitCopyImportStatement(ctx);
     }
 
-    @Nonnull
     public DdlQueryFactory getDdlQueryFactory() {
         return ddlQueryFactory;
     }
 
-    @Nonnull
     public URI getDbUri() {
         return dbUri;
     }

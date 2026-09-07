@@ -21,4 +21,7 @@
 /**
  * Keeper of Metrics stuff for Relational.
  */
+@NullMarked
 package com.apple.foundationdb.relational.api.metrics;
+
+import org.jspecify.annotations.NullMarked;

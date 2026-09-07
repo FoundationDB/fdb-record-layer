@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -30,41 +29,37 @@ import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 import java.util.Objects;
+
+import static com.apple.foundationdb.record.RecordMetaDataProto.Predicate;
 
 @API(API.Status.EXPERIMENTAL)
 public final class RecordLayerIndex implements Index  {
 
-    @Nonnull
     private final String tableName;
 
-    @Nonnull
     private final String tableStorageName;
 
     private final String indexType;
 
-    @Nonnull
     private final String name;
 
-    @Nonnull
     private final KeyExpression keyExpression;
 
-    @Nonnull
     private final Map<String, String> options;
 
     @Nullable
-    private final RecordMetaDataProto.Predicate predicate;
+    private final Predicate predicate;
 
-    private RecordLayerIndex(@Nonnull final String tableName,
-                             @Nonnull final String tableStorageName,
-                             @Nonnull final String indexType,
-                             @Nonnull final String name,
-                             @Nonnull final KeyExpression keyExpression,
-                             @Nullable final RecordMetaDataProto.Predicate predicate,
-                             @Nonnull final Map<String, String> options) {
+    private RecordLayerIndex(final String tableName,
+                             final String tableStorageName,
+                             final String indexType,
+                             final String name,
+                             final KeyExpression keyExpression,
+                             @Nullable final Predicate predicate,
+                             final Map<String, String> options) {
         this.tableName = tableName;
         this.tableStorageName = tableStorageName;
         this.indexType = indexType;
@@ -74,18 +69,15 @@ public final class RecordLayerIndex implements Index  {
         this.options = ImmutableMap.copyOf(options);
     }
 
-    @Nonnull
     @Override
     public String getTableName() {
         return tableName;
     }
 
-    @Nonnull
     public String getTableStorageName() {
         return tableStorageName;
     }
 
-    @Nonnull
     @Override
     public String getIndexType() {
         return indexType;
@@ -103,35 +95,33 @@ public final class RecordLayerIndex implements Index  {
     }
 
     @Nullable
-    public RecordMetaDataProto.Predicate getPredicate() {
+    public Predicate getPredicate() {
         return predicate;
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return name;
     }
 
-    @Nonnull
     public KeyExpression getKeyExpression() {
         return keyExpression;
     }
 
-    @Nonnull
     public Map<String, String> getOptions() {
         return options;
     }
 
-    @Nonnull
-    public static RecordLayerIndex from(@Nonnull final String tableName, @Nonnull String tableStorageName, @Nonnull final com.apple.foundationdb.record.metadata.Index index) {
+    public static RecordLayerIndex from(final String tableName, String tableStorageName, final com.apple.foundationdb.record.metadata.Index index) {
         return newBuilder()
                 .setName(index.getName())
                 .setIndexType(index.getType())
                 .setTableName(tableName)
                 .setTableStorageName(tableStorageName)
                 .setKeyExpression(index.getRootExpression())
-                .setPredicate(index.hasPredicate() ? index.getPredicate().toProto() : null)
+                // index.hasPredicate() guarantees getPredicate() is non-null; NullAway can't see
+                // that contract across the two separate method calls.
+                .setPredicate(index.hasPredicate() ? Objects.requireNonNull(index.getPredicate()).toProto() : null)
                 .setOptions(index.getOptions())
                 .build();
     }
@@ -164,68 +154,66 @@ public final class RecordLayerIndex implements Index  {
         private String indexType;
         private String name;
         private KeyExpression keyExpression;
-        @Nullable
-        private ImmutableMap.Builder<String, String> optionsBuilder;
+        private ImmutableMap.@Nullable Builder<String, String> optionsBuilder;
 
         @Nullable
-        private RecordMetaDataProto.Predicate predicate;
+        private Predicate predicate;
 
-        @Nonnull
+        // tableName, tableStorageName, indexType, name, and keyExpression are populated by the
+        // fluent setters below and validated in build(), so NullAway cannot see that they are
+        // always set before use.
+        @SuppressWarnings("NullAway.Init")
+        private Builder() {
+        }
+
         public Builder setTableName(String tableName) {
             this.tableName = tableName;
             return this;
         }
 
-        @Nonnull
         public Builder setTableStorageName(String tableStorageName) {
             this.tableStorageName = tableStorageName;
             return this;
         }
 
-        @Nonnull
-        public Builder setTableType(@Nonnull Type.Record tableType) {
-            return setTableName(tableType.getName())
-                    .setTableStorageName(tableType.getStorageName());
+        public Builder setTableType(Type.Record tableType) {
+            // tableType is always derived from a named table (never an anonymous nested record),
+            // so name and storageName are always present.
+            return setTableName(Objects.requireNonNull(tableType.getName(), "table type name is not set"))
+                    .setTableStorageName(Objects.requireNonNull(tableType.getStorageName(), "table type storage name is not set"));
         }
 
-        @Nonnull
         public Builder setIndexType(String indexType) {
             this.indexType = indexType;
             return this;
         }
 
-        @Nonnull
         public Builder setName(String name) {
             this.name = name;
             return this;
         }
 
-        @Nonnull
         public Builder setKeyExpression(KeyExpression keyExpression) {
             this.keyExpression = keyExpression;
             return this;
         }
 
-        @Nonnull
-        public Builder setPredicate(@Nullable final RecordMetaDataProto.Predicate predicate) {
+        public Builder setPredicate(@Nullable final Predicate predicate) {
             this.predicate = predicate;
             return this;
         }
 
-        @Nonnull
         public Builder setUnique(boolean isUnique) {
             return setOption(IndexOptions.UNIQUE_OPTION, isUnique);
         }
 
-        @Nonnull
-        public Builder setOptions(@Nonnull final Map<String, String> options) {
+        public Builder setOptions(final Map<String, String> options) {
             optionsBuilder = ImmutableMap.builderWithExpectedSize(options.size());
             optionsBuilder.putAll(options);
             return this;
         }
 
-        @Nonnull
-        public Builder addAllOptions(@Nonnull final Map<String, String> options) {
+        public Builder addAllOptions(final Map<String, String> options) {
             if (optionsBuilder == null) {
                 optionsBuilder = ImmutableMap.builder();
             }
@@ -233,8 +221,7 @@ public final class RecordLayerIndex implements Index  {
             return this;
         }
 
-        @Nonnull
-        public Builder setOption(@Nonnull final String optionKey, @Nonnull final String optionValue) {
+        public Builder setOption(final String optionKey, final String optionValue) {
             if (optionsBuilder == null) {
                 optionsBuilder = ImmutableMap.builder();
             }
@@ -242,17 +229,14 @@ public final class RecordLayerIndex implements Index  {
             return this;
         }
 
-        @Nonnull
-        public Builder setOption(@Nonnull final String optionKey, int optionValue) {
+        public Builder setOption(final String optionKey, int optionValue) {
             return setOption(optionKey, Integer.toString(optionValue));
         }
 
-        @Nonnull
-        public Builder setOption(@Nonnull final String optionKey, boolean optionValue) {
+        public Builder setOption(final String optionKey, boolean optionValue) {
             return setOption(optionKey, Boolean.toString(optionValue));
         }
 
-        @Nonnull
         public RecordLayerIndex build() {
             Assert.notNullUnchecked(name, "index name is not set");
             Assert.notNullUnchecked(tableName, "table name is not set");
@@ -266,7 +250,6 @@ public final class RecordLayerIndex implements Index  {
         }
     }
 
-    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }

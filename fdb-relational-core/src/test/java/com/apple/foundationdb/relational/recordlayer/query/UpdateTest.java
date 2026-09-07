@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
@@ -49,6 +49,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 public class UpdateTest {
@@ -81,6 +82,8 @@ public class UpdateTest {
     void updateSimpleFieldWithContinuationTest() throws Exception {
         final var fieldToUpdate = "name";
         final Function<RelationalConnection, Object> updateValue = conn -> "blahText";
+        // updateValue ignores its argument here, so passing null is safe even though Function.apply() requires @NonNull.
+        @SuppressWarnings("NullAway")
         final var expectedValue = updateValue.apply(null);
         testUpdateWithContinuationInternal(fieldToUpdate, updateValue, expectedValue);
     }
@@ -89,6 +92,8 @@ public class UpdateTest {
     void updateSimpleFieldVerifyCacheTest() throws Exception {
         final var fieldToUpdate = "name";
         final Function<RelationalConnection, Object> updateValue = conn -> "blahText";
+        // updateValue ignores its argument here, so passing null is safe even though Function.apply() requires @NonNull.
+        @SuppressWarnings("NullAway")
         final var expectedValue = updateValue.apply(null);
         testUpdateVerifyCacheInternal(fieldToUpdate, updateValue, expectedValue);
     }
@@ -209,23 +214,23 @@ public class UpdateTest {
         }
     }
 
-    private Pair<Continuation, Integer> updateWithScanRowLimit(final String fieldToUpdate, final Function<RelationalConnection, Object> updateValue,
+    private NonnullPair<Continuation, Integer> updateWithScanRowLimit(final String fieldToUpdate, final Function<RelationalConnection, Object> updateValue,
                                                                Object expectedValue) throws SQLException, RelationalException {
         return updateWithScanRowLimit(fieldToUpdate, updateValue, expectedValue, Options.NONE);
     }
 
-    private Pair<Continuation, Integer> updateWithScanRowLimit(final String fieldToUpdate, final Function<RelationalConnection, Object> updateValue,
+    private NonnullPair<Continuation, Integer> updateWithScanRowLimit(final String fieldToUpdate, final Function<RelationalConnection, Object> updateValue,
                                                                Object expectedValue, Options options) throws SQLException, RelationalException {
-        return updateWithScanRowLimit(fieldToUpdate, updateValue, expectedValue, Pair.of(ContinuationImpl.BEGIN, 0), options);
+        return updateWithScanRowLimit(fieldToUpdate, updateValue, expectedValue, NonnullPair.of(ContinuationImpl.BEGIN, 0), options);
     }
 
-    private Pair<Continuation, Integer> updateWithScanRowLimit(final String fieldToUpdate, final Function<RelationalConnection, Object> updateValue,
-                                                               Object expectedValue, Pair<Continuation, Integer> continuationAndNumUpdated,
+    private NonnullPair<Continuation, Integer> updateWithScanRowLimit(final String fieldToUpdate, final Function<RelationalConnection, Object> updateValue,
+                                                               Object expectedValue, NonnullPair<Continuation, Integer> continuationAndNumUpdated,
                                                                Options options) throws SQLException, RelationalException {
         var continuation = continuationAndNumUpdated.getLeft();
         var updatedUpTill = continuationAndNumUpdated.getRight();
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (final var con = (EmbeddedRelationalConnection) driver.connect(database.getConnectionUri(), options)) {
+        try (final var con = (EmbeddedRelationalConnection) Objects.requireNonNull(driver.connect(database.getConnectionUri(), options))) {
             con.setSchema(database.getSchemaName());
             final var statement = prepareUpdate(con, fieldToUpdate, updateValue.apply(con), continuation);
             try (final var resultSet = statement.executeQuery()) {
@@ -241,7 +246,7 @@ public class UpdateTest {
                 }
             }
         }
-        return Pair.of(continuation, updatedUpTill);
+        return NonnullPair.of(continuation, updatedUpTill);
     }
 
     private void testUpdateWithContinuationInternal(String fieldToUpdate, Function<RelationalConnection, Object> updateValue, Object expectedValue)

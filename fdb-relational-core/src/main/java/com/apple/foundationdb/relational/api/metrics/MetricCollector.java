@@ -24,7 +24,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Supplier;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 import java.util.Locale;
 
 /**
@@ -47,14 +47,14 @@ public interface MetricCollector {
      * @param count the count event to be modified
      * @param val   the amount to increment by
      * */
-    void increment(@Nonnull RelationalMetric.RelationalCount count, int val);
+    void increment(RelationalMetric.RelationalCount count, int val);
 
     /**
      * Increments the count event by 1.
      *
      * @param count     the count event to be modified
      * */
-    default void increment(@Nonnull RelationalMetric.RelationalCount count) {
+    default void increment(RelationalMetric.RelationalCount count) {
         increment(count, 1);
     }
 
@@ -66,7 +66,7 @@ public interface MetricCollector {
      * @return the value returned by the supplier
      * @throws RelationalException that is passed on by the supplier
      * */
-    <T> T clock(@Nonnull RelationalMetric.RelationalEvent event, Supplier<T> supplier) throws RelationalException;
+    <T extends @Nullable Object> T clock(RelationalMetric.RelationalEvent event, Supplier<T> supplier) throws RelationalException;
 
     /**
      * Returns the aggregate time taken by all the occurrences of a particular event in the lifetime of collector.
@@ -75,7 +75,7 @@ public interface MetricCollector {
      * @return the aggregate time in {@link java.util.concurrent.TimeUnit#MICROSECONDS}.
      * @throws RelationalException in case the requested event is not held in the collector.
      * */
-    default double getAverageTimeMicrosForEvent(@Nonnull RelationalMetric.RelationalEvent event) throws RelationalException {
+    default double getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent event) throws RelationalException {
         throw new RelationalException(String.format(Locale.ROOT, "Requested event metric: %s is not in the collector", event.title()), ErrorCode.INTERNAL_ERROR);
     }
 
@@ -86,7 +86,7 @@ public interface MetricCollector {
      * @return the counter value
      * @throws RelationalException in case the requested count is not held in the collector.
      * */
-    default long getCountsForCounter(@Nonnull RelationalMetric.RelationalCount count) throws RelationalException {
+    default long getCountsForCounter(RelationalMetric.RelationalCount count) throws RelationalException {
         throw new RelationalException(String.format(Locale.ROOT, "Requested count metric: %s is not in the collector", count.title()), ErrorCode.INTERNAL_ERROR);
     }
 
@@ -96,7 +96,7 @@ public interface MetricCollector {
      * @param count the count event whose counter is to be checked.
      * @return {@code  true} if counter is present, else false.
      */
-    default boolean hasCounter(@Nonnull RelationalMetric.RelationalCount count) {
+    default boolean hasCounter(RelationalMetric.RelationalCount count) {
         return false;
     }
 

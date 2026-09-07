@@ -22,10 +22,9 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
-import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,7 +36,6 @@ public interface EmbeddedRelationalStruct extends RelationalStruct {
         return new Builder();
     }
 
-    @SpotBugsSuppressWarnings(value = "NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION", justification = "False positive: RelationalStructBuilder's parameters are jspecify @Nullable (fdb-relational-api), while this class still uses javax.annotation.Nullable (fdb-relational-core not yet migrated); SpotBugs does not recognize the two annotations as equivalent across the module boundary, including on the covariant-return bridge methods synthesized for addString/addUuid/addObject, which it can't otherwise be annotated.")
     class Builder implements RelationalStructBuilder {
 
         final List<DataType.StructType.Field> fields = new ArrayList<>();
@@ -101,13 +99,13 @@ public interface EmbeddedRelationalStruct extends RelationalStruct {
         }
 
         @Override
-        public Builder addStruct(String fieldName, @Nonnull RelationalStruct struct) throws SQLException {
+        public Builder addStruct(String fieldName, RelationalStruct struct) throws SQLException {
             addField(fieldName, struct.getMetaData().getRelationalDataType(), struct);
             return this;
         }
 
         @Override
-        public Builder addArray(String fieldName, @Nonnull RelationalArray array) throws SQLException {
+        public Builder addArray(String fieldName, RelationalArray array) throws SQLException {
             addField(fieldName, array.getMetaData().asRelationalType(), array);
             return this;
         }
@@ -117,7 +115,7 @@ public interface EmbeddedRelationalStruct extends RelationalStruct {
             return addField(fieldName, DataType.Primitives.INTEGER.type(), i);
         }
 
-        private Builder addField(@Nonnull String fieldName, @Nonnull DataType type, @Nullable Object o) {
+        private Builder addField(String fieldName, DataType type, @Nullable Object o) {
             fields.add(DataType.StructType.Field.from(fieldName, type, fields.size() + 1));
             elements.add(o);
             return this;

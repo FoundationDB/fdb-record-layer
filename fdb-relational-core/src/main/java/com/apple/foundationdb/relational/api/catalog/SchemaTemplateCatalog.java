@@ -26,8 +26,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
-import javax.annotation.Nonnull;
-
 /**
  * A Catalog for holding Schema Templates.
  */
@@ -41,7 +39,7 @@ public interface SchemaTemplateCatalog {
      * @return whether the template exists.
      * @throws RelationalException if there is an exception with error code other than {@link ErrorCode#UNKNOWN_SCHEMA_TEMPLATE}
      */
-    boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException;
+    boolean doesSchemaTemplateExist(Transaction txn, String templateName) throws RelationalException;
 
     /**
      * Checks if a specific version of the schema template exists.
@@ -52,7 +50,7 @@ public interface SchemaTemplateCatalog {
      * @return whether the template exists.
      * @throws RelationalException if there is an exception with error code other than {@link ErrorCode#UNKNOWN_SCHEMA_TEMPLATE}
      */
-    boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName, int version) throws RelationalException;
+    boolean doesSchemaTemplateExist(Transaction txn, String templateName, int version) throws RelationalException;
 
     /**
      * Loads the latest version of the specified schema template.
@@ -63,8 +61,7 @@ public interface SchemaTemplateCatalog {
      * @throws RelationalException with {@link ErrorCode#UNKNOWN_SCHEMA_TEMPLATE} if the template
      *                             is not found, or with other error codes for additional failures
      */
-    @Nonnull
-    SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException;
+    SchemaTemplate loadSchemaTemplate(Transaction txn, String templateName) throws RelationalException;
 
     /**
      * Loads a specific version of the schema template.
@@ -77,8 +74,7 @@ public interface SchemaTemplateCatalog {
      *                             or specified version is not found, or with other error codes
      *                             for additional failures
      */
-    @Nonnull
-    SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version) throws RelationalException;
+    SchemaTemplate loadSchemaTemplate(Transaction txn, String templateName, int version) throws RelationalException;
 
     /**
      * Create the Schema template in the catalog associated with the templateId.
@@ -87,9 +83,9 @@ public interface SchemaTemplateCatalog {
      * @param newTemplate the template to create
      * @throws RelationalException if something goes wrong, with an appropriate error code.
      */
-    void createTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) throws RelationalException;
+    void createTemplate(Transaction txn, SchemaTemplate newTemplate) throws RelationalException;
 
-    RelationalResultSet listTemplates(@Nonnull Transaction txn);
+    RelationalResultSet listTemplates(Transaction txn);
 
     /**
      * Deletes all versions of the schema template.
@@ -98,7 +94,7 @@ public interface SchemaTemplateCatalog {
      * @param templateName the template to delete
      * @param throwIfDoesNotExist throw an exception if the template does not exist
      */
-    void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName, boolean throwIfDoesNotExist) throws RelationalException;
+    void deleteTemplate(Transaction txn, String templateName, boolean throwIfDoesNotExist) throws RelationalException;
 
     /**
      * Deletes a specific version of the schema template, if exists.
@@ -109,5 +105,5 @@ public interface SchemaTemplateCatalog {
      * @param throwIfDoesNotExist throw an exception if the template does not exist
      * @throws RelationalException if something goes wrong, with an appropriate error code.
      */
-    void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version, boolean throwIfDoesNotExist) throws RelationalException;
+    void deleteTemplate(Transaction txn, String templateName, int version, boolean throwIfDoesNotExist) throws RelationalException;
 }

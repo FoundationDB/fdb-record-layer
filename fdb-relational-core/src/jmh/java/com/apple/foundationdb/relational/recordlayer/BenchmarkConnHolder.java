@@ -32,6 +32,10 @@ import java.sql.SQLException;
  * Shared JMH thread-scoped connection holder for relational benchmarks.
  * Subclasses supply the database URI and schema; this class manages the connection lifecycle.
  */
+// NullAway.Init is suppressed here because connection follows the standard JMH benchmark
+// lifecycle: it is left unset by the constructor and is always populated by init() (a @Setup
+// method) before any benchmark method that uses it runs.
+@SuppressWarnings("NullAway.Init")
 abstract class BenchmarkConnHolder {
 
     protected final URI dbUri;

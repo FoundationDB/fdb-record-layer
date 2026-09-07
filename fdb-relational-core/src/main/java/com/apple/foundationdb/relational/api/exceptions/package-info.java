@@ -21,4 +21,7 @@
 /**
  * Encompasses all exceptions that could be thrown from Relational.
  */
+@NullMarked
 package com.apple.foundationdb.relational.api.exceptions;
+
+import org.jspecify.annotations.NullMarked;

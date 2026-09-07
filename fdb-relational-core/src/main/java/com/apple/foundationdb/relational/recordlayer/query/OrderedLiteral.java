@@ -27,9 +27,7 @@ import com.apple.foundationdb.relational.continuation.TypedQueryArgument;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.Optional;
@@ -52,7 +50,6 @@ public class OrderedLiteral {
         return Integer.compare(o1.getTokenIndex(), o2.getTokenIndex());
     };
 
-    @Nonnull
     private final Type type;
 
     @Nullable
@@ -72,12 +69,11 @@ public class OrderedLiteral {
     /**
      * The scope that the literal is defined within. It can be empty.
      */
-    @Nonnull
     private final Optional<String> scope;
 
-    OrderedLiteral(@Nonnull final Type type, @Nullable final Object literalObject,
+    OrderedLiteral(final Type type, @Nullable final Object literalObject,
                    @Nullable final Integer unnamedParameterIndex, @Nullable final String parameterName,
-                   final int tokenIndex, @Nonnull Optional<String> scope) {
+                   final int tokenIndex, Optional<String> scope) {
         Verify.verify(unnamedParameterIndex == null || parameterName == null);
         this.type = type;
         this.literalObject = literalObject;
@@ -87,7 +83,6 @@ public class OrderedLiteral {
         this.scope = scope;
     }
 
-    @Nonnull
     public Type getType() {
         return type;
     }
@@ -115,12 +110,10 @@ public class OrderedLiteral {
         return scope.isPresent();
     }
 
-    @Nonnull
     public Optional<String> getScopeMaybe() {
         return scope;
     }
 
-    @Nonnull
     public String getConstantId() {
         return constantId(tokenIndex, getScopeMaybe());
     }
@@ -157,7 +150,7 @@ public class OrderedLiteral {
         return Objects.hash(tokenIndex);
     }
 
-    public boolean deepEquals(@Nonnull final OrderedLiteral other) {
+    public boolean deepEquals(final OrderedLiteral other) {
         return this.equals(other)
                 && Objects.equals(parameterName, other.parameterName)
                 && Objects.equals(unnamedParameterIndex, other.unnamedParameterIndex)
@@ -173,8 +166,7 @@ public class OrderedLiteral {
                        literalObject + "@" + scope.orElse("") + tokenIndex;
     }
 
-    @Nonnull
-    TypedQueryArgument toProto(@Nonnull final PlanSerializationContext serializationContext, int literalTableIndex) {
+    TypedQueryArgument toProto(final PlanSerializationContext serializationContext, int literalTableIndex) {
         final var type = getType();
         final var argumentBuilder = TypedQueryArgument.newBuilder()
                 .setType(type.toTypeProto(serializationContext))
@@ -194,30 +186,26 @@ public class OrderedLiteral {
         return argumentBuilder.build();
     }
 
-    @Nonnull
-    private static OrderedLiteral forQueryLiteral(@Nonnull final Type type, @Nullable final Object literalObject, final int tokenIndex,
-                                                  @Nonnull final Optional<String> scope) {
+    private static OrderedLiteral forQueryLiteral(final Type type, @Nullable final Object literalObject, final int tokenIndex,
+                                                  final Optional<String> scope) {
         return new OrderedLiteral(type, literalObject, null, null, tokenIndex, scope);
     }
 
-    @Nonnull
-    private static OrderedLiteral forUnnamedParameter(@Nonnull final Type type, @Nullable final Object literalObject,
+    private static OrderedLiteral forUnnamedParameter(final Type type, @Nullable final Object literalObject,
                                                       final int unnamedParameterIndex, final int tokenIndex,
-                                                      @Nonnull final Optional<String> scope) {
+                                                      final Optional<String> scope) {
         return new OrderedLiteral(type, literalObject, unnamedParameterIndex, null, tokenIndex, scope);
     }
 
-    @Nonnull
-    private static OrderedLiteral forNamedParameter(@Nonnull final Type type, @Nullable final Object literalObject,
-                                                    @Nonnull final String parameterName, final int tokenIndex,
-                                                    @Nonnull final Optional<String> scope) {
+    private static OrderedLiteral forNamedParameter(final Type type, @Nullable final Object literalObject,
+                                                    final String parameterName, final int tokenIndex,
+                                                    final Optional<String> scope) {
         return new OrderedLiteral(type, literalObject, null, parameterName, tokenIndex, scope);
     }
 
-    @Nonnull
-    public static OrderedLiteral fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                           @Nonnull final TypeRepository typeRepository,
-                                           @Nonnull final TypedQueryArgument argumentProto) {
+    public static OrderedLiteral fromProto(final PlanSerializationContext serializationContext,
+                                           final TypeRepository typeRepository,
+                                           final TypedQueryArgument argumentProto) {
         final var argumentType = Type.fromTypeProto(serializationContext, argumentProto.getType());
         final Optional<String> scopeMaybe = argumentProto.hasScope() ? Optional.of(argumentProto.getScope()) : Optional.empty();
         if (argumentProto.hasUnnamedParameterIndex()) {
@@ -235,12 +223,10 @@ public class OrderedLiteral {
         }
     }
 
-    @Nonnull
-    public static String constantId(final int tokenIndex, @Nonnull final Optional<String> scope) {
+    public static String constantId(final int tokenIndex, final Optional<String> scope) {
         return "c" + scope.orElse("") + tokenIndex;
     }
 
-    @Nonnull
     @VisibleForTesting
     public static String constantId(final int tokenIndex) {
         return constantId(tokenIndex, Optional.empty());

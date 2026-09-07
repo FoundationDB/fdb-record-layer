@@ -39,6 +39,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.util.Objects;
 
 public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordLayerStoreCatalogTestBase {
 
@@ -120,7 +121,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             final var thrown = Assertions.assertThrows(RelationalException.class, () -> storeCatalog.repairSchema(txn, schema1.getDatabaseName(), schema1.getName()));
             Assertions.assertEquals(ErrorCode.UNSUPPORTED_OPERATION, thrown.getErrorCode());
-            Assertions.assertTrue(thrown.getMessage().contains("does not support"));
+            Assertions.assertTrue(Objects.requireNonNullElse(thrown.getMessage(), thrown.toString()).contains("does not support"));
             txn.commit();
         }
     }

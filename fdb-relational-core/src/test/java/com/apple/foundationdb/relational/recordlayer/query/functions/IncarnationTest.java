@@ -38,8 +38,6 @@ import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.function.IntFunction;
@@ -125,7 +123,7 @@ public class IncarnationTest {
         }
     }
 
-    private void updateIncarnation(@Nonnull final IntFunction<Integer> updater) throws SQLException, RelationalException {
+    private void updateIncarnation(final IntFunction<Integer> updater) throws SQLException, RelationalException {
         connection.setAutoCommit(false);
         // force transaction to start, because at the time of writing, we don't support BEGIN TRANSACTION
         statement.executeQuery("SELECT key FROM my_record");

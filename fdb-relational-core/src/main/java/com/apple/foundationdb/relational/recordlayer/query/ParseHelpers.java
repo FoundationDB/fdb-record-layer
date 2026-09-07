@@ -38,12 +38,12 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Base64;
 import java.util.Locale;
 import java.util.function.Supplier;
+
+import static com.apple.foundationdb.relational.generated.RelationalParser.OrderClauseContext;
 
 /**
  * Contains a set of utility methods that are relevant for parsing the AST.
@@ -53,7 +53,6 @@ import java.util.function.Supplier;
 public final class ParseHelpers {
 
     // used only to be passed to expression lambdas in Record Layer (to be removed).
-    @Nonnull
     public static final TypeRepository EMPTY_TYPE_REPOSITORY = TypeRepository.empty();
 
     private ParseHelpers() {
@@ -64,8 +63,7 @@ public final class ParseHelpers {
      * @param valueAsString The value to parse.
      * @return The corresponding typed and literal {@link Value} object
      */
-    @Nonnull
-    public static Object parseDecimal(@Nonnull String valueAsString) {
+    public static Object parseDecimal(String valueAsString) {
         final var lastCharIdx = valueAsString.length() - 1;
         Assert.thatUnchecked(lastCharIdx >= 0);
         if (valueAsString.contains(".")) {
@@ -103,9 +101,8 @@ public final class ParseHelpers {
         }
     }
 
-    @Nonnull
-    public static String underlineParsingError(@Nonnull Recognizer<?, ?> recognizer,
-                                               @Nonnull Token offendingToken,
+    public static String underlineParsingError(Recognizer<?, ?> recognizer,
+                                               Token offendingToken,
                                                int line,
                                                int charPositionInLine) {
         // I got this recipe from the book: "The Definitive ANTLR 4 Reference, 2nd Edition".
@@ -126,7 +123,7 @@ public final class ParseHelpers {
         return stringBuilder.toString();
     }
 
-    public static boolean isConstant(@Nonnull final RelationalParser.ExpressionsContext expressionsContext) {
+    public static boolean isConstant(final RelationalParser.ExpressionsContext expressionsContext) {
         for (final var exp : expressionsContext.expression()) {
             if (!(exp instanceof RelationalParser.PredicatedExpressionContext)) {
                 return false;
@@ -143,7 +140,6 @@ public final class ParseHelpers {
         return true;
     }
 
-    @Nonnull
     public static byte[] parseBytes(String text) {
         try {
             if (text.toLowerCase(Locale.ROOT).startsWith("xstartswith_") && text.endsWith("'")) {
@@ -164,14 +160,14 @@ public final class ParseHelpers {
         }
     }
 
-    public static boolean isNullsLast(@Nullable RelationalParser.OrderClauseContext orderClause, boolean isDescending) {
+    public static boolean isNullsLast(@Nullable OrderClauseContext orderClause, boolean isDescending) {
         if (orderClause == null || orderClause.nulls == null) {
             return isDescending; // Default behavior: ASC NULLS FIRST, DESC NULLS LAST
         }
         return orderClause.LAST() != null;
     }
 
-    public static boolean isDescending(@Nullable RelationalParser.OrderClauseContext orderClause) {
+    public static boolean isDescending(@Nullable OrderClauseContext orderClause) {
         if (orderClause == null) {
             return false; // Default is ASC
         }
@@ -180,29 +176,24 @@ public final class ParseHelpers {
 
     public static class ParseTreeLikeAdapter implements TreeLike<ParseTreeLikeAdapter> {
 
-        @Nonnull
         private final ParseTree parseTree;
 
-        @Nonnull
         private final Supplier<Iterable<? extends ParseTreeLikeAdapter>> children;
 
-        private ParseTreeLikeAdapter(@Nonnull final ParseTree parseTree) {
+        private ParseTreeLikeAdapter(final ParseTree parseTree) {
             this.parseTree = parseTree;
             this.children = Suppliers.memoize(this::computeChildren);
         }
 
-        @Nonnull
         @Override
         public ParseTreeLikeAdapter getThis() {
             return this;
         }
 
-        @Nonnull
         public ParseTree getParseTree() {
             return parseTree;
         }
 
-        @Nonnull
         public Iterable<? extends ParseTreeLikeAdapter> computeChildren() {
             final var result = ImmutableList.<ParseTreeLikeAdapter>builder();
             for (int i = 0; i < parseTree.getChildCount(); i++) {
@@ -212,20 +203,17 @@ public final class ParseHelpers {
         }
 
 
-        @Nonnull
         @Override
         public Iterable<? extends ParseTreeLikeAdapter> getChildren() {
             return children.get();
         }
 
-        @Nonnull
         @Override
         public ParseTreeLikeAdapter withChildren(Iterable<? extends ParseTreeLikeAdapter> iterable) {
             throw new UnsupportedOperationException("adding children to parse tree is not supported");
         }
 
-        @Nonnull
-        public static ParseTreeLikeAdapter from(@Nonnull final ParseTree parseTree) {
+        public static ParseTreeLikeAdapter from(final ParseTree parseTree) {
             return new ParseTreeLikeAdapter(parseTree);
         }
     }

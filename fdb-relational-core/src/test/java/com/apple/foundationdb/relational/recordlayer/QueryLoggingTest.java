@@ -48,6 +48,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Testing basic query logging: plan, time, cache hits, etc.
@@ -134,7 +135,7 @@ public class QueryLoggingTest {
     @Test
     void testRelationalConnectionOptionPreparedStatement() throws Exception {
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_QUERY, true).build())) {
+        try (RelationalConnection conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_QUERY, true).build()))) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT name from restaurant where rest_no = ?")) {
                 ps.setLong(1, 0);
@@ -155,7 +156,7 @@ public class QueryLoggingTest {
     @Test
     void testRelationalConnectionOptionExplicitlyDisabled() throws Exception {
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_QUERY, false).build())) {
+        try (RelationalConnection conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_QUERY, false).build()))) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT name from restaurant where rest_no = ?")) {
                 ps.setLong(1, 0);
@@ -176,7 +177,7 @@ public class QueryLoggingTest {
     @Test
     void testRelationalConnectionSetLogOnThenOff() throws Exception {
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.NONE))) {
             conn.setSchema(database.getSchemaName());
             try (Statement stmt = conn.createStatement()) {
                 try (ResultSet rs = stmt.executeQuery("select name from restaurant")) {
@@ -209,7 +210,7 @@ public class QueryLoggingTest {
     @Test
     void testRelationalConnectionSetLogIsOverriddenByQueryOption() throws Exception {
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.NONE))) {
             conn.setSchema(database.getSchemaName());
             conn.setOption(Options.Name.LOG_QUERY, false);
             try (PreparedStatement ps = conn.prepareStatement("SELECT name from restaurant where rest_no = ? OPTIONS(LOG QUERY)")) {
@@ -227,7 +228,7 @@ public class QueryLoggingTest {
     void testRelationalConnectionSetLogIsOverriddenByExecuteContinuationQueryOption() throws Exception {
         insertRows();
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.NONE))) {
             Continuation continuation;
             conn.setSchema(database.getSchemaName());
             try (RelationalPreparedStatement ps = conn.prepareStatement("SELECT name from restaurant")) {
@@ -255,7 +256,7 @@ public class QueryLoggingTest {
     void testRelationalConnectionSetLogWithExecuteContinuation(boolean setLogging) throws Exception {
         insertRows();
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
+        try (RelationalConnection conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.NONE))) {
             Continuation continuation;
             conn.setSchema(database.getSchemaName());
             try (RelationalPreparedStatement ps = conn.prepareStatement("SELECT name from restaurant")) {
@@ -299,7 +300,7 @@ public class QueryLoggingTest {
         }
         Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build())) {
+        try (RelationalConnection conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build()))) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT NAME FROM RESTAURANT")) {
                 try (ResultSet rs = ps.executeQuery()) {
@@ -317,7 +318,7 @@ public class QueryLoggingTest {
         }
         Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build())) {
+        try (RelationalConnection conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS, 1L).build()))) {
             conn.setSchema(database.getSchemaName());
             try (PreparedStatement ps = conn.prepareStatement("SELECT * FROM RESTAURANT WHERE \"NAME\" = 'restaurant 1'")) {
                 try (ResultSet rs = ps.executeQuery()) {
@@ -336,12 +337,21 @@ public class QueryLoggingTest {
         int queryHash = 0;
         conn.setAutoCommit(false);
         conn.createNewTransaction();
-        try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
+        // The schema is set via RelationalConnectionRule#withSchema("TEST_SCHEMA") above, so getSchema()
+        // is non-null here even though it's declared @Nullable for the general "no schema selected" case.
+        final var schemaName = Objects.requireNonNull(conn.getSchema());
+        try (var schema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
             final var store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
+            // conn.getMetricCollector() is @Nullable only because the collector isn't set up until a
+            // transaction is active (already the case here); Assert.notNullUnchecked enforces that
+            // invariant at runtime, but NullAway can't see that since Assert lives in the not-yet-migrated
+            // fdb-relational-api module.
+            @SuppressWarnings("NullAway")
+            final var metricCollector = com.apple.foundationdb.relational.util.Assert.notNullUnchecked(conn.getMetricCollector());
             final var planContext = PlanContext.Builder.create()
                     .fromRecordStore(store, conn.getOptions())
                     .fromDatabase(conn.getRecordLayerDatabase())
-                    .withMetricsCollector(conn.getMetricCollector())
+                    .withMetricsCollector(metricCollector)
                     .withSchemaTemplate(conn.getSchemaTemplate())
                     .build();
             queryHash = AstNormalizer.normalizeQuery(planContext, query1, false, PlanHashable.PlanHashMode.VC0).getQueryCacheKey().hashCode();

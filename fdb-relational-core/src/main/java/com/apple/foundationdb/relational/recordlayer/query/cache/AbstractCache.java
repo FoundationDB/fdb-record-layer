@@ -23,9 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query.cache;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.google.common.annotations.VisibleForTesting;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.Map;
 import java.util.Set;
@@ -55,68 +53,54 @@ public abstract class AbstractCache<K, S, T, V> {
         public abstract long numEntriesSlow();
 
         @Nullable
-        public abstract Long numSecondaryEntries(@Nonnull K key);
+        public abstract Long numSecondaryEntries(K key);
 
         @Nullable
-        public abstract Long numTertiaryEntries(@Nonnull K key, @Nonnull S secondaryKey);
+        public abstract Long numTertiaryEntries(K key, S secondaryKey);
 
         @VisibleForTesting
         @Nullable
-        public abstract Long numSecondaryEntriesSlow(@Nonnull K key);
+        public abstract Long numSecondaryEntriesSlow(K key);
 
         @VisibleForTesting
         @Nullable
-        public abstract Long numTertiaryEntriesSlow(@Nonnull K key, @Nonnull S secondaryKey);
+        public abstract Long numTertiaryEntriesSlow(K key, S secondaryKey);
 
-        @Nonnull
         public abstract Set<K> getAllKeys();
 
-        @Nonnull
-        public abstract Set<S> getAllSecondaryKeys(@Nonnull K key);
+        public abstract Set<S> getAllSecondaryKeys(K key);
 
-        @Nonnull
-        public abstract Set<T> getAllTertiaryKeys(@Nonnull K key, @Nonnull S secondaryKey);
+        public abstract Set<T> getAllTertiaryKeys(K key, S secondaryKey);
 
-        @Nonnull
         public abstract Map<K, Set<S>> getAllMappings();
 
-        @Nonnull
-        public abstract Map<S, Set<T>> getAllSecondaryMappings(@Nonnull K key);
+        public abstract Map<S, Set<T>> getAllSecondaryMappings(K key);
 
-        @Nonnull
-        public abstract Map<T, V> getAllTertiaryMappings(@Nonnull K key, @Nonnull S secondaryKey);
+        public abstract Map<T, V> getAllTertiaryMappings(K key, S secondaryKey);
 
         public abstract long numHits();
 
-        @Nonnull
-        public abstract Long numSecondaryHits(@Nonnull K key);
+        public abstract Long numSecondaryHits(K key);
 
-        @Nonnull
-        public abstract Long numTertiaryHits(@Nonnull K key, @Nonnull S secondaryKey);
+        public abstract Long numTertiaryHits(K key, S secondaryKey);
 
         public abstract long numMisses();
 
-        @Nonnull
-        public abstract Long numSecondaryMisses(@Nonnull K key);
+        public abstract Long numSecondaryMisses(K key);
 
-        @Nonnull
-        public abstract Long numTertiaryMisses(@Nonnull K key, @Nonnull S secondaryKey);
+        public abstract Long numTertiaryMisses(K key, S secondaryKey);
 
         public abstract long numWrites();
 
-        @Nonnull
-        public abstract Long numSecondaryWrites(@Nonnull K key);
+        public abstract Long numSecondaryWrites(K key);
 
-        @Nonnull
-        public abstract Long numTertiaryWrites(@Nonnull K key, @Nonnull S secondaryKey);
+        public abstract Long numTertiaryWrites(K key, S secondaryKey);
 
         public abstract long numReads();
 
-        @Nonnull
-        public abstract Long numSecondaryReads(@Nonnull K key);
+        public abstract Long numSecondaryReads(K key);
 
-        @Nonnull
-        public abstract Long numTertiaryReads(@Nonnull K key, @Nonnull S secondaryKey);
+        public abstract Long numTertiaryReads(K key, S secondaryKey);
     }
 
     /**
@@ -132,14 +116,13 @@ public abstract class AbstractCache<K, S, T, V> {
      * @param metricCollector metric collector to consume events from interacting with the cache.
      * @return The value referenced {@code key} and {@code secondaryKey}.
      */
-    @Nonnull
-    public abstract V reduce(@Nonnull K key,
-                             @Nonnull S secondaryKey,
-                             @Nonnull T tertiaryKey,
-                             @Nonnull Supplier<NonnullPair<T, V>> tertiaryKeyValueSupplier,
-                             @Nonnull Function<V, V> valueWithEnvironmentDecorator,
-                             @Nonnull Function<Stream<V>, V> reductionFunction,
-                             @Nonnull MetricCollector metricCollector);
+    public abstract V reduce(K key,
+                             S secondaryKey,
+                             T tertiaryKey,
+                             Supplier<NonnullPair<T, V>> tertiaryKeyValueSupplier,
+                             Function<V, V> valueWithEnvironmentDecorator,
+                             Function<Stream<V>, V> reductionFunction,
+                             MetricCollector metricCollector);
 
     /**
      * Retrieves the statistics of the cache.

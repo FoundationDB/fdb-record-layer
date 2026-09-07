@@ -63,8 +63,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
-
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -95,40 +93,33 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class LogicalOperator {
 
-    @Nonnull
     private final Optional<Identifier> name;
 
-    @Nonnull
     private final Expressions output;
 
-    @Nonnull
     private final Quantifier quantifier;
 
-    public LogicalOperator(@Nonnull Optional<Identifier> name,
-                           @Nonnull Expressions output,
-                           @Nonnull Quantifier quantifier) {
+    public LogicalOperator(Optional<Identifier> name,
+                           Expressions output,
+                           Quantifier quantifier) {
         this.name = name;
         this.output = output;
         this.quantifier = quantifier;
     }
 
-    @Nonnull
     public Optional<Identifier> getName() {
         return name;
     }
 
-    @Nonnull
     public Expressions getOutput() {
         return output;
     }
 
-    @Nonnull
     public Quantifier getQuantifier() {
         return quantifier;
     }
 
-    @Nonnull
-    public LogicalOperator withName(@Nonnull Identifier name) {
+    public LogicalOperator withName(Identifier name) {
         if (getName().isPresent() && getName().get().equals(name)) {
             return this;
         }
@@ -149,40 +140,35 @@ public class LogicalOperator {
         }), getQuantifier());
     }
 
-    @Nonnull
-    public LogicalOperator withAdditionalOutput(@Nonnull Expressions expressions) {
+    public LogicalOperator withAdditionalOutput(Expressions expressions) {
         return LogicalOperator.newOperatorWithPreservedExpressionNames(getName(), output.concat(expressions), getQuantifier());
     }
 
-    @Nonnull
-    public LogicalOperator withOutput(@Nonnull Expressions expressions) {
+    public LogicalOperator withOutput(Expressions expressions) {
         return LogicalOperator.newOperatorWithPreservedExpressionNames(getName(), expressions, getQuantifier());
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public LogicalOperator withQuantifier(@Nonnull Quantifier quantifier) {
+    public LogicalOperator withQuantifier(Quantifier quantifier) {
         if (quantifier == getQuantifier()) {
             return this;
         }
         return LogicalOperator.newOperator(getName(), getOutput(), quantifier);
     }
 
-    @Nonnull
-    public LogicalOperator withNewSharedReferenceAndAlias(@Nonnull Optional<Identifier> alias) {
+    public LogicalOperator withNewSharedReferenceAndAlias(Optional<Identifier> alias) {
         final var quantifier = Quantifier.forEach(getQuantifier().getRangesOver());
         final var result = withOutput(getOutput().rewireQov(quantifier.getFlowedObjectValue())).withQuantifier(quantifier);
         return alias.map(result::withName).orElse(result);
     }
 
-    @Nonnull
-    public static LogicalOperator generateAccess(@Nonnull Identifier identifier,
-                                                 @Nonnull Optional<Identifier> alias,
-                                                 @Nonnull Optional<Identifier> atAlias,
-                                                 @Nonnull Set<String> requestedIndexes,
-                                                 @Nonnull SemanticAnalyzer semanticAnalyzer,
-                                                 @Nonnull LogicalPlanFragment currentPlanFragment,
-                                                 @Nonnull LogicalOperatorCatalog logicalOperatorCatalog) {
+    public static LogicalOperator generateAccess(Identifier identifier,
+                                                 Optional<Identifier> alias,
+                                                 Optional<Identifier> atAlias,
+                                                 Set<String> requestedIndexes,
+                                                 SemanticAnalyzer semanticAnalyzer,
+                                                 LogicalPlanFragment currentPlanFragment,
+                                                 LogicalOperatorCatalog logicalOperatorCatalog) {
         // look up any localized artifacts, such as common table expressions.
         final var cteMaybe = semanticAnalyzer.findCteMaybe(identifier, currentPlanFragment);
         if (cteMaybe.isPresent()) {
@@ -226,44 +212,38 @@ public class LogicalOperator {
         }
     }
 
-    @Nonnull
-    public static LogicalOperator newNamedOperator(@Nonnull Identifier name,
-                                                   @Nonnull Expressions output,
-                                                   @Nonnull Quantifier quantifier) {
+    public static LogicalOperator newNamedOperator(Identifier name,
+                                                   Expressions output,
+                                                   Quantifier quantifier) {
         return new LogicalOperator(Optional.of(name), output.withQualifier(name), quantifier);
     }
 
-    @Nonnull
-    public static LogicalOperator newUnnamedOperator(@Nonnull Expressions output,
-                                                     @Nonnull Quantifier quantifier) {
+    public static LogicalOperator newUnnamedOperator(Expressions output,
+                                                     Quantifier quantifier) {
         return new LogicalOperator(Optional.empty(), output.clearQualifier(), quantifier);
     }
 
-    @Nonnull
-    public static LogicalOperator newOperator(@Nonnull Optional<Identifier> name,
-                                              @Nonnull Expressions output,
-                                              @Nonnull Quantifier quantifier) {
+    public static LogicalOperator newOperator(Optional<Identifier> name,
+                                              Expressions output,
+                                              Quantifier quantifier) {
         return name.map(identifier -> newNamedOperator(identifier, output, quantifier))
                 .orElseGet(() -> newUnnamedOperator(output, quantifier));
     }
 
-    @Nonnull
-    public static LogicalOperator newOperatorWithPreservedExpressionNames(@Nonnull Expressions output,
-                                                                          @Nonnull Quantifier quantifier) {
+    public static LogicalOperator newOperatorWithPreservedExpressionNames(Expressions output,
+                                                                          Quantifier quantifier) {
         return newOperatorWithPreservedExpressionNames(Optional.empty(), output, quantifier);
     }
 
-    @Nonnull
-    public static LogicalOperator newOperatorWithPreservedExpressionNames(@Nonnull Optional<Identifier> name,
-                                                                          @Nonnull Expressions output,
-                                                                          @Nonnull Quantifier quantifier) {
+    public static LogicalOperator newOperatorWithPreservedExpressionNames(Optional<Identifier> name,
+                                                                          Expressions output,
+                                                                          Quantifier quantifier) {
         return new LogicalOperator(name, output, quantifier);
     }
 
-    @Nonnull
-    public static LogicalOperator generateTableAccess(@Nonnull Identifier tableId,
-                                                      @Nonnull Set<AccessHint> indexAccessHints,
-                                                      @Nonnull SemanticAnalyzer semanticAnalyzer) {
+    public static LogicalOperator generateTableAccess(Identifier tableId,
+                                                      Set<AccessHint> indexAccessHints,
+                                                      SemanticAnalyzer semanticAnalyzer) {
         final Set<String> tableNames = semanticAnalyzer.getAllTableStorageNames();
         semanticAnalyzer.validateIndexes(tableId, indexAccessHints);
         final var scanExpression = Quantifier.forEach(Reference.initialOf(
@@ -278,8 +258,7 @@ public class LogicalOperator {
             // if we fully supported invisible columns (see: https://github.com/FoundationDB/fdb-record-layer/pull/3787)
             type = type.addPseudoFields();
         }
-        final String storageName = type.getStorageName();
-        Assert.thatUnchecked(storageName != null, "storage name for table access must not be null");
+        final String storageName = Objects.requireNonNull(type.getStorageName(), "storage name for table access must not be null");
         final var typeFilterExpression = LogicalTypeFilterExpression.of(ImmutableSet.of(storageName), scanExpression, type);
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(typeFilterExpression));
         final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
@@ -303,10 +282,9 @@ public class LogicalOperator {
         return LogicalOperator.newNamedOperator(tableId, attributes, resultingQuantifier);
     }
 
-    @Nonnull
-    private static LogicalOperator generateCorrelatedFieldAccess(@Nonnull Expression expression,
-                                                                 @Nonnull Optional<Identifier> alias,
-                                                                 @Nonnull Optional<Identifier> atAlias) {
+    private static LogicalOperator generateCorrelatedFieldAccess(Expression expression,
+                                                                 Optional<Identifier> alias,
+                                                                 Optional<Identifier> atAlias) {
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.ARRAY,
                 ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "join correlation can occur only on column of repeated type, not %s type", expression.getDataType()));
@@ -355,8 +333,7 @@ public class LogicalOperator {
         return operator;
     }
 
-    @Nonnull
-    public static Expressions convertToExpressions(@Nonnull Quantifier quantifier) {
+    public static Expressions convertToExpressions(Quantifier quantifier) {
         final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
         int colCount = 0;
         final var columns = quantifier.getFlowedColumns();
@@ -372,13 +349,12 @@ public class LogicalOperator {
         return Expressions.of(attributesBuilder.build());
     }
 
-    @Nonnull
-    public static LogicalOperator generateSelect(@Nonnull Expressions output,
-                                                 @Nonnull LogicalOperators logicalOperators,
-                                                 @Nonnull Optional<Expression> predicate,
-                                                 @Nonnull List<OrderByExpression> orderBys,
-                                                 @Nonnull Optional<Identifier> alias,
-                                                 @Nonnull Set<CorrelationIdentifier> outerCorrelations,
+    public static LogicalOperator generateSelect(Expressions output,
+                                                 LogicalOperators logicalOperators,
+                                                 Optional<Expression> predicate,
+                                                 List<OrderByExpression> orderBys,
+                                                 Optional<Identifier> alias,
+                                                 Set<CorrelationIdentifier> outerCorrelations,
                                                  boolean isTopLevel,
                                                  boolean isForDdl) {
         if (orderBys.isEmpty()) {
@@ -401,10 +377,9 @@ public class LogicalOperator {
         }
     }
 
-    @Nonnull
-    public static LogicalOperator generateSelectWhere(@Nonnull LogicalOperators logicalOperators,
-                                                      @Nonnull Set<CorrelationIdentifier> outerCorrelations,
-                                                      @Nonnull Optional<Expression> where,
+    public static LogicalOperator generateSelectWhere(LogicalOperators logicalOperators,
+                                                      Set<CorrelationIdentifier> outerCorrelations,
+                                                      Optional<Expression> where,
                                                       boolean isForDdl) {
         final var quantifiers = logicalOperators.getQuantifiers();
         final var quantifiedObjectValues = quantifiers.stream().map(QuantifiedObjectValue::of).collect(ImmutableList.toImmutableList());
@@ -420,14 +395,13 @@ public class LogicalOperator {
         return LogicalOperator.newOperatorWithPreservedExpressionNames(output, resultingQuantifier);
     }
 
-    @Nonnull
     @SuppressWarnings("unchecked")
-    public static LogicalOperator generateGroupBy(@Nonnull LogicalOperators logicalOperators,
-                                                  @Nonnull Expressions groupByExpressions,
-                                                  @Nonnull Expressions outputExpressions,
-                                                  @Nonnull Optional<Expression> havingPredicate,
-                                                  @Nonnull Set<CorrelationIdentifier> outerCorrelations,
-                                                  @Nonnull Literals literals) {
+    public static LogicalOperator generateGroupBy(LogicalOperators logicalOperators,
+                                                  Expressions groupByExpressions,
+                                                  Expressions outputExpressions,
+                                                  Optional<Expression> havingPredicate,
+                                                  Set<CorrelationIdentifier> outerCorrelations,
+                                                  Literals literals) {
         final var aliasMap = AliasMap.identitiesFor(logicalOperators.getCorrelations());
         final var aggregates = Expressions.of(havingPredicate.map(outputExpressions::concat).orElse(outputExpressions)
                 .collectAggregateValues().stream().map(Expression::fromUnderlying).collect(ImmutableSet.toImmutableSet()));
@@ -458,12 +432,11 @@ public class LogicalOperator {
         return LogicalOperator.newUnnamedOperator(output, resultingQuantifier);
     }
 
-    @Nonnull
-    public static LogicalOperator generateSimpleSelect(@Nonnull Expressions output,
-                                                       @Nonnull LogicalOperators logicalOperators,
-                                                       @Nonnull Optional<Expression> where,
-                                                       @Nonnull Optional<Identifier> alias,
-                                                       @Nonnull Set<CorrelationIdentifier> outerCorrelations,
+    public static LogicalOperator generateSimpleSelect(Expressions output,
+                                                       LogicalOperators logicalOperators,
+                                                       Optional<Expression> where,
+                                                       Optional<Identifier> alias,
+                                                       Set<CorrelationIdentifier> outerCorrelations,
                                                        boolean isForDdl) {
         final var quantifiers = logicalOperators.getQuantifiers();
         final var selectBuilder = GraphExpansion.builder().addAllQuantifiers(quantifiers);
@@ -501,8 +474,8 @@ public class LogicalOperator {
      * @return {@code true} if projecting individual columns of the underlying quantifier can be avoided, otherwise
      * {@code false}.
      */
-    private static boolean canAvoidProjectingIndividualFields(@Nonnull Expressions output,
-                                                              @Nonnull LogicalOperators logicalOperators) {
+    private static boolean canAvoidProjectingIndividualFields(Expressions output,
+                                                              LogicalOperators logicalOperators) {
         // No joins
         if (Iterables.size(logicalOperators.forEachOnly()) != 1 || Iterables.size(output) != 1) {
             return false;
@@ -549,11 +522,10 @@ public class LogicalOperator {
         return true;
     }
 
-    @Nonnull
-    public static LogicalOperator generateSort(@Nonnull LogicalOperator logicalOperator,
-                                               @Nonnull List<OrderByExpression> orderBys,
-                                               @Nonnull Set<CorrelationIdentifier> outerCorrelations,
-                                               @Nonnull Optional<Identifier> alias) {
+    public static LogicalOperator generateSort(LogicalOperator logicalOperator,
+                                               List<OrderByExpression> orderBys,
+                                               Set<CorrelationIdentifier> outerCorrelations,
+                                               Optional<Identifier> alias) {
         final LogicalSortExpression sortExpression;
         if (orderBys.isEmpty()) {
             sortExpression = LogicalSortExpression.unsorted(logicalOperator.quantifier);
@@ -578,12 +550,12 @@ public class LogicalOperator {
         return LogicalOperator.newOperator(alias, resultingExpressions, resultingQuantifier);
     }
 
-    @Nonnull
-    public static LogicalOperator generateInsert(@Nonnull LogicalOperator insertSource, @Nonnull Table target) {
+    public static LogicalOperator generateInsert(LogicalOperator insertSource, Table target) {
         final Type.Record targetType = Assert.castUnchecked(target, RecordLayerTable.class).getType();
+        final String targetStorageName = Objects.requireNonNull(targetType.getStorageName(), "target type for insert must have set storage name");
         final var insertExpression = new InsertExpression(Assert.castUnchecked(insertSource.getQuantifier(),
                         Quantifier.ForEach.class),
-                Assert.notNullUnchecked(targetType.getStorageName(), "target type for insert must have set storage name"),
+                targetStorageName,
                 targetType);
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(insertExpression));
         final var output = Expressions.fromQuantifier(resultingQuantifier);
@@ -591,8 +563,7 @@ public class LogicalOperator {
         return generateSort(insertOperator, List.of(), Set.of(), Optional.empty());
     }
 
-    @Nonnull
-    public static CorrelationIdentifier getInnermostAlias(@Nonnull Iterable<LogicalOperator> logicalOperators) {
+    public static CorrelationIdentifier getInnermostAlias(Iterable<LogicalOperator> logicalOperators) {
         final Collection<CorrelationIdentifier> aliases = Streams.stream(logicalOperators)
                 .map(LogicalOperator::getQuantifier)
                 .filter(qun -> qun instanceof Quantifier.ForEach)
@@ -601,9 +572,8 @@ public class LogicalOperator {
         return aliases.stream().findFirst().orElseThrow();
     }
 
-    @Nonnull
-    public static LogicalOperator generateUnionAll(@Nonnull LogicalOperators unionLegs,
-                                                   @Nonnull Set<CorrelationIdentifier> outerCorrelations) {
+    public static LogicalOperator generateUnionAll(LogicalOperators unionLegs,
+                                                   Set<CorrelationIdentifier> outerCorrelations) {
         Assert.thatUnchecked(!unionLegs.isEmpty());
         if (unionLegs.size() == 1) {
             return unionLegs.first();
@@ -647,8 +617,7 @@ public class LogicalOperator {
         return LogicalOperator.newUnnamedOperator(output, union);
     }
 
-    @Nonnull
-    public static Expressions adjustCountOnEmpty(@Nonnull final Expressions expressions) {
+    public static Expressions adjustCountOnEmpty(final Expressions expressions) {
         return Expressions.of(expressions.expanded().stream().map(expression -> {
             final var underlyingValue = expression.getUnderlying();
             final Set<Value> visited = Sets.newIdentityHashSet();
@@ -667,10 +636,9 @@ public class LogicalOperator {
         }).collect(ImmutableList.toImmutableList()));
     }
 
-    @Nonnull
-    public static LogicalOperator newTemporaryTableScan(@Nonnull final Identifier operatorId,
-                                                        @Nonnull final Identifier tempTableId,
-                                                        @Nonnull final Type type) {
+    public static LogicalOperator newTemporaryTableScan(final Identifier operatorId,
+                                                        final Identifier tempTableId,
+                                                        final Type type) {
         final var tempTableAlias = CorrelationIdentifier.of(tempTableId.getName());
         final var tempTableScan = TempTableScanExpression.ofCorrelated(tempTableAlias, type);
         final var quantifier = Quantifier.forEach(Reference.initialOf(tempTableScan));
@@ -678,10 +646,9 @@ public class LogicalOperator {
         return LogicalOperator.newNamedOperator(operatorId, expressions, quantifier);
     }
 
-    @Nonnull
-    public static LogicalOperator newTemporaryTableInsert(@Nonnull final LogicalOperator input,
-                                                          @Nonnull final Identifier identifier,
-                                                          @Nonnull final Type type) {
+    public static LogicalOperator newTemporaryTableInsert(final LogicalOperator input,
+                                                          final Identifier identifier,
+                                                          final Type type) {
         final var tempTableAlias = CorrelationIdentifier.of(identifier.getName());
         final var tempTableInsert = TempTableInsertExpression.ofCorrelated(input.getQuantifier().narrow(Quantifier.ForEach.class),
                 tempTableAlias, type);

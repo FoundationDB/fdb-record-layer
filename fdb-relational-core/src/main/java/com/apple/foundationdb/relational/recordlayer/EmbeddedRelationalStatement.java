@@ -39,26 +39,30 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Supplier;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 @API(API.Status.EXPERIMENTAL)
 public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement implements RelationalStatement {
 
-    public EmbeddedRelationalStatement(@Nonnull EmbeddedRelationalConnection conn) throws SQLException {
+    public EmbeddedRelationalStatement(EmbeddedRelationalConnection conn) throws SQLException {
         super(conn);
     }
 
     @Override
-    @Nonnull
-    PlanContext createPlanContext(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Options options) throws RelationalException {
+    // conn.getMetricCollector() is @Nullable only because the collector isn't set up until a transaction
+    // is active; Assert.notNullUnchecked enforces that invariant at runtime with a clear
+    // RelationalException, but NullAway can't see that since Assert lives in the not-yet-migrated
+    // fdb-relational-api module.
+    @SuppressWarnings("NullAway")
+    PlanContext createPlanContext(final FDBRecordStoreBase<?> store, final Options options) throws RelationalException {
         return PlanContext.builder()
                 .fromRecordStore(store, options)
                 .fromDatabase(conn.getRecordLayerDatabase())
@@ -105,9 +109,8 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     }
 
     @Override
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource") // lifetimes are more complicated; perhaps we should be closing
-    public RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
+    public RelationalResultSet executeScan(String tableName, KeySet prefix, Options options) throws SQLException {
         checkOpen();
         final var finalOptions = this.options.withChild(options);
         try {
@@ -132,8 +135,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     }
 
     @Override
-    public @Nonnull
-    RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws SQLException {
+    public RelationalResultSet executeGet(String tableName, KeySet key, Options options) throws SQLException {
         checkOpen();
         final var finalizedOptions = this.options.withChild(options);
         return ensureTransaction(() -> {
@@ -157,7 +159,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     }
 
     @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull final Options options)
+    public int executeInsert(String tableName, List<RelationalStruct> data, final Options options)
             throws SQLException {
         checkOpen();
         final var finalizedOptions = this.options.withChild(options);
@@ -186,7 +188,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     }
 
     @Override
-    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws SQLException {
+    public int executeDelete(String tableName, Iterator<KeySet> keys, Options options) throws SQLException {
         checkOpen();
         if (!keys.hasNext()) {
             return 0;
@@ -217,7 +219,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
 
     @Override
     @SuppressWarnings("PMD.PreserveStackTrace") // intentional - Fall back for Invalid Range Exception from Record Layer
-    public void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet prefix, @Nonnull Options options) throws SQLException {
+    public void executeDeleteRange(String tableName, KeySet prefix, Options options) throws SQLException {
         checkOpen();
         final var finalizedOptions = this.options.withChild(options);
         ensureTransaction(() -> {
@@ -236,7 +238,9 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
                 if (row.getObject(keyLength - 1) != null) {
                     // We have a complete key. Delete only the one record
                     table.deleteRecord(row);
-                    return null;
+                    // Return value is unused by executeDeleteRange; ensureTransaction's Supplier<T> requires a
+                    // non-null result.
+                    return Boolean.TRUE;
                 }
             }
             try {
@@ -262,7 +266,9 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
                     throw new RuntimeException(sqle);
                 }
             }
-            return null;
+            // Return value is unused by executeDeleteRange; ensureTransaction's Supplier<T> requires a non-null
+            // result.
+            return Boolean.TRUE;
         });
     }
 
@@ -277,7 +283,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
 
     // TODO (yhatem) this should be refactored and cleaned up, ideally consumers should work with structured metadata API
     //               instead of this string processing since that is error-prone and somewhat very low-level.
-    private String[] getSchemaAndTable(@Nonnull EmbeddedRelationalConnection connection, @Nonnull String tableName) throws RelationalException {
+    private String[] getSchemaAndTable(EmbeddedRelationalConnection connection, String tableName) throws RelationalException {
         try {
             String schema = connection.getSchema();
             String tableN = tableName;
@@ -297,7 +303,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     }
 
     @SuppressWarnings("PMD.CloseResource") // lifetimes are more complicated; perhaps we should be closing
-    private @Nonnull DirectScannable getSourceScannable(String indexName, @Nonnull Table table) throws RelationalException {
+    private DirectScannable getSourceScannable(String indexName, Table table) throws RelationalException {
         if (indexName != null) {
             Index index = null;
             final Set<Index> readableIndexes = table.getAvailableIndexes();
@@ -342,7 +348,10 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
         if (exception != null) {
             throw exception;
         } else {
-            return result;
+            // If we reach here, the try block above completed without catching an exception, so operation.get()
+            // ran to completion and assigned a real result; NullAway can't correlate that with the null-check on
+            // the unrelated `exception` variable.
+            return Objects.requireNonNull(result, "operation completed without an exception, so it must have produced a result");
         }
     }
 }

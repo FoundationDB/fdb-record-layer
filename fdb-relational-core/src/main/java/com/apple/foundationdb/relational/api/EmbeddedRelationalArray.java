@@ -25,8 +25,8 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.util.Assert;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,19 +38,19 @@ public interface EmbeddedRelationalArray extends RelationalArray {
         return new Builder();
     }
 
-    static RelationalArrayBuilder newBuilder(@Nonnull DataType elementType) {
+    static RelationalArrayBuilder newBuilder(DataType elementType) {
         return new Builder(elementType);
     }
 
     class Builder implements RelationalArrayBuilder {
 
         @Nullable private DataType elementType;
-        @Nonnull private final List<Object> elements = new ArrayList<>();
+        private final List<Object> elements = new ArrayList<>();
 
         private Builder() {
         }
 
-        private Builder(@Nonnull DataType elementType) {
+        private Builder(DataType elementType) {
             this.elementType = elementType;
         }
 
@@ -63,7 +63,7 @@ public interface EmbeddedRelationalArray extends RelationalArray {
         }
 
         @Override
-        public Builder addAll(@Nonnull Object... values) throws SQLException {
+        public Builder addAll(Object... values) throws SQLException {
             for (var value : values) {
                 if (value == null) {
                     throw new RelationalException("Cannot add NULL to an array.", ErrorCode.DATATYPE_MISMATCH).toSqlException();
@@ -86,22 +86,22 @@ public interface EmbeddedRelationalArray extends RelationalArray {
         }
 
         @Override
-        public Builder addString(@Nonnull String value) throws SQLException {
+        public Builder addString(String value) throws SQLException {
             return addField(value, DataType.Primitives.STRING.type());
         }
 
         @Override
-        public Builder addBytes(@Nonnull byte[] value) throws SQLException {
+        public Builder addBytes(byte[] value) throws SQLException {
             return addField(value, DataType.Primitives.BYTES.type());
         }
 
         @Override
-        public Builder addUuid(@Nonnull UUID uuid) throws SQLException {
+        public Builder addUuid(UUID uuid) throws SQLException {
             return addField(uuid, DataType.Primitives.UUID.type());
         }
 
         @Override
-        public Builder addObject(@Nonnull Object obj) throws SQLException {
+        public Builder addObject(Object obj) throws SQLException {
             if (obj instanceof RelationalStruct) {
                 return addStruct((RelationalStruct) obj);
             }
@@ -111,8 +111,7 @@ public interface EmbeddedRelationalArray extends RelationalArray {
             return addField(obj, DataType.getDataTypeFromObject(obj));
         }
 
-        @Nonnull
-        private Builder addField(@Nonnull Object value, @Nonnull DataType type) throws SQLException {
+        private Builder addField(Object value, DataType type) throws SQLException {
             try {
                 checkType(type);
             } catch (RelationalException ve) {

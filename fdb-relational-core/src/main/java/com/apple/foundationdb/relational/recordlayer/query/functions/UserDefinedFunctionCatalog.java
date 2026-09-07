@@ -23,8 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.query.functions;
 import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
-
-import javax.annotation.Nonnull;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -32,7 +30,6 @@ import java.util.function.Function;
 
 final class UserDefinedFunctionCatalog {
 
-    @Nonnull
     private final Map<String, Function<Boolean, ? extends UserDefinedFunction>> functionsMap;
 
     private final boolean isCaseSensitive;
@@ -42,17 +39,16 @@ final class UserDefinedFunctionCatalog {
         this.functionsMap = new LinkedHashMap<>();
     }
 
-    void registerFunction(@Nonnull final String functionName,
-                          @Nonnull final Function<Boolean, ? extends UserDefinedFunction> function) {
+    void registerFunction(final String functionName,
+                          final Function<Boolean, ? extends UserDefinedFunction> function) {
         functionsMap.put(functionName, function);
     }
 
-    public boolean containsFunction(@Nonnull final String name) {
+    public boolean containsFunction(final String name) {
         return functionsMap.containsKey(name);
     }
 
-    @Nonnull
-    public Optional<CatalogedFunction> lookup(@Nonnull final String functionName, @Nonnull final CallSiteArguments arguments) {
+    public Optional<CatalogedFunction> lookup(final String functionName, final CallSiteArguments arguments) {
         final var functionSupplier = functionsMap.get(functionName);
         if (functionSupplier == null) {
             return Optional.empty();

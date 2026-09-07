@@ -31,13 +31,13 @@ import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
-import javax.annotation.Nonnull;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.SQLException;
@@ -167,6 +167,8 @@ class AbstractRecordLayerResultSetTest {
     private Row theRow;
     private AbstractRecordLayerResultSet resultSet;
 
+    // theRow is assigned by each @Test method before use, not by setUp() itself.
+    @SuppressWarnings("NullAway.Init")
     @BeforeEach
     void setUp() throws SQLException {
         StructMetaData smd = Mockito.mock(StructMetaData.class);
@@ -185,7 +187,6 @@ class AbstractRecordLayerResultSetTest {
             }
 
             @Override
-            @Nonnull
             public Continuation getContinuation() {
                 return ContinuationImpl.BEGIN;
             }
@@ -299,14 +300,14 @@ class AbstractRecordLayerResultSetTest {
 
     private static class TestCase {
         String method;
-        Object field;
+        @Nullable Object field;
 
-        TestCase(String method, Object field) {
+        TestCase(String method, @Nullable Object field) {
             this.method = method;
             this.field = field;
         }
 
-        static TestCase of(String method, Object field) {
+        static TestCase of(String method, @Nullable Object field) {
             return new TestCase(method, field);
         }
 
@@ -323,14 +324,14 @@ class AbstractRecordLayerResultSetTest {
     }
 
     private static class TestCaseWithResult extends TestCase {
-        Object expected;
+        @Nullable Object expected;
 
-        TestCaseWithResult(String method, Object field, Object expected) {
+        TestCaseWithResult(String method, @Nullable Object field, @Nullable Object expected) {
             super(method, field);
             this.expected = expected;
         }
 
-        static TestCaseWithResult of(String method, Object field, Object expected) {
+        static TestCaseWithResult of(String method, @Nullable Object field, @Nullable Object expected) {
             return new TestCaseWithResult(method, field, expected);
         }
 

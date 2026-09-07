@@ -33,53 +33,46 @@ import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSql
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 import com.apple.foundationdb.relational.util.Assert;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
 public interface RoutineParser {
 
-    @Nonnull
-    UserDefinedFunction parseFunction(@Nonnull String routineString, boolean isCaseSensitive);
+    UserDefinedFunction parseFunction(String routineString, boolean isCaseSensitive);
 
-    @Nonnull
-    LogicalOperator parseView(@Nonnull String viewName, @Nonnull String viewDefinition, boolean isCaseSensitive);
+    LogicalOperator parseView(String viewName, String viewDefinition, boolean isCaseSensitive);
 
     class DefaultSqlFunctionParser implements RoutineParser {
 
-        @Nonnull
         private final RecordLayerSchemaTemplate metaData;
 
-        private DefaultSqlFunctionParser(@Nonnull final RecordLayerSchemaTemplate metaData) {
+        private DefaultSqlFunctionParser(final RecordLayerSchemaTemplate metaData) {
             this.metaData = metaData;
         }
 
-        @Nonnull
         @Override
-        public CompiledSqlFunction parseFunction(@Nonnull final String routineString, boolean isCaseSensitive) {
+        public CompiledSqlFunction parseFunction(final String routineString, boolean isCaseSensitive) {
             return (CompiledSqlFunction)parse(routineString, null, PreparedParams.empty(), QueryParser::parseFunction,
                     BaseVisitor::visitSqlInvokedFunction, isCaseSensitive);
         }
 
-        @Nonnull
         @Override
-        public LogicalOperator parseView(@Nonnull final String viewName,
-                                         @Nonnull final String viewDefinition,
+        public LogicalOperator parseView(final String viewName,
+                                         final String viewDefinition,
                                          boolean isCaseSensitive) {
             return parse(viewDefinition, viewName, PreparedParams.empty(), QueryParser::parseView,
                     (v, p) -> v.getPlanGenerationContext().withDisabledLiteralProcessing(() ->
                             Assert.castUnchecked(v.visit(p), LogicalOperator.class)), isCaseSensitive);
         }
 
-        @Nonnull
         @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-        private <P, T> T parse(@Nonnull final String query,
+        private <P, T> T parse(final String query,
                                @Nullable String scope,
-                               @Nonnull final PreparedParams preparedParams,
-                               @Nonnull final Function<String, P> parse,
-                               @Nonnull final BiFunction<BaseVisitor, P, T> visit,
+                               final PreparedParams preparedParams,
+                               final Function<String, P> parse,
+                               final BiFunction<BaseVisitor, P, T> visit,
                                boolean isCaseSensitive) {
             final var parsed = parse.apply(query);
             final var planGenerationContext = new MutablePlanGenerationContext(preparedParams,
@@ -93,8 +86,7 @@ public interface RoutineParser {
         }
     }
 
-    @Nonnull
-    static DefaultSqlFunctionParser sqlFunctionParser(@Nonnull final RecordLayerSchemaTemplate metaData) {
+    static DefaultSqlFunctionParser sqlFunctionParser(final RecordLayerSchemaTemplate metaData) {
         return new DefaultSqlFunctionParser(metaData);
     }
 }

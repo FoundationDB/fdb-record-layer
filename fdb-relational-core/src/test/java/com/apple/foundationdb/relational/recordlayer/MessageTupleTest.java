@@ -35,7 +35,6 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 
@@ -105,7 +104,6 @@ class MessageTupleTest {
         Assertions.assertEquals(recordWithNonNullableArray, tupleWithNonNullableArray.parseMessage());
     }
 
-    @Nonnull
     private DynamicMessage.Builder restaurantMessageBuilder(boolean nullableArray) throws Exception {
         final var location = RecordLayerTable.newBuilder(false)
                 .setName("LOCATION")

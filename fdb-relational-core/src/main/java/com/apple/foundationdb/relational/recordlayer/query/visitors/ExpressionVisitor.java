@@ -66,9 +66,7 @@ import com.google.common.collect.Streams;
 import com.google.protobuf.ZeroCopyByteString;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -80,23 +78,25 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
+import static com.apple.foundationdb.relational.generated.RelationalParser.FunctionArgsContext;
+
 /**
  * This visits expression tree parse nodes and generates a corresponding {@link Expression}.
  */
 @API(API.Status.EXPERIMENTAL)
 public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
-    private ExpressionVisitor(@Nonnull BaseVisitor baseVisitor) {
+    private ExpressionVisitor(BaseVisitor baseVisitor) {
         super(baseVisitor);
     }
 
-    @Nonnull
-    public static ExpressionVisitor of(@Nonnull BaseVisitor baseVisitor) {
+    public static ExpressionVisitor of(BaseVisitor baseVisitor) {
         return new ExpressionVisitor(baseVisitor);
     }
 
     @Override
-    public LogicalOperator visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx) {
+    public LogicalOperator visitTableFunction(RelationalParser.TableFunctionContext ctx) {
         final var functionName = visitTableFunctionName(ctx.tableFunctionName());
         final var arguments = ctx.namedOrUnnamedFunctionArgs() == null ?
                               Expressions.empty() :
@@ -126,15 +126,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public Expression visitNamedFunctionArg(@Nonnull final RelationalParser.NamedFunctionArgContext ctx) {
+    public Expression visitNamedFunctionArg(final RelationalParser.NamedFunctionArgContext ctx) {
         final var name = visitUid(ctx.key);
         final var expression = Assert.castUnchecked(visit(ctx.value), Expression.class);
         return expression.toNamedArgument(name);
     }
 
-    @Nonnull
     @Override
-    public Expression visitContinuationAtom(@Nonnull RelationalParser.ContinuationAtomContext ctx) {
+    public Expression visitContinuationAtom(RelationalParser.ContinuationAtomContext ctx) {
         return getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> {
             final var continuationExpression = parseChild(ctx);
             SemanticAnalyzer.validateContinuation(continuationExpression);
@@ -142,29 +141,25 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         });
     }
 
-    @Nonnull
     @Override
-    public Expression visitSelectStarElement(@Nonnull RelationalParser.SelectStarElementContext ignored) {
+    public Expression visitSelectStarElement(RelationalParser.SelectStarElementContext ignored) {
         return getDelegate().getSemanticAnalyzer().expandStar(Optional.empty(), getDelegate().getLogicalOperators());
     }
 
-    @Nonnull
     @Override
-    public Expression visitSelectQualifierStarElement(@Nonnull RelationalParser.SelectQualifierStarElementContext ctx) {
+    public Expression visitSelectQualifierStarElement(RelationalParser.SelectQualifierStarElementContext ctx) {
         final var identifier = visitUid(ctx.uid());
         // the semantics of valid correlations are extended to expanding a (correlated) qualified star.
         return getDelegate().getSemanticAnalyzer().expandStar(Optional.of(identifier), getDelegate().getLogicalOperatorsIncludingOuter());
     }
 
-    @Nonnull
     @Override
-    public Expression visitFullColumnNameExpressionAtom(@Nonnull RelationalParser.FullColumnNameExpressionAtomContext fullColumnNameExpressionAtomContext) {
+    public Expression visitFullColumnNameExpressionAtom(RelationalParser.FullColumnNameExpressionAtomContext fullColumnNameExpressionAtomContext) {
         return Assert.castUnchecked(fullColumnNameExpressionAtomContext.fullColumnName().accept(this), Expression.class);
     }
 
-    @Nonnull
     @Override
-    public Expressions visitSelectElements(@Nonnull RelationalParser.SelectElementsContext selectElementsContext) {
+    public Expressions visitSelectElements(RelationalParser.SelectElementsContext selectElementsContext) {
         final var selectElements = Expressions.of(selectElementsContext.selectElement().stream()
                 .map(selectElement -> Assert.castUnchecked(selectElement.accept(this), Expression.class))
                 .collect(ImmutableList.toImmutableList()));
@@ -179,9 +174,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return selectElements;
     }
 
-    @Nonnull
     @Override
-    public Expression visitSelectExpressionElement(@Nonnull RelationalParser.SelectExpressionElementContext selectExpressionElementContext) {
+    public Expression visitSelectExpressionElement(RelationalParser.SelectExpressionElementContext selectExpressionElementContext) {
         final var expression = Assert.castUnchecked(selectExpressionElementContext.expression().accept(this), Expression.class);
         if (selectExpressionElementContext.AS() != null) {
             final var expressionName = visitUid(selectExpressionElementContext.uid());
@@ -190,16 +184,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return expression;
     }
 
-    @Nonnull
     @Override
-    public Expression visitFullColumnName(@Nonnull RelationalParser.FullColumnNameContext fullColumnNameContext) {
+    public Expression visitFullColumnName(RelationalParser.FullColumnNameContext fullColumnNameContext) {
         final var id = visitFullId(fullColumnNameContext.fullId());
         return getDelegate().getSemanticAnalyzer().resolveIdentifier(id, getDelegate().getCurrentPlanFragment());
     }
 
-    @Nonnull
     @Override
-    public List<OrderByExpression> visitOrderByClause(@Nonnull RelationalParser.OrderByClauseContext orderByClauseContextContext) {
+    public List<OrderByExpression> visitOrderByClause(RelationalParser.OrderByClauseContext orderByClauseContextContext) {
         if (!getDelegate().isTopLevel()) {
             Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "order by is not supported in subquery");
         }
@@ -211,31 +203,28 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     /**
      * Visits the individual expressions of an {@code ORDER BY} clause.
      */
-    @Nonnull
     private List<OrderByExpression> visitOrderByExpressions(
-            @Nonnull List<RelationalParser.OrderByExpressionContext> contexts) {
+            List<RelationalParser.OrderByExpressionContext> contexts) {
         return contexts.stream()
                 .map(this::visitOrderByExpression)
                 .collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
     @Override
-    public OrderByExpression visitOrderByExpression(@Nonnull RelationalParser.OrderByExpressionContext orderByExpressionContext) {
+    public OrderByExpression visitOrderByExpression(RelationalParser.OrderByExpressionContext orderByExpressionContext) {
         final var expression = Assert.castUnchecked(orderByExpressionContext.expression().accept(this), Expression.class);
         final var descending = ParseHelpers.isDescending(orderByExpressionContext.orderClause());
         final var nullsLast = ParseHelpers.isNullsLast(orderByExpressionContext.orderClause(), descending);
         return OrderByExpression.of(expression, descending, nullsLast);
     }
 
-    @Nonnull
     @Override
-    public NonnullPair<String, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitInlineTableDefinition(@Nonnull RelationalParser.InlineTableDefinitionContext ctx) {
+    public NonnullPair<String, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> visitInlineTableDefinition(RelationalParser.InlineTableDefinitionContext ctx) {
         final var tableId = visitTableName(ctx.tableName());
         final var columnIdTrie = visitUidListWithNestingsInParens(ctx.uidListWithNestingsInParens());
-        int columnCount = Objects.requireNonNull(columnIdTrie.getThis().getChildrenMap()).size();
-        final var columnsList = new ArrayList<>(Collections.nCopies(columnCount, (RecordLayerColumn) null));
-        for (final var entry : columnIdTrie.getThis().getChildrenMap().entrySet()) {
+        final var childrenMap = Objects.requireNonNull(columnIdTrie.getThis().getChildrenMap());
+        final var columnsList = new ArrayList<>(Collections.nCopies(childrenMap.size(), (RecordLayerColumn) null));
+        for (final var entry : childrenMap.entrySet()) {
             final var column = toColumn(entry.getKey(), entry.getValue());
             columnsList.set(column.getIndex(), column);
         }
@@ -244,15 +233,17 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return NonnullPair.of(tableId.getName(), columnIdTrie);
     }
 
-    private static RecordLayerColumn toColumn(@Nonnull FieldValue.ResolvedAccessor field, @Nonnull CompatibleTypeEvolutionPredicate.FieldAccessTrieNode columnIdTrie) {
-        final var columnName = field.getName();
+    private static RecordLayerColumn toColumn(FieldValue.ResolvedAccessor field, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode columnIdTrie) {
+        // field is always constructed from an Identifier's name (see visitUidListWithNestings), which is never
+        // null, even though ResolvedAccessor.getName() is declared @Nullable in general.
+        final var columnName = Objects.requireNonNull(field.getName(), "inline table column must have a name");
         final var builder = RecordLayerColumn.newBuilder().setName(columnName).setIndex(field.getOrdinal());
-        if (columnIdTrie.getChildrenMap() == null) {
+        final var childrenMap = columnIdTrie.getChildrenMap();
+        if (childrenMap == null) {
             return builder.setDataType(DataTypeUtils.toRelationalType(field.getType())).build();
         }
-        int columnCount = columnIdTrie.getChildrenMap().size();
-        final var fields = new ArrayList<>(Collections.nCopies(columnCount, (DataType.StructType.Field) null));
-        for (final var child : columnIdTrie.getChildrenMap().entrySet()) {
+        final var fields = new ArrayList<>(Collections.nCopies(childrenMap.size(), (DataType.StructType.Field) null));
+        for (final var child : childrenMap.entrySet()) {
             final var column = toColumn(child.getKey(), child.getValue());
             fields.set(column.getIndex(), DataType.StructType.Field.from(column.getName(), column.getDataType(), column.getIndex()));
         }
@@ -260,15 +251,13 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return builder.build();
     }
 
-    @Nonnull
     @Override
-    public Expressions visitGroupByClause(@Nonnull RelationalParser.GroupByClauseContext groupByClauseContext) {
+    public Expressions visitGroupByClause(RelationalParser.GroupByClauseContext groupByClauseContext) {
         return Expressions.of(groupByClauseContext.groupByItem().stream().map(this::visitGroupByItem).collect(ImmutableList.toImmutableList()));
     }
 
-    @Nonnull
     @Override
-    public Expression visitGroupByItem(@Nonnull RelationalParser.GroupByItemContext groupByItemContext) {
+    public Expression visitGroupByItem(RelationalParser.GroupByItemContext groupByItemContext) {
         Assert.isNullUnchecked(groupByItemContext.order, ErrorCode.UNSUPPORTED_QUERY, "ordering grouping column is not supported");
         final var expression = Assert.castUnchecked(groupByItemContext.expression().accept(this), Expression.class);
         if (groupByItemContext.uid() != null) {
@@ -278,15 +267,13 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return expression;
     }
 
-    @Nonnull
     @Override
-    public Expression visitNonAggregateFunctionCall(@Nonnull final RelationalParser.NonAggregateFunctionCallContext ctx) {
+    public Expression visitNonAggregateFunctionCall(final RelationalParser.NonAggregateFunctionCallContext ctx) {
         return getDelegate().visitNonAggregateWindowedFunction(ctx.nonAggregateWindowedFunction());
     }
 
-    @Nonnull
     @Override
-    public Expression visitNonAggregateWindowedFunction(@Nonnull final RelationalParser.NonAggregateWindowedFunctionContext windowedFunctionContext) {
+    public Expression visitNonAggregateWindowedFunction(final RelationalParser.NonAggregateWindowedFunctionContext windowedFunctionContext) {
         final String functionName = windowedFunctionContext.functionName.getText();
         final WindowSpecExpression windowSpecExpression = getDelegate().visitOverClause(windowedFunctionContext.overClause());
 
@@ -302,37 +289,34 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                 .resolveWindowFunction(functionName, true, windowSpecExpression, Expressions.empty());
     }
 
-    @Nonnull
     @Override
-    public WindowSpecExpression visitOverClause(@Nonnull final RelationalParser.OverClauseContext ctx) {
+    public WindowSpecExpression visitOverClause(final RelationalParser.OverClauseContext ctx) {
         Assert.isNullUnchecked(ctx.windowName(), ErrorCode.UNSUPPORTED_QUERY, "named window functions not supported");
 
-        @Nullable final var partitionClause = ctx.windowSpec().partitionClause();
+        final var partitionClause = ctx.windowSpec().partitionClause();
         final Expressions partitions = partitionClause == null ? Expressions.empty() : getDelegate().visitPartitionClause(partitionClause);
 
-        @Nullable final var orderByClause = ctx.windowSpec().orderByClause();
+        final var orderByClause = ctx.windowSpec().orderByClause();
         // Parse ORDER BY expressions directly — the isTopLevel() check in visitOrderByClause
         // is for query-level ORDER BY and does not apply inside OVER clauses.
         final List<OrderByExpression> orderByExpressions = orderByClause == null
                   ? ImmutableList.of()
                   : visitOrderByExpressions(orderByClause.orderByExpression());
 
-        @Nullable final var windowOptionsClause = ctx.windowSpec().windowOptionsClause();
+        final var windowOptionsClause = ctx.windowSpec().windowOptionsClause();
         final Expressions windowOptions = windowOptionsClause == null ? Expressions.empty() : getDelegate().visitWindowOptionsClause(windowOptionsClause);
 
         return WindowSpecExpression.of(partitions, orderByExpressions, windowOptions);
     }
 
-    @Nonnull
     @Override
     public Expressions visitWindowOptionsClause(final RelationalParser.WindowOptionsClauseContext ctx) {
         return Expressions.of(ImmutableSet.copyOf(ctx.windowOption().stream().map(option -> getDelegate().visitWindowOption(option))
                 .collect(ImmutableList.toImmutableList())));
     }
 
-    @Nonnull
     @Override
-    public Expressions visitPartitionClause(@Nonnull final RelationalParser.PartitionClauseContext ctx) {
+    public Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
         final var partitionByExpressions = ctx.fullId().stream()
                 .map(fullId -> getDelegate().getSemanticAnalyzer()
                         .resolveIdentifier(visitFullId(fullId), getDelegate().getCurrentPlanFragment()))
@@ -340,7 +324,6 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return Expressions.of(partitionByExpressions);
     }
 
-    @Nonnull
     @Override
     public Expression visitWindowOption(final RelationalParser.WindowOptionContext ctx) {
         if (ctx.EF_SEARCH() != null) {
@@ -354,15 +337,13 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         throw Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, "unexpected option " + ctx.getText());
     }
 
-    @Nonnull
     @Override
-    public Expression visitAggregateFunctionCall(@Nonnull RelationalParser.AggregateFunctionCallContext functionCon) {
+    public Expression visitAggregateFunctionCall(RelationalParser.AggregateFunctionCallContext functionCon) {
         return visitAggregateWindowedFunction(functionCon.aggregateWindowedFunction());
     }
 
-    @Nonnull
     @Override
-    public Expression visitAggregateWindowedFunction(@Nonnull RelationalParser.AggregateWindowedFunctionContext functionContext) {
+    public Expression visitAggregateWindowedFunction(RelationalParser.AggregateWindowedFunctionContext functionContext) {
         final Token functionName = functionContext.functionName;
         final String name = functionName.getText();
 
@@ -424,19 +405,17 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return getDelegate().resolveFunction(name, arguments);
     }
 
-    @Nonnull
     @Override
-    public Boolean visitNullTreatmentClause(@Nonnull final RelationalParser.NullTreatmentClauseContext ctx) {
+    public Boolean visitNullTreatmentClause(final RelationalParser.NullTreatmentClauseContext ctx) {
         return ctx.nullTreatment.getType() == RelationalParser.IGNORE;
     }
 
-    @Nonnull
     @Override
-    public Expression visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx) {
+    public Expression visitScalarFunctionCall(RelationalParser.ScalarFunctionCallContext ctx) {
         final var functionName = ctx.scalarFunctionName().getText();
         // special case for user-defined functions where we want to exclude the first argument from
         // being literal-stripped.
-        @Nonnull Expressions arguments;
+        Expressions arguments;
         boolean isUdf = getDelegate().getSemanticAnalyzer().isJavaCallFunction(functionName);
         if (isUdf) {
             final var argumentNodes = ctx.functionArgs().children.stream()
@@ -460,9 +439,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return getDelegate().resolveFunction(functionName, arguments.asList().toArray(new Expression[0]));
     }
 
-    @Nonnull
     @Override
-    public Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
+    public Expression visitUserDefinedScalarFunctionCall(RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
         final var functionName = Identifier.of(getDelegate().normalizeString(ctx.userDefinedScalarFunctionName().getText()));
         Expressions arguments = ctx.namedOrUnnamedFunctionArgs() == null ?
                                 Expressions.empty() :
@@ -470,9 +448,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return getDelegate().resolveFunction(functionName.getName(), arguments.asList().toArray(new Expression[0]));
     }
 
-    @Nonnull
     @Override
-    public Expression visitCaseFunctionCall(@Nonnull RelationalParser.CaseFunctionCallContext ctx) {
+    public Expression visitCaseFunctionCall(RelationalParser.CaseFunctionCallContext ctx) {
         final ImmutableList.Builder<Value> implications = ImmutableList.builder();
         final ImmutableList.Builder<Expression> pickerValues = ImmutableList.builder();
         for (final var caseAlternative : ctx.caseFuncAlternative()) {
@@ -494,9 +471,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return getDelegate().resolveFunction("__pick_value", arguments.build().toArray(new Expression[0]));
     }
 
-    @Nonnull
     @Override
-    public Expression visitDataTypeFunctionCall(@Nonnull RelationalParser.DataTypeFunctionCallContext ctx) {
+    public Expression visitDataTypeFunctionCall(RelationalParser.DataTypeFunctionCallContext ctx) {
         if (ctx.CAST() != null) {
             final var sourceExpression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
             final var isRepeated = ctx.convertedDataType().ARRAY() != null;
@@ -510,25 +486,21 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             return Expression.ofUnnamed(targetDataType, value);
         }
 
-        Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "CONVERT function is not yet supported");
-        return null;
+        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "CONVERT function is not yet supported");
     }
 
-    @Nonnull
     @Override
-    public Expression visitFunctionCallExpressionAtom(@Nonnull RelationalParser.FunctionCallExpressionAtomContext ctx) {
+    public Expression visitFunctionCallExpressionAtom(RelationalParser.FunctionCallExpressionAtomContext ctx) {
         return parseChild(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitFunctionArg(@Nonnull RelationalParser.FunctionArgContext functionArgContext) {
+    public Expression visitFunctionArg(RelationalParser.FunctionArgContext functionArgContext) {
         return Assert.castUnchecked(functionArgContext.expression().accept(this), Expression.class);
     }
 
-    @Nonnull
     @Override
-    public Expressions visitFunctionArgs(@Nullable RelationalParser.FunctionArgsContext ctx) {
+    public Expressions visitFunctionArgs(@Nullable FunctionArgsContext ctx) {
         if (ctx == null) {
             return Expressions.of(List.of());
         } else {
@@ -536,21 +508,18 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         }
     }
 
-    @Nonnull
     @Override
-    public Expression visitHavingClause(@Nonnull RelationalParser.HavingClauseContext havingClauseContext) {
+    public Expression visitHavingClause(RelationalParser.HavingClauseContext havingClauseContext) {
         return Assert.castUnchecked(havingClauseContext.expression().accept(this), Expression.class);
     }
 
-    @Nonnull
     @Override
-    public Expression visitPreparedStatementParameterAtom(@Nonnull RelationalParser.PreparedStatementParameterAtomContext ctx) {
+    public Expression visitPreparedStatementParameterAtom(RelationalParser.PreparedStatementParameterAtomContext ctx) {
         return visitPreparedStatementParameter(ctx.preparedStatementParameter());
     }
 
-    @Nonnull
     @Override
-    public Expression visitPreparedStatementParameter(@Nonnull RelationalParser.PreparedStatementParameterContext ctx) {
+    public Expression visitPreparedStatementParameter(RelationalParser.PreparedStatementParameterContext ctx) {
         final var tokenIndex = ctx.getStart().getTokenIndex();
         final Value value;
         if (ctx.QUESTION() != null) {
@@ -563,24 +532,21 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return Expression.ofUnnamed(type, value);
     }
 
-    @Nonnull
     @Override
-    public Expression visitNotExpression(@Nonnull RelationalParser.NotExpressionContext ctx) {
+    public Expression visitNotExpression(RelationalParser.NotExpressionContext ctx) {
         final var argument = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
         return getDelegate().resolveFunction(ctx.NOT().getText(), argument);
     }
 
-    @Nonnull
     @Override
-    public Expression visitLogicalExpression(@Nonnull RelationalParser.LogicalExpressionContext ctx) {
+    public Expression visitLogicalExpression(RelationalParser.LogicalExpressionContext ctx) {
         final var left = Assert.castUnchecked(ctx.expression(0).accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.expression(1).accept(this), Expression.class);
         return getDelegate().resolveFunction(ctx.logicalOperator().getText(), left, right);
     }
 
-    @Nonnull
     @Override
-    public Expression visitPredicatedExpression(@Nonnull final RelationalParser.PredicatedExpressionContext ctx) {
+    public Expression visitPredicatedExpression(final RelationalParser.PredicatedExpressionContext ctx) {
         final var operand = Assert.castUnchecked(visit(ctx.expressionAtom()), Expression.class);
         final var predicate = ctx.predicate();
         if (predicate == null) {
@@ -598,13 +564,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         if (predicate instanceof RelationalParser.IsExpressionContext) {
             return visitIsExpression(operand, (RelationalParser.IsExpressionContext)predicate);
         }
-        Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "unsupported predicate " + ctx.predicate().getText());
-        return null;
+        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "unsupported predicate " + ctx.predicate().getText());
     }
 
-    @Nonnull
     @Override
-    public Expression visitLimitClause(@Nonnull RelationalParser.LimitClauseContext ctx) {
+    public Expression visitLimitClause(RelationalParser.LimitClauseContext ctx) {
         // TODO (SQL query with OFFSET clause skipping wrong number of records with splitLongRecords=true in Relational)
         Assert.isNullUnchecked(ctx.offset, "OFFSET clause is not supported");
         // the child must be literal not a ConstantObjectValue because the limit does not contribute anything
@@ -616,17 +580,15 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         });
     }
 
-    @Nonnull
     @Override
-    public Expression visitLimitClauseAtom(@Nonnull RelationalParser.LimitClauseAtomContext ctx) {
+    public Expression visitLimitClauseAtom(RelationalParser.LimitClauseAtomContext ctx) {
         return parseChild(ctx);
     }
 
     ///// Predicates ///////
 
-    @Nonnull
     @Override
-    public Expression visitExistsExpressionAtom(@Nonnull RelationalParser.ExistsExpressionAtomContext ctx) {
+    public Expression visitExistsExpressionAtom(RelationalParser.ExistsExpressionAtomContext ctx) {
         /*
          * (yhatem) this is an interesting visitation, as it requires three interactions:
          * - Firstly, LogicalOperator-visitor calls Expression-visitor to visit this predicate.
@@ -643,8 +605,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return Expression.ofUnnamed(underlyingValue);
     }
 
-    @Nonnull
-    private Expression visitIsExpression(@Nonnull Expression operand, @Nonnull RelationalParser.IsExpressionContext ctx) {
+    private Expression visitIsExpression(Expression operand, RelationalParser.IsExpressionContext ctx) {
         if (ctx.NULL_LITERAL() != null) {
             if (ctx.NOT() != null) {
                 return getDelegate().resolveFunction("is not null", operand);
@@ -668,8 +629,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         }
     }
 
-    @Nonnull
-    private Expression visitLikePredicate(@Nonnull Expression operand, @Nonnull RelationalParser.LikePredicateContext ctx) {
+    private Expression visitLikePredicate(Expression operand, RelationalParser.LikePredicateContext ctx) {
         final LiteralValue<?> escapeValue;
         if (ctx.escape != null) {
             final var escapeChar = getDelegate().normalizeString(ctx.escape.getText());
@@ -687,8 +647,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return likeFunction;
     }
 
-    @Nonnull
-    private Expression visitInPredicate(@Nonnull Expression operand, @Nonnull RelationalParser.InPredicateContext ctx) {
+    private Expression visitInPredicate(Expression operand, RelationalParser.InPredicateContext ctx) {
         Assert.thatUnchecked(ctx.inList().queryExpressionBody() == null, ErrorCode.UNSUPPORTED_QUERY,
                 "IN predicate does not support nested SELECT");
         final var right = visitInList(ctx.inList());
@@ -699,9 +658,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return in;
     }
 
-    @Nonnull
     @Override
-    public Expression visitInList(@Nonnull RelationalParser.InListContext ctx) {
+    public Expression visitInList(RelationalParser.InListContext ctx) {
         final Expression result;
         if (ctx.preparedStatementParameter() != null) {
             result = visitPreparedStatementParameter(ctx.preparedStatementParameter());
@@ -726,9 +684,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return result;
     }
 
-    @Nonnull
     @Override
-    public Expression visitWhereExpr(@Nonnull RelationalParser.WhereExprContext ctx) {
+    public Expression visitWhereExpr(RelationalParser.WhereExprContext ctx) {
         final var expression = parseChild(ctx);
         // verify no window functions
         Assert.thatUnchecked(expression.getUnderlying().preOrderStream().noneMatch(v -> v instanceof WindowedValue),
@@ -736,48 +693,43 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return expression;
     }
 
-    @Nonnull
     @Override
     public Expression visitQualifyClause(final RelationalParser.QualifyClauseContext ctx) {
         return parseChild(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expressions visitExpressions(@Nonnull RelationalParser.ExpressionsContext ctx) {
+    public Expressions visitExpressions(RelationalParser.ExpressionsContext ctx) {
         return Expressions.of(ctx.expression()
                 .stream()
                 .map(expression -> Assert.castUnchecked(expression.accept(this), Expression.class))
                 .collect(ImmutableList.toImmutableList()));
     }
 
-    @Nonnull
     @Override
-    public Expression visitBitExpressionAtom(@Nonnull RelationalParser.BitExpressionAtomContext ctx) {
+    public Expression visitBitExpressionAtom(RelationalParser.BitExpressionAtomContext ctx) {
         final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
         return getDelegate().resolveFunction(ctx.bitOperator().getText(), left, right);
     }
 
-    @Nonnull
     @Override
-    public Expression visitBinaryComparisonPredicate(@Nonnull RelationalParser.BinaryComparisonPredicateContext ctx) {
+    public Expression visitBinaryComparisonPredicate(RelationalParser.BinaryComparisonPredicateContext ctx) {
         final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
         return getDelegate().resolveFunction(ctx.comparisonOperator().getText(), left, right);
     }
 
     @Override
-    public Expression visitSubscriptExpression(@Nonnull RelationalParser.SubscriptExpressionContext ctx) {
+    public Expression visitSubscriptExpression(RelationalParser.SubscriptExpressionContext ctx) {
         final var index = Assert.castUnchecked(ctx.index.accept(this), Expression.class);
         final var base = Assert.castUnchecked(ctx.base.accept(this), Expression.class);
         return getDelegate().resolveFunction(ctx.LEFT_SQUARE_BRACKET().getText()
                 .concat(ctx.RIGHT_SQUARE_BRACKET().getText()), index, base);
     }
 
-    @Nonnull
-    private Expression visitBetweenComparisonPredicate(@Nonnull Expression operand,
-                                                       @Nonnull RelationalParser.BetweenComparisonPredicateContext ctx) {
+    private Expression visitBetweenComparisonPredicate(Expression operand,
+                                                       RelationalParser.BetweenComparisonPredicateContext ctx) {
         final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
         if (ctx.NOT() == null) {
@@ -791,17 +743,15 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         }
     }
 
-    @Nonnull
     @Override
-    public Expression visitMathExpressionAtom(@Nonnull RelationalParser.MathExpressionAtomContext ctx) {
+    public Expression visitMathExpressionAtom(RelationalParser.MathExpressionAtomContext ctx) {
         final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
         return getDelegate().resolveFunction(ctx.mathOperator().getText(), left, right);
     }
 
-    @Nonnull
     @Override
-    public Expression visitExpressionWithOptionalName(@Nonnull RelationalParser.ExpressionWithOptionalNameContext ctx) {
+    public Expression visitExpressionWithOptionalName(RelationalParser.ExpressionWithOptionalNameContext ctx) {
         final var expression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
         if (ctx.AS() != null) {
             final var name = visitUid(ctx.uid());
@@ -812,15 +762,13 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     /////// Literals and Constants //////
 
-    @Nonnull
     @Override
-    public Expression visitDecimalLiteral(@Nonnull RelationalParser.DecimalLiteralContext ctx) {
+    public Expression visitDecimalLiteral(RelationalParser.DecimalLiteralContext ctx) {
         return resolveDecimal(ctx.getText(), ctx.getStart().getTokenIndex());
     }
 
-    @Nonnull
     @Override
-    public Expression visitStringLiteral(@Nonnull RelationalParser.StringLiteralContext ctx) {
+    public Expression visitStringLiteral(RelationalParser.StringLiteralContext ctx) {
         Assert.isNullUnchecked(ctx.STRING_CHARSET_NAME(), ErrorCode.UNSUPPORTED_QUERY, "charset not is supported");
         Assert.isNullUnchecked(ctx.START_NATIONAL_STRING_LITERAL(), ErrorCode.UNSUPPORTED_QUERY, "national string literal is not supported");
         Assert.isNullUnchecked(ctx.COLLATE(), ErrorCode.UNSUPPORTED_QUERY, "collation is not supported");
@@ -830,9 +778,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return Expression.ofUnnamed(value);
     }
 
-    @Nonnull
     @Override
-    public Expression visitBooleanLiteral(@Nonnull RelationalParser.BooleanLiteralContext ctx) {
+    public Expression visitBooleanLiteral(RelationalParser.BooleanLiteralContext ctx) {
         final Value booleanValue;
         if (ctx.FALSE() != null) {
             booleanValue = getDelegate().getPlanGenerationContext().processQueryLiteral(Type.primitiveType(Type.TypeCode.BOOLEAN), Boolean.FALSE,
@@ -845,9 +792,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return Expression.ofUnnamed(booleanValue);
     }
 
-    @Nonnull
     @Override
-    public Expression visitBytesLiteral(@Nonnull RelationalParser.BytesLiteralContext ctx) {
+    public Expression visitBytesLiteral(RelationalParser.BytesLiteralContext ctx) {
         final String literal;
         if (ctx.HEXADECIMAL_LITERAL() != null) {
             literal = ctx.HEXADECIMAL_LITERAL().getText();
@@ -860,67 +806,56 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return Expression.ofUnnamed(value);
     }
 
-    @Nonnull
     @Override
-    public Expression visitNullLiteral(@Nonnull RelationalParser.NullLiteralContext ctx) {
+    public Expression visitNullLiteral(RelationalParser.NullLiteralContext ctx) {
         return Expression.ofUnnamed(new NullValue(Type.nullType())); // do not strip nulls.
     }
 
-    @Nonnull
     @Override
-    public Expression visitStringConstant(@Nonnull RelationalParser.StringConstantContext ctx) {
+    public Expression visitStringConstant(RelationalParser.StringConstantContext ctx) {
         return parseChild(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitDecimalConstant(@Nonnull RelationalParser.DecimalConstantContext ctx) {
+    public Expression visitDecimalConstant(RelationalParser.DecimalConstantContext ctx) {
         return parseChild(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitNegativeDecimalConstant(@Nonnull RelationalParser.NegativeDecimalConstantContext ctx) {
+    public Expression visitNegativeDecimalConstant(RelationalParser.NegativeDecimalConstantContext ctx) {
         return resolveDecimal(ctx.getText(), ctx.getStart().getTokenIndex());
     }
 
-    @Nonnull
     @Override
-    public Expression visitBytesConstant(@Nonnull RelationalParser.BytesConstantContext ctx) {
+    public Expression visitBytesConstant(RelationalParser.BytesConstantContext ctx) {
         return parseChild(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitBooleanConstant(@Nonnull RelationalParser.BooleanConstantContext ctx) {
+    public Expression visitBooleanConstant(RelationalParser.BooleanConstantContext ctx) {
         return parseChild(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitBitStringConstant(@Nonnull RelationalParser.BitStringConstantContext ctx) {
-        Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "bit strings not supported");
-        return null;
+    public Expression visitBitStringConstant(RelationalParser.BitStringConstantContext ctx) {
+        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "bit strings not supported");
     }
 
-    @Nonnull
     @Override
-    public Expression visitNullConstant(@Nonnull RelationalParser.NullConstantContext ctx) {
+    public Expression visitNullConstant(RelationalParser.NullConstantContext ctx) {
         Assert.isNullUnchecked(ctx.NOT(), ErrorCode.UNSUPPORTED_QUERY, "not null is not supported");
         return visitNullLiteral(ctx.nullLiteral());
     }
 
     /////// Lists //////
 
-    @Nonnull
     @Override
-    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestingsInParens(@Nonnull final RelationalParser.UidListWithNestingsInParensContext ctx) {
+    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestingsInParens(final RelationalParser.UidListWithNestingsInParensContext ctx) {
         return visitUidListWithNestings(ctx.uidListWithNestings());
     }
 
-    @Nonnull
     @Override
-    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestings(@Nonnull final RelationalParser.UidListWithNestingsContext ctx) {
+    public CompatibleTypeEvolutionPredicate.FieldAccessTrieNode visitUidListWithNestings(final RelationalParser.UidListWithNestingsContext ctx) {
         final var uidMap = Streams.mapWithIndex(ctx.uidWithNestings().stream(),
                         (ctxWithNesting, index) -> {
                             final var uid = visitUid(ctxWithNesting.uid());
@@ -938,23 +873,20 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return CompatibleTypeEvolutionPredicate.FieldAccessTrieNode.of(Type.any(), uidMap);
     }
 
-    @Nonnull
     @Override
-    public Expression visitRecordConstructorForInsert(@Nonnull RelationalParser.RecordConstructorForInsertContext ctx) {
+    public Expression visitRecordConstructorForInsert(RelationalParser.RecordConstructorForInsertContext ctx) {
         final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
         return Expression.ofUnnamed(RecordConstructorValue.ofColumns(expressions.underlyingAsColumns()));
     }
 
-    @Nonnull
     @Override
-    public Expression visitRecordConstructorForInlineTable(@Nonnull RelationalParser.RecordConstructorForInlineTableContext ctx) {
+    public Expression visitRecordConstructorForInlineTable(RelationalParser.RecordConstructorForInlineTableContext ctx) {
         final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
         return Expression.ofUnnamed(RecordConstructorValue.ofColumns(expressions.underlyingAsColumns()));
     }
 
-    @Nonnull
     @Override
-    public Expression visitRecordConstructor(@Nonnull RelationalParser.RecordConstructorContext ctx) {
+    public Expression visitRecordConstructor(RelationalParser.RecordConstructorContext ctx) {
         if (ctx.uid() != null) {
             final var id = visitUid(ctx.uid());
             if (ctx.STAR() == null) {
@@ -993,9 +925,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return Expression.ofUnnamed(resultValue);
     }
 
-    @Nonnull
     @Override
-    public Expression visitArrayConstructor(@Nonnull RelationalParser.ArrayConstructorContext ctx) {
+    public Expression visitArrayConstructor(RelationalParser.ArrayConstructorContext ctx) {
         final var maybeState = getStateMaybe();
         final var targetTypeMaybe = maybeState.flatMap(LogicalPlanFragment.State::getTargetType);
 
@@ -1010,6 +941,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         }
 
         final var arrayTargetType = Assert.castUnchecked(targetTypeMaybe.get(), Type.Array.class);
+        // arrayTargetType.getElementType() is @Nullable only for an erased array type, which cannot occur here since
+        // the target type was propagated down from a resolved schema/expression type; Assert.notNullUnchecked
+        // enforces that invariant at runtime with a clear RelationalException, but NullAway can't see that since
+        // Assert lives in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
         final var newStateBuilder = LogicalPlanFragment.State.newBuilder().withTargetType(Assert.notNullUnchecked(arrayTargetType.getElementType()));
         try {
             getDelegate().getCurrentPlanFragment().setState(newStateBuilder.build());
@@ -1019,9 +955,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         }
     }
 
-    @Nonnull
-    private Expressions parseRecordFields(@Nonnull List<? extends ParserRuleContext> parserRuleContexts,
-                                          @Nullable List<Type.Record.Field> targetFields) {
+    private Expressions parseRecordFields(List<? extends ParserRuleContext> parserRuleContexts,
+                                          @Nullable List<Field> targetFields) {
         Assert.thatUnchecked(targetFields == null || targetFields.size() == parserRuleContexts.size());
         final var resultsBuilder = ImmutableList.<Expression>builder();
         for (int i = 0; i < parserRuleContexts.size(); i++) {
@@ -1032,16 +967,17 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return Expressions.of(resultsBuilder.build());
     }
 
-    @Nonnull
-    private Expression parseRecordField(@Nonnull ParserRuleContext parserRuleContext,
-                                        @Nullable Type.Record.Field targetField) {
+    private Expression parseRecordField(ParserRuleContext parserRuleContext,
+                                        @Nullable Field targetField) {
         final var fieldType = targetField == null ? null : targetField.getFieldType();
         StringTrieNode reorderings = null;
         final var maybeState = getStateMaybe();
         if (targetField != null && maybeState.isPresent() && maybeState.get().getTargetTypeReorderings().isPresent()) {
             reorderings = maybeState.get().getTargetTypeReorderings().get();
         }
-        final var targetFieldReorderings = (reorderings == null || reorderings.getChildrenMap() == null) ?
+        // reorderings is only ever assigned (above) when targetField is non-null, so the extra targetField == null
+        // check below is redundant at runtime but lets NullAway see that targetField.getFieldName() is safe.
+        final var targetFieldReorderings = (targetField == null || reorderings == null || reorderings.getChildrenMap() == null) ?
                                            null :
                                            reorderings.getChildrenMap().get(targetField.getFieldName());
         final var newStateBuilder = LogicalPlanFragment.State.newBuilder();
@@ -1062,6 +998,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         if (fieldType == null) {
             return expression;
         }
+        // fieldType is derived from targetField.getFieldType() above, so fieldType being non-null implies
+        // targetField is also non-null; reassign so NullAway can see that for the rest of this method.
+        targetField = Objects.requireNonNull(targetField);
         var coercedExpression = coerceIfNecessary(expression, fieldType);
         if (targetField.getFieldIndexOptional().isPresent()) {
             coercedExpression = coercedExpression.withUnderlying(new ColumnarValue(coercedExpression.getUnderlying(),
@@ -1076,10 +1015,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return coercedExpression;
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static Expression coerceIfNecessary(@Nonnull Expression expression,
-                                                @Nonnull Type targetType) {
+    private static Expression coerceIfNecessary(Expression expression,
+                                                Type targetType) {
         final var value = expression.getUnderlying();
         final var maybeCoercedValue = coerceValueIfNecessary(expression.getUnderlying(), targetType);
         if (value != maybeCoercedValue) {
@@ -1089,8 +1027,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         }
     }
 
-    @Nonnull
-    private static Value coerceValueIfNecessary(@Nonnull Value value, @Nonnull Type targetType) {
+    private static Value coerceValueIfNecessary(Value value, Type targetType) {
         final var resultType = value.getResultType();
         if (resultType.isUnresolved() ||
                 (resultType.isPrimitive() && PromoteValue.isPromotionNeeded(resultType, targetType))) {
@@ -1098,14 +1035,18 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         if (resultType.isArray() && PromoteValue.isPromotionNeeded(resultType, targetType) && value instanceof AbstractArrayConstructorValue) {
             Assert.thatUnchecked(targetType.isArray(), "Cannot convert array type to non-array type");
-            final var targetElementType = ((Type.Array) targetType).getElementType();
+            // getElementType() is @Nullable only for an erased array type; targetType here always originates from a
+            // resolved schema/expression type, so it is never erased. Assert.notNullUnchecked enforces that
+            // invariant at runtime with a clear RelationalException, but NullAway can't see that since Assert lives
+            // in the not-yet-migrated fdb-relational-api module.
+            @SuppressWarnings("NullAway")
+            final Type targetElementType = Assert.notNullUnchecked(((Type.Array) targetType).getElementType());
             return AbstractArrayConstructorValue.LightArrayConstructorValue.of(Streams.stream(value.getChildren()).map(c -> coerceValueIfNecessary(c, targetElementType)).collect(Collectors.toList()));
         }
         return value;
     }
 
-    @Nonnull
-    private Expressions parseRecordFieldsUnderReorderings(@Nonnull final List<? extends ParserRuleContext> providedColumnContexts) {
+    private Expressions parseRecordFieldsUnderReorderings(final List<? extends ParserRuleContext> providedColumnContexts) {
         final var maybeState = getStateMaybe();
         if (maybeState.isEmpty() || maybeState.get().getTargetType().isEmpty()) {
             return parseRecordFields(providedColumnContexts, null);
@@ -1116,6 +1057,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var elementFields = Assert.notNullUnchecked(targetType.getFields());
 
         if (state.getTargetTypeReorderings().isPresent()) {
+            // FieldAccessTrieNode.getChildrenMap() is @Nullable in general, but the reorderings trie built for a
+            // record target type always carries a non-null children map; Assert.notNullUnchecked enforces that
+            // invariant at runtime with a clear RelationalException, but NullAway can't see that since Assert lives
+            // in the not-yet-migrated fdb-relational-api module.
+            @SuppressWarnings("NullAway")
             final var targetTypeReorderings = ImmutableList.copyOf(Assert.notNullUnchecked(
                     state.getTargetTypeReorderings().get().getChildrenMap()).keySet());
             final var resultColumnsBuilder = ImmutableList.<Expression>builder();
@@ -1123,12 +1069,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             for (final var elementField : elementFields) {
                 final int index = targetTypeReorderings.indexOf(elementField.getFieldName());
                 final var fieldType = elementField.getFieldType();
-                Expression currentFieldColumns = null;
+                Expression currentFieldColumns;
                 if (index >= 0 && index < providedColumnContexts.size()) {
                     currentFieldColumns = parseRecordField(providedColumnContexts.get(index), elementField);
                 } else if (index >= providedColumnContexts.size()) {
                     // column is declared but the value is not provided
-                    Assert.failUnchecked(ErrorCode.SYNTAX_ERROR, "Value of column \"" + elementField.getFieldName() + "\" is not provided");
+                    throw Assert.failUnchecked(ErrorCode.SYNTAX_ERROR, "Value of column \"" + elementField.getFieldName() + "\" is not provided");
                 } else {
                     // We do not yet support default values for any types, hence it makes sense to simply fail if the field type
                     // expects non-null but no value is provided.
@@ -1150,16 +1096,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return parseRecordFields(providedColumnContexts, elementFields);
     }
 
-    @Nonnull
     @Override
-    public Expressions visitUpdatedElement(@Nonnull RelationalParser.UpdatedElementContext ctx) {
+    public Expressions visitUpdatedElement(RelationalParser.UpdatedElementContext ctx) {
         final var targetExpression = visitFullColumnName(ctx.fullColumnName());
         final var updateExpression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
         return Expressions.of(ImmutableList.of(targetExpression, updateExpression));
     }
 
-    @Nonnull
-    private Expression handleArray(@Nonnull RelationalParser.ArrayConstructorContext ctx) {
+    private Expression handleArray(RelationalParser.ArrayConstructorContext ctx) {
         // Promote the individual array elements to their respective non-nullable types, as arrays cannot currently
         // store NULL elements (Issue #3646). NULL literals are rejected here as UNSUPPORTED_OPERATION, as `NullType`
         // cannot be made non-nullable.
@@ -1177,18 +1121,15 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         return getDelegate().resolveFunction("__internal_array", false, array);
     }
 
-    @Nonnull
     Optional<LogicalPlanFragment.State> getStateMaybe() {
         return getDelegate().getCurrentPlanFragmentMaybe().flatMap(LogicalPlanFragment::getStateMaybe);
     }
 
-    @Nonnull
-    private Expression parseChild(@Nonnull ParserRuleContext context) {
+    private Expression parseChild(ParserRuleContext context) {
         return Assert.castUnchecked(visitChildren(context), Expression.class);
     }
 
-    @Nonnull
-    private Expression resolveDecimal(@Nonnull String decimalText, int tokenIndex) {
+    private Expression resolveDecimal(String decimalText, int tokenIndex) {
         final var literal = ParseHelpers.parseDecimal(decimalText);
         final var type = Type.fromObject(literal);
         final var value = getDelegate().getPlanGenerationContext().processQueryLiteral(type, literal, tokenIndex);

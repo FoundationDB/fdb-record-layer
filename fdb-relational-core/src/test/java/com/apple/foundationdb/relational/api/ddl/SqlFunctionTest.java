@@ -40,9 +40,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -80,7 +80,6 @@ public class SqlFunctionTest {
             "integer", "bigint", "double", "boolean", "string", "bytes"
     };
 
-    @Nonnull
     public static Stream<Arguments> columnTypePermutations() {
         int numColumns = 2;
         final List<String> items = List.of(validPrimitiveDataTypes);
@@ -105,13 +104,13 @@ public class SqlFunctionTest {
                         " AS SELECT * FROM T WHERE " + conditionString)));
     }
 
-    void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull final MetadataOperationsFactory metadataOperationsFactory)
+    void shouldWorkWithInjectedFactory(final String query, final MetadataOperationsFactory metadataOperationsFactory)
             throws Exception {
         shouldWorkWithInjectedFactory(query, PreparedParams.empty(), metadataOperationsFactory);
     }
 
-    void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull final PreparedParams preparedParams,
-                                       @Nonnull final MetadataOperationsFactory metadataOperationsFactory)
+    void shouldWorkWithInjectedFactory(final String query, final PreparedParams preparedParams,
+                                       final MetadataOperationsFactory metadataOperationsFactory)
             throws Exception {
         connection.setAutoCommit(false);
         connection.getUnderlyingEmbeddedConnection().createNewTransaction();
@@ -121,25 +120,24 @@ public class SqlFunctionTest {
         connection.setAutoCommit(true);
     }
 
-    @Nonnull
-    SchemaTemplate ddl(@Nonnull final String sql) throws Exception {
+    SchemaTemplate ddl(final String sql) throws Exception {
         return ddl(sql, PreparedParams.empty());
     }
 
-    @Nonnull
-    SchemaTemplate ddl(@Nonnull final String sql, @Nonnull final PreparedParams preparedParams) throws Exception {
+    SchemaTemplate ddl(final String sql, final PreparedParams preparedParams) throws Exception {
         final AtomicReference<SchemaTemplate> t = new AtomicReference<>();
         shouldWorkWithInjectedFactory(sql, preparedParams, new AbstractMetadataOperationsFactory() {
-            @Nonnull
             @Override
-            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template,
-                                                                      @Nonnull final Options ignored) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(final SchemaTemplate template,
+                                                                      final Options ignored) {
                 t.set(template);
                 return txn -> {
                 };
             }
         });
-        return t.get();
+        // The factory callback above always calls t.set(template) before shouldWorkWithInjectedFactory
+        // returns, so t is guaranteed non-null here.
+        return Objects.requireNonNull(t.get());
     }
 
     @Test

@@ -32,7 +32,7 @@ import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -50,6 +50,11 @@ public class MessageTuple extends AbstractRow {
     }
 
     @Override
+    // Row#getObject(int) (fdb-relational-api, unannotated) is treated by NullAway's override check as
+    // implicitly @NonNull, so this can't be declared @Nullable even though it genuinely returns null below
+    // (representing a SQL NULL / absent field or an empty vector byte string), matching Row's actual,
+    // documented column-value contract.
+    @SuppressWarnings("NullAway")
     public Object getObject(int position) throws InvalidColumnReferenceException {
         if (position < 0 || position >= getNumFields()) {
             throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
@@ -77,7 +82,8 @@ public class MessageTuple extends AbstractRow {
         }
     }
 
-    public static Object sanitizeField(@Nonnull final Object field, @Nonnull final DescriptorProtos.FieldOptions fieldOptions) {
+    @Nullable
+    public static Object sanitizeField(final Object field, final DescriptorProtos.FieldOptions fieldOptions) {
         if (field instanceof Message && ((Message) field).getDescriptorForType().equals(TupleFieldsProto.UUID.getDescriptor())) {
             return TupleFieldsHelper.fromProto((Message) field, TupleFieldsProto.UUID.getDescriptor());
         }

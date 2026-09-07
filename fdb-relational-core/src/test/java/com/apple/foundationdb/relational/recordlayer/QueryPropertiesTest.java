@@ -44,11 +44,11 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class QueryPropertiesTest {
     @RegisterExtension
@@ -94,7 +94,7 @@ public class QueryPropertiesTest {
 
     List<Long> testScan(Options options, long firstRestNo) throws RelationalException, SQLException {
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), options)) {
+        try (RelationalConnection conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), options))) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
                 for (long i = 0; i < 2; i++) {
@@ -120,7 +120,7 @@ public class QueryPropertiesTest {
         }
     }
 
-    List<Long> getRestNoList(@Nonnull RelationalResultSet resultSet) throws SQLException {
+    List<Long> getRestNoList(RelationalResultSet resultSet) throws SQLException {
         List<Long> numbers = new ArrayList<>();
         while (resultSet.next()) {
             numbers.add(resultSet.getLong("REST_NO"));

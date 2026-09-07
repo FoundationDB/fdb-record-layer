@@ -33,6 +33,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -63,7 +64,7 @@ class RecordTypeTableSerDeTest {
                 builder.addObject(entry.getKey(), entry.getValue());
             }
             statement.executeInsert("T1", builder.build());
-            try (RelationalResultSet getRes = statement.executeGet("T1", new KeySet().setKeyColumn("A", fieldData.get("A")), Options.NONE)) {
+            try (RelationalResultSet getRes = statement.executeGet("T1", new KeySet().setKeyColumn("A", Objects.requireNonNull(fieldData.get("A"))), Options.NONE)) {
                 ResultSetAssert.assertThat(getRes)
                         .hasNextRow()
                         .row()

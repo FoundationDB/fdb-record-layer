@@ -26,7 +26,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -65,6 +65,7 @@ public class PlaceholderCatalog {
             this.fileDesc = fileDesc;
         }
 
+        @Nullable
         public TableInfo getTableInfo(String tableName) {
             return tableMap.get(tableName);
         }

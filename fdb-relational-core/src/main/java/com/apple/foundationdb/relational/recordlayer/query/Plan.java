@@ -30,47 +30,40 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 
-public abstract class Plan<T> {
+public abstract class Plan<T extends @Nullable Object> {
 
-    @Nonnull
     protected final String query;
 
-    protected Plan(@Nonnull final String query) {
+    protected Plan(final String query) {
         this.query = query;
     }
 
     public static class ExecutionContext {
-        @Nonnull
         final Transaction transaction;
-        @Nonnull
         final Options options;
-        @Nonnull
         final RelationalConnection connection;
-        @Nonnull
         final MetricCollector metricCollector;
 
-        ExecutionContext(@Nonnull Transaction transaction,
-                         @Nonnull Options options,
-                         @Nonnull RelationalConnection connection,
-                         @Nonnull MetricCollector metricCollector) {
+        ExecutionContext(Transaction transaction,
+                         Options options,
+                         RelationalConnection connection,
+                         MetricCollector metricCollector) {
             this.transaction = transaction;
             this.options = options;
             this.connection = connection;
             this.metricCollector = metricCollector;
         }
 
-        @Nonnull
         public Options getOptions() {
             return options;
         }
 
-        @Nonnull
-        public static ExecutionContext of(@Nonnull Transaction transaction,
-                                          @Nonnull Options options,
-                                          @Nonnull RelationalConnection connection,
-                                          @Nonnull MetricCollector metricCollector) {
+        public static ExecutionContext of(Transaction transaction,
+                                          Options options,
+                                          RelationalConnection connection,
+                                          MetricCollector metricCollector) {
             return new ExecutionContext(transaction, options, connection, metricCollector);
         }
     }
@@ -83,8 +76,8 @@ public abstract class Plan<T> {
      */
     public abstract boolean isUpdatePlan();
 
-    public abstract Plan<T> optimize(@Nonnull CascadesPlanner planner, @Nonnull PlanContext planContext,
-                                     @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException;
+    public abstract Plan<T> optimize(CascadesPlanner planner, PlanContext planContext,
+                                     PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException;
 
     /**
      * Executes a particular type of Plan. If the plan "can" be executed, it should be timed and registered as
@@ -95,22 +88,18 @@ public abstract class Plan<T> {
      * @return The result of the query execution, if there.
      * @throws RelationalException if something goes wrong.
      */
-    public final T execute(@Nonnull final ExecutionContext c) throws RelationalException {
+    public final T execute(final ExecutionContext c) throws RelationalException {
         return c.metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_EXECUTE_QUERY, () -> executeInternal(c));
     }
 
-    protected abstract T executeInternal(@Nonnull ExecutionContext c) throws RelationalException;
+    protected abstract T executeInternal(ExecutionContext c) throws RelationalException;
 
-    @Nonnull
     public abstract QueryPlanConstraint getConstraint();
 
-    @Nonnull
-    public abstract Plan<T> withExecutionContext(@Nonnull QueryExecutionContext queryExecutionContext);
+    public abstract Plan<T> withExecutionContext(QueryExecutionContext queryExecutionContext);
 
-    @Nonnull
     public abstract String explain();
 
-    @Nonnull
     public String getQuery() {
         return query;
     }

@@ -47,9 +47,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -59,26 +57,23 @@ public final class TautologicalValue extends AbstractValue implements BooleanVal
 
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Tautological-Value");
 
-    @Nonnull
     private static final TautologicalValue INSTANCE = new TautologicalValue();
 
     private TautologicalValue() {
     }
 
-    @Nonnull
     @Override
-    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+    public ExplainTokensWithPrecedence explain(final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         Verify.verify(Iterables.isEmpty(explainSuppliers));
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword("TRUE"));
     }
 
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nullable TypeRepository typeRepository,
-                                                     @Nonnull Set<CorrelationIdentifier> localAliases) {
+                                                     Set<CorrelationIdentifier> localAliases) {
         return Optional.of(ConstantPredicate.TRUE);
     }
 
-    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of();
@@ -86,7 +81,7 @@ public final class TautologicalValue extends AbstractValue implements BooleanVal
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, EvaluationContext context) {
         return true;
     }
 
@@ -96,49 +91,43 @@ public final class TautologicalValue extends AbstractValue implements BooleanVal
     }
 
     @Override
-    public int planHash(@Nonnull PlanHashMode mode) {
+    public int planHash(PlanHashMode mode) {
         return hashCodeWithoutChildren();
     }
 
-    @Nonnull
     public static TautologicalValue getInstance() {
         return INSTANCE;
     }
 
-    @Nonnull
     @Override
-    public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PValue toValueProto(final PlanSerializationContext serializationContext) {
         return PValue.newBuilder()
                 .setAdditionalValues(PlanSerialization.protoObjectToAny(serializationContext,
                         toProto(serializationContext)))
                 .build();
     }
 
-    @Nonnull
     @Override
-    public PTautologicalValue toProto(@Nonnull final PlanSerializationContext planSerializationContext) {
+    public PTautologicalValue toProto(final PlanSerializationContext planSerializationContext) {
         return PTautologicalValue.newBuilder().build();
     }
 
-    @Nonnull
-    public static TautologicalValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                              @Nonnull final PTautologicalValue tautologicalValueProto) {
+    public static TautologicalValue fromProto(final PlanSerializationContext serializationContext,
+                                              final PTautologicalValue tautologicalValueProto) {
         return getInstance();
     }
 
     @AutoService(PlanDeserializer.class)
     @SuppressWarnings("unused")
     public static class Deserializer implements PlanDeserializer<PTautologicalValue, TautologicalValue> {
-        @Nonnull
         @Override
         public Class<PTautologicalValue> getProtoMessageClass() {
             return PTautologicalValue.class;
         }
 
-        @Nonnull
         @Override
-        public TautologicalValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                           @Nonnull final PTautologicalValue tautologicalValueProto) {
+        public TautologicalValue fromProto(final PlanSerializationContext serializationContext,
+                                           final PTautologicalValue tautologicalValueProto) {
             return TautologicalValue.fromProto(serializationContext, tautologicalValueProto);
         }
     }

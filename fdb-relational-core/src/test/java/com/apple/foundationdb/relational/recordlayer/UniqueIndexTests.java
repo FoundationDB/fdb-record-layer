@@ -32,11 +32,11 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 
 public class UniqueIndexTests {
@@ -76,7 +76,7 @@ public class UniqueIndexTests {
     @Order(3)
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
-    private void insertUniqueRecordsToTable(@Nonnull List<RelationalStruct> toInsert, @Nonnull String tableName) {
+    private void insertUniqueRecordsToTable(List<RelationalStruct> toInsert, String tableName) {
         try {
             final var count = statement.executeInsert(tableName, toInsert);
             Assertions.assertEquals(count, toInsert.size());
@@ -85,14 +85,14 @@ public class UniqueIndexTests {
         }
     }
 
-    private void checkErrorOnNonUniqueInsertionsToTable(@Nonnull List<RelationalStruct> toInsert, @Nonnull String tableName) {
+    private void checkErrorOnNonUniqueInsertionsToTable(List<RelationalStruct> toInsert, String tableName) {
         boolean foundError = false;
         try {
             final var count = statement.executeInsert(tableName, toInsert);
             Assertions.assertEquals(count, toInsert.size());
         } catch (SQLException e) {
             Assertions.assertEquals(e.getSQLState(), ErrorCode.UNIQUE_CONSTRAINT_VIOLATION.getErrorCode());
-            Assertions.assertTrue(e.getMessage().contains("Duplicate entry for unique index"));
+            Assertions.assertTrue(Objects.requireNonNullElse(e.getMessage(), e.toString()).contains("Duplicate entry for unique index"));
             foundError = true;
         } catch (Exception e) {
             Assertions.fail(String.format(Locale.ROOT, "Unexpected exception while inserting records to table %s: %s", tableName, e.getMessage()));

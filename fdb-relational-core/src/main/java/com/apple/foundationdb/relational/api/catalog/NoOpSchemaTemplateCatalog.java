@@ -26,13 +26,15 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.AbstractRecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.metadata.NoOpSchemaTemplate;
 import com.apple.foundationdb.relational.transactionbound.catalog.HollowSchemaTemplateCatalog;
 
-import javax.annotation.Nonnull;
+import java.util.List;
 
 /**
  * Implementation of Schema template catalog that ignores CRUD operations on templates. This is essentially used
@@ -50,28 +52,29 @@ import javax.annotation.Nonnull;
 public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
 
     @Override
-    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName, int version) {
+    public boolean doesSchemaTemplateExist(Transaction txn, String templateName, int version) {
         return true;
     }
 
     @Override
-    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName) {
+    public boolean doesSchemaTemplateExist(Transaction txn, String templateName) {
         return true;
     }
 
     @Override
-    public void createTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) {
+    public void createTemplate(Transaction txn, SchemaTemplate newTemplate) {
     }
 
-    @Nonnull
     @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version) {
+    public SchemaTemplate loadSchemaTemplate(Transaction txn, String templateId, int version) {
         return new NoOpSchemaTemplate(templateId, version);
     }
 
     @Override
-    public RelationalResultSet listTemplates(@Nonnull Transaction txn) {
-        return new AbstractRecordLayerResultSet(null) {
+    public RelationalResultSet listTemplates(Transaction txn) {
+        // Previously constructed with a null StructMetaData; use a real (empty) one instead so
+        // getMetaData() below doesn't have to handle a null metaData field.
+        return new AbstractRecordLayerResultSet(RelationalStructMetaData.of(DataType.StructType.from("EMPTY", List.of(), false))) {
             @Override
             protected boolean hasNext() {
                 return false;
@@ -79,10 +82,12 @@ public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
 
             @Override
             protected Row advanceRow() {
-                return null;
+                // hasNext() is hard-coded false above, so this is never actually called; returning null here
+                // would violate advanceRow()'s @NonNull contract, but changing that contract to accommodate
+                // this dead branch is out of scope here.
+                throw new IllegalStateException("advanceRow() should never be called: hasNext() is always false");
             }
 
-            @Nonnull
             @Override
             public Continuation getContinuation() {
                 return ContinuationImpl.BEGIN;
@@ -100,11 +105,11 @@ public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, boolean throwIfDoesNotExist) {
+    public void deleteTemplate(Transaction txn, String templateId, boolean throwIfDoesNotExist) {
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version, boolean throwIfDoesNotExist) {
+    public void deleteTemplate(Transaction txn, String templateId, int version, boolean throwIfDoesNotExist) {
     }
 
 }

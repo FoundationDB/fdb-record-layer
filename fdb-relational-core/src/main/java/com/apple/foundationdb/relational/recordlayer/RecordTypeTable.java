@@ -57,12 +57,12 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
@@ -78,10 +78,11 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     private final String tableName;
     private final EmbeddedRelationalConnection conn;
 
+    @Nullable
     private RecordType currentTypeRef;
 
-    public RecordTypeTable(@Nonnull RecordLayerSchema schema,
-                           @Nonnull String tableName) {
+    public RecordTypeTable(RecordLayerSchema schema,
+                           String tableName) {
         this.schema = schema;
         this.tableName = tableName;
         this.conn = schema.conn;
@@ -94,19 +95,18 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
-    public @Nonnull
-    RecordLayerSchema getSchema() {
+    public RecordLayerSchema getSchema() {
         return schema;
     }
 
     @Override
-    public Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull Options options) throws RelationalException {
+    @Nullable
+    public Row get(Transaction t, Row key, Options options) throws RelationalException {
         loadRecordType(options);
         BackingStore store = schema.loadStore();
         return store.get(key, options);
     }
 
-    @Nonnull
     @Override
     public StructMetaData getMetaData() throws RelationalException {
         RecordType type = loadRecordType(Options.NONE);
@@ -124,8 +124,10 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
             } else if (o2 == null) {
                 return 1;
             } else {
-                Descriptors.FieldDescriptor field1 = descriptorLookupMap.get(o1);
-                Descriptors.FieldDescriptor field2 = descriptorLookupMap.get(o2);
+                // Both o1 and o2 are always keys of descriptorLookupMap: this comparator is only ever
+                // invoked (via orderedFieldMap.putAll below) on keys drawn from that same map.
+                Descriptors.FieldDescriptor field1 = Objects.requireNonNull(descriptorLookupMap.get(o1));
+                Descriptors.FieldDescriptor field2 = Objects.requireNonNull(descriptorLookupMap.get(o2));
                 return Integer.compare(field1.getIndex(), field2.getIndex());
             }
         });
@@ -141,7 +143,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
-    public boolean deleteRecord(@Nonnull Row key) throws RelationalException {
+    public boolean deleteRecord(Row key) throws RelationalException {
         BackingStore store = schema.loadStore();
         return store.delete(key);
     }
@@ -160,7 +162,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
 
     @Override
     @Deprecated
-    public boolean insertRecord(@Nonnull Message message, boolean replaceOnDuplicate) throws RelationalException {
+    public boolean insertRecord(Message message, boolean replaceOnDuplicate) throws RelationalException {
         BackingStore store = schema.loadStore();
         //TODO(bfines) maybe this should return something other than boolean?
         return store.insert(tableName, message, replaceOnDuplicate);
@@ -169,7 +171,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     @Override
     @Deprecated
     @SuppressWarnings("PMD.PreserveStackTrace") //we are intentionally destroying the stack trace here
-    public boolean insertRecord(@Nonnull RelationalStruct insert, boolean replaceOnDuplicate) throws RelationalException {
+    public boolean insertRecord(RelationalStruct insert, boolean replaceOnDuplicate) throws RelationalException {
         BackingStore store = schema.loadStore();
         try {
             final RecordType recordType = store.getRecordMetaData().getRecordType(this.tableName);
@@ -185,7 +187,6 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
      * This is used to support {@link com.apple.foundationdb.relational.api.RelationalDirectAccessStatement#executeInsert} operation and
      * should not be used for any other general purpose.
      */
-    @Nonnull
     public static Message toDynamicMessage(RelationalStruct struct, Descriptors.Descriptor descriptor) throws RelationalException {
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
         try {
@@ -257,7 +258,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                                     builder.addRepeatedField(fd, arrayItem);
                                 }
                             }
-                        } else {
+                        } else if (array != null) {
                             Assert.that(fd.getType() == Descriptors.FieldDescriptor.Type.MESSAGE, ErrorCode.CANNOT_CONVERT_TYPE,
                                     "Field Type expected to be of Type ARRAY but is actually " + fd.getType());
                             Assert.that(NullableArrayUtils.isWrappedArrayDescriptor(fd.getMessageType()));
@@ -323,14 +324,13 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
         currentTypeRef = null;
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return tableName;
     }
 
     @Override
-    public void validateTable(@Nonnull Options options) throws RelationalException {
+    public void validateTable(Options options) throws RelationalException {
         loadRecordType(options);
     }
 
@@ -368,7 +368,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                 //make sure to clear our state if the transaction ends
                 this.conn.addCloseListener(() -> currentTypeRef = null);
             } catch (MetaDataException mde) {
-                throw new RelationalException(mde.getMessage(), ErrorCode.UNDEFINED_SCHEMA, mde);
+                throw new RelationalException(Objects.requireNonNullElse(mde.getMessage(), mde.toString()), ErrorCode.UNDEFINED_SCHEMA, mde);
             }
         } else {
             //make sure that this record type is valid _for the operation we are doing now_.

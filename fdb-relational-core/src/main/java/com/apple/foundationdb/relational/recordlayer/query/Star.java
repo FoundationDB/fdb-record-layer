@@ -32,8 +32,6 @@ import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -48,11 +46,10 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public final class Star extends Expression {
 
-    @Nonnull
     private final List<Expression> expansion;
 
-    private Star(@Nonnull Optional<Identifier> qualifier, @Nonnull DataType dataType, @Nonnull Value expression,
-                 @Nonnull Iterable<Expression> expansion) {
+    private Star(Optional<Identifier> qualifier, DataType dataType, Value expression,
+                 Iterable<Expression> expansion) {
         super(qualifier, dataType, expression);
         Assert.thatUnchecked(expression.getResultType().isRecord());
         Assert.thatUnchecked(dataType.getCode() == DataType.Code.STRUCT);
@@ -60,20 +57,17 @@ public final class Star extends Expression {
         this.expansion = ImmutableList.copyOf(expansion);
     }
 
-    @Nonnull
     @Override
-    protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying, @Nonnull Visibility newVisibility) {
+    protected Expression createNew(Optional<Identifier> newName, DataType newDataType, Value newUnderlying, Visibility newVisibility) {
         throw new RelationalException("attempt to recreate new star expression", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
     }
 
-    @Nonnull
     public List<Expression> getExpansion() {
         return expansion;
     }
 
-    @Nonnull
     @Override
-    public Expression withQualifier(@Nonnull Collection<String> qualifier) {
+    public Expression withQualifier(Collection<String> qualifier) {
         if (getName().isEmpty()) {
             return this;
         }
@@ -86,18 +80,14 @@ public final class Star extends Expression {
         return this;
     }
 
-    @Nonnull
     @Override
-    public Expression withName(@Nonnull Identifier name) {
-        Assert.failUnchecked("attempt to name a star expression");
-        return null;
+    public Expression withName(Identifier name) {
+        throw Assert.failUnchecked("attempt to name a star expression");
     }
 
-    @Nonnull
     @Override
-    public Expression withUnderlying(@Nonnull Value underlying) {
-        Assert.failUnchecked("attempt to replace underlying value of a star expression");
-        return null;
+    public Expression withUnderlying(Value underlying) {
+        throw Assert.failUnchecked("attempt to replace underlying value of a star expression");
     }
 
     /**
@@ -108,13 +98,11 @@ public final class Star extends Expression {
      * @return a new {@link Expressions} list where each {@link Expression} internal {@link Value} with {@link LiteralValue}s
      * instead of any {@link ConstantObjectValue}s.
      */
-    @Nonnull
     @Override
-    public Expressions dereferenced(@Nonnull Literals literals) {
+    public Expressions dereferenced(Literals literals) {
         return Expressions.of(expansion).dereferenced(literals);
     }
 
-    @Nonnull
     @Override
     public EphemeralExpression asEphemeral() {
         throw new RelationalException("attempt to create an ephemeral expression from a star", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
@@ -128,27 +116,24 @@ public final class Star extends Expression {
                 .collect(Collectors.joining(",")) + "|" + getDataType() + "| ⇾ " + getUnderlying();
     }
 
-    @Nonnull
-    public static Star overQuantifier(@Nonnull Optional<Identifier> qualifier,
-                                      @Nonnull Value quantifier,
-                                      @Nonnull String typeName,
-                                      @Nonnull Expressions expansion) {
+    public static Star overQuantifier(Optional<Identifier> qualifier,
+                                      Value quantifier,
+                                      String typeName,
+                                      Expressions expansion) {
         final var starType = createStarType(typeName, expansion);
         return new Star(qualifier, starType, ensureValueConsistentWithExpansion(quantifier, expansion), expansion);
     }
 
-    @Nonnull
-    public static Star overQuantifiers(@Nonnull Optional<Identifier> qualifier,
-                                       @Nonnull List<QuantifiedObjectValue> quantifiers,
-                                       @Nonnull String typeName,
-                                       @Nonnull Expressions expansion) {
+    public static Star overQuantifiers(Optional<Identifier> qualifier,
+                                       List<QuantifiedObjectValue> quantifiers,
+                                       String typeName,
+                                       Expressions expansion) {
         final var underlyingStarType = quantifiers.size() == 1 ? quantifiers.get(0) : RecordConstructorValue.ofUnnamed(quantifiers);
         final var starType = createStarType(typeName, expansion);
         return new Star(qualifier, starType, ensureValueConsistentWithExpansion(underlyingStarType, expansion), expansion);
     }
 
-    @Nonnull
-    private static Value ensureValueConsistentWithExpansion(@Nonnull Value possibleValue, @Nonnull Expressions expansion) {
+    private static Value ensureValueConsistentWithExpansion(Value possibleValue, Expressions expansion) {
         // Try expanding the expansion and creating a record constructor value. If it has the same type as a proposed
         // pre-existing value, use that instead. This allows us to avoid inserting unnecessary RCVs if there's already
         // a value of the correct type, but it also allows us to modify the underlying type coming from a quantifier
@@ -161,17 +146,15 @@ public final class Star extends Expression {
         }
     }
 
-    @Nonnull
-    public static Star overIndividualExpressions(@Nonnull Optional<Identifier> qualifier,
-                                                 @Nonnull String typeName,
-                                                 @Nonnull Expressions expansion) {
+    public static Star overIndividualExpressions(Optional<Identifier> qualifier,
+                                                 String typeName,
+                                                 Expressions expansion) {
         final var starType = createStarType(typeName, expansion);
         return new Star(qualifier, starType, RecordConstructorValue.ofColumns(expansion.underlyingAsColumns()), expansion);
     }
 
-    @Nonnull
-    private static DataType.StructType createStarType(@Nonnull String name,
-                                                      @Nonnull Expressions expansion) {
+    private static DataType.StructType createStarType(String name,
+                                                      Expressions expansion) {
         final ImmutableList.Builder<DataType.StructType.Field> fields = ImmutableList.builder();
         int i = 0;
         for (final var expression : expansion) {

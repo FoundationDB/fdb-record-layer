@@ -42,6 +42,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.sql.DriverManager;
 import java.util.List;
+import java.util.Objects;
 
 public class ExecutePropertyTests {
 
@@ -100,7 +101,7 @@ public class ExecutePropertyTests {
         Continuation continuation = ContinuationImpl.BEGIN;
         long nextCorrectResult = 10L;
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(optionName, optionValue).build())) {
+        try (var conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.builder().withOption(optionName, optionValue).build()))) {
             conn.setSchema("TEST_SCHEMA");
             while (!continuation.atEnd()) {
                 String query = continuation.atBeginning() ? "SELECT * FROM FOO" : "EXECUTE CONTINUATION ?";
@@ -138,8 +139,8 @@ public class ExecutePropertyTests {
     public void multipleConnectionsDoNotAffectEachOthersLimit() throws Exception {
         statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11'), (12, '12'), (13, '13'), (14, '14'), (15, '15'), (16, '16')");
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (var conn1 = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2).build());
-                var conn2 = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 3).build())) {
+        try (var conn1 = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2).build()));
+                var conn2 = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 3).build()))) {
             conn1.setSchema("TEST_SCHEMA");
             conn2.setSchema("TEST_SCHEMA");
             try (var ps1 = conn1.prepareStatement("SELECT * FROM FOO");
@@ -166,7 +167,7 @@ public class ExecutePropertyTests {
     public void limitIsKeptAcrossMultipleQueriesWithinTheSameTransaction() throws Exception {
         statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11'), (12, '12')");
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 5).build())) {
+        try (var conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 5).build()))) {
             conn.setSchema("TEST_SCHEMA");
             conn.setAutoCommit(false);
             try (var ps = conn.prepareStatement("SELECT * FROM FOO")) {
@@ -193,7 +194,7 @@ public class ExecutePropertyTests {
     public void limitIsKeptAcrossMultipleQueriesWithinTheSameTransactionSecondQueryFailsRightAway() throws Exception {
         statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11'), (12, '12')");
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 1).build())) {
+        try (var conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 1).build()))) {
             conn.setSchema("TEST_SCHEMA");
             conn.setAutoCommit(false);
             try (var ps = conn.prepareStatement("SELECT * FROM FOO")) {
@@ -215,7 +216,7 @@ public class ExecutePropertyTests {
     public void limitIsResetWithNewTransaction() throws Exception {
         statement.executeUpdate("INSERT INTO FOO VALUES (10, '10'), (11, '11')");
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 5).build())) {
+        try (var conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 5).build()))) {
             conn.setSchema("TEST_SCHEMA");
             conn.setAutoCommit(false);
             try (var ps = conn.prepareStatement("SELECT * FROM FOO")) {

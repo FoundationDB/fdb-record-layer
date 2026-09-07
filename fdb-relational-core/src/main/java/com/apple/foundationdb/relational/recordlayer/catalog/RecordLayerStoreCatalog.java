@@ -72,8 +72,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.Locale;
@@ -130,7 +129,10 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
     private final RecordLayerSchema catalogSchema;
 
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Hard to remove exception with current inheritance")
-    RecordLayerStoreCatalog(@Nonnull final KeySpace keySpace) throws RelationalException {
+    // schemaTemplateCatalog is populated by initialize(), which the class Javadoc requires to be
+    // called before the catalog can be used; NullAway cannot see this two-phase initialization.
+    @SuppressWarnings("NullAway.Init")
+    RecordLayerStoreCatalog(final KeySpace keySpace) throws RelationalException {
         this.keySpace = keySpace;
         this.catalogSchemaPath = RelationalKeyspaceProvider.toDatabasePath(DASH_DASH_SYS, keySpace)
                 .schemaPath(RelationalKeyspaceProvider.CATALOG);
@@ -152,7 +154,7 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
      * @return {@code this} StoreCatalog instance for method chaining
      * @throws RelationalException if catalog initialization fails
      */
-    StoreCatalog initialize(@Nonnull final Transaction createTxn) throws RelationalException {
+    StoreCatalog initialize(final Transaction createTxn) throws RelationalException {
         return initialize(createTxn, new RecordLayerStoreSchemaTemplateCatalog(catalogSchema, catalogSchemaPath));
     }
 
@@ -165,7 +167,7 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
      * @return this StoreCatalog instance for method chaining
      * @throws RelationalException if catalog initialization fails
      */
-    StoreCatalog initialize(@Nonnull final Transaction createTxn, @Nonnull final SchemaTemplateCatalog schemaTemplateCatalog)
+    StoreCatalog initialize(final Transaction createTxn, final SchemaTemplateCatalog schemaTemplateCatalog)
             throws RelationalException {
         try {
             // Set Catalog store's state cacheability to be true to make frequent opening of store a light operation.
@@ -198,9 +200,8 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
         return schemaTemplateCatalog;
     }
 
-    @Nonnull
     @Override
-    public RecordLayerSchema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
+    public RecordLayerSchema loadSchema(Transaction txn, URI databaseId, String schemaName) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         Assert.notNull(recordStore);
@@ -212,9 +213,9 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
     }
 
     @Nullable
-    private RecordLayerSchema loadSchemaIfExists(@Nonnull final Transaction txn, @Nonnull final URI databaseId,
-                                                 @Nonnull final String schemaName,
-                                                 @Nonnull final FDBRecordStoreBase<Message> recordStore) throws RelationalException {
+    private RecordLayerSchema loadSchemaIfExists(final Transaction txn, final URI databaseId,
+                                                 final String schemaName,
+                                                 final FDBRecordStoreBase<Message> recordStore) throws RelationalException {
         final Tuple primaryKey = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, databaseId.getPath(), schemaName);
         try {
             final FDBStoredRecord<Message> record = recordStore.loadRecord(primaryKey);
@@ -229,9 +230,9 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
     }
 
     @Override
-    public void saveSchema(@Nonnull final Transaction txn, @Nonnull final Schema schema,
+    public void saveSchema(final Transaction txn, final Schema schema,
                            boolean createDatabaseIfNecessary,
-                           @Nonnull SchemaExistsBehavior existsBehavior) throws RelationalException {
+                           SchemaExistsBehavior existsBehavior) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         CatalogValidator.validateSchema(schema);
@@ -269,7 +270,7 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
     }
 
     @Override
-    public void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName) throws RelationalException {
+    public void repairSchema(Transaction txn, String databaseId, String schemaName) throws RelationalException {
         // a read-modify-write loop, done in 1 transaction
         final RecordLayerSchema schema = loadSchema(txn, URI.create(databaseId), schemaName);
         // load latest schema template
@@ -279,7 +280,7 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
     }
 
     @Override
-    public void createDatabase(@Nonnull Transaction txn, URI dbUri) throws RelationalException {
+    public void createDatabase(Transaction txn, URI dbUri) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         try {
@@ -290,7 +291,7 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
     }
 
     @SuppressWarnings("deprecation") // need to replace protobuf data builder
-    private void createDatabase(@Nonnull FDBRecordStoreBase<Message> recordStore, URI dbUri) throws RelationalException {
+    private void createDatabase(FDBRecordStoreBase<Message> recordStore, URI dbUri) throws RelationalException {
         try {
             ProtobufDataBuilder pmd = new ProtobufDataBuilder(catalogRecordMetaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.DATABASE_TABLE_NAME).getDescriptor());
             Message m = pmd.setField("DATABASE_ID", dbUri.getPath()).build();
@@ -302,7 +303,7 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
 
     @SuppressWarnings("PMD.CloseResource") // cursor lifetime extends into lifetime of returned result set
     @Override
-    public RelationalResultSet listDatabases(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
+    public RelationalResultSet listDatabases(Transaction txn, Continuation continuation) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         Tuple key = Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY);
@@ -313,7 +314,7 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
 
     @SuppressWarnings("PMD.CloseResource") // cursor lifetime extends into lifetime of returned result set
     @Override
-    public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull Continuation continuation) throws RelationalException {
+    public RelationalResultSet listSchemas(Transaction txn, Continuation continuation) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY);
@@ -325,7 +326,7 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
 
     @SuppressWarnings("PMD.CloseResource") // cursor lifetime extends into lifetime of returned result set
     @Override
-    public RelationalResultSet listSchemas(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull Continuation continuation) throws RelationalException {
+    public RelationalResultSet listSchemas(Transaction txn, URI databaseId, Continuation continuation) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, databaseId.getPath());
@@ -335,7 +336,7 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
     }
 
     @Override
-    public void deleteSchema(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) throws RelationalException {
+    public void deleteSchema(Transaction txn, URI dbUri, String schemaName) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         try {
@@ -347,13 +348,13 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
     }
 
     @Override
-    public boolean doesDatabaseExist(@Nonnull Transaction txn, @Nonnull URI databaseId) throws RelationalException {
+    public boolean doesDatabaseExist(Transaction txn, URI databaseId) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         return doesDatabaseExist(recordStore, databaseId);
     }
 
-    private boolean doesDatabaseExist(@Nonnull FDBRecordStoreBase<Message> recordStore, @Nonnull URI databaseId) throws RelationalException {
+    private boolean doesDatabaseExist(FDBRecordStoreBase<Message> recordStore, URI databaseId) throws RelationalException {
         try {
             String dbId = databaseId.getPath();
             return recordStore.loadRecord(Tuple.from(SystemTableRegistry.DATABASE_INFO_RECORD_TYPE_KEY, dbId)) != null;
@@ -363,7 +364,7 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
     }
 
     @Override
-    public boolean doesSchemaExist(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaName) throws RelationalException {
+    public boolean doesSchemaExist(Transaction txn, URI dbUri, String schemaName) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         try {
@@ -375,7 +376,7 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
     }
 
     @Override
-    public boolean deleteDatabase(@Nonnull Transaction txn, @Nonnull URI dbUrl, boolean throwIfDoesNotExist) throws RelationalException {
+    public boolean deleteDatabase(Transaction txn, URI dbUrl, boolean throwIfDoesNotExist) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         try {
@@ -399,7 +400,6 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
         return true;
     }
 
-    @Nonnull
     @Override
     public KeySpace getKeySpace() {
         return keySpace;
@@ -408,11 +408,17 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
     // delete schemas for the matching dbUri.
     // returns true if the operation completes, false when the operation cannot complete because of txn timeout
     // throws exception otherwise.
-    private boolean deleteSchemas(@Nonnull FDBRecordStoreBase<Message> recordStore, @Nonnull URI dbUri) throws RelationalException {
+    private boolean deleteSchemas(FDBRecordStoreBase<Message> recordStore, URI dbUri) throws RelationalException {
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, dbUri.getPath());
+        // ContinuationImpl.BEGIN.getExecutionState() is @Nullable byte[]; NullAway/JSpecify does not
+        // reliably track @Nullable on array types across the call into scanRecords's continuation
+        // parameter (also @Nullable byte[]), so this is flagged as mismatched even though both sides
+        // agree it can be null.
+        @SuppressWarnings("NullAway")
+        final byte[] beginExecutionState = ContinuationImpl.BEGIN.getExecutionState();
         try (RecordCursor<FDBStoredRecord<Message>> cursor =
                 recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE,
-                                EndpointType.RANGE_INCLUSIVE), ContinuationImpl.BEGIN.getExecutionState(),
+                                EndpointType.RANGE_INCLUSIVE), beginExecutionState,
                         ScanProperties.FORWARD_SCAN);) {
             RecordCursorResult<FDBStoredRecord<Message>> cursorResult;
             do {
@@ -434,10 +440,10 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
     }
 
     @SuppressWarnings("deprecation") // need to replace protobuf data builder
-    private void putSchema(@Nonnull final RecordLayerSchema schema, @Nonnull final FDBRecordStoreBase<Message> recordStore) throws RelationalException {
+    private void putSchema(final RecordLayerSchema schema, final FDBRecordStoreBase<Message> recordStore) throws RelationalException {
         try {
-            @Nonnull final ProtobufDataBuilder pmd = new ProtobufDataBuilder(catalogRecordMetaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor());
-            @Nonnull final Message m = pmd.setField("DATABASE_ID", schema.getDatabaseName())
+            final ProtobufDataBuilder pmd = new ProtobufDataBuilder(catalogRecordMetaDataProvider.getRecordMetaData().getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME).getDescriptor());
+            final Message m = pmd.setField("DATABASE_ID", schema.getDatabaseName())
                     .setField("SCHEMA_NAME", schema.getName())
                     .setField("TEMPLATE_NAME", schema.getSchemaTemplate().getName())
                     .setField("TEMPLATE_VERSION", schema.getSchemaTemplate().getVersion())
@@ -452,16 +458,11 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
         return RelationalStructMetaData.of((DataType.StructType) DataTypeUtils.toRelationalType(ProtobufDdlUtil.recordFromDescriptor(descriptor)));
     }
 
-    @Nonnull
-    private Tuple getSchemaKey(@Nonnull URI databaseId, @Nonnull String schemaName) {
+    private Tuple getSchemaKey(URI databaseId, String schemaName) {
         return Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, databaseId.getPath(), schemaName);
     }
 
-    @Nullable
-    private Row transformSchema(@Nullable FDBStoredRecord<Message> record) {
-        if (record == null) {
-            return null;
-        }
+    private Row transformSchema(FDBStoredRecord<Message> record) {
         Message m = record.getRecord();
         final RecordMetaData recordMetaData = catalogRecordMetaDataProvider.getRecordMetaData();
         final RecordType schemaTableMD = recordMetaData.getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME);

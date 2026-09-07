@@ -101,6 +101,10 @@ public class SetSchemaBenchmark extends EmbeddedRelationalBenchmark {
     }
 
     @State(Scope.Thread)
+    // NullAway.Init is suppressed here because connection follows the standard JMH benchmark
+    // lifecycle: it is left unset by the constructor and is always populated by init() (a @Setup
+    // method) before any benchmark method that uses it runs.
+    @SuppressWarnings("NullAway.Init")
     public static class RelationalConnHolder {
         private Connection connection;
 

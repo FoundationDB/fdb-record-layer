@@ -21,4 +21,7 @@
 /**
  * Utility methods to use in Relational implementation classes.
  */
+@NullMarked
 package com.apple.foundationdb.relational.util;
+
+import org.jspecify.annotations.NullMarked;

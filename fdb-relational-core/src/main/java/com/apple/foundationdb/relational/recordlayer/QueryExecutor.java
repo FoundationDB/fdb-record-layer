@@ -34,8 +34,7 @@ import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A query executor that executes a plan and returns its results.
@@ -46,26 +45,35 @@ public class QueryExecutor {
     private final RecordQueryPlan plan;
     private final EvaluationContext evaluationContext;
 
-    public QueryExecutor(@Nonnull final RecordQueryPlan plan,
-                         @Nonnull final EvaluationContext evaluationContext,
-                         @Nonnull final RecordLayerSchema schema) {
+    public QueryExecutor(final RecordQueryPlan plan,
+                         final EvaluationContext evaluationContext,
+                         final RecordLayerSchema schema) {
         this.schema = schema;
         this.evaluationContext = evaluationContext;
         this.plan = plan;
     }
 
     @SuppressWarnings("PMD.CloseResource") // cursor lifetime continues with iterator
-    @Nonnull
     public ResumableIterator<Row> execute(@Nullable final Continuation continuation,
-                                          @Nonnull final ExecuteProperties executeProperties) throws RelationalException {
+                                          final ExecuteProperties executeProperties) throws RelationalException {
         final FDBRecordStoreBase<?> fdbRecordStore = Assert.notNull(schema.loadStore()).unwrap(FDBRecordStoreBase.class);
+        // continuation.getExecutionState() is @Nullable byte[]; NullAway/JSpecify does not reliably track
+        // @Nullable on array types across the call into executePlan's continuation parameter (also
+        // @Nullable byte[]), so this ternary is flagged as mismatched even though both sides agree it can be null.
+        @SuppressWarnings("NullAway")
+        final byte[] executionState = continuation == null ? null : continuation.getExecutionState();
+        // See the comment above: executionState is genuinely @Nullable byte[], and executePlan's
+        // continuation parameter is likewise @Nullable byte[]; the mismatch NullAway reports here is the
+        // same array-tracking gap.
+        @SuppressWarnings("NullAway")
         final RecordCursor<QueryResult> cursor = plan.executePlan(fdbRecordStore,
                 evaluationContext,
-                continuation == null ? null : continuation.getExecutionState(), executeProperties);
+                executionState, executeProperties);
 
         return RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
     }
 
+    @Nullable
     public Type getQueryResultType() {
         return plan.getResultType().getInnerType();
     }

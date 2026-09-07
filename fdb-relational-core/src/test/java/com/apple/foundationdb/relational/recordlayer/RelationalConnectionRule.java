@@ -33,12 +33,13 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.sql.Array;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Struct;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCallback, RelationalConnection {
@@ -49,6 +50,9 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     RelationalConnection connection;
 
 
+    // options/schema/connection are set later via the withOptions/withSchema fluent setters and
+    // beforeEach(), not in this constructor.
+    @SuppressWarnings("NullAway.Init")
     public RelationalConnectionRule(SqlSupplier<RelationalDriver> driverSupplier, Supplier<URI> dbPathSupplier) {
         this.driverSupplier = driverSupplier;
         this.dbPathSupplier = dbPathSupplier;
@@ -70,6 +74,9 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     }
 
     @Override
+    // connection is treated as non-null while the rule is active, but is reset to null here on
+    // teardown for test isolation between JUnit test methods.
+    @SuppressWarnings("NullAway")
     public void afterEach(ExtensionContext context) throws SQLException {
         if (connection != null) {
             connection.close();
@@ -81,7 +88,10 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     public void beforeEach(ExtensionContext context) throws RelationalException, SQLException {
         Options opt = options == null ? Options.NONE : options;
         final RelationalDriver driver = driverSupplier.get();
-        connection = driver.connect(dbPathSupplier.get(), opt);
+        // RelationalDriver#connect() is genuinely @Nullable (a driver may decline a URL it doesn't handle);
+        // for this test rule, a null connection here means the rule is fundamentally misconfigured, so fail
+        // fast with a clear message rather than propagating null into the @NonNull connection field.
+        connection = Objects.requireNonNull(driver.connect(dbPathSupplier.get(), opt), "driver.connect() returned null connection");
         if (schema != null) {
             connection.setSchema(schema);
         }
@@ -127,7 +137,6 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
         return connection.isClosed();
     }
 
-    @Nonnull
     @Override
     public RelationalDatabaseMetaData getMetaData() throws SQLException {
         return connection.getMetaData().unwrap(RelationalDatabaseMetaData.class);
@@ -164,7 +173,6 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
         return connection.getSchema();
     }
 
-    @Nonnull
     @Override
     public Options getOptions() {
         return connection.getOptions();
@@ -176,6 +184,7 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     }
 
     @Override
+    @Nullable
     public URI getPath() {
         return connection.getPath();
     }
@@ -185,7 +194,6 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
      * type we run our JUnit tests against.
      * @return The underlying {@link EmbeddedRelationalConnection} connection.
      */
-    @Nonnull
     public EmbeddedRelationalConnection getUnderlyingEmbeddedConnection() {
         return Assert.castUnchecked(connection, EmbeddedRelationalConnection.class);
     }

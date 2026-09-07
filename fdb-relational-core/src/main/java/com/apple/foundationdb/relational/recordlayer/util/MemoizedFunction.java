@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.util;
 
 import com.google.common.base.Function;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -34,14 +33,13 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class MemoizedFunction<T, U> {
 
-    @Nonnull
     private final Map<T, U> cache;
 
     private MemoizedFunction() {
         cache = new ConcurrentHashMap<>();
     }
 
-    private Function<T, U> wrap(@Nonnull final Function<T, U> function) {
+    private Function<T, U> wrap(final Function<T, U> function) {
         return input -> cache.computeIfAbsent(input, function);
     }
 
@@ -52,7 +50,7 @@ public class MemoizedFunction<T, U> {
      * @param <U> The type of the function codomain.
      * @return A memoized version of the provided function.
      */
-    public static <T, U> Function<T, U> memoize(@Nonnull final Function<T, U> function) {
+    public static <T, U> Function<T, U> memoize(final Function<T, U> function) {
         return new MemoizedFunction<T, U>().wrap(function);
     }
 }

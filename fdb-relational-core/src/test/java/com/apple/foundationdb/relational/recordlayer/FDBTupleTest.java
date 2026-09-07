@@ -30,15 +30,12 @@ import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FDBTupleTest {
-    @Nonnull
     static final FDBTuple emptyTuple;
-    @Nonnull
     static final FDBTuple longTuple;
     static final Tuple fdbUnderlyingTuple =
             Tuple.from("five", 5L, 5.0f,

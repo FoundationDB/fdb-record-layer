@@ -36,7 +36,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
@@ -44,7 +43,6 @@ import java.sql.SQLException;
  * Test case-sensitive db object connection option.
  */
 public class CaseSensitiveDbObjectsTest {
-    @Nonnull
     private static final String SCHEMA_TEMPLATE =
             """
             CREATE TABLE "t1" ("group" bigint, "id" string, "val" bigint, PRIMARY KEY("group", "id"))

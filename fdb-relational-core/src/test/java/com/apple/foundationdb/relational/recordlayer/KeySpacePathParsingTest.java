@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLay
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.PathValue;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -44,8 +45,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -53,6 +53,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -222,6 +223,9 @@ public class KeySpacePathParsingTest {
     @ParameterizedTest
     @MethodSource("defaultValueSource")
     void defaultValue(Pair<KeySpaceDirectory.KeyType, Object> typeAndDefault) throws RelationalException {
+        // Pair.getLeft()/getRight() are declared @Nullable per their API contract, but defaultValueSource()
+        // never supplies a null KeyType here.
+        @SuppressWarnings("NullAway")
         KeySpace keySpace = new KeySpace(
                 new KeySpaceDirectory("testRoot", KeySpaceDirectory.KeyType.STRING)
                         .addSubdirectory(new KeySpaceDirectory("a", typeAndDefault.getLeft(), typeAndDefault.getRight())));
@@ -247,7 +251,12 @@ public class KeySpacePathParsingTest {
     static Stream<Arguments> unsupportedType() {
         return Arrays.stream(KeySpaceDirectory.KeyType.values())
                 .filter(type -> !PARSEABLE_KEY_TYPES.contains(type))
-                .map(type -> Arguments.of(type, VALUES_FOR_TYPE.get(type).get(0)));
+                .map(type -> {
+                    // VALUES_FOR_TYPE covers every KeyType (verified by validateValuesForTypeCoverage());
+                    // Map.get() is @Nullable per NullAway's built-in model, but the key is always present here.
+                    final List<PathEntry> entries = Objects.requireNonNull(VALUES_FOR_TYPE.get(type));
+                    return Arguments.of(type, entries.get(0));
+                });
     }
 
     @ParameterizedTest
@@ -266,9 +275,14 @@ public class KeySpacePathParsingTest {
     static Stream<Arguments> supportedType() {
         return Arrays.stream(KeySpaceDirectory.KeyType.values())
                 .filter(PARSEABLE_KEY_TYPES::contains)
-                .flatMap(type -> ParameterizedTestUtils.booleans("constant")
-                        .flatMap(constant -> VALUES_FOR_TYPE.get(type).stream()
-                                .map(pathEntry -> Arguments.of(type, constant, pathEntry))));
+                .flatMap(type -> {
+                    // VALUES_FOR_TYPE covers every KeyType (verified by validateValuesForTypeCoverage());
+                    // Map.get() is @Nullable per NullAway's built-in model, but the key is always present here.
+                    final List<PathEntry> entries = Objects.requireNonNull(VALUES_FOR_TYPE.get(type));
+                    return ParameterizedTestUtils.booleans("constant")
+                            .flatMap(constant -> entries.stream()
+                                    .map(pathEntry -> Arguments.of(type, constant, pathEntry)));
+                });
     }
 
     @ParameterizedTest
@@ -522,7 +536,6 @@ public class KeySpacePathParsingTest {
         return path.getDirectory().getKeyType() == KeySpaceDirectory.KeyType.NULL;
     }
 
-    @Nonnull
     private static KeySpaceDirectory createStringLikeDirectory(String name, final boolean directory, final boolean constant, String constantValue) {
         if (directory) {
             return createDirectoryLayerDirectory(name, constant, constantValue);
@@ -531,7 +544,6 @@ public class KeySpacePathParsingTest {
         }
     }
 
-    @Nonnull
     private static KeySpaceDirectory createDirectoryLayerDirectory(String name, final boolean constant, String constantValue) {
         if (constant) {
             return new DirectoryLayerDirectory(name, constantValue);
@@ -540,9 +552,8 @@ public class KeySpacePathParsingTest {
         }
     }
 
-    @Nonnull
     private static KeySpaceDirectory createDirectory(String name, KeySpaceDirectory.KeyType type,
-                                                     boolean constant, Object constantValue) {
+                                                     boolean constant, @Nullable Object constantValue) {
         if (constant) {
             return new KeySpaceDirectory(name, type, constantValue);
         } else {
@@ -577,24 +588,26 @@ public class KeySpacePathParsingTest {
         );
     }
 
-    @Nonnull
     private static KeySpaceDirectory constantStringDirectory(String name, String value) {
         return createDirectory(name, KeySpaceDirectory.KeyType.STRING, true, value);
     }
 
-    @Nonnull
     private static KeySpaceDirectory nullDirectory(String name) {
         return new KeySpaceDirectory(name, KeySpaceDirectory.KeyType.NULL);
     }
 
-    private List<Object> getResolvedValuesForKeySpacePath(@Nonnull KeySpacePath path, @Nonnull FDBRecordContext context) throws RelationalException {
+    private List<Object> getResolvedValuesForKeySpacePath(KeySpacePath path, FDBRecordContext context) throws RelationalException {
         try {
             List<Object> values = new ArrayList<>();
             KeySpacePath currentPath = path;
-            values.add(context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, currentPath.resolveAsync(context)).getResolvedValue());
+            // asyncToSync()'s generic return type isn't nullability-annotated in this unmigrated
+            // record-layer-core API, but resolveAsync() never completes with a null PathValue.
+            PathValue resolved = Objects.requireNonNull(context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, currentPath.resolveAsync(context)));
+            values.add(resolved.getResolvedValue());
             while (currentPath.getParent() != null) {
                 currentPath = currentPath.getParent();
-                values.add(context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, currentPath.resolveAsync(context)).getResolvedValue());
+                PathValue resolvedParent = Objects.requireNonNull(context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, currentPath.resolveAsync(context)));
+                values.add(resolvedParent.getResolvedValue());
             }
             return values;
         } catch (RecordCoreException ex) {
@@ -603,12 +616,11 @@ public class KeySpacePathParsingTest {
     }
 
     private static final class PathEntry {
-        @Nonnull
         private final String uriEntry;
         @Nullable
         private final Object pathEntry;
 
-        private PathEntry(@Nonnull final String uriEntry, @Nullable final Object pathEntry) {
+        private PathEntry(final String uriEntry, @Nullable final Object pathEntry) {
             this.uriEntry = uriEntry;
             this.pathEntry = pathEntry;
         }
@@ -619,7 +631,6 @@ public class KeySpacePathParsingTest {
         }
     }
 
-    @Nonnull
     private static AmbiguousHalf directoryAmbiguousHalf(String value) {
         final String name = "DirectoryLayer";
         return new AmbiguousHalf(name,
@@ -628,7 +639,7 @@ public class KeySpacePathParsingTest {
                 path -> path.add(name, value));
     }
 
-    static AmbiguousHalf ambiguousHalf(final KeySpaceDirectory.KeyType type, final Object value) {
+    static AmbiguousHalf ambiguousHalf(final KeySpaceDirectory.KeyType type, @Nullable final Object value) {
         return new AmbiguousHalf(type.name(), isConstant -> createDirectory(type.name(), type, isConstant, value),
                 keySpace -> keySpace.path(type.name(), value),
                 path -> path.add(type.name(), value));

@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -36,11 +35,9 @@ import java.util.stream.IntStream;
  */
 public interface DdlQuery extends DdlPreparedAction<RelationalResultSet> {
 
-    @Nonnull
     Type getResultSetMetadata();
 
-    @Nonnull
-    static Type constructTypeFrom(@Nonnull final List<String> columnNames) {
+    static Type constructTypeFrom(final List<String> columnNames) {
         return Type.Record.fromFields(IntStream.range(0, columnNames.size())
                 .mapToObj(i ->
                         Type.Record.Field.of(
@@ -57,11 +54,11 @@ public interface DdlQuery extends DdlPreparedAction<RelationalResultSet> {
         }
 
         @Override
+        @SuppressWarnings("NullAway") // intentional no-op: this action never produces a result set to return.
         public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
             return null;
         }
 
-        @Nonnull
         @Override
         public Type getResultSetMetadata() {
             return new Type.Any();

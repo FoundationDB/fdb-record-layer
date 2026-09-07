@@ -30,51 +30,42 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
 public class FieldImpl<T extends DataType> implements Field<T> {
-    @Nonnull
     private final Iterable<String> parts;
 
-    @Nonnull
     private final String name;
 
-    @Nonnull
     private final ExpressionFactoryImpl expressionFactory;
 
-    @Nonnull
     private final T dataType;
 
-    @Nonnull
     private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
-    FieldImpl(@Nonnull final Iterable<String> parts,
-              @Nonnull final ExpressionFactoryImpl expressionFactory,
-              @Nonnull final T dataType) {
+    FieldImpl(final Iterable<String> parts,
+              final ExpressionFactoryImpl expressionFactory,
+              final T dataType) {
         this.name = Iterables.getLast(parts);
         this.parts = parts;
         this.expressionFactory = expressionFactory;
         this.dataType = dataType;
     }
 
-    @Nonnull
     @Override
     public Iterable<String> getParts() {
         return parts;
     }
 
-    @Nonnull
     @Override
-    public Field<?> subField(@Nonnull String part) {
+    public Field<?> subField(String part) {
         return ((FieldImpl<?>) expressionFactory.resolve(dataType, List.of(part))).withPrefix(parts);
     }
 
-    @Nonnull
-    private Field<T> withPrefix(@Nonnull final Iterable<String> prefix) {
+    private Field<T> withPrefix(final Iterable<String> prefix) {
         final ImmutableList.Builder<String> builder = ImmutableList.builder();
         builder.addAll(prefix).addAll(parts);
         return new FieldImpl<>(builder.build(), expressionFactory, dataType);
@@ -82,11 +73,10 @@ public class FieldImpl<T extends DataType> implements Field<T> {
 
     @Nullable
     @Override
-    public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+    public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
         return visitor.visit(this, context);
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return name;

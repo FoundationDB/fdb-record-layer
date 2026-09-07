@@ -24,4 +24,7 @@
  * Code in this package (and it's subpackages) is the code which should be used by clients as they interact
  * with the Relational system.
  */
+@NullMarked
 package com.apple.foundationdb.relational.api;
+
+import org.jspecify.annotations.NullMarked;

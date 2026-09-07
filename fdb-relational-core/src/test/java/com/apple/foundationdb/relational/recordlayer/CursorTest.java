@@ -45,6 +45,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.BiConsumer;
 
 public class CursorTest {
@@ -92,7 +93,7 @@ public class CursorTest {
                         }
                     }
                 }
-                RelationalResultSet actualResults = new IteratorResultSet(metaData, actual.iterator(), 0);
+                RelationalResultSet actualResults = new IteratorResultSet(Objects.requireNonNull(metaData), actual.iterator(), 0);
                 ResultSetAssert.assertThat(actualResults).containsRowsPartly(records.toArray(new RelationalStruct[]{}));
             } catch (SQLException e) {
                 throw new RuntimeException(e);
@@ -140,7 +141,9 @@ public class CursorTest {
                 resultSet = conn.createStatement().executeScan("RESTAURANT", new KeySet(), Options.NONE);
                 Assertions.assertFalse(resultSet.next());
                 Continuation continuation = resultSet.getContinuation();
-                Assertions.assertEquals(0, continuation.getExecutionState().length);
+                // The assertFalse(continuation.atBeginning()) below establishes that getExecutionState()
+                // is non-null at this point (atBeginning() is defined as getExecutionState() == null).
+                Assertions.assertEquals(0, Objects.requireNonNull(continuation.getExecutionState()).length);
                 Assertions.assertTrue(continuation.atEnd());
                 Assertions.assertFalse(continuation.atBeginning());
                 Assertions.assertFalse(resultSet.next());
@@ -200,7 +203,7 @@ public class CursorTest {
         int numRowsReturned = 0;
         // 1. Iterate over and count the rows returned before the scan rows limit is hit
         final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (final var conn = driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 3).build())) {
+        try (final var conn = Objects.requireNonNull(driver.connect(database.getConnectionUri(), Options.builder().withOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 3).build()))) {
             conn.setSchema(database.getSchemaName());
             try (final var resultSet = conn.createStatement().executeQuery("select * from RESTAURANT")) {
                 Assertions.assertThrows(SQLException.class, resultSet::getContinuation);

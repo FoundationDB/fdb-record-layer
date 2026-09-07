@@ -23,8 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.metadata.DataType;
-
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
@@ -34,17 +32,15 @@ import java.util.Optional;
 @API(API.Status.EXPERIMENTAL)
 public class EphemeralExpression extends Expression {
 
-    public EphemeralExpression(@Nonnull Optional<Identifier> name, @Nonnull DataType dataType, @Nonnull Value expression, @Nonnull Visibility visibility) {
+    public EphemeralExpression(Optional<Identifier> name, DataType dataType, Value expression, Visibility visibility) {
         super(name, dataType, expression, visibility);
     }
 
-    @Nonnull
     @Override
-    protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying, @Nonnull Visibility newVisibility) {
+    protected Expression createNew(Optional<Identifier> newName, DataType newDataType, Value newUnderlying, Visibility newVisibility) {
         return new EphemeralExpression(newName, newDataType, newUnderlying, newVisibility);
     }
 
-    @Nonnull
     @Override
     public EphemeralExpression asEphemeral() {
         return this;

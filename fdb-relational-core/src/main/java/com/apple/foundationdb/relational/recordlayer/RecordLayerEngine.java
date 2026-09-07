@@ -40,8 +40,7 @@ import com.codahale.metrics.MetricRegistry;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -51,12 +50,12 @@ public final class RecordLayerEngine {
 
     private static final Logger logger = LogManager.getLogger(RecordLayerEngine.class);
 
-    public static EmbeddedRelationalEngine makeEngine(@Nonnull RecordLayerConfig cfg,
-                                                    @Nonnull List<FDBDatabase> databases,
-                                                    @Nonnull KeySpace baseKeySpace,
-                                                    @Nonnull StoreCatalog schemaCatalog,
+    public static EmbeddedRelationalEngine makeEngine(RecordLayerConfig cfg,
+                                                    List<FDBDatabase> databases,
+                                                    KeySpace baseKeySpace,
+                                                    StoreCatalog schemaCatalog,
                                                     @Nullable MetricRegistry metricsEngine,
-                                                    @Nonnull RecordLayerMetadataOperationsFactory ddlFactory,
+                                                    RecordLayerMetadataOperationsFactory ddlFactory,
                                                     @Nullable RelationalPlanCache planCache) {
 
         MetricRegistry mEngine = convertToRecordLayerEngine(metricsEngine);

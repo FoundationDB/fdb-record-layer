@@ -62,9 +62,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
@@ -101,7 +99,6 @@ public class RelationalPlanCacheTests {
     public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
             .withSchema("TEST_SCHEMA");
 
-    @Nonnull
     private static QueryPredicate gte1970p0(final int tokenIndex) {
         final var builder = RangeConstraints.newBuilder();
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 1970));
@@ -110,7 +107,6 @@ public class RelationalPlanCacheTests {
                 constantId(tokenIndex), Type.primitiveType(Type.TypeCode.INT, false)), Type.primitiveType(Type.TypeCode.INT), null), Set.of(builder.build().get()));
     }
 
-    @Nonnull
     private static QueryPredicate gte1970p1(final int tokenIndex) {
         final var builder = RangeConstraints.newBuilder();
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 1970));
@@ -119,8 +115,7 @@ public class RelationalPlanCacheTests {
                 constantId(tokenIndex), Type.primitiveType(Type.TypeCode.INT, false)), Type.primitiveType(Type.TypeCode.INT), null), Set.of(builder.build().get()));
     }
 
-    @Nonnull
-    private static QueryPredicate gte1980p0(final int tokenIndex, @Nonnull Optional<String> scope) {
+    private static QueryPredicate gte1980p0(final int tokenIndex, Optional<String> scope) {
         final var builder = RangeConstraints.newBuilder();
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 1980));
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 1989));
@@ -128,7 +123,6 @@ public class RelationalPlanCacheTests {
                 constantId(tokenIndex, scope), Type.primitiveType(Type.TypeCode.INT, false)), Type.primitiveType(Type.TypeCode.INT), null), Set.of(builder.build().get()));
     }
 
-    @Nonnull
     private static QueryPredicate gte1980p1(final int tokenIndex) {
         final var builder = RangeConstraints.newBuilder();
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 1980));
@@ -137,7 +131,6 @@ public class RelationalPlanCacheTests {
                 constantId(tokenIndex), Type.primitiveType(Type.TypeCode.INT, false)), Type.primitiveType(Type.TypeCode.INT), null), Set.of(builder.build().get()));
     }
 
-    @Nonnull
     private static QueryPredicate gte1990p0(final int tokenIndex) {
         final var builder = RangeConstraints.newBuilder();
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 1990));
@@ -146,7 +139,6 @@ public class RelationalPlanCacheTests {
                 constantId(tokenIndex), Type.primitiveType(Type.TypeCode.INT, false)), Type.primitiveType(Type.TypeCode.INT), null), Set.of(builder.build().get()));
     }
 
-    @Nonnull
     private static QueryPredicate gte1990p1(final int tokenIndex) {
         final var builder = RangeConstraints.newBuilder();
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 1990));
@@ -156,30 +148,25 @@ public class RelationalPlanCacheTests {
     }
 
     // todo (yhatem) clean this up.
-    @Nonnull
     private static QueryPredicate ofTypeIntp0(final int tokenIndex) {
         return new ValuePredicate(OfTypeValue.of(ConstantObjectValue.of(Quantifier.constant(),
                         constantId(tokenIndex), Type.primitiveType(Type.TypeCode.INT)), Type.primitiveType(Type.TypeCode.INT, false)),
                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true));
     }
 
-    @Nonnull
     private static QueryPredicate ofTypeIntp1(final int tokenIndex) {
         return ofTypeInt(tokenIndex, Optional.empty());
     }
 
-    @Nonnull
     private static QueryPredicate strEq(final int tokenIndex1, final String scope1, final int tokenIndex2, final String scope2) {
         return strEq(tokenIndex1, Optional.of(scope1), tokenIndex2, Optional.of(scope2));
     }
 
-    @Nonnull
     private static QueryPredicate strEq(final int tokenIndex1, final int tokenIndex2) {
         return strEq(tokenIndex1, Optional.empty(), tokenIndex2, Optional.empty());
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    @Nonnull
     private static QueryPredicate strEq(final int tokenIndex1, final Optional<String> scope1, final int tokenIndex2, final Optional<String> scope2) {
         final var leftCov = ConstantObjectValue.of(Quantifier.constant(), constantId(tokenIndex1, scope1), Type.primitiveType(Type.TypeCode.STRING));
         final var rightCov = ConstantObjectValue.of(Quantifier.constant(), constantId(tokenIndex2, scope2), Type.primitiveType(Type.TypeCode.STRING));
@@ -196,45 +183,37 @@ public class RelationalPlanCacheTests {
         return OrPredicate.or(notNullComparison, bothAreNullComparison);
     }
 
-    @Nonnull
     private static QueryPlanConstraint strEqCon(final int tokenIndex1, final String scope1, final int tokenIndex2, final String scope2) {
         return QueryPlanConstraint.ofPredicate(strEq(tokenIndex1, scope1, tokenIndex2, scope2));
     }
 
-    @Nonnull
     private static QueryPlanConstraint strEqCon(final int tokenIndex1, final int tokenIndex2) {
         return QueryPlanConstraint.ofPredicate(strEq(tokenIndex1, tokenIndex2));
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    @Nonnull
     private static QueryPlanConstraint strEqCon(final int tokenIndex1, final Optional<String> scope1, final int tokenIndex2,
                                                 final Optional<String> scope2) {
         return QueryPlanConstraint.ofPredicate(strEq(tokenIndex1, scope1, tokenIndex2, scope2));
     }
 
-    @Nonnull
     private static QueryPlanConstraint isNotNullInt(final int tokenIndex) {
         return QueryPlanConstraint.ofPredicate(isNotNull(tokenIndex, Optional.empty(), Type.primitiveType(Type.TypeCode.INT)));
     }
 
-    @Nonnull
     private static QueryPlanConstraint isNotNullInt(final int tokenIndex, final String scope) {
         return QueryPlanConstraint.ofPredicate(isNotNull(tokenIndex, Optional.of(scope), Type.primitiveType(Type.TypeCode.INT)));
     }
 
-    @Nonnull
     private static QueryPlanConstraint isNotNullStr(final int tokenIndex) {
         return QueryPlanConstraint.ofPredicate(isNotNull(tokenIndex, Optional.empty(), Type.primitiveType(Type.TypeCode.STRING)));
     }
 
-    @Nonnull
     private static QueryPlanConstraint isNotNullStr(final int tokenIndex, final String scope) {
         return QueryPlanConstraint.ofPredicate(isNotNull(tokenIndex, Optional.of(scope), Type.primitiveType(Type.TypeCode.STRING)));
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    @Nonnull
     private static QueryPredicate isNotNull(final int tokenIndex, final Optional<String> scope, Type type) {
         return new ValuePredicate(EvaluatesToValue.isNotNull(
                 ConstantObjectValue.of(Quantifier.constant(), constantId(tokenIndex, scope), type)),
@@ -242,146 +221,132 @@ public class RelationalPlanCacheTests {
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    @Nonnull
     private static QueryPredicate ofTypeInt(final int tokenIndex, final Optional<String> scope) {
         return new ValuePredicate(OfTypeValue.of(ConstantObjectValue.of(Quantifier.constant(),
                 constantId(tokenIndex, scope), Type.primitiveType(Type.TypeCode.INT)), Type.primitiveType(Type.TypeCode.INT, false)),
                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true));
     }
 
-    @Nonnull
     private static QueryPredicate ofTypeString(final int tokenIndex, final String scope) {
         return ofTypeString(tokenIndex, Optional.of(scope));
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    @Nonnull
     private static QueryPredicate ofTypeString(final int tokenIndex, final Optional<String> scope) {
         return new ValuePredicate(OfTypeValue.of(ConstantObjectValue.of(Quantifier.constant(),
                 constantId(tokenIndex, scope), Type.primitiveType(Type.TypeCode.STRING)), Type.primitiveType(Type.TypeCode.STRING, false)),
                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true));
     }
 
-    @Nonnull
     private static QueryPlanConstraint ofTypeStringCons(final int tokenIndex) {
         return QueryPlanConstraint.ofPredicate(ofTypeString(tokenIndex, Optional.empty()));
     }
 
-    @Nonnull
     private static QueryPlanConstraint ofTypeStringCons(final int tokenIndex, final String scope) {
         return QueryPlanConstraint.ofPredicate(ofTypeString(tokenIndex, scope));
     }
 
-    @Nonnull
     private static QueryPlanConstraint c1970Cp0(final int tokenIndex) {
         return QueryPlanConstraint.ofPredicate(gte1970p0(tokenIndex));
     }
 
-    @Nonnull
     private static QueryPlanConstraint c1970Cp1(final int tokenIndex) {
         return QueryPlanConstraint.ofPredicate(gte1970p1(tokenIndex));
     }
 
-    @Nonnull
     private static QueryPlanConstraint c1980Cp0(final int tokenIndex) {
         return c1980Cp0(tokenIndex, null);
     }
 
-    @Nonnull
     private static QueryPlanConstraint c1980Cp0(final int tokenIndex, @Nullable String scope) {
         return QueryPlanConstraint.ofPredicate(gte1980p0(tokenIndex, Optional.ofNullable(scope)));
     }
 
-    @Nonnull
     private static QueryPlanConstraint c1980Cp1(final int tokenIndex) {
         return QueryPlanConstraint.ofPredicate(gte1980p1(tokenIndex));
     }
 
-    @Nonnull
     private static QueryPlanConstraint c1990Cp0(final int tokenIndex) {
         return QueryPlanConstraint.ofPredicate(gte1990p0(tokenIndex));
     }
 
-    @Nonnull
     private static QueryPlanConstraint c1990Cp1(final int tokenIndex) {
         return QueryPlanConstraint.ofPredicate(gte1990p1(tokenIndex));
     }
 
-    @Nonnull
     private static QueryPlanConstraint ofTypeIntCp0(final int tokenIndex) {
         return QueryPlanConstraint.ofPredicate(ofTypeIntp0(tokenIndex));
     }
 
-    @Nonnull
     private static QueryPlanConstraint ofTypeIntCp1(final int tokenIndex) {
         return QueryPlanConstraint.ofPredicate(ofTypeIntp1(tokenIndex));
     }
 
-    @Nonnull
     private static QueryPlanConstraint ofTypeIntCons(final int tokenIndex, @Nullable String scope) {
         return QueryPlanConstraint.ofPredicate(ofTypeInt(tokenIndex, Optional.ofNullable(scope)));
     }
 
-    @Nonnull
     private static final QueryPlanConstraint tautology = QueryPlanConstraint.noConstraint();
 
-    @Nonnull
     private static final String i1970 = "IDX_1970";
 
-    @Nonnull
     private static final String i1980 = "IDX_1980";
 
-    @Nonnull
     private static final String i1990 = "IDX_1990";
 
-    @Nonnull
     private static final String i2000 = "IDX_2000";
 
-    @Nonnull
     private static final String Scan = "SCAN";
 
-    @Nonnull
-    private PlannerConfiguration configOf(@Nonnull final Set<String> readableIndexes) {
+    private PlannerConfiguration configOf(final Set<String> readableIndexes) {
         return configOf(readableIndexes, Options.none());
     }
 
-    @Nonnull
-    private PlannerConfiguration configOf(@Nonnull final Set<String> readableIndexes, @Nonnull final Options options) {
+    private PlannerConfiguration configOf(final Set<String> readableIndexes, final Options options) {
         return PlannerConfiguration.of(Optional.of(readableIndexes), options);
     }
 
-    @Nonnull
-    private PlanGenerator getPlanGenerator(@Nonnull final RelationalPlanCache cache,
-                                           @Nonnull final String schemaTemplateName,
+    private PlanGenerator getPlanGenerator(final RelationalPlanCache cache,
+                                           final String schemaTemplateName,
                                            int schemaTemplateVersion,
-                                           @Nonnull final Set<String> readableIndexes,
-                                           @Nonnull final Options options) throws Exception {
+                                           final Set<String> readableIndexes,
+                                           final Options options) throws Exception {
         final var schemaName = connection.getSchema();
         final var embeddedConnection = Assert.castUnchecked(connection.getUnderlyingEmbeddedConnection(), EmbeddedRelationalConnection.class);
         final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder().setVersion(schemaTemplateVersion).setName(schemaTemplateName).build();
         final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
         final var storeState = new RecordStoreState(null, readableIndexes.stream().map(index -> Pair.of(index, IndexState.READABLE)).collect(Collectors.toMap(Pair::getKey, Pair::getValue)));
         final FDBRecordStoreBase<?> store = database.loadSchema(schemaName).loadStore().unwrap(FDBRecordStoreBase.class);
+        // embeddedConnection.getMetricCollector() is @Nullable only because the collector isn't set up
+        // until a transaction is active (already the case here); Assert.notNullUnchecked enforces that
+        // invariant at runtime, but NullAway can't see that since Assert lives in the not-yet-migrated
+        // fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final var metricCollector = Assert.notNullUnchecked(embeddedConnection.getMetricCollector());
         final PlanContext planContext = PlanContext.Builder
                 .create()
                 .fromDatabase(database)
                 .fromRecordStore(store, options)
                 .withSchemaTemplate(embeddedConnection.getTransaction().getBoundSchemaTemplateMaybe().orElse(schemaTemplate))
-                .withMetricsCollector(Assert.notNullUnchecked(embeddedConnection.getMetricCollector()))
+                .withMetricsCollector(metricCollector)
                 .withPlannerConfiguration(PlannerConfiguration.of(Optional.of(readableIndexes), options))
                 .build();
         return PlanGenerator.create(Optional.of(cache), planContext, store.getRecordMetaData(), storeState, store.getIndexMaintainerRegistry(), options);
     }
 
-    @Nonnull
     private Plan.ExecutionContext getExecutionContext() throws RelationalException {
         final var embeddedConnection = Assert.castUnchecked(connection.getUnderlyingEmbeddedConnection(), EmbeddedRelationalConnection.class);
+        // embeddedConnection.getMetricCollector() is @Nullable only because the collector isn't set up
+        // until a transaction is active (already the case here); Assert.notNullUnchecked enforces that
+        // invariant at runtime, but NullAway can't see that since Assert lives in the not-yet-migrated
+        // fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final var metricCollector = Assert.notNullUnchecked(embeddedConnection.getMetricCollector());
         return Plan.ExecutionContext.of(embeddedConnection.getTransaction(),  Options.builder().build(),
-                embeddedConnection, Assert.notNullUnchecked(embeddedConnection.getMetricCollector()));
+                embeddedConnection, metricCollector);
     }
 
-    @Nonnull
-    private static String inferScanType(@Nonnull final Plan<?> plan) {
+    private static String inferScanType(final Plan<?> plan) {
         Assertions.assertTrue(plan instanceof QueryPlan.PhysicalQueryPlan);
         final var physicalPlan = (QueryPlan.PhysicalQueryPlan) plan;
         final var desc = physicalPlan.getRecordQueryPlan().toString(); // very ad-hoc :/
@@ -398,12 +363,11 @@ public class RelationalPlanCacheTests {
         }
     }
 
-    @Nonnull
-    private static QueryPlanConstraint cons(@Nonnull final QueryPlanConstraint... constraints) {
+    private static QueryPlanConstraint cons(final QueryPlanConstraint... constraints) {
         return QueryPlanConstraint.composeConstraints(Arrays.asList(constraints));
     }
 
-    private static void shouldBe(@Nonnull final RelationalPlanCache cache, @Nonnull final Map<Tuple, Map<PhysicalPlanEquivalence, String>> expectedLayout) {
+    private static void shouldBe(final RelationalPlanCache cache, final Map<Tuple, Map<PhysicalPlanEquivalence, String>> expectedLayout) {
         Map<Tuple, Map<PhysicalPlanEquivalence, String>> result = new HashMap<>();
         for (String key : cache.getStats().getAllKeys()) {
             for (QueryCacheKey secondaryKey : cache.getStats().getAllSecondaryKeys(key)) {
@@ -425,8 +389,7 @@ public class RelationalPlanCacheTests {
                 .hasSameSizeAs(expectedLayout);
     }
 
-    @Nonnull
-    private RelationalPlanCache getCache(@Nonnull final FakeTicker ticker) {
+    private RelationalPlanCache getCache(final FakeTicker ticker) {
         final var relationalCache = RelationalPlanCache.newRelationalCacheBuilder()
                 .setExecutor(Runnable::run)
                 .setSize(2)
@@ -443,50 +406,49 @@ public class RelationalPlanCacheTests {
         return relationalCache;
     }
 
-    @Nonnull
-    private PhysicalPlanEquivalence ppe(@Nonnull final QueryPlanConstraint... constraints) {
+    private PhysicalPlanEquivalence ppe(final QueryPlanConstraint... constraints) {
         return PhysicalPlanEquivalence.of(QueryPlanConstraint.composeConstraints(Arrays.asList(constraints)));
     }
 
-    private void planQuery(@Nonnull final RelationalPlanCache cache,
-                           @Nonnull final String query,
-                           @Nonnull final String schemaTemplateName,
+    private void planQuery(final RelationalPlanCache cache,
+                           final String query,
+                           final String schemaTemplateName,
                            int schemaTemplateVersion,
-                           @Nonnull final Set<String> readableIndexes,
-                           @Nonnull final String expectedPhysicalPlan) throws Exception {
+                           final Set<String> readableIndexes,
+                           final String expectedPhysicalPlan) throws Exception {
         planQuery(cache, query, schemaTemplateName, schemaTemplateVersion, readableIndexes,
                 Options.none(), expectedPhysicalPlan);
     }
 
-    private void planQuery(@Nonnull final RelationalPlanCache cache,
-                           @Nonnull final String query,
-                           @Nonnull final String schemaTemplateName,
+    private void planQuery(final RelationalPlanCache cache,
+                           final String query,
+                           final String schemaTemplateName,
                            int schemaTemplateVersion,
-                           @Nonnull final Set<String> readableIndexes,
-                           @Nonnull final Options options, @Nonnull final String expectedPhysicalPlan) throws Exception {
+                           final Set<String> readableIndexes,
+                           final Options options, final String expectedPhysicalPlan) throws Exception {
         planQueryWithTemporaryFunctionsPreamble(cache, ImmutableList.of(), query, schemaTemplateName, schemaTemplateVersion,
                 readableIndexes, options, expectedPhysicalPlan);
     }
 
-    private void planQueryWithTemporaryFunctionsPreamble(@Nonnull final RelationalPlanCache cache,
-                                                           @Nonnull final List<String> temporaryFunctionsDefinitions,
-                                                           @Nonnull final String query,
-                                                           @Nonnull final String schemaTemplateName,
+    private void planQueryWithTemporaryFunctionsPreamble(final RelationalPlanCache cache,
+                                                           final List<String> temporaryFunctionsDefinitions,
+                                                           final String query,
+                                                           final String schemaTemplateName,
                                                            int schemaTemplateVersion,
-                                                           @Nonnull final Set<String> readableIndexes,
-                                                           @Nonnull final String expectedPhysicalPlan) throws Exception {
+                                                           final Set<String> readableIndexes,
+                                                           final String expectedPhysicalPlan) throws Exception {
         planQueryWithTemporaryFunctionsPreamble(cache, temporaryFunctionsDefinitions, query, schemaTemplateName,
                 schemaTemplateVersion, readableIndexes, Options.none(), expectedPhysicalPlan);
     }
 
-    private void planQueryWithTemporaryFunctionsPreamble(@Nonnull final RelationalPlanCache cache,
-                                                         @Nonnull final List<String> temporaryFunctionsDefinitions,
-                                                         @Nonnull final String query,
-                                                         @Nonnull final String schemaTemplateName,
+    private void planQueryWithTemporaryFunctionsPreamble(final RelationalPlanCache cache,
+                                                         final List<String> temporaryFunctionsDefinitions,
+                                                         final String query,
+                                                         final String schemaTemplateName,
                                                          int schemaTemplateVersion,
-                                                         @Nonnull final Set<String> readableIndexes,
-                                                         @Nonnull final Options options,
-                                                         @Nonnull final String expectedPhysicalPlan) throws Exception {
+                                                         final Set<String> readableIndexes,
+                                                         final Options options,
+                                                         final String expectedPhysicalPlan) throws Exception {
         connection.setAutoCommit(false);
         connection.getUnderlyingEmbeddedConnection().createNewTransaction();
         var planGenerator = getPlanGenerator(cache, schemaTemplateName, schemaTemplateVersion, readableIndexes, options);

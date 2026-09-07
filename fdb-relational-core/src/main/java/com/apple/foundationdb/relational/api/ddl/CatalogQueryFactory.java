@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.api.metadata.Metadata;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -43,11 +42,10 @@ public abstract class CatalogQueryFactory implements DdlQueryFactory {
     }
 
     @Override
-    public DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath) {
+    public DdlQuery getListDatabasesQueryAction(URI prefixPath) {
         //TODO(bfines) make use of this prefix
         return new DdlQuery() {
             @Override
-            @Nonnull
             public Type getResultSetMetadata() {
                 final List<String> fieldNames = SystemTableRegistry.getSystemTable(SystemTableRegistry.DATABASE_TABLE_NAME).getType().getColumns().stream()
                         .map(Metadata::getName)
@@ -67,7 +65,6 @@ public abstract class CatalogQueryFactory implements DdlQueryFactory {
         final var columns = List.of("TEMPLATE_NAME");
         return new DdlQuery() {
             @Override
-            @Nonnull
             public Type getResultSetMetadata() {
                 return DdlQuery.constructTypeFrom(columns);
             }

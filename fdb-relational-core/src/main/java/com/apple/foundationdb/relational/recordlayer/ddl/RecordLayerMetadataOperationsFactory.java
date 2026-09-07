@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 
 @API(API.Status.EXPERIMENTAL)
@@ -46,61 +45,52 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
         this.baseKeySpace = baseKeySpace;
     }
 
-    @Nonnull
     @Override
-    public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, boolean throwIfDoesNotExist, @Nonnull Options options) {
+    public ConstantAction getDropSchemaTemplateConstantAction(String templateId, boolean throwIfDoesNotExist, Options options) {
         return txn -> {
             catalog.getSchemaTemplateCatalog().deleteTemplate(txn, templateId, throwIfDoesNotExist);
         };
     }
 
-    @Nonnull
     @Override
-    public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
+    public ConstantAction getSaveSchemaTemplateConstantAction(SchemaTemplate template, Options templateProperties) {
         return new SaveSchemaTemplateConstantAction(template, catalog.getSchemaTemplateCatalog());
     }
 
-    @Nonnull
     @Override
-    public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull Options constantActionOptions) {
+    public ConstantAction getCreateDatabaseConstantAction(URI dbPath, Options constantActionOptions) {
         return new CreateDatabaseConstantAction(dbPath, catalog, baseKeySpace);
     }
 
-    @Nonnull
     @Override
-    public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbUri, @Nonnull String schemaName, @Nonnull String templateId, Options constantActionOptions) {
+    public ConstantAction getCreateSchemaConstantAction(URI dbUri, String schemaName, String templateId, Options constantActionOptions) {
         return new RecordLayerCreateSchemaConstantAction(dbUri, schemaName, templateId, rlConfig, baseKeySpace, catalog);
     }
 
-    @Nonnull
     @Override
-    public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, boolean throwIfDoesNotExist, @Nonnull Options options) {
+    public ConstantAction getDropDatabaseConstantAction(URI dbUrl, boolean throwIfDoesNotExist, Options options) {
         return new DropDatabaseConstantAction(dbUrl, throwIfDoesNotExist, catalog, this, options);
     }
 
-    @Nonnull
     @Override
-    public ConstantAction getDropSchemaConstantAction(@Nonnull URI dbPath, @Nonnull String schema, @Nonnull Options options) {
+    public ConstantAction getDropSchemaConstantAction(URI dbPath, String schema, Options options) {
         return new DropSchemaConstantAction(dbPath, schema, baseKeySpace, catalog);
     }
 
-    @Nonnull
-    public ConstantAction getSetStoreStateConstantAction(@Nonnull URI dbUri, @Nonnull String schemaName) {
+    public ConstantAction getSetStoreStateConstantAction(URI dbUri, String schemaName) {
         return new RecordLayerSetStoreStateConstantAction(dbUri, schemaName, rlConfig, baseKeySpace, catalog);
     }
 
-    @Nonnull
     @Override
-    public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull SchemaTemplate template,
+    public ConstantAction getCreateTemporaryFunctionConstantAction(SchemaTemplate template,
                                                                    boolean throwIfExists,
-                                                                   @Nonnull RecordLayerInvokedRoutine invokedRoutine) {
+                                                                   RecordLayerInvokedRoutine invokedRoutine) {
         return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine);
     }
 
-    @Nonnull
     @Override
     public ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists,
-                                                                 @Nonnull final String temporaryFunctionName) {
+                                                                 final String temporaryFunctionName) {
         return new DropTemporaryFunctionConstantAction(throwIfNotExists, temporaryFunctionName);
     }
 
@@ -108,6 +98,12 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
         protected StoreCatalog storeCatalog;
         protected RecordLayerConfig rlConfig;
         protected KeySpace baseKeySpace;
+
+        // storeCatalog, rlConfig, and baseKeySpace are populated by the fluent setters below, so
+        // NullAway cannot see that they are always set before use in build().
+        @SuppressWarnings("NullAway.Init")
+        public Builder() {
+        }
 
         public Builder setStoreCatalog(StoreCatalog storeCatalog) {
             this.storeCatalog = storeCatalog;

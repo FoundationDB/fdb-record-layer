@@ -65,10 +65,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import org.antlr.v4.runtime.ParserRuleContext;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -89,18 +88,16 @@ import static com.apple.foundationdb.relational.generated.RelationalParser.ALL;
 @API(API.Status.EXPERIMENTAL)
 public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
-    private QueryVisitor(@Nonnull BaseVisitor baseVisitor) {
+    private QueryVisitor(BaseVisitor baseVisitor) {
         super(baseVisitor);
     }
 
-    @Nonnull
-    public static QueryVisitor of(@Nonnull BaseVisitor baseVisitor) {
+    public static QueryVisitor of(BaseVisitor baseVisitor) {
         return new QueryVisitor(baseVisitor);
     }
 
-    @Nonnull
     @Override
-    public QueryPlan.LogicalQueryPlan visitSelectStatement(@Nonnull RelationalParser.SelectStatementContext ctx) {
+    public QueryPlan.LogicalQueryPlan visitSelectStatement(RelationalParser.SelectStatementContext ctx) {
         final var logicalOperator = parseChild(ctx);
         // Capture semantic type structure as StructType with field names
         final var semanticStructType = logicalOperator.getOutput().getStructType();
@@ -108,9 +105,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 getDelegate().getPlanGenerationContext(), getDelegate().getPlanGenerationContext().getQuery(), semanticStructType);
     }
 
-    @Nonnull
     @Override
-    public QueryPlan.LogicalQueryPlan visitDmlStatement(@Nonnull RelationalParser.DmlStatementContext ctx) {
+    public QueryPlan.LogicalQueryPlan visitDmlStatement(RelationalParser.DmlStatementContext ctx) {
         final var logicalOperator = parseChild(ctx);
         // Capture semantic type structure as StructType with field names
         final var semanticStructType = logicalOperator.getOutput().getStructType();
@@ -118,9 +114,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 getDelegate().getPlanGenerationContext(), getDelegate().getPlanGenerationContext().getQuery(), semanticStructType);
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitQuery(@Nonnull RelationalParser.QueryContext ctx) {
+    public LogicalOperator visitQuery(RelationalParser.QueryContext ctx) {
         if (ctx.ctes() != null) {
             getDelegate().pushPlanFragment();
             visitCtes(ctx.ctes());
@@ -133,7 +128,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nullable
     @Override
-    public Void visitCtes(@Nonnull RelationalParser.CtesContext ctx) {
+    public Void visitCtes(RelationalParser.CtesContext ctx) {
         final var currentPlanFragment = getDelegate().getCurrentPlanFragment();
         if (ctx.RECURSIVE() != null) {
             final RecursiveUnionExpression.TraversalStrategy traversalStrategy;
@@ -166,9 +161,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    @Nonnull
     @Override
-    public LogicalOperator visitNamedQuery(@Nonnull RelationalParser.NamedQueryContext ctx) {
+    public LogicalOperator visitNamedQuery(RelationalParser.NamedQueryContext ctx) {
         final var queryName = visitFullId(ctx.name);
         var logicalOperator = visitQuery(ctx.query());
         if (ctx.columnAliases != null) {
@@ -183,9 +177,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    @Nonnull
-    public LogicalOperator handleRecursiveNamedQuery(@Nonnull final RelationalParser.NamedQueryContext recursiveQueryContext,
-                                                     @Nonnull final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
+    public LogicalOperator handleRecursiveNamedQuery(final RelationalParser.NamedQueryContext recursiveQueryContext,
+                                                     final RecursiveUnionExpression.TraversalStrategy traversalStrategy) {
         final var queryName = visitFullId(recursiveQueryContext.name);
         final Optional<Type> recursiveQueryType;
         final var memoized = MemoizedFunction.<ParserRuleContext, Optional<LogicalOperator>>memoize(
@@ -210,7 +203,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var partitions = getDelegate().getSemanticAnalyzer().partitionRecursiveQuery(recursiveQueryContext.query(),
                 queryName, getDelegate()::visitFullId, memoized, this);
         final var nonRecursiveBranches = partitions.getLeft();
-        final var recursiveBranches = partitions.getRight();
+        final var recursiveBranches = Objects.requireNonNull(partitions.getRight());
         getDelegate().popPlanFragment();
         if (recursiveBranches.isEmpty()) {
             return visitNamedQuery(recursiveQueryContext);
@@ -240,9 +233,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
      * Combines a seed expression with a list of additional expressions using {@code AND}. Returns the seed unchanged
      * if {@code expressions} is empty, or an empty optional if both the seed and the list are empty.
      */
-    @Nonnull
     private Optional<Expression> conjoinExpressions(@Nullable Expression seed,
-                                                    @Nonnull final List<Expression> expressions) {
+                                                    final List<Expression> expressions) {
         for (final Expression expression : expressions) {
             if (seed != null) {
                 seed = getDelegate().resolveFunction("and", seed, expression);
@@ -253,9 +245,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return Optional.ofNullable(seed);
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitSimpleTable(@Nonnull RelationalParser.SimpleTableContext simpleTableContext) {
+    public LogicalOperator visitSimpleTable(RelationalParser.SimpleTableContext simpleTableContext) {
         getDelegate().pushPlanFragment();
         if (simpleTableContext.fromClause() != null) {
             simpleTableContext.fromClause().accept(this);
@@ -342,21 +333,18 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return result;
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitParenthesisQuery(@Nonnull RelationalParser.ParenthesisQueryContext ctx) {
+    public LogicalOperator visitParenthesisQuery(RelationalParser.ParenthesisQueryContext ctx) {
         return visitQuery(ctx.query());
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitQueryTermDefault(@Nonnull RelationalParser.QueryTermDefaultContext queryTermDefaultContext) {
+    public LogicalOperator visitQueryTermDefault(RelationalParser.QueryTermDefaultContext queryTermDefaultContext) {
         return parseChild(queryTermDefaultContext);
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitSetQuery(@Nonnull RelationalParser.SetQueryContext setQueryContext) {
+    public LogicalOperator visitSetQuery(RelationalParser.SetQueryContext setQueryContext) {
         Assert.thatUnchecked(setQueryContext.quantifier != null && setQueryContext.quantifier.getType() == ALL,
                 ErrorCode.UNSUPPORTED_QUERY, "only UNION ALL is supported");
         final var unionLegs = ImmutableList.of(Assert.castUnchecked(visit(setQueryContext.left), LogicalOperator.class),
@@ -367,14 +355,14 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nullable
     @Override
-    public Void visitFromClause(@Nonnull RelationalParser.FromClauseContext fromClauseContext) {
+    public Void visitFromClause(RelationalParser.FromClauseContext fromClauseContext) {
         fromClauseContext.tableSources().accept(this);
         return null;
     }
 
     @Nullable
     @Override
-    public Void visitTableSources(@Nonnull RelationalParser.TableSourcesContext ctx) {
+    public Void visitTableSources(RelationalParser.TableSourcesContext ctx) {
         for (final var tableSource : ctx.tableSource()) {
             tableSource.accept(this);
         }
@@ -383,7 +371,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nullable
     @Override
-    public Void visitTableSourceBase(@Nonnull RelationalParser.TableSourceBaseContext ctx) {
+    public Void visitTableSourceBase(RelationalParser.TableSourceBaseContext ctx) {
         getDelegate().getCurrentPlanFragment().addOperator(Assert.castUnchecked(ctx.tableSourceItem().accept(this), LogicalOperator.class));
         for (final var joinPart : ctx.joinPart()) {
             joinPart.accept(this);
@@ -403,11 +391,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
      *
      * @return a pair of the (possibly updated) right table source and the combined equality expression
      */
-    @Nonnull
     private NonnullPair<LogicalOperator, Expression> resolveJoinUsingClause(
-            @Nonnull final LogicalOperators leftOperators,
-            @Nonnull LogicalOperator rightTableSource,
-            @Nonnull final RelationalParser.UidListContext uidList) {
+            final LogicalOperators leftOperators,
+            LogicalOperator rightTableSource,
+            final RelationalParser.UidListContext uidList) {
         Assert.thatUnchecked(!uidList.isEmpty());
         final BaseVisitor delegate = getDelegate();
         final SemanticAnalyzer analyzer = delegate.getSemanticAnalyzer();
@@ -446,7 +433,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
      */
     @Nullable
     @Override
-    public Void visitInnerJoin(@Nonnull RelationalParser.InnerJoinContext ctx) {
+    public Void visitInnerJoin(RelationalParser.InnerJoinContext ctx) {
         LogicalOperator rightTableSource = Assert.castUnchecked(ctx.tableSourceItem().accept(this),
                 LogicalOperator.class);
         final LogicalPlanFragment fragment = getDelegate().getCurrentPlanFragment();
@@ -484,8 +471,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     /**
      * Extracts the {@link JoinType} from an {@code OuterJoinContext}.
      */
-    @Nonnull
-    private static JoinType getJoinType(@Nonnull final RelationalParser.OuterJoinContext ctx) {
+    private static JoinType getJoinType(final RelationalParser.OuterJoinContext ctx) {
         if (ctx.LEFT() != null) {
             return JoinType.LEFT;
         } else if (ctx.RIGHT() != null) {
@@ -513,7 +499,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
      */
     @Nullable
     @Override
-    public Void visitOuterJoin(@Nonnull RelationalParser.OuterJoinContext ctx) {
+    public Void visitOuterJoin(RelationalParser.OuterJoinContext ctx) {
         final JoinType joinType = getJoinType(ctx);
         Assert.thatUnchecked(joinType != JoinType.FULL, ErrorCode.UNSUPPORTED_QUERY,
                 "FULL OUTER JOIN is not currently supported");
@@ -559,7 +545,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
      * original operators, preserving qualified names for subsequent column resolution. Any pending inner join
      * predicates are absorbed into the new {@code SelectExpression}.
      */
-    private void collapseLeftSideOperators(@Nonnull final LogicalPlanFragment fragment) {
+    private void collapseLeftSideOperators(final LogicalPlanFragment fragment) {
         final LogicalOperators ops = fragment.getLogicalOperators();
         final List<Quantifier> quns = ops.getQuantifiers();
         final Expressions exprs = ops.getExpressions();
@@ -611,9 +597,9 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
      * @param rightTableSource the SQL-right table operator, already present in the fragment
      * @param onExpression the resolved ON-clause expression
      */
-    private void wrapOperandsForOuterJoin(@Nonnull final JoinType joinType,
-                                          @Nonnull final LogicalOperator rightTableSource,
-                                          @Nonnull final Expression onExpression) {
+    private void wrapOperandsForOuterJoin(final JoinType joinType,
+                                          final LogicalOperator rightTableSource,
+                                          final Expression onExpression) {
         final LogicalPlanFragment fragment = getDelegate().getCurrentPlanFragment();
         final LogicalOperators operators = fragment.getLogicalOperators();
         final List<Quantifier> quantifiers = operators.getQuantifiers();
@@ -678,9 +664,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         fragment.setOperator(LogicalOperator.newOperatorWithPreservedExpressionNames(rewiredOutput, outerJoinQun));
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitAtomTableItem(@Nonnull RelationalParser.AtomTableItemContext atomTableItemContext) {
+    public LogicalOperator visitAtomTableItem(RelationalParser.AtomTableItemContext atomTableItemContext) {
         final var tableIdentifier = Assert.castUnchecked(atomTableItemContext.tableName().accept(this), Identifier.class);
         final var tableAlias = Optional.of(atomTableItemContext.alias == null ? visitTableName(atomTableItemContext.tableName())
                                                                               : visitUid(atomTableItemContext.alias));
@@ -693,17 +678,15 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 getDelegate().getCurrentPlanFragment(), getDelegate().getLogicalOperatorCatalog());
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitSubqueryTableItem(@Nonnull RelationalParser.SubqueryTableItemContext subqueryTableItemContext) {
+    public LogicalOperator visitSubqueryTableItem(RelationalParser.SubqueryTableItemContext subqueryTableItemContext) {
         final var alias = Assert.castUnchecked(subqueryTableItemContext.alias.accept(this), Identifier.class);
         final var selectOperator = visitQuery(subqueryTableItemContext.query());
         return selectOperator.withName(alias);
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitInlineTableItem(@Nonnull RelationalParser.InlineTableItemContext inlineTableItemContext) {
+    public LogicalOperator visitInlineTableItem(RelationalParser.InlineTableItemContext inlineTableItemContext) {
         NonnullPair<String, CompatibleTypeEvolutionPredicate.FieldAccessTrieNode> typeMaybe = null;
         if (inlineTableItemContext.inlineTableDefinition() != null) {
             typeMaybe = visitInlineTableDefinition(inlineTableItemContext.inlineTableDefinition());
@@ -714,7 +697,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 type = type == null ? rowExpression.getUnderlying().getResultType()
                         : Type.maximumType(type, rowExpression.getUnderlying().getResultType());
             }
-            final var actualInlineTableType = type;
+            // the isEmpty() check above guarantees the loop below runs at least once, so type is always assigned.
+            final var actualInlineTableType = Objects.requireNonNull(type, "inline table must have at least one row to infer a type");
             final var inlineTypedWithNames = TypeUtils.setFieldNames(actualInlineTableType, typeMaybe.getRight());
             Assert.thatUnchecked(inlineTypedWithNames.isRecord());
             final var stateBuilder = LogicalPlanFragment.State.newBuilder().withTargetType(inlineTypedWithNames);
@@ -737,16 +721,15 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public LogicalOperator visitTableValuedFunction(@Nonnull RelationalParser.TableValuedFunctionContext tableValuedFunctionContext) {
+    public LogicalOperator visitTableValuedFunction(RelationalParser.TableValuedFunctionContext tableValuedFunctionContext) {
         final var logicalOperator = visitTableFunction(tableValuedFunctionContext.tableFunction());
         final var aliasMaybe = Optional.ofNullable(tableValuedFunctionContext.uid() == null ? null :
                                                    visitUid(tableValuedFunctionContext.uid()));
         return aliasMaybe.map(logicalOperator::withName).orElse(logicalOperator);
     }
 
-    @Nonnull
     @Override
-    public Set<String> visitIndexHint(@Nonnull RelationalParser.IndexHintContext indexHintContext) {
+    public Set<String> visitIndexHint(RelationalParser.IndexHintContext indexHintContext) {
         // currently only support USE INDEX '(' uidList ')' syntax
         Assert.isNullUnchecked(indexHintContext.IGNORE(), "index hint 'ignore' semantics not supported");
         Assert.isNullUnchecked(indexHintContext.FORCE(), "index hint 'force' semantics not supported");
@@ -756,9 +739,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return indexHintContext.uidList().uid().stream().map(this::visitUid).map(Identifier::getName).collect(ImmutableSet.toImmutableSet());
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitInsertStatement(@Nonnull RelationalParser.InsertStatementContext ctx) {
+    public LogicalOperator visitInsertStatement(RelationalParser.InsertStatementContext ctx) {
         final var table = visitTableName(ctx.tableName());
         final var tableType = getDelegate().getSemanticAnalyzer().getTable(table);
         final var targetType = Assert.castUnchecked(tableType, RecordLayerTable.class).getType();
@@ -786,24 +768,25 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return resultingInsert;
     }
 
-    @Nonnull
-    private static StringTrieNode toString(@Nonnull CompatibleTypeEvolutionPredicate.FieldAccessTrieNode fieldAccessTrieNode) {
-        if (fieldAccessTrieNode.getChildrenMap() == null) {
+    private static StringTrieNode toString(CompatibleTypeEvolutionPredicate.FieldAccessTrieNode fieldAccessTrieNode) {
+        final var childrenMap = fieldAccessTrieNode.getChildrenMap();
+        if (childrenMap == null) {
             return StringTrieNode.leafNode();
         }
-        final var map = fieldAccessTrieNode.getChildrenMap().entrySet().stream().collect(ImmutableMap.toImmutableMap(pair -> pair.getKey().getName(), pair -> toString(pair.getValue())));
+        // pair.getKey() is always constructed from an Identifier's name (see ExpressionVisitor#visitUidListWithNestings),
+        // which is never null, even though ResolvedAccessor.getName() is declared @Nullable in general.
+        final var map = childrenMap.entrySet().stream().collect(ImmutableMap.toImmutableMap(
+                pair -> Objects.requireNonNull(pair.getKey().getName()), pair -> toString(pair.getValue())));
         return new StringTrieNode(map);
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitInsertStatementValueSelect(@Nonnull RelationalParser.InsertStatementValueSelectContext ctx) {
+    public LogicalOperator visitInsertStatementValueSelect(RelationalParser.InsertStatementValueSelectContext ctx) {
         return Assert.castUnchecked(ctx.queryExpressionBody().accept(this), LogicalOperator.class);
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitInsertStatementValueValues(@Nonnull RelationalParser.InsertStatementValueValuesContext ctx) {
+    public LogicalOperator visitInsertStatementValueValues(RelationalParser.InsertStatementValueValuesContext ctx) {
         final ImmutableList.Builder<Expression> insertTuples = ImmutableList.builder();
         for (final var tupleContext : ctx.recordConstructorForInsert()) {
             insertTuples.add(visitRecordConstructorForInsert(tupleContext));
@@ -815,9 +798,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return LogicalOperator.newUnnamedOperator(Expressions.ofSingle(arrayOfTuples), resultingQuantifier);
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitUpdateStatement(@Nonnull RelationalParser.UpdateStatementContext ctx) {
+    public LogicalOperator visitUpdateStatement(RelationalParser.UpdateStatementContext ctx) {
         final Identifier tableId = visitFullId(ctx.tableName().fullId());
         final SemanticAnalyzer semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         final RecordLayerTable table = Assert.castUnchecked(semanticAnalyzer.getTable(tableId), RecordLayerTable.class);
@@ -842,6 +824,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             transformMapBuilder.put(target, update);
         }
 
+        // tableType.getStorageName() is @Nullable in general, but a table's record type always has a storage name;
+        // Assert.notNullUnchecked enforces that invariant at runtime with a clear RelationalException, but
+        // NullAway can't see that since Assert lives in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
         final var updateExpression = new UpdateExpression(Assert.castUnchecked(updateSource.getQuantifier(), Quantifier.ForEach.class),
                 Assert.notNullUnchecked(tableType.getStorageName(), "Update target type must have storage type name available"),
                 Type.Record.fromFields(tableType.getFields()), // Remove the type name from the update target type to avoid clashes with the table type in the update source
@@ -868,9 +854,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return result;
     }
 
-    @Nonnull
     @Override
-    public LogicalOperator visitDeleteStatement(@Nonnull RelationalParser.DeleteStatementContext ctx) {
+    public LogicalOperator visitDeleteStatement(RelationalParser.DeleteStatementContext ctx) {
         Assert.thatUnchecked(ctx.limitClause() == null, "limit is not supported");
         final Identifier tableId = visitFullId(ctx.tableName().fullId());
         final SemanticAnalyzer semanticAnalyzer = getDelegate().getSemanticAnalyzer();
@@ -883,7 +868,12 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         Optional<Expression> whereMaybe = ctx.whereExpr() == null ? Optional.empty() : Optional.of(visitWhereExpr(ctx.whereExpr()));
         final var deleteSource = LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), whereMaybe, Optional.of(tableId), ImmutableSet.of(), false);
 
-        final var deleteExpression = new DeleteExpression(Assert.castUnchecked(deleteSource.getQuantifier(), Quantifier.ForEach.class), table.getType().getStorageName());
+        // table.getType().getStorageName() is @Nullable in general, but a table's record type always has a storage
+        // name; Assert.notNullUnchecked enforces that invariant at runtime with a clear RelationalException, but
+        // NullAway can't see that since Assert lives in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final var deleteExpression = new DeleteExpression(Assert.castUnchecked(deleteSource.getQuantifier(), Quantifier.ForEach.class),
+                Assert.notNullUnchecked(table.getType().getStorageName(), "Delete target type must have storage type name available"));
         final var deleteQuantifier = Quantifier.forEach(Reference.initialOf(deleteExpression));
         final var resultingDelete = LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(deleteQuantifier), deleteQuantifier);
 
@@ -903,42 +893,36 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return result;
     }
 
-    @Nonnull
     @Override
-    public Object visitExecuteContinuationStatement(@Nonnull RelationalParser.ExecuteContinuationStatementContext ctx) {
+    public Object visitExecuteContinuationStatement(RelationalParser.ExecuteContinuationStatementContext ctx) {
         // TODO (Rethink how execute continuation works)
         throw Assert.failUnchecked("execute package should not be handled here");
     }
 
-    @Nonnull
     @Override
-    public QueryPlan.LogicalQueryPlan visitFullDescribeStatement(@Nonnull RelationalParser.FullDescribeStatementContext ctx) {
+    public QueryPlan.LogicalQueryPlan visitFullDescribeStatement(RelationalParser.FullDescribeStatementContext ctx) {
         throw new RelationalException("Explain/Describe statement should not appear at the parser level", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
     }
 
-    @Nonnull
     @Override
-    public QueryPlan.LogicalQueryPlan visitDescribeStatements(@Nonnull RelationalParser.DescribeStatementsContext ctx) {
+    public QueryPlan.LogicalQueryPlan visitDescribeStatements(RelationalParser.DescribeStatementsContext ctx) {
         final var logicalOperator =  parseChild(ctx);
         final var semanticStructType = logicalOperator.getOutput().getStructType();
         return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(),
                 getDelegate().getPlanGenerationContext(), getDelegate().getPlanGenerationContext().getQuery(), semanticStructType);
     }
 
-    @Nonnull
     @Override
-    public Object visitDescribeConnection(@Nonnull RelationalParser.DescribeConnectionContext ctx) {
+    public Object visitDescribeConnection(RelationalParser.DescribeConnectionContext ctx) {
         throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "query is not supported");
     }
 
-    @Nonnull
     private LogicalOperator parseChild(ParserRuleContext context) {
         return Assert.castUnchecked(visitChildren(context), LogicalOperator.class);
     }
 
-    @Nonnull
-    public List<OrderByExpression> visitOrderByClauseForSelect(@Nonnull RelationalParser.OrderByClauseContext orderByClauseContext,
-                                                               @Nonnull Expressions visibleSelectAliases) {
+    public List<OrderByExpression> visitOrderByClauseForSelect(RelationalParser.OrderByClauseContext orderByClauseContext,
+                                                               Expressions visibleSelectAliases) {
         final var validSelectAliases = Expressions.of(visibleSelectAliases.stream()
                 .filter(expr -> expr.getName().isPresent() && !expr.getName().get().isQualified())
                 .collect(ImmutableList.toImmutableList()));
@@ -967,15 +951,14 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return orderBys;
     }
 
-    private boolean hasAggregations(@Nonnull RelationalParser.SelectElementsContext selectElementsContext) {
+    private boolean hasAggregations(RelationalParser.SelectElementsContext selectElementsContext) {
         return getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(
                 () -> Streams.stream(visitSelectElements(selectElementsContext))
                         .anyMatch(expression -> !Iterables.isEmpty(Expression.Utils.filterUnderlyingAggregates(expression)))
         );
     }
 
-    @Nonnull
-    private static Optional<RelationalParser.FullIdContext> isAliasMaybe(@Nonnull RelationalParser.OrderByExpressionContext orderByExpressionContext) {
+    private static Optional<RelationalParser.FullIdContext> isAliasMaybe(RelationalParser.OrderByExpressionContext orderByExpressionContext) {
         if (!(orderByExpressionContext.expression() instanceof RelationalParser.PredicatedExpressionContext)) {
             return Optional.empty();
         }

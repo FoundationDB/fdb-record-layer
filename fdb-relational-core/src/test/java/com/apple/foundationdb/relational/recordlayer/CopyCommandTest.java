@@ -59,7 +59,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -67,6 +66,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
@@ -91,7 +91,7 @@ public class CopyCommandTest {
 
     @BeforeEach
     void setUp() {
-        connectionUtils = new ConnectionUtils(relationalExtension.getDriver());
+        connectionUtils = new ConnectionUtils(Objects.requireNonNull(relationalExtension.getDriver()));
     }
 
     @ParameterizedTest
@@ -149,7 +149,7 @@ public class CopyCommandTest {
         clearTestData(connectionUtils, sourceTestPath);
 
         // Import to destination (using quoted path)
-        int importedCount = connectionUtils.getFromCatalog(conn -> {
+        int importedCount = Objects.requireNonNull(connectionUtils.getFromCatalog(conn -> {
             final EmbeddedRelationalConnection embeddedConnection = (EmbeddedRelationalConnection)conn;
             embeddedConnection.createNewTransaction();
             int count;
@@ -164,7 +164,7 @@ public class CopyCommandTest {
             }
             final Plan.ExecutionContext executionContext = Plan.ExecutionContext.of(
                     embeddedConnection.getTransaction(),
-                    Options.NONE, conn, embeddedConnection.getMetricCollector());
+                    Options.NONE, conn, Objects.requireNonNull(embeddedConnection.getMetricCollector()));
             try (final RelationalResultSet relationalResultSet = copyImportAction.execute(executionContext)) {
                 assertTrue(relationalResultSet.next());
                 count = relationalResultSet.getInt("COUNT");
@@ -173,7 +173,7 @@ public class CopyCommandTest {
             }
 
             return count;
-        });
+        }));
         assertEquals(withExecutionContext ? 3 : 2, importedCount);
 
         final KeySpacePath destTestPath = KeySpaceUtils.toKeySpacePath(URI.create(dest.schemaPath), keySpace);
@@ -185,7 +185,6 @@ public class CopyCommandTest {
         }
     }
 
-    @Nonnull
     private static MutablePlanGenerationContext getMutablePlanGenerationContext(final String sql, final List<byte[]> exportedData) {
         final PreparedParams preparedParams = PreparedParams.of(Map.of(1, exportedData), Map.of());
         final MutablePlanGenerationContext context = new MutablePlanGenerationContext(preparedParams,
@@ -368,7 +367,7 @@ public class CopyCommandTest {
                     assertFalse(continuation.atBeginning());
                     final ContinuationImpl continuationImpl = (ContinuationImpl)rs.getContinuation();
                     final Continuation corruptedContinuation = continuationImpl.asBuilder()
-                            .withPlanHash(continuationImpl.getPlanHash() + 3)
+                            .withPlanHash(Objects.requireNonNull(continuationImpl.getPlanHash()) + 3)
                             .build();
                     RelationalAssertions.assertThrowsSqlException(
                                     () -> continueExport(limit, conn, corruptedContinuation, results))
@@ -378,7 +377,6 @@ public class CopyCommandTest {
         });
     }
 
-    @Nonnull
     private static Continuation continueExport(final int limit,
                                                final RelationalConnection connection,
                                                Continuation continuation,
@@ -532,7 +530,7 @@ public class CopyCommandTest {
         String templateName1 = "TEMPLATE1_" + uuidName;
         String templateName2 = "TEMPLATE2_" + uuidName;
         final ConnectionUtils destConnectionUtils = multiCluster ?
-                                                    new ConnectionUtils(relationalExtension.extensionForOtherCluster().getDriver()) :
+                                                    new ConnectionUtils(Objects.requireNonNull(relationalExtension.extensionForOtherCluster().getDriver())) :
                                                     connectionUtils;
         final List<Moveable> moveables = IntStream.of(0, 1, 2)
                 .mapToObj(index -> {
@@ -690,10 +688,10 @@ public class CopyCommandTest {
                 " CREATE TABLE my_table (id bigint, col1 string, PRIMARY KEY(id))");
     }
 
-    private static void createTemplateAndSchema(@Nonnull ConnectionUtils connUtils,
-                                                @Nonnull String templateName,
-                                                @Nonnull SchemaInfo schema,
-                                                @Nonnull String schemaTemplate) throws SQLException, RelationalException {
+    private static void createTemplateAndSchema(ConnectionUtils connUtils,
+                                                String templateName,
+                                                SchemaInfo schema,
+                                                String schemaTemplate) throws SQLException, RelationalException {
         connUtils.runCatalogStatement(stmt -> {
             stmt.executeUpdate("CREATE SCHEMA TEMPLATE " + templateName + " " + schemaTemplate);
             stmt.executeUpdate("CREATE DATABASE " + schema.databasePath);
@@ -701,7 +699,7 @@ public class CopyCommandTest {
         });
     }
 
-    private static FDBRecordStoreBase<Message> getBackingStore(@Nonnull RelationalConnection conn) throws SQLException, RelationalException {
+    private static FDBRecordStoreBase<Message> getBackingStore(RelationalConnection conn) throws SQLException, RelationalException {
         conn.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
         final RecordLayerSchema recordLayerSchema =
                 conn.unwrap(EmbeddedRelationalConnection.class).getRecordLayerDatabase().loadSchema(conn.getSchema());
@@ -713,9 +711,9 @@ public class CopyCommandTest {
         return store;
     }
 
-    private static void updateIncarnation(@Nonnull ConnectionUtils connUtils,
-                                          @Nonnull SchemaInfo schema,
-                                          @Nonnull IntFunction<Integer> updater) throws SQLException, RelationalException {
+    private static void updateIncarnation(ConnectionUtils connUtils,
+                                          SchemaInfo schema,
+                                          IntFunction<Integer> updater) throws SQLException, RelationalException {
         connUtils.runAgainstConnection(schema.databasePath, schema.schemaName, conn -> {
             conn.setAutoCommit(false);
             final FDBRecordStoreBase<Message> store = getBackingStore(conn);
@@ -724,7 +722,6 @@ public class CopyCommandTest {
         });
     }
 
-    @Nonnull
     private static String uuidForPath(final boolean quoted) {
         if (quoted) {
             return UUID.randomUUID().toString();
@@ -733,7 +730,6 @@ public class CopyCommandTest {
         }
     }
 
-    @Nonnull
     private static Map<String, String> tenKeyValueRecords() {
         final Map<String, String> data = new LinkedHashMap<>();
         for (int i = 0; i < 10; i++) {
@@ -750,8 +746,8 @@ public class CopyCommandTest {
         }
     }
 
-    private static void writeTestData(final ConnectionUtils connectionUtils, @Nonnull KeySpacePath path,
-                                      @Nonnull Map<String, String> data) throws SQLException, RelationalException {
+    private static void writeTestData(final ConnectionUtils connectionUtils, KeySpacePath path,
+                                      Map<String, String> data) throws SQLException, RelationalException {
         connectionUtils.runAgainstCatalog(conn -> {
             conn.setAutoCommit(false);
             final FDBRecordContext context = getRecordContext(conn);
@@ -764,7 +760,7 @@ public class CopyCommandTest {
         });
     }
 
-    private static void clearTestData(final ConnectionUtils connectionUtils, @Nonnull KeySpacePath path) throws SQLException, RelationalException {
+    private static void clearTestData(final ConnectionUtils connectionUtils, KeySpacePath path) throws SQLException, RelationalException {
         connectionUtils.runAgainstCatalog(conn -> {
             conn.setAutoCommit(false);
             final FDBRecordContext context = getRecordContext(conn);
@@ -773,8 +769,8 @@ public class CopyCommandTest {
         });
     }
 
-    private static void verifyTestData(final ConnectionUtils connectionUtils, @Nonnull KeySpacePath path,
-                                       @Nonnull Map<String, String> expectedData) throws SQLException, RelationalException {
+    private static void verifyTestData(final ConnectionUtils connectionUtils, KeySpacePath path,
+                                       Map<String, String> expectedData) throws SQLException, RelationalException {
         connectionUtils.runAgainstCatalog(conn -> {
             conn.setAutoCommit(false);
             final FDBRecordContext context = getRecordContext(conn);
@@ -788,7 +784,7 @@ public class CopyCommandTest {
         });
     }
 
-    private static FDBRecordContext getRecordContext(final @Nonnull RelationalConnection conn) throws SQLException, RelationalException {
+    private static FDBRecordContext getRecordContext(final RelationalConnection conn) throws SQLException, RelationalException {
         EmbeddedRelationalConnection embeddedConn = conn.unwrap(EmbeddedRelationalConnection.class);
         embeddedConn.createNewTransaction();
         return embeddedConn.getTransaction().unwrap(RecordContextTransaction.class).getContext();
@@ -807,7 +803,7 @@ public class CopyCommandTest {
     }
 
     private static List<byte[]> exportData(String path, ConnectionUtils connectionUtils, String incarnationClause) throws SQLException, RelationalException {
-        return connectionUtils.getFromCatalog(conn -> {
+        return Objects.requireNonNull(connectionUtils.getFromCatalog(conn -> {
             try (RelationalStatement stmt = conn.createStatement();
                      RelationalResultSet rs = stmt.executeQuery("COPY " + path + " " + incarnationClause)) {
                 List<byte[]> exportedData = new ArrayList<>();
@@ -816,7 +812,7 @@ public class CopyCommandTest {
                 }
                 return exportedData;
             }
-        });
+        }));
     }
 
     private static int importDatabase(final boolean namedAndQuoted, final boolean autoCommit, final SchemaInfo dest,
@@ -826,7 +822,7 @@ public class CopyCommandTest {
 
     private static int importDatabase(final boolean namedAndQuoted, final boolean autoCommit,
                                       final List<byte[]> exportedData, ConnectionUtils targetConnectionUtils, String path) throws SQLException, RelationalException {
-        return targetConnectionUtils.getFromCatalog(conn -> {
+        return Objects.requireNonNull(targetConnectionUtils.getFromCatalog(conn -> {
             conn.setAutoCommit(autoCommit);
             int resultingCount;
             try (RelationalPreparedStatement stmt = conn.prepareStatement("COPY " + maybeQuote(path, namedAndQuoted) + " FROM " + (namedAndQuoted ? "?data" : "?"))) {
@@ -848,7 +844,7 @@ public class CopyCommandTest {
                 conn.commit();
             }
             return resultingCount;
-        });
+        }));
     }
 
     private static class Moveable {

@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.MetricSet;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 
@@ -42,7 +41,7 @@ public class EmbeddedRelationalEngine {
     //TODO(bfines) eventually we need to move StoreCatalog into StorageCluster
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "May be refactored as embedded takes over transaction lifetime")
     public EmbeddedRelationalEngine(List<StorageCluster> fdbClusters,
-                                  @Nonnull MetricRegistry metricRegistry) {
+                                  MetricRegistry metricRegistry) {
         if (fdbClusters.isEmpty()) {
             throw new IllegalArgumentException("Must specify at least one FDB cluster to connect to");
         }

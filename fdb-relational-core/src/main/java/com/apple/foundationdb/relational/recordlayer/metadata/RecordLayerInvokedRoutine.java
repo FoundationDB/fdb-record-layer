@@ -26,39 +26,32 @@ import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.util.MemoizedFunction;
 import com.apple.foundationdb.relational.util.Assert;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.function.Function;
 
 public class RecordLayerInvokedRoutine implements InvokedRoutine {
 
-    @Nonnull
     private final String description;
 
-    @Nonnull
     private final String normalizedDescription;
 
-    @Nonnull
     private final PreparedParams preparedParams;
 
-    @Nonnull
     private final String name;
 
     private final boolean isTemporary;
 
-    @Nonnull
     private final Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider;
 
-    @Nonnull
     private final UserDefinedFunction serializableFunction;
 
-    public RecordLayerInvokedRoutine(@Nonnull final String description,
-                                     @Nonnull final String normalizedDescription,
-                                     @Nonnull final String name,
-                                     @Nonnull final PreparedParams preparedParams,
+    public RecordLayerInvokedRoutine(final String description,
+                                     final String normalizedDescription,
+                                     final String name,
+                                     final PreparedParams preparedParams,
                                      boolean isTemporary,
-                                     @Nonnull final Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider,
-                                     @Nonnull final UserDefinedFunction serializableFunction) {
+                                     final Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider,
+                                     final UserDefinedFunction serializableFunction) {
         this.description = description;
         this.normalizedDescription = normalizedDescription;
         this.name = name;
@@ -68,40 +61,33 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         this.serializableFunction = serializableFunction;
     }
 
-    @Nonnull
     @Override
     public String getDescription() {
         return description;
     }
 
-    @Nonnull
     @Override
     public String getNormalizedDescription() {
         return normalizedDescription;
     }
 
-    @Nonnull
     public PreparedParams getPreparedParams() {
         return preparedParams;
     }
 
-    @Nonnull
     public Function<Boolean, UserDefinedFunction> getUserDefinedFunctionProvider() {
         return userDefinedFunctionProvider;
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return name;
     }
 
-    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }
 
-    @Nonnull
     public UserDefinedFunction asSerializableFunction() {
         return serializableFunction;
     }
@@ -133,7 +119,6 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         return "invoked routine (name '" + name + "', description '" + description + "')";
     }
 
-    @Nonnull
     public Builder toBuilder() {
         return newBuilder()
                 .setName(getName())
@@ -153,52 +138,48 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         private UserDefinedFunction serializableFunction;
         private boolean isTemporary;
 
+        // Fields are populated via the fluent setters below and validated (non-null-checked) in
+        // build(), rather than through this constructor, so NullAway cannot see that they are
+        // always set before use; see the Assert.notNullUnchecked(...) calls in build().
+        @SuppressWarnings("NullAway.Init")
         private Builder() {
         }
 
-        @Nonnull
-        public Builder setDescription(@Nonnull final String description) {
+        public Builder setDescription(final String description) {
             this.description = description;
             return this;
         }
 
-        @Nonnull
-        public Builder setNormalizedDescription(@Nonnull final String normalizedDescription) {
+        public Builder setNormalizedDescription(final String normalizedDescription) {
             this.normalizedDescription = normalizedDescription;
             return this;
         }
 
-        @Nonnull
-        public Builder setName(@Nonnull final String name) {
+        public Builder setName(final String name) {
             this.name = name;
             return this;
         }
 
-        @Nonnull
-        public Builder withUserDefinedFunctionProvider(@Nonnull final Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider) {
+        public Builder withUserDefinedFunctionProvider(final Function<Boolean, UserDefinedFunction> userDefinedFunctionProvider) {
             this.userDefinedFunctionProvider = userDefinedFunctionProvider;
             return this;
         }
 
-        @Nonnull
-        public Builder withSerializableFunction(@Nonnull final UserDefinedFunction serializableFunction) {
+        public Builder withSerializableFunction(final UserDefinedFunction serializableFunction) {
             this.serializableFunction = serializableFunction;
             return this;
         }
 
-        @Nonnull
-        public Builder setPreparedParams(@Nonnull final PreparedParams preparedParams) {
+        public Builder setPreparedParams(final PreparedParams preparedParams) {
             this.preparedParams = preparedParams;
             return this;
         }
 
-        @Nonnull
         public Builder setTemporary(boolean isTemporary) {
             this.isTemporary = isTemporary;
             return this;
         }
 
-        @Nonnull
         public RecordLayerInvokedRoutine build() {
             Assert.notNullUnchecked(name);
             Assert.notNullUnchecked(description);

@@ -31,8 +31,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableMap;
-
-import javax.annotation.Nonnull;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
@@ -43,19 +41,16 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
-    @Nonnull
     private static final ImmutableMap<String, Function<Integer, Optional<BuiltInFunction<? extends Typed>>>> builtInSynonyms = createSynonyms();
 
-    @Nonnull
     private final UserDefinedFunctionCatalog userDefinedFunctionCatalog;
 
     private SqlFunctionCatalogImpl(boolean isCaseSensitive) {
         this.userDefinedFunctionCatalog = new UserDefinedFunctionCatalog(isCaseSensitive);
     }
 
-    @Nonnull
     @Override
-    public CatalogedFunction lookupFunction(@Nonnull final String name, @Nonnull final CallSiteArguments arguments) {
+    public CatalogedFunction lookupFunction(final String name, final CallSiteArguments arguments) {
         final var builtInFunctionMaybe = lookupBuiltInFunction(name, arguments);
         final var userDefinedFunctionMaybe = lookupUserDefinedFunction(name, arguments);
         if (builtInFunctionMaybe.isPresent() && userDefinedFunctionMaybe.isPresent()) {
@@ -71,9 +66,8 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
         return userDefinedFunctionMaybe.get();
     }
 
-    @Nonnull
-    private Optional<? extends CatalogedFunction> lookupBuiltInFunction(@Nonnull final String name,
-                                                                        @Nonnull final CallSiteArguments callSiteArguments) {
+    private Optional<? extends CatalogedFunction> lookupBuiltInFunction(final String name,
+                                                                        final CallSiteArguments callSiteArguments) {
         final var functionValidator = builtInSynonyms.get(name.toLowerCase(Locale.ROOT));
         if (functionValidator == null) {
             return Optional.empty();
@@ -82,29 +76,27 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
         return functionValidator.apply(callSiteArguments.size());
     }
 
-    @Nonnull
-    private Optional<? extends CatalogedFunction> lookupUserDefinedFunction(@Nonnull final String name,
-                                                                            @Nonnull final CallSiteArguments arguments) {
+    private Optional<? extends CatalogedFunction> lookupUserDefinedFunction(final String name,
+                                                                            final CallSiteArguments arguments) {
         return userDefinedFunctionCatalog.lookup(name, arguments);
     }
 
     @Override
-    public boolean containsFunction(@Nonnull final String name) {
+    public boolean containsFunction(final String name) {
         return builtInSynonyms.containsKey(name.toLowerCase(Locale.ROOT))
                 || userDefinedFunctionCatalog.containsFunction(name);
     }
 
     @Override
-    public boolean isJavaCallFunction(@Nonnull final String name) {
+    public boolean isJavaCallFunction(final String name) {
         return "java_call".equals(name.trim().toLowerCase(Locale.ROOT));
     }
 
-    public void registerUserDefinedFunction(@Nonnull final String functionName,
-                                            @Nonnull final Function<Boolean, ? extends UserDefinedFunction> functionSupplier) {
+    public void registerUserDefinedFunction(final String functionName,
+                                            final Function<Boolean, ? extends UserDefinedFunction> functionSupplier) {
         userDefinedFunctionCatalog.registerFunction(functionName, functionSupplier);
     }
 
-    @Nonnull
     private static ImmutableMap<String, Function<Integer, Optional<BuiltInFunction<? extends Typed>>>> createSynonyms() {
         return ImmutableMap.<String, Function<Integer, Optional<BuiltInFunction<? extends Typed>>>>builder()
                 .put("+", argumentsCount -> BuiltInFunctionCatalog.resolve("add", argumentsCount))
@@ -161,8 +153,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
                 .build();
     }
 
-    @Nonnull
-    public static SqlFunctionCatalogImpl newInstance(@Nonnull final RecordLayerSchemaTemplate metadata,
+    public static SqlFunctionCatalogImpl newInstance(final RecordLayerSchemaTemplate metadata,
                                                      boolean isCaseSensitive) {
         final var functionCatalog = new SqlFunctionCatalogImpl(isCaseSensitive);
         metadata.getInvokedRoutines().forEach(func ->

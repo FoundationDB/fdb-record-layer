@@ -45,11 +45,11 @@ import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.Iterables;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Optional;
+
+import static com.apple.foundationdb.record.query.plan.cascades.Quantifier.ForEach;
 
 /**
  * This represents a compilable SQL function. If the function is a table function, it is modeled as a join between
@@ -62,36 +62,31 @@ import java.util.Optional;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class CompiledSqlFunction extends UserDefinedFunction implements WithPlanGenerationSideEffects {
 
-    @Nonnull
     private final RelationalExpression body;
 
-    @Nonnull
     private final Optional<CorrelationIdentifier> parametersCorrelation;
 
-    @Nonnull
     private final Literals literals;
 
-    protected CompiledSqlFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
-                                  @Nonnull final List<Type> parameterTypes,
-                                  @Nonnull final List<Optional<Value>> parameterDefaults,
-                                  @Nonnull final Optional<CorrelationIdentifier> parametersCorrelation,
-                                  @Nonnull final RelationalExpression body,
-                                  @Nonnull final Literals literals) {
+    protected CompiledSqlFunction(final String functionName, final List<String> parameterNames,
+                                  final List<Type> parameterTypes,
+                                  final List<Optional<Value>> parameterDefaults,
+                                  final Optional<CorrelationIdentifier> parametersCorrelation,
+                                  final RelationalExpression body,
+                                  final Literals literals) {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
         this.parametersCorrelation = parametersCorrelation;
         this.body = body;
         this.literals = literals;
     }
 
-    @Nonnull
     @Override
     public RecordMetaDataProto.PUserDefinedFunction toProto() {
         throw new RecordCoreException("attempt to serialize compiled SQL function");
     }
 
-    @Nonnull
     @Override
-    public RelationalExpression encapsulate(@Nonnull final CallSiteArguments arguments) {
+    public RelationalExpression encapsulate(final CallSiteArguments arguments) {
         if (parametersCorrelation.isEmpty()) {
             // this should never happen.
             Assert.thatUnchecked(arguments.isEmpty(), ErrorCode.INTERNAL_ERROR,
@@ -105,7 +100,7 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
         return encapsulateFromArgumentValues(resolveParameterValuesFromArguments(arguments.getArgumentsList()));
     }
 
-    private RelationalExpression encapsulateFromArgumentValues(@Nonnull final List<Value> resolvedArgumentValues) {
+    private RelationalExpression encapsulateFromArgumentValues(final List<Value> resolvedArgumentValues) {
         final var resultBuilder = GraphExpansion.builder();
         for (var paramIdx = 0; paramIdx < getParameterNames().size(); paramIdx++) {
             resultBuilder.addResultColumn(Column.of(
@@ -118,8 +113,7 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
         return constructTableFunctionExpression(argumentsExpression);
     }
 
-    @Nonnull
-    private RelationalExpression constructTableFunctionExpression(@Nonnull final RelationalExpression argumentsExpression) {
+    private RelationalExpression constructTableFunctionExpression(final RelationalExpression argumentsExpression) {
         final var aliasMap = new ToUniqueAliasesTranslationMap();
 
         final var bodyRef = Reference.initialOf(body);
@@ -139,7 +133,6 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
         return selectBuilder.build().buildSelect();
     }
 
-    @Nonnull
     @Override
     public Literals getAuxiliaryLiterals() {
         return literals;
@@ -150,7 +143,6 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
      *
      * @return a quantifier over a logical expression that is {@code range(0,1]}.
      */
-    @Nonnull
     private static Quantifier rangeOfOnePlan() {
         final var rangeFunction = new RangeValue.RangeFn();
         final var rangeValue = Assert.castUnchecked(rangeFunction.encapsulate(CallSiteArguments.ofPositional(LiteralValue.ofScalar(1L))),
@@ -163,21 +155,22 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
      * The {@link UserDefinedFunctionBuilder.FinalStepBuilder} that instantiates a {@link CompiledSqlFunction}.
      */
     static final class CompiledSQLFunctionStepBuilder implements UserDefinedFunctionBuilder.FinalStepBuilder {
-        @Nonnull
         private final String name;
-        @Nonnull
         private final RelationalExpression body;
-        @Nonnull
         private final Expressions parameters;
         private final List<Optional<Value>> parameterDefaults;
-        private final Quantifier.ForEach parametersQuantifier;
+        @Nullable
+        private final ForEach parametersQuantifier;
         private Literals literals;
 
-        CompiledSQLFunctionStepBuilder(@Nonnull final String name,
-                                       @Nonnull final RelationalExpression body,
-                                       @Nonnull final Expressions parameters,
-                                       @Nonnull final List<Optional<Value>> parameterDefaults,
-                                       @Nullable final Quantifier.ForEach parametersQuantifier,
+        // Assert.isNullUnchecked's own parameter isn't @Nullable (Assert lives in the not-yet-migrated
+        // fdb-relational-api module), even though its entire purpose is to check a value that may be null.
+        @SuppressWarnings("NullAway")
+        CompiledSQLFunctionStepBuilder(final String name,
+                                       final RelationalExpression body,
+                                       final Expressions parameters,
+                                       final List<Optional<Value>> parameterDefaults,
+                                       @Nullable final ForEach parametersQuantifier,
                                        @Nullable final Type returnType) {
             Assert.isNullUnchecked(returnType, "unsupported explicit return type for compiled SQL function");
 
@@ -189,14 +182,12 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
             this.literals = Literals.empty();
         }
 
-        @Nonnull
         @Override
-        public UserDefinedFunctionBuilder.FinalStepBuilder setLiterals(@Nonnull final Literals literals) {
+        public UserDefinedFunctionBuilder.FinalStepBuilder setLiterals(final Literals literals) {
             this.literals = literals;
             return this;
         }
 
-        @Nonnull
         @Override
         public UserDefinedFunction build() {
             Assert.notNullUnchecked(name);

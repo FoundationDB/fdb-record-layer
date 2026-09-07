@@ -75,9 +75,7 @@ import com.google.common.collect.Streams;
 import com.google.protobuf.ByteString;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.util.List;
 import java.util.Locale;
@@ -88,8 +86,11 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+
+import static com.apple.foundationdb.relational.generated.RelationalParser.PrimitiveTypeContext;
 
 /**
  * This class is responsible for performing a number of tasks revolving around semantic checks and resolution. For example,
@@ -107,20 +108,17 @@ public class SemanticAnalyzer {
 
     private static final Set<String> BITMAP_SCALAR_FUNCTIONS = ImmutableSet.of("bitmap_bucket_offset", "bitmap_bit_position");
 
-    @Nonnull
     private final SchemaTemplate metadataCatalog;
 
-    @Nonnull
     private final SqlFunctionCatalog functionCatalog;
 
-    @Nonnull
     private final MutablePlanGenerationContext mutablePlanGenerationContext;
 
     private final boolean isCaseSensitive;
 
-    public SemanticAnalyzer(@Nonnull SchemaTemplate metadataCatalog,
-                            @Nonnull SqlFunctionCatalog functionCatalog,
-                            @Nonnull MutablePlanGenerationContext mutablePlanGenerationContext,
+    public SemanticAnalyzer(SchemaTemplate metadataCatalog,
+                            SqlFunctionCatalog functionCatalog,
+                            MutablePlanGenerationContext mutablePlanGenerationContext,
                             boolean isCaseSensitive) {
         this.metadataCatalog = metadataCatalog;
         this.functionCatalog = functionCatalog;
@@ -155,7 +153,7 @@ public class SemanticAnalyzer {
      * @param quotationMark The quotation mark to look for
      * @return <code>true</code> is the string is quoted, otherwise <code>false</code>.
      */
-    private static boolean isQuoted(@Nonnull final String str, @Nonnull final String quotationMark) {
+    private static boolean isQuoted(final String str, final String quotationMark) {
         return str.startsWith(quotationMark) && str.endsWith(quotationMark);
     }
 
@@ -165,9 +163,8 @@ public class SemanticAnalyzer {
      * @param logicalPlanFragment The plan fragments chain.
      * @return Optional with {@link LogicalOperator} whose name matches the given identifier, if found.
      */
-    @Nonnull
-    public Optional<LogicalOperator> findCteMaybe(@Nonnull final Identifier identifier,
-                                                  @Nonnull final LogicalPlanFragment logicalPlanFragment) {
+    public Optional<LogicalOperator> findCteMaybe(final Identifier identifier,
+                                                  final LogicalPlanFragment logicalPlanFragment) {
         var currentFragment = Optional.of(logicalPlanFragment);
         while (currentFragment.isPresent()) {
             final var logicalOperators = currentFragment.get().getLogicalOperators();
@@ -183,7 +180,7 @@ public class SemanticAnalyzer {
         return Optional.empty();
     }
 
-    public boolean tableExists(@Nonnull final Identifier tableIdentifier) {
+    public boolean tableExists(final Identifier tableIdentifier) {
         if (tableIdentifier.getQualifier().size() > 1) {
             return false;
         }
@@ -203,7 +200,7 @@ public class SemanticAnalyzer {
         }
     }
 
-    public boolean viewExists(@Nonnull final Identifier viewIdentifier) {
+    public boolean viewExists(final Identifier viewIdentifier) {
         if (viewIdentifier.getQualifier().size() > 1) {
             return false;
         }
@@ -223,17 +220,15 @@ public class SemanticAnalyzer {
         }
     }
 
-    public boolean functionExists(@Nonnull final Identifier functionIdentifier) {
+    public boolean functionExists(final Identifier functionIdentifier) {
         return functionCatalog.containsFunction(functionIdentifier.getName());
     }
 
-    @Nonnull
     public SchemaTemplate getMetadataCatalog() {
         return metadataCatalog;
     }
 
-    @Nonnull
-    public Table getTable(@Nonnull Identifier tableIdentifier) {
+    public Table getTable(Identifier tableIdentifier) {
         Assert.thatUnchecked(tableIdentifier.getQualifier().size() <= 1, ErrorCode.INTERNAL_ERROR, () -> String.format(Locale.ROOT, "Unknown table %s", tableIdentifier));
         if (tableIdentifier.isQualified()) {
             final var qualifier = tableIdentifier.getQualifier().get(0);
@@ -249,12 +244,12 @@ public class SemanticAnalyzer {
         }
     }
 
-    public void validateIndexes(@Nonnull Identifier tableIdentifier, @Nonnull Set<AccessHint> requestedIndexes) {
+    public void validateIndexes(Identifier tableIdentifier, Set<AccessHint> requestedIndexes) {
         final var table = getTable(tableIdentifier);
         validateIndexes(table, requestedIndexes);
     }
 
-    public void validateIndexes(@Nonnull Table table, @Nonnull Set<AccessHint> requestedIndexes) {
+    public void validateIndexes(Table table, Set<AccessHint> requestedIndexes) {
         if (requestedIndexes.isEmpty()) {
             return;
         }
@@ -266,7 +261,7 @@ public class SemanticAnalyzer {
         Assert.thatUnchecked(unrecognizedIndexes.isEmpty(), ErrorCode.UNDEFINED_INDEX, () -> String.format(Locale.ROOT, "Unknown index(es) %s", String.join(",", unrecognizedIndexes)));
     }
 
-    public void validateOrderByColumns(@Nonnull Iterable<OrderByExpression> orderBys) {
+    public void validateOrderByColumns(Iterable<OrderByExpression> orderBys) {
         final var duplicates = StreamSupport.stream(orderBys.spliterator(), false)
                 .map(OrderByExpression::getExpression)
                 .flatMap(expr -> expr.getName().stream())
@@ -281,21 +276,26 @@ public class SemanticAnalyzer {
                         duplicates.stream().map(Identifier::toString).collect(Collectors.joining(","))));
     }
 
-    @Nonnull
     public Set<String> getAllTableStorageNames() {
         try {
             return metadataCatalog.getTables().stream()
                     .map(table -> Assert.castUnchecked(table, RecordLayerTable.class))
-                    .map(table -> Assert.notNullUnchecked(table.getType().getStorageName()))
+                    // A table's DataType always has a storage name; DataType.getStorageName() is @Nullable
+                    // only because it's shared with non-table types, but Assert.notNullUnchecked can't
+                    // narrow that here since Assert lives in the not-yet-migrated fdb-relational-api module.
+                    .map(table -> {
+                        @SuppressWarnings("NullAway")
+                        final String storageName = Assert.notNullUnchecked(table.getType().getStorageName());
+                        return storageName;
+                    })
                     .collect(ImmutableSet.toImmutableSet());
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
         }
     }
 
-    @Nonnull
-    public Expression resolveCorrelatedIdentifier(@Nonnull Identifier identifier,
-                                                  @Nonnull LogicalOperators operators) {
+    public Expression resolveCorrelatedIdentifier(Identifier identifier,
+                                                  LogicalOperators operators) {
         Assert.thatUnchecked(identifier.isQualified(), ErrorCode.UNDEFINED_TABLE, () -> String.format(Locale.ROOT, "Unknown table %s", identifier));
         return resolveIdentifier(identifier, operators);
     }
@@ -313,9 +313,8 @@ public class SemanticAnalyzer {
      *
      * @return a {@link Star} expression capturing the expansion
      */
-    @Nonnull
-    public Star expandStar(@Nonnull Optional<Identifier> optionalQualifier,
-                           @Nonnull LogicalOperators operators) {
+    public Star expandStar(Optional<Identifier> optionalQualifier,
+                           LogicalOperators operators) {
         final var forEachOperators = operators.forEachOnly();
 
         // Case 1: no qualifier, e.g. SELECT * FROM T, R;
@@ -363,9 +362,8 @@ public class SemanticAnalyzer {
         return Star.overQuantifier(optionalQualifier, expression.getUnderlying(), qualifier.getName(), expressions);
     }
 
-    @Nonnull
-    public Expression resolveIdentifier(@Nonnull Identifier identifier,
-                                        @Nonnull LogicalPlanFragment planFragment) {
+    public Expression resolveIdentifier(Identifier identifier,
+                                        LogicalPlanFragment planFragment) {
         // Column resolution takes priority over table-row resolution across all visible fragments.
         // Fallback: if the identifier names a table or alias in scope, return the full row as a struct.
         // This makes SELECT FOO FROM FOO equivalent to SELECT (*) FROM FOO when no column named FOO exists.
@@ -375,11 +373,10 @@ public class SemanticAnalyzer {
                 () -> String.format(Locale.ROOT, "Attempting to query non existing column %s", identifier));
     }
 
-    @Nonnull
     private Optional<Expression> resolveAcrossFragments(
-            @Nonnull Identifier identifier,
-            @Nonnull LogicalPlanFragment planFragment,
-            @Nonnull BiFunction<Identifier, LogicalOperators, Optional<Expression>> resolver) {
+            Identifier identifier,
+            LogicalPlanFragment planFragment,
+            BiFunction<Identifier, LogicalOperators, Optional<Expression>> resolver) {
         // Search through all visible plan fragments:
         // - in each plan fragment, search operators left to right.
         // - if identifier is not resolved, go to parent plan fragment.
@@ -396,9 +393,8 @@ public class SemanticAnalyzer {
         return Optional.empty();
     }
 
-    @Nonnull
-    private Optional<Expression> resolveAsTableRowMaybe(@Nonnull Identifier identifier,
-                                                         @Nonnull LogicalOperators operators) {
+    private Optional<Expression> resolveAsTableRowMaybe(Identifier identifier,
+                                                         LogicalOperators operators) {
         final var identifierOptional = Optional.of(identifier);
         return Streams.stream(operators.forEachOnly())
                 .filter(op -> op.getName().equals(identifierOptional))
@@ -406,9 +402,8 @@ public class SemanticAnalyzer {
                 .map(ignored -> Expression.of(expandStar(identifierOptional, operators).getUnderlying(), identifier));
     }
 
-    @Nonnull
-    public Expression resolveIdentifier(@Nonnull Identifier identifier,
-                                        @Nonnull LogicalOperators operators) {
+    public Expression resolveIdentifier(Identifier identifier,
+                                        LogicalOperators operators) {
         var attributes = lookup(identifier, operators, true);
         Assert.thatUnchecked(attributes.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference %s", identifier));
         if (attributes.isEmpty()) {
@@ -419,9 +414,8 @@ public class SemanticAnalyzer {
         return attributes.get(0);
     }
 
-    @Nonnull
-    private Optional<Expression> resolveIdentifierMaybe(@Nonnull Identifier identifier,
-                                                        @Nonnull LogicalOperators operators) {
+    private Optional<Expression> resolveIdentifierMaybe(Identifier identifier,
+                                                        LogicalOperators operators) {
         var attributes = lookup(identifier, operators, true);
         Assert.thatUnchecked(attributes.size() <= 1, ErrorCode.AMBIGUOUS_COLUMN, () -> String.format(Locale.ROOT, "Ambiguous reference %s", identifier));
         if (attributes.isEmpty()) {
@@ -434,9 +428,8 @@ public class SemanticAnalyzer {
         return Optional.of(attributes.get(0));
     }
 
-    @Nonnull
-    private List<Expression> lookup(@Nonnull Identifier referenceIdentifier,
-                                    @Nonnull LogicalOperators operators,
+    private List<Expression> lookup(Identifier referenceIdentifier,
+                                    LogicalOperators operators,
                                     boolean matchQualifiedOnly) {
         if (matchQualifiedOnly && !referenceIdentifier.isQualified()) {
             return ImmutableList.of();
@@ -506,9 +499,8 @@ public class SemanticAnalyzer {
                 .build();
     }
 
-    @Nonnull
-    public Optional<Expression> lookupAlias(@Nonnull Identifier requestedAlias,
-                                            @Nonnull Expressions existingExpressions) {
+    public Optional<Expression> lookupAlias(Identifier requestedAlias,
+                                            Expressions existingExpressions) {
         if (requestedAlias.isQualified()) {
             return Optional.empty();
         }
@@ -531,9 +523,9 @@ public class SemanticAnalyzer {
         return matchedAttributes.isEmpty() ? Optional.empty() : Optional.of(matchedAttributes.get(0));
     }
 
-    public Optional<Expression> lookupNestedField(@Nonnull Identifier requestedIdentifier,
-                                                  @Nonnull Expression existingExpression,
-                                                  @Nonnull LogicalOperator logicalOperator,
+    public Optional<Expression> lookupNestedField(Identifier requestedIdentifier,
+                                                  Expression existingExpression,
+                                                  LogicalOperator logicalOperator,
                                                   boolean matchQualifiedOnly) {
         final var effectiveExistingExpr = matchQualifiedOnly && logicalOperator.getName().isPresent() ?
                                           existingExpression.withQualifier(Optional.of(logicalOperator.getName().get())) :
@@ -541,10 +533,9 @@ public class SemanticAnalyzer {
         return lookupNestedField(requestedIdentifier, existingExpression, effectiveExistingExpr, false);
     }
 
-    @Nonnull
-    public Optional<Expression> lookupNestedField(@Nonnull Identifier requestedIdentifier,
-                                                  @Nonnull Expression existingExpression,
-                                                  @Nonnull Expression effectiveExistingExpr,
+    public Optional<Expression> lookupNestedField(Identifier requestedIdentifier,
+                                                  Expression existingExpression,
+                                                  Expression effectiveExistingExpr,
                                                   boolean allowLookupRoot) {
         // if allow look up root and the requestedIdentifier is effectiveExistingExpr, return effectiveExistingExpr
         if (allowLookupRoot && requestedIdentifier.fullyQualifiedName().size() == effectiveExistingExpr.getName().get().fullyQualifiedName().size()) {
@@ -599,7 +590,7 @@ public class SemanticAnalyzer {
 
     public static final class ParsedTypeInfo {
         @Nullable
-        private final RelationalParser.PrimitiveTypeContext primitiveTypeContext;
+        private final PrimitiveTypeContext primitiveTypeContext;
 
         @Nullable
         private final Identifier customType;
@@ -608,7 +599,7 @@ public class SemanticAnalyzer {
 
         private final boolean isRepeated;
 
-        private ParsedTypeInfo(@Nullable final RelationalParser.PrimitiveTypeContext primitiveTypeContext,
+        private ParsedTypeInfo(@Nullable final PrimitiveTypeContext primitiveTypeContext,
                                @Nullable final Identifier customType, final boolean isNullable, final boolean isRepeated) {
             this.primitiveTypeContext = primitiveTypeContext;
             this.customType = customType;
@@ -621,7 +612,7 @@ public class SemanticAnalyzer {
         }
 
         @Nullable
-        public RelationalParser.PrimitiveTypeContext getPrimitiveTypeContext() {
+        public PrimitiveTypeContext getPrimitiveTypeContext() {
             return primitiveTypeContext;
         }
 
@@ -642,40 +633,48 @@ public class SemanticAnalyzer {
             return isRepeated;
         }
 
-        @Nonnull
-        public static ParsedTypeInfo ofPrimitiveType(@Nonnull final RelationalParser.PrimitiveTypeContext primitiveTypeContext,
+        public static ParsedTypeInfo ofPrimitiveType(final PrimitiveTypeContext primitiveTypeContext,
                                                      final boolean isNullable, final boolean isRepeated) {
             return new ParsedTypeInfo(primitiveTypeContext, null, isNullable, isRepeated);
         }
 
-        @Nonnull
-        public static ParsedTypeInfo ofCustomType(@Nonnull final Identifier customType,
+        public static ParsedTypeInfo ofCustomType(final Identifier customType,
                                                   final boolean isNullable, final boolean isRepeated) {
             return new ParsedTypeInfo(null, customType, isNullable, isRepeated);
         }
     }
 
-    @Nonnull
-    public DataType lookupBuiltInType(@Nonnull final ParsedTypeInfo parsedTypeInfo) {
-        Assert.thatUnchecked(!parsedTypeInfo.hasCustomType(), ErrorCode.INTERNAL_ERROR, () -> "unexpected custom type " +
-                Assert.notNullUnchecked(parsedTypeInfo.getCustomType()).getName());
+    public DataType lookupBuiltInType(final ParsedTypeInfo parsedTypeInfo) {
+        // The message supplier below is only invoked when the assertion is false, i.e. when
+        // hasCustomType() is true, i.e. when getCustomType() (== "customType != null", see ParsedTypeInfo
+        // above) is guaranteed non-null; NullAway can't see that invariant, and Assert.notNullUnchecked
+        // can't narrow it either since Assert lives in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final Supplier<String> unexpectedCustomTypeMessage = () -> "unexpected custom type " +
+                Assert.notNullUnchecked(parsedTypeInfo.getCustomType()).getName();
+        Assert.thatUnchecked(!parsedTypeInfo.hasCustomType(), ErrorCode.INTERNAL_ERROR, unexpectedCustomTypeMessage);
         return lookupType(parsedTypeInfo, typeToLookUp -> {
             Assert.failUnchecked("unexpected custom type " + typeToLookUp);
             return Optional.empty();
         });
     }
 
-    @Nonnull
-    public DataType lookupType(@Nonnull final ParsedTypeInfo parsedTypeInfo,
-                               @Nonnull final Function<String, Optional<DataType>> dataTypeProvider) {
+    public DataType lookupType(final ParsedTypeInfo parsedTypeInfo,
+                               final Function<String, Optional<DataType>> dataTypeProvider) {
         DataType type;
         final var isNullable = parsedTypeInfo.isNullable();
+        // hasCustomType()/hasPrimitiveType() are exactly "customType/primitiveTypeContext != null" (see
+        // ParsedTypeInfo above), so the notNullUnchecked calls below are safe given these guards; NullAway
+        // can't see that invariant, and Assert.notNullUnchecked can't narrow it either since Assert lives
+        // in the not-yet-migrated fdb-relational-api module.
         if (parsedTypeInfo.hasCustomType()) {
+            @SuppressWarnings("NullAway")
             final var typeName = Assert.notNullUnchecked(parsedTypeInfo.getCustomType()).getName();
             final var maybeFound = dataTypeProvider.apply(typeName);
             // if we cannot find the type now, mark it, we will try to resolve it later on via a second pass.
             type = maybeFound.map(dataType -> dataType.withNullable(isNullable)).orElseGet(() -> DataType.UnresolvedType.of(typeName, isNullable));
         } else {
+            @SuppressWarnings("NullAway")
             final var primitiveType = Assert.notNullUnchecked(parsedTypeInfo.getPrimitiveTypeContext());
             if (primitiveType.vectorType() != null) {
                 final var vectorTypeCtx = primitiveType.vectorType();
@@ -692,7 +691,9 @@ public class SemanticAnalyzer {
                 Assert.thatUnchecked(length > 0, ErrorCode.SYNTAX_ERROR, "vector dimension must be positive");
                 type = DataType.VectorType.of(precision, length, isNullable);
             } else {
-                final var primitiveTypeName = parsedTypeInfo.getPrimitiveTypeContext().getText();
+                // Reuse the already-validated primitiveType (from just above) instead of re-fetching it via
+                // the @Nullable getter.
+                final var primitiveTypeName = primitiveType.getText();
 
                 switch (primitiveTypeName.toUpperCase(Locale.ROOT)) {
                     case "STRING":
@@ -744,8 +745,7 @@ public class SemanticAnalyzer {
         }
     }
 
-    @Nonnull
-    private static Expressions expandStructExpression(@Nonnull Expression expression) {
+    private static Expressions expandStructExpression(Expression expression) {
         Assert.thatUnchecked(expression.getDataType().getCode() == DataType.Code.STRUCT, ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "attempt to expand non-struct expression %s", expression));
         final ImmutableList.Builder<Expression> resultBuilder = ImmutableList.builder();
@@ -764,7 +764,7 @@ public class SemanticAnalyzer {
         return Expressions.of(resultBuilder.build());
     }
 
-    public void validateInListItems(@Nonnull Expressions inListItems) {
+    public void validateInListItems(Expressions inListItems) {
         for (final var inListItem : inListItems) {
             final var resultType = inListItem.getUnderlying().getResultType();
             Assert.thatUnchecked(resultType != Type.NULL, ErrorCode.WRONG_OBJECT_TYPE, "NULL values are not allowed in the IN list");
@@ -772,7 +772,7 @@ public class SemanticAnalyzer {
         }
     }
 
-    public static void validateGroupByAggregates(@Nonnull Expressions groupByExpressions) {
+    public static void validateGroupByAggregates(Expressions groupByExpressions) {
         final var nestedAggregates = groupByExpressions.stream()
                 .filter(expression -> expression.getUnderlying() instanceof AggregateValue)
                 .filter(agg -> agg.getUnderlying().preOrderStream().skip(1).anyMatch(c -> c instanceof StreamableAggregateValue || c instanceof IndexableAggregateValue))
@@ -792,8 +792,7 @@ public class SemanticAnalyzer {
      * @return If all union legs have the same type, returns {@code Optional.empty()}, otherwise, returns a {@code Type.Record}
      * representing the maximum type of each column calculated pairwise.
      */
-    @Nonnull
-    public static Optional<Type.Record> validateUnionTypes(@Nonnull LogicalOperators unionLegs) {
+    public static Optional<Type.Record> validateUnionTypes(LogicalOperators unionLegs) {
         final var distinctTypesCount = unionLegs.stream().map(exp -> exp.getOutput().expanded().size()).distinct().count();
         Assert.thatUnchecked(distinctTypesCount == 1, ErrorCode.UNION_INCORRECT_COLUMN_COUNT,
                 "UNION legs do not have the same number of columns");
@@ -806,22 +805,34 @@ public class SemanticAnalyzer {
                 continue;
             }
             if (requiresPromotion) {
-                result = Assert.castUnchecked(Type.maximumType(result, unionLegType), Type.Record.class);
+                result = maximumRecordTypeOrFail(result, unionLegType);
                 continue;
             }
             final var oldType = result;
-            result = Assert.castUnchecked(Assert.notNullUnchecked(Type.maximumType(result, unionLegType), ErrorCode.UNION_INCOMPATIBLE_COLUMNS,
-                            "Incompatible column types in UNION legs"),
-                    Type.Record.class);
+            result = maximumRecordTypeOrFail(result, unionLegType);
             if (!oldType.equals(result)) {
                 requiresPromotion = true;
             }
         }
-        return requiresPromotion ? Optional.of(Assert.notNullUnchecked(result)) : Optional.empty();
+        // requiresPromotion is only set to true after a successful, non-null assignment to result above, so
+        // this is never actually null; NullAway can't see that invariant, and Assert.notNullUnchecked can't
+        // narrow it either since Assert lives in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final Type.Record nonNullResult = Assert.notNullUnchecked(result);
+        return requiresPromotion ? Optional.of(nonNullResult) : Optional.empty();
     }
 
-    @Nonnull
-    public Type.Array resolveArrayTypeFromValues(@Nonnull Expressions arrayItems) {
+    // Type.maximumType() can legitimately return null for incompatible types; Assert.notNullUnchecked
+    // enforces that with a clear RelationalException, but NullAway can't see through it since Assert lives
+    // in the not-yet-migrated fdb-relational-api module.
+    @SuppressWarnings("NullAway")
+    private static Type.Record maximumRecordTypeOrFail(final Type.Record left, final Type.Record right) {
+        return Assert.castUnchecked(Assert.notNullUnchecked(Type.maximumType(left, right), ErrorCode.UNION_INCOMPATIBLE_COLUMNS,
+                        "Incompatible column types in UNION legs"),
+                Type.Record.class);
+    }
+
+    public Type.Array resolveArrayTypeFromValues(Expressions arrayItems) {
         final var arrayItemsTypes = Streams
                 .stream(arrayItems)
                 .map(Expression::getUnderlying)
@@ -830,20 +841,20 @@ public class SemanticAnalyzer {
         return resolveArrayTypeFromElementTypes(arrayItemsTypes);
     }
 
-    public static boolean isComposableFrom(@Nonnull Expression expression,
-                                           @Nonnull Expressions parts,
-                                           @Nonnull AliasMap aliasMap,
-                                           @Nonnull Set<CorrelationIdentifier> constantCorrelations) {
+    public static boolean isComposableFrom(Expression expression,
+                                           Expressions parts,
+                                           AliasMap aliasMap,
+                                           Set<CorrelationIdentifier> constantCorrelations) {
         final Correlated.BoundEquivalence<Value> boundEquivalence = new Correlated.BoundEquivalence<>(aliasMap);
         final var boundParts = Streams.stream(parts).map(Expression::getUnderlying).map(boundEquivalence::wrap)
                 .collect(ImmutableSet.toImmutableSet());
         return isComposableFromInternal(expression.getUnderlying(), boundParts, boundEquivalence, constantCorrelations);
     }
 
-    private static boolean isComposableFromInternal(@Nonnull Value value,
-                                                    @Nonnull Set<Equivalence.Wrapper<Value>> parts,
-                                                    @Nonnull Correlated.BoundEquivalence<Value> boundEquivalence,
-                                                    @Nonnull Set<CorrelationIdentifier> constantCorrelations) {
+    private static boolean isComposableFromInternal(Value value,
+                                                    Set<Equivalence.Wrapper<Value>> parts,
+                                                    Correlated.BoundEquivalence<Value> boundEquivalence,
+                                                    Set<CorrelationIdentifier> constantCorrelations) {
         final var boundValue = boundEquivalence.wrap(value);
         if (parts.contains(boundValue)) {
             return true;
@@ -871,8 +882,7 @@ public class SemanticAnalyzer {
         return false;
     }
 
-    @Nonnull
-    private static Type.Array resolveArrayTypeFromElementTypes(@Nonnull List<Type> types) {
+    private static Type.Array resolveArrayTypeFromElementTypes(List<Type> types) {
         Type elementType;
         if (types.isEmpty()) {
             elementType = Type.nullType();
@@ -889,13 +899,17 @@ public class SemanticAnalyzer {
      * validates that a SQL {@code LIMIT} expression is within allowed limits of {@code [1, Integer.MAX_VALUE]}.
      * @param expression The {@code LIMIT} literal expression.
      */
-    public static void validateLimit(@Nonnull Expression expression) {
+    public static void validateLimit(Expression expression) {
         final long minInclusive = 1;
         final long maxInclusive = Integer.MAX_VALUE;
         final var underlying = expression.getUnderlying();
         Assert.thatUnchecked(underlying instanceof LiteralValue<?>);
-        final var value = ((LiteralValue<?>) underlying).getLiteralValue();
-        Assert.notNullUnchecked(value, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE,
+        final var underlyingValue = ((LiteralValue<?>) underlying).getLiteralValue();
+        // Reassign through notNullUnchecked (rather than discarding its result) so the non-null check
+        // actually narrows the value used below; Assert.notNullUnchecked can't narrow it on its own since
+        // Assert lives in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final Object value = Assert.notNullUnchecked(underlyingValue, ErrorCode.INVALID_ROW_COUNT_IN_LIMIT_CLAUSE,
                 () -> String.format(Locale.ROOT, "limit value out of range [1, %d]", Integer.MAX_VALUE));
         if (value.getClass() == Integer.class) {
             Assert.thatUnchecked(minInclusive <= ((Integer) value) && ((Integer) value) <= maxInclusive,
@@ -912,7 +926,7 @@ public class SemanticAnalyzer {
         Assert.failUnchecked("unexpected limit type " + value.getClass());
     }
 
-    public static void validateDatabaseUri(@Nonnull Identifier path) {
+    public static void validateDatabaseUri(Identifier path) {
         validateDatabaseUri(path.getName());
     }
 
@@ -924,19 +938,17 @@ public class SemanticAnalyzer {
                 ErrorCode.INVALID_PATH, () -> String.format(Locale.ROOT, "invalid database path '%s'", pathName));
     }
 
-    public static void validateCteColumnAliases(@Nonnull LogicalOperator logicalOperator, @Nonnull List<Identifier> columnAliases) {
+    public static void validateCteColumnAliases(LogicalOperator logicalOperator, List<Identifier> columnAliases) {
         final var expressions = logicalOperator.getOutput().expanded();
         Assert.thatUnchecked(expressions.size() == columnAliases.size(), ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "cte query has %d column(s), however %d aliases defined", expressions.size(), columnAliases.size()));
     }
 
-    @Nonnull
-    public static NonnullPair<Optional<URI>, String> parseSchemaIdentifier(@Nonnull final Identifier schemaIdentifier) {
+    public static NonnullPair<Optional<URI>, String> parseSchemaIdentifier(final Identifier schemaIdentifier) {
         return parseSchemaURI(schemaIdentifier.getName());
     }
 
-    @Nonnull
-    public static NonnullPair<Optional<URI>, String> parseSchemaURI(@Nonnull final String id) {
+    public static NonnullPair<Optional<URI>, String> parseSchemaURI(final String id) {
         Assert.notNullUnchecked(id);
         if (id.startsWith("/")) {
             validateDatabaseUri(id);
@@ -948,14 +960,18 @@ public class SemanticAnalyzer {
         }
     }
 
-    public static void validateContinuation(@Nonnull final Expression continuation) {
+    public static void validateContinuation(final Expression continuation) {
         // currently, this only validates that the underlying Value is a byte string.
         // in the future, we might add more context-aware checks.
         final var underlying = continuation.getUnderlying();
         Assert.thatUnchecked(underlying instanceof LiteralValue<?>, ErrorCode.INVALID_CONTINUATION,
                 "Unexpected continuation parameter of type %s", underlying.getClass().getSimpleName());
-        final var continuationBytes = Assert.castUnchecked(underlying, LiteralValue.class).getLiteralValue();
-        Assert.notNullUnchecked(continuationBytes);
+        final var underlyingBytes = Assert.castUnchecked(underlying, LiteralValue.class).getLiteralValue();
+        // Reassign through notNullUnchecked (rather than discarding its result) so the non-null check
+        // actually narrows the value used below; Assert.notNullUnchecked can't narrow it on its own since
+        // Assert lives in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final Object continuationBytes = Assert.notNullUnchecked(underlyingBytes);
         Assert.thatUnchecked(continuationBytes instanceof ByteString, ErrorCode.INVALID_CONTINUATION,
                 "Unexpected continuation parameter of type %s", continuationBytes.getClass().getSimpleName());
     }
@@ -973,8 +989,7 @@ public class SemanticAnalyzer {
      *
      * @return An {@link Expression} representing the resolved SQL function.
      */
-    @Nonnull
-    public Expression resolveFunction(@Nonnull final String functionName, @Nonnull CallSiteArguments arguments,
+    public Expression resolveFunction(final String functionName, CallSiteArguments arguments,
                                       boolean flattenSingleItemRecords) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format(Locale.ROOT, "Unsupported operator %s", functionName));
@@ -1008,10 +1023,9 @@ public class SemanticAnalyzer {
      *
      * @return An {@link Expression} representing the resolved SQL window function.
      */
-    @Nonnull
-    public Expression resolveWindowFunction(@Nonnull final String functionName, boolean flattenSingleItemRecords,
-                                            @Nonnull final WindowSpecExpression windowSpecExpression,
-                                            @Nonnull final Expressions arguments) {
+    public Expression resolveWindowFunction(final String functionName, boolean flattenSingleItemRecords,
+                                            final WindowSpecExpression windowSpecExpression,
+                                            final Expressions arguments) {
         final var windowSpecification = windowSpecExpression.toWindowSpecification();
         var callSiteArguments = arguments.toCallSiteArguments(flattenSingleItemRecords)
                 .withWindowSpecification(windowSpecification);
@@ -1022,8 +1036,7 @@ public class SemanticAnalyzer {
         return resolveFunction(functionName, callSiteArguments, flattenSingleItemRecords);
     }
 
-    @Nonnull
-    private static CallSiteArguments.Options toCallSiteOptions(@Nonnull final Expressions windowOptions) {
+    private static CallSiteArguments.Options toCallSiteOptions(final Expressions windowOptions) {
         final var optionsBuilder = CallSiteArguments.Options.builder();
         for (final var option : windowOptions) {
             Assert.thatUnchecked(option.getName().isPresent(), ErrorCode.SYNTAX_ERROR,
@@ -1043,7 +1056,7 @@ public class SemanticAnalyzer {
         return optionsBuilder.build();
     }
 
-    private void processFunctionSideEffects(@Nonnull final CatalogedFunction builtInFunction) {
+    private void processFunctionSideEffects(final CatalogedFunction builtInFunction) {
         if (!(builtInFunction instanceof WithPlanGenerationSideEffects)) {
             return;
         }
@@ -1069,8 +1082,7 @@ public class SemanticAnalyzer {
      *
      * @return A {@link LogicalOperator} representing the semantics of the requested SQL table function.
      */
-    @Nonnull
-    public LogicalOperator resolveTableFunction(@Nonnull final Identifier functionName, @Nonnull final Expressions arguments,
+    public LogicalOperator resolveTableFunction(final Identifier functionName, final Expressions arguments,
                                                 boolean flattenSingleItemRecords) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName.getName()), ErrorCode.UNDEFINED_FUNCTION,
                 () -> String.format(Locale.ROOT, "Unknown function %s", functionName));
@@ -1098,8 +1110,7 @@ public class SemanticAnalyzer {
         return LogicalOperator.newNamedOperator(functionName, Expressions.fromQuantifier(topQun), topQun);
     }
 
-    @Nonnull
-    public LogicalOperator resolveView(@Nonnull final Identifier viewIdentifier) {
+    public LogicalOperator resolveView(final Identifier viewIdentifier) {
         final View view;
         try {
             view = Assert.optionalUnchecked(metadataCatalog.findViewByName(viewIdentifier.getName()));
@@ -1111,13 +1122,13 @@ public class SemanticAnalyzer {
     }
 
     // TODO: this will be removed once we unify both Java- and SQL-UDFs.
-    public boolean isJavaCallFunction(@Nonnull final String functionName) {
+    public boolean isJavaCallFunction(final String functionName) {
         return functionCatalog.isJavaCallFunction(functionName);
     }
 
-    public boolean containsReferencesTo(@Nonnull final ParseTree parseTree,
-                                        @Nonnull final Identifier identifier,
-                                        @Nonnull final Function<RelationalParser.FullIdContext, Identifier> idParser) {
+    public boolean containsReferencesTo(final ParseTree parseTree,
+                                        final Identifier identifier,
+                                        final Function<RelationalParser.FullIdContext, Identifier> idParser) {
         return ParseHelpers.ParseTreeLikeAdapter.from(parseTree).preOrderStream()
                 .map(ParseHelpers.ParseTreeLikeAdapter::getParseTree)
                 .anyMatch(child -> (child instanceof RelationalParser.TableNameContext)
@@ -1134,23 +1145,25 @@ public class SemanticAnalyzer {
      * @param queryVisitor A query visitor instance.
      * @return the type of recursive query, as identified by the type of the first non-recursive branch.
      */
-    @Nonnull
-    public Optional<Type> getRecursiveCteType(@Nonnull final RelationalParser.QueryContext namedQueryBody,
-                                              @Nonnull final Identifier queryName,
-                                              @Nonnull final Function<RelationalParser.FullIdContext, Identifier> idParser,
-                                              @Nonnull final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
-                                              @Nonnull final QueryVisitor queryVisitor) {
+    public Optional<Type> getRecursiveCteType(final RelationalParser.QueryContext namedQueryBody,
+                                              final Identifier queryName,
+                                              final Function<RelationalParser.FullIdContext, Identifier> idParser,
+                                              final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
+                                              final QueryVisitor queryVisitor) {
         final AtomicReference<Optional<Type>> result = new AtomicReference<>(Optional.empty());
         recursiveQueryTraversal(namedQueryBody, queryName, idParser,
                 nonRecursiveBranch -> {
-                    if (result.get().isEmpty()) {
+                    // result is always set to a non-null Optional (initially Optional.empty(), later
+                    // Optional.of(...) below); AtomicReference#get() is only @Nullable in general because
+                    // the JDK API permits storing null, which this usage never does.
+                    if (Objects.requireNonNull(result.get()).isEmpty()) {
                         final var logicalOperator = handleQueryFragment(nonRecursiveBranch, namedQueryBody, memoizer, queryVisitor);
                         result.set(Optional.of(logicalOperator.getQuantifier().getFlowedObjectType()));
                     }
                 },
                 ignored -> {
                 });
-        return result.get();
+        return Objects.requireNonNull(result.get());
     }
 
     /**
@@ -1164,12 +1177,11 @@ public class SemanticAnalyzer {
      * @param queryVisitor A query visitor instance.
      * @return A partitioning of recursive query into a list of non-recursive logical operators and list of recursive logical operators.
      */
-    @Nonnull
-    public NonnullPair<List<LogicalOperator>, List<LogicalOperator>> partitionRecursiveQuery(@Nonnull final RelationalParser.QueryContext namedQueryBody,
-                                                                                             @Nonnull final Identifier queryName,
-                                                                                             @Nonnull final Function<RelationalParser.FullIdContext, Identifier> idParser,
-                                                                                             @Nonnull final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
-                                                                                             @Nonnull final QueryVisitor queryVisitor) {
+    public NonnullPair<List<LogicalOperator>, List<LogicalOperator>> partitionRecursiveQuery(final RelationalParser.QueryContext namedQueryBody,
+                                                                                             final Identifier queryName,
+                                                                                             final Function<RelationalParser.FullIdContext, Identifier> idParser,
+                                                                                             final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
+                                                                                             final QueryVisitor queryVisitor) {
         final var nonRecursiveBranchesBuilder = ImmutableList.<LogicalOperator>builder();
         final var recursiveBranchesBuilder = ImmutableList.<LogicalOperator>builder();
 
@@ -1185,11 +1197,11 @@ public class SemanticAnalyzer {
         return NonnullPair.of(nonRecursiveBranchesBuilder.build(), recursiveBranchesBuilder.build());
     }
 
-    private void recursiveQueryTraversal(@Nonnull final RelationalParser.QueryContext namedQueryBody,
-                                         @Nonnull final Identifier queryName,
-                                         @Nonnull final Function<RelationalParser.FullIdContext, Identifier> idParser,
-                                         @Nonnull final Consumer<ParserRuleContext> nonRecursiveBranchConsumer,
-                                         @Nonnull final Consumer<ParserRuleContext> recursiveBranchConsumer) {
+    private void recursiveQueryTraversal(final RelationalParser.QueryContext namedQueryBody,
+                                         final Identifier queryName,
+                                         final Function<RelationalParser.FullIdContext, Identifier> idParser,
+                                         final Consumer<ParserRuleContext> nonRecursiveBranchConsumer,
+                                         final Consumer<ParserRuleContext> recursiveBranchConsumer) {
         final var hasNestedCtes = namedQueryBody.ctes() != null;
         if (hasNestedCtes) {
             for (final var nestedNamedQuery : namedQueryBody.ctes().namedQuery()) {
@@ -1266,11 +1278,10 @@ public class SemanticAnalyzer {
         }
     }
 
-    @Nonnull
-    private static LogicalOperator handleQueryFragment(@Nonnull final ParserRuleContext queryFragment,
-                                                       @Nonnull final RelationalParser.QueryContext namedQueryBody,
-                                                       @Nonnull final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
-                                                       @Nonnull final QueryVisitor queryVisitor) {
+    private static LogicalOperator handleQueryFragment(final ParserRuleContext queryFragment,
+                                                       final RelationalParser.QueryContext namedQueryBody,
+                                                       final Function<ParserRuleContext, Optional<LogicalOperator>> memoizer,
+                                                       final QueryVisitor queryVisitor) {
         LogicalOperator logicalOperator;
         if (namedQueryBody.ctes() != null) {
             final var ctes = namedQueryBody.ctes();

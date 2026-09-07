@@ -26,8 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 
 import com.google.common.collect.ImmutableSet;
-
-import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.Set;
 
@@ -39,14 +37,12 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public final class CatalogKey {
-    @Nonnull
     private final Identifier identifier;
 
-    @Nonnull
     private final Set<AccessHint> hints;
 
-    private CatalogKey(@Nonnull Identifier identifier,
-                       @Nonnull Set<AccessHint> hints) {
+    private CatalogKey(Identifier identifier,
+                       Set<AccessHint> hints) {
         this.identifier = identifier;
         this.hints = hints;
     }
@@ -68,23 +64,19 @@ public final class CatalogKey {
         return Objects.hash(getIdentifier(), getHints());
     }
 
-    @Nonnull
-    public static CatalogKey of(@Nonnull Identifier identifier,
-                                @Nonnull Set<String> requestedIndexes) {
+    public static CatalogKey of(Identifier identifier,
+                                Set<String> requestedIndexes) {
         return new CatalogKey(identifier, requestedIndexes.stream().map(IndexAccessHint::new).collect(ImmutableSet.toImmutableSet()));
     }
 
-    @Nonnull
-    public static CatalogKey of(@Nonnull Identifier identifier) {
+    public static CatalogKey of(Identifier identifier) {
         return new CatalogKey(identifier, ImmutableSet.of());
     }
 
-    @Nonnull
     public Identifier getIdentifier() {
         return identifier;
     }
 
-    @Nonnull
     public Set<AccessHint> getHints() {
         return hints;
     }

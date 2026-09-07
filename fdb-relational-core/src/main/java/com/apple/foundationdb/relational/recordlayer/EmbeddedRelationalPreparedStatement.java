@@ -33,24 +33,21 @@ import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 
 import com.apple.foundationdb.relational.util.Assert;
 
-import javax.annotation.Nonnull;
 import java.sql.Array;
 import java.sql.SQLException;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeMap;
 import java.util.UUID;
 
 @API(API.Status.EXPERIMENTAL)
 public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStatement implements RelationalPreparedStatement {
-    @Nonnull
     private final String sql;
-    @Nonnull
     private final Map<Integer, Object> parameters = new TreeMap<>();
-    @Nonnull
     private final Map<String, Object> namedParameters = new TreeMap<>();
 
-    public EmbeddedRelationalPreparedStatement(@Nonnull String sql, @Nonnull EmbeddedRelationalConnection conn) throws SQLException {
+    public EmbeddedRelationalPreparedStatement(String sql, EmbeddedRelationalConnection conn) throws SQLException {
         super(conn);
         this.sql = sql;
     }
@@ -59,7 +56,9 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
     public RelationalResultSet executeQuery() throws SQLException {
         checkOpen();
         if (execute()) {
-            return currentResultSet;
+            // execute() returning true (per AbstractEmbeddedStatement#clockAndExecuteQueryPlan) is exactly
+            // what guarantees currentResultSet is set at this point.
+            return Objects.requireNonNull(currentResultSet);
         } else {
             throw new SQLException(String.format(Locale.ROOT, "query '%s' does not return result set, use JDBC executeUpdate method instead", sql), ErrorCode.NO_RESULT_SET.getErrorCode());
         }
@@ -216,8 +215,12 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
     }
 
     @Override
-    @Nonnull
-    PlanContext createPlanContext(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Options options) throws RelationalException {
+    // conn.getMetricCollector() is @Nullable only because the collector isn't set up until a transaction
+    // is active; Assert.notNullUnchecked enforces that invariant at runtime with a clear
+    // RelationalException, but NullAway can't see that since Assert lives in the not-yet-migrated
+    // fdb-relational-api module.
+    @SuppressWarnings("NullAway")
+    PlanContext createPlanContext(final FDBRecordStoreBase<?> store, final Options options) throws RelationalException {
         return PlanContext.builder()
                 .fromRecordStore(store, options)
                 .fromDatabase(conn.getRecordLayerDatabase())

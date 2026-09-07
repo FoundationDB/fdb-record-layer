@@ -21,4 +21,7 @@
 /**
  * Objects relating to DDL operations within Relational.
  */
+@NullMarked
 package com.apple.foundationdb.relational.api.ddl;
+
+import org.jspecify.annotations.NullMarked;

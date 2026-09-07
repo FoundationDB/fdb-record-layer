@@ -27,15 +27,13 @@ import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
-import javax.annotation.Nonnull;
-
 @API(API.Status.EXPERIMENTAL)
 public class SaveSchemaTemplateConstantAction implements ConstantAction {
     private final SchemaTemplate template;
     private final SchemaTemplateCatalog catalog;
 
-    public SaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                            @Nonnull SchemaTemplateCatalog catalog) {
+    public SaveSchemaTemplateConstantAction(SchemaTemplate template,
+                                            SchemaTemplateCatalog catalog) {
         this.template = template;
         this.catalog = catalog;
     }

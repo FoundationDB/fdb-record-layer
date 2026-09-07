@@ -50,7 +50,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -60,6 +60,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -69,19 +70,14 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
-    @Nonnull
     private final String name;
 
-    @Nonnull
     private final Set<RecordLayerTable> tables;
 
-    @Nonnull
     private final Set<RecordLayerInvokedRoutine> invokedRoutines;
 
-    @Nonnull
     private final Set<RecordLayerView> views;
 
-    @Nonnull
     private final Map<String, StoredQuery> storedQueries;
 
     private final int version;
@@ -90,28 +86,23 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private final boolean storeRowVersions;
 
-    @Nonnull
     private final Supplier<RecordMetaData> metaDataSupplier;
 
-    @Nonnull
     private final Supplier<Multimap<String, String>> tableIndexMappingSupplier;
 
-    @Nonnull
     private final Supplier<Set<String>> indexesSupplier;
 
-    @Nonnull
     private final Supplier<Collection<? extends InvokedRoutine>> temporaryInvokedRoutinesSupplier;
 
-    @Nonnull
     private final Supplier<String> transactionBoundMetadataSupplier;
 
     private final boolean intermingleTables;
 
-    private RecordLayerSchemaTemplate(@Nonnull final String name,
-                                      @Nonnull final Set<RecordLayerTable> tables,
-                                      @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
-                                      @Nonnull final Set<RecordLayerView> views,
-                                      @Nonnull final Map<String, StoredQuery> storedQueries,
+    private RecordLayerSchemaTemplate(final String name,
+                                      final Set<RecordLayerTable> tables,
+                                      final Set<RecordLayerInvokedRoutine> invokedRoutines,
+                                      final Set<RecordLayerView> views,
+                                      final Map<String, StoredQuery> storedQueries,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
@@ -132,16 +123,16 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.transactionBoundMetadataSupplier = Suppliers.memoize(this::computeTransactionBoundMetadata);
     }
 
-    private RecordLayerSchemaTemplate(@Nonnull final String name,
-                                      @Nonnull final Set<RecordLayerTable> tables,
-                                      @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
-                                      @Nonnull final Set<RecordLayerView> views,
-                                      @Nonnull final Map<String, StoredQuery> storedQueries,
+    private RecordLayerSchemaTemplate(final String name,
+                                      final Set<RecordLayerTable> tables,
+                                      final Set<RecordLayerInvokedRoutine> invokedRoutines,
+                                      final Set<RecordLayerView> views,
+                                      final Map<String, StoredQuery> storedQueries,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
                                       boolean intermingleTables,
-                                      @Nonnull final RecordMetaData cachedMetadata) {
+                                      final RecordMetaData cachedMetadata) {
         this.name = name;
         this.version = version;
         this.tables = ImmutableSet.copyOf(tables);
@@ -158,7 +149,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.transactionBoundMetadataSupplier = Suppliers.memoize(this::computeTransactionBoundMetadata);
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return name;
@@ -184,24 +174,20 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         return intermingleTables;
     }
 
-    @Nonnull
     @Override
     public Set<RecordLayerTable> getTables() {
         return tables;
     }
 
-    @Nonnull
     @Override
-    public RecordLayerSchema generateSchema(@Nonnull String databaseId, @Nonnull String schemaName) {
+    public RecordLayerSchema generateSchema(String databaseId, String schemaName) {
         return new RecordLayerSchema(schemaName, databaseId, this);
     }
 
-    @Nonnull
-    public Descriptors.Descriptor getDescriptor(@Nonnull final String tableName) {
+    public Descriptors.Descriptor getDescriptor(final String tableName) {
         return toRecordMetadata().getRecordType(tableName).getDescriptor();
     }
 
-    @Nonnull
     private RecordMetaData buildRecordMetadata() {
         final var fileDescriptorProtoSerializer = new FileDescriptorSerializer();
         accept(fileDescriptorProtoSerializer);
@@ -219,7 +205,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         return recordMetadataSerializer.getBuilder().build();
     }
 
-    @Nonnull
     public RecordMetaData toRecordMetadata() {
         return metaDataSupplier.get();
     }
@@ -231,9 +216,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
      * @param version The version of the metadata.
      * @return A {@link RecordLayerSchemaTemplate} instance of the deserialized metadata.
      */
-    @Nonnull
-    public static RecordLayerSchemaTemplate fromRecordMetadata(@Nonnull final RecordMetaData metaData,
-                                                               @Nonnull final String templateName,
+    public static RecordLayerSchemaTemplate fromRecordMetadata(final RecordMetaData metaData,
+                                                               final String templateName,
                                                                int version) {
         final var deserializer = new RecordMetadataDeserializer(metaData);
         return deserializer.getSchemaTemplate(templateName, version);
@@ -245,9 +229,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
      * @param tableName The name of the {@link Table}.
      * @return An {@link Optional} containing the {@link Table} if it is found, otherwise {@code Empty}.
      */
-    @Nonnull
     @Override
-    public Optional<Table> findTableByName(@Nonnull final String tableName) {
+    public Optional<Table> findTableByName(final String tableName) {
         for (final var table : getTables()) {
             if (table.getName().equals(tableName)) {
                 return Optional.of(table);
@@ -256,7 +239,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         return Optional.empty();
     }
 
-    @Nonnull
     private Multimap<String, String> computeTableIndexMapping() {
         final var result = ImmutableSetMultimap.<String, String>builder();
         for (final var table : getTables()) {
@@ -272,13 +254,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
      *
      * @return a multi-map whose key is the {@link Table} name, and value(s) is the {@link Index}.
      */
-    @Nonnull
     @Override
     public Multimap<String, String> getTableIndexMapping() {
         return tableIndexMappingSupplier.get();
     }
 
-    @Nonnull
     private Set<String> computeIndexes() {
         final Set<String> result = new TreeSet<>();
 
@@ -294,15 +274,13 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         return result;
     }
 
-    @Nonnull
     @Override
     public Set<String> getIndexes() throws RelationalException {
         return indexesSupplier.get();
     }
 
-    @Nonnull
     @Override
-    public BitSet getIndexEntriesAsBitset(@Nonnull final Optional<Set<String>> indexNames) throws RelationalException {
+    public BitSet getIndexEntriesAsBitset(final Optional<Set<String>> indexNames) throws RelationalException {
         final var indexSet = getIndexes(); // sorted (50)
         final var result = new BitSet(indexSet.size());
         if (indexNames.isEmpty()) { // all indexes are readable.
@@ -328,68 +306,58 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         return result;
     }
 
-    @Nonnull
     @Override
     public Set<RecordLayerInvokedRoutine> getInvokedRoutines() {
         return invokedRoutines;
     }
 
-    @Nonnull
     @Override
-    public Optional<? extends InvokedRoutine> findInvokedRoutineByName(@Nonnull final String routineName) {
+    public Optional<? extends InvokedRoutine> findInvokedRoutineByName(final String routineName) {
         return invokedRoutines.stream().filter(routine -> routine.getName().equals(routineName)).findFirst();
     }
 
-    @Nonnull
     @Override
     public Set<RecordLayerView> getViews() {
         return views;
     }
 
-    @Nonnull
     @Override
     public Map<String, StoredQuery> getStoredQueries() {
         return storedQueries;
     }
 
-    @Nonnull
     @Override
-    public Optional<? extends View> findViewByName(@Nonnull final String viewName) {
+    public Optional<? extends View> findViewByName(final String viewName) {
         return views.stream().filter(view -> view.getName().equals(viewName)).findFirst();
     }
 
-    @Nonnull
     private Collection<? extends InvokedRoutine> computeTemporaryInvokedRoutines() {
         return invokedRoutines.stream().filter(RecordLayerInvokedRoutine::isTemporary)
                 .sorted(Comparator.comparing(RecordLayerInvokedRoutine::getDescription)).collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
     @Override
     public Collection<? extends InvokedRoutine> getTemporaryInvokedRoutines() {
         return temporaryInvokedRoutinesSupplier.get();
     }
 
-    @Nonnull
     private String computeTransactionBoundMetadata() {
         return getTemporaryInvokedRoutines().stream().map(InvokedRoutine::getNormalizedDescription)
                 .collect(Collectors.joining("||"));
     }
 
-    @Nonnull
     @Override
     public String getTransactionBoundMetadataAsString() {
         return transactionBoundMetadataSupplier.get();
     }
 
-    @Nonnull
     @Override
-    public <T extends SchemaTemplate> T unwrap(@Nonnull final Class<T> iface) throws RelationalException {
+    public <T extends SchemaTemplate> T unwrap(final Class<T> iface) throws RelationalException {
         return iface.cast(this);
     }
 
     @Override
-    public void accept(@Nonnull final Visitor visitor) {
+    public void accept(final Visitor visitor) {
         visitor.startVisit(this);
         visitor.visit(this);
         for (final var table : getTables()) {
@@ -416,24 +384,24 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         private boolean storeRowVersions;
 
-        @Nonnull
         private final Map<String, RecordLayerTable> tables;
 
-        @Nonnull
         private final Map<String, DataType.Named> auxiliaryTypes; // for quick lookup
 
-        @Nonnull
         private final Map<String, RecordLayerInvokedRoutine> invokedRoutines;
 
-        @Nonnull
         private final Map<String, RecordLayerView> views;
 
-        @Nonnull
         private final Map<String, StoredQuery> storedQueries;
 
-
+        // cachedMetadata is legitimately optional; it is only populated via setCachedMetadata()
+        // and build() branches on whether it was set.
+        @Nullable
         private RecordMetaData cachedMetadata;
 
+        // name is populated by the fluent setName() setter below and is required for build();
+        // NullAway cannot see that it is always set before use.
+        @SuppressWarnings("NullAway.Init")
         private Builder() {
             tables = new LinkedHashMap<>();
             auxiliaryTypes = new LinkedHashMap<>();
@@ -444,25 +412,21 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             enableLongRows = true;
         }
 
-        @Nonnull
         public Builder setName(String name) {
             this.name = name;
             return this;
         }
 
-        @Nonnull
         public Builder setVersion(int version) {
             this.version = version;
             return this;
         }
 
-        @Nonnull
         public Builder setEnableLongRows(boolean value) {
             this.enableLongRows = value;
             return this;
         }
 
-        @Nonnull
         public Builder setIntermingleTables(boolean intermingleTables) {
             this.intermingleTables = intermingleTables;
             return this;
@@ -472,14 +436,12 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             return intermingleTables;
         }
 
-        @Nonnull
         public Builder setStoreRowVersions(boolean value) {
             this.storeRowVersions = value;
             return this;
         }
 
-        @Nonnull
-        public Builder addTable(@Nonnull RecordLayerTable table) {
+        public Builder addTable(RecordLayerTable table) {
             verifyNameIsNotUsed(table.getName());
             if (!intermingleTables) {
                 Assert.thatUnchecked(Key.Expressions.recordType().isPrefixKey(table.getPrimaryKey()),
@@ -489,26 +451,22 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             return this;
         }
 
-        @Nonnull
-        public Builder addTables(@Nonnull final Collection<RecordLayerTable> tables) {
+        public Builder addTables(final Collection<RecordLayerTable> tables) {
             tables.forEach(this::addTable);
             return this;
         }
 
-        @Nonnull
-        public Builder addInvokedRoutine(@Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+        public Builder addInvokedRoutine(final RecordLayerInvokedRoutine invokedRoutine) {
             verifyNameIsNotUsed(invokedRoutine.getName());
             invokedRoutines.put(invokedRoutine.getName(), invokedRoutine);
             return this;
         }
 
-        @Nonnull
         public List<RecordLayerInvokedRoutine> getInvokedRoutines() {
             return ImmutableList.copyOf(invokedRoutines.values());
         }
 
-        @Nonnull
-        public Builder replaceInvokedRoutine(@Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+        public Builder replaceInvokedRoutine(final RecordLayerInvokedRoutine invokedRoutine) {
             if (invokedRoutines.containsKey(invokedRoutine.getName())) {
                 Assert.thatUnchecked(invokedRoutines.get(invokedRoutine.getName()).isTemporary(), ErrorCode.INVALID_FUNCTION_DEFINITION,
                         "attempt to replace non-temporary invoked routine!");
@@ -517,56 +475,53 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             return this;
         }
 
-        public Builder removeInvokedRoutine(@Nonnull final String invokedRoutineName) {
+        public Builder removeInvokedRoutine(final String invokedRoutineName) {
+            // Bug fix: this branch is only reached when invokedRoutineName is NOT present, so
+            // invokedRoutines.get(invokedRoutineName) would always be null; the intent is simply
+            // to fail with a clear error rather than dereference a missing entry.
             if (!invokedRoutines.containsKey(invokedRoutineName)) {
-                Assert.thatUnchecked(invokedRoutines.get(invokedRoutineName).isTemporary(), ErrorCode.UNDEFINED_FUNCTION,
-                        "attempt to non-existent temporary invoked routine!");
+                Assert.failUnchecked(ErrorCode.UNDEFINED_FUNCTION,
+                        "attempt to remove non-existent temporary invoked routine!");
             }
             invokedRoutines.remove(invokedRoutineName);
             return this;
         }
 
-        @Nonnull
-        public Builder addInvokedRoutines(@Nonnull final Collection<RecordLayerInvokedRoutine> invokedRoutines) {
+        public Builder addInvokedRoutines(final Collection<RecordLayerInvokedRoutine> invokedRoutines) {
             invokedRoutines.forEach(this::addInvokedRoutine);
             return this;
         }
 
-        @Nonnull
-        public Builder addView(@Nonnull final RecordLayerView view) {
+        public Builder addView(final RecordLayerView view) {
             verifyNameIsNotUsed(view.getName());
             views.put(view.getName(), view);
             return this;
         }
 
-        @Nonnull
-        public Builder replaceView(@Nonnull final RecordLayerView view) {
+        public Builder replaceView(final RecordLayerView view) {
             views.put(view.getName(), view);
             return this;
         }
 
-        public Builder removeView(@Nonnull final String viewName) {
+        public Builder removeView(final String viewName) {
             Assert.thatUnchecked(views.containsKey(viewName), ErrorCode.UNDEFINED_TABLE,
                     "attempt to remove non-existent view!");
             views.remove(viewName);
             return this;
         }
 
-        @Nonnull
-        public Builder addViews(@Nonnull final Collection<RecordLayerView> views) {
+        public Builder addViews(final Collection<RecordLayerView> views) {
             views.forEach(this::addView);
             return this;
         }
 
-        @Nonnull
-        public Builder addStoredQuery(@Nonnull final String name, @Nonnull final String storedQuery,
-                                      @Nonnull final List<String> tempFunctions) {
+        public Builder addStoredQuery(final String name, final String storedQuery,
+                                      final List<String> tempFunctions) {
             storedQueries.put(name, new StoredQuery(storedQuery, tempFunctions));
             return this;
         }
 
-        @Nonnull
-        public Builder addStoredQueries(@Nonnull final Map<String, StoredQuery> storedQueries) {
+        public Builder addStoredQueries(final Map<String, StoredQuery> storedQueries) {
             this.storedQueries.putAll(storedQueries);
             return this;
         }
@@ -579,8 +534,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
          * @param auxiliaryType The auxiliary {@link DataType} to add.
          * @return {@code this} {@link Builder}.
          */
-        @Nonnull
-        public Builder addAuxiliaryType(@Nonnull DataType.Named auxiliaryType) {
+        public Builder addAuxiliaryType(DataType.Named auxiliaryType) {
             verifyNameIsNotUsed(auxiliaryType.getName());
             auxiliaryTypes.put(auxiliaryType.getName(), auxiliaryType);
             return this;
@@ -594,33 +548,28 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
          * @param auxiliaryTypes The auxiliary {@link DataType}s to add.
          * @return {@code this} {@link Builder}.
          */
-        @Nonnull
-        public Builder addAuxiliaryTypes(@Nonnull Collection<DataType.Named> auxiliaryTypes) {
+        public Builder addAuxiliaryTypes(Collection<DataType.Named> auxiliaryTypes) {
             auxiliaryTypes.forEach(this::addAuxiliaryType);
             return this;
         }
 
-        @Nonnull
-        public Builder setCachedMetadata(@Nonnull final RecordMetaData metadata) {
+        public Builder setCachedMetadata(final RecordMetaData metadata) {
             this.cachedMetadata = metadata;
             return this;
         }
 
-        @Nonnull
-        public RecordLayerTable findTableByStorageName(@Nonnull final String storageName) {
-            return tables.values().stream().filter(t -> t.getType().getStorageName().equals(storageName))
+        public RecordLayerTable findTableByStorageName(final String storageName) {
+            return tables.values().stream().filter(t -> Objects.equals(t.getType().getStorageName(), storageName))
                     .findAny()
                     .orElseThrow(() -> Assert.failUnchecked(ErrorCode.UNDEFINED_TABLE, "could not find '" + storageName + "'"));
         }
 
-        @Nonnull
-        public RecordLayerTable extractTable(@Nonnull final String name) {
+        public RecordLayerTable extractTable(final String name) {
             Assert.thatUnchecked(tables.containsKey(name), ErrorCode.UNDEFINED_TABLE, "could not find '%s'", name);
             return tables.remove(name);
         }
 
-        @Nonnull
-        public Optional<DataType> findType(@Nonnull final String name) {
+        public Optional<DataType> findType(final String name) {
             // we should also check whether the name exists in _both_ databases.
             if (tables.containsKey(name)) {
                 return Optional.of(tables.get(name).getDatatype());
@@ -633,7 +582,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             return Optional.empty();
         }
 
-        @Nonnull
         public RecordLayerSchemaTemplate build() {
             Assert.thatUnchecked(!tables.isEmpty(), ErrorCode.INVALID_SCHEMA_TEMPLATE, "schema template contains no tables");
 
@@ -730,7 +678,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             for (final var auxiliaryType : auxiliaryTypes.entrySet()) {
                 final var dataType = (DataType) auxiliaryType.getValue();
                 if (!dataType.isResolved()) {
-                    resolvedAuxiliaryTypes.put(auxiliaryType.getKey(), (DataType.Named) ((DataType) resolvedTypes.get(auxiliaryType.getKey())).withNullable(dataType.isNullable()));
+                    // Every auxiliary type key was included in namedTypes above and processed by
+                    // the topological sort into resolvedTypes, so a lookup here always hits.
+                    final var resolvedType = Objects.requireNonNull((DataType) resolvedTypes.get(auxiliaryType.getKey()),
+                            "resolved type not found for '" + auxiliaryType.getKey() + "'");
+                    resolvedAuxiliaryTypes.put(auxiliaryType.getKey(), (DataType.Named) resolvedType.withNullable(dataType.isNullable()));
                 } else {
                     resolvedAuxiliaryTypes.put(auxiliaryType.getKey(), auxiliaryType.getValue());
                 }
@@ -740,15 +692,14 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             auxiliaryTypes.putAll(resolvedAuxiliaryTypes.build());
         }
 
-        private void verifyNameIsNotUsed(@Nonnull final String name) {
+        private void verifyNameIsNotUsed(final String name) {
             Assert.thatUnchecked(!tables.containsKey(name), ErrorCode.INVALID_SCHEMA_TEMPLATE, () -> "table with name '" + name + "' already exists");
             Assert.thatUnchecked(!auxiliaryTypes.containsKey(name), ErrorCode.INVALID_SCHEMA_TEMPLATE, () -> "type with name '" + name + "' already exists");
             Assert.thatUnchecked(!invokedRoutines.containsKey(name), ErrorCode.INVALID_SCHEMA_TEMPLATE, () -> "routine with name '" + name + "' already exists");
             Assert.thatUnchecked(!views.containsKey(name), ErrorCode.INVALID_SCHEMA_TEMPLATE, () -> "view with name '" + name + "' already exists");
         }
 
-        @Nonnull
-        private static Set<DataType> getDependencies(@Nonnull final DataType dataType, @Nonnull final Map<String, DataType> types) {
+        private static Set<DataType> getDependencies(final DataType dataType, final Map<String, DataType> types) {
             // TODO (yhatem) I think this doesn't work in case of recursive types.
             //               moreover, this does not work with inlined types, but this is ok since we don't support them anyway.
             switch (dataType.getCode()) {
@@ -761,12 +712,15 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                         if (fieldType instanceof DataType.Named) {
                             final var depName = ((DataType.Named) fieldType).getName();
                             Assert.thatUnchecked(types.containsKey(depName), ErrorCode.UNKNOWN_TYPE, "could not find type '%s'", depName);
-                            mapBuilder.add(types.get(depName));
+                            // The Assert above guarantees the key is present; NullAway cannot see
+                            // that a boolean assertion narrows a later, separate map lookup.
+                            mapBuilder.add(Objects.requireNonNull(types.get(depName), "could not find type '" + depName + "'"));
                         } else if (fieldType.getCode() == DataType.Code.ARRAY && ((DataType.ArrayType) fieldType).getElementType() instanceof DataType.Named) {
                             final var asArray = (DataType.ArrayType) fieldType;
                             final var depName = ((DataType.Named) asArray.getElementType()).getName();
                             Assert.thatUnchecked(types.containsKey(depName), ErrorCode.UNKNOWN_TYPE, "could not find type '%s'", depName);
-                            mapBuilder.add(types.get(depName));
+                            // Same reasoning as above: the Assert just verified the key exists.
+                            mapBuilder.add(Objects.requireNonNull(types.get(depName), "could not find type '" + depName + "'"));
                         }
                     }
                     return mapBuilder.build();
@@ -780,12 +734,10 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
     }
 
-    @Nonnull
     public static Builder newBuilder() {
         return new Builder();
     }
 
-    @Nonnull
     public Builder toBuilder() {
         return newBuilder()
                 .setName(name)

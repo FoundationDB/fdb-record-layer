@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 public class CatalogValidatorTest {
@@ -44,6 +43,9 @@ public class CatalogValidatorTest {
     void testValidateWithUnsetRecordLayerSchemaName() {
         RecordLayerSchema goodSchema = generateGoodSchema();
         // clear schema_name field
+        // generateSchema's schemaName param is @Nonnull in the not-yet-migrated fdb-relational-api
+        // module, but this test intentionally passes null to exercise CatalogValidator's unset-field check.
+        @SuppressWarnings("NullAway")
         RecordLayerSchema schemaWithUnsetRecordLayerSchemaName = (RecordLayerSchema) goodSchema.getSchemaTemplate().generateSchema(goodSchema.getDatabaseName(), null);
         RelationalException exception = Assertions.assertThrows(RelationalException.class, () ->
                 CatalogValidator.validateSchema(schemaWithUnsetRecordLayerSchemaName));
@@ -55,6 +57,9 @@ public class CatalogValidatorTest {
     void testValidateWithUnsetDatabaseId() {
         RecordLayerSchema goodSchema = generateGoodSchema();
         // clear database_id field
+        // generateSchema's databaseId param is @Nonnull in the not-yet-migrated fdb-relational-api
+        // module, but this test intentionally passes null to exercise CatalogValidator's unset-field check.
+        @SuppressWarnings("NullAway")
         RecordLayerSchema badRecordLayerSchema = (RecordLayerSchema) goodSchema.getSchemaTemplate().generateSchema(null, goodSchema.getName());
 
         RelationalException exception = Assertions.assertThrows(RelationalException.class, () ->
@@ -83,7 +88,6 @@ public class CatalogValidatorTest {
         Assertions.assertEquals("Field schema_version cannot be < 0!", exception.getMessage());
     }
 
-    @Nonnull
     private RecordLayerSchema generateGoodSchema() {
         return RecordLayerSchemaTemplate
                 .newBuilder()
@@ -105,7 +109,6 @@ public class CatalogValidatorTest {
                 .generateSchema("test_db", "test_schema");
     }
 
-    @Nonnull
     private RecordLayerSchema generateBadSchemaWithWrongVersion() {
         return RecordLayerSchemaTemplate
                 .newBuilder()
@@ -127,7 +130,6 @@ public class CatalogValidatorTest {
                 .generateSchema("test_db", "test_schema");
     }
 
-    @Nonnull
     private RecordLayerSchema generateBadSchemaWithEmptySchemaTemplateName() {
         return RecordLayerSchemaTemplate
                 .newBuilder()

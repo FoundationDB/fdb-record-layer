@@ -32,7 +32,6 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
@@ -71,14 +70,13 @@ public class RecordStoreAndRecordContextTransaction implements Transaction {
         transaction.abort();
     }
 
-    @Nonnull
     @Override
     public Optional<SchemaTemplate> getBoundSchemaTemplateMaybe() {
         return transaction.getBoundSchemaTemplateMaybe();
     }
 
     @Override
-    public void setBoundSchemaTemplate(@Nonnull final SchemaTemplate schemaTemplate) {
+    public void setBoundSchemaTemplate(final SchemaTemplate schemaTemplate) {
         transaction.setBoundSchemaTemplate(schemaTemplate);
     }
 
@@ -105,7 +103,6 @@ public class RecordStoreAndRecordContextTransaction implements Transaction {
         return store;
     }
 
-    @Nonnull
     public SchemaTemplate getBoundSchemaTemplate() {
         return boundSchemaTemplate;
     }

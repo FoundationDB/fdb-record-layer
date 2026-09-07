@@ -24,8 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.NoopMetricRegistry;
 
-import javax.annotation.Nonnull;
-
 /**
  * A utility for accessing a no-op {@link MetricRegistry}.
  * <p>
@@ -36,7 +34,6 @@ import javax.annotation.Nonnull;
 @API(API.Status.EXPERIMENTAL)
 public final class NoOpMetricRegistry {
 
-    @Nonnull
     public static final MetricRegistry INSTANCE = new NoopMetricRegistry();
 
     private NoOpMetricRegistry() {

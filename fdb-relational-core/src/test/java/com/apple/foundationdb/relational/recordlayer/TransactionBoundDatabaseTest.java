@@ -61,13 +61,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -312,7 +312,10 @@ public class TransactionBoundDatabaseTest {
                             RelationalAssertions.assertThrowsSqlException(() -> export.apply(statement))
                                     .hasErrorCode(ErrorCode.UNSUPPORTED_OPERATION);
                         } else {
-                            data.addAll(getExportedData(export.apply(statement)));
+                            // SQLFunction.apply() is declared @Nullable generically, but this particular
+                            // export query always produces a result set.
+                            final RelationalResultSet exported = Objects.requireNonNull(export.apply(statement));
+                            data.addAll(getExportedData(exported));
                         }
                     }
                 });
@@ -385,7 +388,7 @@ public class TransactionBoundDatabaseTest {
     private void assertSimpleRecordExists(final FDBRecordStore store, final String field) {
         final FDBStoredRecord<Message> rec = store.loadRecord(Tuple.from(field));
         Assertions.assertThat(rec).isNotNull();
-        final Message message = rec.getRecord();
+        final Message message = Objects.requireNonNull(rec).getRecord();
         final Descriptors.Descriptor type = getSimpleType(store);
         Assertions.assertThat(message.getField(getSimpleField(type))).isEqualTo(field);
     }
@@ -404,7 +407,6 @@ public class TransactionBoundDatabaseTest {
                 .setField(getSimpleField(type), value).build());
     }
 
-    @Nonnull
     private static RecordMetaData simpleMetaData() throws Descriptors.DescriptorValidationException {
         final DescriptorProtos.FileDescriptorProto.Builder protoBuilder = DescriptorProtos.FileDescriptorProto.newBuilder();
         protoBuilder.addMessageTypeBuilder()
@@ -452,7 +454,6 @@ public class TransactionBoundDatabaseTest {
         });
     }
 
-    @Nonnull
     private List<byte[]> exportDataWithCopy(final EmbeddedRelationalConnection embeddedConnection, final URI sourceUri,
                                             final URI destUri) throws RelationalException, SQLException {
         List<byte[]> data = new ArrayList<>();
@@ -471,7 +472,6 @@ public class TransactionBoundDatabaseTest {
         return data;
     }
 
-    @Nonnull
     private static List<byte[]> getExportedData(final RelationalResultSet resultSet) throws SQLException {
         List<byte[]> data = new ArrayList<>();
         while (resultSet.next()) {
@@ -502,10 +502,10 @@ public class TransactionBoundDatabaseTest {
         }
     }
 
-    private void withTransactionBoundConnection(@Nonnull final EmbeddedRelationalConnection embeddedConnection,
-                                                @Nonnull final Options engineOptions,
+    private void withTransactionBoundConnection(final EmbeddedRelationalConnection embeddedConnection,
+                                                final Options engineOptions,
                                                 @Nullable final KeySpace keySpace,
-                                                @Nonnull final ConnectionUtils.SQLConsumer<RelationalConnection> action)
+                                                final ConnectionUtils.SQLConsumer<RelationalConnection> action)
             throws RelationalException, SQLException {
         try (FDBRecordContext context = createNewContext(embeddedConnection)) {
             try (Transaction transaction = createRecordStoreAndRecordContextTransaction(embeddedConnection, context)) {
@@ -515,24 +515,24 @@ public class TransactionBoundDatabaseTest {
         }
     }
 
-    private Transaction createRecordStoreAndRecordContextTransaction(@Nonnull final EmbeddedRelationalConnection embeddedConnection,
-                                                                     @Nonnull final FDBRecordContext context) throws SQLException, RelationalException {
+    private Transaction createRecordStoreAndRecordContextTransaction(final EmbeddedRelationalConnection embeddedConnection,
+                                                                     final FDBRecordContext context) throws SQLException, RelationalException {
         final FDBRecordStore store = getStore(embeddedConnection);
         final SchemaTemplate schemaTemplate = getSchemaTemplate(embeddedConnection);
         final FDBRecordStore newStore = store.asBuilder().setContext(context).open();
         return new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate);
     }
 
-    private void withTransactionBoundConnection(@Nonnull final Transaction transaction,
-                                                @Nonnull final FDBRecordContext context,
-                                                @Nonnull final ConnectionUtils.SQLConsumer<RelationalConnection> action) throws SQLException, RelationalException {
+    private void withTransactionBoundConnection(final Transaction transaction,
+                                                final FDBRecordContext context,
+                                                final ConnectionUtils.SQLConsumer<RelationalConnection> action) throws SQLException, RelationalException {
         withTransactionBoundConnection(new TransactionBoundEmbeddedRelationalEngine(), transaction, context, action);
     }
 
-    private void withTransactionBoundConnection(@Nonnull final EmbeddedRelationalEngine engine,
-                                                @Nonnull final Transaction transaction,
-                                                @Nonnull final FDBRecordContext context,
-                                                @Nonnull final ConnectionUtils.SQLConsumer<RelationalConnection> action) throws SQLException, RelationalException {
+    private void withTransactionBoundConnection(final EmbeddedRelationalEngine engine,
+                                                final Transaction transaction,
+                                                final FDBRecordContext context,
+                                                final ConnectionUtils.SQLConsumer<RelationalConnection> action) throws SQLException, RelationalException {
         EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(engine);
         try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
             conn.setSchema("TEST_SCHEMA");
@@ -562,7 +562,7 @@ public class TransactionBoundDatabaseTest {
         return schemaTemplate;
     }
 
-    static FDBRecordContext createNewContext(@Nonnull EmbeddedRelationalConnection connection) throws RelationalException {
+    static FDBRecordContext createNewContext(EmbeddedRelationalConnection connection) throws RelationalException {
         return connection.getRecordLayerDatabase().getTransactionManager().createTransaction(Options.NONE).unwrap(FDBRecordContext.class);
     }
 }

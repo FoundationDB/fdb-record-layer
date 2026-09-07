@@ -33,7 +33,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.util.Assert;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 
 @API(API.Status.EXPERIMENTAL)
@@ -45,19 +45,20 @@ public class CatalogMetaDataProvider implements RecordMetaDataProvider {
     private final String schemaName;
     private final Transaction txn;
 
+    // Lazily computed and cached on first getRecordMetaData() call; null until then.
+    @Nullable
     private volatile RecordMetaData cachedMetaData;
 
-    public CatalogMetaDataProvider(@Nonnull StoreCatalog storeCatalog,
-                                   @Nonnull URI dbUri,
-                                   @Nonnull String schemaName,
-                                   @Nonnull Transaction txn) {
+    public CatalogMetaDataProvider(StoreCatalog storeCatalog,
+                                   URI dbUri,
+                                   String schemaName,
+                                   Transaction txn) {
         this.storeCatalog = storeCatalog;
         this.dbUri = dbUri;
         this.schemaName = schemaName;
         this.txn = txn;
     }
 
-    @Nonnull
     @Override
     public RecordMetaData getRecordMetaData() {
         RecordMetaData metaData = cachedMetaData;

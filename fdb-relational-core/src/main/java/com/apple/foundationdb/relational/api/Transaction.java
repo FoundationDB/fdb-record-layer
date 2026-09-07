@@ -24,7 +24,6 @@ import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
-import javax.annotation.Nonnull;
 import java.util.Optional;
 
 public interface Transaction extends AutoCloseable {
@@ -42,7 +41,6 @@ public interface Transaction extends AutoCloseable {
      * @return An {@code Optional} containing the bound {@link SchemaTemplate}, or an empty {@link Optional} if no
      * template is bound.
      */
-    @Nonnull
     Optional<SchemaTemplate> getBoundSchemaTemplateMaybe();
 
     /**
@@ -56,7 +54,7 @@ public interface Transaction extends AutoCloseable {
      * {@link SchemaTemplate} argument.
      * @param schemaTemplate The {@link SchemaTemplate} to bind.  Must not be null.
      */
-    void setBoundSchemaTemplate(@Nonnull SchemaTemplate schemaTemplate);
+    void setBoundSchemaTemplate(SchemaTemplate schemaTemplate);
 
     /**
      * Unsets the bound schema template, if one exists.
@@ -77,8 +75,7 @@ public interface Transaction extends AutoCloseable {
      * @return this instance, as an instanceof Type T
      * @throws InternalErrorException if instance types are incompatible
      */
-    @Nonnull
-    default <T> T unwrap(@Nonnull Class<? extends T> type) throws InternalErrorException {
+    default <T> T unwrap(Class<? extends T> type) throws InternalErrorException {
         Class<? extends Transaction> myClass = this.getClass();
         if (myClass.isAssignableFrom(type)) {
             return type.cast(this);

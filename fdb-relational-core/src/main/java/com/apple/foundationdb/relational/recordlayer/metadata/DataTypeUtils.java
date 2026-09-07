@@ -25,20 +25,18 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public class DataTypeUtils {
 
-    @Nonnull
     private static final BiMap<DataType, Type> primitivesMap;
 
     /**
@@ -49,10 +47,11 @@ public class DataTypeUtils {
      * @param type The Relational data type.
      * @return The corresponding Record Layer type.
      */
-    @Nonnull
-    public static DataType toRelationalType(@Nonnull final Type type) {
+    public static DataType toRelationalType(final Type type) {
         if (primitivesMap.containsValue(type)) {
-            return primitivesMap.inverse().get(type);
+            // primitivesMap.inverse() is a view over the same entries with keys/values swapped,
+            // so containsValue(type) on the original map guarantees inverse().get(type) hits.
+            return Objects.requireNonNull(primitivesMap.inverse().get(type));
         }
 
         final var typeCode = type.getTypeCode();
@@ -75,7 +74,14 @@ public class DataTypeUtils {
                 return DataType.StructType.from(record.getName() == null ? ProtoUtils.uniqueTypeName() : record.getName(), columns, record.isNullable());
             case ARRAY:
                 final var asArray = (Type.Array) type;
-                return DataType.ArrayType.from(toRelationalType(Assert.notNullUnchecked(asArray.getElementType())), asArray.isNullable());
+                // Type.Array.getElementType() is @Nullable in fdb-record-layer-core (an untyped
+                // array literally has no element type), but Assert.notNullUnchecked enforces the
+                // non-null invariant expected here at runtime with a clear RelationalException;
+                // NullAway can't see that since Assert lives in the not-yet-migrated
+                // fdb-relational-api module.
+                @SuppressWarnings("NullAway")
+                final var elementType = Assert.notNullUnchecked(asArray.getElementType());
+                return DataType.ArrayType.from(toRelationalType(elementType), asArray.isNullable());
             case ENUM:
                 final var asEnum = (Type.Enum) type;
                 final var enumValues = asEnum.getEnumValues().stream().map(v -> DataType.EnumType.EnumValue.of(v.getName(), v.getNumber())).collect(Collectors.toList());
@@ -85,8 +91,7 @@ public class DataTypeUtils {
                 // we do not have a representation of this type in the relational type system.
                 return DataType.UnknownType.instance();
             default:
-                Assert.failUnchecked(String.format(Locale.ROOT, "unexpected type %s", type));
-                return null; // make compiler happy.
+                throw Assert.failUnchecked(String.format(Locale.ROOT, "unexpected type %s", type));
         }
     }
 
@@ -98,10 +103,7 @@ public class DataTypeUtils {
      * @param type The Relational data type.
      * @return The corresponding Record Layer type.
      */
-    @SpotBugsSuppressWarnings(value = {"NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"},
-            justification = "should never happen, there is failUnchecked directly before that.")
-    @Nonnull
-    public static Type toRecordLayerType(@Nonnull final DataType type) {
+    public static Type toRecordLayerType(final DataType type) {
         if (primitivesMap.containsKey(type)) {
             return primitivesMap.get(type);
         }
@@ -126,8 +128,7 @@ public class DataTypeUtils {
             case UNKNOWN:
                 return new Type.Any();
             default:
-                Assert.failUnchecked(String.format(Locale.ROOT, "unexpected type %s", type));
-                return null; // make compiler happy.
+                throw Assert.failUnchecked(String.format(Locale.ROOT, "unexpected type %s", type));
         }
     }
 

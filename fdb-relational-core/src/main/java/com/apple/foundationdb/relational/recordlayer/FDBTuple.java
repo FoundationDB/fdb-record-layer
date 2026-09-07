@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceEx
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -100,8 +99,7 @@ class FDBTuple extends AbstractRow {
      *
      * @param copy the tuple to copy
      */
-    @Nonnull
-    public static FDBTuple fromRow(@Nonnull Row copy) throws RelationalException {
+    public static FDBTuple fromRow(Row copy) throws RelationalException {
         List<Object> items = new ArrayList<>(copy.getNumFields());
         for (int i = 0; i < copy.getNumFields(); i++) {
             items.add(copy.getObject(i));

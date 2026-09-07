@@ -28,33 +28,37 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Objects;
 import java.util.Optional;
 
 public final class TypeUtils {
 
-    @Nonnull
-    public static Type setFieldNames(@Nonnull final Type input,
-                                     @Nonnull final CompatibleTypeEvolutionPredicate.FieldAccessTrieNode fieldAccessTrieNode) {
+    public static Type setFieldNames(final Type input,
+                                     final CompatibleTypeEvolutionPredicate.FieldAccessTrieNode fieldAccessTrieNode) {
         return setFieldNamesInternal(input, fieldAccessTrieNode);
     }
 
-    @Nonnull
     // PMD incorrectly thinks that comparing array sizes it deemed to be object reference comparison requiring equals() instead.
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static Type setFieldNamesInternal(@Nonnull final Type input,
-                                              @Nonnull final CompatibleTypeEvolutionPredicate.FieldAccessTrieNode trie) {
+    private static Type setFieldNamesInternal(final Type input,
+                                              final CompatibleTypeEvolutionPredicate.FieldAccessTrieNode trie) {
         if (input.isPrimitive()) {
             return input;
         }
-        if (trie.getChildrenMap() != null && trie.getChildrenMap().isEmpty()) {
+        final var childrenMap = trie.getChildrenMap();
+        if (childrenMap != null && childrenMap.isEmpty()) {
             return input;
         }
         if (input.isArray()) {
             final var array = (Type.Array)input;
-            return array.withElementType(setFieldNamesInternal(Assert.notNullUnchecked(array.getElementType()), trie));
+            // Assert.notNullUnchecked enforces (with a clear RelationalException) that this code path only
+            // ever sees non-erased arrays; NullAway can't see that since Assert lives in the not-yet-migrated
+            // fdb-relational-api module.
+            @SuppressWarnings("NullAway")
+            final Type elementType = Assert.notNullUnchecked(array.getElementType());
+            return array.withElementType(setFieldNamesInternal(elementType, trie));
         }
         Assert.thatUnchecked(input.isRecord(), ErrorCode.INCOMPATIBLE_TABLE_ALIAS,
                 () -> "incompatible type found while renaming. Expected " + Type.Record.class.getSimpleName()
@@ -62,14 +66,19 @@ public final class TypeUtils {
         final var record = (Type.Record)input;
         final var recordFields = record.getFields();
         final var newlyNamedFields = ImmutableList.<Type.Record.Field>builder();
-        final var fieldAliases = new ArrayList<>(trie.getChildrenMap().keySet());
+        // A record's trie node always has a populated children map -- one entry per field -- which is
+        // exactly what we index into below.
+        final var nonNullChildrenMap = Objects.requireNonNull(childrenMap, "record type's field-access trie node has no children map");
+        final var fieldAliases = new ArrayList<>(nonNullChildrenMap.keySet());
         Assert.thatUnchecked(fieldAliases.size() == recordFields.size(), ErrorCode.INCOMPATIBLE_TABLE_ALIAS,
                 () -> "number of record fields mismatch");
         fieldAliases.sort(Comparator.comparingInt(FieldValue.ResolvedAccessor::getOrdinal));
         for (int i = 0; i < recordFields.size(); i++) {
             final var fieldAlias = fieldAliases.get(i);
             final var recordField = recordFields.get(i);
-            final var fieldTrie = trie.getChildrenMap().get(fieldAlias);
+            // fieldAlias is one of childrenMap's own keys (drawn from childrenMap.keySet() above), so this
+            // lookup always finds a value.
+            final var fieldTrie = Objects.requireNonNull(nonNullChildrenMap.get(fieldAlias));
             final var renamedFieldType = setFieldNamesInternal(recordField.getFieldType(), fieldTrie);
             final var newField = Type.Record.Field.of(renamedFieldType, Optional.ofNullable(fieldAlias.getName()),
                     Optional.of(recordField.getFieldIndex()));

@@ -34,8 +34,7 @@ import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Optional;
@@ -45,7 +44,6 @@ import java.util.Optional;
  * Should be used by classes that derive {@link com.apple.foundationdb.relational.api.RelationalPreparedStatement} and {@link com.apple.foundationdb.relational.api.RelationalStatement}
  */
 public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
-    @Nonnull
     final EmbeddedRelationalConnection conn;
 
     @Nullable
@@ -58,14 +56,13 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
 
     Options options;
 
-    public AbstractEmbeddedStatement(@Nonnull final EmbeddedRelationalConnection conn) {
+    public AbstractEmbeddedStatement(final EmbeddedRelationalConnection conn) {
         this.conn = conn;
         this.options = conn.getOptions();
     }
 
-    @Nonnull
-    abstract PlanContext createPlanContext(@Nonnull FDBRecordStoreBase<?> store,
-                                           @Nonnull Options options) throws RelationalException;
+    abstract PlanContext createPlanContext(FDBRecordStoreBase<?> store,
+                                           Options options) throws RelationalException;
 
     @SuppressWarnings("PMD.PreserveStackTrace")
     public boolean executeInternal(String sql) throws SQLException, RelationalException {
@@ -73,6 +70,11 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
         checkOpen();
         Assert.notNull(sql);
         conn.ensureTransactionActive();
+        // conn.getMetricCollector() is @Nullable only because the collector isn't set up until a
+        // transaction is active (just above); Assert.notNullUnchecked enforces that invariant at
+        // runtime with a clear RelationalException, but NullAway can't see that since Assert lives in
+        // the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
         final var metricCollector = Assert.notNullUnchecked(conn.getMetricCollector());
         return metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> {
             try {
@@ -108,7 +110,9 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
         });
     }
 
-    private boolean clockAndExecuteQueryPlan(@Nonnull final QueryPlan plan, @Nonnull final Plan.ExecutionContext executionContext) throws RelationalException {
+    private boolean clockAndExecuteQueryPlan(final QueryPlan plan, final Plan.ExecutionContext executionContext) throws RelationalException {
+        // See the comment on the analogous call in executeInternal() above for why this is suppressed.
+        @SuppressWarnings("NullAway")
         final var metricCollector = Assert.notNullUnchecked(conn.getMetricCollector());
         return metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_QUERY_PLAN, () -> {
             currentResultSet = new ErrorCapturingResultSet(plan.execute(executionContext));
@@ -131,7 +135,9 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
         });
     }
 
-    private boolean clockAndExecuteNonQueryPlan(@Nonnull final Plan<?> plan, @Nonnull final Plan.ExecutionContext executionContext) throws RelationalException {
+    private boolean clockAndExecuteNonQueryPlan(final Plan<?> plan, final Plan.ExecutionContext executionContext) throws RelationalException {
+        // See the comment on the analogous call in executeInternal() above for why this is suppressed.
+        @SuppressWarnings("NullAway")
         final var metricCollector = Assert.notNullUnchecked(conn.getMetricCollector());
         return metricCollector.clock(RelationalMetric.RelationalEvent.EXECUTE_NON_QUERY_PLAN, () -> {
             plan.execute(executionContext);
@@ -209,7 +215,7 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
         }
     }
 
-    private int countUpdates(@Nonnull ResultSet resultSet) throws SQLException {
+    private int countUpdates(ResultSet resultSet) throws SQLException {
         /*
          * This is a bit of a temporary hack both to address a bug(TODO), and also to get around the
          * way that RecordLayer DML plans are executed.

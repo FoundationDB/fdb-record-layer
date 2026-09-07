@@ -24,7 +24,7 @@ import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.FloatRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.RealVector;
-import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
@@ -55,9 +55,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
@@ -69,6 +67,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -80,9 +79,8 @@ public class StandardQueryTests {
     /**
      * A restaurant review.
      */
-    private record Review(long reviewer, long rating, @Nonnull List<Pair<Long, String>> endorsements) {
-        @Nonnull
-        static Review of(long reviewer, long rating, @Nonnull final List<Pair<Long, String>> endorsements) {
+    private record Review(long reviewer, long rating, List<NonnullPair<Long, String>> endorsements) {
+        static Review of(long reviewer, long rating, final List<NonnullPair<Long, String>> endorsements) {
             return new Review(reviewer, rating, endorsements);
         }
     }
@@ -164,7 +162,7 @@ public class StandardQueryTests {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
                             .isRowPartly(insertedRecord);
                     // explicitly test when nullable array is set to empty list, the RelationalArray object holds an empty iterable
-                    Assertions.assertEquals("[]", resultSet.getArray("REVIEWS").toString());
+                    Assertions.assertEquals("[]", Objects.requireNonNull(resultSet.getArray("REVIEWS")).toString());
                     // explicitly test unset Nullable array is NULL
                     Assertions.assertNull(resultSet.getArray("TAGS"));
                     Assertions.assertNull(resultSet.getArray("CUSTOMER"));
@@ -184,9 +182,9 @@ public class StandardQueryTests {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
                             .isRowPartly(insertedRecord);
                     // explicitly test when a Non-nullable array is unset, the RelationalArray object holds an empty iterable
-                    Assertions.assertEquals("[]", resultSet.getArray("REVIEWS").toString());
-                    Assertions.assertEquals("[]", resultSet.getArray("TAGS").toString());
-                    Assertions.assertEquals("[]", resultSet.getArray("CUSTOMER").toString());
+                    Assertions.assertEquals("[]", Objects.requireNonNull(resultSet.getArray("REVIEWS")).toString());
+                    Assertions.assertEquals("[]", Objects.requireNonNull(resultSet.getArray("TAGS")).toString());
+                    Assertions.assertEquals("[]", Objects.requireNonNull(resultSet.getArray("CUSTOMER")).toString());
                     Assertions.assertFalse(resultSet.next());
                 }
             }
@@ -678,7 +676,8 @@ public class StandardQueryTests {
                     statement.execute("SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1");
                     fail("expected an exception to be thrown by running 'SELECT id, c.d.e.f, a.b.c.d.e.f FROM tbl1'");
                 } catch (SQLException cse) {
-                    cse.getMessage().contains("field type 'f' can only be resolved on records");
+                    Assertions.assertTrue(Objects.requireNonNullElse(cse.getMessage(), cse.toString())
+                            .contains("field type 'f' can only be resolved on records"));
                 }
             }
         }
@@ -750,11 +749,11 @@ public class StandardQueryTests {
                 insertRestaurantComplexRecord(statement);
                 RelationalStruct l42 = insertRestaurantComplexRecord(statement, 42L, "rest1",
                         List.of(Review.of(1L, 4L, List.of(
-                                        Pair.of(400L, "good"),
-                                        Pair.of(401L, "meh"))),
+                                        NonnullPair.of(400L, "good"),
+                                        NonnullPair.of(401L, "meh"))),
                                 Review.of(2L, 5L, List.of(
-                                        Pair.of(402L, "awesome"),
-                                        Pair.of(401L, "wow")))));
+                                        NonnullPair.of(402L, "awesome"),
+                                        NonnullPair.of(401L, "wow")))));
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord AS R WHERE EXISTS (SELECT * FROM R.reviews AS RE WHERE EXISTS(SELECT * FROM RE.endorsements AS REE WHERE REE.\"endorsementText\"='wow'))")) {
                     ResultSetAssert.assertThat(resultSet).containsRowsPartly(l42);
                 }
@@ -916,7 +915,8 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate3).build()) {
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM T1 WHERE name(loc) = ?name")) {
                 ps.setString("name", "Apple Park Visitor Center");
-                final var errorMsg3 = Assertions.assertThrows(SQLException.class, ps::executeQuery).getMessage();
+                final var exception3 = Assertions.assertThrows(SQLException.class, ps::executeQuery);
+                final var errorMsg3 = Objects.requireNonNullElse(exception3.getMessage(), exception3.toString());
                 Assertions.assertTrue(errorMsg3.contains("syntax error"));
             }
         }
@@ -1161,7 +1161,7 @@ public class StandardQueryTests {
                 Assertions.assertTrue(statement.execute("select (*) from t1"));
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     Assertions.assertTrue(resultSet.next());
-                    final var struct = resultSet.getStruct(1);
+                    final var struct = Objects.requireNonNull(resultSet.getStruct(1));
                     Assertions.assertEquals(42, struct.getInt(1));
                     Assertions.assertEquals(100, struct.getInt(2));
                     Assertions.assertEquals(101, struct.getInt(3));
@@ -1170,8 +1170,8 @@ public class StandardQueryTests {
                 Assertions.assertTrue(statement.execute("select ((*)) from t1"));
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     Assertions.assertTrue(resultSet.next());
-                    final var struct = resultSet.getStruct(1);
-                    final var nestedStruct = struct.getStruct(1);
+                    final var struct = Objects.requireNonNull(resultSet.getStruct(1));
+                    final var nestedStruct = Objects.requireNonNull(struct.getStruct(1));
                     Assertions.assertEquals(42, nestedStruct.getInt(1));
                     Assertions.assertEquals(100, nestedStruct.getInt(2));
                     Assertions.assertEquals(101, nestedStruct.getInt(3));
@@ -1190,9 +1190,9 @@ public class StandardQueryTests {
                 Assertions.assertTrue(statement.execute("select struct asd (a, 42, struct def (b, c)) as X from t1"));
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     Assertions.assertTrue(resultSet.next());
-                    Assertions.assertEquals("ASD", resultSet.getStruct(1).getMetaData().getTypeName());
-                    final var thirdCol = resultSet.getStruct(1).getStruct(3);
-                    Assertions.assertEquals("DEF", thirdCol.getMetaData().getTypeName());
+                    Assertions.assertEquals("ASD", Objects.requireNonNull(resultSet.getStruct(1)).getMetaData().getTypeName());
+                    final var thirdCol = Objects.requireNonNull(resultSet.getStruct(1)).getStruct(3);
+                    Assertions.assertEquals("DEF", Objects.requireNonNull(thirdCol).getMetaData().getTypeName());
                     Assertions.assertFalse(resultSet.next());
                 }
             }
@@ -1208,12 +1208,12 @@ public class StandardQueryTests {
                 Assertions.assertTrue(statement.execute("select struct asd (a, 42, struct def (b, c), struct def(b, c)) as X from t1"));
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     Assertions.assertTrue(resultSet.next());
-                    Assertions.assertEquals("ASD", resultSet.getStruct(1).getMetaData().getTypeName());
+                    Assertions.assertEquals("ASD", Objects.requireNonNull(resultSet.getStruct(1)).getMetaData().getTypeName());
                     Assertions.assertEquals("X", resultSet.getMetaData().getColumnLabel(1));
-                    final var thirdCol = resultSet.getStruct(1).getStruct(3);
-                    Assertions.assertEquals("DEF", thirdCol.getMetaData().getTypeName());
-                    final var fourthCol = resultSet.getStruct(1).getStruct(4);
-                    Assertions.assertEquals("DEF", fourthCol.getMetaData().getTypeName());
+                    final var thirdCol = Objects.requireNonNull(resultSet.getStruct(1)).getStruct(3);
+                    Assertions.assertEquals("DEF", Objects.requireNonNull(thirdCol).getMetaData().getTypeName());
+                    final var fourthCol = Objects.requireNonNull(resultSet.getStruct(1)).getStruct(4);
+                    Assertions.assertEquals("DEF", Objects.requireNonNull(fourthCol).getMetaData().getTypeName());
                     Assertions.assertFalse(resultSet.next());
                 }
             }
@@ -1226,7 +1226,8 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
-                final var message = Assertions.assertThrows(SQLException.class, () -> statement.execute("select struct asd (a, 42, struct def (b, c), struct def(b, c, a)) as X from t1")).getMessage();
+                final var exception = Assertions.assertThrows(SQLException.class, () -> statement.execute("select struct asd (a, 42, struct def (b, c), struct def(b, c, a)) as X from t1"));
+                final var message = Objects.requireNonNullElse(exception.getMessage(), exception.toString());
                 Assertions.assertTrue(message.contains("Name DEF is already registered with a different type")); // we could improve this error message.
             }
         }
@@ -1242,10 +1243,10 @@ public class StandardQueryTests {
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     Assertions.assertTrue(resultSet.next());
                     final var col3 = resultSet.getStruct(3);
-                    Assertions.assertEquals("DEF", col3.getMetaData().getTypeName());
-                    final var col44 = resultSet.getStruct(4).getStruct(4);
+                    Assertions.assertEquals("DEF", Objects.requireNonNull(col3).getMetaData().getTypeName());
+                    final var col44 = Objects.requireNonNull(resultSet.getStruct(4)).getStruct(4);
                     Assertions.assertEquals("X", resultSet.getMetaData().getColumnLabel(4));
-                    Assertions.assertEquals("DEF", col44.getMetaData().getTypeName());
+                    Assertions.assertEquals("DEF", Objects.requireNonNull(col44).getMetaData().getTypeName());
                     Assertions.assertFalse(resultSet.next());
                 }
             }
@@ -1627,7 +1628,6 @@ public class StandardQueryTests {
         }
     }
 
-    @Nonnull
     private static Stream<Arguments> vectorTypeProvider() {
         return Stream.of(
                 Arguments.of("vector(3, half)", new HalfRealVector(new double[]{1.1d, 1.2d, 1.3d})),
@@ -1671,7 +1671,7 @@ public class StandardQueryTests {
                         "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow();
-                    try (RelationalResultSet arrResultSet = resultSet.getArray(1).getResultSet()) {
+                    try (RelationalResultSet arrResultSet = Objects.requireNonNull(resultSet.getArray(1)).getResultSet()) {
                         ResultSetAssert.assertThat(arrResultSet).hasNextRow();
                         Assertions.assertEquals("testName", arrResultSet.getString(2));
                         Assertions.assertEquals(DatabaseMetaData.columnNoNulls, arrResultSet.getMetaData().isNullable(2));
@@ -1692,11 +1692,12 @@ public class StandardQueryTests {
                         "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow();
-                    try (RelationalResultSet arrResultSet = resultSet.getArray(1).getResultSet()) {
+                    try (RelationalResultSet arrResultSet = Objects.requireNonNull(resultSet.getArray(1)).getResultSet()) {
                         ResultSetAssert.assertThat(arrResultSet).hasNextRow();
-                        Assertions.assertEquals("address", arrResultSet.getStruct(2).getString("ADDRESS"));
-                        Assertions.assertEquals("1", arrResultSet.getStruct(2).getString("LATITUDE"));
-                        Assertions.assertEquals("1", arrResultSet.getStruct(2).getString("LONGITUDE"));
+                        final var struct2 = Objects.requireNonNull(arrResultSet.getStruct(2));
+                        Assertions.assertEquals("address", struct2.getString("ADDRESS"));
+                        Assertions.assertEquals("1", struct2.getString("LATITUDE"));
+                        Assertions.assertEquals("1", struct2.getString("LONGITUDE"));
                         Assertions.assertEquals(DatabaseMetaData.columnNoNulls, arrResultSet.getMetaData().isNullable(2));
                     }
                     Assertions.assertFalse(resultSet.next());
@@ -1723,11 +1724,11 @@ public class StandardQueryTests {
         return insertRestaurantComplexRecord(s, recordNumber, "testName");
     }
 
-    private RelationalStruct insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName) throws SQLException {
+    private RelationalStruct insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, final String recordName) throws SQLException {
         return insertRestaurantComplexRecord(s, recordNumber, recordName, List.of());
     }
 
-    private RelationalStruct insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, @Nonnull final String recordName, @Nonnull final List<Review> reviews) throws SQLException {
+    private RelationalStruct insertRestaurantComplexRecord(RelationalStatement s, Long recordNumber, final String recordName, final List<Review> reviews) throws SQLException {
         final var recBuilder2 = EmbeddedRelationalStruct.newBuilder()
                 .addLong("REST_NO", recordNumber)
                 .addString("NAME", recordName)
@@ -1758,7 +1759,7 @@ public class StandardQueryTests {
         return getExpected(recordNumber, recordName, reviews);
     }
 
-    private static RelationalStruct getExpected(Long recordNumber, @Nonnull final String recordName, @Nonnull final List<Review> reviews) {
+    private static RelationalStruct getExpected(Long recordNumber, final String recordName, final List<Review> reviews) {
         final var locationType = DataType.StructType.from("LOCATION", List.of(
                 DataType.StructType.Field.from("ADDRESS", DataType.Primitives.STRING.type(), 1),
                 DataType.StructType.Field.from("LATITUDE", DataType.Primitives.STRING.type(), 2),
@@ -1795,7 +1796,7 @@ public class StandardQueryTests {
         return new ImmutableRowStruct(new ArrayRow(recordNumber, recordName, locationStruct, reviewsArray), RelationalStructMetaData.of(restaurantComplexRecordType));
     }
 
-    private void insertRestaurantComplexRecord(RelationalStatement s, int recordNumber, @Nonnull final String recordName, byte[] blob) throws SQLException {
+    private void insertRestaurantComplexRecord(RelationalStatement s, int recordNumber, final String recordName, byte[] blob) throws SQLException {
         var struct = EmbeddedRelationalStruct.newBuilder()
                 .addLong("REST_NO", recordNumber)
                 .addString("NAME", recordName)

@@ -30,6 +30,8 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.util.Objects;
+
 public class MetricsCollectionTest {
     @RegisterExtension
     @Order(0)
@@ -48,7 +50,7 @@ public class MetricsCollectionTest {
          * Most of these metrics are created simply by defining the system and creating a database, so we don't have
          * to do too much
          */
-        MetricSet ms = relational.getEngine().getEngineMetrics();
+        MetricSet ms = Objects.requireNonNull(relational.getEngine()).getEngineMetrics();
         Assertions.assertThat(ms.getMetrics())
                 .containsKey("jni calls")
                 .containsKey("fetches")
@@ -65,7 +67,7 @@ public class MetricsCollectionTest {
          * Most of these metrics are created simply by defining the system and creating a database, so we don't have
          * to do too much
          */
-        MetricSet ms = relational.getEngine().getEngineMetrics();
+        MetricSet ms = Objects.requireNonNull(relational.getEngine()).getEngineMetrics();
         Assertions.assertThat(ms.getMetrics())
                 .containsKey("wait for load record")
                 .containsKey("create record store")

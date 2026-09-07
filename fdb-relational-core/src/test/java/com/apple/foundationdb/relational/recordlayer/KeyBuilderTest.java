@@ -37,6 +37,9 @@ import static com.apple.foundationdb.relational.utils.RelationalAssertions.asser
 class KeyBuilderTest {
     @Test
     void testEmptyKeyExpression() throws RelationalException {
+        // KeyBuilder#typeForKey isn't @Nullable, but it's unused by buildKey() in this test path;
+        // KeyBuilder itself is out of scope to annotate here.
+        @SuppressWarnings("NullAway")
         KeyBuilder keyBuilder = new KeyBuilder(null, EmptyKeyExpression.EMPTY, "empty");
         Row key = keyBuilder.buildKey(Map.of(), true);
         assertThat(key.getNumFields()).isEqualTo(0);
@@ -44,6 +47,9 @@ class KeyBuilderTest {
 
     @Test
     void testFailOnIncompleteKey() {
+        // KeyBuilder#typeForKey isn't @Nullable, but it's unused by buildKey() in this test path;
+        // KeyBuilder itself is out of scope to annotate here.
+        @SuppressWarnings("NullAway")
         KeyBuilder keyBuilder = new KeyBuilder(null, concat(field("A"), field("B")), "test");
         assertThrows(() -> keyBuilder.buildKey(Map.of(), true))
                 .hasErrorCode(ErrorCode.INVALID_PARAMETER);
@@ -53,6 +59,9 @@ class KeyBuilderTest {
 
     @Test
     void testFailOnMissingKeyAtPosition() {
+        // KeyBuilder#typeForKey isn't @Nullable, but it's unused by buildKey() in this test path;
+        // KeyBuilder itself is out of scope to annotate here.
+        @SuppressWarnings("NullAway")
         KeyBuilder keyBuilder = new KeyBuilder(null, concat(field("A"), field("B")), "test");
         assertThrows(() -> keyBuilder.buildKey(Map.of("B", 5), false))
                 .hasErrorCode(ErrorCode.INVALID_PARAMETER);
@@ -60,6 +69,9 @@ class KeyBuilderTest {
 
     @Test
     void testPartialKey() throws RelationalException {
+        // KeyBuilder#typeForKey isn't @Nullable, but it's unused by buildKey() in this test path;
+        // KeyBuilder itself is out of scope to annotate here.
+        @SuppressWarnings("NullAway")
         KeyBuilder keyBuilder = new KeyBuilder(null, concat(field("A"), field("B")), "test");
         Row key = keyBuilder.buildKey(Map.of("A", 5), false);
         assertThat(key.getNumFields()).isEqualTo(1);
@@ -68,6 +80,9 @@ class KeyBuilderTest {
 
     @Test
     void testIncompleteKeyAllNulls() throws RelationalException {
+        // KeyBuilder#typeForKey isn't @Nullable, but it's unused by buildKey() in this test path;
+        // KeyBuilder itself is out of scope to annotate here.
+        @SuppressWarnings("NullAway")
         KeyBuilder keyBuilder = new KeyBuilder(null, concat(field("A"), field("B")), "test");
         Row key = keyBuilder.buildKey(Map.of(), false);
         assertThat(key.getNumFields()).isEqualTo(0);

@@ -38,9 +38,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Optional;
 
@@ -86,7 +84,7 @@ public final class UserDefinedFunctionBuilder {
          * @param name the function name.
          * @return this builder, for chaining.
          */
-        SignatureStepBuilder setName(@Nonnull String name);
+        SignatureStepBuilder setName(String name);
 
         /**
          * Appends a single parameter to the signature.
@@ -100,7 +98,7 @@ public final class UserDefinedFunctionBuilder {
          * @param expression the parameter to append.
          * @return this builder, for chaining.
          */
-        SignatureStepBuilder addParameter(@Nonnull Expression expression);
+        SignatureStepBuilder addParameter(Expression expression);
 
         /**
          * Appends all the given parameters to the signature, preserving their order.
@@ -114,7 +112,7 @@ public final class UserDefinedFunctionBuilder {
          * @param expressions the parameters to append.
          * @return this builder, for chaining.
          */
-        SignatureStepBuilder addAllParameters(@Nonnull Expressions expressions);
+        SignatureStepBuilder addAllParameters(Expressions expressions);
 
         /**
          * Sets an explicit return type for the function; passing {@code null} leaves the return type to be inferred
@@ -148,7 +146,7 @@ public final class UserDefinedFunctionBuilder {
          * @param bodyExpression the relational expression the function evaluates to.
          * @return the final step, which builds a {@link CompiledSqlFunction}.
          */
-        FinalStepBuilder withBodyExpression(@Nonnull RelationalExpression bodyExpression);
+        FinalStepBuilder withBodyExpression(RelationalExpression bodyExpression);
 
         /**
          * Supplies a {@link Value} as the function body, which returns a {@link FinalStepBuilder} that
@@ -156,7 +154,7 @@ public final class UserDefinedFunctionBuilder {
          * @param bodyValue the value the function evaluates to.
          * @return the final step, which builds a {@link UserDefinedMacroFunction}.
          */
-        FinalStepBuilder withBodyValue(@Nonnull Value bodyValue);
+        FinalStepBuilder withBodyValue(Value bodyValue);
     }
 
     /**
@@ -168,7 +166,7 @@ public final class UserDefinedFunctionBuilder {
          * @param literals the literals to attach.
          * @return this builder, for chaining.
          */
-        FinalStepBuilder setLiterals(@Nonnull Literals literals);
+        FinalStepBuilder setLiterals(Literals literals);
 
         /**
          * Builds the {@link UserDefinedFunction} from all the provided specifications.
@@ -183,31 +181,33 @@ public final class UserDefinedFunctionBuilder {
      * matches the chosen body kind.
      */
     public static final class UserDefinedFunctionSignatureStepBuilder implements SignatureStepBuilder, BodyStepBuilder {
-        @Nonnull
         private final ImmutableList.Builder<Expression> parametersBuilder;
         private String name;
         private Expressions parameters;
         private Quantifier.ForEach parametersQuantifier;
         private Type returnType;
 
+        // name, parameters, parametersQuantifier and returnType are populated by the fluent setters below,
+        // so NullAway cannot see that they are always set before use (enforced by this builder's callers).
+        @SuppressWarnings("NullAway.Init")
         private UserDefinedFunctionSignatureStepBuilder() {
             this.parametersBuilder = ImmutableList.builder();
         }
 
         @Override
-        public SignatureStepBuilder setName(@Nonnull final String name) {
+        public SignatureStepBuilder setName(final String name) {
             this.name = name;
             return this;
         }
 
         @Override
-        public SignatureStepBuilder addParameter(@Nonnull final Expression expression) {
+        public SignatureStepBuilder addParameter(final Expression expression) {
             parametersBuilder.add(expression.toNamedArgument());
             return this;
         }
 
         @Override
-        public SignatureStepBuilder addAllParameters(@Nonnull final Expressions expressions) {
+        public SignatureStepBuilder addAllParameters(final Expressions expressions) {
             parametersBuilder.addAll(expressions.asNamedArguments());
             return this;
         }
@@ -248,7 +248,7 @@ public final class UserDefinedFunctionBuilder {
         }
 
         @Override
-        public FinalStepBuilder withBodyExpression(@Nonnull final RelationalExpression bodyExpression) {
+        public FinalStepBuilder withBodyExpression(final RelationalExpression bodyExpression) {
             Assert.notNullUnchecked(name);
             Assert.notNullUnchecked(parameters);
             return new CompiledSqlFunction.CompiledSQLFunctionStepBuilder(
@@ -256,7 +256,7 @@ public final class UserDefinedFunctionBuilder {
         }
 
         @Override
-        public FinalStepBuilder withBodyValue(@Nonnull final Value bodyValue) {
+        public FinalStepBuilder withBodyValue(final Value bodyValue) {
             Assert.notNullUnchecked(name);
             Assert.notNullUnchecked(parameters);
             return new UserDefinedMacroFunctionBuilder(name, bodyValue, parameters, getParameterDefaultValues(), parametersQuantifier, returnType);

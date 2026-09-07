@@ -35,9 +35,9 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.google.common.base.VerifyException;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
 public final class ExceptionUtil {
@@ -45,13 +45,13 @@ public final class ExceptionUtil {
         if (re instanceof RelationalException) {
             return (RelationalException) re;
         } else if (re instanceof SQLException) {
-            return new RelationalException(re.getMessage(), ErrorCode.get(((SQLException) re).getSQLState()), re);
+            return new RelationalException(Objects.requireNonNullElse(re.getMessage(), re.toString()), ErrorCode.get(((SQLException) re).getSQLState()), re);
         } else if (re instanceof RecordCoreException) {
             return recordCoreToRelationalException((RecordCoreException) re);
         } else if (re instanceof UncheckedRelationalException) {
             return ((UncheckedRelationalException) re).unwrap();
         } else if (re instanceof VerifyException) {
-            return new RelationalException(re.getMessage(), ErrorCode.INTERNAL_ERROR, re);
+            return new RelationalException(Objects.requireNonNullElse(re.getMessage(), re.toString()), ErrorCode.INTERNAL_ERROR, re);
         }
         return new RelationalException(ErrorCode.UNKNOWN, re);
     }
@@ -84,8 +84,7 @@ public final class ExceptionUtil {
         return new RelationalException(code, re).withContext(extraContext);
     }
 
-    @Nonnull
-    private static ErrorCode translateErrorCode(@Nonnull final SemanticException semanticException) {
+    private static ErrorCode translateErrorCode(final SemanticException semanticException) {
         final var semanticErrorCode = semanticException.getErrorCode();
 
         switch (semanticErrorCode) {

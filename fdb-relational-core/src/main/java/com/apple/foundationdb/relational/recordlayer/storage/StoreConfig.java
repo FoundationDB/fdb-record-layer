@@ -43,10 +43,10 @@ import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.util.List;
+import java.util.Objects;
 import java.util.zip.Deflater;
 
 @API(API.Status.EXPERIMENTAL)
@@ -113,7 +113,7 @@ public final class StoreConfig {
         } catch (NoSuchDirectoryException nsde) {
             throw new RelationalException("Uninitialized Catalog", ErrorCode.INTERNAL_ERROR, nsde);
         } catch (MetaDataException mde) {
-            throw new RelationalException(mde.getMessage(), ErrorCode.UNDEFINED_SCHEMA, mde);
+            throw new RelationalException(Objects.requireNonNullElse(mde.getMessage(), mde.toString()), ErrorCode.UNDEFINED_SCHEMA, mde);
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
@@ -126,8 +126,7 @@ public final class StoreConfig {
         return new StoreConfig(recordLayerConfig, schemaName, schemaPath, metaDataProvider, serializer);
     }
 
-    @Nonnull
-    static RecordSerializer<Message> serializerFromOptions(@Nonnull Options options) throws RelationalException {
+    static RecordSerializer<Message> serializerFromOptions(Options options) throws RelationalException {
         final boolean encrypted = options.getOption(Options.Name.ENCRYPT_WHEN_SERIALIZING);
         final boolean compressed = options.getOption(Options.Name.COMPRESS_WHEN_SERIALIZING);
         final SerializationKeyManager keyManager = keyManagerFromOptions(options);
@@ -148,7 +147,7 @@ public final class StoreConfig {
     }
 
     @Nullable
-    static SerializationKeyManager keyManagerFromOptions(@Nonnull Options options) throws RelationalException {
+    static SerializationKeyManager keyManagerFromOptions(Options options) throws RelationalException {
         final String keyStoreFileName = options.getOption(Options.Name.ENCRYPTION_KEY_STORE);
         if (keyStoreFileName == null) {
             return null;

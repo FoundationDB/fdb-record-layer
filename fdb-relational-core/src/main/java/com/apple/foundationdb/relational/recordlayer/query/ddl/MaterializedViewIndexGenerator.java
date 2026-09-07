@@ -82,9 +82,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.PeekingIterator;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -121,18 +119,15 @@ public final class MaterializedViewIndexGenerator {
     /**
      * Map from each correlation in the query plan to its list of results.
      */
-    @Nonnull
     private final IdentityHashMap<CorrelationIdentifier, Value> correlatedKeyExpressions = new IdentityHashMap<>();
 
-    @Nonnull
     private final List<RelationalExpression> relationalExpressions;
 
-    @Nonnull
     private final RelationalExpression relationalExpression;
 
     private final boolean useLegacyBasedExtremumEver;
 
-    private MaterializedViewIndexGenerator(@Nonnull RelationalExpression relationalExpression, boolean useLegacyBasedExtremumEver) {
+    private MaterializedViewIndexGenerator(RelationalExpression relationalExpression, boolean useLegacyBasedExtremumEver) {
         collectQuantifiers(relationalExpression);
         final var partialOrder = referencesAndDependencies().evaluate(Reference.initialOf(relationalExpression));
         relationalExpressions =
@@ -145,8 +140,7 @@ public final class MaterializedViewIndexGenerator {
         this.useLegacyBasedExtremumEver = useLegacyBasedExtremumEver;
     }
 
-    @Nonnull
-    public RecordLayerIndex.Builder generate(@Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder, @Nonnull String indexName,
+    public RecordLayerIndex.Builder generate(RecordLayerSchemaTemplate.Builder schemaTemplateBuilder, String indexName,
                                              boolean isUnique, boolean containsNullableArray, boolean generateKeyValueExpressionWithEmptyKey) {
         final String recordTypeName = getRecordTypeName();
         // Have to use the storage name here because the index generator uses it
@@ -234,7 +228,8 @@ public final class MaterializedViewIndexGenerator {
             final var indexExpressionAndType = generateAggregateIndexKeyExpression(aggregateValue, groupingKeyExpression);
             final String indexType = Objects.requireNonNull(indexExpressionAndType.getRight());
             indexBuilder.setIndexType(indexType);
-            indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(indexExpressionAndType.getLeft().toKeyExpression(), tableType, containsNullableArray)));
+            final var indexKeyExpressionValue = Objects.requireNonNull(indexExpressionAndType.getLeft());
+            indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(indexKeyExpressionValue.toKeyExpression(), tableType, containsNullableArray)));
             if (IndexTypes.PERMUTED_MIN.equals(indexType) || IndexTypes.PERMUTED_MAX.equals(indexType)) {
                 int permutedSize = aggregateOrderIndex < 0 ? 0 : (fieldValues.size() - aggregateOrderIndex);
                 indexBuilder.setOption(IndexOptions.PERMUTED_SIZE_OPTION, permutedSize);
@@ -245,8 +240,7 @@ public final class MaterializedViewIndexGenerator {
         return indexBuilder;
     }
 
-    @Nonnull
-    private List<Value> collectResultValues(@Nonnull Value value) {
+    private List<Value> collectResultValues(Value value) {
         final var resultValues = simplify(value);
         final var isSingleAggregation = resultValues.size() == 1 && resultValues.get(0) instanceof IndexableAggregateValue;
         final var maybeGroupBy = relationalExpressions.stream().filter(exp -> exp instanceof GroupByExpression).findFirst();
@@ -269,7 +263,7 @@ public final class MaterializedViewIndexGenerator {
                 // Make sure the grouping values and the result values are consistent
                 if (groupingValues == null) {
                     // This shouldn't happen unless there's more than one indexable aggregate value
-                    Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Grouping values absent from aggregate result value");
+                    throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Grouping values absent from aggregate result value");
                 }
                 final var simplifiedGroupingValues =
                         Values.deconstructRecord(groupingValues).stream()
@@ -298,9 +292,8 @@ public final class MaterializedViewIndexGenerator {
         }
     }
 
-    @Nonnull
-    private static List<Value> adjustGroupByFieldPaths(@Nonnull List<Value> resultValues,
-                                                       @Nonnull GroupByExpression groupByExpression) {
+    private static List<Value> adjustGroupByFieldPaths(List<Value> resultValues,
+                                                       GroupByExpression groupByExpression) {
         /*
          * This strips the root of the field path from every FieldValue that is referencing an attribute from the
          * underlying SELECT-WHERE expression.
@@ -326,8 +319,7 @@ public final class MaterializedViewIndexGenerator {
         })).collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
-    private List<Value> simplify(@Nonnull Value value) {
+    private List<Value> simplify(Value value) {
         return Values.deconstructRecord(value)
                 .stream()
                 .map(this::dereference)
@@ -335,9 +327,8 @@ public final class MaterializedViewIndexGenerator {
                 .collect(toList());
     }
 
-    @Nonnull
-    private List<Value> getOrderByValues(@Nonnull RelationalExpression relationalExpression,
-                                         @Nonnull Map<Value, String> orderingFunctions) {
+    private List<Value> getOrderByValues(RelationalExpression relationalExpression,
+                                         Map<Value, String> orderingFunctions) {
         if (relationalExpression instanceof LogicalSortExpression) {
             final var logicalSortExpression = (LogicalSortExpression) relationalExpression;
             final var reverseAliasMap = AliasMap.ofAliases(Quantifier.current(), logicalSortExpression.getQuantifiers().get(0).getAlias());
@@ -384,7 +375,7 @@ public final class MaterializedViewIndexGenerator {
         return List.of();
     }
 
-    private static List<Value> reorderValues(@Nonnull List<Value> values, @Nonnull List<Value> orderByValues) {
+    private static List<Value> reorderValues(List<Value> values, List<Value> orderByValues) {
         Assert.thatUnchecked(values.size() >= orderByValues.size());
         if (orderByValues.isEmpty()) {
             return values;
@@ -394,9 +385,8 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @SuppressWarnings({"OptionalIsPresent", "deprecation"})
-    @Nonnull
-    private NonnullPair<KeyExpression, String> generateAggregateIndexKeyExpression(@Nonnull AggregateValue aggregateValue,
-                                                                                   @Nonnull Optional<KeyExpression> maybeGroupingExpression) {
+    private NonnullPair<KeyExpression, String> generateAggregateIndexKeyExpression(AggregateValue aggregateValue,
+                                                                                   Optional<KeyExpression> maybeGroupingExpression) {
         Assert.thatUnchecked(aggregateValue instanceof IndexableAggregateValue);
         final var indexableAggregateValue = (IndexableAggregateValue) aggregateValue;
         final var child = Iterables.getOnlyElement(aggregateValue.getChildren());
@@ -471,7 +461,7 @@ public final class MaterializedViewIndexGenerator {
     return null if groupingExpression only contains bitmap_bucket_offset(col)
      */
     @Nullable
-    private KeyExpression removeBitmapBucketOffset(@Nonnull KeyExpression groupingExpression) {
+    private KeyExpression removeBitmapBucketOffset(KeyExpression groupingExpression) {
         // groupingExpression looks like [*, bitmap_bucket_offset(C)+], so it is either a ThenKeyExpression or a FunctionKeyExpression
         Assert.thatUnchecked(groupingExpression instanceof ThenKeyExpression || groupingExpression instanceof FunctionKeyExpression, "Unsupported index definition, expecting column or function arguments in group by");
         if (groupingExpression instanceof ThenKeyExpression) {
@@ -493,8 +483,7 @@ public final class MaterializedViewIndexGenerator {
         }
     }
 
-    @Nonnull
-    private KeyExpression generate(@Nonnull List<Value> fields, @Nonnull Map<Value, String> orderingFunctions) {
+    private KeyExpression generate(List<Value> fields, Map<Value, String> orderingFunctions) {
         if (fields.isEmpty()) {
             return EmptyKeyExpression.EMPTY;
         } else if (fields.size() == 1) {
@@ -523,7 +512,6 @@ public final class MaterializedViewIndexGenerator {
         }
     }
 
-    @Nonnull
     private KeyExpression toKeyExpression(Value value, Map<Value, String> orderingFunctions) {
         var expr = toKeyExpression(value);
         if (orderingFunctions.containsKey(value)) {
@@ -536,7 +524,6 @@ public final class MaterializedViewIndexGenerator {
     /**
      * Build the key expression representing the arguments of a {@link FunctionKeyExpression}.
      */
-    @Nonnull
     private static KeyExpression buildArgumentKeyExpression(List<KeyExpression> argumentList) {
         if (argumentList.isEmpty()) {
             return empty();
@@ -547,8 +534,7 @@ public final class MaterializedViewIndexGenerator {
         }
     }
 
-    @Nonnull
-    private KeyExpression toKeyExpression(@Nonnull Value value) {
+    private KeyExpression toKeyExpression(Value value) {
         if (value instanceof FieldValue) {
             final FieldValue fieldValue = (FieldValue) value;
             return toKeyExpression(fieldValue.getFieldPath().getFieldAccessors().iterator(), KeyExpression.FanType.FanOut);
@@ -576,18 +562,20 @@ public final class MaterializedViewIndexGenerator {
         } else if (value instanceof LiteralValue<?>) {
             return Key.Expressions.value(((LiteralValue<?>) value).getLiteralValue());
         } else {
-            Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "unable to construct expression");
-            return null;
+            throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "unable to construct expression");
         }
     }
 
-    @Nonnull
-    private static KeyExpression toKeyExpression(@Nonnull FieldValueTrieNode trieNode,
-                                                 @Nonnull Map<Value, String> orderingFunctions) {
-        Assert.notNullUnchecked(trieNode.getChildrenMap());
-        Assert.thatUnchecked(!trieNode.getChildrenMap().isEmpty());
+    private static KeyExpression toKeyExpression(FieldValueTrieNode trieNode,
+                                                 Map<Value, String> orderingFunctions) {
+        // FieldValueTrieNode.getChildrenMap() (fdb-record-layer-core) is @Nullable for leaf
+        // nodes; Assert.notNullUnchecked enforces the non-leaf invariant expected here at
+        // runtime with a clear RelationalException, but NullAway can't see that since Assert
+        // lives in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final var childrenMap = Assert.notNullUnchecked(trieNode.getChildrenMap());
+        Assert.thatUnchecked(!childrenMap.isEmpty());
 
-        final var childrenMap = trieNode.getChildrenMap();
         final var exprConstituents = childrenMap.entrySet().stream().map(nodeEntry -> {
             final FieldValue.ResolvedAccessor accessor = nodeEntry.getKey();
             final FieldValueTrieNode node = nodeEntry.getValue();
@@ -608,7 +596,7 @@ public final class MaterializedViewIndexGenerator {
         }
     }
 
-    private void checkValidity(@Nonnull List<? extends RelationalExpression> expressions) {
+    private void checkValidity(List<? extends RelationalExpression> expressions) {
 
         // there must be exactly one type full-unordered-scan, no joins, no self-joins.
         final var numScans = expressions.stream().filter(r -> r instanceof FullUnorderedScanExpression).count();
@@ -637,7 +625,7 @@ public final class MaterializedViewIndexGenerator {
     }
 
     @Nullable
-    public static QueryPredicate getTopLevelPredicate(@Nonnull List<? extends RelationalExpression> expressions) {
+    public static QueryPredicate getTopLevelPredicate(List<? extends RelationalExpression> expressions) {
         if (expressions.isEmpty()) {
             return null;
         }
@@ -684,15 +672,14 @@ public final class MaterializedViewIndexGenerator {
 
         private final int marker;
 
-        private AnnotatedAccessor(@Nonnull Type.Record.Field field,
+        private AnnotatedAccessor(Type.Record.Field field,
                                   int ordinal,
                                   int marker) {
             super(field, ordinal);
             this.marker = marker;
         }
 
-        @Nonnull
-        public static AnnotatedAccessor of(@Nonnull FieldValue.ResolvedAccessor resolvedAccessor, int marker) {
+        public static AnnotatedAccessor of(FieldValue.ResolvedAccessor resolvedAccessor, int marker) {
             return new AnnotatedAccessor(resolvedAccessor.getField(), resolvedAccessor.getOrdinal(), marker);
         }
 
@@ -717,12 +704,12 @@ public final class MaterializedViewIndexGenerator {
         }
     }
 
-    private void collectQuantifiers(@Nonnull RelationalExpression relationalExpression) {
+    private void collectQuantifiers(RelationalExpression relationalExpression) {
         AtomicInteger counter = new AtomicInteger(0);
         collectQuantifiersInternal(relationalExpression, counter);
     }
 
-    private void collectQuantifiersInternal(@Nonnull RelationalExpression relationalExpression, @Nonnull AtomicInteger explodeCounter) {
+    private void collectQuantifiersInternal(RelationalExpression relationalExpression, AtomicInteger explodeCounter) {
         for (final var qun : relationalExpression.getQuantifiers()) {
             if (qun.getRangesOver().get() instanceof ExplodeExpression) {
                 explodeCounter.incrementAndGet();
@@ -742,8 +729,7 @@ public final class MaterializedViewIndexGenerator {
         }
     }
 
-    @Nonnull
-    private Value dereference(@Nonnull Value value) {
+    private Value dereference(Value value) {
         if (value instanceof RecordConstructorValue) {
             return RecordConstructorValue.ofColumns(
                     ((RecordConstructorValue) value).getColumns()
@@ -762,7 +748,12 @@ public final class MaterializedViewIndexGenerator {
             final var valueWithChild = (ValueWithChild) value;
             return valueWithChild.withNewChild(dereference(valueWithChild.getChild()));
         } else if (value instanceof QuantifiedObjectValue) {
-            return dereference(correlatedKeyExpressions.get(value.getCorrelatedTo().stream().findFirst().orElseThrow()));
+            final var alias = value.getCorrelatedTo().stream().findFirst().orElseThrow();
+            // Every quantifier is registered into correlatedKeyExpressions by
+            // collectQuantifiers/collectQuantifiersInternal before any value referencing it is
+            // dereferenced, so the lookup here always hits.
+            return dereference(Objects.requireNonNull(correlatedKeyExpressions.get(alias),
+                    () -> "no correlated value found for alias " + alias));
         } else if (value instanceof ArithmeticValue) {
             final List<Value> newChildren = new ArrayList<>();
             for (Value v:value.getChildren()) {
@@ -774,8 +765,7 @@ public final class MaterializedViewIndexGenerator {
         }
     }
 
-    @Nonnull
-    private KeyExpression toKeyExpression(@Nonnull Iterator<FieldValue.ResolvedAccessor> resolvedAccessors, KeyExpression.FanType fanTypeForArray) {
+    private KeyExpression toKeyExpression(Iterator<FieldValue.ResolvedAccessor> resolvedAccessors, KeyExpression.FanType fanTypeForArray) {
         Assert.thatUnchecked(resolvedAccessors.hasNext(), "cannot resolve empty list");
         final FieldValue.ResolvedAccessor accessor = resolvedAccessors.next();
         final KeyExpression expression = toFieldKeyExpression(accessor, fanTypeForArray);
@@ -788,7 +778,6 @@ public final class MaterializedViewIndexGenerator {
         }
     }
 
-    @Nonnull
     private String getRecordTypeName() {
         final var expressionRefs = relationalExpressions.stream()
                 .filter(r -> r instanceof LogicalTypeFilterExpression)
@@ -806,8 +795,7 @@ public final class MaterializedViewIndexGenerator {
      * @param fanTypeForArray The fan-out type to use for the {@code field} key expression in case the field is an
      * ARRAY. This should be either {@code FanOut} or {@code Concatenate}.
      */
-    @Nonnull
-    private static KeyExpression toFieldKeyExpression(@Nonnull FieldValue.ResolvedAccessor accessor, KeyExpression.FanType fanTypeForArray) {
+    private static KeyExpression toFieldKeyExpression(FieldValue.ResolvedAccessor accessor, KeyExpression.FanType fanTypeForArray) {
         final Type.Record.Field fieldType = accessor.getField();
         Assert.notNullUnchecked(fieldType.getFieldStorageName());
         Assert.thatUnchecked(fanTypeForArray == KeyExpression.FanType.FanOut || fanTypeForArray == KeyExpression.FanType.Concatenate);
@@ -826,8 +814,7 @@ public final class MaterializedViewIndexGenerator {
         return field(fieldType.getFieldStorageName(), fanType);
     }
 
-    @Nonnull
-    public static MaterializedViewIndexGenerator from(@Nonnull RelationalExpression relationalExpression, boolean useLongBasedExtremumEver) {
+    public static MaterializedViewIndexGenerator from(RelationalExpression relationalExpression, boolean useLongBasedExtremumEver) {
         return new MaterializedViewIndexGenerator(relationalExpression, useLongBasedExtremumEver);
     }
 }

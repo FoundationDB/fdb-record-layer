@@ -28,8 +28,7 @@ import com.apple.foundationdb.relational.api.StorageCluster;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 import java.util.List;
 
@@ -39,6 +38,7 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public class TransactionBoundEmbeddedRelationalEngine extends EmbeddedRelationalEngine {
+    @Nullable
     private final RelationalPlanCache planCache;
     private final List<StorageCluster> clusters;
 
@@ -46,11 +46,11 @@ public class TransactionBoundEmbeddedRelationalEngine extends EmbeddedRelational
         this(Options.NONE);
     }
 
-    public TransactionBoundEmbeddedRelationalEngine(@Nonnull Options engineOptions) {
+    public TransactionBoundEmbeddedRelationalEngine(Options engineOptions) {
         this(engineOptions, null);
     }
 
-    public TransactionBoundEmbeddedRelationalEngine(@Nonnull Options engineOptions,
+    public TransactionBoundEmbeddedRelationalEngine(Options engineOptions,
                                                     @Nullable KeySpace keySpace) {
         super(List.of(new TransactionBoundStorageCluster(null, keySpace)), NoOpMetricRegistry.INSTANCE);
         final Integer primaryCacheSize = engineOptions.getOption(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES);
@@ -80,6 +80,7 @@ public class TransactionBoundEmbeddedRelationalEngine extends EmbeddedRelational
         return clusters;
     }
 
+    @Nullable
     public RelationalPlanCache getPlanCache() {
         return planCache;
     }

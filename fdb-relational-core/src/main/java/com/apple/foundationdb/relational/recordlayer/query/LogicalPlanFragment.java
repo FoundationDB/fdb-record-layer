@@ -26,9 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -53,28 +51,24 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public final class LogicalPlanFragment {
 
-    @Nonnull
     private final Optional<LogicalPlanFragment> parent;
 
-    @Nonnull
     private LogicalOperators operators;
 
-    @Nonnull
     private Optional<State> state;
 
-    @Nonnull
     private final List<Expression> innerJoinExpressions;
 
-    private LogicalPlanFragment(@Nonnull Optional<LogicalPlanFragment> parent,
-                                @Nonnull LogicalOperators operators,
-                                @Nonnull Optional<State> state) {
+    private LogicalPlanFragment(Optional<LogicalPlanFragment> parent,
+                                LogicalOperators operators,
+                                Optional<State> state) {
         this.parent = parent;
         this.operators = operators;
         this.state = state;
         this.innerJoinExpressions = new ArrayList<>();
     }
 
-    public void addInnerJoinExpression(@Nonnull Expression joinExpression) {
+    public void addInnerJoinExpression(Expression joinExpression) {
         this.innerJoinExpressions.add(joinExpression);
     }
 
@@ -82,17 +76,14 @@ public final class LogicalPlanFragment {
         this.innerJoinExpressions.clear();
     }
 
-    @Nonnull
     public List<Expression> getInnerJoinExpressions() {
         return Collections.unmodifiableList(innerJoinExpressions);
     }
 
-    @Nonnull
     public LogicalOperators getLogicalOperators() {
         return operators;
     }
 
-    @Nonnull
     public Optional<LogicalPlanFragment> getParentMaybe() {
         return parent;
     }
@@ -101,13 +92,11 @@ public final class LogicalPlanFragment {
         return parent.isPresent();
     }
 
-    @Nonnull
     public LogicalPlanFragment getParent() {
         Assert.thatUnchecked(parent.isPresent());
         return parent.get();
     }
 
-    @Nonnull
     public LogicalOperators getLogicalOperatorsIncludingOuter() {
         final ImmutableList.Builder<LogicalOperator> resultBuilder = ImmutableList.builder();
         resultBuilder.addAll(getLogicalOperators());
@@ -119,34 +108,31 @@ public final class LogicalPlanFragment {
         return LogicalOperators.of(resultBuilder.build());
     }
 
-    public void addOperator(@Nonnull LogicalOperator logicalOperator) {
+    public void addOperator(LogicalOperator logicalOperator) {
         this.operators = operators.concat(logicalOperator);
     }
 
-    public void setOperator(@Nonnull LogicalOperator logicalOperator) {
+    public void setOperator(LogicalOperator logicalOperator) {
         this.operators = LogicalOperators.ofSingle(logicalOperator);
     }
 
-    public void setState(@Nonnull State state) {
+    public void setState(State state) {
         this.state = Optional.of(state);
     }
 
-    public void setStateMaybe(@Nonnull Optional<State> state) {
+    public void setStateMaybe(Optional<State> state) {
         this.state = state;
     }
 
-    @Nonnull
     public State getState() {
         Assert.thatUnchecked(state.isPresent());
         return state.get();
     }
 
-    @Nonnull
     public Optional<State> getStateMaybe() {
         return state;
     }
 
-    @Nonnull
     public Set<CorrelationIdentifier> getOuterCorrelations() {
         final ImmutableSet.Builder<CorrelationIdentifier> resultBuilder = ImmutableSet.builder();
         var current = parent;
@@ -157,46 +143,38 @@ public final class LogicalPlanFragment {
         return resultBuilder.build();
     }
 
-    @Nonnull
     public LogicalPlanFragment addChild() {
         return LogicalPlanFragment.ofParent(Optional.of(this));
     }
 
-    @Nonnull
-    private static LogicalPlanFragment ofParent(@Nonnull Optional<LogicalPlanFragment> parent) {
+    private static LogicalPlanFragment ofParent(Optional<LogicalPlanFragment> parent) {
         return new LogicalPlanFragment(parent, LogicalOperators.empty(), Optional.empty());
     }
 
-    @Nonnull
     public static LogicalPlanFragment ofRoot() {
         return new LogicalPlanFragment(Optional.empty(), LogicalOperators.empty(), Optional.empty());
     }
 
     public static final class State {
 
-        @Nonnull
         private final Optional<Type> targetType;
 
-        @Nonnull
         private final Optional<StringTrieNode> targetTypeReorderings;
 
-        private State(@Nonnull Optional<Type> targetType,
-                      @Nonnull Optional<StringTrieNode> targetTypeReorderings) {
+        private State(Optional<Type> targetType,
+                      Optional<StringTrieNode> targetTypeReorderings) {
             this.targetType = targetType;
             this.targetTypeReorderings = targetTypeReorderings;
         }
 
-        @Nonnull
         public static Builder newBuilder() {
             return new Builder();
         }
 
-        @Nonnull
         public Optional<Type> getTargetType() {
             return targetType;
         }
 
-        @Nonnull
         public Optional<StringTrieNode> getTargetTypeReorderings() {
             return targetTypeReorderings;
         }
@@ -212,19 +190,16 @@ public final class LogicalPlanFragment {
             private Builder() {
             }
 
-            @Nonnull
-            public Builder withTargetType(@Nonnull Type targetType) {
+            public Builder withTargetType(Type targetType) {
                 this.targetType = targetType;
                 return this;
             }
 
-            @Nonnull
-            public Builder withTargetTypeReorderings(@Nonnull StringTrieNode targetTypeReorderings) {
+            public Builder withTargetTypeReorderings(StringTrieNode targetTypeReorderings) {
                 this.targetTypeReorderings = targetTypeReorderings;
                 return this;
             }
 
-            @Nonnull
             public State build() {
                 return new State(Optional.ofNullable(targetType), Optional.ofNullable(targetTypeReorderings));
             }

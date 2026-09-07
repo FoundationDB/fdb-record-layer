@@ -26,8 +26,7 @@ import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 public interface DirectScannable {
 
@@ -52,9 +51,15 @@ public interface DirectScannable {
      */
     ResumableIterator<Row> openScan(
             @Nullable Row keyPrefix,
-            @Nonnull Options options) throws RelationalException;
+            Options options) throws RelationalException;
 
-    Row get(@Nonnull Transaction t, @Nonnull Row key, @Nonnull Options options) throws RelationalException;
+    /**
+     * Get the record at the given key.
+     *
+     * @return the row at the given key, or {@code null} if no such row exists.
+     */
+    @Nullable
+    Row get(Transaction t, Row key, Options options) throws RelationalException;
 
     KeyBuilder getKeyBuilder() throws RelationalException;
 
@@ -63,7 +68,6 @@ public interface DirectScannable {
      *
      * @return the table name if it is a table, or index name if it is an index
      */
-    @Nonnull
     String getName();
 
     StructMetaData getMetaData() throws RelationalException;

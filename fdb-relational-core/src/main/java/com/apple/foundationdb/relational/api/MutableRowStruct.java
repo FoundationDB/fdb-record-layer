@@ -24,19 +24,23 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 
+import org.jspecify.annotations.Nullable;
 import java.sql.SQLException;
 import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
 public class MutableRowStruct extends RowStruct {
 
+    // null until setRow() is called with a non-null row, or after setRow(null) (e.g. once the underlying cursor is
+    // exhausted); see hasRow() and getObjectInternal() below.
+    @Nullable
     private Row row;
 
     public MutableRowStruct(StructMetaData metaData) {
         super(metaData);
     }
 
-    public void setRow(Row next) {
+    public void setRow(@Nullable Row next) {
         this.row = next;
     }
 

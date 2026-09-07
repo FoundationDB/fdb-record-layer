@@ -41,7 +41,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.List;
@@ -461,8 +460,12 @@ public class AutoCommitTests {
             conn = getConnectionWithExistingTransaction(conn, database.getConnectionUri(), alternateDriver);
         }
         setAutoCommit(conn, transactionType);
-        try (final var rs = conn.getMetaData().getTables("/TEST/AutoCommitTests", "TEST_SCHEMA", null, null)) {
-            ResultSetAssert.assertThat(rs)
+        // getTables' tableNamePattern/types params genuinely accept null per the JDBC javadoc contract
+        // (null means "match all"), but the unmigrated fdb-relational-api interface isn't annotated to say so.
+        @SuppressWarnings("NullAway")
+        final var tables = conn.getMetaData().getTables("/TEST/AutoCommitTests", "TEST_SCHEMA", null, null);
+        try (tables) {
+            ResultSetAssert.assertThat(tables)
                     .hasNextRow()
                     .hasNextRow()
                     .hasNextRow()
@@ -656,7 +659,7 @@ public class AutoCommitTests {
         }
     }
 
-    private static void checkOpenTransaction(@Nonnull EmbeddedRelationalConnection connection, TransactionType transactionType) {
+    private static void checkOpenTransaction(EmbeddedRelationalConnection connection, TransactionType transactionType) {
         if (transactionType == TransactionType.AUTO_COMMIT_ON) {
             Assertions.assertFalse(connection.inActiveTransaction());
         } else {
@@ -664,7 +667,7 @@ public class AutoCommitTests {
         }
     }
 
-    private static void checkAutoCommitAndCommitIfRequired(@Nonnull EmbeddedRelationalConnection connection, TransactionType transactionType) throws SQLException {
+    private static void checkAutoCommitAndCommitIfRequired(EmbeddedRelationalConnection connection, TransactionType transactionType) throws SQLException {
         if (transactionType == TransactionType.AUTO_COMMIT_ON || transactionType == TransactionType.EXISTING_TRANSACTION) {
             Assertions.assertTrue(connection.getAutoCommit());
         } else {
@@ -675,7 +678,7 @@ public class AutoCommitTests {
         }
     }
 
-    private static void setAutoCommit(@Nonnull RelationalConnection connection, TransactionType transactionType) throws SQLException {
+    private static void setAutoCommit(RelationalConnection connection, TransactionType transactionType) throws SQLException {
         if (transactionType == TransactionType.AUTO_COMMIT_ON) {
             connection.setAutoCommit(true);
         } else if (transactionType == TransactionType.AUTO_COMMIT_OFF_WITH_EXPLICIT_COMMIT || transactionType == TransactionType.AUTO_COMMIT_OFF_WITH_NO_COMMIT) {
@@ -683,7 +686,7 @@ public class AutoCommitTests {
         }
     }
 
-    private static EmbeddedRelationalConnection getConnectionWithExistingTransaction(@Nonnull EmbeddedRelationalConnection connection, @Nonnull URI uri, @Nonnull EmbeddedRelationalDriver alternateDriver) throws SQLException, RelationalException {
+    private static EmbeddedRelationalConnection getConnectionWithExistingTransaction(EmbeddedRelationalConnection connection, URI uri, EmbeddedRelationalDriver alternateDriver) throws SQLException, RelationalException {
         final var store = TransactionBoundDatabaseTest.getStore(connection);
         final var schemaTemplate = TransactionBoundDatabaseTest.getSchemaTemplate(connection);
 

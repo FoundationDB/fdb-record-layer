@@ -21,6 +21,7 @@
 plugins {
     id 'java-test-fixtures'
     alias(libs.plugins.jmh)
+    alias(libs.plugins.errorprone)
 }
 
 apply from: rootProject.file('gradle/antlr.gradle')
@@ -36,6 +37,7 @@ dependencies {
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
     implementation(libs.jsr305)
+    compileOnly(libs.jspecify)
     implementation(libs.guava)
     implementation(libs.antlr)
     implementation(libs.log4j.core)
@@ -43,6 +45,9 @@ dependencies {
     implementation(libs.caffeine.guava)
 
     antlr(libs.antlr)
+
+    errorprone(libs.errorprone.core)
+    errorprone(libs.nullaway)
 
     testImplementation(libs.bundles.test.impl)
     testImplementation(libs.bundles.test.runtime)
@@ -58,6 +63,7 @@ dependencies {
     testFixturesImplementation(libs.protobuf)
     testFixturesImplementation(libs.assertj)
     testFixturesImplementation(libs.jsr305)
+    testFixturesCompileOnly(libs.jspecify)
     // This is included just for ResultSetAssert. It does a bunch of this
     // Type.Record record = ProtobufDdlUtil.recordFromDescriptor(((Message) colValue).getDescriptorForType());
     testFixturesImplementation(project(coreProject))
@@ -71,6 +77,25 @@ dependencies {
 tasks.withType(Test).configureEach { theTask ->
     theTask.testFramework.options.includeEngines.add('auto-test')
     theTask.testFramework.options.includeEngines.add('junit-jupiter')
+}
+
+// jspecify + NullAway null-checking, scoped to this module. See @NullMarked package-info.java
+// files under com.apple.foundationdb.relational.{api,recordlayer,transactionbound,util} in this
+// module (fdb-relational-core also has non-@NullMarked test-only packages, e.g.
+// com.apple.foundationdb.relational.memory / .autotest under src/test, which fall outside these
+// prefixes and are therefore left unchecked). Generated ANTLR parser code
+// (com.apple.foundationdb.relational.generated) and generated protobuf code
+// (com.apple.foundationdb.relational.continuation, com.apple.foundationdb.relational.copy,
+// com.apple.foundationdb.record) already live outside these package prefixes, so no
+// UnannotatedSubPackages carve-out is needed.
+tasks.withType(JavaCompile).configureEach {
+    options.errorprone {
+        disableAllChecks = true
+        error("NullAway")
+        option("NullAway:AnnotatedPackages", "com.apple.foundationdb.relational.api,com.apple.foundationdb.relational.recordlayer,com.apple.foundationdb.relational.transactionbound,com.apple.foundationdb.relational.util")
+        option("NullAway:JSpecifyMode", "true")
+        option("NullAway:AcknowledgeRestrictiveAnnotations", "true")
+    }
 }
 
 publishing {

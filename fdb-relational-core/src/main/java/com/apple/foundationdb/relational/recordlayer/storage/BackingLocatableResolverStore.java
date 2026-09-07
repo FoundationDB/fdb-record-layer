@@ -54,10 +54,10 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 @API(API.Status.EXPERIMENTAL)
@@ -85,7 +85,9 @@ public final class BackingLocatableResolverStore implements BackingStore {
                 String name = key.getString(1);
                 CompletableFuture<ResolverResult> resultFuture = locatableResolver.readInTransaction(context, name);
                 ResolverResult result = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, resultFuture);
-                return result == null ? null : new MessageTuple(metaDataProvider.wrapResolverResult(name, result));
+                // result is non-null in this branch, so wrapResolverResult (which only returns
+                // null when its result argument is null) always returns non-null here.
+                return result == null ? null : new MessageTuple(Objects.requireNonNull(metaDataProvider.wrapResolverResult(name, result)));
             } else if (metaDataProvider.getResolverStateTypeKey().equals(typeKey)) {
                 ResolverStateProto.State state = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, locatableResolver.loadResolverState(context));
                 return state == null ? null : new MessageTuple(metaDataProvider.wrapResolverState(state));
@@ -111,7 +113,13 @@ public final class BackingLocatableResolverStore implements BackingStore {
             if (name == null) {
                 return null;
             }
-            return new MessageTuple(metaDataProvider.wrapInterning(name, value, null));
+            // wrapInterning's metaData parameter is correctly declared @Nullable byte[]; NullAway/
+            // JSpecify doesn't reliably track @Nullable on array-typed parameters for a literal
+            // null argument (known limitation), so suppress at this narrow declaration.
+            final byte[] noMetaData = null;
+            @SuppressWarnings("NullAway")
+            final MessageTuple result = new MessageTuple(metaDataProvider.wrapInterning(name, value, noMetaData));
+            return result;
         } catch (NoSuchElementException noSuchElementException) {
             return null;
         }
@@ -161,6 +169,11 @@ public final class BackingLocatableResolverStore implements BackingStore {
             }
 
             // Use the meta-data hook to ensure the value is created with the specified meta-data value
+            // MetadataHook (extends Function<String, byte[]>, defined in the not-yet-migrated
+            // fdb-record-layer-core) genuinely allows returning null (see
+            // ResolverCreateHooks.DEFAULT_HOOK = ignore -> null), but its unannotated byte[] type
+            // parameter is treated as non-null; known NullAway array-type limitation.
+            @SuppressWarnings("NullAway")
             ResolverCreateHooks.MetadataHook metadataHook = ignore -> metaData;
             ResolverCreateHooks createHooks = new ResolverCreateHooks(ResolverCreateHooks.DEFAULT_CHECK, metadataHook);
             context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, locatableResolver.createInTransaction(context, name, createHooks));
@@ -206,13 +219,21 @@ public final class BackingLocatableResolverStore implements BackingStore {
             throw new InternalErrorException("unsupported range");
         }
 
+        // continuation.getExecutionState() is @Nullable byte[]; NullAway/JSpecify does not reliably track
+        // @Nullable on array types across the calls below (fromFuture / locatableResolver.scan), so this
+        // ternary and its later uses are flagged as mismatched even though both sides agree it can be null.
+        @SuppressWarnings("NullAway")
         final byte[] continuationBytes = continuation == null ? null : continuation.getExecutionState();
         final ScanProperties scanProperties = QueryPropertiesUtils.getScanProperties(options);
         if (type.getName().equals(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME)) {
             // todo: this does not use the scanProperties to track runtime information like rows scanned
             // see: https://github.com/FoundationDB/fdb-record-layer/issues/3226
             final ExecuteProperties executeProperties = scanProperties.getExecuteProperties();
-            return RecordCursor.fromFuture(context.getExecutor(),
+            // See the comment above: continuationBytes is genuinely @Nullable byte[], and fromFuture's
+            // continuation parameter is likewise @Nullable byte[]; the mismatch NullAway reports here is
+            // the same array-tracking gap.
+            @SuppressWarnings("NullAway")
+            final RecordCursor<FDBStoredRecord<Message>> result = RecordCursor.fromFuture(context.getExecutor(),
                     () -> locatableResolver.loadResolverState(context).thenApply(state -> {
                         Message msg = metaDataProvider.wrapResolverState(state);
                         return FDBStoredRecord.newBuilder(msg)
@@ -222,15 +243,25 @@ public final class BackingLocatableResolverStore implements BackingStore {
                     }),
                     continuationBytes
             ).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+            return result;
         } else if (type.getName().equals(LocatableResolverMetaDataProvider.INTERNING_TYPE_NAME)) {
-            return locatableResolver.scan(context, continuationBytes, scanProperties)
+            // See the comment above: continuationBytes is genuinely @Nullable byte[], and
+            // locatableResolver.scan's continuation parameter is likewise @Nullable byte[]; the mismatch
+            // NullAway reports here is the same array-tracking gap.
+            @SuppressWarnings("NullAway")
+            final RecordCursor<FDBStoredRecord<Message>> result = locatableResolver.scan(context, continuationBytes, scanProperties)
                     .map(resolverKeyValue -> {
-                        Message msg = metaDataProvider.wrapResolverResult(resolverKeyValue.getKey(), resolverKeyValue.getValue());
+                        // resolverKeyValue.getValue() is @Nonnull, so wrapResolverResult (which
+                        // only returns null when its result argument is null) always returns
+                        // non-null here.
+                        Message msg = Objects.requireNonNull(
+                                metaDataProvider.wrapResolverResult(resolverKeyValue.getKey(), resolverKeyValue.getValue()));
                         return FDBStoredRecord.newBuilder(msg)
                                 .setRecordType(type)
                                 .setPrimaryKey(Tuple.from(resolverKeyValue.getKey()))
                                 .build();
                     });
+            return result;
         } else {
             throw new TypeNotPresentException(type.getName(), null);
         }
@@ -241,7 +272,6 @@ public final class BackingLocatableResolverStore implements BackingStore {
         throw new OperationUnsupportedException("Cannot scan indexes in interning layer store");
     }
 
-    @Nonnull
     @Override
     public RecordMetaData getRecordMetaData() {
         return metaDataProvider.getRecordMetaData();

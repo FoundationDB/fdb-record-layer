@@ -66,9 +66,16 @@ public class ExpressionTests {
         final var expressionFactory = new ExpressionFactoryImpl(sampleSchemaTemplate(), Options.NONE);
         Assertions.assertThat(expressionFactory.literal(false).getValue()).isEqualTo(false);
         Assertions.assertThat(expressionFactory.literal(true).getValue()).isEqualTo(true);
-        Assertions.assertThat(expressionFactory.literal((Boolean) null).getValue()).isNull();
+        // ExpressionFactory#literal(Boolean)/(Integer) in the not-yet-migrated fdb-relational-api module
+        // are missing @Nullable on their param (inconsistent with the Long/Double/Float/String overloads,
+        // which do have it); null is a genuinely valid input here.
+        @SuppressWarnings("NullAway")
+        final var nullBooleanLiteral = expressionFactory.literal((Boolean) null);
+        Assertions.assertThat(nullBooleanLiteral.getValue()).isNull();
         Assertions.assertThat(expressionFactory.literal(42).getValue()).isEqualTo(42);
-        Assertions.assertThat(expressionFactory.literal((Integer) null).getValue()).isNull();
+        @SuppressWarnings("NullAway")
+        final var nullIntegerLiteral = expressionFactory.literal((Integer) null);
+        Assertions.assertThat(nullIntegerLiteral.getValue()).isNull();
         Assertions.assertThat(expressionFactory.literal(42L).getValue()).isEqualTo(42L);
         Assertions.assertThat(expressionFactory.literal((Long) null).getValue()).isNull();
         Assertions.assertThat(expressionFactory.literal(42.0f).getValue()).isEqualTo(42.0f);

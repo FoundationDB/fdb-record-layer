@@ -30,7 +30,6 @@ import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedExce
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 
-import javax.annotation.Nonnull;
 
 /**
  * {@link StoreCatalog} supplier.
@@ -51,7 +50,7 @@ public class StoreCatalogProvider {
      * @return a fully initialized {@link StoreCatalog} instance
      * @throws RelationalException if catalog creation or initialization fails
      */
-    public static StoreCatalog getCatalog(@Nonnull final Transaction txn, @Nonnull final KeySpace keySpace) throws RelationalException {
+    public static StoreCatalog getCatalog(final Transaction txn, final KeySpace keySpace) throws RelationalException {
         return new RecordLayerStoreCatalog(keySpace).initialize(txn);
     }
 
@@ -62,7 +61,7 @@ public class StoreCatalogProvider {
         // Do not allow repairing Schema operation because they cannot work with NoOpSchemaTemplateCatalog.
         final var storeCatalog = new RecordLayerStoreCatalog(RelationalKeyspaceProvider.instance().getKeySpace()) {
             @Override
-            public void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName)
+            public void repairSchema(Transaction txn, String databaseId, String schemaName)
                     throws RelationalException {
                 throw new OperationUnsupportedException("This store catalog does not support repairing schema.");
             }

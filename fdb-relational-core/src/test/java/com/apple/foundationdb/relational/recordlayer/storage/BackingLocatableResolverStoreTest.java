@@ -63,8 +63,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
@@ -73,6 +72,7 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -93,7 +93,9 @@ public class BackingLocatableResolverStoreTest {
 
     @BeforeEach
     void setUp() throws RelationalException {
-        storageCluster = relationalExtension.getEngine()
+        // getEngine() is @Nullable only until the extension's own beforeEach() has run; JUnit guarantees that
+        // has already happened by the time this test's @BeforeEach executes.
+        storageCluster = Objects.requireNonNull(relationalExtension.getEngine(), "engine not initialized")
                 .getStorageClusters()
                 .stream()
                 .findFirst()
@@ -118,7 +120,6 @@ public class BackingLocatableResolverStoreTest {
             path.deleteAllData(context);
             context.commit();
         }
-        path = null;
     }
 
     private static class TransactionBoundLocatableResolverDatabase extends AbstractDatabase {
@@ -126,12 +127,14 @@ public class BackingLocatableResolverStoreTest {
         private final TransactionManager transactionManager;
         private final LocatableResolver resolver;
         private final StoreCatalog catalog;
+        // Never assigned outside of close(); genuinely null for the lifetime of this instance.
+        @Nullable
         private Transaction txn;
 
-        public TransactionBoundLocatableResolverDatabase(@Nonnull URI dbPath,
-                                                         @Nonnull StorageCluster cluster,
-                                                         @Nonnull LocatableResolver resolver,
-                                                         @Nonnull StoreCatalog catalog) {
+        public TransactionBoundLocatableResolverDatabase(URI dbPath,
+                                                         StorageCluster cluster,
+                                                         LocatableResolver resolver,
+                                                         StoreCatalog catalog) {
             super(NoOpMetadataOperationsFactory.INSTANCE, NoOpQueryFactory.INSTANCE, null, Options.NONE);
             this.dbPath = dbPath;
             this.transactionManager = cluster.getTransactionManager();
@@ -155,7 +158,7 @@ public class BackingLocatableResolverStoreTest {
         }
 
         @Override
-        public BackingStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
+        public BackingStore loadRecordStore(String schemaId, FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
             return BackingLocatableResolverStore.create(resolver, getCurrentTransaction());
         }
 
@@ -194,6 +197,9 @@ public class BackingLocatableResolverStoreTest {
         resolveMappings(db, 1);
     }
 
+    // assertMapping's byte[] metaData parameter is already @Nullable, but NullAway does not reliably
+    // track @Nullable on array-typed parameters.
+    @SuppressWarnings("NullAway")
     @Test
     void resolveMultiple() throws RelationalException, SQLException {
         RelationalDatabase db = createScopedInterningDatabase();
@@ -521,6 +527,10 @@ public class BackingLocatableResolverStoreTest {
         }
     }
 
+    // ResolverCreateHooks.MetadataHook (fdb-relational-api, not yet migrated) extends Function<String, byte[]>;
+    // returning null is the documented way to signal "no metadata" (see MetadataHook.DEFAULT_HOOK), but
+    // NullAway does not reliably track @Nullable on array-typed return values.
+    @SuppressWarnings("NullAway")
     private Map<String, Long> resolveMappings(RelationalDatabase db, int count) throws RelationalException, SQLException {
         return resolveMappings(db, count, ignore -> null);
     }
@@ -669,12 +679,10 @@ public class BackingLocatableResolverStoreTest {
         statement.executeInsert(LocatableResolverMetaDataProvider.RESOLVER_STATE_TYPE_NAME, struct, options);
     }
 
-    @Nonnull
     private RelationalResultSet scanResolverStates(RelationalStatement statement) throws SQLException {
         return scanResolverStates(statement, 0, ContinuationImpl.BEGIN);
     }
 
-    @Nonnull
     private RelationalResultSet scanResolverStates(RelationalStatement statement, int maxRows, Continuation continuation) throws SQLException {
         Options options = Options.builder()
                 .withOption(Options.Name.MAX_ROWS, maxRows)

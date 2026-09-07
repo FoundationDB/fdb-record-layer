@@ -32,8 +32,8 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Supplier;
 import com.codahale.metrics.MetricRegistry;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -60,10 +60,11 @@ import java.util.function.Function;
 @API(API.Status.EXPERIMENTAL)
 public final class StoreTimerMetricCollector implements MetricCollector {
 
-    @Nonnull
-    private final Function<StoreTimer.Event, StoreTimer> timerLookup;
+    // The lookup's result is @Nullable: FDBRecordContext#getTimerForEvent(...) can return null when no timer
+    // is attached to the context (e.g. a transaction-bound database context) -- see fromFDBRecordContext().
+    private final Function<StoreTimer.Event, @Nullable StoreTimer> timerLookup;
 
-    private StoreTimerMetricCollector(@Nonnull final Function<StoreTimer.Event, StoreTimer> timerLookup) {
+    private StoreTimerMetricCollector(final Function<StoreTimer.Event, @Nullable StoreTimer> timerLookup) {
         this.timerLookup = timerLookup;
     }
 
@@ -75,8 +76,7 @@ public final class StoreTimerMetricCollector implements MetricCollector {
      * <p>If {@code context} has no timer attached (e.g. a transaction-bound database context),
      * the lookup returns {@code null} and the collector silently drops writes; reads throw.</p>
      */
-    @Nonnull
-    public static StoreTimerMetricCollector fromFDBRecordContext(@Nonnull final FDBRecordContext context) {
+    public static StoreTimerMetricCollector fromFDBRecordContext(final FDBRecordContext context) {
         return new StoreTimerMetricCollector(context::getTimerForEvent);
     }
 
@@ -84,14 +84,13 @@ public final class StoreTimerMetricCollector implements MetricCollector {
      * Builds a fresh {@link MetricRegistryStoreTimer} over {@code registry} once, and hands it
      * back for every event lookup. All metrics land on the supplied Codahale registry.
      */
-    @Nonnull
-    public static StoreTimerMetricCollector fromMetricRegistry(@Nonnull final MetricRegistry registry) {
+    public static StoreTimerMetricCollector fromMetricRegistry(final MetricRegistry registry) {
         final StoreTimer timer = new MetricRegistryStoreTimer(registry);
         return new StoreTimerMetricCollector(event -> timer);
     }
 
     @Override
-    public void increment(@Nonnull final RelationalMetric.RelationalCount count, final int val) {
+    public void increment(final RelationalMetric.RelationalCount count, final int val) {
         @Nullable final StoreTimer timer = timerLookup.apply(count);
         if (timer != null) {
             timer.increment(count, val);
@@ -99,7 +98,7 @@ public final class StoreTimerMetricCollector implements MetricCollector {
     }
 
     @Override
-    public <T> T clock(@Nonnull final RelationalMetric.RelationalEvent event, final Supplier<T> supplier) throws RelationalException {
+    public <T extends @Nullable Object> T clock(final RelationalMetric.RelationalEvent event, final Supplier<T> supplier) throws RelationalException {
         final long startNanos = System.nanoTime();
         try {
             return supplier.get();
@@ -112,12 +111,17 @@ public final class StoreTimerMetricCollector implements MetricCollector {
     }
 
     @Override
-    public double getAverageTimeMicrosForEvent(@Nonnull final RelationalMetric.RelationalEvent event) {
-        @Nullable final StoreTimer timer = timerLookup.apply(event);
-        Assert.notNullUnchecked(timer, ErrorCode.INTERNAL_ERROR,
+    public double getAverageTimeMicrosForEvent(final RelationalMetric.RelationalEvent event) {
+        final StoreTimer timerOrNull = timerLookup.apply(event);
+        // Reassign through notNullUnchecked (rather than discarding its result) so the non-null check
+        // actually narrows the value used below; Assert.notNullUnchecked can't narrow it on its own since
+        // Assert lives in the not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final StoreTimer timer = Assert.notNullUnchecked(timerOrNull, ErrorCode.INTERNAL_ERROR,
                 "Cannot read metrics: no backing store timer for event %s", event.title());
-        final StoreTimer.Counter maybeCounter = timer.getCounter(event);
-        Assert.notNullUnchecked(maybeCounter, ErrorCode.INTERNAL_ERROR,
+        final StoreTimer.Counter maybeCounterOrNull = timer.getCounter(event);
+        @SuppressWarnings("NullAway")
+        final StoreTimer.Counter maybeCounter = Assert.notNullUnchecked(maybeCounterOrNull, ErrorCode.INTERNAL_ERROR,
                 "Cannot find metrics associated for requested event: %s", event.title());
         if (maybeCounter.getCount() == 0) {
             return 0.0;
@@ -126,20 +130,25 @@ public final class StoreTimerMetricCollector implements MetricCollector {
     }
 
     @Override
-    public long getCountsForCounter(@Nonnull final RelationalMetric.RelationalCount count) {
-        @Nullable final StoreTimer timer = timerLookup.apply(count);
-        Assert.notNullUnchecked(timer, ErrorCode.INTERNAL_ERROR,
+    public long getCountsForCounter(final RelationalMetric.RelationalCount count) {
+        final StoreTimer timerOrNull = timerLookup.apply(count);
+        @SuppressWarnings("NullAway")
+        final StoreTimer timer = Assert.notNullUnchecked(timerOrNull, ErrorCode.INTERNAL_ERROR,
                 "Cannot read metrics: no backing store timer for count %s", count.title());
         Assert.thatUnchecked(hasCounter(count), ErrorCode.INTERNAL_ERROR,
                 "Cannot find metrics associated for requested event: %s", count.title());
-        final StoreTimer.Counter counter = timer.getCounter(count);
+        // hasCounter(count) (just asserted true above) already established that timer.getCounter(count) !=
+        // null; NullAway can't track that across the Assert.thatUnchecked call since Assert lives in the
+        // not-yet-migrated fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final StoreTimer.Counter counter = Objects.requireNonNull(timer.getCounter(count));
         Assert.thatUnchecked(counter.getTimeNanos() == 0, ErrorCode.INTERNAL_ERROR,
                 "Event: %s records time and is probably a event timer", count.title());
         return counter.getCount();
     }
 
     @Override
-    public boolean hasCounter(@Nonnull final RelationalMetric.RelationalCount count) {
+    public boolean hasCounter(final RelationalMetric.RelationalCount count) {
         @Nullable final StoreTimer timer = timerLookup.apply(count);
         return timer != null && timer.getCounter(count) != null;
     }

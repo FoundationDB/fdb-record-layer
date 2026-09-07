@@ -21,4 +21,7 @@
 /**
  * Internal utils for the {@link com.apple.foundationdb.relational.api.catalog}.
  */
+@NullMarked
 package com.apple.foundationdb.relational.util.catalog;
+
+import org.jspecify.annotations.NullMarked;

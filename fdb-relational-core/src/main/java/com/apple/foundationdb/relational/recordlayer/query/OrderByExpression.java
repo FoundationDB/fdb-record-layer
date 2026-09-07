@@ -29,8 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.Iterables;
-
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -39,43 +37,38 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 public final class OrderByExpression {
 
-    @Nonnull
     private final Expression expression;
     private final boolean descending;
     private final boolean nullsLast;
 
-    private OrderByExpression(@Nonnull Expression expression, boolean descending, boolean nullsLast) {
+    private OrderByExpression(Expression expression, boolean descending, boolean nullsLast) {
         this.expression = expression;
         this.descending = descending;
         this.nullsLast = nullsLast;
     }
 
-    @Nonnull
     public Expression getExpression() {
         return expression;
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private OrderByExpression withExpression(@Nonnull Expression expression) {
+    private OrderByExpression withExpression(Expression expression) {
         if (this.expression == expression) {
             return this;
         }
         return new OrderByExpression(expression, descending, nullsLast);
     }
 
-    @Nonnull
-    public static OrderByExpression of(@Nonnull Expression expression, boolean descending, boolean nullsLast) {
+    public static OrderByExpression of(Expression expression, boolean descending, boolean nullsLast) {
         return new OrderByExpression(expression, descending, nullsLast);
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    @Nonnull
-    public static Stream<OrderByExpression> pullUp(@Nonnull final Stream<OrderByExpression> orderBys,
-                                                   @Nonnull final Value value,
-                                                   @Nonnull final CorrelationIdentifier correlationIdentifier,
-                                                   @Nonnull final Set<CorrelationIdentifier> constantAliases,
-                                                   @Nonnull final Optional<Identifier> qualifier) {
+    public static Stream<OrderByExpression> pullUp(final Stream<OrderByExpression> orderBys,
+                                                   final Value value,
+                                                   final CorrelationIdentifier correlationIdentifier,
+                                                   final Set<CorrelationIdentifier> constantAliases,
+                                                   final Optional<Identifier> qualifier) {
         final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
         final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         return orderBys
@@ -90,13 +83,20 @@ public final class OrderByExpression {
                     // the structural matching inside `pullUp()`.
                     final var underlying = orderByExpression.getUnderlying()
                             .simplify(EvaluationContext.empty(), aliasMap, constantAliases);
+                    // replace() is declared @Nullable in general (it returns null if the replacement operator
+                    // returns null for any node), but our operator below never returns null; Assert.notNullUnchecked
+                    // enforces that at runtime with a clear RelationalException, but NullAway can't see that since
+                    // Assert lives in the not-yet-migrated fdb-relational-api module.
+                    @SuppressWarnings("NullAway")
                     final var pulledUpUnderlying = Assert.notNullUnchecked(underlying.replace(
                             subExpression -> {
                                 final var pulledUpExpressionMap =
                                         simplifiedValue.pullUp(List.of(subExpression), EvaluationContext.empty(),
                                                 aliasMap, constantAliases, correlationIdentifier);
                                 if (pulledUpExpressionMap.containsKey(subExpression) && !pulledUpExpressionMap.get(subExpression).isEmpty()) {
-                                    return Iterables.getFirst(pulledUpExpressionMap.get(subExpression), null);
+                                    // the emptiness check above guarantees this always returns an actual element, so
+                                    // subExpression (rather than null) is passed as the unused fallback default.
+                                    return Iterables.getFirst(pulledUpExpressionMap.get(subExpression), subExpression);
                                 }
                                 return subExpression;
                             }
@@ -111,7 +111,6 @@ public final class OrderByExpression {
                 });
     }
 
-    @Nonnull
     public OrderingPart.RequestedSortOrder toSortOrder() {
         if (descending) {
             return nullsLast ? OrderingPart.RequestedSortOrder.DESCENDING : OrderingPart.RequestedSortOrder.DESCENDING_NULLS_FIRST;
@@ -120,10 +119,9 @@ public final class OrderByExpression {
         }
     }
 
-    @Nonnull
-    public static Stream<OrderingPart.RequestedOrderingPart> toOrderingParts(@Nonnull Stream<OrderByExpression> orderBys,
-                                                                             @Nonnull CorrelationIdentifier rebaseSource,
-                                                                             @Nonnull CorrelationIdentifier rebaseTarget) {
+    public static Stream<OrderingPart.RequestedOrderingPart> toOrderingParts(Stream<OrderByExpression> orderBys,
+                                                                             CorrelationIdentifier rebaseSource,
+                                                                             CorrelationIdentifier rebaseTarget) {
         final var aliasMap = AliasMap.ofAliases(rebaseSource, rebaseTarget);
         return orderBys.map(orderBy -> {
             final var rebased = orderBy.getExpression().getUnderlying().rebase(aliasMap);

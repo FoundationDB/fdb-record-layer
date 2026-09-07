@@ -42,7 +42,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -56,6 +55,9 @@ public abstract class RecordLayerStoreCatalogTestBase {
 
     KeySpace keySpace;
 
+    // fdb and storeCatalog are initialized by subclasses' @BeforeEach methods (e.g.
+    // RecordLayerStoreCatalogImplTest.setUpCatalog()), not by this constructor.
+    @SuppressWarnings("NullAway.Init")
     RecordLayerStoreCatalogTestBase() {
         final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
         keyspaceProvider.registerDomainIfNotExists("TEST");
@@ -286,30 +288,31 @@ public abstract class RecordLayerStoreCatalogTestBase {
     }
 
     @SuppressWarnings({"SameParameterValue"})
-    static RecordLayerSchema generateTestSchema(@Nonnull final String schemaName,
-                                                @Nonnull final String databaseId,
-                                                @Nonnull final String schemaTemplateName,
+    static RecordLayerSchema generateTestSchema(final String schemaName,
+                                                final String databaseId,
+                                                final String schemaTemplateName,
                                                 final int schemaTemplateVersion) {
         return generateTestSchema(schemaName, databaseId, schemaTemplateName, schemaTemplateVersion, false);
     }
 
     @SuppressWarnings({"SameParameterValue"})
-    static RecordLayerSchema generateTestSchema(@Nonnull final String schemaName,
-                                                @Nonnull final String databaseId,
-                                                @Nonnull final String schemaTemplateName,
+    static RecordLayerSchema generateTestSchema(final String schemaName,
+                                                final String databaseId,
+                                                final String schemaTemplateName,
                                                 final int schemaTemplateVersion,
                                                 boolean withViews) {
         final var template = generateTestSchemaTemplate(schemaTemplateName, schemaTemplateVersion, withViews);
         return template.generateSchema(databaseId, schemaName);
     }
 
-    @Nonnull
-    static RecordLayerSchemaTemplate generateTestSchemaTemplate(@Nonnull final String schemaTemplateName, int version) {
+    static RecordLayerSchemaTemplate generateTestSchemaTemplate(final String schemaTemplateName, int version) {
         return generateTestSchemaTemplate(schemaTemplateName, version, false);
     }
 
-    @Nonnull
-    static RecordLayerSchemaTemplate generateTestSchemaTemplate(@Nonnull final String schemaTemplateName, int version, boolean withViews) {
+    // The view compiler lambdas below intentionally return null (views are never actually compiled in these
+    // tests), but Function<Boolean, LogicalOperator>.apply() is assumed @NonNull.
+    @SuppressWarnings("NullAway")
+    static RecordLayerSchemaTemplate generateTestSchemaTemplate(final String schemaTemplateName, int version, boolean withViews) {
         final var builder = RecordLayerSchemaTemplate
                 .newBuilder()
                 .addTable(

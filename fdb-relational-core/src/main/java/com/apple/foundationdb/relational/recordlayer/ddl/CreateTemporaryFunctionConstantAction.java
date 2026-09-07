@@ -29,28 +29,25 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvoked
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.util.Assert;
 
-import javax.annotation.Nonnull;
 
 public class CreateTemporaryFunctionConstantAction implements ConstantAction  {
 
-    @Nonnull
     private final RecordLayerInvokedRoutine invokedRoutine;
 
     private final boolean throwIfExists;
 
-    @Nonnull
     private final SchemaTemplate template;
 
-    public CreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template,
+    public CreateTemporaryFunctionConstantAction(final SchemaTemplate template,
                                                  boolean throwIfExists,
-                                                 @Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+                                                 final RecordLayerInvokedRoutine invokedRoutine) {
         this.template = template;
         this.throwIfExists = throwIfExists;
         this.invokedRoutine = invokedRoutine;
     }
 
     @Override
-    public void execute(@Nonnull final Transaction txn) throws RelationalException {
+    public void execute(final Transaction txn) throws RelationalException {
         final var transactionBoundSchemaTemplate = Assert.castUnchecked(txn.getBoundSchemaTemplateMaybe().orElse(template),
                 RecordLayerSchemaTemplate.class);
 

@@ -27,6 +27,7 @@ import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.JavaType;
 import com.google.protobuf.Message;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -59,7 +60,7 @@ class ProtobufDataBuilderTest {
         );
     }
 
-    private static Arguments invalidField(String name, JavaType javaType, String messageType, boolean isRepeated) {
+    private static Arguments invalidField(String name, JavaType javaType, @Nullable String messageType, boolean isRepeated) {
         DescriptorProtos.FieldDescriptorProto proto = newDescriptor(name, javaType, messageType, isRepeated);
         Object value;
         switch (javaType) {
@@ -87,7 +88,7 @@ class ProtobufDataBuilderTest {
         return Arguments.of(proto, value);
     }
 
-    private static Arguments fieldArgs(String name, JavaType javaType, String messageType, boolean isRepeated) {
+    private static Arguments fieldArgs(String name, JavaType javaType, @Nullable String messageType, boolean isRepeated) {
         DescriptorProtos.FieldDescriptorProto proto = newDescriptor(name, javaType, messageType, isRepeated);
         Object value;
         switch (javaType) {
@@ -117,7 +118,7 @@ class ProtobufDataBuilderTest {
 
     public static DescriptorProtos.FieldDescriptorProto newDescriptor(String name,
                                                                       JavaType javaType,
-                                                                      String messageType,
+                                                                      @Nullable String messageType,
                                                                       boolean isRepeated) {
         DescriptorProtos.FieldDescriptorProto.Builder proto = DescriptorProtos.FieldDescriptorProto.newBuilder()
                 .setName(name);

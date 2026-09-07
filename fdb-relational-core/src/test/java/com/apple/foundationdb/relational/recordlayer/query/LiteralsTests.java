@@ -26,8 +26,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -41,7 +39,6 @@ import java.util.Set;
  */
 public class LiteralsTests {
 
-    @Nonnull
     private final Random random = new Random(42L);
 
     @Test
@@ -79,20 +76,17 @@ public class LiteralsTests {
         Assertions.assertEquals(expectedMap, actualAsMap);
     }
 
-    @Nonnull
     private static OrderedLiteral nonNullLiteral(int tokenIndex, int value) {
         return new OrderedLiteral(Type.primitiveType(Type.TypeCode.LONG), value, null, null, tokenIndex, Optional.empty());
     }
 
-    @Nonnull
     private static OrderedLiteral nullLiteral(int tokenIndex) {
         return new OrderedLiteral(Type.primitiveType(Type.TypeCode.NULL), null /*literal value*/, null, null, tokenIndex, Optional.empty());
     }
 
     private static final int ARGUMENTS_SIZE = 100;
 
-    @Nonnull
-    public static Set<Integer> generateUniqueIntegers(@Nonnull final Random random, int min, int max, int count) {
+    public static Set<Integer> generateUniqueIntegers(final Random random, int min, int max, int count) {
         Assert.thatUnchecked(0 <= min && min < max, "invalid range boundaries");
         Assert.thatUnchecked(count > 0 && count <= (max - min), "pick values' range is smaller than the desired number of unique values");
         return random.ints(min, max + 1)

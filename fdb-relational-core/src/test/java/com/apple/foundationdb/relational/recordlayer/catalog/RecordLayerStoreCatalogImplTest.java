@@ -47,7 +47,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.Locale;
 import java.util.UUID;
@@ -455,8 +454,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
      * the template-existence assertion. Returns the database URI so callers can address the
      * schema.
      */
-    @Nonnull
-    private URI preSaveExistingSchema(@Nonnull String dbSuffix) throws RelationalException {
+    private URI preSaveExistingSchema(String dbSuffix) throws RelationalException {
         final String dbId = "/TEST/" + dbSuffix;
         final Schema existing = generateTestSchema("s", dbId, INITIAL_TEMPLATE, INITIAL_VERSION);
         final SchemaTemplate newerVersion = generateTestSchemaTemplate(INITIAL_TEMPLATE, INITIAL_VERSION + 1);
@@ -475,8 +473,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
     }
 
     /** Build the schema used for the second save based on {@code shape}. */
-    @Nonnull
-    private Schema secondSaveSchema(@Nonnull URI dbId, @Nonnull SecondSaveShape shape) {
+    private Schema secondSaveSchema(URI dbId, SecondSaveShape shape) {
         return switch (shape) {
             case IDENTICAL -> generateTestSchema("s", dbId.toString(), INITIAL_TEMPLATE, INITIAL_VERSION);
             case NEWER_VERSION -> generateTestSchema("s", dbId.toString(), INITIAL_TEMPLATE, INITIAL_VERSION + 1);
@@ -487,7 +484,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
     }
 
     /** Reload the schema at {@code (dbId, "s")} and assert the persisted template matches. */
-    private void assertPersistedTemplateEquals(@Nonnull URI dbId, @Nonnull String expectedTemplateName,
+    private void assertPersistedTemplateEquals(URI dbId, String expectedTemplateName,
                                                int expectedVersion) throws RelationalException {
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             final Schema reloaded = storeCatalog.loadSchema(txn, dbId, "s");
@@ -505,7 +502,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
     /** Test a saveSchema with various exists behaviors when the schema already exists. **/
     @ParameterizedTest
     @MethodSource
-    void saveSchemaExistsBehavior(@Nonnull SecondSaveShape shape, @Nonnull SchemaExistsBehavior behavior) throws RelationalException {
+    void saveSchemaExistsBehavior(SecondSaveShape shape, SchemaExistsBehavior behavior) throws RelationalException {
         URI dbId = preSaveExistingSchema("db_error_" + shape.name().toLowerCase(Locale.ROOT));
         final Schema second = secondSaveSchema(dbId, shape);
         if (shape.succeeds(behavior)) {
@@ -531,7 +528,7 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
     /** Test a saveSchema with various exists behaviors when the schema does not already exist. **/
     @ParameterizedTest
     @EnumSource(SchemaExistsBehavior.class)
-    void saveSchemaExistsBehaviorWithNothing(@Nonnull SchemaExistsBehavior behavior) throws RelationalException {
+    void saveSchemaExistsBehaviorWithNothing(SchemaExistsBehavior behavior) throws RelationalException {
         final String dbId = "/TEST/" + "schema_exists_with_nothing" + behavior;
         final Schema initialSchema = generateTestSchema("s", dbId, INITIAL_TEMPLATE, INITIAL_VERSION);
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
@@ -566,10 +563,10 @@ public class RecordLayerStoreCatalogImplTest extends RecordLayerStoreCatalogTest
      */
     @ParameterizedTest
     @MethodSource
-    void concurrentSaveSchema(@Nonnull SchemaExistsBehavior behavior1,
-                              @Nonnull SchemaExistsBehavior behavior2,
-                              @Nonnull SecondSaveShape shape1,
-                              @Nonnull SecondSaveShape shape2,
+    void concurrentSaveSchema(SchemaExistsBehavior behavior1,
+                              SchemaExistsBehavior behavior2,
+                              SecondSaveShape shape1,
+                              SecondSaveShape shape2,
                               boolean txn2UnrelatedWrite) throws RelationalException {
         // We only exercise pairs where BOTH sides return from saveSchema — otherwise the
         // synchronous throw kills the setup and there's no commit ordering to observe.

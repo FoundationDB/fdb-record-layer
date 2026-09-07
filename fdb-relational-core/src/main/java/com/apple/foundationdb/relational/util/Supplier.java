@@ -23,8 +23,10 @@ package com.apple.foundationdb.relational.util;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
+import org.jspecify.annotations.Nullable;
+
 @FunctionalInterface
-public interface Supplier<T> {
+public interface Supplier<T extends @Nullable Object> {
 
     /**
      * Gets a result.

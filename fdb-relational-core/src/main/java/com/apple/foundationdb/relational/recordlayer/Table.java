@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Set;
 
@@ -37,7 +36,6 @@ import java.util.Set;
 @ConnectionScoped
 public interface Table extends DirectScannable, AutoCloseable {
 
-    @Nonnull
     DatabaseSchema getSchema();
 
     //TODO(bfines) I'm not sure if this is the right place to put this logic
@@ -46,7 +44,7 @@ public interface Table extends DirectScannable, AutoCloseable {
     // correct mutation behavior
     // and what about scans/gets? Should they go here too?
 
-    boolean deleteRecord(@Nonnull Row key) throws RelationalException;
+    boolean deleteRecord(Row key) throws RelationalException;
 
     void deleteRange(Map<String, Object> prefix) throws RelationalException;
 
@@ -59,7 +57,7 @@ public interface Table extends DirectScannable, AutoCloseable {
      * @deprecated since 01/18/2023; use {@link #insertRecord(RelationalStruct, boolean)} instead.
      */
     @Deprecated
-    boolean insertRecord(@Nonnull Message message, boolean replaceOnDuplicate) throws RelationalException;
+    boolean insertRecord(Message message, boolean replaceOnDuplicate) throws RelationalException;
 
     /**
      * Replaces {@link #insertRecord(Message, boolean)} encapsulating protobuf usage.
@@ -68,14 +66,13 @@ public interface Table extends DirectScannable, AutoCloseable {
      * @return Whether insert was successful or not.
      * @throws RelationalException Thrown if record exists already or if error on insert.
      */
-    boolean insertRecord(@Nonnull RelationalStruct insert, boolean replaceOnDuplicate) throws RelationalException;
+    boolean insertRecord(RelationalStruct insert, boolean replaceOnDuplicate) throws RelationalException;
 
     Set<Index> getAvailableIndexes() throws RelationalException;
 
     @Override
     void close() throws RelationalException;
 
-    @Nonnull
     @Override
     String getName();
 
@@ -88,5 +85,5 @@ public interface Table extends DirectScannable, AutoCloseable {
      * @param options the options to use.
      * @throws RelationalException if the table is invalid for these options.
      */
-    void validateTable(@Nonnull Options options) throws RelationalException;
+    void validateTable(Options options) throws RelationalException;
 }

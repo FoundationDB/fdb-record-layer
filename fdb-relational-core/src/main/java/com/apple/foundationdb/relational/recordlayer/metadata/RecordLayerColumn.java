@@ -26,32 +26,27 @@ import com.apple.foundationdb.relational.api.metadata.Column;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.util.Assert;
 
-import javax.annotation.Nonnull;
 import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
 public class RecordLayerColumn implements Column {
-    @Nonnull
     private final String name;
 
-    @Nonnull
     private final DataType dataType;
 
     private final int index;
 
-    RecordLayerColumn(@Nonnull String name, @Nonnull DataType dataType, int index) {
+    RecordLayerColumn(String name, DataType dataType, int index) {
         this.name = name;
         this.dataType = dataType;
         this.index = index;
     }
 
-    @Nonnull
     @Override
     public DataType getDataType() {
         return dataType;
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return name;
@@ -89,23 +84,23 @@ public class RecordLayerColumn implements Column {
 
         private int index;
 
+        // name and dataType are populated by the fluent setters below, so NullAway cannot see
+        // that they are always set before use in build().
+        @SuppressWarnings("NullAway.Init")
         private Builder() {
             this.index = -1;
         }
 
-        @Nonnull
         public Builder setName(String name) {
             this.name = name;
             return this;
         }
 
-        @Nonnull
-        public Builder setDataType(@Nonnull final DataType dataType) {
+        public Builder setDataType(final DataType dataType) {
             this.dataType = dataType;
             return this;
         }
 
-        @Nonnull
         public Builder setIndex(int index) {
             Assert.thatUnchecked(index >= 0);
             this.index = index;
@@ -117,12 +112,10 @@ public class RecordLayerColumn implements Column {
         }
     }
 
-    @Nonnull
-    public static RecordLayerColumn from(@Nonnull final DataType.StructType.Field field) {
+    public static RecordLayerColumn from(final DataType.StructType.Field field) {
         return new RecordLayerColumn(field.getName(), field.getType(), field.getIndex());
     }
 
-    @Nonnull
     public static RecordLayerColumn.Builder newBuilder() {
         return new Builder();
     }

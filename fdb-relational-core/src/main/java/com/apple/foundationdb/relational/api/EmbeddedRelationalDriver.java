@@ -26,8 +26,8 @@ import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -43,7 +43,10 @@ public class EmbeddedRelationalDriver implements RelationalDriver {
 
     private EmbeddedRelationalEngine engine;
 
-    public EmbeddedRelationalDriver(@Nullable EmbeddedRelationalEngine engine) throws SQLException {
+    // engine is dereferenced unconditionally below (e.g. engine.getStorageClusters()) with no null check,
+    // and no caller in this codebase ever passes null, so @Nullable here was never actually honored;
+    // require it, matching actual usage.
+    public EmbeddedRelationalDriver(EmbeddedRelationalEngine engine) throws SQLException {
         this.engine = engine;
     }
 
@@ -53,15 +56,19 @@ public class EmbeddedRelationalDriver implements RelationalDriver {
     }
 
     @Override
-    public RelationalConnection connect(@Nonnull URI url,
-                                        @Nonnull Options connectionOptions) throws SQLException {
+    public RelationalConnection connect(URI url,
+                                        Options connectionOptions) throws SQLException {
         return connect(url, null, connectionOptions);
     }
 
-    @SuppressWarnings("PMD.CloseResource") // returns connection outliving auto-closeable object. Should consider refactoring
-    public RelationalConnection connect(@Nonnull URI url,
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"})
+    // PMD: returns connection outliving auto-closeable object. Should consider refactoring
+    // NullAway: per the java.sql.Driver#connect(String, Properties) contract this method mirrors, returning
+    // null here for a URL this driver doesn't understand is correct, expected behavior (relied upon by
+    // java.sql.DriverManager when trying multiple registered drivers), not a bug.
+    public RelationalConnection connect(URI url,
                                         @Nullable Transaction existingTransaction,
-                                        @Nonnull Options connectionOptions) throws SQLException {
+                                        Options connectionOptions) throws SQLException {
         final var urlString = url.toString();
         if (!acceptsURL(urlString)) {
             return null;

@@ -40,7 +40,6 @@ import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.base.Joiner;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -65,7 +64,6 @@ public class KeyBuilder {
         return key.getColumnSize();
     }
 
-    @Nonnull
     public Row buildKey(Map<String, Object> keyFields, boolean failOnIncompleteKey) throws RelationalException {
         Map<String, Object> keysNotPicked = new HashMap<>(keyFields);
         List<Object> flattenedFields = new ArrayList<>();
@@ -107,7 +105,6 @@ public class KeyBuilder {
         return new FDBTuple(Tuple.fromList(flattenedFields));
     }
 
-    @Nonnull
     public Row buildKey(Row scannedRow) throws RelationalException {
         int scannedIndex = 0;
         List<Object> flattenedFields = new ArrayList<>();

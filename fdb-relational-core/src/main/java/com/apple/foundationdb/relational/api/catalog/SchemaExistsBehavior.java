@@ -24,8 +24,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 
-import javax.annotation.Nonnull;
-
 /**
  * Governs what {@link StoreCatalog#saveSchema} does when a schema already exists at the
  * target {@code (databaseId, schemaName)} coordinate.
@@ -45,7 +43,7 @@ public enum SchemaExistsBehavior {
      */
     ERROR {
         @Override
-        public boolean shouldWrite(@Nonnull Schema newSchema, @Nonnull Schema existingSchema) throws RelationalException {
+        public boolean shouldWrite(Schema newSchema, Schema existingSchema) throws RelationalException {
             throw new RelationalException("Schema " + newSchema.getDatabaseName() + "/" + newSchema.getName() +
                     " already exists.", ErrorCode.SCHEMA_ALREADY_EXISTS);
         }
@@ -56,7 +54,7 @@ public enum SchemaExistsBehavior {
      */
     ERROR_IF_DIFFERENT {
         @Override
-        public boolean shouldWrite(@Nonnull Schema newSchema, @Nonnull Schema existingSchema) throws RelationalException {
+        public boolean shouldWrite(Schema newSchema, Schema existingSchema) throws RelationalException {
             if (areSchemasIdentical(newSchema, existingSchema)) {
                 return false;
             }
@@ -75,7 +73,7 @@ public enum SchemaExistsBehavior {
      */
     DO_NOTHING {
         @Override
-        public boolean shouldWrite(@Nonnull Schema newSchema, @Nonnull Schema existingSchema) {
+        public boolean shouldWrite(Schema newSchema, Schema existingSchema) {
             return false;
         }
     },
@@ -85,7 +83,7 @@ public enum SchemaExistsBehavior {
      */
     UPGRADE {
         @Override
-        public boolean shouldWrite(@Nonnull Schema newSchema, @Nonnull Schema existingSchema) throws RelationalException {
+        public boolean shouldWrite(Schema newSchema, Schema existingSchema) throws RelationalException {
             final String existingTemplateName = existingSchema.getSchemaTemplate().getName();
             final String newTemplateName = newSchema.getSchemaTemplate().getName();
             if (!existingTemplateName.equals(newTemplateName)) {
@@ -122,13 +120,13 @@ public enum SchemaExistsBehavior {
      * @throws RelationalException with {@link ErrorCode#SCHEMA_ALREADY_EXISTS} when this
      *                             behavior refuses the save
      */
-    public abstract boolean shouldWrite(@Nonnull Schema newSchema, @Nonnull Schema existingSchema) throws RelationalException;
+    public abstract boolean shouldWrite(Schema newSchema, Schema existingSchema) throws RelationalException;
 
     /**
      * Return if the two provided schemas are identical.
      * @return {@code true} if and only if the two schemas are identical
      */
-    private static boolean areSchemasIdentical(@Nonnull Schema a, @Nonnull Schema b) {
+    private static boolean areSchemasIdentical(Schema a, Schema b) {
         return a.getSchemaTemplate().getName().equals(b.getSchemaTemplate().getName())
                 && a.getSchemaTemplate().getVersion() == b.getSchemaTemplate().getVersion();
     }

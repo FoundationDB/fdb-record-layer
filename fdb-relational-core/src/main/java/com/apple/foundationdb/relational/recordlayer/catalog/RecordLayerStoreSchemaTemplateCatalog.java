@@ -65,8 +65,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.sql.SQLException;
 import java.util.Objects;
 
@@ -76,7 +75,6 @@ import java.util.Objects;
  */
 class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
 
-    @Nonnull
     private static final com.google.protobuf.ExtensionRegistry registry = com.google.protobuf.ExtensionRegistry.newInstance();
 
     static {
@@ -84,13 +82,10 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
         registry.add(com.apple.foundationdb.record.RecordMetaDataOptionsProto.record);
     }
 
-    @Nonnull
     private final RecordLayerSchema catalogSchema;
 
-    @Nonnull
     private final RelationalKeyspaceProvider.RelationalSchemaPath catalogSchemaPath;
 
-    @Nonnull
     private final RecordMetaDataProvider catalogRecordMetaDataProvider;
 
     /**
@@ -102,8 +97,8 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
      *                             (this should not occur under normal conditions)
      */
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Hard to remove exception with current inheritance")
-    RecordLayerStoreSchemaTemplateCatalog(@Nonnull final RecordLayerSchema catalogSchema,
-                                          @Nonnull final RelationalKeyspaceProvider.RelationalSchemaPath catalogSchemaPath) throws RelationalException {
+    RecordLayerStoreSchemaTemplateCatalog(final RecordLayerSchema catalogSchema,
+                                          final RelationalKeyspaceProvider.RelationalSchemaPath catalogSchemaPath) throws RelationalException {
         this.catalogSchema = catalogSchema;
         this.catalogSchemaPath = catalogSchemaPath;
         this.catalogRecordMetaDataProvider = RecordMetaData.build(this.catalogSchema.getSchemaTemplate()
@@ -111,16 +106,22 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
     }
 
     @Override
-    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String schemaTemplateName)
+    public boolean doesSchemaTemplateExist(Transaction txn, String schemaTemplateName)
             throws RelationalException {
         Tuple key = getSchemaTemplatePrimaryKey(schemaTemplateName);
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         try {
+            // ContinuationImpl.BEGIN.getExecutionState() is @Nullable byte[]; NullAway/JSpecify does not
+            // reliably track @Nullable on array types across the call into scanRecords's continuation
+            // parameter (also @Nullable byte[]), so this is flagged as mismatched even though both sides
+            // agree it can be null.
+            @SuppressWarnings("NullAway")
+            final byte[] beginExecutionState = ContinuationImpl.BEGIN.getExecutionState();
             try (RecordCursor<FDBStoredRecord<Message>> cursor =
                     recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE,
                                     EndpointType.RANGE_INCLUSIVE),
-                            ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.REVERSE_SCAN)) {
+                            beginExecutionState, ScanProperties.REVERSE_SCAN)) {
                 RecordCursorResult<FDBStoredRecord<Message>> cursorResult = cursor.getNext();
                 return cursorResult != null && !cursorResult.getContinuation().isEnd() && cursorResult.get() != null;
             }
@@ -130,7 +131,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
     }
 
     @Override
-    public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String schemaTemplateName, int version)
+    public boolean doesSchemaTemplateExist(Transaction txn, String schemaTemplateName, int version)
             throws RelationalException {
         if (schemaTemplateName.equals(this.catalogSchema.getSchemaTemplate().getName()) &&
                 version == this.catalogSchema.getSchemaTemplate().getVersion()) {
@@ -172,27 +173,36 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
         return Tuple.from(SystemTableRegistry.SCHEMA_TEMPLATE_RECORD_TYPE_KEY, schemaTemplateName);
     }
 
-    @Nonnull
     @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull final Transaction txn, @Nonnull final String templateName)
+    public SchemaTemplate loadSchemaTemplate(final Transaction txn, final String templateName)
             throws RelationalException {
         final var key = getSchemaTemplatePrimaryKey(templateName);
         final var recordStore = RecordLayerStoreUtils.openRecordStore(txn, catalogSchemaPath, catalogRecordMetaDataProvider);
         final var tupleRange = new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
-        try (var cursor = recordStore.scanRecords(tupleRange, ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.REVERSE_SCAN)) {
+        // ContinuationImpl.BEGIN.getExecutionState() is @Nullable byte[]; NullAway/JSpecify does not
+        // reliably track @Nullable on array types across the call into scanRecords's continuation
+        // parameter (also @Nullable byte[]), so this is flagged as mismatched even though both sides
+        // agree it can be null.
+        @SuppressWarnings("NullAway")
+        final byte[] beginExecutionState = ContinuationImpl.BEGIN.getExecutionState();
+        try (var cursor = recordStore.scanRecords(tupleRange, beginExecutionState, ScanProperties.REVERSE_SCAN)) {
             final var cursorResult = cursor.getNext();
             final var schemaExists = !cursorResult.getContinuation().isEnd() && cursorResult.get() != null;
             Assert.thatUnchecked(schemaExists, ErrorCode.UNKNOWN_SCHEMA_TEMPLATE,
                     "SchemaTemplate '" + templateName + "' is not in catalog");
-            return toSchemaTemplate(Assert.notNullUnchecked(cursorResult.get()).getRecord());
+            // schemaExists (just asserted true above) already established that cursorResult.get() != null;
+            // NullAway can't track that across the Assert.thatUnchecked call since Assert lives in the
+            // not-yet-migrated fdb-relational-api module.
+            @SuppressWarnings("NullAway")
+            final var record = Assert.notNullUnchecked(cursorResult.get()).getRecord();
+            return toSchemaTemplate(record);
         } catch (RecordCoreStorageException | InvalidProtocolBufferException e) {
             throw new UncheckedRelationalException(ExceptionUtil.toRelationalException(e));
         }
     }
 
-    @Nonnull
     @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull final Transaction txn, @Nonnull final String templateName, int version)
+    public SchemaTemplate loadSchemaTemplate(final Transaction txn, final String templateName, int version)
             throws RelationalException {
         try {
             // TODO: I seem to be doing way more work than I should have to. Someone please set me right. Stack 05/2023.
@@ -212,8 +222,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
     /**
      * Instantiate an instance of {@link SchemaTemplate} using content of the passed {@link Message}.
      */
-    @Nonnull
-    private static SchemaTemplate toSchemaTemplate(@Nonnull final Message message) throws InvalidProtocolBufferException {
+    private static SchemaTemplate toSchemaTemplate(final Message message) throws InvalidProtocolBufferException {
         // we should probably memoize a Message -> RecordLayerSchemaTemplate relation to avoid repetitive
         // deserialization of the same message over and over again.
         final Descriptors.Descriptor descriptor = message.getDescriptorForType();
@@ -226,7 +235,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
 
     @Override
     @SuppressWarnings("deprecation") // need to replace protobuf data builder
-    public void createTemplate(@Nonnull Transaction txn, @Nonnull SchemaTemplate newTemplate) throws RelationalException {
+    public void createTemplate(Transaction txn, SchemaTemplate newTemplate) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         Assert.notNull(recordStore);
@@ -248,15 +257,21 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
 
     @SuppressWarnings("PMD.CloseResource") // lifetime of cursor extends into lifetime of returned result set
     @Override
-    public RelationalResultSet listTemplates(@Nonnull Transaction txn) {
+    public RelationalResultSet listTemplates(Transaction txn) {
         Tuple key = Tuple.from(SystemTableRegistry.SCHEMA_TEMPLATE_RECORD_TYPE_KEY);
         try {
             var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                     this.catalogRecordMetaDataProvider);
+            // ContinuationImpl.BEGIN.getExecutionState() is @Nullable byte[]; NullAway/JSpecify does not
+            // reliably track @Nullable on array types across the call into scanRecords's continuation
+            // parameter (also @Nullable byte[]), so this is flagged as mismatched even though both sides
+            // agree it can be null.
+            @SuppressWarnings("NullAway")
+            final byte[] beginExecutionState = ContinuationImpl.BEGIN.getExecutionState();
             RecordCursor<FDBStoredRecord<Message>> cursor =
                     recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE,
                                     EndpointType.RANGE_INCLUSIVE),
-                            ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.FORWARD_SCAN);
+                            beginExecutionState, ScanProperties.FORWARD_SCAN);
             Descriptors.Descriptor d = recordStore.getRecordMetaData().getRecordMetaData()
                     .getRecordType(SchemaTemplateSystemTable.TABLE_NAME).getDescriptor();
             final var structMetaData = RelationalStructMetaData.of((DataType.StructType) DataTypeUtils.toRelationalType(ProtobufDdlUtil.recordFromDescriptor(d)));
@@ -268,6 +283,11 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
         }
     }
 
+    // Defensive: the scanRecords() cursor above never actually yields a null element, so the null branch
+    // below is not expected to be hit; returning null there would violate this method's Function<T, Row>
+    // contract (RecordLayerIterator#next() forwards it without a null check), but changing that contract to
+    // accommodate this dead branch is out of scope here.
+    @SuppressWarnings("NullAway")
     private Row transformSchemaTemplates(@Nullable FDBStoredRecord<Message> record) {
         if (record == null) {
             return null;
@@ -283,15 +303,21 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName, boolean throwIfDoesNotExist) throws RelationalException {
+    public void deleteTemplate(Transaction txn, String templateName, boolean throwIfDoesNotExist) throws RelationalException {
         Tuple key = getSchemaTemplatePrimaryKey(templateName);
         try {
             var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                     this.catalogRecordMetaDataProvider);
+            // ContinuationImpl.BEGIN.getExecutionState() is @Nullable byte[]; NullAway/JSpecify does not
+            // reliably track @Nullable on array types across the call into scanRecords's continuation
+            // parameter (also @Nullable byte[]), so this is flagged as mismatched even though both sides
+            // agree it can be null.
+            @SuppressWarnings("NullAway")
+            final byte[] beginExecutionState = ContinuationImpl.BEGIN.getExecutionState();
             try (RecordCursor<FDBStoredRecord<Message>> cursor =
                     recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE,
                                     EndpointType.RANGE_INCLUSIVE),
-                            ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.FORWARD_SCAN);) {
+                            beginExecutionState, ScanProperties.FORWARD_SCAN);) {
                 RecordCursorResult<FDBStoredRecord<Message>> cursorResult;
                 boolean deletedSomething = false;
                 do {
@@ -315,7 +341,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
     }
 
     @Override
-    public void deleteTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version, boolean throwIfDoesNotExist)
+    public void deleteTemplate(Transaction txn, String templateName, int version, boolean throwIfDoesNotExist)
             throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);

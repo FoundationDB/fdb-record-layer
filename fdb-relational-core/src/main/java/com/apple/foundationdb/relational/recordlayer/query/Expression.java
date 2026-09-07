@@ -52,8 +52,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
-
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -69,13 +67,10 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 public class Expression {
 
-    @Nonnull
     private final Optional<Identifier> name;
 
-    @Nonnull
     private final DataType dataType;
 
-    @Nonnull
     private final Supplier<Value> underlying;
 
     public enum Visibility {
@@ -85,45 +80,41 @@ public class Expression {
 
     private final Visibility visibility;
 
-    public Expression(@Nonnull Optional<Identifier> name,
-                      @Nonnull DataType dataType,
-                      @Nonnull Value expression) {
+    public Expression(Optional<Identifier> name,
+                      DataType dataType,
+                      Value expression) {
         this(name, dataType, () -> expression, Visibility.VISIBLE);
     }
 
-    public Expression(@Nonnull Optional<Identifier> name,
-                      @Nonnull DataType dataType,
-                      @Nonnull Value expression,
-                      @Nonnull Visibility visibility) {
+    public Expression(Optional<Identifier> name,
+                      DataType dataType,
+                      Value expression,
+                      Visibility visibility) {
         this(name, dataType, () -> expression, visibility);
     }
 
-    public Expression(@Nonnull Optional<Identifier> name,
-                      @Nonnull DataType dataType,
-                      @Nonnull Supplier<Value> valueSupplier,
-                      @Nonnull Visibility visibility) {
+    public Expression(Optional<Identifier> name,
+                      DataType dataType,
+                      Supplier<Value> valueSupplier,
+                      Visibility visibility) {
         this.name = name;
         this.dataType = dataType;
         this.underlying = Suppliers.memoize(valueSupplier::get);
         this.visibility = visibility;
     }
 
-    @Nonnull
     public Optional<Identifier> getName() {
         return name;
     }
 
-    @Nonnull
     public DataType getDataType() {
         return dataType;
     }
 
-    @Nonnull
     public Value getUnderlying() {
         return Assert.castUnchecked(underlying.get(), Value.class);
     }
 
-    @Nonnull
     public Visibility getVisibility() {
         return visibility;
     }
@@ -144,28 +135,24 @@ public class Expression {
      * @param newVisibility the new visibility flag
      * @return a new expression with the given name, type, and value
      */
-    @Nonnull
-    protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying, @Nonnull Visibility newVisibility) {
+    protected Expression createNew(Optional<Identifier> newName, DataType newDataType, Value newUnderlying, Visibility newVisibility) {
         return new Expression(newName, newDataType, newUnderlying, newVisibility);
     }
 
-    @Nonnull
-    public Expression withName(@Nonnull Identifier name) {
+    public Expression withName(Identifier name) {
         if (getName().isPresent() && getName().get().equals(name)) {
             return this;
         }
         return createNew(Optional.of(name), getDataType(), getUnderlying(), getVisibility());
     }
 
-    @Nonnull
-    public Expression withUnderlying(@Nonnull Value underlying) {
+    public Expression withUnderlying(Value underlying) {
         if (getUnderlying().semanticEquals(underlying, AliasMap.identitiesFor(underlying.getCorrelatedTo()))) {
             return this;
         }
         return createNew(getName(), DataTypeUtils.toRelationalType(underlying.getResultType()), underlying, getVisibility());
     }
 
-    @Nonnull
     public Expression clearQualifier() {
         if (getName().isEmpty()) {
             return this;
@@ -177,13 +164,11 @@ public class Expression {
         return createNew(Optional.of(name.withoutQualifier()), getDataType(), getUnderlying(), getVisibility());
     }
 
-    @Nonnull
-    public Expression withQualifier(@Nonnull final Collection<String> qualifier) {
+    public Expression withQualifier(final Collection<String> qualifier) {
         return replaceQualifier(ignored -> qualifier);
     }
 
-    @Nonnull
-    public Expression replaceQualifier(@Nonnull Function<Collection<String>, Collection<String>> replaceFunc) {
+    public Expression replaceQualifier(Function<Collection<String>, Collection<String>> replaceFunc) {
         if (getName().isEmpty()) {
             return this;
         }
@@ -195,8 +180,7 @@ public class Expression {
         return createNew(Optional.of(newNameMaybe), getDataType(), getUnderlying(), getVisibility());
     }
 
-    @Nonnull
-    public Expression withQualifier(@Nonnull final Optional<Identifier> qualifier) {
+    public Expression withQualifier(final Optional<Identifier> qualifier) {
         if (getName().isEmpty()) {
             return this;
         }
@@ -218,12 +202,10 @@ public class Expression {
         return underlying instanceof AggregateValue && !(underlying instanceof RecordConstructorValue);
     }
 
-    @Nonnull
-    public NamedArgumentExpression toNamedArgument(@Nonnull final Identifier name) {
+    public NamedArgumentExpression toNamedArgument(final Identifier name) {
         return new NamedArgumentExpression(Optional.of(name), dataType, getUnderlying(), getVisibility());
     }
 
-    @Nonnull
     public NamedArgumentExpression toNamedArgument() {
         return toNamedArgument(Assert.optionalUnchecked(getName()));
     }
@@ -236,9 +218,8 @@ public class Expression {
      * Returns this expression rewritten in terms of the given value, simplifying both sides on the way. See
      * {@link #pullUp(Value, Value, AliasMap, CorrelationIdentifier, Set)} for details.
      */
-    @Nonnull
-    public Expression pullUp(@Nonnull Value value, @Nonnull CorrelationIdentifier correlationIdentifier,
-                             @Nonnull Set<CorrelationIdentifier> constantAliases) {
+    public Expression pullUp(Value value, CorrelationIdentifier correlationIdentifier,
+                             Set<CorrelationIdentifier> constantAliases) {
         final AliasMap aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
         final Value simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         final Value simplifiedUnderlying =
@@ -267,12 +248,15 @@ public class Expression {
      * @param constantAliases the aliases that are considered constant
      * @return {@code value}, rewritten in terms of {@code other}
      */
-    @Nonnull
-    static Value pullUp(@Nonnull Value value, @Nonnull Value other, @Nonnull AliasMap aliasMap,
-                        @Nonnull CorrelationIdentifier correlationIdentifier,
-                        @Nonnull Set<CorrelationIdentifier> constantAliases) {
+    static Value pullUp(Value value, Value other, AliasMap aliasMap,
+                        CorrelationIdentifier correlationIdentifier,
+                        Set<CorrelationIdentifier> constantAliases) {
         // Walk the value, “offering” every sub-value for replacement in terms of the reference value.
-        return Assert.notNullUnchecked(value.replace(
+        // The replacement function below never itself returns null; Assert.notNullUnchecked can't narrow
+        // Value#replace(...)'s result on its own since Assert lives in the not-yet-migrated
+        // fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final Value replaced = Assert.notNullUnchecked(value.replace(
                 subExpression -> {
                     // Match this sub-value against the reference value.
                     final Multimap<Value, Value> pulledUpExpressionMap =
@@ -294,10 +278,11 @@ public class Expression {
                     return Iterables.getOnlyElement(references);
                 }
         ));
+        return replaced;
     }
 
-    public boolean canBeDerivedFrom(@Nonnull final Expression expression,
-                                    @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+    public boolean canBeDerivedFrom(final Expression expression,
+                                    final Set<CorrelationIdentifier> constantAliases) {
         final var value = expression.getUnderlying();
         final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
         final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
@@ -316,18 +301,21 @@ public class Expression {
      * @return a new {@link Expressions} list where each {@link Expression} internal {@link Value} with {@link LiteralValue}s
      * instead of any {@link ConstantObjectValue}s.
      */
-    @Nonnull
-    public Expressions dereferenced(@Nonnull Literals literals) {
-        return Expressions.ofSingle(withUnderlying(Assert.notNullUnchecked(getUnderlying().replace(value -> {
+    public Expressions dereferenced(Literals literals) {
+        // The replacement function below never itself returns null; Assert.notNullUnchecked can't narrow
+        // Value#replace(...)'s result on its own since Assert lives in the not-yet-migrated
+        // fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final Value replaced = Assert.notNullUnchecked(getUnderlying().replace(value -> {
             if (value instanceof ConstantObjectValue) {
                 final ConstantObjectValue constantObjectValue = (ConstantObjectValue) value;
                 return new LiteralValue<>(constantObjectValue.getResultType(), literals.asMap().get(constantObjectValue.getConstantId()));
             }
             return value;
-        }))));
+        }));
+        return Expressions.ofSingle(withUnderlying(replaced));
     }
 
-    @Nonnull
     public Expression asHidden() {
         if (!isVisible()) {
             return this;
@@ -335,7 +323,6 @@ public class Expression {
         return createNew(getName(), getDataType(), getUnderlying(), Visibility.HIDDEN);
     }
 
-    @Nonnull
     public EphemeralExpression asEphemeral() {
         Verify.verify(getName().isPresent());
         return new EphemeralExpression(getName(), getDataType(), getUnderlying(), getVisibility());
@@ -346,29 +333,24 @@ public class Expression {
         return getName().orElse(Identifier.of("??")) + "|" + getDataType() + "| ⇾ " + getUnderlying();
     }
 
-    @Nonnull
-    public static Expression ofUnnamed(@Nonnull Value value) {
+    public static Expression ofUnnamed(Value value) {
         return ofUnnamed(DataTypeUtils.toRelationalType(value.getResultType()), value);
     }
 
-    @Nonnull
-    public static Expression of(@Nonnull Value value, @Nonnull Identifier identifier) {
+    public static Expression of(Value value, Identifier identifier) {
         return new Expression(Optional.of(identifier), DataTypeUtils.toRelationalType(value.getResultType()), value);
     }
 
-    @Nonnull
-    public static Expression ofUnnamed(@Nonnull DataType dataType,
-                                       @Nonnull Value expression) {
+    public static Expression ofUnnamed(DataType dataType,
+                                       Value expression) {
         return new Expression(Optional.empty(), dataType, expression);
     }
 
-    @Nonnull
-    public static Expression fromUnderlying(@Nonnull Value underlying) {
+    public static Expression fromUnderlying(Value underlying) {
         return new Expression(Optional.empty(), DataTypeUtils.toRelationalType(underlying.getResultType()), underlying);
     }
 
-    @Nonnull
-    public static Expression fromColumn(@Nonnull Column<? extends Value> column) {
+    public static Expression fromColumn(Column<? extends Value> column) {
         final var result = Expression.ofUnnamed(column.getValue());
         if (column.getField().getFieldNameOptional().isPresent()) {
             return result.withName(Identifier.of(column.getField().getFieldName()));
@@ -381,18 +363,15 @@ public class Expression {
         private Utils() {
         }
 
-        @Nonnull
-        public static Iterable<Value> filterUnderlyingAggregates(@Nonnull final Expression expression) {
+        public static Iterable<Value> filterUnderlyingAggregates(final Expression expression) {
             return filterUnderlying(expression, true);
         }
 
-        @Nonnull
-        public static Iterable<Value> filterUnderlyingNonAggregates(@Nonnull final Expression expression) {
+        public static Iterable<Value> filterUnderlyingNonAggregates(final Expression expression) {
             return filterUnderlying(expression, false);
         }
 
-        @Nonnull
-        private static Iterable<Value> filterUnderlying(@Nonnull final Expression expression, boolean onlyAggregates) {
+        private static Iterable<Value> filterUnderlying(final Expression expression, boolean onlyAggregates) {
             return Streams.stream(expression.getUnderlying().preOrderIterator(value ->
                     value instanceof ArithmeticValue ||
                             value instanceof AndOrValue ||
@@ -412,9 +391,8 @@ public class Expression {
          * A literal ({@link LiteralValue}) folds to the corresponding {@link ConstantPredicate}. Everything
          * else is wrapped as a {@code ValuePredicate} performing a {@code «value» = TRUE} comparison.
          */
-        @Nonnull
-        public static QueryPredicate toUnderlyingPredicate(@Nonnull final Expression expression,
-                                                           @Nonnull final Set<CorrelationIdentifier> localAliases,
+        public static QueryPredicate toUnderlyingPredicate(final Expression expression,
+                                                           final Set<CorrelationIdentifier> localAliases,
                                                            boolean forDdl) {
             final Value value = expression.getUnderlying();
 
@@ -450,17 +428,15 @@ public class Expression {
     }
 
     public static final class NamedArgumentExpression extends Expression {
-        private NamedArgumentExpression(@Nonnull Optional<Identifier> name, @Nonnull DataType dataType, @Nonnull Value expression, Visibility visibility) {
+        private NamedArgumentExpression(Optional<Identifier> name, DataType dataType, Value expression, Visibility visibility) {
             super(name, dataType, expression, visibility);
         }
 
-        @Nonnull
         @Override
-        protected Expression createNew(@Nonnull Optional<Identifier> newName, @Nonnull DataType newDataType, @Nonnull Value newUnderlying, @Nonnull Visibility newVisibility) {
+        protected Expression createNew(Optional<Identifier> newName, DataType newDataType, Value newUnderlying, Visibility newVisibility) {
             return new NamedArgumentExpression(newName, newDataType, newUnderlying,  newVisibility);
         }
 
-        @Nonnull
         public Identifier getArgumentName() {
             return Assert.optionalUnchecked(getName());
         }
@@ -470,9 +446,8 @@ public class Expression {
             return true;
         }
 
-        @Nonnull
         @Override
-        public NamedArgumentExpression toNamedArgument(@Nonnull final Identifier name) {
+        public NamedArgumentExpression toNamedArgument(final Identifier name) {
             if (name.equals(getArgumentName())) {
                 return this;
             }

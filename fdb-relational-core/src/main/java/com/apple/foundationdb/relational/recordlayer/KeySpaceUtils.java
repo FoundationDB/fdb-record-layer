@@ -31,8 +31,7 @@ import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedExce
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
@@ -43,13 +42,11 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 public final class KeySpaceUtils {
 
-    @Nonnull
-    public static URI pathToUri(@Nonnull KeySpacePath dbPath) {
+    public static URI pathToUri(KeySpacePath dbPath) {
         return URI.create(pathToUriList(dbPath).stream().collect(Collectors.joining("/", "/", "")));
     }
 
-    @Nonnull
-    private static List<String> pathToUriList(final @Nonnull KeySpacePath dbPath) {
+    private static List<String> pathToUriList(final KeySpacePath dbPath) {
         return Lists.reverse(
                 Stream.iterate(dbPath, Objects::nonNull, KeySpacePath::getParent)
                         .map(KeySpaceUtils::toPathElement)
@@ -58,7 +55,8 @@ public final class KeySpaceUtils {
 
     private static String toPathElement(final KeySpacePath path) {
         if (path.getDirectory().getKeyType() != KeySpaceDirectory.KeyType.NULL) {
-            return path.getValue().toString();
+            // The KeyType.NULL check above is precisely what guarantees getValue() is non-null here.
+            return Objects.requireNonNull(path.getValue()).toString();
         } else {
             return "";
         }
@@ -69,8 +67,7 @@ public final class KeySpaceUtils {
     }
 
     @API(API.Status.INTERNAL)
-    @Nonnull
-    public static KeySpacePath toKeySpacePath(@Nonnull URI url, @Nonnull KeySpace keySpace) throws RelationalException {
+    public static KeySpacePath toKeySpacePath(URI url, KeySpace keySpace) throws RelationalException {
         String path = getPath(url);
         if (path.length() < 1) {
             throw new RelationalException("<" + url + "> is an invalid database path", ErrorCode.INVALID_PATH);
@@ -99,7 +96,7 @@ public final class KeySpaceUtils {
         return thePath;
     }
 
-    public static String getPath(@Nonnull URI url) {
+    public static String getPath(URI url) {
         String authority = url.getAuthority();
         return authority != null && authority.length() > 0 ? "//" + authority + url.getPath() : url.getPath();
     }
@@ -108,11 +105,11 @@ public final class KeySpaceUtils {
     /*private helper methods*/
 
     @Nullable
-    private static KeySpacePath matchPathToSubdirectories(final @Nonnull KeySpace keySpace,
+    private static KeySpacePath matchPathToSubdirectories(final KeySpace keySpace,
                                                           final @Nullable KeySpacePath parentPath,
-                                                          final @Nonnull List<KeySpaceDirectory> subdirectories,
-                                                          final @Nonnull URI url,
-                                                          final @Nonnull String[] pathElems,
+                                                          final List<KeySpaceDirectory> subdirectories,
+                                                          final URI url,
+                                                          final String[] pathElems,
                                                           final int position) throws RelationalException {
         KeySpacePath thePath = null;
         for (KeySpaceDirectory dir : subdirectories) {
@@ -133,11 +130,11 @@ public final class KeySpaceUtils {
 
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static KeySpacePath matchPathToDirectory(final @Nonnull KeySpace keySpace,
-                                                     final @Nonnull KeySpaceDirectory directory,
+    private static KeySpacePath matchPathToDirectory(final KeySpace keySpace,
+                                                     final KeySpaceDirectory directory,
                                                      final @Nullable KeySpacePath parentPath,
-                                                     final @Nonnull URI url,
-                                                     final @Nonnull String[] pathElems,
+                                                     final URI url,
+                                                     final String[] pathElems,
                                                      final int position) throws RelationalException {
         if (position >= pathElems.length) {
             throw new RelationalException("path is too deep", ErrorCode.INTERNAL_ERROR)
@@ -195,7 +192,7 @@ public final class KeySpaceUtils {
     }
 
     @Nullable
-    private static String matchPathElementToString(final @Nonnull KeySpaceDirectory directory, final String pathElem) throws RelationalException {
+    private static String matchPathElementToString(final KeySpaceDirectory directory, final String pathElem) throws RelationalException {
         // the empty string maps to null, and cannot be a string
         if (directory.isConstant() && !Objects.equals(getConstantValue(directory), pathElem)) {
             return null;
@@ -206,7 +203,7 @@ public final class KeySpaceUtils {
     }
 
     @Nullable
-    private static Object matchPathElementToLong(final @Nonnull KeySpaceDirectory directory, final String pathElem) throws RelationalException {
+    private static Object matchPathElementToLong(final KeySpaceDirectory directory, final String pathElem) throws RelationalException {
         Long parsedLong = tryParseLong(pathElem);
         if (parsedLong == null) {
             return null;
@@ -238,7 +235,7 @@ public final class KeySpaceUtils {
     }
 
     @Nullable
-    private static Object getConstantValue(final @Nonnull KeySpaceDirectory directory) throws RelationalException {
+    private static Object getConstantValue(final KeySpaceDirectory directory) throws RelationalException {
         Object dirVal = directory.getValue();
         if ("".equals(dirVal)) {
             throw new RelationalException("Directory contains constant empty string (\"\")", ErrorCode.INVALID_PATH)
@@ -248,7 +245,7 @@ public final class KeySpaceUtils {
     }
 
     @Nullable
-    private static KeySpacePath getSubPath(final @Nonnull KeySpace keySpace, final @Nullable KeySpacePath parentPath, final String pathName, final Object pathValue) {
+    private static KeySpacePath getSubPath(final KeySpace keySpace, final @Nullable KeySpacePath parentPath, final String pathName, final @Nullable Object pathValue) {
         try {
             if (parentPath == null) {
                 return keySpace.path(pathName, pathValue);

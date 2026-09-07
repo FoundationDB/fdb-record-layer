@@ -35,9 +35,6 @@ import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
-
-import javax.annotation.Nonnull;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -46,7 +43,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 final class UserDefinedMacroFunctionBuilderTest {
 
-    @Nonnull
     private static final Type STRING_TYPE = Type.primitiveType(Type.TypeCode.STRING);
 
     @Test
@@ -158,8 +154,7 @@ final class UserDefinedMacroFunctionBuilderTest {
      * Creates a named string parameter with no default value, mirroring how the DDL visitor models a parameter
      * declaration without a {@code DEFAULT} clause.
      */
-    @Nonnull
-    private static Expression stringParameter(@Nonnull final String name) {
+    private static Expression stringParameter(final String name) {
         return Expression.of(new ThrowsValue(STRING_TYPE), Identifier.of(name));
     }
 }

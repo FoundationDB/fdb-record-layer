@@ -44,7 +44,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.protobuf.Descriptors;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
@@ -53,6 +53,7 @@ import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -70,14 +71,15 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         this.conn = conn;
     }
 
-    @Nonnull
     @Override
     public RelationalResultSet getSchemas() throws SQLException {
-        return getSchemas(conn.getPath().getPath(), null);
+        return getSchemas(Objects.requireNonNull(conn.getPath()).getPath(), null);
     }
 
     @Override
-    public RelationalResultSet getSchemas(String catalogStr, String schemaPattern) throws SQLException {
+    // Both params mirror java.sql.DatabaseMetaData#getSchemas(String, String), which documents both as
+    // nullable ("null means..."); catalogStr is already null-checked below, and schemaPattern isn't used.
+    public RelationalResultSet getSchemas(@Nullable String catalogStr, @Nullable String schemaPattern) throws SQLException {
         if (catalogStr == null) {
             throw new OperationUnsupportedException("Must use a non-null catalog name currently").toSqlException();
         }
@@ -103,7 +105,6 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         });
     }
 
-    @Nonnull
     @Override
     public RelationalResultSet getTables(String database, String schema, String tableName, String[] types) throws SQLException {
         /*
@@ -156,12 +157,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                         RecordKeyExpressionProto.KeyExpression ke = type.getPrimaryKey();
                         return new AbstractMap.SimpleEntry<>(type.getName(), keyExpressionToPrimaryKey(ke));
                     }).flatMap(pks -> IntStream.range(0, pks.getValue().length)
-                    .mapToObj(pos -> new ArrayRow(database,
-                            schema,
-                            pks.getKey(),
-                            pks.getValue()[pos],
-                            pos + 1,
-                            null)));
+                    .mapToObj(pos -> newPrimaryKeyRow(database, schema, pks.getKey(), pks.getValue()[pos], pos + 1)));
 
             final var primaryKeysStructType = DataType.StructType.from("PRIMARY_KEYS", List.of(
                     DataType.StructType.Field.from("TABLE_CAT", DataType.Primitives.NULLABLE_STRING.type(), 0),
@@ -175,7 +171,6 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         });
     }
 
-    @Nonnull
     @Override
     @SuppressWarnings("PMD.PreserveStackTrace") //we actually can't here, it will violate RecordLayer isolation laws
     public RelationalResultSet getColumns(String database, String schema, String tablePattern, String columnPattern) throws SQLException {
@@ -338,8 +333,15 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
         });
     }
 
-    @Nonnull
-    private RecordMetaDataProto.MetaData loadSchemaMetadata(@Nonnull final String database, @Nonnull final String schema) throws RelationalException {
+    // ArrayRow's vararg parameter type isn't @Nullable (NullAway/JSpecify doesn't reliably track element
+    // nullability for array/vararg-typed parameters); PK_NAME (the last column) is genuinely null here,
+    // matching java.sql.DatabaseMetaData#getPrimaryKeys()'s documented, always-nullable PK_NAME column.
+    @SuppressWarnings("NullAway")
+    private static ArrayRow newPrimaryKeyRow(String database, String schema, String tableName, String columnName, int keySeq) {
+        return new ArrayRow(database, schema, tableName, columnName, keySeq, null);
+    }
+
+    private RecordMetaDataProto.MetaData loadSchemaMetadata(final String database, final String schema) throws RelationalException {
         final var recLayerSchema = this.catalog.loadSchema(conn.getTransaction(), URI.create(database), schema);
         Assert.thatUnchecked(recLayerSchema instanceof RecordLayerSchema);
         return (recLayerSchema.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata().toProto());

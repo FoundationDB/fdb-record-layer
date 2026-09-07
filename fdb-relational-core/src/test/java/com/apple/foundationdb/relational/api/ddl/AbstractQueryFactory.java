@@ -20,12 +20,11 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 
 public abstract class AbstractQueryFactory implements DdlQueryFactory {
     @Override
-    public DdlQuery getListDatabasesQueryAction(@Nonnull URI prefixPath) {
+    public DdlQuery getListDatabasesQueryAction(URI prefixPath) {
         return NoOpQueryFactory.INSTANCE.getListDatabasesQueryAction(prefixPath);
     }
 
@@ -35,12 +34,12 @@ public abstract class AbstractQueryFactory implements DdlQueryFactory {
     }
 
     @Override
-    public DdlQuery getDescribeSchemaTemplateQueryAction(@Nonnull String schemaId) {
+    public DdlQuery getDescribeSchemaTemplateQueryAction(String schemaId) {
         return NoOpQueryFactory.INSTANCE.getDescribeSchemaTemplateQueryAction(schemaId);
     }
 
     @Override
-    public DdlQuery getDescribeSchemaQueryAction(@Nonnull URI dbId, @Nonnull String schemaId) {
+    public DdlQuery getDescribeSchemaQueryAction(URI dbId, String schemaId) {
         return NoOpQueryFactory.INSTANCE.getDescribeSchemaQueryAction(dbId, schemaId);
     }
 }

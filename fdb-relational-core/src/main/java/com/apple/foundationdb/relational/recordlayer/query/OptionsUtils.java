@@ -28,24 +28,20 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.google.common.collect.ImmutableSet;
-
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Set;
 
 @API(API.Status.INTERNAL)
 public final class OptionsUtils {
 
-    @Nonnull
-    public static PlanHashable.PlanHashMode getCurrentPlanHashMode(@Nonnull final Options options) {
+    public static PlanHashable.PlanHashMode getCurrentPlanHashMode(final Options options) {
         final String planHashModeAsString = options.getOption(Options.Name.CURRENT_PLAN_HASH_MODE);
         return planHashModeAsString == null ?
                PlanHashable.CURRENT_FOR_CONTINUATION :
                PlanHashable.PlanHashMode.valueOf(planHashModeAsString);
     }
 
-    @Nonnull
-    public static Set<PlanHashable.PlanHashMode> getValidPlanHashModes(@Nonnull final Options options) {
+    public static Set<PlanHashable.PlanHashMode> getValidPlanHashModes(final Options options) {
         final String planHashModesAsString = options.getOption(Options.Name.VALID_PLAN_HASH_MODES);
         if (planHashModesAsString == null) {
             return ImmutableSet.of(PlanHashable.CURRENT_FOR_CONTINUATION);
@@ -56,8 +52,7 @@ public final class OptionsUtils {
                 .collect(ImmutableSet.toImmutableSet());
     }
 
-    @Nonnull
-    public static IndexFetchMethod getIndexFetchMethod(@Nonnull final Options options) {
+    public static IndexFetchMethod getIndexFetchMethod(final Options options) {
         Options.IndexFetchMethod indexFetchMethod = options.getOption(Options.Name.INDEX_FETCH_METHOD);
         if (indexFetchMethod == null) {
             return IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK;
@@ -75,8 +70,7 @@ public final class OptionsUtils {
         }
     }
 
-    @Nonnull
-    public static VectorIndexEnginePreference getVectorIndexEnginePreference(@Nonnull final Options options) {
+    public static VectorIndexEnginePreference getVectorIndexEnginePreference(final Options options) {
         final Options.VectorIndexEnginePreference preference =
                 options.getOption(Options.Name.VECTOR_INDEX_ENGINE_PREFERENCE);
         if (preference == null) {

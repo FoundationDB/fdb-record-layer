@@ -32,6 +32,7 @@ import java.sql.Types;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -61,8 +62,10 @@ public final class ProtobufDdlUtil {
             } else if (o2 == null) {
                 return 1;
             } else {
-                Descriptors.FieldDescriptor field1 = descriptorLookupMap.get(o1);
-                Descriptors.FieldDescriptor field2 = descriptorLookupMap.get(o2);
+                // Both o1 and o2 are always keys of descriptorLookupMap: this comparator is only ever
+                // invoked (via orderedFieldMap.putAll below) on keys drawn from that same map.
+                Descriptors.FieldDescriptor field1 = Objects.requireNonNull(descriptorLookupMap.get(o1));
+                Descriptors.FieldDescriptor field2 = Objects.requireNonNull(descriptorLookupMap.get(o2));
                 return Integer.compare(field1.getIndex(), field2.getIndex());
             }
         });
@@ -189,8 +192,10 @@ public final class ProtobufDdlUtil {
             } else if (o2 == null) {
                 return 1;
             } else {
-                Descriptors.FieldDescriptor field1 = descriptorLookupMap.get(o1);
-                Descriptors.FieldDescriptor field2 = descriptorLookupMap.get(o2);
+                // Both o1 and o2 are always keys of descriptorLookupMap: this comparator is only ever
+                // invoked (via orderedFieldMap.putAll below) on keys drawn from that same map.
+                Descriptors.FieldDescriptor field1 = Objects.requireNonNull(descriptorLookupMap.get(o1));
+                Descriptors.FieldDescriptor field2 = Objects.requireNonNull(descriptorLookupMap.get(o2));
                 return Integer.compare(field1.getIndex(), field2.getIndex());
             }
         });

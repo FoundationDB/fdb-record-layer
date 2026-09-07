@@ -29,8 +29,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.Nonnull;
 import java.util.List;
 
 @API(API.Status.EXPERIMENTAL)
@@ -40,20 +38,17 @@ public final class IdentifierVisitor extends DelegatingVisitor<BaseVisitor> {
         super(baseVisitor);
     }
 
-    @Nonnull
-    public static IdentifierVisitor of(@Nonnull BaseVisitor baseVisitor) {
+    public static IdentifierVisitor of(BaseVisitor baseVisitor) {
         return new IdentifierVisitor(baseVisitor);
     }
 
-    @Nonnull
     @Override
-    public Identifier visitTableName(@Nonnull RelationalParser.TableNameContext tableNameContext) {
+    public Identifier visitTableName(RelationalParser.TableNameContext tableNameContext) {
         return visitFullId(tableNameContext.fullId());
     }
 
-    @Nonnull
     @Override
-    public Identifier visitFullId(@Nonnull RelationalParser.FullIdContext fullIdContext) {
+    public Identifier visitFullId(RelationalParser.FullIdContext fullIdContext) {
         Assert.thatUnchecked(!fullIdContext.uid().isEmpty());
         final ImmutableList.Builder<String> qualifierBuilder = ImmutableList.builder();
         for (int i = 0; i < fullIdContext.uid().size() - 1; i++) {
@@ -65,14 +60,12 @@ public final class IdentifierVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    @Nonnull
-    public List<Identifier> visitFullIdList(@Nonnull RelationalParser.FullIdListContext fullIdListContext) {
+    public List<Identifier> visitFullIdList(RelationalParser.FullIdListContext fullIdListContext) {
         return fullIdListContext.fullId().stream().map(this::visitFullId).collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
     @Override
-    public Identifier visitUid(@Nonnull RelationalParser.UidContext uidContext) {
+    public Identifier visitUid(RelationalParser.UidContext uidContext) {
         if (uidContext.simpleId() != null) {
             return visitSimpleId(uidContext.simpleId());
         } else {
@@ -80,46 +73,38 @@ public final class IdentifierVisitor extends DelegatingVisitor<BaseVisitor> {
         }
     }
 
-    @Nonnull
     @Override
-    public List<Identifier> visitUidList(@Nonnull RelationalParser.UidListContext uidListContext) {
+    public List<Identifier> visitUidList(RelationalParser.UidListContext uidListContext) {
         return uidListContext.uid().stream()
                 .map(this::visitUid)
                 .collect(ImmutableList.toImmutableList());
     }
 
-    @Nonnull
     @Override
-    public Identifier visitSimpleId(@Nonnull RelationalParser.SimpleIdContext simpleIdContext) {
+    public Identifier visitSimpleId(RelationalParser.SimpleIdContext simpleIdContext) {
         return Identifier.of(getDelegate().normalizeString(simpleIdContext.getText()));
     }
 
-    @Nonnull
     @Override // not supported yet
     @ExcludeFromJacocoGeneratedReport
-    public Identifier visitIndexColumnName(@Nonnull RelationalParser.IndexColumnNameContext ctx) {
-        Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "setting index column is not supported");
-        return null;
+    public Identifier visitIndexColumnName(RelationalParser.IndexColumnNameContext ctx) {
+        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "setting index column is not supported");
     }
 
-    @Nonnull
     @Override // not supported yet
     @ExcludeFromJacocoGeneratedReport
-    public Identifier visitCharsetName(@Nonnull RelationalParser.CharsetNameContext ctx) {
-        Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "setting charset is not supported");
-        return null;
+    public Identifier visitCharsetName(RelationalParser.CharsetNameContext ctx) {
+        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "setting charset is not supported");
     }
 
-    @Nonnull
     @Override // not supported yet
     @ExcludeFromJacocoGeneratedReport
-    public Identifier visitCollationName(@Nonnull RelationalParser.CollationNameContext ctx) {
-        Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "setting collation is not supported");
-        return null;
+    public Identifier visitCollationName(RelationalParser.CollationNameContext ctx) {
+        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_QUERY, "setting collation is not supported");
     }
 
     @Override
-    public Identifier visitTableFunctionName(@Nonnull final RelationalParser.TableFunctionNameContext ctx) {
+    public Identifier visitTableFunctionName(final RelationalParser.TableFunctionNameContext ctx) {
         return visitFullId(ctx.fullId());
     }
 }

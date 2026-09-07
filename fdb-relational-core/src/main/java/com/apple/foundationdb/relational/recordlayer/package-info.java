@@ -23,4 +23,7 @@
  *
  * This implementation is directly embedded (so no rpc calls).
  */
+@NullMarked
 package com.apple.foundationdb.relational.recordlayer;
+
+import org.jspecify.annotations.NullMarked;

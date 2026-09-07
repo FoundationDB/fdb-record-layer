@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.query.functions;
 
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -37,28 +36,23 @@ import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.Optional;
+
+import static com.apple.foundationdb.record.query.plan.cascades.Quantifier.ForEach;
 
 
 /**
  * The {@link UserDefinedFunctionBuilder.FinalStepBuilder} that instantiates a {@link UserDefinedMacroFunction}.
  */
 final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilder.FinalStepBuilder {
-    @Nonnull
     private final String name;
-    @Nonnull
     private final Value bodyValue;
-    @Nonnull
     private final Expressions parameters;
-    @Nonnull
     private final List<Optional<Value>> parameterDefaults;
     @Nullable
-    private final Quantifier.ForEach parametersQuantifier;
-    @Nonnull
+    private final ForEach parametersQuantifier;
     private final List<QuantifiedObjectValue> parametersQuantifiedObjectValues;
     @Nullable
     private final Type returnType;
@@ -73,11 +67,11 @@ final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilde
      * @param parametersQuantifier the quantifier the body's parameter references are correlated to, or {@code null}
      * when the function has no parameters.
      */
-    UserDefinedMacroFunctionBuilder(@Nonnull final String name,
-                                    @Nonnull final Value bodyValue,
-                                    @Nonnull final Expressions parameters,
-                                    @Nonnull final List<Optional<Value>> parameterDefaults,
-                                    @Nullable final Quantifier.ForEach parametersQuantifier,
+    UserDefinedMacroFunctionBuilder(final String name,
+                                    final Value bodyValue,
+                                    final Expressions parameters,
+                                    final List<Optional<Value>> parameterDefaults,
+                                    @Nullable final ForEach parametersQuantifier,
                                     @Nullable final Type returnType) {
         this.name = name;
         this.bodyValue = bodyValue;
@@ -94,7 +88,7 @@ final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilde
      * @throws UnsupportedOperationException always.
      */
     @Override
-    public UserDefinedFunctionBuilder.FinalStepBuilder setLiterals(@Nonnull final Literals literals) {
+    public UserDefinedFunctionBuilder.FinalStepBuilder setLiterals(final Literals literals) {
         throw new UnsupportedOperationException("macro functions don't support processed literals");
     }
 
@@ -107,7 +101,6 @@ final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilde
      * </p>
      * @return the constructed macro function.
      */
-    @Nonnull
     @Override
     public UserDefinedFunction build() {
         Assert.notNullUnchecked(name);
@@ -131,7 +124,6 @@ final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilde
      * parameters; the unique aliases makes it possible to bind the parameters independently during encapsulation.
      * @return a quantified object value for each parameter, in declaration order.
      */
-    @Nonnull
     private List<QuantifiedObjectValue> computeParameterQuantifiedObjectValues() {
         ImmutableList.Builder<QuantifiedObjectValue> quantifiedObjectValueBuilder = ImmutableList.builder();
         for (var i = 0; i < parameters.size(); i++) {
@@ -153,7 +145,7 @@ final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilde
      * @return a {@code Value} that is correlated to the provided quantified object values instead of
      *         {@code this.parameterQuantifier}.
      */
-    private Value translateBodyValueParametersCorrelations(@Nonnull final List<QuantifiedObjectValue> parametersQuantifiedObjectValues) {
+    private Value translateBodyValueParametersCorrelations(final List<QuantifiedObjectValue> parametersQuantifiedObjectValues) {
         if (parametersQuantifiedObjectValues.isEmpty()) {
             return bodyValue;
         }
@@ -163,8 +155,14 @@ final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilde
             columnBuilder.add(Column.of(parameters.asList().get(i).getName().map(Identifier::getName),
                     parametersQuantifiedObjectValues.get(i)));
         }
+        // parametersQuantifiedObjectValues is non-empty here (see the early return above), which is exactly
+        // when parametersQuantifier is set (it represents a quantifier over the function's parameters);
+        // Assert.notNullUnchecked can't narrow that since Assert lives in the not-yet-migrated
+        // fdb-relational-api module.
+        @SuppressWarnings("NullAway")
+        final CorrelationIdentifier parametersQuantifierAlias = Assert.notNullUnchecked(parametersQuantifier).getAlias();
         RegularTranslationMap translationMap = RegularTranslationMap.builder()
-                .when(Assert.notNullUnchecked(parametersQuantifier).getAlias())
+                .when(parametersQuantifierAlias)
                 .then((sourceAlias, leafValue) ->
                         RecordConstructorValue.ofColumns(columnBuilder.build()))
                 .build();

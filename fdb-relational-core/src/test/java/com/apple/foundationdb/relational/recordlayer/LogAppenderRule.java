@@ -31,7 +31,6 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,11 +39,8 @@ public class LogAppenderRule implements BeforeEachCallback, AfterEachCallback, A
 
     private LogAppender logAppender;
     private Logger logger;
-    @Nonnull
     private final String name;
-    @Nonnull
     private final Class<?> clazz;
-    @Nonnull
     private final Level level;
     private Level beforeLogLevel;
 
@@ -65,13 +61,19 @@ public class LogAppenderRule implements BeforeEachCallback, AfterEachCallback, A
         }
     }
 
-    public LogAppenderRule(@Nonnull String name, @Nonnull Class<?> clazz, @Nonnull Level level) {
+    // logAppender, logger, and beforeLogLevel are initialized by beforeEach(), which JUnit guarantees to run
+    // (or which is invoked manually via of()) before any other method on this rule is used.
+    @SuppressWarnings("NullAway.Init")
+    public LogAppenderRule(String name, Class<?> clazz, Level level) {
         this.name = name;
         this.clazz = clazz;
         this.level = level;
     }
 
-    public static LogAppenderRule of(@Nonnull String name, @Nonnull Class<?> clazz, @Nonnull Level level) throws SQLException {
+    // BeforeEachCallback.beforeEach()'s ExtensionContext parameter isn't annotated @Nullable, but this
+    // implementation doesn't use the context, so invoking it manually with null is safe.
+    @SuppressWarnings("NullAway")
+    public static LogAppenderRule of(String name, Class<?> clazz, Level level) throws SQLException {
         final var rule = new LogAppenderRule(name, clazz, level);
         rule.beforeEach(null);
         return rule;
@@ -98,7 +100,10 @@ public class LogAppenderRule implements BeforeEachCallback, AfterEachCallback, A
         logAppender.start();
     }
 
+    // AfterEachCallback.afterEach()'s ExtensionContext parameter isn't annotated @Nullable, but this
+    // implementation doesn't use the context, so invoking it manually with null is safe.
     @Override
+    @SuppressWarnings("NullAway")
     public void close() throws SQLException {
         afterEach(null);
     }

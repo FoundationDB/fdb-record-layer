@@ -23,8 +23,8 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.net.URI;
 
 /**
@@ -48,8 +48,8 @@ public interface StorageCluster {
      * @throws RelationalException if something goes wrong.
      */
     @Nullable
-    RelationalDatabase loadDatabase(@Nonnull URI url,
-                                  @Nonnull Options connOptions) throws RelationalException;
+    RelationalDatabase loadDatabase(URI url,
+                                  Options connOptions) throws RelationalException;
 
     /**
      * Get the transaction manager for this cluster.

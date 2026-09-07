@@ -85,6 +85,11 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
     }
 
     @Override
+    // RelationalStruct#getBytes(int) (in the not-yet-migrated fdb-relational-api module) has no explicit @Nullable
+    // annotation, so NullAway treats it as @NonNull; this genuinely returns null for a SQL NULL column, same as
+    // before this migration. (A `return` statement can't itself carry @SuppressWarnings, so this is suppressed at
+    // the method level.)
+    @SuppressWarnings("NullAway")
     public byte[] getBytes(int oneBasedPosition) throws SQLException {
         Object o = getObjectInternal(getZeroBasedPosition(oneBasedPosition));
         if (o == null) {
@@ -197,6 +202,11 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
     }
 
     @Override
+    // RelationalStruct#getString(int) (in the not-yet-migrated fdb-relational-api module) has no explicit
+    // @Nullable annotation, so NullAway treats it as @NonNull; this genuinely returns null for a SQL NULL column,
+    // same as before this migration. (A `return` statement can't itself carry @SuppressWarnings, so this is
+    // suppressed at the method level.)
+    @SuppressWarnings("NullAway")
     public String getString(int oneBasedPosition) throws SQLException {
         Object o = getObjectInternal(getZeroBasedPosition(oneBasedPosition));
         if (o == null) {
@@ -226,6 +236,11 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
     }
 
     @Override
+    // RelationalStruct#getArray(int) (in the not-yet-migrated fdb-relational-api module) has no explicit @Nullable
+    // annotation, so NullAway treats it as @NonNull; this genuinely returns null for a SQL NULL column, same as
+    // before this migration. (A `return` statement can't itself carry @SuppressWarnings, so this is suppressed at
+    // the method level.)
+    @SuppressWarnings("NullAway")
     public RelationalArray getArray(int oneBasedPosition) throws SQLException {
         if (metaData.getColumnType(oneBasedPosition) != Types.ARRAY) {
             throw new SQLException("Array", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
@@ -278,6 +293,11 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
     }
 
     @Override
+    // RelationalStruct#getStruct(int) (in the not-yet-migrated fdb-relational-api module) has no explicit
+    // @Nullable annotation, so NullAway treats it as @NonNull; this genuinely returns null for a SQL NULL column,
+    // same as before this migration. (A `return` statement can't itself carry @SuppressWarnings, so this is
+    // suppressed at the method level.)
+    @SuppressWarnings("NullAway")
     public RelationalStruct getStruct(int oneBasedColumn) throws SQLException {
         if (metaData.getColumnType(oneBasedColumn) != Types.STRUCT) {
             throw new SQLException("Struct", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
@@ -308,6 +328,11 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
     }
 
     @Override
+    // RelationalStruct#getUUID(int) (in the not-yet-migrated fdb-relational-api module) has no explicit @Nullable
+    // annotation, so NullAway treats it as @NonNull; this genuinely returns null for a SQL NULL column, same as
+    // before this migration. (A `return` statement can't itself carry @SuppressWarnings, so this is suppressed at
+    // the method level.)
+    @SuppressWarnings("NullAway")
     public UUID getUUID(int oneBasedColumn) throws SQLException {
         if (metaData.getColumnType(oneBasedColumn) != Types.OTHER) {
             throw new SQLException("Expected UUID should have type OTHER", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());

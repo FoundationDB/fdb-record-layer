@@ -32,7 +32,7 @@ import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Objects;

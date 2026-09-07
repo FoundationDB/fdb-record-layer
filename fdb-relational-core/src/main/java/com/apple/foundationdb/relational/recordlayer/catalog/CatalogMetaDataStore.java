@@ -27,7 +27,6 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 
 /**
@@ -42,7 +41,7 @@ public class CatalogMetaDataStore implements RecordMetaDataStore {
     }
 
     @Override
-    public RecordMetaDataProvider loadMetaData(@Nonnull Transaction txn, @Nonnull URI dbUri, @Nonnull String schemaUrl) throws RelationalException {
+    public RecordMetaDataProvider loadMetaData(Transaction txn, URI dbUri, String schemaUrl) throws RelationalException {
         return new CatalogMetaDataProvider(storeCatalog, dbUri, schemaUrl, txn);
     }
 

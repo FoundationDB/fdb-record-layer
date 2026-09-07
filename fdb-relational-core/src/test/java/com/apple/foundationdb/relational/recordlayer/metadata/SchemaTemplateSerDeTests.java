@@ -40,6 +40,7 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataDeserializer;
 import com.apple.foundationdb.relational.recordlayer.query.Literals;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
@@ -60,7 +61,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.BitSet;
@@ -68,6 +68,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
@@ -82,12 +83,18 @@ import java.util.stream.Stream;
  */
 public class SchemaTemplateSerDeTests {
 
+    // Stub view compiler for tests: view expansion is not implemented yet, so it just returns null.
+    // RecordLayerView.Builder#setViewCompiler declares Function<Boolean, LogicalOperator> with a
+    // @NonNull result, but that class isn't in scope here, so we suppress at this single shared stub
+    // instead of at every one of its many call sites in this file.
+    @SuppressWarnings("NullAway")
+    private static final Function<Boolean, LogicalOperator> UNIMPLEMENTED_VIEW_COMPILER = ignored -> null;
+
     @BeforeAll
     public static void setup() {
         Utils.enableCascadesDebugger();
     }
 
-    @Nonnull
     private static RecordLayerSchemaTemplate basicTestTemplate() {
         return RecordLayerSchemaTemplate.newBuilder().setName("TestSchemaTemplate")
                 .addTable(RecordLayerTable.newBuilder(false)
@@ -134,7 +141,7 @@ public class SchemaTemplateSerDeTests {
                 .build();
     }
 
-    private static RecordLayerSchemaTemplate getTestRecordLayerSchemaTemplate(@Nonnull Map<String, List<NonnullPair<Integer, DescriptorProtos.FieldOptions>>> template) {
+    private static RecordLayerSchemaTemplate getTestRecordLayerSchemaTemplate(Map<String, List<NonnullPair<Integer, DescriptorProtos.FieldOptions>>> template) {
         final var builder = RecordLayerSchemaTemplate.newBuilder().setName("TestSchemaTemplate");
         for (var entry : template.entrySet()) {
             final var tableBuilder = RecordLayerTable.newBuilder(false)
@@ -242,7 +249,7 @@ public class SchemaTemplateSerDeTests {
         for (final var unionField : unionDesc.getFieldList()) {
             final var typeName = unionField.getTypeName();
             Assertions.assertTrue(testcase.containsKey(typeName));
-            final var expectedGenerations = testcase.get(typeName);
+            final var expectedGenerations = Objects.requireNonNull(testcase.get(typeName));
             Assertions.assertTrue(expectedGenerations.contains(NonnullPair.of(unionField.getNumber(), unionField.getOptions())));
         }
     }
@@ -264,7 +271,6 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertEquals(BitSet.valueOf(new long[]{0b00001111}), template.getIndexEntriesAsBitset(Optional.empty()));
     }
 
-    @Nonnull
     static Stream<Arguments> badSchemaTemplateGenerationsTestcaseProvider() {
         final var fieldOptions1 = DescriptorProtos.FieldOptions.newBuilder().setDeprecated(true).build();
         final var fieldOptions2 = DescriptorProtos.FieldOptions.newBuilder().setDeprecated(false).build();
@@ -598,8 +604,7 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertEquals(intermingleTables, sampleRecordSchemaTemplate.isIntermingleTables());
     }
 
-    @Nonnull
-    private static RecordMetadataDeserializerWithPeekingFunctionSupplier recMetadataSampleWithFunctions(@Nonnull final String... functions) {
+    private static RecordMetadataDeserializerWithPeekingFunctionSupplier recMetadataSampleWithFunctions(final String... functions) {
         final var schemaTemplateBuilder = RecordLayerSchemaTemplate.newBuilder()
                 .setName("TestSchemaTemplate")
                 .setVersion(42)
@@ -643,7 +648,7 @@ public class SchemaTemplateSerDeTests {
             final var functionName = entry.getKey();
             final var functionDescription = entry.getValue();
             Assertions.assertTrue(invokedRoutines.containsKey(functionName));
-            final var function = invokedRoutines.get(functionName);
+            final var function = Objects.requireNonNull(invokedRoutines.get(functionName));
             Assertions.assertInstanceOf(RawSqlFunction.class, function);
             final var rawSqlFunction = (RawSqlFunction)function;
             Assertions.assertEquals(functionName, rawSqlFunction.getFunctionName());
@@ -664,7 +669,9 @@ public class SchemaTemplateSerDeTests {
     }
 
     private static final class CompiledFunctionStub extends CompiledSqlFunction {
-        @SuppressWarnings("DataFlowIssue") // only for test.
+        // CompiledSqlFunction's "body" parameter is @NonNull, but view/function expansion isn't implemented
+        // for this test stub, so we intentionally pass null; CompiledSqlFunction isn't in scope to relax.
+        @SuppressWarnings({"DataFlowIssue", "NullAway"}) // only for test.
         CompiledFunctionStub() {
             super("something", List.of(), List.of(), List.of(),
                     Optional.empty(), null, Literals.empty());
@@ -691,7 +698,7 @@ public class SchemaTemplateSerDeTests {
                 .addView(RecordLayerView.newBuilder()
                         .setName("high_salary_view")
                         .setDescription("SELECT * FROM employees WHERE salary > 50000")
-                        .setViewCompiler(ignored -> null)  // Stub for now, view expansion not implemented
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)  // Stub for now, view expansion not implemented
                         .build())
                 .build();
 
@@ -719,12 +726,12 @@ public class SchemaTemplateSerDeTests {
                 .addView(RecordLayerView.newBuilder()
                         .setName("view1")
                         .setDescription("SELECT * FROM employees")
-                        .setViewCompiler(ignored -> null)
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                         .build())
                 .addView(RecordLayerView.newBuilder()
                         .setName("view2")
                         .setDescription("SELECT id FROM employees")
-                        .setViewCompiler(ignored -> null)
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                         .build())
                 .build();
 
@@ -750,7 +757,7 @@ public class SchemaTemplateSerDeTests {
                 .addView(RecordLayerView.newBuilder()
                         .setName("test_view")
                         .setDescription("SELECT * FROM employees WHERE id > 10")
-                        .setViewCompiler(ignored -> null)
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                         .build())
                 .build();
 
@@ -759,7 +766,7 @@ public class SchemaTemplateSerDeTests {
                 .replaceView(RecordLayerView.newBuilder()
                         .setName("test_view")
                         .setDescription("SELECT * FROM employees WHERE id > 100")
-                        .setViewCompiler(ignored -> null)
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                         .build())
                 .build();
 
@@ -786,7 +793,7 @@ public class SchemaTemplateSerDeTests {
                 .addView(RecordLayerView.newBuilder()
                         .setName("test_view")
                         .setDescription("SELECT * FROM employees")
-                        .setViewCompiler(ignored -> null)
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                         .build())
                 .build();
 
@@ -822,7 +829,7 @@ public class SchemaTemplateSerDeTests {
                 .addView(RecordLayerView.newBuilder()
                         .setName("employee_view")
                         .setDescription("SELECT id, name FROM employees WHERE id > 100")
-                        .setViewCompiler(ignored -> null)
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                         .build())
                 .build();
 
@@ -873,12 +880,12 @@ public class SchemaTemplateSerDeTests {
                 .addView(RecordLayerView.newBuilder()
                         .setName("employee_view")
                         .setDescription("SELECT * FROM employees")
-                        .setViewCompiler(ignored -> null)
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                         .build())
                 .addView(RecordLayerView.newBuilder()
                         .setName("department_view")
                         .setDescription("SELECT * FROM departments")
-                        .setViewCompiler(ignored -> null)
+                        .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                         .build())
                 .build();
 
@@ -897,7 +904,7 @@ public class SchemaTemplateSerDeTests {
         final var originalView = RecordLayerView.newBuilder()
                 .setName("test_view")
                 .setDescription("SELECT * FROM employees")
-                .setViewCompiler(ignored -> null)
+                .setViewCompiler(UNIMPLEMENTED_VIEW_COMPILER)
                 .build();
 
         // Convert to builder and back
@@ -927,7 +934,6 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertFalse(viewOpt.isPresent());
     }
 
-    @Nonnull
     private static Descriptors.FileDescriptor createEscapedRecordTypesDescriptor() {
         DescriptorProtos.FileDescriptorProto fileDescriptorProto = DescriptorProtos.FileDescriptorProto.newBuilder()
                 .setName("test_schema_with_escaping.proto")
@@ -973,7 +979,6 @@ public class SchemaTemplateSerDeTests {
         }
     }
 
-    @Nonnull
     private static Descriptors.FileDescriptor createRecordTypesDescriptorWithMalformedEscaping() {
         DescriptorProtos.FileDescriptorProto fileDescriptorProto = DescriptorProtos.FileDescriptorProto.newBuilder()
                 .setName("test_schema_with_malformed_escaping.proto")
@@ -1021,17 +1026,16 @@ public class SchemaTemplateSerDeTests {
 
     private static final class RecordMetadataDeserializerWithPeekingFunctionSupplier extends RecordMetadataDeserializer {
 
-        @Nonnull
         private final Map<String, Integer> invocationsCount;
 
-        public RecordMetadataDeserializerWithPeekingFunctionSupplier(@Nonnull final RecordMetaData recordMetaData) {
+        public RecordMetadataDeserializerWithPeekingFunctionSupplier(final RecordMetaData recordMetaData) {
             super(recordMetaData);
             invocationsCount = new HashMap<>();
             hookInvokedRoutines(builder, invocationsCount);
         }
 
-        private static void hookInvokedRoutines(@Nonnull final RecordLayerSchemaTemplate.Builder schemaBuilder,
-                                                @Nonnull final Map<String, Integer> invocationsCount) {
+        private static void hookInvokedRoutines(final RecordLayerSchemaTemplate.Builder schemaBuilder,
+                                                final Map<String, Integer> invocationsCount) {
             final List<RecordLayerInvokedRoutine> invokedRoutines = schemaBuilder.getInvokedRoutines();
             for (RecordLayerInvokedRoutine routine : invokedRoutines) {
                 final String name = routine.getName();
@@ -1046,15 +1050,14 @@ public class SchemaTemplateSerDeTests {
             }
         }
 
-        boolean hasNoCompilationRequestsFor(@Nonnull final String functionName) {
+        boolean hasNoCompilationRequestsFor(final String functionName) {
             return invocationsCount.get(functionName) == null;
         }
 
-        boolean hasOneCompilationRequestFor(@Nonnull final String functionName) {
-            return 1 == invocationsCount.get(functionName);
+        boolean hasOneCompilationRequestFor(final String functionName) {
+            return Integer.valueOf(1).equals(invocationsCount.get(functionName));
         }
 
-        @Nonnull
         public PlanGenerator getPlanGenerator() throws RelationalException, SQLException {
 
             final var metricCollector = NoOpMetricCollector.INSTANCE;

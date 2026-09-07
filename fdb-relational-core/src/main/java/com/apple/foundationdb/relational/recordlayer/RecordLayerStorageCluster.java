@@ -36,8 +36,7 @@ import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerCatalogQuery
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.net.URI;
 import java.util.Collections;
 import java.util.HashMap;
@@ -62,7 +61,7 @@ public class RecordLayerStorageCluster implements StorageCluster {
                                      KeySpace keySpace,
                                      RecordLayerConfig rlConfig,
                                      StoreCatalog storeCatalog,
-                                     RelationalPlanCache planCache,
+                                     @Nullable RelationalPlanCache planCache,
                                      RecordLayerMetadataOperationsFactory ddlFactory) {
         //TODO(bfines) we shouldn't use FDBStoreTimer, we should use our own abstraction that can be easily disabled
         this.fdb = connection;
@@ -99,8 +98,8 @@ public class RecordLayerStorageCluster implements StorageCluster {
 
     @Override
     @Nullable
-    public RelationalDatabase loadDatabase(@Nonnull URI url,
-                                         @Nonnull Options connOptions) throws RelationalException {
+    public RelationalDatabase loadDatabase(URI url,
+                                         Options connOptions) throws RelationalException {
         Map<String, String> connectionOptions = parseConnectionQueryString(url.getQuery());
         String presetSchema = connectionOptions.get("SCHEMA");
         try (Transaction txn = getTransactionManager().createTransaction(Options.NONE)) {

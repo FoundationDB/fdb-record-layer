@@ -34,8 +34,7 @@ import com.google.common.primitives.Ints;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -43,11 +42,14 @@ import java.util.Objects;
 public final class ContinuationImpl implements Continuation {
     public static final int CURRENT_VERSION = 1;
 
+    // NullAway/JSpecify does not reliably track @Nullable on byte[] parameters across this constructor call; this
+    // genuinely passes null to represent "no continuation bytes" for the BEGIN sentinel, same as before this
+    // migration.
+    @SuppressWarnings("NullAway")
     public static final ContinuationImpl BEGIN = new ContinuationImpl((byte[]) null);
 
     public static final ContinuationImpl END = new ContinuationImpl(new byte[0]);
 
-    @Nonnull
     private final ContinuationProto proto;
 
     // TODO(yhatem) remove semantic nulls.
@@ -59,7 +61,7 @@ public final class ContinuationImpl implements Continuation {
         proto = builder.build();
     }
 
-    ContinuationImpl(@Nonnull ContinuationProto proto) {
+    ContinuationImpl(ContinuationProto proto) {
         this.proto = proto;
     }
 
@@ -74,6 +76,11 @@ public final class ContinuationImpl implements Continuation {
 
     @Nullable
     @Override
+    // Continuation#getExecutionState() is declared @Nullable byte[] (using javax.annotation.Nullable in the
+    // not-yet-migrated fdb-relational-api module), but NullAway/JSpecify does not reliably match array-typed
+    // nullability across that annotation boundary, so this override is flagged as mismatched even though it
+    // genuinely returns null when there is no execution state, same as before this migration.
+    @SuppressWarnings("NullAway")
     public byte[] getExecutionState() {
         if (!proto.hasExecutionState()) {
             return null;
@@ -83,6 +90,10 @@ public final class ContinuationImpl implements Continuation {
     }
 
     @Override
+    // Continuation#getReason() (in the not-yet-migrated fdb-relational-api module) has no explicit @Nullable
+    // annotation, so NullAway treats it as @NonNull; this override genuinely returns null when the proto has no
+    // reason set, same as before this migration.
+    @SuppressWarnings("NullAway")
     public Reason getReason() {
         if (proto.hasReason()) {
             return Reason.valueOf(proto.getReason().name());
@@ -98,7 +109,6 @@ public final class ContinuationImpl implements Continuation {
         return proto.hasCopyPlan();
     }
 
-    @Nonnull
     public CopyPlan getCopyPlan() {
         return proto.getCopyPlan();
     }
@@ -182,6 +192,10 @@ import com.apple.foundationdb.annotation.API;
      * @param cursorContinuation the inner cursor continuation to be placed inside the newly created continuation
      * @return a continuation that holds the given cursor continuation
      */
+    // RecordCursorContinuation#toBytes() is declared @Nullable (javax.annotation.Nullable, in the unmigrated
+    // fdb-record-layer-core module); NullAway/JSpecify does not reliably track @Nullable on byte[] return values
+    // across that boundary, though the ContinuationImpl constructor genuinely accepts null here.
+    @SuppressWarnings("NullAway")
     public static Continuation fromRecordCursorContinuation(RecordCursorContinuation cursorContinuation) {
         return cursorContinuation.isEnd() ? END : new ContinuationImpl(cursorContinuation.toBytes());
     }
@@ -192,7 +206,7 @@ import com.apple.foundationdb.annotation.API;
      * @return the deserialized continuation
      * @throws InvalidProtocolBufferException in case the continuation cannot be deserialized
      */
-    public static ContinuationImpl parseContinuation(byte[] bytes) throws InvalidProtocolBufferException {
+    public static ContinuationImpl parseContinuation(@Nullable byte[] bytes) throws InvalidProtocolBufferException {
         if (bytes == null) {
             return BEGIN;
         } else {
@@ -200,7 +214,7 @@ import com.apple.foundationdb.annotation.API;
         }
     }
 
-    public static ContinuationImpl copyOf(@Nonnull Continuation other) throws RelationalException {
+    public static ContinuationImpl copyOf(Continuation other) throws RelationalException {
         if (other instanceof ContinuationImpl) {
             // ContinuationImpl is immutable, no need to actually copy
             return (ContinuationImpl) other;

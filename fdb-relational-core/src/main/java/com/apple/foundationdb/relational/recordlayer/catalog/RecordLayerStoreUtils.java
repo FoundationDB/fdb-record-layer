@@ -32,7 +32,6 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 
 /**
  * Functionality shared by classes in this package accessing RecordLayer.
@@ -46,7 +45,7 @@ class RecordLayerStoreUtils {
      * @return Open RecordStore over passed context.
      * @throws RelationalException Thrown if problem opening RecordStore.
      */
-    static FDBRecordStoreBase<Message> openRecordStore(@Nonnull Transaction txn,
+    static FDBRecordStoreBase<Message> openRecordStore(Transaction txn,
                 RelationalKeyspaceProvider.RelationalSchemaPath schemaPath, RecordMetaDataProvider metaDataProvider)
             throws RelationalException {
         try {

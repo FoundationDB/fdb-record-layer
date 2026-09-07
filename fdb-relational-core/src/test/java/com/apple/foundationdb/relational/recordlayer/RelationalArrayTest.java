@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.RelationalStructAssert;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -38,7 +39,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -84,7 +84,7 @@ public class RelationalArrayTest {
     @Order(1)
     public final SimpleDatabaseRule database = new SimpleDatabaseRule(RelationalArrayTest.class, SCHEMA_TEMPLATE);
 
-    public void insertQuery(@Nonnull String q) throws SQLException {
+    public void insertQuery(String q) throws SQLException {
         try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
             conn.setSchema(database.getSchemaName());
             conn.setAutoCommit(true);
@@ -403,7 +403,7 @@ public class RelationalArrayTest {
         testArrays(nullArrayIdx, nonNullArrayIdx, null, filledArray, sqlType, 2);
     }
 
-    private void testArrays(int nullArrayIdx, int nonNullArrayIdx, List<Object> nullArrayElements,
+    private void testArrays(int nullArrayIdx, int nonNullArrayIdx, @Nullable List<Object> nullArrayElements,
                             List<Object> nonNullArrayElements, int sqlType, int pk) throws SQLException {
         try (final var conn = DriverManager.getConnection(database.getConnectionUri().toString())) {
             conn.setSchema(database.getSchemaName());
@@ -430,7 +430,7 @@ public class RelationalArrayTest {
         }
     }
 
-    private void checkArrayElementsUsingGetResultSet(@Nonnull ResultSet arrayResultSet, int sqlType, List<Object> elements) throws SQLException {
+    private void checkArrayElementsUsingGetResultSet(ResultSet arrayResultSet, int sqlType, List<Object> elements) throws SQLException {
         final var arrayMetadata = arrayResultSet.getMetaData();
         assertEquals(2, arrayMetadata.getColumnCount());
         assertEquals(ResultSetMetaData.columnNoNulls, arrayMetadata.isNullable(1));
@@ -452,7 +452,7 @@ public class RelationalArrayTest {
         assertFalse(arrayResultSet.next());
     }
 
-    private void checkArrayElementsUsingGetArray(@Nonnull Object[] array, int sqlType, List<Object> elements) {
+    private void checkArrayElementsUsingGetArray(Object[] array, int sqlType, List<Object> elements) {
         assertEquals(elements.size(), array.length);
         for (int i = 0; i < elements.size(); i++) {
             final var object = array[i];

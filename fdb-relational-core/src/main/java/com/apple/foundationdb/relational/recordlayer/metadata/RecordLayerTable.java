@@ -39,8 +39,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.DescriptorProtos;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -52,40 +51,36 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record;
+import static com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
+
 /**
  * Represents a {@link Table} that is backed by the Record Layer.
  */
 @API(API.Status.EXPERIMENTAL)
 public final class RecordLayerTable implements Table {
 
-    @Nonnull
     private final String name;
 
-    @Nonnull
     private final List<RecordLayerColumn> columns;
 
-    @Nonnull
     private final Set<RecordLayerIndex> indexes;
 
-    @Nonnull
     private final KeyExpression primaryKey;
 
-    @Nonnull
     private final DataType.StructType dataType;
 
-    @Nonnull
-    private final Type.Record record;
+    private final Record record;
 
-    @Nonnull
     private final Map<Integer, DescriptorProtos.FieldOptions> generations;
 
-    private RecordLayerTable(@Nonnull final String name,
-                             @Nonnull final List<RecordLayerColumn> columns,
-                             @Nonnull final Set<RecordLayerIndex> indexes,
-                             @Nonnull final KeyExpression primaryKey,
-                             @Nonnull final Map<Integer, DescriptorProtos.FieldOptions> generations,
+    private RecordLayerTable(final String name,
+                             final List<RecordLayerColumn> columns,
+                             final Set<RecordLayerIndex> indexes,
+                             final KeyExpression primaryKey,
+                             final Map<Integer, DescriptorProtos.FieldOptions> generations,
                              final DataType.StructType dataType,
-                             final Type.Record record) {
+                             final Record record) {
         this.name = name;
         this.columns = ImmutableList.copyOf(columns);
         this.indexes = ImmutableSet.copyOf(indexes);
@@ -95,42 +90,36 @@ public final class RecordLayerTable implements Table {
         this.record = record == null ? calculateRecordLayerType() : record;
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return name;
     }
 
-    @Nonnull
     @Override
     public Set<RecordLayerIndex> getIndexes() {
         return indexes;
     }
 
-    @Nonnull
     public Map<Integer, DescriptorProtos.FieldOptions> getGenerations() {
         return generations;
     }
 
-    @Nonnull
     @Override
     public Collection<RecordLayerColumn> getColumns() {
         return columns;
     }
 
-    @Nonnull
-    public Type.Record getType() {
+    public Record getType() {
         return record;
     }
 
-    @Nonnull
     public KeyExpression getPrimaryKey() {
         return primaryKey;
     }
 
     // TODO: remove
     @Override
-    public void accept(@Nonnull final Visitor visitor) {
+    public void accept(final Visitor visitor) {
         visitor.visit(this);
 
         for (final var index : getIndexes()) {
@@ -142,12 +131,10 @@ public final class RecordLayerTable implements Table {
         }
     }
 
-    @Nonnull
-    private Type.Record calculateRecordLayerType() {
-        return (Type.Record) DataTypeUtils.toRecordLayerType(getDatatype());
+    private Record calculateRecordLayerType() {
+        return (Record) DataTypeUtils.toRecordLayerType(getDatatype());
     }
 
-    @Nonnull
     private DataType.StructType calculateDataType() {
         final var columnTypes = ImmutableList.<DataType.StructType.Field>builder();
         for (final var column : columns) {
@@ -176,7 +163,6 @@ public final class RecordLayerTable implements Table {
         return DataType.StructType.from(getName(), columnTypes.build(), true);
     }
 
-    @Nonnull
     @Override
     public DataType.StructType getDatatype() {
         return dataType;
@@ -207,22 +193,22 @@ public final class RecordLayerTable implements Table {
     public static final class Builder {
         private String name;
 
-        @Nonnull
         private final Set<RecordLayerIndex> indexes;
 
-        @Nonnull
         private final ImmutableList.Builder<RecordLayerColumn> columns;
 
-        @Nonnull
         private List<KeyExpression> primaryKeyParts;
 
-        @Nonnull
         private final Map<Integer, DescriptorProtos.FieldOptions> generations;
 
         private DataType.StructType dataType;
 
-        private Type.Record record;
+        private Record record;
 
+        // name, dataType, and record are populated by the fluent setters below (dataType/record
+        // are also lazily derived in build() if left unset) and validated in build(), so
+        // NullAway cannot see that they are always set before use.
+        @SuppressWarnings("NullAway.Init")
         private Builder() {
             this.indexes = new LinkedHashSet<>();
             this.columns = ImmutableList.builder();
@@ -232,54 +218,46 @@ public final class RecordLayerTable implements Table {
             this.primaryKeyParts.add(Key.Expressions.recordType());
         }
 
-        @Nonnull
         public Builder setName(String name) {
             this.name = name;
             return this;
         }
 
-        @Nonnull
-        public Builder setDatatype(@Nonnull DataType.StructType dataType) {
+        public Builder setDatatype(DataType.StructType dataType) {
             this.dataType = dataType;
             return this;
         }
 
-        @Nonnull
-        public Builder setRecord(@Nonnull Type.Record record) {
+        public Builder setRecord(Record record) {
             this.record = record;
             return this;
         }
 
-        @Nonnull
-        public Builder addIndex(@Nonnull final RecordLayerIndex index) {
+        public Builder addIndex(final RecordLayerIndex index) {
             Assert.thatUnchecked(indexes.stream().noneMatch(i -> index.getName().equals(i.getName())),
                     ErrorCode.INDEX_ALREADY_EXISTS, () -> "attempt to add duplicate index '%s'" + index.getName());
             this.indexes.add(index);
             return this;
         }
 
-        @Nonnull
-        public Builder addIndexes(@Nonnull final Collection<RecordLayerIndex> indexes) {
+        public Builder addIndexes(final Collection<RecordLayerIndex> indexes) {
             indexes.forEach(this::addIndex);
             return this;
         }
 
-        @Nonnull
-        public Builder addGenerations(@Nonnull final Map<Integer, DescriptorProtos.FieldOptions> generations) {
+        public Builder addGenerations(final Map<Integer, DescriptorProtos.FieldOptions> generations) {
             generations.forEach(this::addGeneration);
             return this;
         }
 
-        @Nonnull
-        public Builder addGeneration(int number, @Nonnull DescriptorProtos.FieldOptions options) {
+        public Builder addGeneration(int number, DescriptorProtos.FieldOptions options) {
             Assert.thatUnchecked(!generations.containsKey(number), ErrorCode.TABLE_ALREADY_EXISTS, "Duplicate field number %d for generation of Table %s", number, name);
             Assert.thatUnchecked(!generations.containsValue(options), ErrorCode.TABLE_ALREADY_EXISTS, "Duplicated options for different generations of Table %s", name);
             generations.put(number, options);
             return this;
         }
 
-        @Nonnull
-        public Builder setPrimaryKey(@Nonnull final KeyExpression primaryKey) {
+        public Builder setPrimaryKey(final KeyExpression primaryKey) {
             if (primaryKey instanceof ThenKeyExpression) {
                 this.primaryKeyParts = new ArrayList<>(((ThenKeyExpression) primaryKey).getChildren());
             } else if (primaryKey instanceof EmptyKeyExpression) {
@@ -291,38 +269,33 @@ public final class RecordLayerTable implements Table {
             return this;
         }
 
-        @Nonnull
-        public Builder addPrimaryKeyPart(@Nonnull final List<String> primaryKeyPart) {
+        public Builder addPrimaryKeyPart(final List<String> primaryKeyPart) {
             primaryKeyParts.add(toKeyExpression(record, primaryKeyPart));
             return this;
         }
 
-        @Nonnull
-        public Builder addColumn(@Nonnull final RecordLayerColumn column) {
+        public Builder addColumn(final RecordLayerColumn column) {
             columns.add(column);
             return this;
         }
 
-        @Nonnull
-        public Builder addColumns(@Nonnull final Collection<RecordLayerColumn> columns) {
+        public Builder addColumns(final Collection<RecordLayerColumn> columns) {
             this.columns.addAll(columns);
             return this;
         }
 
-        @Nonnull
-        private static KeyExpression toKeyExpression(@Nullable Type.Record type, @Nonnull final List<String> fields) {
+        private static KeyExpression toKeyExpression(@Nullable Record type, final List<String> fields) {
             Assert.thatUnchecked(!fields.isEmpty());
             return toKeyExpression(type, fields.iterator());
         }
 
-        @Nonnull
-        private static KeyExpression toKeyExpression(@Nullable Type.Record type, @Nonnull final Iterator<String> fields) {
+        private static KeyExpression toKeyExpression(@Nullable Record type, final Iterator<String> fields) {
             Assert.thatUnchecked(fields.hasNext());
             String fieldName = fields.next();
-            Type.Record.Field field = getFieldDefinition(type, fieldName);
+            Field field = getFieldDefinition(type, fieldName);
             final FieldKeyExpression expression = Key.Expressions.field(getFieldStorageName(field, fieldName));
             if (fields.hasNext()) {
-                Type.Record fieldType = getFieldRecordType(type, field);
+                Record fieldType = getFieldRecordType(type, field);
                 return expression.nest(toKeyExpression(fieldType, fields));
             } else {
                 return expression;
@@ -330,28 +303,26 @@ public final class RecordLayerTable implements Table {
         }
 
         @Nullable
-        private static Type.Record.Field getFieldDefinition(@Nullable Type.Record type, @Nonnull String fieldName) {
+        private static Field getFieldDefinition(@Nullable Record type, String fieldName) {
             return type == null ? null : type.getFieldNameFieldMap().get(fieldName);
         }
 
-        @Nonnull
-        private static String getFieldStorageName(@Nullable Type.Record.Field field, @Nonnull String fieldName) {
+        private static String getFieldStorageName(@Nullable Field field, String fieldName) {
             return field == null ? ProtoUtils.toProtoBufCompliantName(fieldName) : field.getFieldStorageName();
         }
 
         @Nullable
-        private static Type.Record getFieldRecordType(@Nullable Type.Record recordType, @Nullable Type.Record.Field field) {
+        private static Record getFieldRecordType(@Nullable Record recordType, @Nullable Field field) {
             if (field == null) {
                 return null;
             }
             Type fieldType = field.getFieldType();
-            if (!(fieldType instanceof Type.Record)) {
+            if (!(fieldType instanceof Record)) {
                 Assert.failUnchecked(ErrorCode.INVALID_COLUMN_REFERENCE, "Field '" + field.getFieldName() + "' on type '" + (recordType == null ? "UNKNOWN" : recordType.getName()) + "' is not a struct");
             }
-            return (Type.Record) fieldType;
+            return (Record) fieldType;
         }
 
-        @Nonnull
         private KeyExpression getPrimaryKey() {
             if (primaryKeyParts.isEmpty()) {
                 return EmptyKeyExpression.EMPTY;
@@ -362,7 +333,6 @@ public final class RecordLayerTable implements Table {
             }
         }
 
-        @Nonnull
         public RecordLayerTable build() {
             Assert.notNullUnchecked(name, "table name is not set");
 
@@ -375,8 +345,7 @@ public final class RecordLayerTable implements Table {
             return new RecordLayerTable(name, columnsList, indexesSet, getPrimaryKey(), generations, dataType, record);
         }
 
-        @Nonnull
-        public static Builder from(@Nonnull final RecordLayerTable table) {
+        public static Builder from(final RecordLayerTable table) {
             return newBuilder(false)
                     .setName(table.getName())
                     .addColumns(table.getColumns())
@@ -387,16 +356,14 @@ public final class RecordLayerTable implements Table {
                     .addGenerations(table.getGenerations());
         }
 
-        @Nonnull
-        public static Builder from(@Nonnull final DataType.StructType structType) {
+        public static Builder from(final DataType.StructType structType) {
             return newBuilder(false)
                     .setName(structType.getName())
                     .addColumns(structType.getFields().stream().map(RecordLayerColumn::from).collect(Collectors.toList()))
                     .setDatatype(structType);
         }
 
-        @Nonnull
-        public static Builder from(@Nonnull final Type.Record record) {
+        public static Builder from(final Record record) {
             final var relationalType = DataTypeUtils.toRelationalType(record);
             Assert.thatUnchecked(relationalType instanceof DataType.StructType);
             final var asStruct = (DataType.StructType) relationalType;
@@ -407,8 +374,7 @@ public final class RecordLayerTable implements Table {
             return from(asStruct).setRecord(record);
         }
 
-        @Nonnull
-        private static List<RecordLayerColumn> normalize(@Nonnull final List<RecordLayerColumn> columns) {
+        private static List<RecordLayerColumn> normalize(final List<RecordLayerColumn> columns) {
             if (columns.stream().allMatch(c -> c.getIndex() >= 0)) {
                 return columns;
             }
@@ -425,7 +391,6 @@ public final class RecordLayerTable implements Table {
         }
     }
 
-    @Nonnull
     public static Builder newBuilder(boolean intermingleTables) {
         Builder builder = new Builder();
         if (intermingleTables) {
