@@ -106,7 +106,7 @@ Four states can be written for a parameter:
 
 ``= TRUE`` and ``= FALSE`` require the parameter to be declared ``BOOLEAN``. ``IS NULL`` cannot be written for a parameter declared ``NOT NULL``, since that would contradict the declaration.
 
-Every case must pin **every** declared parameter:
+Every parameter declared nullable — the default — must be pinned in every case:
 
 .. code-block:: sql
 
@@ -119,9 +119,17 @@ Every case must pin **every** declared parameter:
 
 Two plans are warmed here. The first has ``"CK___zone_key"`` bound to null while planning, so the planner folds that predicate; the second leaves it without a value and only knows it is not null, so the plan keeps the predicate and can use a zone index.
 
-Because each case pins every parameter to a definite state, no two cases can overlap, and there is no rule about which one wins. A binding no case matches — ``zone_wide`` bound to ``true`` above — is not an error: the runtime misses the cache, plans the query with the values in hand and returns correct rows. Only the warm-up is missed. Add a case for a combination that turns out to be hot.
+Because every parameter ends up with a definite state, no two cases can overlap, and there is no rule about which one wins. A binding no case matches — ``zone_wide`` bound to ``true`` above — is not an error: the runtime misses the cache, plans the query with the values in hand and returns correct rows. Only the warm-up is missed. Add a case for a combination that turns out to be hot.
 
-A parameter left unpinned is rejected. For a nullable parameter the plan would have to be built with no value and a nullable type, and no single plan is correct for both a null and a non-null binding. For a parameter declared ``NOT NULL`` the omission would in fact be safe, since the declaration already excludes null — it is rejected all the same, so that a case names every parameter and can be read without checking the declarations.
+Leaving a nullable parameter unpinned is rejected. Its plan would have to be built with no value and a nullable type, and no single plan is correct for both a null and a non-null binding.
+
+A parameter declared ``NOT NULL`` may be left out, since ``IS NOT NULL`` is the only state its declaration allows and writing it says nothing new. It is recorded as if written, so what is warmed does not depend on whether the author spelled it out:
+
+.. code-block:: sql
+
+    CREATE STORED QUERY by_zone("CK___zone_key" BIGINT NOT NULL, adopter_a INTEGER)
+        PREPARE FOR ((adopter_a IS NOT NULL))
+        AS SELECT * FROM t1 WHERE zone_key = "CK___zone_key" AND adopter = adopter_a
 
 Examples
 ========
