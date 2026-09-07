@@ -151,6 +151,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
         switch (comparison.getType()) {
             case EQUALS:
             case IS_NULL:
+            case NOT_DISTINCT_FROM:
             case DISTANCE_RANK_EQUALS:
                 return ComparisonType.EQUALITY;
             case LESS_THAN:
@@ -164,6 +165,7 @@ public class ScanComparisons implements PlanHashable, Correlated<ScanComparisons
             case DISTANCE_RANK_LESS_THAN_OR_EQUAL:
                 return ComparisonType.INEQUALITY;
             case NOT_EQUALS:
+            case IS_DISTINCT_FROM:
             default:
                 return ComparisonType.NONE;
         }

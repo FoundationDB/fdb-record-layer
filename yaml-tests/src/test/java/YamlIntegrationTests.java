@@ -358,6 +358,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void scopedKeysetPagination(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("scoped-keyset-pagination.yamsql");
+    }
+
+    @TestTemplate
     public void selectAStar(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("select-a-star.yamsql");
     }

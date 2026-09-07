@@ -1,0 +1,69 @@
+# Regression test for a Cascades planner bug: a keyset-pagination OR-range on trailing index
+# columns, combined with a genuinely unbound "IS NOT DISTINCT FROM" parameter on the index's
+# LEADING key column, could fail to plan at all (UnableToPlanException) rather than producing a
+# (possibly suboptimal) plan.
+#
+# The scoped_item table models a common multi-tenant shape: rows are partitioned by an optional
+# "scope_id" (e.g. a tenant/zone), and callers query within one scope (or "scope-wide", across
+# all scopes) using a null-safe equality check ("scope_id IS NOT DISTINCT FROM row's scope"),
+# because the scope value itself may be null (a "default"/unscoped row).
+#
+# The scoped_item_scope_ts_idx index is rooted at (scope.scope_id, ts, id) - scope_id is the
+# LEADING key column, not the trailing one. A full/unbounded scan of this index is therefore
+# ordered by (scope_id, ts, id), NOT by (ts, id) alone - so it can only satisfy
+# "ORDER BY ts DESC, id DESC" (which never mentions scope_id) if scope_id first resolves to a
+# single equality value. That resolution requires recognizing "IS NOT DISTINCT FROM" as an
+# equality-shaped range boundary. Without that, neither a bounded-range plan nor the "just scan
+# everything" fallback is available (the fallback's natural order doesn't match ORDER BY either) -
+# hence no plan at all.
+#
+# Critically, the "IS NOT DISTINCT FROM" comparison must be a genuinely unbound parameter, not a
+# literal: a NULL-valued bind parameter gets rewritten to a plain "IS NULL" comparison before the
+# planner ever sees a "NOT_DISTINCT_FROM" node at all (that's always been a valid equality-shaped
+# comparison), so it never exercises the bug. A non-null bound value stays a genuine
+# NOT_DISTINCT_FROM comparison against a real parameter reference.
+#
+# supported_version is pinned to the current (in-development) version: this fix hasn't shipped in
+# any released version yet, so running this test against an older external server build would
+# correctly (from that older build's own perspective) fail - that's not a regression to catch.
+---
+options:
+    supported_version: !current_version
+---
+schema_template:
+    create type as struct scope(scope_id bigint, deleted boolean)
+    create table scoped_item(id string, scope scope, ts bigint, payload string, primary key(id))
+    create index scoped_item_scope_ts_idx as select scope.scope_id, ts, id from scoped_item order by scope.scope_id, ts, id
+    create function scoped_item_view(scope_id bigint default null, scope_wide boolean default false, include_deleted boolean default false) as
+        select id, ts, payload
+        from scoped_item
+        where (scope_wide is true or scope_id is not distinct from scope.scope_id)
+          and (scope.deleted is not true or include_deleted is true)
+---
+setup:
+  steps:
+    - query: insert into scoped_item
+            values ('item_1', (null, false), 100, 'a'),
+                   ('item_2', (null, false), 100, 'b'),
+                   ('item_3', (null, false), 200, 'c'),
+                   ('item_4', (1,    false), 300, 'd'),
+                   ('item_5', (null, false), 300, 'e')
+---
+test_block:
+  name: scoped-keyset-pagination-tests
+  preset: single_repetition_ordered
+  options:
+    # Force real bind-parameter semantics (not literal injection), so scope_id stays a genuinely
+    # unbound parameter reference at plan time rather than a constant-folded literal.
+    statement_type: prepared
+  tests:
+    # item_4 is the only row in scope 1; the pagination range "(ts = 100 AND id > 'item_1') OR
+    # (ts > 100)" matches it via the second branch (ts=300 > 100).
+    -
+      - query: SELECT id, ts
+              FROM scoped_item_view(scope_id => !! 1 !!)
+              WHERE (ts = !! 100 !! AND id > !! 'item_1' !!) OR (ts > !! 100 !!)
+              ORDER BY ts DESC, id DESC
+      - explain: "ISCAN(SCOPED_ITEM_SCOPE_TS_IDX [NOT_DISTINCT_FROM promote(@c9 AS LONG), EQUALS promote(@c15 AS LONG), [GREATER_THAN promote(@c19 AS STRING)]] REVERSE) | FILTER _.SCOPE.DELETED IS_NULL OR _.SCOPE.DELETED EQUALS false ∪ ISCAN(SCOPED_ITEM_SCOPE_TS_IDX [NOT_DISTINCT_FROM promote(@c9 AS LONG), [GREATER_THAN promote(@c15 AS LONG)]] REVERSE) | FILTER _.SCOPE.DELETED IS_NULL OR _.SCOPE.DELETED EQUALS false COMPARE BY (_.TS, _.ID) | MAP (_.ID AS ID, _.TS AS TS)"
+      - resultMetadata: [{ID: STRING}, {TS: BIGINT}]
+      - result: [{ID: 'item_4', TS: 300}]
