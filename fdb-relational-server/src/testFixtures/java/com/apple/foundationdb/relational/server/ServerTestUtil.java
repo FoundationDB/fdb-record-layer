@@ -25,6 +25,7 @@ import com.apple.foundationdb.test.FDBTestEnvironment;
 import io.prometheus.client.CollectorRegistry;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 import java.net.BindException;
@@ -59,10 +60,11 @@ public final class ServerTestUtil {
     /**
      * Create and start a RelationalServer with a specific cluster file.
      * @param preferredPort The preferred port to start on
-     * @param clusterFile The cluster file to use for FDB connection
+     * @param clusterFile The cluster file to use for FDB connection, or {@code null} to use the default
+     *     cluster file
      * @return Return a started {@link RelationalServer}
      */
-    public static RelationalServer createAndStartRelationalServer(int preferredPort, String clusterFile) throws IOException {
+    public static RelationalServer createAndStartRelationalServer(int preferredPort, @Nullable String clusterFile) throws IOException {
         RelationalServer relationalServer = null;
         for (int port = preferredPort; port <= (preferredPort + PORT_RETRY_MAX); port += 2) {
             // Create a CollectorRegistry when a test fixture else "java.lang.IllegalArgumentException:
@@ -76,9 +78,10 @@ public final class ServerTestUtil {
             } catch (IOException ioe) {
                 // GRPC throws an IOE w/ a message that begins with the below when BindException.
                 // HTTPServer will throw a BindException. Handle both.
+                final String message = ioe.getMessage();
                 if (ioe instanceof BindException ||
                         (ioe.getCause() != null && ioe.getCause() instanceof  BindException) ||
-                        ioe.getMessage().contains("Failed to bind to address")) {
+                        (message != null && message.contains("Failed to bind to address"))) {
                     final int portToLog = port;
                     logger.info("BindException on port={}, trying the next port", portToLog, ioe);
                     relationalServer.close();
@@ -87,6 +90,10 @@ public final class ServerTestUtil {
                 }
                 throw ioe;
             }
+        }
+        if (relationalServer == null) {
+            throw new IOException("Could not start RelationalServer on any port in [" + preferredPort + ", "
+                    + (preferredPort + PORT_RETRY_MAX) + "]");
         }
         return relationalServer;
     }

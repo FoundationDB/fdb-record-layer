@@ -21,4 +21,7 @@
 /**
  * Test Utility for downstream modules.
  */
+@NullMarked
 package com.apple.foundationdb.relational.server;
+
+import org.jspecify.annotations.NullMarked;

@@ -53,8 +53,8 @@ import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOper
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.net.URI;
 import java.sql.Array;
 import java.sql.DriverManager;
@@ -87,15 +87,15 @@ public class FRL implements AutoCloseable {
         this(Options.NONE, null);
     }
 
-    public FRL(@Nonnull Options options) throws RelationalException {
+    public FRL(Options options) throws RelationalException {
         this(options, null);
     }
 
-    public FRL(@Nonnull Options options, @Nullable String clusterFile) throws RelationalException {
+    public FRL(Options options, @Nullable String clusterFile) throws RelationalException {
         this(options, clusterFile, true);
     }
 
-    public FRL(@Nonnull Options options, @Nullable String clusterFile, boolean registerDriver) throws RelationalException {
+    public FRL(Options options, @Nullable String clusterFile, boolean registerDriver) throws RelationalException {
         final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase(clusterFile);
         final Long asyncToSyncTimeout = options.getOption(Options.Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS);
         if (asyncToSyncTimeout > 0) {
@@ -163,7 +163,7 @@ public class FRL implements AutoCloseable {
             this.rowCount = rowCount;
         }
 
-        public static Response query(@Nonnull ResultSet resultSet) {
+        public static Response query(ResultSet resultSet) {
             return new Response(resultSet, -1);
         }
 
@@ -198,8 +198,7 @@ public class FRL implements AutoCloseable {
      * @return Returns A Response with either a ResultSet or a Row count, depending on the type of query issued
      * @throws SQLException For all sorts of reasons.
      */
-    @Nonnull
-    public Response execute(String database, String schema, String sql, List<Parameter> parameters, Options options)
+    public Response execute(String database, String schema, String sql, @Nullable List<Parameter> parameters, Options options)
             throws SQLException {
         // Down inside connect, it calls RecordLayerStorageCluster.loadDatabase which internally creates a Transaction
         // to RecordLayerStorageCluster.loadDatabase and which, internal to loadDatabase, it then closes.
@@ -218,8 +217,8 @@ public class FRL implements AutoCloseable {
         return Objects.requireNonNull(driver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options));
     }
 
-    private Response executeInternal(@Nonnull RelationalConnection connection,
-                                     @Nonnull String sql,
+    private Response executeInternal(RelationalConnection connection,
+                                     String sql,
                                      @Nullable List<Parameter> parameters,
                                      @Nullable Options options) throws SQLException {
         ResultSet resultSet;
@@ -262,8 +261,8 @@ public class FRL implements AutoCloseable {
         }
     }
 
-    private static void addPreparedStatementParameter(@Nonnull RelationalPreparedStatement relationalPreparedStatement,
-                                                      @Nonnull Parameter parameter, int index) throws SQLException {
+    private static void addPreparedStatementParameter(RelationalPreparedStatement relationalPreparedStatement,
+                                                      Parameter parameter, int index) throws SQLException {
         final var oneOfValue = parameter.getParameter();
         if (oneOfValue.hasString()) {
             relationalPreparedStatement.setString(index, oneOfValue.getString());
@@ -347,46 +346,45 @@ public class FRL implements AutoCloseable {
         return new TransactionalToken(transactionalConnection);
     }
 
-    @Nonnull
-    public Response transactionalExecute(TransactionalToken token, String sql, List<Parameter> parameters, @Nullable Options options)
+    public Response transactionalExecute(@Nullable TransactionalToken token, String sql, List<Parameter> parameters, @Nullable Options options)
             throws SQLException {
-        assertValidToken(token);
-        return executeInternal(token.getConnection(), sql, parameters, options);
+        return executeInternal(requireValidToken(token).getConnection(), sql, parameters, options);
     }
 
-    public int transactionalInsert(TransactionalToken token, String tableName, List<RelationalStruct> data)
+    public int transactionalInsert(@Nullable TransactionalToken token, String tableName, List<RelationalStruct> data)
             throws SQLException {
-        assertValidToken(token);
-        try (Statement statement = token.getConnection().createStatement()) {
+        try (Statement statement = requireValidToken(token).getConnection().createStatement()) {
             try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
                 return relationalStatement.executeInsert(tableName, data, Options.NONE);
             }
         }
     }
 
-    public void transactionalCommit(TransactionalToken token) throws SQLException {
-        assertValidToken(token);
-        token.getConnection().commit();
+    public void transactionalCommit(@Nullable TransactionalToken token) throws SQLException {
+        requireValidToken(token).getConnection().commit();
     }
 
-    public void transactionalRollback(TransactionalToken token) throws SQLException {
-        assertValidToken(token);
-        token.getConnection().rollback();
+    public void transactionalRollback(@Nullable TransactionalToken token) throws SQLException {
+        requireValidToken(token).getConnection().rollback();
     }
 
-    public void enableAutoCommit(TransactionalToken token) throws SQLException {
-        assertValidToken(token);
-        token.getConnection().setAutoCommit(true);
+    public void enableAutoCommit(@Nullable TransactionalToken token) throws SQLException {
+        requireValidToken(token).getConnection().setAutoCommit(true);
     }
 
-    public void transactionalClose(TransactionalToken token) throws SQLException {
+    public void transactionalClose(@Nullable TransactionalToken token) throws SQLException {
         if (token != null && !token.expired()) {
             token.close();
         }
 
     }
 
-    private void assertValidToken(TransactionalToken token) throws SQLException {
+    /**
+     * Check that <code>token</code> is non-null and not expired.
+     * @return <code>token</code>, narrowed to non-null, for convenient chaining at call sites.
+     * @throws SQLException if <code>token</code> is null or expired.
+     */
+    private TransactionalToken requireValidToken(@Nullable TransactionalToken token) throws SQLException {
         if (token == null) {
             // TODO: non SQLException exception?
             throw new SQLException("Transaction was not initialized");
@@ -394,6 +392,7 @@ public class FRL implements AutoCloseable {
         if (token.expired()) {
             throw new SQLException("Transaction had expired");
         }
+        return token;
     }
 
     @Override

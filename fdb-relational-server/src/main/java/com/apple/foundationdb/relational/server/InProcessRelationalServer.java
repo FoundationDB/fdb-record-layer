@@ -29,7 +29,8 @@ import com.apple.foundationdb.relational.server.jdbc.v1.JDBCService;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessServerBuilder;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -45,7 +46,9 @@ import java.time.Instant;
 @SuppressWarnings({"PMD.SystemPrintln", "PMD.DoNotCallSystemExit"})
 @API(API.Status.EXPERIMENTAL)
 public class InProcessRelationalServer implements Closeable {
+    @Nullable
     private Server grpcInProcessServer;
+    @Nullable
     private FRL frl;
     private final String serverName;
     @Nullable
@@ -92,7 +95,9 @@ public class InProcessRelationalServer implements Closeable {
                 // Use stderr here since the logger may have been reset by its JVM shutdown hook.
                 System.err.println(Instant.now() + " Waiting on in-process Server " + getServerName() + " termination");
                 try {
-                    InProcessRelationalServer.this.grpcInProcessServer.shutdown();
+                    if (InProcessRelationalServer.this.grpcInProcessServer != null) {
+                        InProcessRelationalServer.this.grpcInProcessServer.shutdown();
+                    }
                     InProcessRelationalServer.this.awaitTermination();
                 } catch (InterruptedIOException e) {
                     throw new RuntimeException(e);
