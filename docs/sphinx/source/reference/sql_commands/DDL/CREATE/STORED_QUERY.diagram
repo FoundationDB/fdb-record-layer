@@ -22,6 +22,39 @@ Diagram(
                     ),
                     Terminal(',')
                 ),
+                Terminal(')'),
+                Terminal('PREPARE'),
+                Terminal('FOR'),
+                Terminal('('),
+                OneOrMore(
+                    Sequence(
+                        Terminal('('),
+                        OneOrMore(
+                            Sequence(
+                                NonTerminal('parameterName'),
+                                Choice(0,
+                                    Sequence(
+                                        Terminal('IS'),
+                                        Optional(
+                                            Terminal('NOT')
+                                        ),
+                                        Terminal('NULL')
+                                    ),
+                                    Sequence(
+                                        Terminal('='),
+                                        Choice(0,
+                                            Terminal('TRUE'),
+                                            Terminal('FALSE')
+                                        )
+                                    )
+                                )
+                            ),
+                            Terminal(',')
+                        ),
+                        Terminal(')')
+                    ),
+                    Terminal(',')
+                ),
                 Terminal(')')
             )
         ),
