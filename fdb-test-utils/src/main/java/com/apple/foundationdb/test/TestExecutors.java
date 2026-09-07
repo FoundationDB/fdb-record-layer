@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.test;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -30,7 +29,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Executors to use during testing.
  */
 public final class TestExecutors {
-    @Nonnull
     private static final Executor DEFAULT_THREAD_POOL = newThreadPool("fdb-unit-test");
 
     private TestExecutors() {
@@ -43,7 +41,7 @@ public final class TestExecutors {
         private final String namePrefix;
         private final AtomicInteger count;
 
-        public TestThreadFactory(@Nonnull String namePrefix) {
+        public TestThreadFactory(String namePrefix) {
             this.namePrefix = namePrefix;
             this.count = new AtomicInteger();
         }
@@ -57,11 +55,10 @@ public final class TestExecutors {
         }
     }
 
-    public static Executor newThreadPool(@Nonnull String namePrefix) {
+    public static Executor newThreadPool(String namePrefix) {
         return Executors.newCachedThreadPool(new TestThreadFactory(namePrefix));
     }
 
-    @Nonnull
     public static Executor defaultThreadPool() {
         return DEFAULT_THREAD_POOL;
     }

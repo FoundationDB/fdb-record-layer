@@ -35,7 +35,7 @@ import java.util.stream.Stream;
  * argument.
  */
 class BooleanArgumentsProvider implements ArgumentsProvider, AnnotationConsumer<BooleanSource> {
-    private String[] names;
+    private String[] names = new String[0];
 
     @Override
     public void accept(BooleanSource booleanSource) {

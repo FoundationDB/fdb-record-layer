@@ -18,21 +18,42 @@
  * limitations under the License.
  */
 
+plugins {
+    alias(libs.plugins.errorprone)
+}
+
 apply from: rootProject.file('gradle/publishing.gradle')
 
 dependencies {
     api(libs.bundles.test.impl)
     api(libs.slf4j.api)
     compileOnly(libs.bundles.test.compileOnly)
-    compileOnly(libs.jsr305)
+    compileOnly(libs.jspecify)
     annotationProcessor(libs.autoService)
     implementation(libs.fdbJava)
     implementation(libs.snakeyaml)
+
+    errorprone(libs.errorprone.core)
+    errorprone(libs.nullaway)
 
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
     testAnnotationProcessor(libs.autoService)
+}
+
+// jspecify + NullAway null-checking, scoped to this module only. See @NullMarked
+// package-info.java files in com.apple.foundationdb.test / com.apple.test. Unlike the other
+// modules that have adopted this, fdb-test-utils has two unrelated top-level packages, so both
+// are listed in AnnotatedPackages.
+tasks.withType(JavaCompile).configureEach {
+    options.errorprone {
+        disableAllChecks = true
+        error("NullAway")
+        option("NullAway:AnnotatedPackages", "com.apple.foundationdb.test,com.apple.test")
+        option("NullAway:JSpecifyMode", "true")
+        option("NullAway:AcknowledgeRestrictiveAnnotations", "true")
+    }
 }
 
 publishing {

@@ -29,8 +29,11 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
+import org.jspecify.annotations.Nullable;
+
 public class RootLogLevelExtension implements BeforeEachCallback, AfterEachCallback {
     private final Level tempLevel;
+    @Nullable
     private Level original;
 
     public RootLogLevelExtension(Level tempLevel) {

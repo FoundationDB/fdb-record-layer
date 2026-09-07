@@ -33,7 +33,7 @@ import java.util.stream.Stream;
  * {@link org.junit.jupiter.params.ParameterizedTest} test.
  */
 public class RandomSeedProvider implements ArgumentsProvider, AnnotationConsumer<RandomSeedSource> {
-    private long[] fixedSeeds;
+    private long[] fixedSeeds = new long[0];
 
     @Override
     public void accept(final RandomSeedSource annotation) {

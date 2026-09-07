@@ -29,8 +29,8 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -63,7 +63,6 @@ public class TestSubspaceExtension implements AfterEachCallback {
         this.dbExtension = dbExtension;
     }
 
-    @Nonnull
     public Subspace getSubspace() {
         if (subspace == null) {
             subspace = dbExtension.getDatabase().runAsync(tr ->
@@ -80,11 +79,12 @@ public class TestSubspaceExtension implements AfterEachCallback {
     @Override
     public void afterEach(final ExtensionContext extensionContext) {
         if (subspace != null) {
+            final Subspace subspaceToClear = subspace;
             if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("clearing test subspace subspace=\"{}\"", subspace);
+                LOGGER.debug("clearing test subspace subspace=\"{}\"", subspaceToClear);
             }
             dbExtension.getDatabase().run(tx -> {
-                tx.clear(Range.startsWith(subspace.pack()));
+                tx.clear(Range.startsWith(subspaceToClear.pack()));
                 return null;
             });
             subspace = null;

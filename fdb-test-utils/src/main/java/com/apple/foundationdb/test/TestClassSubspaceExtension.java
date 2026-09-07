@@ -24,8 +24,6 @@ import com.apple.foundationdb.subspace.Subspace;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-import javax.annotation.Nonnull;
-
 /**
  * Variant of {@link TestSubspaceExtension} that can be used to create a test subspace that is shared by
  * all tests in a given class. This will ensure that the subspace is cleared out at the conclusion of
@@ -33,14 +31,12 @@ import javax.annotation.Nonnull;
  * of every test.
  */
 public class TestClassSubspaceExtension implements AfterAllCallback {
-    @Nonnull
     private final TestSubspaceExtension subspaceExtension;
 
-    public TestClassSubspaceExtension(@Nonnull TestDatabaseExtension dbExtension) {
+    public TestClassSubspaceExtension(TestDatabaseExtension dbExtension) {
         this.subspaceExtension = new TestSubspaceExtension(dbExtension);
     }
 
-    @Nonnull
     public Subspace getSubspace() {
         return subspaceExtension.getSubspace();
     }

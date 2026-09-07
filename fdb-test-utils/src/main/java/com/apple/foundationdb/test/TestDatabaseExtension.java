@@ -27,8 +27,8 @@ import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.concurrent.Executor;
 
@@ -64,9 +64,9 @@ public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallbac
      * timeouts. Using a dedicated cached pool here mirrors what {@code FDBDatabaseExtension} does for
      * {@code FDBDatabaseFactory.setExecutor}.
      */
-    @Nonnull
     private static final Executor threadPoolExecutor = TestExecutors.newThreadPool("fdb-extensions-test");
 
+    @Nullable
     private Database db;
 
     public TestDatabaseExtension() {
@@ -80,7 +80,6 @@ public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallbac
         return apiVersion;
     }
 
-    @Nonnull
     private static FDB getFDB() {
         if (fdb == null) {
             synchronized (TestDatabaseExtension.class) {
@@ -104,7 +103,6 @@ public class TestDatabaseExtension implements BeforeAllCallback, AfterAllCallbac
         getFDB();
     }
 
-    @Nonnull
     public Database getDatabase() {
         if (db == null) {
             db = FDB.instance().open(FDBTestEnvironment.randomClusterFile(), threadPoolExecutor);
