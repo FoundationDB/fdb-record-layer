@@ -36,8 +36,8 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -49,22 +49,16 @@ import java.util.function.Supplier;
 public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Geo-Point-Within-Distance-Component");
 
-    @Nonnull
     private final DoubleValueOrParameter centerLatitude;
-    @Nonnull
     private final DoubleValueOrParameter centerLongitude;
-    @Nonnull
     private final DoubleValueOrParameter distance;
-    @Nonnull
     private final String latitudeFieldName;
-    @Nonnull
     private final String longitudeFieldName;
-    @Nonnull
     private final GeometryFactory geometryFactory = new GeometryFactory();
 
-    public GeoPointWithinDistanceComponent(@Nonnull DoubleValueOrParameter centerLatitude, @Nonnull DoubleValueOrParameter centerLongitude,
-                                           @Nonnull DoubleValueOrParameter distance,
-                                           @Nonnull String latitudeFieldName, @Nonnull String longitudeFieldName) {
+    public GeoPointWithinDistanceComponent(DoubleValueOrParameter centerLatitude, DoubleValueOrParameter centerLongitude,
+                                           DoubleValueOrParameter distance,
+                                           String latitudeFieldName, String longitudeFieldName) {
         this.centerLatitude = centerLatitude;
         this.centerLongitude = centerLongitude;
         this.distance = distance;
@@ -74,7 +68,7 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
 
     @Nullable
     @Override
-    public <M extends Message> Boolean evalMessage(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> rec, @Nullable Message message) {
+    public <M extends Message> Boolean evalMessage(FDBRecordStoreBase<M> store, EvaluationContext context, @Nullable FDBRecord<M> rec, @Nullable Message message) {
         Double distanceValue = distance.getValue(context);
         Double centerLatitudeValue = centerLatitude.getValue(context);
         Double centerLongitudeValue = centerLongitude.getValue(context);
@@ -92,7 +86,7 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
     }
 
     @Nullable
-    private Double getCoordinateField(@Nullable Message message, @Nonnull String fieldName) {
+    private Double getCoordinateField(@Nullable Message message, String fieldName) {
         if (message == null) {
             return null;
         }
@@ -104,12 +98,12 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
     }
 
     @Override
-    public void validate(@Nonnull Descriptors.Descriptor descriptor) {
+    public void validate(Descriptors.Descriptor descriptor) {
         validateCoordinateField(descriptor, latitudeFieldName);
         validateCoordinateField(descriptor, longitudeFieldName);
     }
 
-    private void validateCoordinateField(@Nonnull Descriptors.Descriptor descriptor, @Nonnull String fieldName) {
+    private void validateCoordinateField(Descriptors.Descriptor descriptor, String fieldName) {
         Descriptors.FieldDescriptor field = descriptor.findFieldByName(fieldName);
         if (field == null) {
             throw new Query.InvalidExpressionException("Missing field " + fieldName);
@@ -122,16 +116,15 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
         }
     }
 
-    @Nonnull
     @Override
-    public GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier,
-                                 @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
-                                 @Nonnull final List<String> fieldNamePrefix) {
+    public GraphExpansion expand(final Quantifier.ForEach baseQuantifier,
+                                 final Supplier<Quantifier.ForEach> outerQuantifierSupplier,
+                                 final List<String> fieldNamePrefix) {
         throw new UnsupportedOperationException("not yet implemented");
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return PlanHashable.objectsPlanHash(mode, centerLatitude, centerLongitude, distance, latitudeFieldName, longitudeFieldName);

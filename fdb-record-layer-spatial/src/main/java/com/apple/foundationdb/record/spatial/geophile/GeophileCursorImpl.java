@@ -30,8 +30,8 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.tuple.Tuple;
 import com.geophile.z.Cursor;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.function.BiFunction;
 
 /**
@@ -55,16 +55,16 @@ import java.util.function.BiFunction;
  * </ul>
  */
 class GeophileCursorImpl extends Cursor<GeophileRecordImpl> {
-    @Nonnull
     private final IndexMaintainer indexMaintainer;
     @Nullable
     private final Tuple prefix;
-    @Nonnull
     private final BiFunction<IndexEntry, Tuple, GeophileRecordImpl> recordFunction;
+    // Not set until goTo() is called; next() guards against use before then.
+    @Nullable
     private RecordCursor<IndexEntry> recordCursor;
 
-    GeophileCursorImpl(@Nonnull GeophileIndexImpl index, @Nonnull IndexMaintainer indexMaintainer, @Nullable Tuple prefix,
-                       @Nonnull BiFunction<IndexEntry, Tuple, GeophileRecordImpl> recordFunction) {
+    GeophileCursorImpl(GeophileIndexImpl index, IndexMaintainer indexMaintainer, @Nullable Tuple prefix,
+                       BiFunction<IndexEntry, Tuple, GeophileRecordImpl> recordFunction) {
         super(index);
         this.indexMaintainer = indexMaintainer;
         this.prefix = prefix;
@@ -87,7 +87,10 @@ class GeophileCursorImpl extends Cursor<GeophileRecordImpl> {
     }
 
     @Override
-    public void goTo(@Nonnull GeophileRecordImpl key) {
+    // Passes a null continuation into IndexMaintainer#scan; NullAway does not reliably recognize
+    // @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
+    public void goTo(GeophileRecordImpl key) {
         // TODO: For many kinds of spatial joins, it should be possible to pick an max Z value as well.
         //  This does not affect correctness, but without it the underlying key-value store does extra work.
         TupleRange range = new TupleRange(Tuple.from(key.z()), null, EndpointType.RANGE_INCLUSIVE, EndpointType.TREE_END);

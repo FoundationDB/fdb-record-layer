@@ -27,23 +27,21 @@ import com.geophile.z.Cursor;
 import com.geophile.z.Index;
 import com.geophile.z.Record;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.function.BiFunction;
 
 /**
  * Adapt {@link GeophileIndexMaintainer} to Geophile {@link Index}.
  */
 class GeophileIndexImpl extends Index<GeophileRecordImpl> {
-    @Nonnull
     private final IndexMaintainer indexMaintainer;
     @Nullable
     private final Tuple prefix;
-    @Nonnull
     private final BiFunction<IndexEntry, Tuple, GeophileRecordImpl> recordFunction;
 
-    GeophileIndexImpl(@Nonnull IndexMaintainer indexMaintainer, @Nullable Tuple prefix,
-                      @Nonnull BiFunction<IndexEntry, Tuple, GeophileRecordImpl> recordFunction) {
+    GeophileIndexImpl(IndexMaintainer indexMaintainer, @Nullable Tuple prefix,
+                      BiFunction<IndexEntry, Tuple, GeophileRecordImpl> recordFunction) {
         this.indexMaintainer = indexMaintainer;
         this.prefix = prefix;
         this.recordFunction = recordFunction;

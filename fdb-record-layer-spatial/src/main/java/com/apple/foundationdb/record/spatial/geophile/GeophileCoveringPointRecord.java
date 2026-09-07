@@ -25,8 +25,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.geophile.z.SpatialObject;
 import com.geophile.z.spatialobject.d2.Point;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Index entry with original point in the value portion.
@@ -34,16 +33,14 @@ import javax.annotation.Nullable;
  * This allow more efficient filtering out of spatial join false positives.
  */
 class GeophileCoveringPointRecord extends GeophileRecordImpl {
-    @Nonnull
     private final SpatialObject spatialObject;
 
-    GeophileCoveringPointRecord(@Nonnull IndexEntry indexEntry, @Nullable Tuple prefix) {
+    GeophileCoveringPointRecord(IndexEntry indexEntry, @Nullable Tuple prefix) {
         super(indexEntry, prefix);
         Tuple value = indexEntry.getValue();
         this.spatialObject = new Point(value.getDouble(0), value.getDouble(1));
     }
 
-    @Nonnull
     @Override
     public SpatialObject spatialObject() {
         return spatialObject;

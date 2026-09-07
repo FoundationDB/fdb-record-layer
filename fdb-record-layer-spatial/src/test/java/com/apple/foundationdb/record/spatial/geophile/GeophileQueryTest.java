@@ -48,6 +48,7 @@ import com.apple.test.Tags;
 import com.google.common.base.Throwables;
 import com.google.protobuf.Message;
 import org.hamcrest.Matchers;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
@@ -60,12 +61,12 @@ import org.locationtech.jts.io.geojson.GeoJsonReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 
@@ -216,7 +217,6 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Nonnull
     protected RecordQueryPlan distanceFilter(double distance, RecordQueryPlan input) {
         return new RecordQueryFilterPlan(input,
                 Query.field("location").matches(new GeoPointWithinDistanceComponent(
@@ -226,7 +226,6 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
                         "latitude", "longitude")));
     }
 
-    @Nonnull
     protected RecordQueryPlan distanceFilterScan(double distance) {
         return distanceFilter(distance,
                 new RecordQueryTypeFilterPlan(
@@ -234,7 +233,6 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
                         Collections.singleton("City")));
     }
 
-    @Nonnull
     protected RecordQueryPlan distanceSpatialQuery(double distance, boolean covering) {
         RecordQueryPlan spatialQuery = new GeophilePointWithinDistanceQueryPlan(
                         DoubleValueOrParameter.parameter("center_latitude"),
@@ -248,7 +246,6 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Nonnull
     protected EvaluationContext bindCenter(int cityId) {
         Bindings.Builder bindings = Bindings.newBuilder();
         FDBStoredRecord<Message> city = recordStore.loadRecord(Tuple.from(cityId));
@@ -265,6 +262,9 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     @Tag(Tags.Slow)
+    // Passes a null/@Nullable continuation into RecordQueryPlan#execute; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     public void testDistance() throws Exception {
         final RecordMetaDataHook hook = md -> {
             md.addIndex("City", CITY_LOCATION_COVERING_INDEX);
@@ -278,7 +278,7 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
 
         final RecordQueryPlan scanPlan = distanceFilterScan(distance);
         final Set<Integer> scanResults = new HashSet<>();
-        byte [] continuation = null;
+        byte @Nullable [] continuation = null;
         do {
             try (FDBRecordContext context = openContext()) {
                 openRecordStore(context, hook);
@@ -359,9 +359,9 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
             final GeoJsonReader geoJsonReader = new GeoJsonReader(geometryFactory);
             recordCursor.forEach(pair -> {
                 TestRecordsGeoProto.City.Builder cityBuilder = TestRecordsGeoProto.City.newBuilder()
-                        .mergeFrom(pair.getLeft().getRecord());
+                        .mergeFrom(Objects.requireNonNull(pair.getLeft()).getRecord());
                 TestRecordsGeoProto.Country.Builder countryBuilder = TestRecordsGeoProto.Country.newBuilder()
-                        .mergeFrom(pair.getRight().getRecord());
+                        .mergeFrom(Objects.requireNonNull(pair.getRight()).getRecord());
                 Point cityLocation = geometryFactory.createPoint(new Coordinate(cityBuilder.getLocation().getLatitude(), cityBuilder.getLocation().getLongitude()));
                 Geometry countryShape;
                 try {

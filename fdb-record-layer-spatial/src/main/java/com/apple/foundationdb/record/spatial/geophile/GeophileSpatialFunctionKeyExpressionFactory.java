@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.List;
 
@@ -35,7 +34,6 @@ import java.util.List;
 @AutoService(FunctionKeyExpression.Factory.class)
 @API(API.Status.EXPERIMENTAL)
 public class GeophileSpatialFunctionKeyExpressionFactory implements FunctionKeyExpression.Factory {
-    @Nonnull
     @Override
     public List<FunctionKeyExpression.Builder> getBuilders() {
         return Arrays.asList(

@@ -42,7 +42,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartia
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.spatial.common.DoubleValueOrParameter;
 import com.apple.foundationdb.tuple.Tuple;
-import com.geophile.z.SpatialJoin;
 import com.geophile.z.SpatialObject;
 import com.geophile.z.index.RecordWithSpatialObject;
 import com.geophile.z.spatialobject.d2.Point;
@@ -53,12 +52,14 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
+
+import static com.geophile.z.SpatialJoin.Filter;
 
 /**
  * Query spatial index for points (latitude, longitude) within a given distance (inclusive) of a given center.
@@ -68,17 +69,14 @@ import java.util.function.BiFunction;
 public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQueryPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Geophile-Point-Within-Distance-Query-Plan");
 
-    @Nonnull
     private final DoubleValueOrParameter centerLatitude;
-    @Nonnull
     private final DoubleValueOrParameter centerLongitude;
-    @Nonnull
     private final DoubleValueOrParameter distance;
     private final boolean covering;
 
-    public GeophilePointWithinDistanceQueryPlan(@Nonnull DoubleValueOrParameter centerLatitude, @Nonnull DoubleValueOrParameter centerLongitude,
-                                                @Nonnull DoubleValueOrParameter distance,
-                                                @Nonnull String indexName, @Nonnull ScanComparisons prefixComparisons, boolean covering) {
+    public GeophilePointWithinDistanceQueryPlan(DoubleValueOrParameter centerLatitude, DoubleValueOrParameter centerLongitude,
+                                                DoubleValueOrParameter distance,
+                                                String indexName, ScanComparisons prefixComparisons, boolean covering) {
         super(indexName, prefixComparisons);
         this.centerLatitude = centerLatitude;
         this.centerLongitude = centerLongitude;
@@ -88,7 +86,7 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
 
     @Nullable
     @Override
-    protected SpatialObject getSpatialObject(@Nonnull EvaluationContext context) {
+    protected SpatialObject getSpatialObject(EvaluationContext context) {
         Double distanceValue = distance.getValue(context);
         Double centerLatitudeValue = centerLatitude.getValue(context);
         Double centerLongitudeValue = centerLongitude.getValue(context);
@@ -102,7 +100,7 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
 
     @Nullable
     @Override
-    protected SpatialJoin.Filter<RecordWithSpatialObject, GeophileRecordImpl> getFilter(@Nonnull EvaluationContext context) {
+    protected Filter<RecordWithSpatialObject, GeophileRecordImpl> getFilter(EvaluationContext context) {
         if (covering) {
             Double distanceValue = distance.getValue(context);
             Double centerLatitudeValue = centerLatitude.getValue(context);
@@ -131,26 +129,23 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
         }
     }
 
-    @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.NO_FIELDS;
     }
 
-    @Nonnull
     @Override
     public RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords getFetchIndexRecords() {
         return RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY;
     }
 
-    @Nonnull
     @Override
     public Value getResultValue() {
         return new QueriedValue();
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         // TODO: Is this right?
         switch (mode.getKind()) {
             case LEGACY:
@@ -164,8 +159,8 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
 
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+    public boolean equalsWithoutChildren(final RelationalExpression otherExpression,
+                                         final AliasMap equivalencesMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -184,21 +179,19 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
         return Objects.hash(super.computeHashCodeWithoutChildren(), centerLatitude, centerLongitude, distance, covering);
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+    public PlannerGraph rewritePlannerGraph(final List<? extends PlannerGraph> childGraphs) {
         return createIndexPlannerGraph(this,
                 covering ? NodeInfo.COVERING_SPATIAL_INDEX_SCAN_OPERATOR : NodeInfo.SPATIAL_INDEX_SCAN_OPERATOR,
                 ImmutableList.of(),
                 ImmutableMap.of());
     }
 
-    @Nonnull
     @Override
-    public PlannerGraph createIndexPlannerGraph(@Nonnull final RecordQueryPlan identity,
-                                                @Nonnull final NodeInfo nodeInfo,
-                                                @Nonnull final List<String> additionalDetails,
-                                                @Nonnull final Map<String, Attribute> additionalAttributeMap) {
+    public PlannerGraph createIndexPlannerGraph(final RecordQueryPlan identity,
+                                                final NodeInfo nodeInfo,
+                                                final List<String> additionalDetails,
+                                                final Map<String, Attribute> additionalAttributeMap) {
         final ImmutableList.Builder<String> detailsBuilder = ImmutableList.builder();
         final ImmutableMap.Builder<String, Attribute> attributeMapBuilder = ImmutableMap.builder();
 
@@ -227,15 +220,13 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
                                 ImmutableList.of())));
     }
 
-    @Nonnull
     @Override
-    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public Message toProto(final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("serialization of this plan is not supported");
     }
 
-    @Nonnull
     @Override
-    public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
+    public PRecordQueryPlan toRecordQueryPlanProto(final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("serialization of this plan is not supported");
     }
 }
