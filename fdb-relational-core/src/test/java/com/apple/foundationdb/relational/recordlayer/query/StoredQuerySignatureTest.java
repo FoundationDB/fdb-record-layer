@@ -43,9 +43,10 @@ import java.util.Map;
  * which combinations of their states are warmed, what is persisted for both, and how references to a parameter in the
  * body are turned into the {@code ?name} form a prepared statement uses.
  *
- * <p>A signature and a {@code PREPARE FOR} block require each other, so they are tested together. Every case pins every
- * declared parameter, which is what keeps a parameter from being planned with no value and a nullable type at once —
- * such a plan is not correct for a null binding.</p>
+ * <p>A signature and a {@code PREPARE FOR} block require each other, so they are tested together. Every nullable
+ * parameter is pinned in every case, which is what keeps a parameter from being planned with no value and a nullable
+ * type at once — such a plan is not correct for a null binding. A {@code NOT NULL} parameter may be left out and is
+ * filled in.</p>
  *
  * <p>These tests stop at the metadata. Planning a stored query from its signature is exercised separately.</p>
  */
@@ -318,15 +319,44 @@ public class StoredQuerySignatureTest {
     }
 
     /**
-     * A case that leaves a parameter out is the state this whole block exists to prevent.
+     * A nullable parameter left out of a case is the state this whole block exists to prevent.
      */
     @Test
-    void incompleteCaseIsRejected() {
+    void caseLeavingANullableParameterUnpinnedIsRejected() {
         expectFailure("/TEST/SQS_INCOMPLETE", TABLE
                         + " CREATE STORED QUERY q(param_a BIGINT, param_b BIGINT)"
                         + " PREPARE FOR ((param_a IS NOT NULL))"
                         + " AS SELECT id FROM t1 WHERE col1 = param_a AND col2 = param_b",
-                "every case must pin every declared parameter");
+                "a nullable parameter must be pinned to IS NULL or IS NOT NULL");
+    }
+
+    /**
+     * A {@code NOT NULL} parameter may be left out: {@code IS NOT NULL} is the only state its declaration allows. It is
+     * recorded as if written, so what is warmed does not depend on whether the author spelled it out.
+     */
+    @Test
+    void notNullParameterMayBeLeftOutOfACase() throws Exception {
+        final var storedQueries = storedQueriesOf("/TEST/SQS_OMIT", TABLE
+                + " CREATE STORED QUERY q(param_a BIGINT NOT NULL, param_b BIGINT)"
+                + " PREPARE FOR ((param_b IS NULL))"
+                + " AS SELECT id FROM t1 WHERE col1 = param_a AND col2 = param_b");
+        Assertions.assertThat(storedQueries.get("Q").getPreparedCases())
+                .containsExactly(Map.of(
+                        "PARAM_A", ParameterState.IS_NOT_NULL,
+                        "PARAM_B", ParameterState.IS_NULL));
+    }
+
+    /**
+     * Since an omission is filled in, a case that omits a {@code NOT NULL} parameter and one that pins it explicitly are
+     * the same case, and writing both would warm one plan twice.
+     */
+    @Test
+    void omittingANotNullParameterDuplicatesPinningItExplicitly() {
+        expectFailure("/TEST/SQS_OMITDUP", TABLE
+                        + " CREATE STORED QUERY q(param_a BIGINT NOT NULL, param_b BIGINT)"
+                        + " PREPARE FOR ((param_b IS NULL), (param_a IS NOT NULL, param_b IS NULL))"
+                        + " AS SELECT id FROM t1 WHERE col1 = param_a AND col2 = param_b",
+                "duplicate prepared case");
     }
 
     @Test
