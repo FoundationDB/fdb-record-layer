@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.BuildVersion;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
-import javax.annotation.Nonnull;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
@@ -55,7 +54,6 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
      * @return a list of schemas contained in the currently connected database.
      * @throws SQLException if something goes wrong.
      */
-    @Nonnull
     @Override
     RelationalResultSet getSchemas() throws SQLException;
 
@@ -101,7 +99,6 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
      * @throws SQLException with ErrorCode {@link ErrorCode#UNDEFINED_SCHEMA} if the schema
      * does not exist within this database; a different error code if something systemic goes wrong.
      */
-    @Nonnull
     @Override
     RelationalResultSet getTables(
             String catalog,
@@ -132,7 +129,6 @@ public interface RelationalDatabaseMetaData extends java.sql.DatabaseMetaData {
      * @return a ResultSet with a column listing for the table.
      * @throws SQLException if something goes wrong.
      */
-    @Nonnull
     @Override
     RelationalResultSet getColumns(
             String catalog,

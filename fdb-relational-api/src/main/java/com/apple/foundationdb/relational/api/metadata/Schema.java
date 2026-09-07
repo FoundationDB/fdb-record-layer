@@ -24,7 +24,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.common.collect.Multimap;
 
-import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
@@ -37,7 +36,6 @@ public interface Schema extends Metadata {
      *
      * @return The {@link SchemaTemplate} from which {@code this} {@link Schema} is generated.
      */
-    @Nonnull
     SchemaTemplate getSchemaTemplate();
 
     /**
@@ -45,7 +43,6 @@ public interface Schema extends Metadata {
      *
      * @return The ID of the database which {@code this} {@link Schema} belong to.
      */
-    @Nonnull
     String getDatabaseName();
 
     /**
@@ -54,7 +51,6 @@ public interface Schema extends Metadata {
      * @return The tables inside the {@code Schema}.
      * @throws RelationalException if the schema template is NoOpSchemaTemplate
      */
-    @Nonnull
     default Set<? extends Table> getTables() throws RelationalException {
         return getSchemaTemplate().getTables();
     }
@@ -65,7 +61,6 @@ public interface Schema extends Metadata {
      * @return The views inside the {@code Schema}.
      * @throws RelationalException if the schema template is NoOpSchemaTemplate
      */
-    @Nonnull
     default Set<? extends View> getViews() throws RelationalException {
         return getSchemaTemplate().getViews();
     }
@@ -76,7 +71,6 @@ public interface Schema extends Metadata {
      * @return a multi-map whose key is the {@link Table} name, and value(s) is the {@link Index}.
      * @throws RelationalException if something goes wrong.
      */
-    @Nonnull
     default Multimap<String, String> getIndexes() throws RelationalException {
         return getSchemaTemplate().getTableIndexMapping();
     }
@@ -87,13 +81,12 @@ public interface Schema extends Metadata {
      * @return A set of all {@link InvokedRoutine}s defined in this schema.
      * @throws RelationalException If there was an error retrieving the invoked routines from the catalog.
      */
-    @Nonnull
     default Set<? extends InvokedRoutine> getInvokedRoutines() throws RelationalException {
         return getSchemaTemplate().getInvokedRoutines();
     }
 
     @Override
-    default void accept(@Nonnull final Visitor visitor) {
+    default void accept(final Visitor visitor) {
         visitor.visit(this);
     }
 }

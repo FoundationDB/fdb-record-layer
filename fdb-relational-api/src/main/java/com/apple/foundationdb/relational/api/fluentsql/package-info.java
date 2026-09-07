@@ -22,4 +22,7 @@
  * API for constructing statically-typed SQL statements.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.api.fluentsql;
+
+import org.jspecify.annotations.NullMarked;

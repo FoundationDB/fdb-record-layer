@@ -22,4 +22,7 @@
  * Details involving static-typing of structured queries' expressions.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.api.fluentsql.expression.details;
+
+import org.jspecify.annotations.NullMarked;

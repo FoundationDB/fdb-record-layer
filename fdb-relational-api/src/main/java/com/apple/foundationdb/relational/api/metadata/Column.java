@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.api.metadata;
 
-import javax.annotation.Nonnull;
-
 /**
  * Represents a Relational {@code Column} metadata being part of a {@link Table}.
  */
@@ -35,7 +33,7 @@ public interface Column extends Metadata {
     DataType getDataType();
 
     @Override
-    default void accept(@Nonnull final Visitor visitor) {
+    default void accept(final Visitor visitor) {
         visitor.visit(this);
     }
 }

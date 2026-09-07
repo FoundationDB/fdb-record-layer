@@ -23,19 +23,14 @@ package com.apple.foundationdb.relational.api.fluentsql.expression;
 import com.apple.foundationdb.relational.api.fluentsql.expression.details.Mixins;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
-
 public interface ExpressionFragment<T extends DataType> extends Expression<T> {
 
-    @Nonnull
     String getFragment();
 
-    @Nonnull
     default Mixins.BooleanExpressionFragment asBoolean() {
         return asBoolean(true);
     }
 
-    @Nonnull
     default Mixins.BooleanExpressionFragment asBoolean(boolean isNullable) {
         if (this instanceof Mixins.BooleanExpressionFragment) {
             return (Mixins.BooleanExpressionFragment) this;
@@ -43,12 +38,10 @@ public interface ExpressionFragment<T extends DataType> extends Expression<T> {
         return Mixins.asBoolean(this, isNullable);
     }
 
-    @Nonnull
     default Mixins.IntExpressionFragment asInt() {
         return asInt(true);
     }
 
-    @Nonnull
     default Mixins.IntExpressionFragment asInt(boolean isNullable) {
         if (this instanceof Mixins.IntExpressionFragment) {
             return (Mixins.IntExpressionFragment) this;
@@ -56,12 +49,10 @@ public interface ExpressionFragment<T extends DataType> extends Expression<T> {
         return Mixins.asInt(this, isNullable);
     }
 
-    @Nonnull
     default Mixins.LongExpressionFragment asLong() {
         return asLong(true);
     }
 
-    @Nonnull
     default Mixins.LongExpressionFragment asLong(boolean isNullable) {
         if (this instanceof Mixins.LongExpressionFragment) {
             return (Mixins.LongExpressionFragment) this;
@@ -69,12 +60,10 @@ public interface ExpressionFragment<T extends DataType> extends Expression<T> {
         return Mixins.asLong(this, isNullable);
     }
 
-    @Nonnull
     default Mixins.FloatExpressionFragment asFloat() {
         return asFloat(true);
     }
 
-    @Nonnull
     default Mixins.FloatExpressionFragment asFloat(boolean isNullable) {
         if (this instanceof Mixins.FloatExpressionFragment) {
             return (Mixins.FloatExpressionFragment) this;
@@ -82,12 +71,10 @@ public interface ExpressionFragment<T extends DataType> extends Expression<T> {
         return Mixins.asFloat(this, isNullable);
     }
 
-    @Nonnull
     default Mixins.DoubleExpressionFragment asDouble() {
         return asDouble(true);
     }
 
-    @Nonnull
     default Mixins.DoubleExpressionFragment asDouble(boolean isNullable) {
         if (this instanceof Mixins.DoubleExpressionFragment) {
             return (Mixins.DoubleExpressionFragment) this;
@@ -95,12 +82,10 @@ public interface ExpressionFragment<T extends DataType> extends Expression<T> {
         return Mixins.asDouble(this, isNullable);
     }
 
-    @Nonnull
     default Mixins.StringExpressionFragment asString() {
         return asString(true);
     }
 
-    @Nonnull
     default Mixins.StringExpressionFragment asString(boolean isNullable) {
         if (this instanceof Mixins.StringExpressionFragment) {
             return (Mixins.StringExpressionFragment) this;

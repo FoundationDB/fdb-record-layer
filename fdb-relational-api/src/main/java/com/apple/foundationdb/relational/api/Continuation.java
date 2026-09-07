@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.api;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 public interface Continuation {
 
@@ -67,6 +67,7 @@ public interface Continuation {
         return getExecutionState() == null;
     }
 
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently track @Nullable on array (byte[]) return types reliably across this local assignment; getExecutionState() genuinely returns null when there is no cursor state.
     default boolean atEnd() {
         byte[] bytes = getExecutionState();
         return bytes != null && bytes.length == 0;
@@ -76,5 +77,6 @@ public interface Continuation {
      * Returns the reason why the continuation was generated in the first place.
      * @return the reason
      */
+    @Nullable
     Reason getReason();
 }

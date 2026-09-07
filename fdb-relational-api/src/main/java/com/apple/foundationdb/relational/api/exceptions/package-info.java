@@ -24,4 +24,7 @@
  *
  * @see com.apple.foundationdb.relational.api.exceptions.ContextualSQLException
  */
+@NullMarked
 package com.apple.foundationdb.relational.api.exceptions;
+
+import org.jspecify.annotations.NullMarked;

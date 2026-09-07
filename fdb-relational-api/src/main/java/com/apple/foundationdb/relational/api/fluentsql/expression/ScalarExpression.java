@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.api.fluentsql.expression;
 
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
@@ -31,12 +30,10 @@ import java.util.List;
  * @param <T> The type of the expression.
  */
 public interface ScalarExpression<T extends DataType> extends Expression<T> {
-    @Nonnull
     default BooleanExpressionTrait isNull() {
         return new BooleanFunction(Operation.IS_NULL, List.of(this));
     }
 
-    @Nonnull
     default BooleanExpressionTrait isNotNull() {
         return new BooleanFunction(Operation.IS_NOT_NULL, List.of(this));
     }

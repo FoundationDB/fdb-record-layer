@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.api.fluentsql.expression;
 
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
 import javax.annotation.concurrent.Immutable;
 import java.util.List;
 
@@ -33,28 +32,23 @@ import java.util.List;
  */
 @Immutable
 public interface NumericExpressionTrait<N extends DataType.NumericType> extends ComparableExpressionTrait<N, Expression<N>> {
-    @Nonnull
-    default NumericExpressionTrait<N> add(@Nonnull final NumericExpressionTrait<N> right) {
+    default NumericExpressionTrait<N> add(final NumericExpressionTrait<N> right) {
         return new NumericFunction<>(this.getType(), Operation.ADD, List.of(this, right));
     }
 
-    @Nonnull
-    default NumericExpressionTrait<N> sub(@Nonnull final NumericExpressionTrait<N> right) {
+    default NumericExpressionTrait<N> sub(final NumericExpressionTrait<N> right) {
         return new NumericFunction<>(this.getType(), Operation.SUB, List.of(this, right));
     }
 
-    @Nonnull
-    default NumericExpressionTrait<N> div(@Nonnull final NumericExpressionTrait<N> right) {
+    default NumericExpressionTrait<N> div(final NumericExpressionTrait<N> right) {
         return new NumericFunction<>(this.getType(), Operation.DIV, List.of(this, right));
     }
 
-    @Nonnull
-    default NumericExpressionTrait<N> mul(@Nonnull final NumericExpressionTrait<N> right) {
+    default NumericExpressionTrait<N> mul(final NumericExpressionTrait<N> right) {
         return new NumericFunction<>(this.getType(), Operation.MUL, List.of(this, right));
     }
 
-    @Nonnull
-    default NumericExpressionTrait<N> mod(@Nonnull final NumericExpressionTrait<N> right) {
+    default NumericExpressionTrait<N> mod(final NumericExpressionTrait<N> right) {
         return new NumericFunction<>(this.getType(), Operation.MOD, List.of(this, right));
     }
 

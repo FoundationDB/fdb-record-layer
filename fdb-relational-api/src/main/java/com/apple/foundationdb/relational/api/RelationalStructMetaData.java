@@ -27,7 +27,6 @@ import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -42,20 +41,18 @@ public class RelationalStructMetaData implements StructMetaData {
     //TODO(bfines) eventually this should move into the Planner (or closer to there, anyway), but for now we will hold on to it here
     private static final Set<String> KNOWN_PHANTOM_COLUMNS = Set.of("__TYPE_KEY");
 
-    @Nonnull
     private final DataType.StructType type;
     //the number of phantom columns that are at the front of the metadata
     private final int leadingPhantomColumnOffset;
     private final Supplier<Integer> hashCodeSupplier;
 
-    private RelationalStructMetaData(@Nonnull DataType.StructType type) {
+    private RelationalStructMetaData(DataType.StructType type) {
         this.type = type;
         this.leadingPhantomColumnOffset = countLeadingPhantomColumns();
         this.hashCodeSupplier = Suppliers.memoize(this::calculateHashCode);
     }
 
-    @Nonnull
-    public static RelationalStructMetaData of(@Nonnull DataType.StructType type) {
+    public static RelationalStructMetaData of(DataType.StructType type) {
         return new RelationalStructMetaData(type);
     }
 
@@ -139,7 +136,6 @@ public class RelationalStructMetaData implements StructMetaData {
         return leadingPhantomColumnOffset;
     }
 
-    @Nonnull
     @Override
     public DataType.StructType getRelationalDataType() throws SQLException {
         return type;
@@ -155,7 +151,6 @@ public class RelationalStructMetaData implements StructMetaData {
         return iface.isAssignableFrom(this.getClass());
     }
 
-    @Nonnull
     private List<DataType.StructType.Field> getFields() {
         return ImmutableList.copyOf(type.getFields());
     }

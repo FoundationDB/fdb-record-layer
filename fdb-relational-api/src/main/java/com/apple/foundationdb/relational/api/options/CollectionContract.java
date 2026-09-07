@@ -23,8 +23,8 @@ package com.apple.foundationdb.relational.api.options;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -40,17 +40,16 @@ import java.util.List;
  * @param <T> the type parameter of the collection
  */
 public class CollectionContract<T> implements OptionContract, OptionContractWithConversion<Collection<T>> {
-    @Nonnull
     private final TypeContract<T> elementContract;
 
-    public CollectionContract(@Nonnull TypeContract<T> elementContract) {
+    public CollectionContract(TypeContract<T> elementContract) {
         this.elementContract = elementContract;
     }
 
     @Override
-    public void validate(final Options.Name name, final Object value) throws SQLException {
+    public void validate(final Options.Name name, @Nullable final Object value) throws SQLException {
         if (!(value instanceof Collection<?>)) {
-            throw new SQLException("Option " + name + " should be of a collection type instead of " + value.getClass().getName(), ErrorCode.INVALID_PARAMETER.getErrorCode());
+            throw new SQLException("Option " + name + " should be of a collection type instead of " + (value == null ? "null" : value.getClass().getName()), ErrorCode.INVALID_PARAMETER.getErrorCode());
         }
         try {
             Collection<?> collectionValue = (Collection<?>)value;
@@ -68,7 +67,11 @@ public class CollectionContract<T> implements OptionContract, OptionContractWith
         final List<T> results = new ArrayList<>(); // not null-phobic
         for (final String split : valueAsString.split(",")) {
             final String trimmedElementString = split.trim();
-            results.add(elementContract.fromString(trimmedElementString));
+            final T element = elementContract.fromString(trimmedElementString);
+            if (element == null) {
+                throw new SQLException("Element '" + trimmedElementString + "' of collection option could not be converted", ErrorCode.INVALID_PARAMETER.getErrorCode());
+            }
+            results.add(element);
         }
         return Collections.unmodifiableList(results);
     }

@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -36,6 +37,7 @@ public interface EmbeddedRelationalStruct extends RelationalStruct {
         return new Builder();
     }
 
+    @SpotBugsSuppressWarnings(value = "NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION", justification = "False positive: RelationalStructBuilder's parameters are jspecify @Nullable (fdb-relational-api), while this class still uses javax.annotation.Nullable (fdb-relational-core not yet migrated); SpotBugs does not recognize the two annotations as equivalent across the module boundary, including on the covariant-return bridge methods synthesized for addString/addUuid/addObject, which it can't otherwise be annotated.")
     class Builder implements RelationalStructBuilder {
 
         final List<DataType.StructType.Field> fields = new ArrayList<>();

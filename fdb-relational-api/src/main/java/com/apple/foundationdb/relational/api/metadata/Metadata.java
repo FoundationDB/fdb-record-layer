@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.api.metadata;
 
-import javax.annotation.Nonnull;
-
 /**
  * Base interface for Relational metadata. A meta datum has a specific name, and is usually part of a metadata hierarchy
  * that can be visited using a general {@link Visitor}.
@@ -33,8 +31,7 @@ public interface Metadata {
      *
      * @return the name of the metadata.
      */
-    @Nonnull
     String getName();
 
-    void accept(@Nonnull Visitor visitor);
+    void accept(Visitor visitor);
 }

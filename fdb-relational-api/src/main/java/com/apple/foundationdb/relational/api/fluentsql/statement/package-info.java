@@ -22,4 +22,7 @@
  * Structured query statement construction API.
  */
 
+@NullMarked
 package com.apple.foundationdb.relational.api.fluentsql.statement;
+
+import org.jspecify.annotations.NullMarked;

@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nonnull;
 import javax.annotation.concurrent.Immutable;
 import java.util.List;
 
@@ -37,38 +36,31 @@ import java.util.List;
  */
 @Immutable
 public interface ComparableExpressionTrait<P extends DataType, T extends Expression<P>> extends ScalarExpression<P> {
-    @Nonnull
-    default BooleanExpressionTrait isEqualTo(@Nonnull final T right) {
+    default BooleanExpressionTrait isEqualTo(final T right) {
         return new BooleanFunction(Operation.EQUAL, List.of(this, right));
     }
 
-    @Nonnull
-    default BooleanExpressionTrait notEquals(@Nonnull final T right) {
+    default BooleanExpressionTrait notEquals(final T right) {
         return new BooleanFunction(Operation.NOT_EQUAL, List.of(this, right));
     }
 
-    @Nonnull
-    default BooleanExpressionTrait greaterThan(@Nonnull final T right) {
+    default BooleanExpressionTrait greaterThan(final T right) {
         return new BooleanFunction(Operation.GREATER_THAN, List.of(this, right));
     }
 
-    @Nonnull
-    default BooleanExpressionTrait greaterThanOrEquals(@Nonnull final T right) {
+    default BooleanExpressionTrait greaterThanOrEquals(final T right) {
         return new BooleanFunction(Operation.GREATER_THAN_EQUALS, List.of(this, right));
     }
 
-    @Nonnull
-    default BooleanExpressionTrait lessThan(@Nonnull final T right) {
+    default BooleanExpressionTrait lessThan(final T right) {
         return new BooleanFunction(Operation.LESS_THAN, List.of(this, right));
     }
 
-    @Nonnull
-    default BooleanExpressionTrait lessThanOrEqual(@Nonnull final T right) {
+    default BooleanExpressionTrait lessThanOrEqual(final T right) {
         return new BooleanFunction(Operation.LESS_THAN_EQUALS, List.of(this, right));
     }
 
-    @Nonnull
-    default ComparableExpressionTrait<P, T> greatest(@Nonnull final List<ComparableExpressionTrait<P, T>> arguments) {
+    default ComparableExpressionTrait<P, T> greatest(final List<ComparableExpressionTrait<P, T>> arguments) {
         if (arguments.isEmpty()) {
             return this;
         }

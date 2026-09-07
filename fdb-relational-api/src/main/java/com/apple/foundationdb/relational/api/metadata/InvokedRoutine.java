@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.api.metadata;
 
-import javax.annotation.Nonnull;
-
 /**
  * Base interface for all invoked routines, such as SQL functions.
  */
@@ -38,16 +36,14 @@ public interface InvokedRoutine extends Metadata {
      *
      * @return The description of the routine.
      */
-    @Nonnull
     String getDescription();
 
-    @Nonnull
     String getNormalizedDescription();
 
     boolean isTemporary();
 
     @Override
-    default void accept(@Nonnull final Visitor visitor) {
+    default void accept(final Visitor visitor) {
         visitor.visit(this);
     }
 }

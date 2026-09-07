@@ -25,9 +25,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 
 /**
@@ -36,10 +36,8 @@ import java.util.Objects;
 @Immutable
 @API(API.Status.EXPERIMENTAL)
 public final class BooleanLiteral implements Literal<Boolean, DataType.BooleanType>, BooleanExpressionTrait {
-    @Nonnull
     private static final BooleanLiteral TRUE = new BooleanLiteral(DataType.BooleanType.notNullable(), true);
 
-    @Nonnull
     private static final BooleanLiteral FALSE = new BooleanLiteral(DataType.BooleanType.notNullable(), false);
 
     private static final BooleanLiteral NULL = new BooleanLiteral(DataType.BooleanType.nullable(), null);
@@ -47,17 +45,16 @@ public final class BooleanLiteral implements Literal<Boolean, DataType.BooleanTy
     @Nullable
     private final Boolean literal;
 
-    @Nonnull
     private final DataType.BooleanType type;
 
-    private BooleanLiteral(@Nonnull final DataType.BooleanType type, @Nullable final Boolean literal) {
+    private BooleanLiteral(final DataType.BooleanType type, @Nullable final Boolean literal) {
         this.type = type;
         this.literal = literal;
     }
 
     @Nullable
     @Override
-    public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+    public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
         return visitor.visit(this, context);
     }
 
@@ -67,22 +64,18 @@ public final class BooleanLiteral implements Literal<Boolean, DataType.BooleanTy
         return literal;
     }
 
-    @Nonnull
     public static BooleanLiteral trueLiteral() {
         return TRUE;
     }
 
-    @Nonnull
     public static BooleanLiteral falseLiteral() {
         return FALSE;
     }
 
-    @Nonnull
     public static BooleanLiteral nullLiteral() {
         return NULL;
     }
 
-    @Nonnull
     @Override
     public DataType.BooleanType getType() {
         return type;

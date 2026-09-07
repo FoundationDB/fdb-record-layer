@@ -25,7 +25,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import javax.annotation.concurrent.Immutable;
 import java.util.Objects;
 
@@ -37,20 +38,19 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 public class NestedBooleanExpression implements BooleanExpressionTrait {
 
-    @Nonnull
     private final BooleanExpressionTrait underlying;
 
-    public NestedBooleanExpression(@Nonnull final BooleanExpressionTrait value) {
+    public NestedBooleanExpression(final BooleanExpressionTrait value) {
         this.underlying = value;
     }
 
-    @Nonnull
     public BooleanExpressionTrait getValue() {
         return underlying;
     }
 
     @Override
-    public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+    @Nullable
+    public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
         return visitor.visit(this, context);
     }
 

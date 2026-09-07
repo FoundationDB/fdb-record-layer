@@ -24,7 +24,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import com.google.common.collect.Multimap;
 
-import javax.annotation.Nonnull;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Map;
@@ -64,7 +63,6 @@ public interface SchemaTemplate extends Metadata {
      * @return The {@link Table}s inside the schema template.
      * @throws RelationalException if it is a NoOpSchemaTemplate
      */
-    @Nonnull
     Set<? extends Table> getTables() throws RelationalException;
 
     /**
@@ -73,7 +71,6 @@ public interface SchemaTemplate extends Metadata {
      * @return The {@link View}s inside the schema template.
      * @throws RelationalException if it is a NoOpSchemaTemplate
      */
-    @Nonnull
     Set<? extends View> getViews() throws RelationalException;
 
     /**
@@ -82,16 +79,12 @@ public interface SchemaTemplate extends Metadata {
      * @param tableName The name of the {@link Table}.
      * @return An {@link Optional} containing the {@link Table} if it is found, otherwise {@code Empty}.
      */
-    @Nonnull
-    Optional<Table> findTableByName(@Nonnull String tableName) throws RelationalException;
+    Optional<Table> findTableByName(String tableName) throws RelationalException;
 
-    @Nonnull
-    Optional<? extends View> findViewByName(@Nonnull String viewName) throws RelationalException;
+    Optional<? extends View> findViewByName(String viewName) throws RelationalException;
 
-    @Nonnull
     Multimap<String, String> getTableIndexMapping() throws RelationalException;
 
-    @Nonnull
     Set<String> getIndexes() throws RelationalException;
 
     /**
@@ -107,8 +100,7 @@ public interface SchemaTemplate extends Metadata {
      * @throws RelationalException If a readable index is not found.
      */
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    @Nonnull
-    BitSet getIndexEntriesAsBitset(@Nonnull Optional<Set<String>> readableIndexNames) throws RelationalException;
+    BitSet getIndexEntriesAsBitset(Optional<Set<String>> readableIndexNames) throws RelationalException;
 
     /**
      * Returns all {@link InvokedRoutine}s defined in this schema template.
@@ -116,7 +108,6 @@ public interface SchemaTemplate extends Metadata {
      * @return A set of all {@link InvokedRoutine}s defined in this schema template.
      * @throws RelationalException If there was an error retrieving the invoked routines from the catalog.
      */
-    @Nonnull
     Set<? extends InvokedRoutine> getInvokedRoutines() throws RelationalException;
 
     /**
@@ -125,10 +116,8 @@ public interface SchemaTemplate extends Metadata {
      * @param routineName The name of the {@link InvokedRoutine}.
      * @return An {@link Optional} containing the {@link InvokedRoutine} if it is found, otherwise {@code Empty}.
      */
-    @Nonnull
-    Optional<? extends InvokedRoutine> findInvokedRoutineByName(@Nonnull String routineName) throws RelationalException;
+    Optional<? extends InvokedRoutine> findInvokedRoutineByName(String routineName) throws RelationalException;
 
-    @Nonnull
     Collection<? extends InvokedRoutine> getTemporaryInvokedRoutines() throws RelationalException;
 
     /**
@@ -137,10 +126,8 @@ public interface SchemaTemplate extends Metadata {
      * @return A map of stored query names to their {@link StoredQuery} struct (SELECT text plus
      *         the temp-function declarations that must precede it).
      */
-    @Nonnull
     Map<String, StoredQuery> getStoredQueries() throws RelationalException;
 
-    @Nonnull
     String getTransactionBoundMetadataAsString() throws RelationalException;
 
     /**
@@ -151,16 +138,14 @@ public interface SchemaTemplate extends Metadata {
      * @return A new {@link Schema} instance with the specified name, database Id, version containing the same set of
      * {@link Table}s in {@code this} {@link SchemaTemplate}.
      */
-    @Nonnull
-    Schema generateSchema(@Nonnull String databaseId, @Nonnull String schemaName);
+    Schema generateSchema(String databaseId, String schemaName);
 
     @Override
-    default void accept(@Nonnull final Visitor visitor) {
+    default void accept(final Visitor visitor) {
         visitor.startVisit(this);
         visitor.visit(this);
         visitor.finishVisit(this);
     }
 
-    @Nonnull
-    <T extends SchemaTemplate> T unwrap(@Nonnull Class<T> iface) throws RelationalException;
+    <T extends SchemaTemplate> T unwrap(Class<T> iface) throws RelationalException;
 }

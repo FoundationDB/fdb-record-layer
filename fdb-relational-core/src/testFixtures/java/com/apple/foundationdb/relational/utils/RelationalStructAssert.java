@@ -38,6 +38,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 
 @API(API.Status.EXPERIMENTAL)
 public class RelationalStructAssert extends AbstractAssert<RelationalStructAssert, RelationalStruct> {
@@ -165,7 +166,7 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
                     case Types.VARCHAR:
                     case Types.NCHAR:
                     case Types.NVARCHAR:
-                        fieldEquals = actual.getString(i).equals(expected.getString(i));
+                        fieldEquals = Objects.equals(actual.getString(i), expected.getString(i));
                         break;
                     case Types.STRUCT:
                         fieldEquals = RelationalStructAssert.checkEquals(actual.getStruct(i), expected.getStruct(i));
@@ -181,7 +182,7 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
                         }
                         break;
                     default:
-                        fieldEquals = actual.getObject(i).equals(expected.getObject(i));
+                        fieldEquals = Objects.equals(actual.getObject(i), expected.getObject(i));
                 }
                 if (!fieldEquals) {
                     return false;
@@ -252,7 +253,7 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
                     case Types.VARCHAR:
                     case Types.NCHAR:
                     case Types.NVARCHAR:
-                        fieldEquals = actual.getString(actualIdx).equals(expected.getString(expectedIdx));
+                        fieldEquals = Objects.equals(actual.getString(actualIdx), expected.getString(expectedIdx));
                         break;
                     case Types.STRUCT:
                         fieldEquals = RelationalStructAssert.checkPartlyEquals(actual.getStruct(actualIdx), expected.getStruct(expectedIdx));
@@ -268,7 +269,7 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
                         }
                         break;
                     default:
-                        fieldEquals = actual.getObject(actualIdx).equals(expected.getObject(expectedIdx));
+                        fieldEquals = Objects.equals(actual.getObject(actualIdx), expected.getObject(expectedIdx));
                 }
                 if (!fieldEquals) {
                     return false;
@@ -417,7 +418,7 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
                         final var actualValue = actual.getObject(i);
                         if (actualSqlType == Types.OTHER) {
                             // maybe an ENUM value or a UUID
-                            assertions.assertThat(actualValue.toString()).isEqualTo(expected.getObject(i).toString());
+                            assertions.assertThat(String.valueOf(actualValue)).isEqualTo(String.valueOf(expected.getObject(i)));
                         } else {
                             assertions.assertThat(actual.getObject(i)).isEqualTo(expected.getObject(i));
                         }

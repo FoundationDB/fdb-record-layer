@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.api;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Iterator;
@@ -74,8 +73,7 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * @return a ResultSet containing the entire record in the underlying scan.
      * @throws SQLException if something goes wrong. Use the Error code to determine exactly what.
      */
-    @Nonnull
-    RelationalResultSet executeScan(@Nonnull String tableName, @Nonnull KeySet keyPrefix, @Nonnull Options options) throws SQLException;
+    RelationalResultSet executeScan(String tableName, KeySet keyPrefix, Options options) throws SQLException;
 
     /**
      * Get a single record from the system by key.
@@ -91,8 +89,7 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * not exist the ResultSet will be empty
      * @throws SQLException If something geos wrong. Use the error code to determine exactly what.
      */
-    @Nonnull
-    RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws SQLException;
+    RelationalResultSet executeGet(String tableName, KeySet key, Options options) throws SQLException;
 
     /**
      * Insert a record into the specified table, updating any indexes as necessary to maintain consistency.
@@ -102,7 +99,7 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * @return the number of records inserted.
      * @throws SQLException If something goes wrong. Use the error code to determine exactly what.
      */
-    default int executeInsert(@Nonnull String tableName, @Nonnull RelationalStruct data) throws SQLException {
+    default int executeInsert(String tableName, RelationalStruct data) throws SQLException {
         return executeInsert(tableName, Collections.singletonList(data), Options.NONE);
     }
 
@@ -114,7 +111,7 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * @return the number of records inserted.
      * @throws SQLException If something goes wrong. Use the error code to determine exactly what.
      */
-    default int executeInsert(@Nonnull String tableName, @Nonnull RelationalStruct data, @Nonnull Options options) throws SQLException {
+    default int executeInsert(String tableName, RelationalStruct data, Options options) throws SQLException {
         return executeInsert(tableName, Collections.singletonList(data), options);
     }
 
@@ -126,7 +123,7 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * @return the number of records inserted.
      * @throws SQLException If something goes wrong. Use the error code to determine exactly what.
      */
-    default int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data) throws SQLException {
+    default int executeInsert(String tableName, List<RelationalStruct> data) throws SQLException {
         return executeInsert(tableName, data, Options.NONE);
     }
 
@@ -139,7 +136,7 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * @return the number of records inserted.
      * @throws SQLException If something goes wrong. Use the error code to determine exactly what.
      */
-    int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options)
+    int executeInsert(String tableName, List<RelationalStruct> data, Options options)
             throws SQLException;
 
     /**
@@ -154,11 +151,11 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * @return the number of records deleted
      * @throws SQLException if something goes wrong. Use the error code to determine exactly what.
      */
-    default int executeDelete(@Nonnull String tableName, @Nonnull Iterable<KeySet> keys) throws SQLException {
+    default int executeDelete(String tableName, Iterable<KeySet> keys) throws SQLException {
         return executeDelete(tableName, keys.iterator(), Options.NONE);
     }
 
-    default int executeDelete(@Nonnull String tableName, @Nonnull Iterable<KeySet> keys, @Nonnull Options options) throws SQLException {
+    default int executeDelete(String tableName, Iterable<KeySet> keys, Options options) throws SQLException {
         return executeDelete(tableName, keys.iterator(), options);
     }
 
@@ -170,11 +167,11 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * @return the number of records deleted
      * @throws SQLException if something goes wrong. Use the error code to determine exactly what.
      */
-    default int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys) throws SQLException {
+    default int executeDelete(String tableName, Iterator<KeySet> keys) throws SQLException {
         return executeDelete(tableName, keys, Options.NONE);
     }
 
-    int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, @Nonnull Options options) throws SQLException;
+    int executeDelete(String tableName, Iterator<KeySet> keys, Options options) throws SQLException;
 
     /**
      * This can be used to delete contiguous rows on a table based on a certain PK range.
@@ -211,7 +208,7 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
      * @param options options that can be used to configure the delete
      * @throws SQLException if something goes wrong. Use the error code to determine exactly what.
      */
-    void executeDeleteRange(@Nonnull String tableName, @Nonnull KeySet keyPrefix, @Nonnull Options options) throws SQLException;
+    void executeDeleteRange(String tableName, KeySet keyPrefix, Options options) throws SQLException;
 
     /**
      * Close method to free up resources managed by this statement.

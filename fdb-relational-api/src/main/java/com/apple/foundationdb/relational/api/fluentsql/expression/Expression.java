@@ -23,8 +23,8 @@ package com.apple.foundationdb.relational.api.fluentsql.expression;
 import com.apple.foundationdb.relational.api.fluentsql.FluentVisitor;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -36,7 +36,7 @@ import javax.annotation.concurrent.Immutable;
 public interface Expression<T extends DataType> {
 
     @Nullable
-    <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context);
+    <R, C> R accept(FluentVisitor<R, C> visitor, C context);
 
     DataType getType();
 }

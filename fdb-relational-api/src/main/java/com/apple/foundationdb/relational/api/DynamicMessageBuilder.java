@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.sql.SQLException;
 import java.util.Set;
@@ -80,6 +79,5 @@ public interface DynamicMessageBuilder {
 
     Descriptors.Descriptor getDescriptor();
 
-    @Nonnull
     DynamicMessageBuilder newBuilder();
 }

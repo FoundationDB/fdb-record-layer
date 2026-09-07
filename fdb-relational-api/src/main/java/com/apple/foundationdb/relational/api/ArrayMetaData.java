@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.sql.Wrapper;
 
@@ -68,6 +67,5 @@ public interface ArrayMetaData extends Wrapper {
      * @return the datatype object.
      * @throws SQLException if something goes wrong.
      */
-    @Nonnull
     DataType.ArrayType asRelationalType() throws SQLException;
 }

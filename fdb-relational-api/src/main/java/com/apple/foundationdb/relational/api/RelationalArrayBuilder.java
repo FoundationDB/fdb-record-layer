@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.api;
 
-import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.UUID;
 
@@ -37,17 +36,17 @@ public interface RelationalArrayBuilder {
      */
     RelationalArray build() throws SQLException;
 
-    RelationalArrayBuilder addAll(@Nonnull Object... value) throws SQLException;
+    RelationalArrayBuilder addAll(Object... value) throws SQLException;
 
-    RelationalArrayBuilder addBytes(@Nonnull byte[] value) throws SQLException;
+    RelationalArrayBuilder addBytes(byte[] value) throws SQLException;
 
-    RelationalArrayBuilder addString(@Nonnull String value) throws SQLException;
+    RelationalArrayBuilder addString(String value) throws SQLException;
 
     RelationalArrayBuilder addLong(long value) throws SQLException;
 
-    RelationalArrayBuilder addUuid(@Nonnull UUID value) throws SQLException;
+    RelationalArrayBuilder addUuid(UUID value) throws SQLException;
 
-    RelationalArrayBuilder addObject(@Nonnull Object value) throws SQLException;
+    RelationalArrayBuilder addObject(Object value) throws SQLException;
 
     RelationalArrayBuilder addStruct(RelationalStruct struct) throws SQLException;
 }

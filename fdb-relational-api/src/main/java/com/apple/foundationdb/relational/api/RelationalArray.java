@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
 import java.sql.Array;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -101,7 +100,6 @@ public interface RelationalArray extends Array, Wrapper, WithMetadata {
         return iface.isInstance(this);
     }
 
-    @Nonnull
     @Override
     default DataType getRelationalMetaData() throws SQLException {
         return getMetaData().asRelationalType();

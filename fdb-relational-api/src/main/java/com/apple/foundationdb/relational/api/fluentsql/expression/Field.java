@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.api.fluentsql.expression;
 import com.apple.foundationdb.relational.api.fluentsql.expression.details.Mixins;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -34,16 +33,12 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 public interface Field<T extends DataType> extends ComparableExpressionTrait<T, Expression<T>> {
 
-    @Nonnull
     Iterable<String> getParts();
 
-    @Nonnull
-    Field<?> subField(@Nonnull String part);
+    Field<?> subField(String part);
 
-    @Nonnull
     String getName();
 
-    @Nonnull
     default Mixins.BooleanField asBoolean() {
         return asBoolean(true);
     }
@@ -55,12 +50,10 @@ public interface Field<T extends DataType> extends ComparableExpressionTrait<T, 
         return Mixins.asBoolean(this, isNullable);
     }
 
-    @Nonnull
     default Mixins.IntField asInt() {
         return asInt(true);
     }
 
-    @Nonnull
     default Mixins.IntField asInt(boolean isNullable) {
         if (this instanceof Mixins.IntField) {
             return (Mixins.IntField) this;
@@ -68,12 +61,10 @@ public interface Field<T extends DataType> extends ComparableExpressionTrait<T, 
         return Mixins.asInt(this, isNullable);
     }
 
-    @Nonnull
     default Mixins.LongField asLong() {
         return asLong(true);
     }
 
-    @Nonnull
     default Mixins.LongField asLong(boolean isNullable) {
         if (this instanceof Mixins.LongField) {
             return (Mixins.LongField) this;
@@ -81,12 +72,10 @@ public interface Field<T extends DataType> extends ComparableExpressionTrait<T, 
         return Mixins.asLong(this, isNullable);
     }
 
-    @Nonnull
     default Mixins.FloatField asFloat() {
         return asFloat(true);
     }
 
-    @Nonnull
     default Mixins.FloatField asFloat(boolean isNullable) {
         if (this instanceof Mixins.FloatField) {
             return (Mixins.FloatField) this;
@@ -94,12 +83,10 @@ public interface Field<T extends DataType> extends ComparableExpressionTrait<T, 
         return Mixins.asFloat(this, isNullable);
     }
 
-    @Nonnull
     default Mixins.DoubleField asDouble() {
         return asDouble(true);
     }
 
-    @Nonnull
     default Mixins.DoubleField asDouble(boolean isNullable) {
         if (this instanceof Mixins.DoubleField) {
             return (Mixins.DoubleField) this;
@@ -107,12 +94,10 @@ public interface Field<T extends DataType> extends ComparableExpressionTrait<T, 
         return Mixins.asDouble(this, isNullable);
     }
 
-    @Nonnull
     default Mixins.StringField asString() {
         return asString(true);
     }
 
-    @Nonnull
     default Mixins.StringField asString(boolean isNullable) {
         if (this instanceof Mixins.StringField) {
             return (Mixins.StringField) this;

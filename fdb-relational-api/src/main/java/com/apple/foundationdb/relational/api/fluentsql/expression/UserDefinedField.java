@@ -31,8 +31,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -48,19 +48,15 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 public final class UserDefinedField<T extends DataType> implements Field<T> {
 
-    @Nonnull
     private final String name;
 
-    @Nonnull
     private final ImmutableList<String> parts;
 
-    @Nonnull
     private final T type;
 
-    @Nonnull
     private final java.util.function.Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
-    public UserDefinedField(@Nonnull T type, @Nonnull final Iterable<String> parts) {
+    public UserDefinedField(T type, final Iterable<String> parts) {
         this.name = Iterables.getLast(parts);
         this.parts = ImmutableList.copyOf(parts);
         this.type = type;
@@ -68,84 +64,73 @@ public final class UserDefinedField<T extends DataType> implements Field<T> {
 
     @Nullable
     @Override
-    public <R, C> R accept(@Nonnull FluentVisitor<R, C> visitor, @Nonnull C context) {
+    public <R, C> R accept(FluentVisitor<R, C> visitor, C context) {
         return visitor.visit(this, context);
     }
 
-    @Nonnull
     @Override
     public Iterable<String> getParts() {
         return parts;
     }
 
-    @Nonnull
     @Override
     public T getType() {
         return type;
     }
 
-    @Nonnull
     @Override
     public String getName() {
         return name;
     }
 
-    @Nonnull
     @Override
-    public Field<?> subField(@Nonnull final String part) {
+    public Field<?> subField(final String part) {
         return subField(DataType.UnknownType.instance(), part);
     }
 
-    @Nonnull
-    public Field<?> subField(@Nonnull final DataType type,
-                             @Nonnull final String name) {
+    public Field<?> subField(final DataType type,
+                             final String name) {
         final var newFields = Streams.concat(parts.stream(), Stream.of(name)).collect(Collectors.toUnmodifiableList());
         return new UserDefinedField<>(type, newFields);
     }
 
-    @Nonnull
     @Override
     public Mixins.BooleanField asBoolean() {
         expectingType(DataType.Code.BOOLEAN);
         return Field.super.asBoolean();
     }
 
-    @Nonnull
     @Override
     public Mixins.IntField asInt() {
         expectingType(DataType.Code.INTEGER);
         return Field.super.asInt();
     }
 
-    @Nonnull
     @Override
     public Mixins.LongField asLong() {
         expectingType(DataType.Code.LONG);
         return Field.super.asLong();
     }
 
-    @Nonnull
     @Override
     public Mixins.FloatField asFloat() {
         expectingType(DataType.Code.FLOAT);
         return Field.super.asFloat();
     }
 
-    @Nonnull
     @Override
     public Mixins.DoubleField asDouble() {
         expectingType(DataType.Code.DOUBLE);
         return Field.super.asDouble();
     }
 
-    @Nonnull
     @Override
     public Mixins.StringField asString() {
         expectingType(DataType.Code.STRING);
         return Field.super.asString();
     }
 
-    private void expectingType(@Nonnull final DataType.Code code) {
+    private void expectingType(final DataType.Code code) {
         if (type.getCode() != DataType.Code.UNKNOWN && !type.getCode().equals(code)) {
             throw new RelationalException("Type mismatch, expected type '" + code.name() + "', actual type '" + type.getCode().name() + "'", ErrorCode.DATATYPE_MISMATCH).toUncheckedWrappedException();
         }

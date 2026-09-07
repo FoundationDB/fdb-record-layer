@@ -24,7 +24,8 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Struct;
@@ -59,28 +60,40 @@ public interface RelationalStruct extends Struct, Wrapper, WithMetadata {
 
     double getDouble(String fieldName) throws SQLException;
 
+    @Nullable
     byte[] getBytes(int oneBasedPosition) throws SQLException;
 
+    @Nullable
     byte[] getBytes(String fieldName) throws SQLException;
 
+    @Nullable
     String getString(int oneBasedPosition) throws SQLException;
 
+    @Nullable
     String getString(String fieldName) throws SQLException;
 
+    @Nullable
     Object getObject(int oneBasedPosition) throws SQLException;
 
+    @Nullable
     Object getObject(String fieldName) throws SQLException;
 
+    @Nullable
     RelationalStruct getStruct(int oneBasedPosition) throws SQLException;
 
+    @Nullable
     RelationalStruct getStruct(String fieldName) throws SQLException;
 
+    @Nullable
     RelationalArray getArray(int oneBasedPosition) throws SQLException;
 
+    @Nullable
     RelationalArray getArray(String fieldName) throws SQLException;
 
+    @Nullable
     UUID getUUID(int oneBasedPosition) throws SQLException;
 
+    @Nullable
     UUID getUUID(String fieldName) throws SQLException;
 
     /**
@@ -94,6 +107,7 @@ public interface RelationalStruct extends Struct, Wrapper, WithMetadata {
     }
 
     @Override
+    @SuppressWarnings("NullAway") // NullAway/JSpecify does not currently support declaring this array's elements @Nullable to match its overridden java.sql.Struct#getAttributes() contract; a SQL NULL column genuinely surfaces as a null array element here, same as before this migration.
     default Object[] getAttributes() throws SQLException {
         StructMetaData metaData = getMetaData();
         Object[] arr = new Object[metaData.getColumnCount()];
@@ -104,12 +118,12 @@ public interface RelationalStruct extends Struct, Wrapper, WithMetadata {
     }
 
     @Override
-    @SuppressWarnings("PMD.PreserveStackTrace")
+    @SuppressWarnings({"PMD.PreserveStackTrace", "NullAway"}) // NullAway/JSpecify does not currently support declaring this array's elements @Nullable to match its overridden java.sql.Struct#getAttributes(Map) contract; a SQL NULL column genuinely surfaces as a null array element here, same as before this migration.
     default Object[] getAttributes(Map<String, Class<?>> map) throws SQLException {
         StructMetaData metaData = getMetaData();
         Object[] arr = new Object[metaData.getColumnCount()];
         for (int i = 1; i <= arr.length; i++) {
-            Object o = getObject(i);
+            @Nullable Object o = getObject(i);
             if (o == null) {
                 //TODO(bfines) replace this with default value when necessary
                 arr[i - 1] = null;
@@ -140,7 +154,6 @@ public interface RelationalStruct extends Struct, Wrapper, WithMetadata {
         return iface.isInstance(this);
     }
 
-    @Nonnull
     @Override
     default DataType getRelationalMetaData() throws SQLException {
         return getMetaData().getRelationalDataType();

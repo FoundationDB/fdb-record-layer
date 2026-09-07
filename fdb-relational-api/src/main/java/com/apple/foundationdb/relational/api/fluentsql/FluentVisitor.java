@@ -32,41 +32,40 @@ import com.apple.foundationdb.relational.api.fluentsql.expression.NumericLiteral
 import com.apple.foundationdb.relational.api.fluentsql.expression.StringLiteral;
 import com.apple.foundationdb.relational.api.fluentsql.expression.UserDefinedField;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 public interface FluentVisitor<R, C> {
 
     @Nullable
-    R visit(@Nonnull BooleanFunction booleanFunction, @Nonnull C context);
+    R visit(BooleanFunction booleanFunction, C context);
 
     @Nullable
-    R visit(@Nonnull NumericFunction<?> numericFunction, @Nonnull C context);
+    R visit(NumericFunction<?> numericFunction, C context);
 
     @Nullable
-    R visit(@Nonnull ComparableFunction<?, ?> comparableFunction, @Nonnull C context);
+    R visit(ComparableFunction<?, ?> comparableFunction, C context);
 
     @Nullable
-    R visit(@Nonnull FunctionLike<?> function, @Nonnull C context);
+    R visit(FunctionLike<?> function, C context);
 
     @Nullable
-    R visit(@Nonnull BooleanLiteral booleanLiteral, @Nonnull C context);
+    R visit(BooleanLiteral booleanLiteral, C context);
 
     @Nullable
-    R visit(@Nonnull NestedBooleanExpression nestedBooleanExpression, @Nonnull C context);
+    R visit(NestedBooleanExpression nestedBooleanExpression, C context);
 
     @Nullable
-    R visit(@Nonnull NumericLiteral<?, ?> numericLiteral, @Nonnull C context);
+    R visit(NumericLiteral<?, ?> numericLiteral, C context);
 
     @Nullable
-    R visit(@Nonnull StringLiteral stringLiteral, @Nonnull C context);
+    R visit(StringLiteral stringLiteral, C context);
 
     @Nullable
-    R visit(@Nonnull ExpressionFragment<?> expression, @Nonnull C context);
+    R visit(ExpressionFragment<?> expression, C context);
 
     @Nullable
-    R visit(@Nonnull Field<?> field, @Nonnull C context);
+    R visit(Field<?> field, C context);
 
     @Nullable
-    R visit(@Nonnull UserDefinedField<?> userDefinedField, @Nonnull C context);
+    R visit(UserDefinedField<?> userDefinedField, C context);
 }
