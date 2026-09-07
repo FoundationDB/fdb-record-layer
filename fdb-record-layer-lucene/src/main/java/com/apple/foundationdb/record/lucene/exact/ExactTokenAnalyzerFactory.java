@@ -27,8 +27,6 @@ import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.metadata.Index;
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
-
 /**
  * Constructs a new instance of {@link ExactTokenAnalyzer}.
  */
@@ -40,23 +38,19 @@ public class ExactTokenAnalyzerFactory implements LuceneAnalyzerFactory  {
     public static final String UNIQUE_NAME = "query_only_exact_analyzer";
 
 
-    @Nonnull
     @Override
     public String getName() {
         return NAME;
     }
 
-    @Nonnull
     @Override
     public LuceneAnalyzerType getType() {
         return LuceneAnalyzerType.FULL_TEXT;
     }
 
-    @Nonnull
     @Override
-    public AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index ignored) {
+    public AnalyzerChooser getIndexAnalyzerChooser(Index ignored) {
         return new AnalyzerChooser() {
-            @Nonnull
             @Override
             public LuceneAnalyzerWrapper chooseAnalyzer() {
                 return new LuceneAnalyzerWrapper(UNIQUE_NAME, new ExactTokenAnalyzer());
@@ -64,11 +58,9 @@ public class ExactTokenAnalyzerFactory implements LuceneAnalyzerFactory  {
         };
     }
 
-    @Nonnull
     @Override
-    public AnalyzerChooser getQueryAnalyzerChooser(@Nonnull Index ignored, @Nonnull AnalyzerChooser alsoIgnored) {
+    public AnalyzerChooser getQueryAnalyzerChooser(Index ignored, AnalyzerChooser alsoIgnored) {
         return new AnalyzerChooser() {
-            @Nonnull
             @Override
             public LuceneAnalyzerWrapper chooseAnalyzer() {
                 return new LuceneAnalyzerWrapper(UNIQUE_NAME, new ExactTokenAnalyzer());

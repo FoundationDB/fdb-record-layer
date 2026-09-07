@@ -39,9 +39,8 @@ import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.analysis.ngram.EdgeNGramTokenFilter;
 import org.apache.lucene.analysis.ngram.NGramTokenFilter;
 import org.apache.lucene.analysis.standard.UAX29URLEmailTokenizer;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -88,22 +87,19 @@ public class NgramAnalyzer extends StopwordAnalyzerBase {
     public static class NgramAnalyzerFactory implements LuceneAnalyzerFactory {
         public static final String ANALYZER_FACTORY_NAME = "NGRAM";
 
-        @Nonnull
         @Override
         public String getName() {
             return ANALYZER_FACTORY_NAME;
         }
 
-        @Nonnull
         @Override
         public LuceneAnalyzerType getType() {
             return LuceneAnalyzerType.FULL_TEXT;
         }
 
         @SuppressWarnings("deprecation")
-        @Nonnull
         @Override
-        public AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index index) {
+        public AnalyzerChooser getIndexAnalyzerChooser(Index index) {
             try {
                 final String minLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MIN_SIZE)).orElse(DEFAULT_MINIMUM_NGRAM_TOKEN_LENGTH);
                 final String maxLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MAX_SIZE)).orElse(DEFAULT_MAXIMUM_NGRAM_TOKEN_LENGTH);

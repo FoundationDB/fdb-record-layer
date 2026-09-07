@@ -25,9 +25,9 @@ import com.apple.foundationdb.record.lucene.LuceneExceptions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -83,7 +83,8 @@ public class LazyOpener<T> {
         } catch (ExecutionException e) {
             final Throwable outerCause = e.getCause();
             if (outerCause instanceof UncheckedIOException) {
-                final IOException innerCause = ((UncheckedIOException)outerCause).getCause();
+                // UncheckedIOException's constructors require a non-null IOException cause, so this is safe.
+                final IOException innerCause = Objects.requireNonNull(((UncheckedIOException)outerCause).getCause());
                 innerCause.addSuppressed(e);
                 throw innerCause;
             } else {
@@ -111,8 +112,9 @@ public class LazyOpener<T> {
                 // Try to unwrap the cause for the IOException
                 throw LuceneExceptions.toRecordCoreException(cause.getMessage(), (IOException)cause);
             } else {
-                // Otherwise, wrap with generic RecordCoreException
-                throw new RecordCoreException(cause);
+                // Otherwise, wrap with generic RecordCoreException. cause may legitimately be null if the
+                // ExecutionException itself was constructed without one.
+                throw new RecordCoreException("Unexpected exception while lazily opening resource", cause);
             }
         }
     }
@@ -134,7 +136,6 @@ public class LazyOpener<T> {
      */
     @FunctionalInterface
     public interface Opener<T> {
-        @Nonnull
         T open() throws IOException;
     }
 }

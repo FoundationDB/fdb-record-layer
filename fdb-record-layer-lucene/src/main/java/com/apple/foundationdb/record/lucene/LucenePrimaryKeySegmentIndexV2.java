@@ -40,11 +40,11 @@ import org.apache.lucene.index.StandardDirectoryReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -55,12 +55,10 @@ import java.util.stream.Collectors;
 public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIndex {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LucenePrimaryKeySegmentIndexV2.class);
-    @Nonnull
     private final FDBDirectory directory;
-    @Nonnull
     private final Subspace subspace;
 
-    public LucenePrimaryKeySegmentIndexV2(@Nonnull FDBDirectory directory, @Nonnull Subspace subspace) {
+    public LucenePrimaryKeySegmentIndexV2(FDBDirectory directory, Subspace subspace) {
         this.directory = directory;
         this.subspace = subspace;
     }
@@ -70,7 +68,8 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
     public List<List<Object>> readAllEntries() {
         AtomicReference<List<List<Object>>> list = new AtomicReference<>();
         directory.getAgilityContext().accept(aContext -> readAllEntries(aContext, list));
-        return list.get();
+        // The accept() call above runs synchronously, and readAllEntries() always populates list before returning.
+        return Objects.requireNonNull(list.get());
     }
 
     private void readAllEntries(FDBRecordContext aContext, AtomicReference<List<List<Object>>> list) {
@@ -80,7 +79,7 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
                 .setScanProperties(ScanProperties.FORWARD_SCAN)
                 .build();
                  RecordCursor<Tuple> entries = kvs.map(kv -> subspace.unpack(kv.getKey()))) {
-            tuples = LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY, entries.asList(), aContext);
+            tuples = Objects.requireNonNull(LuceneConcurrency.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY, entries.asList(), aContext));
         }
         list.set(tuples.stream().map(t -> {
             List<Object> items = t.getItems();
@@ -96,9 +95,9 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
 
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    public List<String> findSegments(@Nonnull Tuple primaryKey) throws IOException {
+    public List<String> findSegments(Tuple primaryKey) throws IOException {
         try {
-            return directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
+            return Objects.requireNonNull(directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
                     directory.getAgilityContext().apply(context -> {
                         final Subspace keySubspace = subspace.subspace(primaryKey);
                         final KeyValueCursor kvs = KeyValueCursor.Builder.newBuilder(keySubspace)
@@ -115,7 +114,7 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
                                 return "#" + segid;
                             }
                         }).asList().whenComplete((result, err) -> kvs.close());
-                    }));
+                    })));
         } catch (RecordCoreException ex) {
             throw LuceneExceptions.toIoException(ex, null);
         }
@@ -123,7 +122,7 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
 
     @Override
     @Nullable
-    public DocumentIndexEntry findDocument(@Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) throws IOException {
+    public DocumentIndexEntry findDocument(DirectoryReader directoryReader, Tuple primaryKey) throws IOException {
         try {
             final AtomicReference<DocumentIndexEntry> doc = new AtomicReference<>();
             directory.getAgilityContext().accept(aContext -> findDocument(aContext, doc, directoryReader, primaryKey));
@@ -134,7 +133,7 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
     }
 
     private void findDocument(FDBRecordContext aContext, AtomicReference<DocumentIndexEntry> doc,
-                                            @Nonnull DirectoryReader directoryReader, @Nonnull Tuple primaryKey) {
+                                            DirectoryReader directoryReader, Tuple primaryKey) {
         final SegmentInfos segmentInfos = ((StandardDirectoryReader)FilterDirectoryReader.unwrap(directoryReader)).getSegmentInfos();
         final Subspace keySubspace = subspace.subspace(primaryKey);
         try (KeyValueCursor kvs = KeyValueCursor.Builder.newBuilder(keySubspace)
@@ -146,25 +145,25 @@ public class LucenePrimaryKeySegmentIndexV2 implements LucenePrimaryKeySegmentIn
                     final long segid = segdoc.getLong(0);
                     final String segmentName = directory.primaryKeySegmentName(segid);
                     if (segmentName == null) {
-                        return null;
+                        return Optional.<DocumentIndexEntry>empty();
                     }
                     for (int i = 0; i < segmentInfos.size(); i++) {
                         SegmentInfo segmentInfo = segmentInfos.info(i).info;
                         if (segmentInfo.name.equals(segmentName)) {
                             final int docid = (int)segdoc.getLong(1);
-                            return new DocumentIndexEntry(primaryKey, kv.getKey(),
-                                    directoryReader.leaves().get(i).reader(), segmentName, docid);
+                            return Optional.of(new DocumentIndexEntry(primaryKey, kv.getKey(),
+                                    directoryReader.leaves().get(i).reader(), segmentName, docid));
                         }
                     }
-                    return null;
-                }).filter(Objects::nonNull)) {
-            doc.set(directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
-                    documents.first()).orElse(null));
+                    return Optional.<DocumentIndexEntry>empty();
+                }).filter(Optional::isPresent).map(Optional::get)) {
+            doc.set(Objects.requireNonNull(directory.asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_FIND_PRIMARY_KEY,
+                    documents.first())).orElse(null));
         }
     }
 
     @Override
-    public void addOrDeletePrimaryKeyEntry(@Nonnull byte[] primaryKey, long segmentId, int docId, boolean add, String segmentName) {
+    public void addOrDeletePrimaryKeyEntry(byte[] primaryKey, long segmentId, int docId, boolean add, String segmentName) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace("pkey " + (add ? "Adding" : "Deling") + " #" + segmentId + "(" + segmentName + ")" +  Tuple.fromBytes(primaryKey));
         }

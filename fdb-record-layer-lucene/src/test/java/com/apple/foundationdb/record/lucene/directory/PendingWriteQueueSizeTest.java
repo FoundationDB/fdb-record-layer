@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.lucene.LuceneDocumentFromRecord;
 import com.apple.foundationdb.record.lucene.LuceneIndexExpressions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -176,7 +178,7 @@ class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
                     () -> queue.enqueueInsert(context, Tuple.from(999), createSingleField(), 0)
             );
             assertNotNull(exception);
-            assertTrue(exception.getMessage().contains("Queue size too large"));
+            assertTrue(Objects.requireNonNull(exception.getMessage()).contains("Queue size too large"));
         }
     }
 
@@ -279,8 +281,9 @@ class PendingWriteQueueSizeTest extends FDBRecordStoreTestBase {
     }
 
     private PendingWriteQueue getQueue(FDBRecordContext context, int maxQueueSize) {
-        Subspace queueSpace = path.toSubspace(context).subspace(Tuple.from("queue"));
-        Subspace counterSpace = path.toSubspace(context).subspace(Tuple.from("counter"));
+        final KeySpacePath nonNullPath = Objects.requireNonNull(path);
+        Subspace queueSpace = nonNullPath.toSubspace(context).subspace(Tuple.from("queue"));
+        Subspace counterSpace = nonNullPath.toSubspace(context).subspace(Tuple.from("counter"));
         return new PendingWriteQueue(queueSpace, counterSpace,
                 PendingWriteQueue.DEFAULT_MAX_PENDING_ENTRIES_TO_REPLAY, maxQueueSize, serializer, true);
     }

@@ -24,8 +24,6 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import org.apache.lucene.util.InfoStream;
 import org.slf4j.Logger;
 
-import javax.annotation.Nonnull;
-
 /**
  * Record Layer's implementation of {@link InfoStream} that publishes messages as TRACE logs.
  */
@@ -33,7 +31,7 @@ import javax.annotation.Nonnull;
 public class LuceneLoggerInfoStream extends InfoStream {
     private final Logger loggerForStreamOutput;
 
-    public LuceneLoggerInfoStream(@Nonnull Logger loggerForStreamOutput) {
+    public LuceneLoggerInfoStream(Logger loggerForStreamOutput) {
         this.loggerForStreamOutput = loggerForStreamOutput;
     }
 

@@ -49,6 +49,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.query;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.scanParams;
@@ -267,7 +268,7 @@ public class LucenePlannerTest extends FDBRecordStoreTestBase {
     }
 
     protected void setPlannerWholeFilterConfig(boolean isTrue) {
-        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), PlannableIndexTypes.DEFAULT, recordStore.getTimer());
+        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), PlannableIndexTypes.DEFAULT, Objects.requireNonNull(recordStore.getTimer()));
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()
                 .setPlanOtherAttemptWholeFilter(isTrue)

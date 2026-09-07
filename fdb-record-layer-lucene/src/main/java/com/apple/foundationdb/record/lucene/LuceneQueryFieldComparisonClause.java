@@ -45,46 +45,40 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TermRangeQuery;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Query clause using a {@link Comparisons.Comparison} against a document field.
  */
 @API(API.Status.UNSTABLE)
 public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause {
-    @Nonnull
     protected final String field;
-    @Nonnull
     protected final LuceneIndexExpressions.DocumentFieldType fieldType;
-    @Nonnull
     protected final Comparisons.Comparison comparison;
 
-    protected LuceneQueryFieldComparisonClause(@Nonnull LuceneQueryType querType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
+    protected LuceneQueryFieldComparisonClause(LuceneQueryType querType, String field, LuceneIndexExpressions.DocumentFieldType fieldType, Comparisons.Comparison comparison) {
         super(querType);
         this.field = field;
         this.fieldType = fieldType;
         this.comparison = comparison;
     }
 
-    @Nonnull
     public String getField() {
         return field;
     }
 
-    @Nonnull
     public LuceneIndexExpressions.DocumentFieldType getFieldType() {
         return fieldType;
     }
 
-    @Nonnull
     public Comparisons.Comparison getComparison() {
         return comparison;
     }
 
     @Override
-    public void getPlannerGraphDetails(@Nonnull final ImmutableList.Builder<String> detailsBuilder, @Nonnull final ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
+    public void getPlannerGraphDetails(final ImmutableList.Builder<String> detailsBuilder, final ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         detailsBuilder.add("field: {{field}}");
         attributeMapBuilder.put("field", Attribute.gml(field));
         detailsBuilder.add("fieldType: {{fieldType}}");
@@ -96,7 +90,7 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, field, fieldType, comparison);
     }
 
@@ -133,13 +127,12 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
         return result;
     }
 
-    @Nonnull
     @SuppressWarnings("fallthrough")
-    public static LuceneQueryFieldComparisonClause create(@Nonnull final LuceneQueryType queryType,
-                                                          @Nonnull final String field,
-                                                          @Nonnull final LuceneIndexExpressions.DocumentFieldType fieldType,
+    public static LuceneQueryFieldComparisonClause create(final LuceneQueryType queryType,
+                                                          final String field,
+                                                          final LuceneIndexExpressions.DocumentFieldType fieldType,
                                                           final boolean fieldNameOverride, @Nullable final String namedFieldSuffix,
-                                                          @Nonnull final Comparisons.Comparison comparison) {
+                                                          final Comparisons.Comparison comparison) {
         switch (comparison.getType()) {
             case NOT_NULL:
             case IS_NULL:
@@ -190,11 +183,12 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
         }
     }
 
-    protected String applyFieldNameConversion(final boolean fieldNameOverride, final String field, final String namedFieldSuffix, final Object comparand) {
+    protected String applyFieldNameConversion(final boolean fieldNameOverride, final String field, @Nullable final String namedFieldSuffix, final Object comparand) {
         if ( ! fieldNameOverride) {
             return field;
         }
-        int location = field.lastIndexOf(namedFieldSuffix);
+        // If fieldNameOverride is true, the caller is required to supply a non-null suffix to convert.
+        int location = field.lastIndexOf(Objects.requireNonNull(namedFieldSuffix, "namedFieldSuffix must be set when fieldNameOverride is true"));
         if (location == -1) {
             throw new RecordCoreArgumentException("Cannot find the replacement suffix in Lucene field name")
                     .addLogInfo("fieldName", field)
@@ -217,7 +211,7 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
         }
     }
 
-    protected static Query negate(@Nonnull Query query) {
+    protected static Query negate(Query query) {
         BooleanQuery.Builder builder = new BooleanQuery.Builder();
         builder.add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST);
         builder.add(query, BooleanClause.Occur.MUST_NOT);
@@ -225,12 +219,12 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
     }
 
     static class NullQuery extends LuceneQueryFieldComparisonClause {
-        public NullQuery(@Nonnull final LuceneQueryType queryType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
+        public NullQuery(final LuceneQueryType queryType, String field, LuceneIndexExpressions.DocumentFieldType fieldType, Comparisons.Comparison comparison) {
             super(queryType, field, fieldType, comparison);
         }
 
         @Override
-        public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+        public BoundQuery bind(FDBRecordStoreBase<?> store, Index index, EvaluationContext context) {
             Query allValues = new TermRangeQuery(field, null, null, true, true);
             if (comparison.getType() == Comparisons.Type.NOT_NULL) {
                 return toBoundQuery(allValues);
@@ -243,13 +237,13 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
     }
 
     static class StringQuery extends LuceneQueryFieldComparisonClause {
-        public StringQuery(@Nonnull final LuceneQueryType queryType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison) {
+        public StringQuery(final LuceneQueryType queryType, String field, LuceneIndexExpressions.DocumentFieldType fieldType, Comparisons.Comparison comparison) {
             super(queryType, field, fieldType, comparison);
         }
 
         @Override
         @SuppressWarnings("unchecked")
-        public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+        public BoundQuery bind(FDBRecordStoreBase<?> store, Index index, EvaluationContext context) {
             Object comparand = comparison.getComparand(store, context);
             if (comparand == null) {
                 return toBoundQuery(new MatchNoDocsQuery());
@@ -321,10 +315,11 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
 
     static class IntQuery extends LuceneQueryFieldComparisonClause {
         private final boolean fieldNameOverride;
+        @Nullable
         private final String namedFieldSuffix;
 
-        public IntQuery(@Nonnull final LuceneQueryType queryType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison,
-                        final boolean fieldNameOverride, final String namedFieldSuffix) {
+        public IntQuery(final LuceneQueryType queryType, String field, LuceneIndexExpressions.DocumentFieldType fieldType, Comparisons.Comparison comparison,
+                        final boolean fieldNameOverride, @Nullable final String namedFieldSuffix) {
             super(queryType, field, fieldType, comparison);
             this.fieldNameOverride = fieldNameOverride;
             this.namedFieldSuffix = namedFieldSuffix;
@@ -332,7 +327,7 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
 
         @Override
         @SuppressWarnings("unchecked")
-        public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+        public BoundQuery bind(FDBRecordStoreBase<?> store, Index index, EvaluationContext context) {
             Object comparand = comparison.getComparand(store, context);
             if (comparand == null) {
                 return toBoundQuery(new MatchNoDocsQuery());
@@ -369,10 +364,11 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
 
     static class LongQuery extends LuceneQueryFieldComparisonClause {
         private final boolean fieldNameOverride;
+        @Nullable
         private final String namedFieldSuffix;
 
-        public LongQuery(@Nonnull final LuceneQueryType queryType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison,
-                         final boolean fieldNameOverride, final String namedFieldSuffix) {
+        public LongQuery(final LuceneQueryType queryType, String field, LuceneIndexExpressions.DocumentFieldType fieldType, Comparisons.Comparison comparison,
+                         final boolean fieldNameOverride, @Nullable final String namedFieldSuffix) {
             super(queryType, field, fieldType, comparison);
             this.fieldNameOverride = fieldNameOverride;
             this.namedFieldSuffix = namedFieldSuffix;
@@ -380,7 +376,7 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
 
         @Override
         @SuppressWarnings("unchecked")
-        public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+        public BoundQuery bind(FDBRecordStoreBase<?> store, Index index, EvaluationContext context) {
             Object comparand = comparison.getComparand(store, context);
             if (comparand == null) {
                 return toBoundQuery(new MatchNoDocsQuery());
@@ -441,10 +437,11 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
 
     static class DoubleQuery extends LuceneQueryFieldComparisonClause {
         private final boolean fieldNameOverride;
+        @Nullable
         private final String namedFieldSuffix;
 
-        public DoubleQuery(@Nonnull final LuceneQueryType queryType, @Nonnull String field, @Nonnull LuceneIndexExpressions.DocumentFieldType fieldType, @Nonnull Comparisons.Comparison comparison,
-                           final boolean fieldNameOverride, final String namedFieldSuffix) {
+        public DoubleQuery(final LuceneQueryType queryType, String field, LuceneIndexExpressions.DocumentFieldType fieldType, Comparisons.Comparison comparison,
+                           final boolean fieldNameOverride, @Nullable final String namedFieldSuffix) {
             super(queryType, field, fieldType, comparison);
             this.fieldNameOverride = fieldNameOverride;
             this.namedFieldSuffix = namedFieldSuffix;
@@ -452,7 +449,7 @@ public abstract class LuceneQueryFieldComparisonClause extends LuceneQueryClause
 
         @Override
         @SuppressWarnings("unchecked")
-        public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+        public BoundQuery bind(FDBRecordStoreBase<?> store, Index index, EvaluationContext context) {
             Object comparand = comparison.getComparand(store, context);
             if (comparand == null) {
                 return toBoundQuery(new MatchNoDocsQuery());

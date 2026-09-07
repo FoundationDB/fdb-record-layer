@@ -57,7 +57,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -377,8 +376,7 @@ public class LuceneHighlighterTest {
         }
     }
 
-    @Nonnull
-    private String specialCharacterText(@Nonnull String specialCharacter) {
+    private String specialCharacterText(String specialCharacter) {
         return "Do we match special characters like " + specialCharacter + " even when its mashed together like " + specialCharacter + "noSpaces?";
     }
 
@@ -550,9 +548,8 @@ public class LuceneHighlighterTest {
             Assertions.assertTrue(result instanceof HighlightedTerm, "Did not return a string!");
             return (HighlightedTerm)result;
         } catch (ParseException e) {
-            Assertions.fail("Failed to parse Lucene query");
+            return Assertions.fail("Failed to parse Lucene query");
         }
-        return null;
     }
 
     private void assertHighlightCorrect(HighlightedTerm expected, HighlightedTerm actual) {

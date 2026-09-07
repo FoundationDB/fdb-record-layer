@@ -21,4 +21,7 @@
 /**
  * Common classes for optimization of lucene's codec.
  */
+@NullMarked
 package com.apple.foundationdb.record.lucene.codec;
+
+import org.jspecify.annotations.NullMarked;

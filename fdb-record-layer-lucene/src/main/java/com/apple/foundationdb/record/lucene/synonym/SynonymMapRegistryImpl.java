@@ -36,7 +36,6 @@ import org.apache.lucene.analysis.synonym.SynonymMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -48,25 +47,21 @@ import java.util.Map;
  * Registry for {@link SynonymMap}s.
  */
 public class SynonymMapRegistryImpl implements SynonymMapRegistry {
-    @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(SynonymMapRegistryImpl.class);
     private static final SynonymMapRegistryImpl INSTANCE = new SynonymMapRegistryImpl();
 
-    @Nonnull
     private final Map<String, SynonymMap> registry;
 
     private SynonymMapRegistryImpl() {
         registry = initRegistry();
     }
 
-    @Nonnull
     public static SynonymMapRegistry instance() {
         return INSTANCE;
     }
 
-    @Nonnull
     @Override
-    public SynonymMap getSynonymMap(@Nonnull final String name) {
+    public SynonymMap getSynonymMap(final String name) {
         final SynonymMap map = registry.get(name);
         if (map == null) {
             throw new MetaDataException("unrecognized synonym map", LogMessageKeys.SYNONYM_NAME, name);
@@ -74,7 +69,6 @@ public class SynonymMapRegistryImpl implements SynonymMapRegistry {
         return map;
     }
 
-    @Nonnull
     private static Map<String, SynonymMap> initRegistry() {
         final Map<String, SynonymMap> registry = new HashMap<>();
         for (SynonymMapConfig config : ServiceLoaderProvider.load(SynonymMapConfig.class)) {

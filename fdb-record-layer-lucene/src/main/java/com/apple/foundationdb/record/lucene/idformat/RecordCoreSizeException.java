@@ -20,19 +20,17 @@
 
 package com.apple.foundationdb.record.lucene.idformat;
 
-import javax.annotation.Nonnull;
-
 /**
  * Exception thrown when the RecordIdFormat size exceeds the maximum.
  */
 public class RecordCoreSizeException extends RecordCoreFormatException {
     private static final long serialVersionUID = 1;
 
-    public RecordCoreSizeException(@Nonnull final String msg, @Nonnull final Object... keyValue) {
+    public RecordCoreSizeException(final String msg, final Object... keyValue) {
         super(msg, keyValue);
     }
 
-    public RecordCoreSizeException(@Nonnull final String msg, @Nonnull final Throwable cause) {
+    public RecordCoreSizeException(final String msg, final Throwable cause) {
         super(msg, cause);
     }
 }

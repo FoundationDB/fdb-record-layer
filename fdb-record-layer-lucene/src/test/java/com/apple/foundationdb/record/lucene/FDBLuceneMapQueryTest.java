@@ -54,10 +54,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
@@ -141,6 +141,7 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static final List<TestRecordsTextProto.MapDocument> mapDocuments = createMapDocuments();
 
+    @Nullable
     private ExecutorService executorService = null;
 
     @Override
@@ -153,7 +154,7 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
                     Sets.newHashSet(LuceneIndexTypes.LUCENE)
             );
         }
-        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, Objects.requireNonNull(recordStore.getTimer()));
     }
 
     @Override
@@ -205,28 +206,28 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
                                 Pair.of("Blah", false),
                                 Pair.of("c", false))
                         .map(pair ->
-                                Arguments.of(Query.field("stringToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(pair.getLeft()))),
+                                Arguments.of(Query.field("stringToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(Objects.requireNonNull(pair.getLeft())))),
                                         pair.getRight(),
                                         "MapField$string2long")),
                 Stream.of(Pair.of("c", true),
                                 Pair.of("Blah", false),
                                 Pair.of("d", false))
                         .map(pair ->
-                                Arguments.of(Query.field("stringWrapperToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").matches(Query.field("value").equalsValue(pair.getLeft())))),
+                                Arguments.of(Query.field("stringWrapperToLongMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").matches(Query.field("value").equalsValue(Objects.requireNonNull(pair.getLeft()))))),
                                         pair.getRight(),
                                         "MapField$stringWrapper2long")),
                 Stream.of(Pair.of("f", true),
                                 Pair.of("Blah", false),
                                 Pair.of("d", false))
                         .map(pair ->
-                                Arguments.of(Query.field("stringToIntMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(pair.getLeft()))),
+                                Arguments.of(Query.field("stringToIntMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(Objects.requireNonNull(pair.getLeft())))),
                                         pair.getRight(),
                                         "MapField$string2int")),
                 Stream.of(Pair.of("g", true),
                                 Pair.of("Blah", false),
                                 Pair.of("a", false))
                         .map(pair ->
-                                Arguments.of(Query.field("stringToDoubleMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(pair.getLeft()))),
+                                Arguments.of(Query.field("stringToDoubleMap").matches(Query.field("values").oneOfThem().matches(Query.field("key").equalsValue(Objects.requireNonNull(pair.getLeft())))),
                                         pair.getRight(),
                                         "MapField$string2double"))
         ).flatMap(Function.identity());
@@ -301,8 +302,14 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             RecordQueryPlan plan = planQuery(query);
             assertTrue(plan.getUsedIndexes().contains(expectedIndex));
-            try (RecordCursor<QueryResult> recordCursor = recordStore.executeQuery(plan, null, EvaluationContext.forBinding("$param", value), ExecuteProperties.SERIAL_EXECUTE)) {
-                List<Long> primaryKeys = recordCursor.map(QueryResult::getQueriedRecord).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+            // Passes a null continuation into FDBRecordStoreBase#executeQuery; NullAway does not
+            // reliably recognize @Nullable on that array (byte[]) parameter.
+            @SuppressWarnings("NullAway")
+            RecordCursor<QueryResult> recordCursor = recordStore.executeQuery(plan, null, EvaluationContext.forBinding("$param", value), ExecuteProperties.SERIAL_EXECUTE);
+            try (recordCursor) {
+                // getQueriedRecord() is @Nullable in general, but this query always returns real
+                // documents, so the queried record is always present here.
+                List<Long> primaryKeys = recordCursor.map(qr -> Objects.requireNonNull(qr.getQueriedRecord())).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
                 final Set<Long> expected = found ? Set.of(0L, 1L, 2L) : Set.of();
                 assertEquals(expected, Set.copyOf(primaryKeys));
             }
@@ -330,7 +337,6 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
 
-    @Nonnull
     private static List<TestRecordsTextProto.MapDocument> createMapDocuments() {
         List<TestRecordsTextProto.MapDocument> result = IntStream.range(0, textSamples.size() / 2)
                 .mapToObj(i -> TestRecordsTextProto.MapDocument.newBuilder()
@@ -364,7 +370,6 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
         return result;
     }
 
-    @Nonnull
     private static TestRecordsTextProto.MapDocument.String2Long.Builder getStringToLongMap(final int i, final String value) {
         TestRecordsTextProto.MapDocument.String2Long.Builder builder = TestRecordsTextProto.MapDocument.String2Long.newBuilder()
                 .addValues(TestRecordsTextProto.MapDocument.String2LongPair.newBuilder()
@@ -378,7 +383,6 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
         return builder;
     }
 
-    @Nonnull
     private static TestRecordsTextProto.MapDocument.StringWrapper2Long.Builder getStringWrapperToLongMap(final int i, final String value) {
         TestRecordsTextProto.MapDocument.StringWrapper2Long.Builder builder = TestRecordsTextProto.MapDocument.StringWrapper2Long.newBuilder()
                 .addValues(TestRecordsTextProto.MapDocument.StringWrapper2LongPair.newBuilder()
@@ -396,7 +400,6 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
         return builder;
     }
 
-    @Nonnull
     private static TestRecordsTextProto.MapDocument.String2Int.Builder getStringToIntMap(final int i, final String value) {
         TestRecordsTextProto.MapDocument.String2Int.Builder builder = TestRecordsTextProto.MapDocument.String2Int.newBuilder()
                 .addValues(TestRecordsTextProto.MapDocument.String2IntPair.newBuilder()
@@ -411,7 +414,6 @@ public class FDBLuceneMapQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
 
-    @Nonnull
     private static TestRecordsTextProto.MapDocument.String2Double.Builder getStringToDoubleMap(final int i, final String value) {
         TestRecordsTextProto.MapDocument.String2Double.Builder builder = TestRecordsTextProto.MapDocument.String2Double.newBuilder()
                 .addValues(TestRecordsTextProto.MapDocument.String2DoublePair.newBuilder()

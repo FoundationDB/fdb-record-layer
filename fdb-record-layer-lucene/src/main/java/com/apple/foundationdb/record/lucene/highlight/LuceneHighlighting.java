@@ -39,9 +39,8 @@ import com.apple.foundationdb.util.StringUtils;
 import com.google.protobuf.Message;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.search.uhighlight.UnifiedHighlighter;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.text.BreakIterator;
 import java.util.ArrayList;
@@ -50,6 +49,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -60,7 +60,7 @@ public class LuceneHighlighting {
     private LuceneHighlighting() {
     }
 
-    private static Set<String> getPrefixTerms(@Nonnull Set<String> terms) {
+    private static Set<String> getPrefixTerms(Set<String> terms) {
         Set<String> result = Collections.emptySet();
         Iterator<String> iter = terms.iterator();
         while (iter.hasNext()) {
@@ -77,7 +77,7 @@ public class LuceneHighlighting {
         return result;
     }
 
-    private static boolean isMatch(@Nonnull String candidate, @Nonnull Set<String> terms, @Nonnull Set<String> prefixes) {
+    private static boolean isMatch(String candidate, Set<String> terms, Set<String> prefixes) {
         for (String term : terms) {
             if (StringUtils.containsIgnoreCase(candidate, term)) {
                 return true;
@@ -91,8 +91,7 @@ public class LuceneHighlighting {
         return false;
     }
 
-    @Nonnull
-    private static Set<String> getFieldTerms(@Nonnull Map<String, Set<String>> termMap, @Nonnull String fieldName) {
+    private static Set<String> getFieldTerms(Map<String, Set<String>> termMap, String fieldName) {
         final Set<String> terms = new HashSet<>();
         final Set<String> forField = termMap.get(fieldName);
         if (forField != null) {
@@ -105,7 +104,6 @@ public class LuceneHighlighting {
         return terms;
     }
 
-    @Nonnull
     public static <M extends Message> List<HighlightedTerm> highlightedTermsForMessage(@Nullable FDBQueriedRecord<M> queriedRecord,
                                                                                        @Nullable String nestedName) {
         if (queriedRecord == null) {
@@ -121,18 +119,17 @@ public class LuceneHighlighting {
         }
 
         return highlightedTermsForMessage(queriedRecord, queriedRecord.getRecord(), nestedName,
-                docIndexEntry.getIndexKey(), docIndexEntry.getTermMap(), docIndexEntry.getAnalyzerSelector(), docIndexEntry.getLuceneQueryHighlightParameters());
+                docIndexEntry.getIndexKey(), Objects.requireNonNullElse(docIndexEntry.getTermMap(), Collections.emptyMap()), docIndexEntry.getAnalyzerSelector(), docIndexEntry.getLuceneQueryHighlightParameters());
     }
 
     // Modify the Lucene fields of a record message with highlighting the terms from the given termMap
 
-    @Nonnull
-    public static <M extends Message> List<HighlightedTerm> highlightedTermsForMessage(@Nonnull FDBRecord<M> rec, M message,
+    public static <M extends Message> List<HighlightedTerm> highlightedTermsForMessage(FDBRecord<M> rec, M message,
                                                                                        @Nullable String nestedName,
-                                                                                       @Nonnull KeyExpression expression,
-                                                                                       @Nonnull Map<String, Set<String>> termMap,
-                                                                                       @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
-                                                                                       @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
+                                                                                       KeyExpression expression,
+                                                                                       Map<String, Set<String>> termMap,
+                                                                                       LuceneAnalyzerCombinationProvider analyzerSelector,
+                                                                                       LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters) {
         if (nestedName != null) {
             expression = getNestedFields(expression, nestedName);
             if (expression == null) {
@@ -165,8 +162,8 @@ public class LuceneHighlighting {
     }
 
     @Nullable
-    private static Object highlight(final @Nonnull LuceneAnalyzerCombinationProvider analyzerSelector,
-                                    final @Nonnull LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
+    private static Object highlight(final LuceneAnalyzerCombinationProvider analyzerSelector,
+                                    final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                                     final String fieldName,
                                     final String value,
                                     final String termName) {
@@ -180,7 +177,7 @@ public class LuceneHighlighting {
     }
 
     @Nullable
-    private static KeyExpression getNestedFields(@Nonnull KeyExpression expression, @Nonnull String nestedName) {
+    private static KeyExpression getNestedFields(KeyExpression expression, String nestedName) {
         if (expression instanceof GroupingKeyExpression) {
             expression = ((GroupingKeyExpression)expression).getGroupedSubKey();
         }

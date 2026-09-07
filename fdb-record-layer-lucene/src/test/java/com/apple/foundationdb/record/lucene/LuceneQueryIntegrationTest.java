@@ -40,9 +40,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -88,7 +89,7 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
                 );
             }
 
-            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, Objects.requireNonNull(recordStore.getTimer()));
         }
     }
 

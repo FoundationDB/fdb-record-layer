@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 
-import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -65,7 +64,6 @@ public class NonAgileContext implements AgilityContext {
     }
 
     @Override
-    @Nonnull
     public FDBRecordContext getCallerContext() {
         return callerContext;
     }

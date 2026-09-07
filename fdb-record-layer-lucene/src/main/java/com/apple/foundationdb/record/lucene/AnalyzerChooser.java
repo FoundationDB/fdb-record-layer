@@ -22,12 +22,9 @@ package com.apple.foundationdb.record.lucene;
 
 import org.apache.lucene.analysis.Analyzer;
 
-import javax.annotation.Nonnull;
-
 /**
  * Choose an {@link Analyzer}.
  */
 public interface AnalyzerChooser {
-    @Nonnull
     LuceneAnalyzerWrapper chooseAnalyzer();
 }

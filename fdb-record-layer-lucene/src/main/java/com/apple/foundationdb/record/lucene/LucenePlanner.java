@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
+import com.apple.foundationdb.record.lucene.LuceneScanQueryParameters.LuceneQueryHighlightParameters;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
@@ -56,15 +57,17 @@ import org.apache.lucene.search.SortField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
+
+import static com.apple.foundationdb.record.lucene.LuceneIndexExpressions.DocumentFieldDerivation;
 
 /**
  * A planner to implement lucene query planning so that we can isolate the lucene functionality to
@@ -74,17 +77,20 @@ import java.util.stream.Collectors;
 public class LucenePlanner extends RecordQueryPlanner {
     private static final Logger logger = LoggerFactory.getLogger(LucenePlanner.class);
 
-    public LucenePlanner(@Nonnull final RecordMetaData metaData, @Nonnull final RecordStoreState recordStoreState, final PlannableIndexTypes indexTypes, final FDBStoreTimer timer) {
+    public LucenePlanner(final RecordMetaData metaData, final RecordStoreState recordStoreState, final PlannableIndexTypes indexTypes, final FDBStoreTimer timer) {
         super(metaData, recordStoreState, indexTypes, timer);
     }
 
     @Override
     @Nullable
-    protected ScoredPlan planOther(@Nonnull CandidateScan candidateScan,
-                                   @Nonnull Index index, @Nonnull QueryComponent filter,
+    protected ScoredPlan planOther(CandidateScan candidateScan,
+                                   Index index, @Nullable QueryComponent filter,
                                    @Nullable KeyExpression sort, boolean sortReverse,
                                    @Nullable KeyExpression commonPrimaryKey) {
-        if (index.getType().equals(LuceneIndexTypes.LUCENE)) {
+        // planLucene (below) is not designed to handle a null filter, so only take the Lucene-specific
+        // path when there is an actual filter to plan against; otherwise defer to the superclass, which
+        // already handles a null filter correctly.
+        if (filter != null && index.getType().equals(LuceneIndexTypes.LUCENE)) {
             return planLucene(candidateScan, index, filter, sort, sortReverse, commonPrimaryKey);
         } else {
             return super.planOther(candidateScan, index, filter, sort, sortReverse, commonPrimaryKey);
@@ -92,8 +98,8 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     @Nullable
-    private ScoredPlan planLucene(@Nonnull CandidateScan candidateScan,
-                                  @Nonnull Index index, @Nonnull QueryComponent filter,
+    private ScoredPlan planLucene(CandidateScan candidateScan,
+                                  Index index, QueryComponent filter,
                                   @Nullable KeyExpression sort, boolean sortReverse,
                                   @Nullable KeyExpression commonPrimaryKey) {
         final RecordMetaData metaData = getRecordMetaData();
@@ -125,8 +131,8 @@ public class LucenePlanner extends RecordQueryPlanner {
             groupingComparisons = ScanComparisons.EMPTY;
         }
 
-        LucenePlanState state = new LucenePlanState(index, groupingComparisons, filter);
-        state.documentFields = LuceneIndexExpressions.getDocumentFieldDerivations(index, metaData);
+        LucenePlanState state = new LucenePlanState(index, groupingComparisons, filter,
+                LuceneIndexExpressions.getDocumentFieldDerivations(index, metaData));
 
         QueryComponent queryComponent = state.groupingComparisons.isEmpty() ? state.filter : filterMask.getUnsatisfiedFilter();
         // Special scans like auto-complete cannot be combined with regular queries.
@@ -141,7 +147,7 @@ public class LucenePlanner extends RecordQueryPlanner {
                 return null;
             }
             getStoredFields(state);
-            LuceneScanQueryParameters.LuceneQueryHighlightParameters highlightParameters = getHighlightParameters(queryComponent);
+            LuceneQueryHighlightParameters highlightParameters = getHighlightParameters(queryComponent);
             scanParameters = new LuceneScanQueryParameters(groupingComparisons, query,
                     state.sort, state.storedFields, state.storedFieldTypes, highlightParameters);
         }
@@ -159,7 +165,8 @@ public class LucenePlanner extends RecordQueryPlanner {
                 state.repeated, false, false, null);
     }
 
-    private static LuceneScanQueryParameters.LuceneQueryHighlightParameters getHighlightParameters(@Nonnull QueryComponent queryComponent) {
+    @Nullable
+    private static LuceneQueryHighlightParameters getHighlightParameters(@Nullable QueryComponent queryComponent) {
         if (queryComponent instanceof LuceneQueryComponent) {
             LuceneQueryComponent luceneQueryComponent = (LuceneQueryComponent)queryComponent;
             return luceneQueryComponent.getLuceneQueryHighlightParameters();
@@ -167,7 +174,7 @@ public class LucenePlanner extends RecordQueryPlanner {
             return getHighlightParameters(((NestedField)queryComponent).getChild());
         } else if (queryComponent instanceof AndOrComponent) {
             for (QueryComponent child : ((AndOrComponent) queryComponent).getChildren()) {
-                LuceneScanQueryParameters.LuceneQueryHighlightParameters parameters = getHighlightParameters(child);
+                LuceneQueryHighlightParameters parameters = getHighlightParameters(child);
                 if (parameters != null) {
                     return parameters;
                 }
@@ -177,11 +184,8 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     static class LucenePlanState {
-        @Nonnull
         final Index index;
-        @Nonnull
         final ScanComparisons groupingComparisons;
-        @Nonnull
         final QueryComponent filter;
         @Nullable
         Sort sort;
@@ -194,19 +198,21 @@ public class LucenePlanner extends RecordQueryPlanner {
         @Nullable
         PlanOrderingKey planOrderingKey;
 
-        Map<String, LuceneIndexExpressions.DocumentFieldDerivation> documentFields;
+        final Map<String, DocumentFieldDerivation> documentFields;
         boolean repeated;   // Matching a repeated field may introduce duplicates
 
-        LucenePlanState(@Nonnull final Index index, @Nonnull final ScanComparisons groupingComparisons, @Nonnull final QueryComponent filter) {
+        LucenePlanState(final Index index, final ScanComparisons groupingComparisons, final QueryComponent filter,
+                        final Map<String, DocumentFieldDerivation> documentFields) {
             this.index = index;
             this.groupingComparisons = groupingComparisons;
             this.filter = filter;
+            this.documentFields = documentFields;
         }
     }
 
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private LuceneScanParameters getSpecialScan(@Nonnull LucenePlanState state, @Nonnull FilterSatisfiedMask filterMask, @Nonnull QueryComponent queryComponent) {
+    private LuceneScanParameters getSpecialScan(LucenePlanState state, FilterSatisfiedMask filterMask, @Nullable QueryComponent queryComponent) {
         QueryComponent component = queryComponent;
         final ImmutableList.Builder<String> prefixComponentsBuilder = ImmutableList.builder();
         // find the prefix of the special scan (if it exists)
@@ -238,29 +244,32 @@ public class LucenePlanner extends RecordQueryPlanner {
                         luceneQueryComponent.getQuery(), luceneQueryComponent.isQueryIsParameter());
 
         if (queryComponent != state.filter) {
-            filterMask = filterMask.getChild(queryComponent);
+            // component (derived from queryComponent above) was proven to be a LuceneQueryComponent, which is only
+            // possible if queryComponent itself is non-null (the instanceof checks above would have returned null
+            // immediately for a null queryComponent).
+            filterMask = filterMask.getChild(Objects.requireNonNull(queryComponent));
         }
         filterMask.setSatisfied(true);
         return scanParameters;
     }
 
-    @Nonnull
-    private LuceneQueryComponent prefixFieldNames(@Nonnull LuceneQueryComponent luceneQueryComponent, @Nonnull final List<String> prefix) {
+    private LuceneQueryComponent prefixFieldNames(LuceneQueryComponent luceneQueryComponent, final List<String> prefix) {
         if (prefix.isEmpty()) {
             return luceneQueryComponent;
         }
         final var name = String.join("_", prefix);
         final var newFieldNames = luceneQueryComponent.getFields().stream().map(field -> name + "_" + field).collect(Collectors.toList());
-        final var newExplicitFieldNames = luceneQueryComponent.getExplicitFieldNames() == null
-                ? null : luceneQueryComponent.getExplicitFieldNames().stream().map(field -> name + "_" + field).collect(Collectors.toSet());
+        final var explicitFieldNames = luceneQueryComponent.getExplicitFieldNames();
+        final var newExplicitFieldNames = explicitFieldNames == null
+                ? null : explicitFieldNames.stream().map(field -> name + "_" + field).collect(Collectors.toSet());
         return luceneQueryComponent.withNewFields(newFieldNames, newExplicitFieldNames);
     }
 
     @Nullable
-    private LuceneQueryClause getQueryForFilter(@Nonnull final LuceneQueryType queryType,
-                                                @Nonnull final LucenePlanState state,
-                                                @Nonnull final QueryComponent filter,
-                                                @Nonnull final List<String> parentFieldPath,
+    private LuceneQueryClause getQueryForFilter(final LuceneQueryType queryType,
+                                                final LucenePlanState state,
+                                                final QueryComponent filter,
+                                                final List<String> parentFieldPath,
                                                 @Nullable final FilterSatisfiedMask filterMask) {
         if (filter instanceof LuceneQueryComponent) {
             return getQueryForLuceneComponent(state, (LuceneQueryComponent)filter, parentFieldPath, filterMask);
@@ -279,8 +288,8 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     @Nullable
-    private LuceneQueryClause getQueryForLuceneComponent(@Nonnull LucenePlanState state, @Nonnull LuceneQueryComponent filter,
-                                                         @Nonnull List<String> parentFieldPath, @Nullable FilterSatisfiedMask filterMask) {
+    private LuceneQueryClause getQueryForLuceneComponent(LucenePlanState state, LuceneQueryComponent filter,
+                                                         List<String> parentFieldPath, @Nullable FilterSatisfiedMask filterMask) {
         filter = prefixFieldNames(filter, parentFieldPath);
 
         for (String field : filter.getFields()) {
@@ -294,9 +303,10 @@ public class LucenePlanner extends RecordQueryPlanner {
 
         switch (filter.getType()) {
             case AUTO_COMPLETE:
-                final var resolvedFields = filter.getExplicitFieldNames() == null
+                final var explicitFieldNames = filter.getExplicitFieldNames();
+                final var resolvedFields = explicitFieldNames == null
                                            ? filter.getFields()
-                                           : filter.getExplicitFieldNames();
+                                           : explicitFieldNames;
                 return new LuceneAutoCompleteQueryClause(filter.getQuery(), filter.isQueryIsParameter(), resolvedFields);
             case QUERY:
             case QUERY_HIGHLIGHT:
@@ -313,8 +323,8 @@ public class LucenePlanner extends RecordQueryPlanner {
 
     @Nullable
     @SuppressWarnings({"java:S3776", "PMD.CompareObjectsWithEquals"})
-    private LuceneQueryClause getQueryForAndOr(@Nonnull final LuceneQueryType queryType, @Nonnull final LucenePlanState state,
-                                               @Nonnull final AndOrComponent filter, @Nonnull final List<String> parentFieldPath,
+    private LuceneQueryClause getQueryForAndOr(final LuceneQueryType queryType, final LucenePlanState state,
+                                               final AndOrComponent filter, final List<String> parentFieldPath,
                                                @Nullable final FilterSatisfiedMask filterMask) {
         final Iterator<FilterSatisfiedMask> subFilterMasks = filterMask != null ? filterMask.getChildren().iterator() : null;
         final List<QueryComponent> filters = filter.getChildren();
@@ -356,10 +366,10 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     @Nullable
-    private LuceneQueryClause getQueryForNot(@Nonnull final LuceneQueryType queryType,
-                                             @Nonnull final LucenePlanState state,
-                                             @Nonnull final NotComponent filter,
-                                             @Nonnull final List<String> parentFieldPath,
+    private LuceneQueryClause getQueryForNot(final LuceneQueryType queryType,
+                                             final LucenePlanState state,
+                                             final NotComponent filter,
+                                             final List<String> parentFieldPath,
                                              @Nullable final FilterSatisfiedMask filterMask) {
         final LuceneQueryClause childClause = getQueryForFilter(queryType, state, filter.getChild(), parentFieldPath,
                 filterMask == null ? null : filterMask.getChildren().get(0));
@@ -372,8 +382,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         return negate(childClause);
     }
 
-    @Nonnull
-    private static LuceneQueryClause negate(@Nonnull LuceneQueryClause clause) {
+    private static LuceneQueryClause negate(LuceneQueryClause clause) {
         if (clause instanceof LuceneBooleanQuery) {
             final LuceneBooleanQuery booleanQuery = (LuceneBooleanQuery)clause;
             switch (booleanQuery.getOccur()) {
@@ -413,16 +422,16 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     @Nullable
-    private LuceneQueryClause getQueryForFieldWithComparison(@Nonnull final LuceneQueryType queryType,
-                                                             @Nonnull final LucenePlanState state,
-                                                             @Nonnull final FieldWithComparison filter,
-                                                             @Nonnull final List<String> fieldPath,
+    private LuceneQueryClause getQueryForFieldWithComparison(final LuceneQueryType queryType,
+                                                             final LucenePlanState state,
+                                                             final FieldWithComparison filter,
+                                                             final List<String> fieldPath,
                                                              @Nullable final FilterSatisfiedMask filterSatisfiedMask) {
         if (filterSatisfiedMask != null && filterSatisfiedMask.isSatisfied()) {
             return null;        // Already done as part of group comparisons
         }
         fieldPath.add(filter.getFieldName());
-        LuceneIndexExpressions.DocumentFieldDerivation fieldDerivation = findIndexField(state, fieldPath);
+        DocumentFieldDerivation fieldDerivation = findIndexField(state, fieldPath);
         fieldPath.remove(fieldPath.size() - 1);
         if (fieldDerivation == null) {
             return null;
@@ -450,11 +459,11 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     @Nullable
-    private LuceneQueryClause getQueryForNestedField(@Nonnull final LuceneQueryType queryType,
-                                                     @Nonnull final LucenePlanState state,
-                                                     @Nonnull final BaseField filter,
+    private LuceneQueryClause getQueryForNestedField(final LuceneQueryType queryType,
+                                                     final LucenePlanState state,
+                                                     final BaseField filter,
                                                      final boolean repeated,
-                                                     @Nonnull final List<String> fieldPath,
+                                                     final List<String> fieldPath,
                                                      @Nullable final FilterSatisfiedMask mask) {
         QueryComponent child = ((ComponentWithSingleChild)filter).getChild();
         fieldPath.add(filter.getFieldName());
@@ -472,15 +481,15 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     @Nullable
-    private LuceneIndexExpressions.DocumentFieldDerivation findIndexField(@Nonnull LucenePlanState state, @Nonnull List<String> fieldPath) {
+    private DocumentFieldDerivation findIndexField(LucenePlanState state, List<String> fieldPath) {
         if (fieldPath.size() == 1) {
             // Quickly check simple case by name to save looking through all document fields.
-            final LuceneIndexExpressions.DocumentFieldDerivation fieldDerivation = state.documentFields.get(fieldPath.get(0));
+            final DocumentFieldDerivation fieldDerivation = state.documentFields.get(fieldPath.get(0));
             if (fieldDerivation != null && fieldDerivation.getRecordFieldPath().equals(fieldPath)) {
                 return fieldDerivation;
             }
         }
-        for (LuceneIndexExpressions.DocumentFieldDerivation fieldDerivation : state.documentFields.values()) {
+        for (DocumentFieldDerivation fieldDerivation : state.documentFields.values()) {
             if (fieldDerivation.getRecordFieldPath().equals(fieldPath)) {
                 return fieldDerivation;
             }
@@ -488,9 +497,9 @@ public class LucenePlanner extends RecordQueryPlanner {
         return null;
     }
 
-    private boolean validateIndexField(@Nonnull LucenePlanState state, @Nonnull String field) {
+    private boolean validateIndexField(LucenePlanState state, String field) {
         // Can only check that the field name given corresponds to some top-level branch to an indexed field.
-        for (LuceneIndexExpressions.DocumentFieldDerivation fieldDerivation : state.documentFields.values()) {
+        for (DocumentFieldDerivation fieldDerivation : state.documentFields.values()) {
             if (fieldMatchesPath(fieldDerivation, field)) {
                 return true;
             }
@@ -498,7 +507,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         return false;
     }
 
-    private boolean getSort(@Nonnull LucenePlanState state,
+    private boolean getSort(LucenePlanState state,
                             @Nullable KeyExpression sort, boolean sortReverse,
                             @Nullable KeyExpression commonPrimaryKey, @Nullable KeyExpression groupingKey) {
         final List<KeyExpression> sorts = new ArrayList<>();
@@ -534,7 +543,7 @@ public class LucenePlanner extends RecordQueryPlanner {
                 sortField = ((LuceneFunctionKeyExpression.LuceneSortBy)sortItem).isRelevance() ? SortField.FIELD_SCORE : SortField.FIELD_DOC;
                 hasBuiltInSort = true;
             } else {
-                for (LuceneIndexExpressions.DocumentFieldDerivation documentField : state.documentFields.values()) {
+                for (DocumentFieldDerivation documentField : state.documentFields.values()) {
                     if (documentField.isSorted() && recordFieldPathMatches(sortItem, documentField.getRecordFieldPath())) {
                         final SortField.Type type;
                         switch (documentField.getType()) {
@@ -599,9 +608,9 @@ public class LucenePlanner extends RecordQueryPlanner {
         return true;
     }
 
-    private void getStoredFields(@Nonnull LucenePlanState state) {
+    private void getStoredFields(LucenePlanState state) {
         final List<KeyExpression> fields = state.index.getRootExpression().normalizeKeyForPositions();
-        for (LuceneIndexExpressions.DocumentFieldDerivation documentField : state.documentFields.values()) {
+        for (DocumentFieldDerivation documentField : state.documentFields.values()) {
             if (documentField.isStored()) {
                 if (state.storedFields == null) {
                     state.storedFields = new ArrayList<>(Collections.nCopies(fields.size(), null));
@@ -612,8 +621,10 @@ public class LucenePlanner extends RecordQueryPlanner {
                     final KeyExpression fieldExpression = fields.get(i);
                     if (recordFieldPathMatches(fieldExpression, documentField.getRecordFieldPath())) {
                         state.storedFields.set(i, documentField.getDocumentField());
-                        state.storedFieldTypes.set(i, documentField.getType());
-                        state.storedFieldExpressions.add(fieldExpression);
+                        // storedFieldTypes and storedFieldExpressions are always initialized together with
+                        // storedFields immediately above.
+                        Objects.requireNonNull(state.storedFieldTypes).set(i, documentField.getType());
+                        Objects.requireNonNull(state.storedFieldExpressions).add(fieldExpression);
                         break;
                     }
                 }
@@ -621,7 +632,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
     }
 
-    private boolean recordFieldPathMatches(@Nonnull KeyExpression keyExpression, @Nonnull List<String> recordFieldPath) {
+    private boolean recordFieldPathMatches(KeyExpression keyExpression, List<String> recordFieldPath) {
         int i = 0;
         while (true) {
             if (keyExpression instanceof FieldKeyExpression) {
@@ -643,8 +654,8 @@ public class LucenePlanner extends RecordQueryPlanner {
         }
     }
 
-    static boolean fieldMatchesPath(@Nonnull LuceneIndexExpressions.DocumentFieldDerivation fieldDerivation,
-                                    @Nonnull String field) {
+    static boolean fieldMatchesPath(DocumentFieldDerivation fieldDerivation,
+                                    String field) {
         StringBuilder path = null;
         for (String pathElement : fieldDerivation.getRecordFieldPath()) {
             if (path == null) {

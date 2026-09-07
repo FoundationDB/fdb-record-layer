@@ -34,9 +34,11 @@ import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.ScorerSupplier;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.DocIdSetBuilder;
+import org.apache.lucene.util.DocIdSetBuilder.BulkAdder;
 import org.apache.lucene.util.FixedBitSet;
 import org.apache.lucene.util.NumericUtils;
 
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.Objects;
 
@@ -91,7 +93,8 @@ public class BitSetQuery extends Query {
             private PointValues.IntersectVisitor getIntersectVisitor(DocIdSetBuilder result) {
                 return new PointValues.IntersectVisitor() {
 
-                    DocIdSetBuilder.BulkAdder adder;
+                    @Nullable
+                    BulkAdder adder;
 
                     @Override
                     public void grow(int count) {
@@ -100,7 +103,8 @@ public class BitSetQuery extends Query {
 
                     @Override
                     public void visit(int docID) {
-                        adder.add(docID);
+                        // grow() is always called before visit() per the IntersectVisitor contract.
+                        Objects.requireNonNull(adder).add(docID);
                     }
 
                     @Override
@@ -164,6 +168,7 @@ public class BitSetQuery extends Query {
 
             @SuppressWarnings("PMD.CloseResource")
             @Override
+            @Nullable
             public ScorerSupplier scorerSupplier(final LeafReaderContext context) throws IOException {
                 LeafReader reader = context.reader();
                 PointValues values = reader.getPointValues(field);
@@ -207,6 +212,7 @@ public class BitSetQuery extends Query {
             }
 
             @Override
+            @Nullable
             public Scorer scorer(LeafReaderContext context) throws IOException {
                 ScorerSupplier scorerSupplier = scorerSupplier(context);
                 if (scorerSupplier == null) {

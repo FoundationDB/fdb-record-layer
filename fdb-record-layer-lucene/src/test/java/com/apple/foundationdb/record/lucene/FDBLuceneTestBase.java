@@ -32,18 +32,18 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.Sort;
 import org.junit.jupiter.api.Assertions;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -85,8 +85,8 @@ public abstract class FDBLuceneTestBase extends FDBRecordStoreTestBase {
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
 
-    protected StoreTimer.Counter getCounter(@Nonnull final FDBRecordContext recordContext, @Nonnull final StoreTimer.Event event) {
-        return Verify.verifyNotNull(recordContext.getTimer()).getCounter(event);
+    protected StoreTimer.Counter getCounter(final FDBRecordContext recordContext, final StoreTimer.Event event) {
+        return Objects.requireNonNull(Objects.requireNonNull(recordContext.getTimer()).getCounter(event));
     }
 
     protected List<LucenePartitionInfoProto.LucenePartitionInfo> getPartitionMeta(Index index,
@@ -111,7 +111,6 @@ public abstract class FDBLuceneTestBase extends FDBRecordStoreTestBase {
         return manager.getIndexReader(groupingKey, partitionId);
     }
 
-    @Nonnull
     protected LuceneIndexMaintainer getIndexMaintainer(final Index index) {
         return (LuceneIndexMaintainer)recordStore.getIndexMaintainer(index);
     }
@@ -141,7 +140,6 @@ public abstract class FDBLuceneTestBase extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
     protected static Index complexPartitionedIndex(final Map<String, String> options) {
         return new Index("Complex$partitioned",
                 concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
@@ -150,7 +148,6 @@ public abstract class FDBLuceneTestBase extends FDBRecordStoreTestBase {
                 options);
     }
 
-    @Nonnull
     protected static Index getJoinedIndex(final Map<String, String> options) {
         return new Index("joinNestedConcat",
                 concat(
@@ -161,7 +158,6 @@ public abstract class FDBLuceneTestBase extends FDBRecordStoreTestBase {
                 options);
     }
 
-    @Nonnull
     protected static Index complexPartitionedIndexNoGroup(final Map<String, String> options) {
         return new Index("Complex$partitioned_noGroup",
                 concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
@@ -174,7 +170,7 @@ public abstract class FDBLuceneTestBase extends FDBRecordStoreTestBase {
         return groupedSortedTextSearch(index, search, null, group);
     }
 
-    protected LuceneScanBounds groupedSortedTextSearch(Index index, String search, Sort sort, Object group) {
+    protected LuceneScanBounds groupedSortedTextSearch(Index index, String search, @Nullable Sort sort, Object group) {
         return LuceneIndexTestValidator.groupedSortedTextSearch(recordStore, index, search, sort, group);
     }
 

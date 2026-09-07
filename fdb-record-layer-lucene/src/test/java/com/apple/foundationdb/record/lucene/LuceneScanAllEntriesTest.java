@@ -55,9 +55,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.LongPredicate;
 import java.util.stream.Collectors;
@@ -84,6 +85,9 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
 
     @ParameterizedTest(name = "indexScanTest({argumentsWithNames})")
     @MethodSource("scanArguments")
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     public void indexScanTest(boolean isSynthetic, boolean matchAllDocs, boolean isGrouped, boolean includeEmptyDoc) throws Exception {
         final long seed = 5363275763521L;
         final LuceneIndexTestDataModel dataModel = new LuceneIndexTestDataModel.Builder(seed, this::getStoreBuilder, pathManager)
@@ -128,7 +132,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
     }
 
     private Set<Tuple> expectedResults(final boolean matchAllDocs, final boolean isGrouped, final boolean includeEmptyDoc,
-                                       final Tuple group1ContentDoc, final Tuple group2ContentDoc, final Tuple group2EmptyDoc) {
+                                       final Tuple group1ContentDoc, final Tuple group2ContentDoc, @Nullable final Tuple group2EmptyDoc) {
         // Synthetic record does not change the expected results - it just creates a record with a compound
         // key, so not needed for this method.
         Set<Tuple> result = new HashSet<>();
@@ -149,6 +153,9 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
 
     @ParameterizedTest
     @BooleanSource
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     public void scanLargeIndexTest(boolean isGrouped) throws Exception {
         final long seed = 6437286L;
         final boolean isSynthetic = false;
@@ -175,7 +182,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
 
             // Run the scan with the given query and assert the results
             final Tuple groupTuple = LuceneIndexTestDataModel.calculateGroupTuple(isGrouped, 2);
-            final Set<Tuple> expectedKeys = dataModel.groupingKeyToPrimaryKeyToPartitionKey.get(groupTuple).keySet();
+            final Set<Tuple> expectedKeys = Objects.requireNonNull(dataModel.groupingKeyToPrimaryKeyToPartitionKey.get(groupTuple)).keySet();
             assertEquals(500, expectedKeys.size());
             assertIndexEntryPrimaryKeyTuples(expectedKeys,
                     store.scanIndex(dataModel.index, scanBounds, null, ScanProperties.FORWARD_SCAN));
@@ -220,7 +227,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
                     });
             // Run the scan with the given query and assert the results
             final Tuple groupTuple = LuceneIndexTestDataModel.calculateGroupTuple(isGrouped, 2);
-            final Set<Tuple> expectedKeys = dataModel.groupingKeyToPrimaryKeyToPartitionKey.get(groupTuple).keySet();
+            final Set<Tuple> expectedKeys = Objects.requireNonNull(dataModel.groupingKeyToPrimaryKeyToPartitionKey.get(groupTuple)).keySet();
             assertEquals(500, expectedKeys.size());
             assertIndexEntryPrimaryKeyTuples(expectedKeys, cursor);
         }
@@ -290,10 +297,9 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         }
     }
 
-    @Nonnull
-    private FDBRecordStore.Builder getStoreBuilderFilterOddRecNo(@Nonnull FDBRecordContext context,
-                                                                   @Nonnull RecordMetaDataProvider metaData,
-                                                                   @Nonnull final KeySpacePath path) {
+    private FDBRecordStore.Builder getStoreBuilderFilterOddRecNo(FDBRecordContext context,
+                                                                   RecordMetaDataProvider metaData,
+                                                                   final KeySpacePath path) {
         // Create an index maintenance filter that only indexes records with even recNo
         IndexMaintenanceFilter evenRecNoFilter = (index, rec) -> {
             Descriptors.FieldDescriptor recNoField =
@@ -386,10 +392,9 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         assertEquals("Lucene does not support this kind of filtering", exception.getMessage());
     }
 
-    @Nonnull
-    private FDBRecordStore.Builder getStoreBuilderWithSomeFilter(@Nonnull FDBRecordContext context,
-                                                                 @Nonnull RecordMetaDataProvider metaData,
-                                                                 @Nonnull final KeySpacePath path) {
+    private FDBRecordStore.Builder getStoreBuilderWithSomeFilter(FDBRecordContext context,
+                                                                 RecordMetaDataProvider metaData,
+                                                                 final KeySpacePath path) {
         // Create an index maintenance filter that returns SOME
         // This should trigger an exception since Lucene doesn't support partial indexing
         IndexMaintenanceFilter someFilter = (index, rec) -> IndexMaintenanceFilter.IndexValues.SOME;
@@ -415,7 +420,7 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         try (FDBRecordContext context = openContext()) {
             RecordCoreException exception = Assertions.assertThrows(RecordCoreException.class, () -> dataModel.saveRecords(1, context, 2));
 
-            Assertions.assertTrue(exception.getMessage().startsWith("Filter failed for recNo:"),
+            Assertions.assertTrue(Objects.requireNonNull(exception.getMessage()).startsWith("Filter failed for recNo:"),
                     "Exception message should indicate filter failure");
             Assertions.assertEquals(1002L, exception.getLogInfo().get("rec_no"),
                     "Exception should log the rec_no that caused the failure");
@@ -424,10 +429,9 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         }
     }
 
-    @Nonnull
-    private FDBRecordStore.Builder getStoreBuilderWithFailingFilterFor1002L(@Nonnull FDBRecordContext context,
-                                                                            @Nonnull RecordMetaDataProvider metaData,
-                                                                            @Nonnull final KeySpacePath path) {
+    private FDBRecordStore.Builder getStoreBuilderWithFailingFilterFor1002L(FDBRecordContext context,
+                                                                            RecordMetaDataProvider metaData,
+                                                                            final KeySpacePath path) {
         // Create an index maintenance filter that throws an exception for specific record with recNo 1002L
         // This can be used to tests error handling when the filter itself fails
         IndexMaintenanceFilter failingFilter = (index, rec) -> {
@@ -487,10 +491,9 @@ public class LuceneScanAllEntriesTest extends FDBRecordStoreConcurrentTestBase {
         }
     }
 
-    @Nonnull
-    private FDBRecordStore.Builder getStoreBuilderFilterOddRecNoSynthetic(@Nonnull FDBRecordContext context,
-                                                                          @Nonnull RecordMetaDataProvider metaData,
-                                                                          @Nonnull final KeySpacePath path) {
+    private FDBRecordStore.Builder getStoreBuilderFilterOddRecNoSynthetic(FDBRecordContext context,
+                                                                          RecordMetaDataProvider metaData,
+                                                                          final KeySpacePath path) {
         // Create an index maintenance filter that only indexes synthetic records with even parent rec_no
         IndexMaintenanceFilter evenRecNoFilter = (index, rec) -> {
             // For synthetic records, we need to access the parent constituent

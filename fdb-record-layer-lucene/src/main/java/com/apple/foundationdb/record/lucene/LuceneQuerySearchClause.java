@@ -34,7 +34,6 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 
 /**
@@ -44,30 +43,26 @@ import java.util.Map;
 public class LuceneQuerySearchClause extends LuceneQueryClause {
     public static final LuceneQueryClause MATCH_ALL_DOCS_QUERY = new LuceneQuerySearchClause(LuceneQueryType.QUERY, "*:*", false);
 
-    @Nonnull
     private final String defaultField;
-    @Nonnull
     private final String search;
     private final boolean isParameter;
 
     // TODO: Need better predicates for controlling field.
-    public LuceneQuerySearchClause(@Nonnull final LuceneQueryType queryType, @Nonnull final String search, final boolean isParameter) {
+    public LuceneQuerySearchClause(final LuceneQueryType queryType, final String search, final boolean isParameter) {
         this(queryType, LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, search, isParameter);
     }
 
-    public LuceneQuerySearchClause(@Nonnull final LuceneQueryType queryType, @Nonnull final String defaultField, @Nonnull final String search, final boolean isParameter) {
+    public LuceneQuerySearchClause(final LuceneQueryType queryType, final String defaultField, final String search, final boolean isParameter) {
         super(queryType);
         this.defaultField = defaultField;
         this.search = search;
         this.isParameter = isParameter;
     }
 
-    @Nonnull
     public String getDefaultField() {
         return defaultField;
     }
 
-    @Nonnull
     public String getSearch() {
         return search;
     }
@@ -77,7 +72,7 @@ public class LuceneQuerySearchClause extends LuceneQueryClause {
     }
 
     @Override
-    public BoundQuery bind(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull EvaluationContext context) {
+    public BoundQuery bind(FDBRecordStoreBase<?> store, Index index, EvaluationContext context) {
         final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(index, store.getRecordMetaData());
         final LuceneAnalyzerCombinationProvider analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
         final String searchString = isParameter ? (String)context.getBinding(search) : search;
@@ -93,7 +88,7 @@ public class LuceneQuerySearchClause extends LuceneQueryClause {
     }
 
     @Override
-    public void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
+    public void getPlannerGraphDetails(ImmutableList.Builder<String> detailsBuilder, ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         if (!LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME.equals(defaultField)) {
             detailsBuilder.add("field: {{field}}");
             attributeMapBuilder.put("field", Attribute.gml(defaultField));
@@ -108,7 +103,7 @@ public class LuceneQuerySearchClause extends LuceneQueryClause {
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public int planHash(final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, defaultField, search, isParameter);
     }
 

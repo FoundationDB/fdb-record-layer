@@ -27,7 +27,6 @@ import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.Query;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 
 /**
@@ -41,10 +40,9 @@ import java.util.Map;
  * the stop words removal, so this is not necessary here.
  */
 public class LuceneOptimizedStopWordsQueryParser extends LuceneOptimizedQueryParser {
-    @Nonnull
     private final CharArraySet stopWords;
 
-    public LuceneOptimizedStopWordsQueryParser(final String field, final Analyzer analyzer, @Nonnull final Map<String, PointsConfig> pointsConfig, @Nonnull CharArraySet stopWords) {
+    public LuceneOptimizedStopWordsQueryParser(final String field, final Analyzer analyzer, final Map<String, PointsConfig> pointsConfig, CharArraySet stopWords) {
         super(field, analyzer, pointsConfig);
         this.stopWords = stopWords;
     }

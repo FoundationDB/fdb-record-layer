@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -171,6 +172,9 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void tooManyPendingWritesInQueue() throws Exception {
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_MAX_PENDING_WRITES_REPLAYED_FOR_QUERY, 1)
@@ -189,6 +193,9 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void saveToQueueAfterTransactionCreated() throws Exception {
         // Save an item to the queue after the transaction that performs the search is created
         // Since the search is done with the same GRV as the original transaction, no docs will be replayed
@@ -218,6 +225,9 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void saveToIndexWithinTransaction() throws Exception {
         // Save an item to the index after the transaction that performs the search is created
         // This should return a reader that can see the changes
@@ -246,6 +256,9 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void saveToQueueWithinTransaction() throws Exception {
         // Save an item to the queue after the transaction that performs the search is created
         // Query should not see the changes since the writes are not replayed from the regular transaction to the read-only one
@@ -337,6 +350,9 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
         }
     }
 
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     private void scanAndCompareDocs(Index index, String searchTerm, Set<Long> expectedPKs) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, index);
@@ -401,7 +417,7 @@ public class FDBLuceneQueuedDocQueryTest extends FDBRecordStoreTestBase {
     }
 
     protected FDBRecordStore openRecordStore(FDBRecordContext context, Index index) {
-        recordStore = LuceneIndexTestUtils.openRecordStore(context, path, mdb -> {
+        recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), mdb -> {
             if (index != null) {
                 mdb.removeIndex("SimpleDocument$text");
                 mdb.addIndex(TextIndexTestUtils.SIMPLE_DOC, index);

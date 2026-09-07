@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTest
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Set;
 
@@ -74,7 +73,7 @@ public class LuceneIndexValidatorTest {
                 () -> validateIndexOptions(options7));
     }
 
-    void validateIndexOptions(@Nonnull Map<String, String> indexOptions) {
+    void validateIndexOptions(Map<String, String> indexOptions) {
         Index index = new Index("Complex$text_index",
                 concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
                 LuceneIndexTypes.LUCENE,

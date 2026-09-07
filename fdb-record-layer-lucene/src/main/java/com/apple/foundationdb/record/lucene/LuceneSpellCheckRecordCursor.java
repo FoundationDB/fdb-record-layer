@@ -40,12 +40,12 @@ import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -59,19 +59,15 @@ import static java.util.Comparator.comparing;
 public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneSpellCheckRecordCursor.class);
-    @Nonnull
     private final Executor executor;
-    @Nonnull
     private final IndexMaintainerState state;
     private final int limit;
-    @Nonnull
     private final String wordToSpellCheck;
-    @Nonnull
     private final DirectSpellChecker spellchecker;
     @Nullable
     private final FDBStoreTimer timer;
 
-    private IndexReader indexReader;
+    private @Nullable IndexReader indexReader;
 
     @Nullable
     private List<IndexEntry> spellcheckSuggestions = null;
@@ -84,11 +80,11 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
     private boolean closed;
 
 
-    public LuceneSpellCheckRecordCursor(@Nonnull List<String> fields,
-                                        @Nonnull String wordToSpellCheck,
-                                        @Nonnull final Executor executor,
+    public LuceneSpellCheckRecordCursor(List<String> fields,
+                                        String wordToSpellCheck,
+                                        final Executor executor,
                                         final ScanProperties scanProperties,
-                                        @Nonnull final IndexMaintainerState state,
+                                        final IndexMaintainerState state,
                                         @Nullable Tuple groupingKey,
                                         @Nullable Integer partitionId) {
         this.fields = fields;
@@ -97,7 +93,7 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
         this.state = state;
         this.limit = Math.min(
                 scanProperties.getExecuteProperties().getReturnedRowLimitOrMax(),
-                state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_SPELLCHECK_SEARCH_UPPER_LIMIT));
+                Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_SPELLCHECK_SEARCH_UPPER_LIMIT)));
         this.groupingKey = groupingKey;
         this.partitionId = partitionId;
         this.spellchecker = new DirectSpellChecker();
@@ -105,7 +101,6 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
         this.closed = false;
     }
 
-    @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<IndexEntry>> onNext() {
         CompletableFuture<IndexEntry> spellcheckResult = CompletableFuture.supplyAsync( () -> {
@@ -116,22 +111,24 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
                     throw LuceneExceptions.toRecordCoreException("Spellcheck suggestions lookup failure", e);
                 }
             }
-            return currentPosition < spellcheckSuggestions.size() ? spellcheckSuggestions.get(currentPosition) : null;
+            // spellcheck() always populates spellcheckSuggestions before returning normally.
+            final List<IndexEntry> suggestions = Objects.requireNonNull(spellcheckSuggestions);
+            return currentPosition < suggestions.size() ? suggestions.get(currentPosition) : null;
         }, executor);
         return spellcheckResult.thenApply(r -> {
             if (r == null) {
                 return RecordCursorResult.exhausted();
             } else {
+                final List<IndexEntry> suggestions = Objects.requireNonNull(spellcheckSuggestions);
                 if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("Suggestion read as an index entry={}", spellcheckSuggestions.get(currentPosition));
+                    LOGGER.trace("Suggestion read as an index entry={}", suggestions.get(currentPosition));
                 }
-                return RecordCursorResult.withNextValue(r, continuationHelper(spellcheckSuggestions.get(currentPosition++)));
+                return RecordCursorResult.withNextValue(r, continuationHelper(suggestions.get(currentPosition++)));
             }
         });
     }
 
-    @Nonnull
-    private RecordCursorContinuation continuationHelper(@Nonnull IndexEntry lookupResult) {
+    private RecordCursorContinuation continuationHelper(IndexEntry lookupResult) {
         LuceneContinuationProto.LuceneSpellCheckIndexContinuation.Builder continuationBuilder =
                 LuceneContinuationProto.LuceneSpellCheckIndexContinuation.newBuilder().setValue(ByteString.copyFromUtf8(lookupResult.toString()));
         continuationBuilder.setLocation(currentPosition);
@@ -151,14 +148,13 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
         return closed;
     }
 
-    @Nonnull
     @Override
     public Executor getExecutor() {
         return executor;
     }
 
     @Override
-    public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
+    public boolean accept(final RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
         return visitor.visitLeave(this);
     }

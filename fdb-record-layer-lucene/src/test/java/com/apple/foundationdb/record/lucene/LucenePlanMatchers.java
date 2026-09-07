@@ -27,22 +27,20 @@ import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
 
-import javax.annotation.Nonnull;
-
 /**
  * Test plan matchers for Lucene plan elements.
  */
 public class LucenePlanMatchers {
 
-    public static Matcher<RecordQueryIndexPlan> scanParams(@Nonnull Matcher<IndexScanParameters> scanMatcher) {
+    public static Matcher<RecordQueryIndexPlan> scanParams(Matcher<IndexScanParameters> scanMatcher) {
         return new ScanParamsMatcher(scanMatcher);
     }
 
-    public static Matcher<IndexScanParameters> query(@Nonnull Matcher<LuceneQueryClause> queryMatcher) {
+    public static Matcher<IndexScanParameters> query(Matcher<LuceneQueryClause> queryMatcher) {
         return new QueryMatcher(queryMatcher);
     }
 
-    public static Matcher<IndexScanParameters> group(@Nonnull Matcher<ScanComparisons> boundsMatcher) {
+    public static Matcher<IndexScanParameters> group(Matcher<ScanComparisons> boundsMatcher) {
         return new GroupBoundsMatcher(boundsMatcher);
     }
 
@@ -50,15 +48,14 @@ public class LucenePlanMatchers {
      * Match {@link IndexScanParameters}.
      */
     public static class ScanParamsMatcher extends TypeSafeMatcher<RecordQueryIndexPlan> {
-        @Nonnull
         private final Matcher<IndexScanParameters> scanMatcher;
 
-        public ScanParamsMatcher(@Nonnull Matcher<IndexScanParameters> scanMatcher) {
+        public ScanParamsMatcher(Matcher<IndexScanParameters> scanMatcher) {
             this.scanMatcher = scanMatcher;
         }
 
         @Override
-        public boolean matchesSafely(@Nonnull RecordQueryIndexPlan plan) {
+        public boolean matchesSafely(RecordQueryIndexPlan plan) {
             return scanMatcher.matches(plan.getScanParameters());
         }
 
@@ -74,15 +71,14 @@ public class LucenePlanMatchers {
      * Match {@link LuceneQueryClause}.
      */
     public static class QueryMatcher extends TypeSafeMatcher<IndexScanParameters> {
-        @Nonnull
         private final Matcher<LuceneQueryClause> queryMatcher;
 
-        public QueryMatcher(@Nonnull Matcher<LuceneQueryClause> queryMatcher) {
+        public QueryMatcher(Matcher<LuceneQueryClause> queryMatcher) {
             this.queryMatcher = queryMatcher;
         }
 
         @Override
-        public boolean matchesSafely(@Nonnull IndexScanParameters scan) {
+        public boolean matchesSafely(IndexScanParameters scan) {
             return scan instanceof LuceneScanQueryParameters && queryMatcher.matches(((LuceneScanQueryParameters)scan).getQuery());
         }
 
@@ -99,15 +95,14 @@ public class LucenePlanMatchers {
      * Each group is a separate Lucene index.
      */
     public static class GroupBoundsMatcher extends TypeSafeMatcher<IndexScanParameters> {
-        @Nonnull
         private final Matcher<ScanComparisons> boundsMatcher;
 
-        public GroupBoundsMatcher(@Nonnull Matcher<ScanComparisons> boundsMatcher) {
+        public GroupBoundsMatcher(Matcher<ScanComparisons> boundsMatcher) {
             this.boundsMatcher = boundsMatcher;
         }
 
         @Override
-        public boolean matchesSafely(@Nonnull IndexScanParameters scan) {
+        public boolean matchesSafely(IndexScanParameters scan) {
             return scan instanceof LuceneScanQueryParameters && boundsMatcher.matches(((LuceneScanQueryParameters)scan).getGroupComparisons());
         }
 

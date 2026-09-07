@@ -36,8 +36,7 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.search.TermQuery;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -670,7 +669,7 @@ class LuceneDocumentFromRecordTest {
 
     private static LuceneDocumentFromRecord.DocumentField documentField(String name, @Nullable Object value, LuceneIndexExpressions.DocumentFieldType type,
                                                                         boolean stored, boolean sorted,
-                                                                        @Nonnull Map<String, Object> fieldConfigs) {
+                                                                        Map<String, Object> fieldConfigs) {
         return new LuceneDocumentFromRecord.DocumentField(name, value, type, stored, sorted, fieldConfigs);
     }
 

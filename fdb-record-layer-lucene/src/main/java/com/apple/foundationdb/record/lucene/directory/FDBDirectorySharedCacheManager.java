@@ -25,8 +25,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,7 +43,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @ThreadSafe
 public class FDBDirectorySharedCacheManager {
     public static final Object SHARED_CACHE_CONTEXT_KEY = new Object();
-    @Nonnull
     private final Map<Tuple, FDBDirectorySharedCache> caches;
     @Nullable
     private final Subspace subspace;
@@ -79,7 +77,7 @@ public class FDBDirectorySharedCacheManager {
      * @see #setForContext
      */
     @Nullable
-    public static FDBDirectorySharedCacheManager forContext(@Nonnull FDBRecordContext context) {
+    public static FDBDirectorySharedCacheManager forContext(FDBRecordContext context) {
         return context.getInSession(SHARED_CACHE_CONTEXT_KEY, FDBDirectorySharedCacheManager.class);
     }
 
@@ -87,7 +85,7 @@ public class FDBDirectorySharedCacheManager {
      * Set the given shared cache manager in the given context.
      * @param context the record context in which to put the shared cache manager
      */
-    public void setForContext(@Nonnull FDBRecordContext context) {
+    public void setForContext(FDBRecordContext context) {
         context.putInSessionIfAbsent(SHARED_CACHE_CONTEXT_KEY, this);
     }
 
@@ -106,7 +104,7 @@ public class FDBDirectorySharedCacheManager {
      * @return a shared cache of {@code null} if the sequence number is too old
      */
     @Nullable
-    public FDBDirectorySharedCache getCache(@Nonnull Tuple key, long sequenceNumber) {
+    public FDBDirectorySharedCache getCache(Tuple key, long sequenceNumber) {
         FDBDirectorySharedCache storedCache = caches.compute(key, (ckey, cache) -> {
             if (cache == null || cache.getSequenceNumber() < sequenceNumber) {
                 cache = new FDBDirectorySharedCache(ckey, sequenceNumber,
@@ -129,6 +127,7 @@ public class FDBDirectorySharedCacheManager {
      * Builder for {@code FDBDirectorySharedCacheManager}.
      */
     public static class Builder {
+        @Nullable
         private Subspace subspace;
         private int maximumSize = 1024;
         private int concurrencyLevel = 16;
@@ -137,7 +136,7 @@ public class FDBDirectorySharedCacheManager {
         protected Builder() {
         }
 
-        public Builder setSubspace(final Subspace subspace) {
+        public Builder setSubspace(@Nullable final Subspace subspace) {
             this.subspace = subspace;
             return this;
         }

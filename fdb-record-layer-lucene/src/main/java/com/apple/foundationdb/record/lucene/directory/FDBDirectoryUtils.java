@@ -26,8 +26,6 @@ import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundReader;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FilterDirectory;
 
-import javax.annotation.Nonnull;
-
 /**
  * Utilities for standardizing some interactions with {@link FDBDirectory}.
  */
@@ -37,8 +35,7 @@ public class FDBDirectoryUtils {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    @Nonnull
-    public static FDBDirectory getFDBDirectory(@Nonnull Directory directory) {
+    public static FDBDirectory getFDBDirectory(Directory directory) {
         final Directory unwrapped = FilterDirectory.unwrap(directory);
         if (unwrapped instanceof FDBDirectory) {
             return ((FDBDirectory)unwrapped);
@@ -51,8 +48,7 @@ public class FDBDirectoryUtils {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    @Nonnull
-    public static FDBDirectory getFDBDirectoryNotCompound(@Nonnull Directory directory) {
+    public static FDBDirectory getFDBDirectoryNotCompound(Directory directory) {
         final Directory unwrapped = FilterDirectory.unwrap(directory);
         if (unwrapped instanceof FDBDirectory) {
             return ((FDBDirectory)unwrapped);

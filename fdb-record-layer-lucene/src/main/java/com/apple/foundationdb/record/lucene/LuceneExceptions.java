@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.lucene.directory.FDBDirectoryLockFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.util.LoggableKeysAndValues;
 import org.apache.lucene.store.LockObtainFailedException;
+import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 
@@ -39,7 +40,7 @@ public class LuceneExceptions {
      * @param additionalLogInfo (optional) additional log infos to add to the created exception
      * @return the {@link RecordCoreException} that should be thrown
      */
-    public static RuntimeException toRecordCoreException(String message, IOException ex, Object... additionalLogInfo) {
+    public static RuntimeException toRecordCoreException(@Nullable String message, IOException ex, @Nullable Object... additionalLogInfo) {
         if (ex instanceof LockObtainFailedException) {
             // Use the retryable exception for this case
             return new FDBExceptions.FDBStoreLockTakenException(message + ": " + ex.getMessage(), ex)
@@ -53,7 +54,10 @@ public class LuceneExceptions {
                 transactionIsTooOldException.addSuppressed(ex);
                 return transactionIsTooOldException;
             } else {
-                // This should not happen - LuceneTransactionTooOldException should have FDBStoreTransactionIsTooOldException as cause
+                // This should not happen - LuceneTransactionTooOldException should have FDBStoreTransactionIsTooOldException as cause.
+                // FDBStoreTransactionIsTooOldException(String, FDBException) requires a non-null FDBException cause, but none is
+                // available in this defensive fallback; the original exception is preserved below via addSuppressed instead.
+                @SuppressWarnings("NullAway")
                 RecordCoreException result = new FDBExceptions.FDBStoreTransactionIsTooOldException(message + ": " + ex.getMessage(), null)
                         .addLogInfo(additionalLogInfo);
                 result.addSuppressed(ex);
@@ -82,9 +86,10 @@ public class LuceneExceptions {
     /**
      * Convert an exception thrown by the lower levels to one that can be thrown by Lucene ({@link IOException}).
      * @param ex the exception thrown by FDB
+     * @param suppressed an additional exception to record as suppressed on the result, or {@code null} if none
      * @return the {@link IOException} that can be thrown through Lucene APIs
      */
-    public static IOException toIoException(Throwable ex, Throwable suppressed) {
+    public static IOException toIoException(@Nullable Throwable ex, @Nullable Throwable suppressed) {
         IOException result;
         if (ex instanceof FDBExceptions.FDBStoreTransactionIsTooOldException) {
             result = new LuceneExceptions.LuceneTransactionTooOldException((FDBExceptions.FDBStoreTransactionIsTooOldException)ex);

@@ -33,10 +33,11 @@ import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
@@ -59,6 +60,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
+    @Nullable
     private InjectedFailureRepository injectedFailures;
 
     @Test
@@ -121,7 +123,9 @@ public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
         assertTrue(ex.getCause() instanceof TimeoutException);
 
         directory.getCallerContext().commit();
-        assertCorrectMetricSize(LuceneEvents.SizeEvents.LUCENE_WRITE, 1, directory.getSerializer().encode(data).length);
+        final LuceneSerializer serializer = Objects.requireNonNull(directory.getSerializer());
+        final byte[] encoded = Objects.requireNonNull(serializer.encode(data));
+        assertCorrectMetricSize(LuceneEvents.SizeEvents.LUCENE_WRITE, 1, encoded.length);
     }
 
     @Test
@@ -240,9 +244,8 @@ public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
     /*
      * Override default behavior to create a mocked directory.
      */
-    @Nonnull
     @Override
-    protected FDBDirectory createDirectory(final Subspace subspace, final FDBRecordContext context, final Map<String, String> indexOptions) {
+    protected FDBDirectory createDirectory(final Subspace subspace, final FDBRecordContext context, @Nullable final Map<String, String> indexOptions) {
         injectedFailures = new InjectedFailureRepository();
         final MockedFDBDirectory directory = new MockedFDBDirectory(subspace, context, indexOptions);
         directory.setInjectedFailures(injectedFailures);
@@ -250,10 +253,10 @@ public class FDBDirectoryFailuresTest extends FDBDirectoryBaseTest {
     }
 
     private void addFailure(final InjectedFailureRepository.Methods method, final Exception exception, final int count) {
-        injectedFailures.addFailure(method, exception, count);
+        Objects.requireNonNull(injectedFailures).addFailure(method, exception, count);
     }
 
     private void removeFailure(final InjectedFailureRepository.Methods method) {
-        injectedFailures.removeFailure(method);
+        Objects.requireNonNull(injectedFailures).removeFailure(method);
     }
 }

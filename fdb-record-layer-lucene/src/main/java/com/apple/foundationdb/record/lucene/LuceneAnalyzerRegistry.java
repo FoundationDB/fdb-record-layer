@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.metadata.Index;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 
 /**
@@ -39,8 +38,7 @@ import java.util.Map;
 @SuppressWarnings("unused")
 public interface LuceneAnalyzerRegistry {
 
-    @Nonnull
-    LuceneAnalyzerCombinationProvider getLuceneAnalyzerCombinationProvider(@Nonnull Index index,
-                                                                           @Nonnull LuceneAnalyzerType type,
-                                                                           @Nonnull Map<String, LuceneIndexExpressions.DocumentFieldDerivation> auxiliaryFieldInfo);
+    LuceneAnalyzerCombinationProvider getLuceneAnalyzerCombinationProvider(Index index,
+                                                                           LuceneAnalyzerType type,
+                                                                           Map<String, LuceneIndexExpressions.DocumentFieldDerivation> auxiliaryFieldInfo);
 }

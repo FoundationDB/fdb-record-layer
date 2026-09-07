@@ -35,12 +35,12 @@ import org.apache.lucene.util.BytesRef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.Objects;
 
 /**
  * Serialize a Lucene directory block to/from an FDB key-value byte array.
@@ -85,11 +85,14 @@ public class LuceneSerializer {
         return keyManager;
     }
 
-    @Nullable
-    public byte[] encode(@Nullable byte[] data) {
+    public byte @Nullable [] encode(@Nullable byte[] data) {
         if (data == null) {
             return null;
         }
+        // NullAway's array-type checking doesn't reliably narrow a @Nullable array parameter to non-null via a
+        // preceding null check when the value is later passed to another non-null byte[] parameter. data is
+        // definitely non-null here (checked above); Objects.requireNonNull is just used as a type-narrowing no-op.
+        final byte[] nonNullData = Objects.requireNonNull(data);
 
         final CompressedAndEncryptedSerializerState state = new CompressedAndEncryptedSerializerState();
         long prefix = 0;
@@ -113,7 +116,7 @@ public class LuceneSerializer {
             // Placeholder for the code byte at beginning, will be modified in output byte array if needed
             decodedDataOutput.writeVLong(prefix);
             final int prefixLength = (int)decodedDataOutput.size();
-            encoded = compressIfNeeded(state, decodedDataOutput, data, prefixLength);
+            encoded = compressIfNeeded(state, decodedDataOutput, nonNullData, prefixLength);
             encoded = encryptIfNeeded(state, encoded, prefixLength);
         } catch (IOException | GeneralSecurityException ex) {
             throw new RecordCoreException("Lucene data encoding failure", ex);
@@ -125,15 +128,14 @@ public class LuceneSerializer {
                     LuceneLogMessageKeys.ENCRYPTION_SUPPOSED, encryptionEnabled,
                     LuceneLogMessageKeys.COMPRESSED_EVENTUALLY, state.isCompressed(),
                     LuceneLogMessageKeys.ENCRYPTED_EVENTUALLY, state.isEncrypted(),
-                    LuceneLogMessageKeys.ORIGINAL_DATA_SIZE, data.length,
+                    LuceneLogMessageKeys.ORIGINAL_DATA_SIZE, nonNullData.length,
                     LuceneLogMessageKeys.ENCODED_DATA_SIZE, encoded.length));
         }
 
         return encoded;
     }
 
-    @Nullable
-    public byte[] decode(@Nullable byte[] data) {
+    public byte @Nullable [] decode(@Nullable byte[] data) {
         if (data == null) {
             return null;
         }
@@ -173,9 +175,8 @@ public class LuceneSerializer {
         return decoded;
     }
 
-    @Nonnull
-    private static byte[] compressIfNeeded(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull ByteBuffersDataOutput encodedDataOutput,
-                                           @Nonnull byte[] uncompressedData, int prefixLength)
+    private static byte[] compressIfNeeded(CompressedAndEncryptedSerializerState state, ByteBuffersDataOutput encodedDataOutput,
+                                           byte[] uncompressedData, int prefixLength)
             throws IOException {
         if (!state.isCompressed()) {
             return fallBackToUncompressed(state, uncompressedData, encodedDataOutput.toArrayCopy(), prefixLength);
@@ -197,8 +198,8 @@ public class LuceneSerializer {
         }
     }
 
-    private static byte[] fallBackToUncompressed(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull byte[] originalData,
-                                                 @Nonnull byte[] encodedData, int prefixLength) {
+    private static byte[] fallBackToUncompressed(CompressedAndEncryptedSerializerState state, byte[] originalData,
+                                                 byte[] encodedData, int prefixLength) {
         final byte[] encoded = new byte[originalData.length + prefixLength];
         System.arraycopy(encodedData, 0, encoded, 0, prefixLength);
         // This bit is always in the lowest (first) byte, even if the prefix is longer.
@@ -208,7 +209,7 @@ public class LuceneSerializer {
         return encoded;
     }
 
-    private void decompressIfNeeded(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull ByteArrayDataInput encodedDataInput)
+    private void decompressIfNeeded(CompressedAndEncryptedSerializerState state, ByteArrayDataInput encodedDataInput)
             throws IOException {
         if (!state.isCompressed()) {
             return;
@@ -227,9 +228,13 @@ public class LuceneSerializer {
         encodedDataInput.reset(ref.bytes, ref.offset, ref.length);
     }
 
-    private byte[] encryptIfNeeded(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull byte[] encoded, int prefixLength) throws GeneralSecurityException {
+    private byte[] encryptIfNeeded(CompressedAndEncryptedSerializerState state, byte[] encoded, int prefixLength) throws GeneralSecurityException {
         if (!state.isEncrypted()) {
             return encoded;
+        }
+
+        if (keyManager == null) {
+            throw new RecordCoreException("cannot encrypt Lucene blocks without keys");
         }
 
         final byte[] encrypted;
@@ -251,7 +256,7 @@ public class LuceneSerializer {
         return withIv;
     }
 
-    private void decryptIfNeeded(@Nonnull CompressedAndEncryptedSerializerState state, @Nonnull ByteArrayDataInput encodedDataInput)
+    private void decryptIfNeeded(CompressedAndEncryptedSerializerState state, ByteArrayDataInput encodedDataInput)
             throws GeneralSecurityException {
         if (!state.isEncrypted()) {
             return;
@@ -278,31 +283,37 @@ public class LuceneSerializer {
         encodedDataInput.reset(decrypted);
     }
 
-    @Nullable
-    public byte[] encodeFieldProtobuf(@Nullable byte[] bytes) {
+    public byte @Nullable [] encodeFieldProtobuf(@Nullable byte[] bytes) {
         if (fieldProtobufPrefixEnabled) {
             return encode(bytes);
         } else {
-            return bytes;
+            // NullAway's array-type checking treats the @Nullable byte[] parameter and the byte @Nullable[] return
+            // type as mismatched "type parameter" nullability even though they mean the same thing; both are
+            // genuinely nullable here (bytes is returned unchanged).
+            @SuppressWarnings("NullAway")
+            final byte @Nullable [] result = bytes;
+            return result;
         }
     }
 
-    @Nullable
-    public byte[] decodeFieldProtobuf(@Nullable byte[] bytes) {
+    public byte @Nullable [] decodeFieldProtobuf(@Nullable byte[] bytes) {
         if (bytes == null) {
             return null;
         }
+        // See encode()'s comment: data is definitely non-null here (checked above); Objects.requireNonNull is
+        // just used as a type-narrowing no-op to work around NullAway's unreliable array-type flow narrowing.
+        final byte[] nonNullBytes = Objects.requireNonNull(bytes);
 
-        if (isProtobufMessageWithoutPrefix(bytes)) {
-            return bytes;
+        if (isProtobufMessageWithoutPrefix(nonNullBytes)) {
+            return nonNullBytes;
         }
-        return decode(bytes);
+        return decode(nonNullBytes);
     }
 
     // This can be removed once it is guaranteed that all indexes are using the encoded format.
     // Only works for Protobuf messages all of whose fields are themselves length-delimited,
     // such as LuceneStoredFields (StoredField or bytes) or FieldInfos (FieldInfo).
-    private boolean isProtobufMessageWithoutPrefix(@Nonnull byte[] bytes) {
+    private boolean isProtobufMessageWithoutPrefix(byte[] bytes) {
         if (bytes.length < 1) {
             return true;    // No room for prefix; empty message.
         }

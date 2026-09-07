@@ -24,9 +24,7 @@ import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Utilities for use in using query parsers.
@@ -40,8 +38,7 @@ public class QueryParserUtils {
      * @param stopWords the list of stop words
      * @return the modifier, modified if it should be relaxed
      */
-    @Nonnull
-    public static BooleanClause.Occur relaxOccur(@Nonnull final Query q, @Nonnull final BooleanClause.Occur occur, @Nonnull final CharArraySet stopWords) {
+    public static BooleanClause.Occur relaxOccur(final Query q, final BooleanClause.Occur occur, final CharArraySet stopWords) {
         BooleanClause.Occur modifiableOccur = occur;
 
         CharSequence term = getTerm(q);

@@ -76,8 +76,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -210,7 +209,9 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static final Index COMPLEX_TEXT_BY_GROUP = new Index("Complex$text_by_group", function(LuceneFunctionNames.LUCENE_TEXT, field("text")).groupBy(field("group")), LuceneIndexTypes.LUCENE);
 
+    @Nullable
     private ExecutorService executorService = null;
+    @Nullable
     private SerializationKeyManager keyManager;
 
     @Override
@@ -226,7 +227,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                         Sets.newHashSet(LuceneIndexTypes.LUCENE)
                 );
             }
-            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, Objects.requireNonNull(recordStore.getTimer()));
         }
     }
 
@@ -273,7 +274,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }, SIMPLE_TEXT_SUFFIXES);
     }
 
-    protected void openRecordStore(FDBRecordContext context, RecordMetaDataHook hook, Index simpleDocIndex) {
+    protected void openRecordStore(FDBRecordContext context, RecordMetaDataHook hook, @Nullable Index simpleDocIndex) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         metaDataBuilder.getRecordType(TextIndexTestUtils.COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
         if (simpleDocIndex != null) {
@@ -479,7 +480,6 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @Nonnull
     private static String quote(final boolean quotes, final String term) {
         return "text:" + (quotes ? "\"" + term + "\"" : term);
     }
@@ -927,7 +927,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest(name = "threadedLuceneScanDoesntBreakPlannerAndSearch-PoolThreadCount={0}")
     @MethodSource("threadCount")
     @SuperSlow
-    void threadedLuceneScanDoesntBreakPlannerAndSearch(@Nonnull Integer value) throws Exception {
+    void threadedLuceneScanDoesntBreakPlannerAndSearch(Integer value) throws Exception {
         final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
         // limit the FJP size to try and force the # segments to exceed the # threads
         factory.setExecutor(new ForkJoinPool(PARALLELISM,
@@ -973,7 +973,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         final ThreadFactory delegate = Executors.defaultThreadFactory();
 
         @Override
-        public Thread newThread(@Nonnull Runnable r) {
+        public Thread newThread(Runnable r) {
             return delegate.newThread(() -> {
                 threadCounts.merge(Thread.currentThread().getName(), 1, Integer::sum);
                 r.run();
@@ -1380,6 +1380,9 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "continuations[sorted={0}]")
     @BooleanSource
+    // Passes a null/@Nullable continuation into FDBRecordStoreBase#executeQuery; NullAway does not
+    // reliably recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void continuations(boolean sorted) throws Exception {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
@@ -1394,12 +1397,12 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planQuery(query.build());
             ExecuteProperties executeProperties = ExecuteProperties.newBuilder().setReturnedRowLimit(2).build();
             List<Long> primaryKeys = new ArrayList<>();
-            byte[] continuation = null;
+            byte @Nullable [] continuation = null;
             AtomicReference<RecordCursorResult<Long>> holder = new AtomicReference<>();
             do {
                 try (RecordCursor<FDBQueriedRecord<Message>> recordCursor = recordStore.executeQuery(plan, continuation, executeProperties)) {
                     primaryKeys.addAll(recordCursor.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList(holder).get());
-                    continuation = holder.get().getContinuation().toBytes();
+                    continuation = Objects.requireNonNull(holder.get()).getContinuation().toBytes();
                 }
             } while (continuation != null);
             if (sorted) {

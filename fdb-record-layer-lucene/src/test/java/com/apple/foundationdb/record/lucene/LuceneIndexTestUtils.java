@@ -55,12 +55,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import org.apache.lucene.search.Sort;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
@@ -132,7 +132,6 @@ public class LuceneIndexTestUtils {
 
     public static final Index SIMPLE_TEXT_SUFFIXES = simpleTextSuffixesIndex(options -> { });
 
-    @Nonnull
     public static Index simpleTextSuffixesIndex(Consumer<Map<String, String>> optionsBuilder) {
         final Map<String, String> options = new HashMap<>();
         options.put(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME);
@@ -253,7 +252,6 @@ public class LuceneIndexTestUtils {
 
     public static final Index TEXT_AND_STORED_COMPLEX = textAndStoredComplexIndex(options -> { });
 
-    @Nonnull
     public static Index textAndStoredComplexIndex(final Consumer<Map<String, String>> optionsBuilder) {
         Map<String, String> options = new HashMap<>();
         options.put(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME);
@@ -530,7 +528,7 @@ public class LuceneIndexTestUtils {
         return Stream.of(IndexedType.values());
     }
 
-    protected static Index getMapOnValueIndexWithOption(@Nonnull String name, @Nonnull ImmutableMap<String, String> options) {
+    protected static Index getMapOnValueIndexWithOption(String name, ImmutableMap<String, String> options) {
         return new Index(
                 name,
                 new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(concat(keys)), 3),
@@ -583,13 +581,13 @@ public class LuceneIndexTestUtils {
     }
 
     public static FDBRecordStore openRecordStore(FDBRecordContext context,
-                                          @Nonnull KeySpacePath path,
+                                          KeySpacePath path,
                                           FDBRecordStoreTestBase.RecordMetaDataHook hook) {
         return openRecordStore(context, path, hook, null);
     }
 
     public static FDBRecordStore openRecordStore(FDBRecordContext context,
-                                          @Nonnull KeySpacePath path,
+                                          KeySpacePath path,
                                           FDBRecordStoreTestBase.RecordMetaDataHook hook,
                                           @Nullable IndexMaintainerFactoryRegistry indexMaintainerRegistry) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
@@ -600,10 +598,9 @@ public class LuceneIndexTestUtils {
                 .createOrOpen();
     }
 
-    @Nonnull
-    private static FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context,
-                                                          @Nonnull KeySpacePath path,
-                                                          @Nonnull RecordMetaData metaData,
+    private static FDBRecordStore.Builder getStoreBuilder(FDBRecordContext context,
+                                                          KeySpacePath path,
+                                                          RecordMetaData metaData,
                                                           @Nullable IndexMaintainerFactoryRegistry indexMaintainerRegistry) {
         final FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
                 .setFormatVersion(FormatVersion.getMaximumSupportedVersion()) // set to max to test newest features (unsafe for real deployments)
@@ -616,7 +613,7 @@ public class LuceneIndexTestUtils {
         return builder;
     }
 
-    static QueryPlanner setupPlanner(@Nonnull FDBRecordStore recordStore,
+    static QueryPlanner setupPlanner(FDBRecordStore recordStore,
                                      @Nullable PlannableIndexTypes indexTypes, boolean useRewritePlanner) {
         QueryPlanner planner;
         if (useRewritePlanner) {
@@ -634,12 +631,12 @@ public class LuceneIndexTestUtils {
                         Sets.newHashSet(LuceneIndexTypes.LUCENE)
                 );
             }
-            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, Objects.requireNonNull(recordStore.getTimer()));
         }
         return planner;
     }
 
-    public static LuceneScanBounds fullSortTextSearch(FDBRecordStore recordStore, Index index, String search, Sort sort) {
+    public static LuceneScanBounds fullSortTextSearch(FDBRecordStore recordStore, Index index, String search, @Nullable Sort sort) {
         LuceneScanParameters scan = new LuceneScanQueryParameters(
                 ScanComparisons.EMPTY,
                 new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, search, false),
@@ -900,7 +897,7 @@ public class LuceneIndexTestUtils {
         }
 
         public Index getIndex(final String key) {
-            return indexes.get(key);
+            return Objects.requireNonNull(indexes.get(key));
         }
 
         public boolean isSynthetic() {

@@ -54,6 +54,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.RecordExistenceCheck;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
@@ -110,8 +111,7 @@ import org.opentest4j.AssertionFailedError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
@@ -231,13 +231,25 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneIndexTest.class);
     private static final String LUCENE_INDEX_MAP_PARAMS = "com.apple.foundationdb.record.lucene.LuceneIndexTestUtils#luceneIndexMapParams";
 
-    private Tuple createComplexRecordJoinedToSimple(int group, long docIdSimple, long docIdComplex, String text, String text2, boolean isSeen, long timestamp, Integer score) {
+    private Tuple createComplexRecordJoinedToSimple(int group, long docIdSimple, long docIdComplex, @Nullable String text, String text2, boolean isSeen, long timestamp, @Nullable Integer score) {
         return createComplexRecordJoinedToSimple(group, docIdSimple, docIdComplex, text, text2, isSeen, timestamp, score, null);
     }
 
-    private Tuple createComplexRecordJoinedToSimple(int group, long docIdSimple, long docIdComplex, String text, String text2, boolean isSeen, long timestamp, Integer score, FDBRecordStoreBase.RecordExistenceCheck existenceCheck) {
+    private Tuple createComplexRecordJoinedToSimple(int group, long docIdSimple, long docIdComplex, @Nullable String text, String text2, boolean isSeen, long timestamp, @Nullable Integer score, @Nullable RecordExistenceCheck existenceCheck) {
         TestRecordsTextProto.SimpleDocument simpleDocument = text != null ? createSimpleDocument(docIdSimple, text, group) : createSimpleDocument(docIdSimple, group);
-        ComplexDocument complexDocument = createComplexDocument(docIdComplex, "", text2, group, score, isSeen, timestamp);
+        // Not using LuceneIndexTestUtils.createComplexDocument(..., Integer score, ...) here because that overload
+        // requires a non-null score, whereas this method intentionally allows callers to omit the score field.
+        ComplexDocument.Builder complexDocumentBuilder = ComplexDocument.newBuilder()
+                .setDocId(docIdComplex)
+                .setText("")
+                .setText2(text2)
+                .setGroup(group)
+                .setIsSeen(isSeen)
+                .setTime(timestamp);
+        if (score != null) {
+            complexDocumentBuilder.setScore(score);
+        }
+        ComplexDocument complexDocument = complexDocumentBuilder.build();
         Tuple syntheticRecordTypeKey = recordStore.getRecordMetaData()
                 .getSyntheticRecordType("luceneSyntheticComplexJoinedToSimple")
                 .getRecordTypeKeyTuple();
@@ -314,7 +326,6 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
             INDEX_PARTITION_BY_FIELD_NAME, "complex.timestamp",
             INDEX_PARTITION_HIGH_WATERMARK, "10"));
 
-    @Nonnull
     private static Index getJoinedIndexNoGroup(final Map<String, String> options) {
         return new Index("joinNestedConcat",
                 concat(
@@ -329,7 +340,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     private long timestamp29DaysAgo;
     private long yesterday;
 
-    private static Index getMapOnValueIndexWithOption(@Nonnull String name, @Nonnull ImmutableMap<String, String> options) {
+    private static Index getMapOnValueIndexWithOption(String name, ImmutableMap<String, String> options) {
         return new Index(
                 name,
                 new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(concat(keys)), 3),
@@ -360,7 +371,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                 Sets.newHashSet(IndexTypes.TEXT),
                 Sets.newHashSet(LuceneIndexTypes.LUCENE)
         );
-        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, Objects.requireNonNull(recordStore.getTimer()));
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()
                 .setPlanOtherAttemptWholeFilter(false)
@@ -381,33 +392,29 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
-    @Nonnull
     @SuppressWarnings("unused")
-    private LuceneScanBounds groupedAutoCompleteBounds(@Nonnull final Index index, @Nonnull final String search,
-                                                       @Nonnull final Object group, @Nonnull final Iterable<String> fields) {
+    private LuceneScanBounds groupedAutoCompleteBounds(final Index index, final String search,
+                                                       final Object group, final Iterable<String> fields) {
         LuceneScanParameters scan = groupedAutoCompleteScanParams(search, group, fields);
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
-    @Nonnull
-    protected static LuceneScanParameters groupedAutoCompleteScanParams(@Nonnull final String search,
-                                                                        @Nonnull final Object group,
-                                                                        @Nonnull final Iterable<String> fields) {
+    protected static LuceneScanParameters groupedAutoCompleteScanParams(final String search,
+                                                                        final Object group,
+                                                                        final Iterable<String> fields) {
         return new LuceneScanQueryParameters(
                 Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, group))),
                 new LuceneAutoCompleteQueryClause(search, false, fields));
     }
 
-    @Nonnull
-    private LuceneScanBounds autoCompleteBounds(@Nonnull final Index index, @Nonnull final String search,
-                                                @Nonnull final Iterable<String> fields) {
+    private LuceneScanBounds autoCompleteBounds(final Index index, final String search,
+                                                final Iterable<String> fields) {
         LuceneScanParameters scan = autoCompleteScanParams(search, fields);
         return scan.bind(recordStore, index, EvaluationContext.EMPTY);
     }
 
-    @Nonnull
-    private LuceneScanParameters autoCompleteScanParams(@Nonnull final String search,
-                                                        @Nonnull final Iterable<String> fields) {
+    private LuceneScanParameters autoCompleteScanParams(final String search,
+                                                        final Iterable<String> fields) {
         return new LuceneScanQueryParameters(
                 Verify.verifyNotNull(ScanComparisons.EMPTY),
                 new LuceneAutoCompleteQueryClause(search, false, fields));
@@ -430,6 +437,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     // ==================== PARTITIONED INDEX TESTS =====================
 
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void basicGroupedPartitionedTest() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
@@ -462,6 +472,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     }
 
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void basicNonGroupedPartitionedTest() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED_NOGROUP);
@@ -500,7 +513,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
             recordStore.saveRecord(createComplexDocument(9999L, "hello world!", 1, Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli()));
             context.commit();
 
-            final FDBStoreTimer timer = context.getTimer();
+            final FDBStoreTimer timer = Objects.requireNonNull(context.getTimer());
             assertTrue(timer.getCount(LuceneEvents.Counts.LUCENE_BLOCK_CACHE_REMOVE) > 0);
         }
     }
@@ -519,7 +532,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
             recordStore.saveRecord(createComplexDocument(9999L, "hello world!", 1, Instant.now().plus(2, ChronoUnit.DAYS).toEpochMilli()));
             context.commit();
 
-            final FDBStoreTimer timer = context.getTimer();
+            final FDBStoreTimer timer = Objects.requireNonNull(context.getTimer());
             assertEquals(timer.getCount(LuceneEvents.Counts.LUCENE_BLOCK_CACHE_REMOVE), 0);
             assertTrue(timer.getCount(LuceneEvents.Waits.WAIT_LUCENE_GET_DATA_BLOCK) > 0);
         }
@@ -532,8 +545,8 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     @ParameterizedTest
     @MethodSource(value = {"dualGroupModeIndexProvider"})
     void repartitionGroupedTest(Pair<Index, Tuple> indexAndGroupingKey) throws IOException {
-        Index index = indexAndGroupingKey.getLeft();
-        Tuple groupingKey = indexAndGroupingKey.getRight();
+        Index index = Objects.requireNonNull(indexAndGroupingKey.getLeft());
+        Tuple groupingKey = Objects.requireNonNull(indexAndGroupingKey.getRight());
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 6)
                 .build();
@@ -765,8 +778,8 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     @ParameterizedTest
     @MethodSource(value = {"dualGroupModeIndexProvider"})
     void optimizedPartitionInsertionTest(Pair<Index, Tuple> indexAndGroupingKey) throws IOException {
-        Index index = indexAndGroupingKey.getLeft();
-        Tuple groupingKey = indexAndGroupingKey.getRight();
+        Index index = Objects.requireNonNull(indexAndGroupingKey.getLeft());
+        Tuple groupingKey = Objects.requireNonNull(indexAndGroupingKey.getRight());
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 6)
                 .build();
@@ -816,15 +829,15 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
-    private static void joinedPartitionedLuceneIndexMetadataHook(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+    private static void joinedPartitionedLuceneIndexMetadataHook(final RecordMetaDataBuilder metaDataBuilder) {
         metaDataBuilder.addIndex(joinedMetadataHook(metaDataBuilder), JOINED_INDEX);
     }
 
-    private static void joinedPartitionedUngroupedLuceneIndexMetadataHook(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+    private static void joinedPartitionedUngroupedLuceneIndexMetadataHook(final RecordMetaDataBuilder metaDataBuilder) {
         metaDataBuilder.addIndex(joinedMetadataHook(metaDataBuilder), JOINED_INDEX_NOGROUP);
     }
 
-    private static JoinedRecordTypeBuilder joinedMetadataHook(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+    private static JoinedRecordTypeBuilder joinedMetadataHook(final RecordMetaDataBuilder metaDataBuilder) {
         //set up the joined index
         final JoinedRecordTypeBuilder joined = metaDataBuilder.addJoinedRecordType("luceneJoinedPartitionedIdx");
         joined.addConstituent("complex", "ComplexDocument");
@@ -907,6 +920,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest(name = "isGrouped: {0}, isSynthetic: {1}, with unique timestamps: {2}, sort type: {3}")
     @MethodSource
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void continuationDuringRepartitioningTest(boolean isGrouped,
                                               boolean isSynthetic,
                                               boolean uniqueTimestamps,
@@ -916,8 +932,8 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                 INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(10));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, isGrouped, isSynthetic);
-        final Index index = indexConsumerPair.getLeft();
-        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+        final Index index = Objects.requireNonNull(indexConsumerPair.getLeft());
+        Consumer<FDBRecordContext> schemaSetup = Objects.requireNonNull(indexConsumerPair.getRight());
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 6)
@@ -1155,8 +1171,8 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(highWaterMark));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, false);
-        final Index index = indexConsumerPair.getLeft();
-        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+        final Index index = Objects.requireNonNull(indexConsumerPair.getLeft());
+        Consumer<FDBRecordContext> schemaSetup = Objects.requireNonNull(indexConsumerPair.getRight());
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, docCountPerTxn)
@@ -1230,7 +1246,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
             int totalExpectedRepartitionCallCount = 0;
 
             for (final GroupSpec groupSpec : groupSpecs) {
-                List<LucenePartitionInfoProto.LucenePartitionInfo> groupPartitionInfos = partitionInfos.get(groupSpec.value);
+                List<LucenePartitionInfoProto.LucenePartitionInfo> groupPartitionInfos = Objects.requireNonNull(partitionInfos.get(groupSpec.value));
 
                 Pair<int[], Integer> spreadAndCallCount = calculateAndValidateRepartitioningExpectations(
                         groupPartitionInfos,
@@ -1239,16 +1255,16 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                         docCountPerTxn,
                         maxCountPerRepartitionCall,
                         -1);
-                totalExpectedRepartitionCallCount += spreadAndCallCount.getRight();
-                int[] docDistribution = spreadAndCallCount.getLeft();
+                totalExpectedRepartitionCallCount += Objects.requireNonNull(spreadAndCallCount.getRight());
+                int[] docDistribution = Objects.requireNonNull(spreadAndCallCount.getLeft());
                 int edge = groupSpec.docCount - docDistribution[0];
 
                 // validate content of partition 0 (original)
-                validateDocsInPartition(index, 0, groupSpec.groupTuple, Set.copyOf(primaryKeys.get(groupSpec.value).subList(edge, groupSpec.docCount)), luceneSearch);
+                validateDocsInPartition(index, 0, groupSpec.groupTuple, Set.copyOf(Objects.requireNonNull(primaryKeys.get(groupSpec.value)).subList(edge, groupSpec.docCount)), luceneSearch);
 
                 // validate content of rest of partitions
                 for (int i = docDistribution.length - 1; i > 0; i--) {
-                    validateDocsInPartition(index, i, groupSpec.groupTuple, Set.copyOf(primaryKeys.get(groupSpec.value).subList(edge - docDistribution[i], edge)), luceneSearch);
+                    validateDocsInPartition(index, i, groupSpec.groupTuple, Set.copyOf(Objects.requireNonNull(primaryKeys.get(groupSpec.value)).subList(edge - docDistribution[i], edge)), luceneSearch);
                     edge = edge - docDistribution[i];
                 }
             }
@@ -1287,7 +1303,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         if (isSynthetic) {
             queryComponents.add(Query.field("complex").matches(Query.field("group").equalsParameter("group_value")));
             if (comparisonType != Type.NOT_EQUALS) {
-                queryComponents.add(Query.field("complex").matches(comparisonToQueryFunction.get(comparisonType).apply(Query.field(partitionFieldName), predicateComparand)));
+                queryComponents.add(Query.field("complex").matches(Objects.requireNonNull(comparisonToQueryFunction.get(comparisonType)).apply(Query.field(partitionFieldName), predicateComparand)));
             }
             if (luceneSearch != null) {
                 queryComponents.add(new LuceneQueryComponent(luceneSearch, List.of("simple_text")));
@@ -1306,7 +1322,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         } else {
             queryComponents.add(Query.field("group").equalsParameter("group_value"));
             if (comparisonType != Type.NOT_EQUALS) {
-                queryComponents.add(comparisonToQueryFunction.get(comparisonType).apply(Query.field(partitionFieldName), predicateComparand));
+                queryComponents.add(Objects.requireNonNull(comparisonToQueryFunction.get(comparisonType)).apply(Query.field(partitionFieldName), predicateComparand));
             }
             if (luceneSearch != null) {
                 queryComponents.add(new LuceneQueryComponent(luceneSearch, List.of("text")));
@@ -1324,7 +1340,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                     .build();
         }
 
-        LucenePlanner planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), PlannableIndexTypes.DEFAULT, recordStore.getTimer());
+        LucenePlanner planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), PlannableIndexTypes.DEFAULT, Objects.requireNonNull(recordStore.getTimer()));
         RecordQueryPlan plan = planner.plan(recordQuery);
         assertTrue(plan instanceof LuceneIndexQueryPlan);
         LuceneIndexQueryPlan luceneIndexQueryPlan = (LuceneIndexQueryPlan) plan;
@@ -1339,8 +1355,8 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                 INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(8));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
-        final Index index = indexConsumerPair.getLeft();
-        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+        final Index index = Objects.requireNonNull(indexConsumerPair.getLeft());
+        Consumer<FDBRecordContext> schemaSetup = Objects.requireNonNull(indexConsumerPair.getRight());
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
@@ -1385,8 +1401,8 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                 INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(8));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
-        final Index index = indexConsumerPair.getLeft();
-        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+        final Index index = Objects.requireNonNull(indexConsumerPair.getLeft());
+        Consumer<FDBRecordContext> schemaSetup = Objects.requireNonNull(indexConsumerPair.getRight());
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
@@ -1524,6 +1540,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void functionalPartitionFieldPredicateTest(long seed) {
         Random random = new Random(seed);
         boolean isSynthetic = false;
@@ -1532,8 +1551,8 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                 INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(3));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
-        final Index index = indexConsumerPair.getLeft();
-        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+        final Index index = Objects.requireNonNull(indexConsumerPair.getLeft());
+        Consumer<FDBRecordContext> schemaSetup = Objects.requireNonNull(indexConsumerPair.getRight());
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
@@ -1656,8 +1675,8 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                 INDEX_PARTITION_LOW_WATERMARK, String.valueOf(lowWatermark),
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(highWatermark));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
-        final Index index = indexConsumerPair.getLeft();
-        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+        final Index index = Objects.requireNonNull(indexConsumerPair.getLeft());
+        Consumer<FDBRecordContext> schemaSetup = Objects.requireNonNull(indexConsumerPair.getRight());
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionDocCount)
@@ -1823,8 +1842,8 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                 INDEX_PARTITION_LOW_WATERMARK, String.valueOf(lowWatermark)
                 );
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
-        Index index = indexConsumerPair.getLeft();
-        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+        Index index = Objects.requireNonNull(indexConsumerPair.getLeft());
+        Consumer<FDBRecordContext> schemaSetup = Objects.requireNonNull(indexConsumerPair.getRight());
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
@@ -1868,6 +1887,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     }
 
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void simpleCrossPartitionQuery() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
@@ -1897,8 +1919,8 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                 INDEX_PARTITION_BY_FIELD_NAME, isSynthetic ? "complex.timestamp" : "timestamp",
                 INDEX_PARTITION_HIGH_WATERMARK, String.valueOf(8));
         Pair<Index, Consumer<FDBRecordContext>> indexConsumerPair = setupIndex(options, true, isSynthetic);
-        final Index index = indexConsumerPair.getLeft();
-        Consumer<FDBRecordContext> schemaSetup = indexConsumerPair.getRight();
+        final Index index = Objects.requireNonNull(indexConsumerPair.getLeft());
+        Consumer<FDBRecordContext> schemaSetup = Objects.requireNonNull(indexConsumerPair.getRight());
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 8)
@@ -2025,7 +2047,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                             assertTrue((sortType == SortType.ASCENDING && selectedPartitionInfo.getId() == 0)
                                     || selectedPartitionInfo.getId() == 3);
                         } else {
-                            assertEquals(startingPartitionExpectation.get(predicateComparand).get(comparisonType).get(sortType), selectedPartitionInfo == null ? -1 : selectedPartitionInfo.getId());
+                            assertEquals(Objects.requireNonNull(Objects.requireNonNull(startingPartitionExpectation.get(predicateComparand)).get(comparisonType)).get(sortType), selectedPartitionInfo == null ? -1 : selectedPartitionInfo.getId());
                         }
                     }
                 }
@@ -2037,6 +2059,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
      * test LIMIT spanning partitions.
      */
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testPartitionedLimit() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
@@ -2054,6 +2079,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
      * test SKIP spanning partitions.
      */
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testPartitionedSkip() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
@@ -2071,6 +2099,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
      * test skip with limit spanning partitions.
      */
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testPartitionedSkipWithLimit() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
@@ -2088,6 +2119,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
      * test limit with continuation spanning partitions.
      */
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testPartitionedLimitWithContinuation() throws ExecutionException, InterruptedException, InvalidProtocolBufferException {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
@@ -2127,6 +2161,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
      * test cross partition limit query with multiple scans.
      */
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testPartitionedLimitNeedsMultipleScans() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
@@ -2146,6 +2183,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
      * test cross partition skip over max page size.
      */
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testPartitionedSkipOverMaxPageSize() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
@@ -2161,6 +2201,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     }
 
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testPartitionedSorted() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
@@ -2269,6 +2312,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     // ==================== NON-PARTITIONED TESTS =====================
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void simpleInsertAndSearch(IndexedType indexedType) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -2294,6 +2340,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void largeMetadataTest(LuceneIndexTestUtils.IndexedType indexedType) {
         // Test a document with many fields, where the field metadata is larger than a data block
 
@@ -2328,6 +2377,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
      */
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void differentFieldSearch(IndexedType indexedType) {
         final Index index = indexedType.getIndex(MANY_FIELDS_INDEX_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -2370,6 +2422,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
      */
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void differentFieldSearchNoOverlap(IndexedType indexedType) {
         final Index index = indexedType.getIndex(MANY_FIELDS_INDEX_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -2411,13 +2466,15 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                         param2 -> Arguments.of(indexedType, param2)));
     }
 
-    @Nonnull
     private String specialCharacterText(String specialCharacter) {
         return "Do we match special characters like " + specialCharacter + ", even when its mashed together like " + specialCharacter + "noSpaces?";
     }
 
     @ParameterizedTest
     @MethodSource({"specialCharacterParams"})
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void insertAndSearchWithSpecialCharacters(IndexedType indexedType, String specialCharacter) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -2444,6 +2501,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void searchTextQueryWithBooleanEquals(IndexedType indexedType) {
         /*
          * Check that a point query on a number type and a text match together return the correct result
@@ -2473,6 +2533,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void searchTextQueryWithBooleanNotEquals(IndexedType indexedType) {
         /*
          * Check that a point query on a number type and a text match together return the correct result
@@ -2502,6 +2565,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void searchTextQueryWithBooleanRange(IndexedType indexedType) {
         /*
          * Check that a point query on a number type and a text match together return the correct result
@@ -2532,6 +2598,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void searchTextQueryWithBooleanBoth(IndexedType indexedType) {
         /*
          * Check that a point query on a number type and a text match together return the correct result
@@ -2561,6 +2630,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void searchTextQueryWithBooleanEither(IndexedType indexedType) {
         /*
          * Check that a point query on a number type and a text match together return the correct result
@@ -2591,6 +2663,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void searchTextQueryWithNumberEquals(IndexedType indexedType) {
         /*
          * Check that a point query on a number type and a text match together return the correct result
@@ -2609,7 +2684,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                 rebuildIndexMetaData(context, SIMPLE_DOC, index);
                 recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
                 recordStore.saveRecord(createSimpleDocument(1547L, ENGINEER_JOKE, 1));
-                recordStore.saveRecord(createSimpleDocument(1548L, ENGINEER_JOKE, null));
+                // Not using LuceneIndexTestUtils.createSimpleDocument(..., Integer group) here because that overload
+                // requires a non-null group, whereas this document intentionally has no group set.
+                recordStore.saveRecord(TestRecordsTextProto.SimpleDocument.newBuilder().setDocId(1548L).setText(ENGINEER_JOKE).build());
 
                 assertIndexEntryPrimaryKeys(Set.of(1623L),
                         recordStore.scanIndex(index, fullTextSearch(index, "\"propose a Vision\" AND group:2"), null, ScanProperties.FORWARD_SCAN));
@@ -2622,6 +2699,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void searchTextWithEmailPrefix(IndexedType indexedType) {
         /*
          * Check that a prefix query with an email in it will return the email
@@ -2647,6 +2727,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void searchTextQueryWithNumberRange(IndexedType indexedType) {
         /*
          * Check that a range query on a number type and a text match together return the correct result
@@ -2676,6 +2759,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void searchTextWithNumberRangeInfinite(IndexedType indexedType) {
         /*
          * Check that a range query returns empty if you feed it a range that is logically empty (i.e. (Long.MAX_VALUE,...)
@@ -2738,6 +2824,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource("bitsetParams")
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void bitset(IndexedType indexedType, int mask, List<Long> expectedResult, Set<Tuple> syntheticExpectedResult) {
         /*
          * Check that a bitset_contains query returns the right result given a certain mask
@@ -2815,6 +2904,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource("bitsetOrParams")
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void bitsetOr(IndexedType indexedType, int mask1, int mask2, List<Long> expectedResult, Set<Tuple> syntheticExpectedResult) {
         /*
          * Check that a bitset_contains query returns the right result given a certain mask
@@ -2851,6 +2943,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void simpleEmptyIndex(IndexedType indexedType) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -2867,6 +2962,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void simpleEmptyAutoComplete(IndexedType indexedType) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -2885,6 +2983,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void simpleInsertAndSearchNumFDBFetches(IndexedType indexedType) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -2946,6 +3047,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testNullValue(IndexedType indexedType) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -2972,6 +3076,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testLimit(IndexedType indexedType) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -2996,6 +3103,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testSkip(IndexedType indexedType) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -3020,6 +3130,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testSkipWithLimit(IndexedType indexedType) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -3073,6 +3186,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testLimitNeedsMultipleScans(IndexedType indexedType) {
         final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE, 201);
@@ -3102,6 +3218,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testSkipOverMultipleScans(IndexedType indexedType) {
         final RecordLayerPropertyStorage.Builder storageBuilder = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_INDEX_CURSOR_PAGE_SIZE, 201);
@@ -3132,6 +3251,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testNestedFieldSearch(IndexedType indexedType) {
         final Index index = indexedType.getIndex(MAP_ON_VALUE_INDEX_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -3165,6 +3287,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testGroupedRecordSearch(IndexedType indexedType) {
         final Index index = indexedType.getIndex(MAP_ON_VALUE_INDEX_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -3196,6 +3321,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testMultipleFieldSearch(IndexedType indexedType) {
         final Index index = indexedType.getIndex(COMPLEX_MULTIPLE_TEXT_INDEXES_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -3219,6 +3347,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testFuzzySearchWithDefaultEdit2(IndexedType indexedType) {
         final Index index = indexedType.getIndex(COMPLEX_MULTIPLE_TEXT_INDEXES_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -3243,6 +3374,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void simpleInsertDeleteAndSearch(IndexedType indexedType) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -3276,6 +3410,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void simpleInsertAndSearchSingleTransaction(IndexedType indexedType) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         try {
@@ -3308,6 +3445,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testCommit(IndexedType indexedType) {
         Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         Tuple primaryKey1 = null;
@@ -3347,6 +3487,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testRollback(IndexedType indexedType) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         Tuple primaryKey1;
@@ -3438,6 +3581,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource("primaryKeySegmentIndexEnabledParams")
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testSimpleUpdate(IndexedType indexedType, boolean primaryKeySegmentIndexEnabled) throws IOException {
         final Index index = indexedType.getIndex(primaryKeySegmentIndexEnabled ? SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY : SIMPLE_TEXT_SUFFIXES_KEY);
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
@@ -3480,8 +3626,8 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
                 if (primaryKeySegmentIndexEnabled) {
                     // TODO: Is there a more stable way to check this?
-                    final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = getDirectory(index, Tuple.from())
-                            .getPrimaryKeySegmentIndex();
+                    final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = Objects.requireNonNull(getDirectory(index, Tuple.from())
+                            .getPrimaryKeySegmentIndex());
                     assertEquals(new ArrayList<>(Arrays.asList(
                                     new ArrayList<>(Arrays.asList(-1L, new ArrayList<>(Arrays.asList(3015L, 1000L)), new ArrayList<>(Arrays.asList(1000L)), "_q", 2)),
                                     new ArrayList<>(Arrays.asList(-1L, new ArrayList<>(Arrays.asList(3016L, 1001L)), new ArrayList<>(Arrays.asList(1001L)), "_q", 0)),
@@ -3502,7 +3648,12 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                     var existenceCheck = i < 5
                                          ? FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_EXISTS
                                          : FDBRecordStoreBase.RecordExistenceCheck.ERROR_IF_NOT_EXISTS;
-                    final TestRecordsTextProto.SimpleDocument record = createSimpleDocument(1000L + i % 5, numbersText(i + 1), null);
+                    // Not using LuceneIndexTestUtils.createSimpleDocument(..., Integer group) here because that
+                    // overload requires a non-null group, whereas this document intentionally has no group set.
+                    final TestRecordsTextProto.SimpleDocument record = TestRecordsTextProto.SimpleDocument.newBuilder()
+                            .setDocId(1000L + i % 5)
+                            .setText(numbersText(i + 1))
+                            .build();
                     primaryKeys.add(recordStore.saveRecord(record, existenceCheck).getPrimaryKey());
                     context.commit();
                 }
@@ -3529,8 +3680,8 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
                 if (primaryKeySegmentIndexEnabled) {
                     // TODO: Is there a more stable way to check this?
-                    final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = getDirectory(index, Tuple.from())
-                            .getPrimaryKeySegmentIndex();
+                    final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = Objects.requireNonNull(getDirectory(index, Tuple.from())
+                            .getPrimaryKeySegmentIndex());
                     assertEquals(List.of(
                                     List.of(1000L, "_q", 2),
                                     List.of(1001L, "_q", 0),
@@ -3548,6 +3699,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void simpleDeleteSegmentIndex(IndexedType indexedType) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY);
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
@@ -3631,20 +3785,19 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
     void fullDeleteSegmentIndex(IndexedType indexedType) throws Exception {
         fullDeleteHelper(indexMaintainer -> {
-            final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex1 = indexMaintainer
+            final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex1 = Objects.requireNonNull(indexMaintainer
                     .getDirectory(Tuple.from(), null)
-                    .getPrimaryKeySegmentIndex();
+                    .getPrimaryKeySegmentIndex());
             assertEquals(List.of(), primaryKeySegmentIndex1.readAllEntries());
         }, indexMaintainer -> {
-            final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = indexMaintainer
+            final LucenePrimaryKeySegmentIndex primaryKeySegmentIndex = Objects.requireNonNull(indexMaintainer
                     .getDirectory(Tuple.from(), null)
-                    .getPrimaryKeySegmentIndex();
+                    .getPrimaryKeySegmentIndex());
             assertNotEquals(List.of(), primaryKeySegmentIndex.readAllEntries());
         },
                 indexedType);
     }
 
-    @Nonnull
     private Index fullDeleteHelper(final TestHelpers.DangerousConsumer<LuceneIndexMaintainer> assertEmpty,
                                    final TestHelpers.DangerousConsumer<LuceneIndexMaintainer> assertNotEmpty,
                                    final IndexedType indexedType) throws Exception {
@@ -3760,7 +3913,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                 indexedType);
     }
 
-    private static @Nonnull String listAll(final LuceneIndexMaintainer indexMaintainer) {
+    private static String listAll(final LuceneIndexMaintainer indexMaintainer) {
         try {
             return String.join(", ", indexMaintainer.getDirectory(Tuple.from(), null).listAll());
         } catch (IOException e) {
@@ -3880,6 +4033,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testGroupedMultipleUpdate(IndexedType indexedType) {
         final Index index = indexedType.getIndex(COMPLEX_GROUPED_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY);
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
@@ -3970,6 +4126,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void scanWithQueryOnlySynonymIndex(IndexedType indexedType) {
         final Index index = indexedType.getIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -4019,6 +4178,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void scanWithAuthoritativeSynonymOnlyIndex(IndexedType indexedType) {
         final Index index = indexedType.getIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -4074,6 +4236,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void phraseSearchBasedOnQueryOnlySynonymIndex(IndexedType indexedType) {
         final Index index = indexedType.getIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -4173,6 +4338,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void phraseSearchBasedOnAuthoritativeSynonymOnlyIndex(IndexedType indexedType) {
         final Index index = indexedType.getIndex(AUTHORITATIVE_SYNONYM_ONLY_LUCENE_INDEX_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -4311,6 +4479,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void scanWithCombinedSetsSynonymIndex(IndexedType indexedType) {
         // The COMBINED_SYNONYM_SETS adds this extra line to our synonym set:
         // 'synonym', 'nonsynonym'
@@ -4341,6 +4512,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void proximitySearchOnMultiFieldWithMultiWordSynonym(IndexedType indexedType) {
         final Index index = indexedType.getIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -4364,6 +4538,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void proximitySearchOnSpecificFieldWithMultiWordSynonym(IndexedType indexedType) {
         final Index index = indexedType.getIndex(QUERY_ONLY_SYNONYM_LUCENE_INDEX_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -4385,6 +4562,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     }
 
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void scanWithNgramIndex() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, SIMPLE_DOC, NGRAM_LUCENE_INDEX);
@@ -4433,6 +4613,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
      */
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void searchForAutoCompleteWithLoadingNoRecords(IndexedType indexedType) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -4453,9 +4636,12 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex/executeQuery (and, in one case,
+    // Tuple.from(null, ...)); NullAway does not reliably recognize @Nullable on the array (byte[])
+    // continuation parameter, and Tuple.from is an unannotated external API.
+    @SuppressWarnings({"UnstableApiUsage", "NullAway"})
     void searchForAutoCompleteAcrossMultipleFields(IndexedType indexedType) throws Exception {
         final Index index = indexedType.getIndex(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -4559,6 +4745,10 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex/executeQuery (and, in one case,
+    // Tuple.from(null, ...)); NullAway does not reliably recognize @Nullable on the array (byte[])
+    // continuation parameter, and Tuple.from is an unannotated external API.
+    @SuppressWarnings("NullAway")
     void searchForAutoCompleteWithContinueTyping(IndexedType indexedType) throws Exception {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -4609,6 +4799,10 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex/executeQuery (and, in one case,
+    // Tuple.from(null, ...)); NullAway does not reliably recognize @Nullable on the array (byte[])
+    // continuation parameter, and Tuple.from is an unannotated external API.
+    @SuppressWarnings("NullAway")
     void searchForAutoCompleteForGroupedRecord(IndexedType indexedType) throws Exception {
         final Index index = indexedType.getIndex(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -4672,6 +4866,10 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex/executeQuery (and, in one case,
+    // Tuple.from(null, ...)); NullAway does not reliably recognize @Nullable on the array (byte[])
+    // continuation parameter, and Tuple.from is an unannotated external API.
+    @SuppressWarnings("NullAway")
     void searchForAutoCompleteExcludedFieldsForGroupedRecord(IndexedType indexedType) throws Exception {
         final Index index = indexedType.getIndex(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE_EXCLUDED_FIELDS_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -4855,6 +5053,10 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex/executeQuery (and, in one case,
+    // Tuple.from(null, ...)); NullAway does not reliably recognize @Nullable on the array (byte[])
+    // continuation parameter, and Tuple.from is an unannotated external API.
+    @SuppressWarnings("NullAway")
     void testAutoCompleteSearchMultipleResultsSingleDocument(IndexedType indexedType) throws Exception {
         final Index index = indexedType.getIndex(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -5101,6 +5303,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void searchForSpellCheck(IndexedType indexedType) throws Exception {
         final Index index = indexedType.getIndex(SPELLCHECK_INDEX_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -5147,6 +5352,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void searchForSpellcheckForGroupedRecord(IndexedType indexedType) throws Exception {
         final Index index = indexedType.getIndex(MAP_ON_VALUE_INDEX_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -5195,7 +5403,10 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
-    private void spellCheckHelper(final Index index, @Nonnull String query, List<Pair<String, String>> expectedSuggestions) throws ExecutionException, InterruptedException {
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
+    private void spellCheckHelper(final Index index, String query, List<Pair<String, String>> expectedSuggestions) throws ExecutionException, InterruptedException {
         List<IndexEntry> suggestions = recordStore.scanIndex(index,
                 spellCheck(index, query),
                 null,
@@ -5442,7 +5653,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                     ))
                     .build();
 
-            LucenePlanner planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), PlannableIndexTypes.DEFAULT, recordStore.getTimer());
+            LucenePlanner planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), PlannableIndexTypes.DEFAULT, Objects.requireNonNull(recordStore.getTimer()));
             RecordQueryPlan plan = planner.plan(recordQuery);
             assertThat(plan, indexScan(allOf(
                     indexName(index.getName()),
@@ -5456,7 +5667,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                     plan.execute(recordStore, EvaluationContext.forBinding("group_value", zeroGroupDoc.getGroup()))
                             .map(r -> {
                                 if (indexedType.isSynthetic()) {
-                                    return r.getConstituent("complex").getRecord();
+                                    return Objects.requireNonNull(r.getConstituent("complex")).getRecord();
                                 } else {
                                     return r.getRecord();
                                 }
@@ -5468,7 +5679,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
                     plan.execute(recordStore, EvaluationContext.forBinding("group_value", oneGroupDoc.getGroup()))
                             .map(r -> {
                                 if (indexedType.isSynthetic()) {
-                                    return r.getConstituent("complex").getRecord();
+                                    return Objects.requireNonNull(r.getConstituent("complex")).getRecord();
                                 } else {
                                     return r.getRecord();
                                 }
@@ -5504,6 +5715,10 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex/executeQuery (and, in one case,
+    // Tuple.from(null, ...)); NullAway does not reliably recognize @Nullable on the array (byte[])
+    // continuation parameter, and Tuple.from is an unannotated external API.
+    @SuppressWarnings("NullAway")
     void testDeleteWhereAutoComplete(IndexedType indexedType) throws Exception {
         final Index index = indexedType.getIndex(COMPLEX_MULTI_GROUPED_WITH_AUTO_COMPLETE_KEY);
         final String groupField = indexedType.isSynthetic() ? "score" : "group";
@@ -5629,6 +5844,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     }
 
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void analyzerPerField() {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, MULTIPLE_ANALYZER_LUCENE_INDEX);
@@ -5650,6 +5868,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void testSimpleAutoComplete(IndexedType indexedType) {
         final Index index = indexedType.getIndex(AUTO_COMPLETE_SIMPLE_LUCENE_INDEX_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -5671,6 +5892,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void basicLuceneCursorTest(IndexedType indexedType) {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -5698,6 +5922,10 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex/executeQuery (and, in one case,
+    // Tuple.from(null, ...)); NullAway does not reliably recognize @Nullable on the array (byte[])
+    // continuation parameter, and Tuple.from is an unannotated external API.
+    @SuppressWarnings("NullAway")
     void luceneCursorTestWithMultiplePages(IndexedType indexedType) throws Exception {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         // Configure page size as 10
@@ -5733,6 +5961,10 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex/executeQuery (and, in one case,
+    // Tuple.from(null, ...)); NullAway does not reliably recognize @Nullable on the array (byte[])
+    // continuation parameter, and Tuple.from is an unannotated external API.
+    @SuppressWarnings("NullAway")
     void luceneCursorTestWith3rdPage(IndexedType indexedType) throws Exception {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         // Configure page size as 10
@@ -5768,6 +6000,10 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex/executeQuery (and, in one case,
+    // Tuple.from(null, ...)); NullAway does not reliably recognize @Nullable on the array (byte[])
+    // continuation parameter, and Tuple.from is an unannotated external API.
+    @SuppressWarnings("NullAway")
     void luceneCursorTestWithMultiplePagesWithSkip(IndexedType indexedType) throws Exception {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         // Configure page size as 10
@@ -5804,6 +6040,10 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex/executeQuery (and, in one case,
+    // Tuple.from(null, ...)); NullAway does not reliably recognize @Nullable on the array (byte[])
+    // continuation parameter, and Tuple.from is an unannotated external API.
+    @SuppressWarnings("NullAway")
     void luceneCursorTestWithLimit(IndexedType indexedType) throws Exception {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         // Configure page size as 10
@@ -5860,6 +6100,10 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex/executeQuery (and, in one case,
+    // Tuple.from(null, ...)); NullAway does not reliably recognize @Nullable on the array (byte[])
+    // continuation parameter, and Tuple.from is an unannotated external API.
+    @SuppressWarnings("NullAway")
     void luceneCursorTestWithLimitAndSkip(IndexedType indexedType) throws Exception {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         // Configure page size as 10
@@ -5922,6 +6166,10 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource(LUCENE_INDEX_MAP_PARAMS)
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex/executeQuery (and, in one case,
+    // Tuple.from(null, ...)); NullAway does not reliably recognize @Nullable on the array (byte[])
+    // continuation parameter, and Tuple.from is an unannotated external API.
+    @SuppressWarnings("NullAway")
     void luceneCursorTestAllMatchesSkipped(IndexedType indexedType) throws Exception {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_SUFFIXES_KEY);
         // Configure page size as 10
@@ -5959,6 +6207,9 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     @ParameterizedTest
     @MethodSource("primaryKeySegmentIndexEnabledParams")
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void manySegmentsParallelOpen(IndexedType indexedType, boolean primaryKeySegmentIndexEnabled) throws IOException {
         final Index index = indexedType.getIndex(primaryKeySegmentIndexEnabled ? SIMPLE_TEXT_SUFFIXES_WITH_PRIMARY_KEY_SEGMENT_INDEX_KEY : SIMPLE_TEXT_SUFFIXES_KEY);
         for (int i = 0; i < 20; i++) {
@@ -5991,11 +6242,11 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
-    private static void assertAutoCompleteEntriesAndSegmentInfoStoredInCompoundFile(Index index, @Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull String segment) {
+    private static void assertAutoCompleteEntriesAndSegmentInfoStoredInCompoundFile(Index index, Subspace subspace, FDBRecordContext context, String segment) {
         validateSegmentAndIndexIntegrity(index, subspace, context, segment);
     }
 
-    private static void validateSegmentAndIndexIntegrity(Index index, @Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull String segmentFile) {
+    private static void validateSegmentAndIndexIntegrity(Index index, Subspace subspace, FDBRecordContext context, String segmentFile) {
         try (final FDBDirectory directory = new FDBDirectory(subspace, context, index.getOptions())) {
             final FDBLuceneFileReference reference = directory.getFDBLuceneFileReference(segmentFile);
             assertNotNull(reference);
@@ -6007,14 +6258,14 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
-    private static void validateIndexIntegrity(Index index, @Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable FDBDirectory fdbDirectory, @Nullable String segmentName) throws IOException {
+    private static void validateIndexIntegrity(Index index, Subspace subspace, FDBRecordContext context, @Nullable FDBDirectory fdbDirectory, @Nullable String segmentName) throws IOException {
         final FDBDirectory directory = fdbDirectory == null ? new FDBDirectory(subspace, context, index.getOptions()) : fdbDirectory;
         String[] allFiles = directory.listAll();
         Set<Long> usedFieldInfos = new HashSet<>();
         final Set<Long> allFieldInfos = assertDoesNotThrow(() -> directory.getFieldInfosStorage().getAllFieldInfos().keySet());
         int segmentCount = 0;
         for (String file : allFiles) {
-            final FDBLuceneFileReference fileReference = directory.getFDBLuceneFileReference(file);
+            final FDBLuceneFileReference fileReference = Objects.requireNonNull(directory.getFDBLuceneFileReference(file));
             if (FDBDirectory.isEntriesFile(file) || FDBDirectory.isSegmentInfo(file) || FDBDirectory.isFieldInfoFile(file)
                     || file.endsWith(".pky")) {
                 assertFalse(fileReference.getContent().isEmpty(), "fileName=" + file);
@@ -6043,7 +6294,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         if (FDBDirectory.isFieldInfoFile(file) || FDBDirectory.isEntriesFile(file)) {
             assertNotEquals(0, fileReference.getFieldInfosId());
             assertNotEquals(ByteString.EMPTY, fileReference.getFieldInfosBitSet());
-            final LuceneFieldInfosProto.FieldInfos fieldInfos = assertDoesNotThrow(() -> directory.getFieldInfosStorage().readFieldInfos(fileReference.getFieldInfosId()));
+            final LuceneFieldInfosProto.FieldInfos fieldInfos = assertDoesNotThrow(() -> Objects.requireNonNull(directory.getFieldInfosStorage().readFieldInfos(fileReference.getFieldInfosId())));
             final BitSet bitSet = BitSet.valueOf(fileReference.getFieldInfosBitSet().toByteArray());
             final Set<Integer> fieldNumbers = fieldInfos.getFieldInfoList().stream()
                     .map(LuceneFieldInfosProto.FieldInfo::getNumber)
@@ -6062,6 +6313,10 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         return fileReference.getFieldInfosId();
     }
 
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex/executeQuery (and, in one case,
+    // Tuple.from(null, ...)); NullAway does not reliably recognize @Nullable on the array (byte[])
+    // continuation parameter, and Tuple.from is an unannotated external API.
+    @SuppressWarnings("NullAway")
     private void searchForAutoCompleteAndAssert(IndexedType indexedType, String query, boolean matches, boolean highlight, int planHash) throws Exception {
         final Index index = indexedType.getIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE_KEY);
         try (FDBRecordContext context = openContext()) {
@@ -6143,7 +6398,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
             "There is a country called Armenia"
     );
 
-    private void addIndexAndSaveRecordForAutoComplete(@Nonnull FDBRecordContext context, Index index, boolean isSynthetic, List<String> autoCompletes) {
+    private void addIndexAndSaveRecordForAutoComplete(FDBRecordContext context, Index index, boolean isSynthetic, List<String> autoCompletes) {
         if (isSynthetic) {
             openRecordStore(context, metaDataBuilder -> metaDataHookSyntheticRecordComplexJoinedToSimple(metaDataBuilder, index));
             for (int i = 0; i < autoCompletes.size(); i++) {
@@ -6161,10 +6416,13 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
-    @SuppressWarnings("UnusedReturnValue")
-    private void queryAndAssertAutoCompleteSuggestionsReturned(@Nonnull Index index, boolean isSynthetic, @Nullable String queriedConstituent, @Nonnull List<KeyExpression> storedFields,
-                                                               @Nonnull String queriedField,
-                                                               @Nonnull String searchKey, @Nonnull List<String> expectedSuggestions) throws Exception {
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex/executeQuery (and, in one case,
+    // Tuple.from(null, ...)); NullAway does not reliably recognize @Nullable on the array (byte[])
+    // continuation parameter, and Tuple.from is an unannotated external API.
+    @SuppressWarnings({"UnusedReturnValue", "NullAway"})
+    private void queryAndAssertAutoCompleteSuggestionsReturned(Index index, boolean isSynthetic, @Nullable String queriedConstituent, List<KeyExpression> storedFields,
+                                                               String queriedField,
+                                                               String searchKey, List<String> expectedSuggestions) throws Exception {
         final RecordQueryPlan luceneIndexPlan =
                 LuceneIndexQueryPlan.of(index.getName(),
                         autoCompleteScanParams(searchKey, ImmutableSet.of(isSynthetic ? queriedConstituent + "_" + queriedField : queriedField)),
@@ -6195,9 +6453,11 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     }
 
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
-        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, isUseCascadesPlanner());
-        this.recordStore = pair.getLeft();
-        this.planner = pair.getRight();
+        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), document, index, isUseCascadesPlanner());
+        // Pair#getLeft/getRight are @Nullable in general (a Pair may hold nulls), but
+        // rebuildIndexMetaData always constructs its result from the non-null store/planner it builds.
+        this.recordStore = Objects.requireNonNull(pair.getLeft());
+        this.planner = Objects.requireNonNull(pair.getRight());
         this.recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(true);
     }
 
@@ -6286,7 +6546,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     private void testConflictWithLockAgileSet(AgilityContext agile1, Tuple conflictTuple) {
         agile1.accept(aContext -> {
-            byte [] conflictKey = path.toSubspace(aContext).pack(conflictTuple);
+            byte [] conflictKey = Objects.requireNonNull(path).toSubspace(aContext).pack(conflictTuple);
             final Transaction tr = aContext.ensureActive();
             tr.get(conflictKey).join();
             tr.set(conflictKey, Tuple.from(100, 20).pack());
@@ -6295,7 +6555,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
 
     private void testConflictWithLockCauseConflict(Tuple conflictTuple) {
         try (final FDBRecordContext context = fdb.openContext()) {
-            byte [] conflictKey = path.toSubspace(context).pack(conflictTuple);
+            byte [] conflictKey = Objects.requireNonNull(path).toSubspace(context).pack(conflictTuple);
             final Transaction tr = context.ensureActive();
             tr.get(conflictKey).join();
             tr.set(conflictKey, Tuple.from(100, 10).pack());

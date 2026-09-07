@@ -41,8 +41,6 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -79,10 +77,12 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
     }
 
     @VisibleForTesting
-    @Nonnull
     public FieldInfos read(final Directory directory, final String fileName) throws IOException {
         final FieldInfosStorage fieldInfosStorage = FDBDirectoryUtils.getFDBDirectory(directory).getFieldInfosStorage();
         final FDBLuceneFileReference fileReference = fieldInfosStorage.getFDBLuceneFileReference(fileName);
+        if (fileReference == null) {
+            throw new RecordCoreException("Reference not found").addLogInfo(LuceneLogMessageKeys.FILE_NAME, fileName);
+        }
         long id = fileReference.getFieldInfosId();
         final ByteString bitSetBytes = fileReference.getFieldInfosBitSet();
         if (bitSetBytes.isEmpty()) {
@@ -92,6 +92,9 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
         // There may be other fields in the protobuf that are not used in this segment
         BitSet bitSet = BitSet.valueOf(bitSetBytes.toByteArray());
         final LuceneFieldInfosProto.FieldInfos protobuf = fieldInfosStorage.readFieldInfos(id);
+        if (protobuf == null) {
+            throw new RecordCoreException("Field infos not found").addLogInfo(LuceneLogMessageKeys.FILE_NAME, fileName);
+        }
         List<FieldInfo> fieldInfos = new ArrayList<>();
         for (final LuceneFieldInfosProto.FieldInfo fieldInfo : protobuf.getFieldInfoList()) {
             if (bitSet.get(fieldInfo.getNumber())) {
@@ -198,8 +201,8 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
         fieldInfosStorage.setFieldInfoId(directory, fileName, id, bitSet);
     }
 
-    private boolean sameExceptAttributesOrdering(@Nonnull final LuceneFieldInfosProto.FieldInfo globalVersion,
-                                                 @Nonnull final LuceneFieldInfosProto.FieldInfo newVersion) {
+    private boolean sameExceptAttributesOrdering(final LuceneFieldInfosProto.FieldInfo globalVersion,
+                                                 final LuceneFieldInfosProto.FieldInfo newVersion) {
         if (protoToLucene(globalVersion.getAttributesList()).equals(protoToLucene(newVersion.getAttributesList()))) {
             // the only difference between this version and the new version is the ordering of the attributes
             return globalVersion.toBuilder().clearAttributes().build().equals(
@@ -317,14 +320,12 @@ public class LuceneOptimizedFieldInfosFormat extends FieldInfosFormat {
         }
     }
 
-    @Nonnull
     private static <T extends Enum<T>> RecordCoreException unexpectedEnumValue(final T enumValue) {
         return new RecordCoreException("Unexpected enum value")
                 .addLogInfo(LuceneLogMessageKeys.NAME, enumValue);
     }
 
     @SuppressWarnings("PMD.CloseResource") // we are just unwrapping objects, not taking ownership
-    @Nullable
     private static String getFileName(final Directory directory, final SegmentInfo segmentInfo, final String segmentSuffix) {
         String fileName;
         final Directory unwrapped = FilterDirectory.unwrap(directory);

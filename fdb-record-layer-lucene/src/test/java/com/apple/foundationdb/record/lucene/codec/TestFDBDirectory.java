@@ -39,9 +39,8 @@ import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.hamcrest.Matchers;
 import org.junit.Assert;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -131,9 +130,8 @@ public class TestFDBDirectory extends FDBDirectory {
         previousStoredFields.set(null);
     }
 
-    @Nonnull
     @Override
-    public IndexInput openInput(@Nonnull final String name, @Nonnull final IOContext ioContext) throws IOException {
+    public IndexInput openInput(final String name, final IOContext ioContext) throws IOException {
         final IndexInput indexInput = super.openInput(name, ioContext);
         if (fullBufferToSurviveDeletes) {
             assertThat("Avoid buffering more than 10MB",
@@ -159,9 +157,9 @@ public class TestFDBDirectory extends FDBDirectory {
                         name.endsWith("." + LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION)) {
                     final String segmentName = IndexFileNames.parseSegmentName(name);
                     final byte[] key = storedFieldsSubspace.pack(Tuple.from(segmentName));
-                    final List<KeyValue> rawStoredFields = asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS,
+                    final List<KeyValue> rawStoredFields = Objects.requireNonNull(asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS,
                             getAgilityContext().instrument(LuceneEvents.Events.LUCENE_READ_STORED_FIELDS,
-                                    getAgilityContext().getRange(key, ByteArrayUtil.strinc(key))));
+                                    getAgilityContext().getRange(key, ByteArrayUtil.strinc(key)))));
                     final Map<Long, byte[]> storedFields = rawStoredFields.stream().collect(Collectors.toMap(
                             keyValue -> storedFieldsSubspace.unpack(keyValue.getKey()).getLong(1),
                             keyValue -> Objects.requireNonNull(Objects.requireNonNull(getSerializer()).decodeFieldProtobuf(keyValue.getValue()))
@@ -178,9 +176,8 @@ public class TestFDBDirectory extends FDBDirectory {
         return indexInput;
     }
 
-    @Nonnull
     @Override
-    public IndexOutput createOutput(@Nonnull final String name, @Nullable final IOContext ioContext) throws IOException {
+    public IndexOutput createOutput(final String name, @Nullable final IOContext ioContext) throws IOException {
         final IndexOutput indexOutput = super.createOutput(name, ioContext);
         if (allowAddIndexes) {
             if (isStacktraceCopySegmentAsIs()) {
@@ -190,7 +187,7 @@ public class TestFDBDirectory extends FDBDirectory {
                         @Override
                         public void close() throws IOException {
                             super.close();
-                            final NonnullPair<String, FieldInfos> previous = previousFieldInfos.get();
+                            final NonnullPair<String, FieldInfos> previous = Objects.requireNonNull(previousFieldInfos.get());
                             FIELD_INFOS_FORMAT.write(TestFDBDirectory.this, previous.getRight(), name);
 
                             previousFieldInfos.compareAndSet(previous, null);
@@ -200,7 +197,7 @@ public class TestFDBDirectory extends FDBDirectory {
 
                 if (name.endsWith("." + LuceneOptimizedCompoundFormat.DATA_EXTENSION) ||
                         name.endsWith("." + LuceneOptimizedStoredFieldsFormat.STORED_FIELDS_EXTENSION)) {
-                    final NonnullPair<String, Map<Long, byte[]>> previous = previousStoredFields.get();
+                    final NonnullPair<String, Map<Long, byte[]>> previous = Objects.requireNonNull(previousStoredFields.get());
                     final String segmentName = IndexFileNames.parseSegmentName(name);
                     for (final Map.Entry<Long, byte[]> storedFields : previous.getRight().entrySet()) {
                         writeStoredFields(segmentName, storedFields.getKey().intValue(), storedFields.getValue());

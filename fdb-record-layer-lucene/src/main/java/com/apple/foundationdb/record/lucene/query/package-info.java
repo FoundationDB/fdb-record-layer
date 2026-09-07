@@ -21,4 +21,7 @@
 /**
  * Common classes for handling bitsets.
  */
+@NullMarked
 package com.apple.foundationdb.record.lucene.query;
+
+import org.jspecify.annotations.NullMarked;

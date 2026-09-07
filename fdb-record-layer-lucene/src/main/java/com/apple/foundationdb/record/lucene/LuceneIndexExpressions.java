@@ -39,8 +39,7 @@ import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
 import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -103,7 +102,7 @@ public class LuceneIndexExpressions {
      * @param root the {@code LUCENE} index root expresison
      * @param recordType Protobuf meta-data for record type
      */
-    public static void validate(@Nonnull KeyExpression root, @Nonnull Descriptors.Descriptor recordType) {
+    public static void validate(KeyExpression root, Descriptors.Descriptor recordType) {
         getFields(root, new MetaDataSource(recordType), (source, fieldName, value, type, fieldNameOverride, namedFieldPath, namedFieldSuffix, stored, sorted, overriddeKeyRanges, groupingKeyIndex, keyIndex, fieldConfigsIgnored) -> {
         }, null);
     }
@@ -113,11 +112,8 @@ public class LuceneIndexExpressions {
      */
     // TODO: Make this a JDK 14 record.
     public static class DocumentFieldDerivation {
-        @Nonnull
         private final String documentField;
-        @Nonnull
         private final List<String> recordFieldPath;
-        @Nonnull
         private final DocumentFieldType type;
         // TRUE when we have overridden the field name and replaced the original field with another
         private final boolean fieldNameOverride;
@@ -127,8 +123,8 @@ public class LuceneIndexExpressions {
         private final boolean stored;
         private final boolean sorted;
 
-        public DocumentFieldDerivation(@Nonnull String documentField, @Nonnull List<String> recordFieldPath,
-                                       @Nonnull DocumentFieldType type,
+        public DocumentFieldDerivation(String documentField, List<String> recordFieldPath,
+                                       DocumentFieldType type,
                                        boolean fieldNameOverride, @Nullable String namedFieldSuffix,
                                        boolean stored, boolean sorted) {
             this.documentField = documentField;
@@ -140,17 +136,14 @@ public class LuceneIndexExpressions {
             this.sorted = sorted;
         }
 
-        @Nonnull
         public String getDocumentField() {
             return documentField;
         }
 
-        @Nonnull
         public List<String> getRecordFieldPath() {
             return recordFieldPath;
         }
 
-        @Nonnull
         public DocumentFieldType getType() {
             return type;
         }
@@ -178,6 +171,7 @@ public class LuceneIndexExpressions {
          *
          * @return the PointsConfig for this field.
          */
+        @Nullable
         public PointsConfig getPointsConfig() {
             switch (type) {
                 case INT:
@@ -198,8 +192,7 @@ public class LuceneIndexExpressions {
         }
     }
 
-    @Nonnull
-    public static Map<String, DocumentFieldDerivation> getDocumentFieldDerivations(@Nonnull final Index index, @Nonnull final RecordMetaData metadata) {
+    public static Map<String, DocumentFieldDerivation> getDocumentFieldDerivations(final Index index, final RecordMetaData metadata) {
         Map<String, LuceneIndexExpressions.DocumentFieldDerivation> combined = null;
         for (RecordType recordType : metadata.recordTypesForIndex(index)) {
             final var documentFields = getDocumentFieldDerivations(index.getRootExpression(), recordType.getDescriptor());
@@ -221,7 +214,7 @@ public class LuceneIndexExpressions {
      * @param recordType Protobuf meta-data for record type
      * @return a map of document field names to {@link DocumentFieldDerivation}
      */
-    public static Map<String, DocumentFieldDerivation> getDocumentFieldDerivations(@Nonnull KeyExpression root, @Nonnull Descriptors.Descriptor recordType) {
+    public static Map<String, DocumentFieldDerivation> getDocumentFieldDerivations(KeyExpression root, Descriptors.Descriptor recordType) {
         final Map<String, DocumentFieldDerivation> fields = new HashMap<>();
         getFields(root,
                 new MetaDataSource(recordType),
@@ -251,9 +244,8 @@ public class LuceneIndexExpressions {
      * @param index The index.
      * @return a mapping between an index field name and its {@link PointsConfig}.
      */
-    @Nonnull
-    public static Map<String, PointsConfig> constructPointConfigMap(@Nonnull final FDBRecordStoreBase<?> store,
-                                                                    @Nonnull Index index) {
+    public static Map<String, PointsConfig> constructPointConfigMap(final FDBRecordStoreBase<?> store,
+                                                                    Index index) {
         final Map<String, PointsConfig> result = new HashMap<>();
         for (final RecordType type : store.getRecordMetaData().recordTypesForIndex(index)) {
             LuceneIndexExpressions.getDocumentFieldDerivations(index.getRootExpression(), type.getDescriptor()).forEach((key, value) -> {
@@ -276,14 +268,11 @@ public class LuceneIndexExpressions {
      * @param <T> the actual type of this source
      */
     public interface RecordSource<T extends RecordSource<T>> {
-        @Nonnull
         Descriptors.Descriptor getDescriptor();
 
-        @Nonnull
-        Iterable<T> getChildren(@Nonnull FieldKeyExpression parentExpression);
+        Iterable<T> getChildren(FieldKeyExpression parentExpression);
 
-        @Nonnull
-        Iterable<Object> getValues(@Nonnull KeyExpression keyExpression);
+        Iterable<Object> getValues(KeyExpression keyExpression);
     }
 
     /**
@@ -308,9 +297,9 @@ public class LuceneIndexExpressions {
          * @param fieldConfigs -
          */
         @SuppressWarnings("java:S107")
-        void addField(@Nonnull T source, @Nonnull String fieldName, @Nullable Object value, @Nonnull DocumentFieldType type,
+        void addField(T source, String fieldName, @Nullable Object value, DocumentFieldType type,
                       boolean fieldNameOverride, @Nullable List<String> namedFieldPath, @Nullable String namedFieldSuffix,
-                      boolean stored, boolean sorted, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex, int keyIndex, @Nonnull Map<String, Object> fieldConfigs);
+                      boolean stored, boolean sorted, List<Integer> overriddenKeyRanges, int groupingKeyIndex, int keyIndex, Map<String, Object> fieldConfigs);
     }
 
     /**
@@ -321,9 +310,8 @@ public class LuceneIndexExpressions {
      * @param destination the document / document meta-data
      * @param fieldNamePrefix prefix for generated field names
      */
-    @Nonnull
-    public static <T extends RecordSource<T>> void getFields(@Nonnull KeyExpression root, @Nonnull T source,
-                                                             @Nonnull DocumentDestination<T> destination, @Nullable String fieldNamePrefix) {
+    public static <T extends RecordSource<T>> void getFields(KeyExpression root, T source,
+                                                             DocumentDestination<T> destination, @Nullable String fieldNamePrefix) {
         KeyExpression expression;
         if (root instanceof GroupingKeyExpression) {
             expression = ((GroupingKeyExpression)root).getGroupedSubKey();
@@ -335,10 +323,10 @@ public class LuceneIndexExpressions {
     }
 
     @SuppressWarnings("squid:S3776")
-    public static <T extends RecordSource<T>> void getFieldsRecursively(@Nonnull KeyExpression expression,
-                                                                        @Nonnull T source, @Nonnull DocumentDestination<T> destination,
+    public static <T extends RecordSource<T>> void getFieldsRecursively(KeyExpression expression,
+                                                                        T source, DocumentDestination<T> destination,
                                                                         @Nullable String fieldNamePrefix, int keyIndex, int groupingCount,
-                                                                        @Nonnull List<Integer> overriddenKeyRanges) {
+                                                                        List<Integer> overriddenKeyRanges) {
         // Record type evaluation of primary key based on this expression for the partial record is not needed,
         // because this partial record to build has the correct record type.
         if (expression instanceof RecordTypeKeyExpression) {
@@ -486,7 +474,7 @@ public class LuceneIndexExpressions {
         throw new RecordCoreException("Unknown Lucene field key expression");
     }
 
-    private static void addOverriddenKeyRange(@Nonnull List<Integer> overriddenKeyRanges, @Nullable String fieldNamePrefix, @Nullable String fieldNameSuffix) {
+    private static void addOverriddenKeyRange(List<Integer> overriddenKeyRanges, @Nullable String fieldNamePrefix, @Nullable String fieldNameSuffix) {
         if (fieldNamePrefix == null) {
             overriddenKeyRanges.add(0);
             overriddenKeyRanges.add((fieldNameSuffix == null || fieldNameSuffix.isEmpty()) ? 0 : fieldNameSuffix.length());
@@ -496,7 +484,7 @@ public class LuceneIndexExpressions {
         }
     }
 
-    private static void removedLastOverriddenKeyRange(@Nonnull List<Integer> overriddenKeyRanges) {
+    private static void removedLastOverriddenKeyRange(List<Integer> overriddenKeyRanges) {
         if (overriddenKeyRanges.size() < 2) {
             throw new RecordCoreException("Invalid call to remove last overridden key range, since the list has not a full range to remove");
         }
@@ -520,14 +508,13 @@ public class LuceneIndexExpressions {
         private final MetaDataSource parent;
         @Nullable
         private final String field;
-        @Nonnull
         private final Descriptors.Descriptor descriptor;
 
-        MetaDataSource(@Nonnull Descriptors.Descriptor descriptor) {
+        MetaDataSource(Descriptors.Descriptor descriptor) {
             this(null, null, descriptor);
         }
 
-        MetaDataSource(@Nullable MetaDataSource parent, @Nullable String field, @Nonnull Descriptors.Descriptor descriptor) {
+        MetaDataSource(@Nullable MetaDataSource parent, @Nullable String field, Descriptors.Descriptor descriptor) {
             this.parent = parent;
             this.field = field;
             this.descriptor = descriptor;
@@ -549,14 +536,14 @@ public class LuceneIndexExpressions {
         }
 
         @Override
-        public Iterable<MetaDataSource> getChildren(@Nonnull FieldKeyExpression parentExpression) {
+        public Iterable<MetaDataSource> getChildren(FieldKeyExpression parentExpression) {
             final String parentField = parentExpression.getFieldName();
             final Descriptors.FieldDescriptor fieldDescriptor = descriptor.findFieldByName(parentField);
             return Collections.singletonList(new MetaDataSource(this, parentField, fieldDescriptor.getMessageType()));
         }
 
         @Override
-        public Iterable<Object> getValues(@Nonnull KeyExpression keyExpression) {
+        public Iterable<Object> getValues(KeyExpression keyExpression) {
             List<Object> result = new ArrayList<>();
             KeyExpression current = keyExpression;
             while (current != null) {

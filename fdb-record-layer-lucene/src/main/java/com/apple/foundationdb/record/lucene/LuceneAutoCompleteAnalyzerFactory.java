@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.metadata.Index;
 import com.google.auto.service.AutoService;
 
-import javax.annotation.Nonnull;
-
 /**
  * Factory to build index and query {@link org.apache.lucene.analysis.Analyzer} for auto-complete suggestions.
  */
@@ -32,22 +30,19 @@ import javax.annotation.Nonnull;
 public class LuceneAutoCompleteAnalyzerFactory implements LuceneAnalyzerFactory {
     public static final String ANALYZER_FACTORY_NAME = "AUTO_COMPLETE_DEFAULT";
 
-    @Nonnull
     @Override
     public String getName() {
         return ANALYZER_FACTORY_NAME;
     }
 
-    @Nonnull
     @Override
     public LuceneAnalyzerType getType() {
         return LuceneAnalyzerType.AUTO_COMPLETE;
     }
 
     @SuppressWarnings("deprecation")
-    @Nonnull
     @Override
-    public AnalyzerChooser getIndexAnalyzerChooser(@Nonnull Index index) {
+    public AnalyzerChooser getIndexAnalyzerChooser(Index index) {
         return LuceneAnalyzerWrapper::getStandardAnalyzerWrapper;
     }
 }

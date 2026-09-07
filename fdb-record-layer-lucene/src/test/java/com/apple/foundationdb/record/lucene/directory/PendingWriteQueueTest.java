@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.lucene.LucenePendingWriteQueueProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
@@ -55,13 +56,13 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -153,7 +154,7 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
             docs.forEach(doc -> {
                 queue.enqueueInsert(context, doc.getPrimaryKey(), doc.getFields(), incarnationValue);
             });
-            assertEquals(docs.size(), context.getTimer().getCount(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_WRITE));
+            assertEquals(docs.size(), Objects.requireNonNull(context.getTimer()).getCount(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_WRITE));
             commit(context);
         }
 
@@ -166,7 +167,7 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         // Delete the 3rd entry
         try (FDBRecordContext context = openContext()) {
             queue.clearEntry(context, entries.get(2));
-            assertEquals(1, context.getTimer().getCount(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_CLEAR));
+            assertEquals(1, Objects.requireNonNull(context.getTimer()).getCount(LuceneEvents.Counts.LUCENE_PENDING_QUEUE_CLEAR));
             commit(context);
         }
 
@@ -385,16 +386,15 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     /** Key backing the marker that models {@code FDBDirectory}'s ongoing-merge indicator (subspace index 2). */
-    @Nonnull
-    private byte[] markerKey(@Nonnull FDBRecordContext context) {
-        return path.toSubspace(context).subspace(Tuple.from(2)).pack();
+    private byte[] markerKey(FDBRecordContext context) {
+        return Objects.requireNonNull(path).toSubspace(context).subspace(Tuple.from(2)).pack();
     }
 
-    private void setMarker(@Nonnull FDBRecordContext context) {
+    private void setMarker(FDBRecordContext context) {
         context.ensureActive().set(markerKey(context), new byte[] {1});
     }
 
-    private boolean markerExists(@Nonnull FDBRecordContext context) {
+    private boolean markerExists(FDBRecordContext context) {
         return context.ensureActive().get(markerKey(context)).join() != null;
     }
 
@@ -402,7 +402,7 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
      * Mirrors {@code FDBDirectory.clearOngoingMergeIndicatorIfQueueEmptyAsync}: clears the marker only if the
      * queue is empty, otherwise throws so the caller drains more and retries.
      */
-    private void clearMarkerIfQueueEmpty(@Nonnull FDBRecordContext context, @Nonnull PendingWriteQueue queue) {
+    private void clearMarkerIfQueueEmpty(FDBRecordContext context, PendingWriteQueue queue) {
         if (!queue.isQueueEmpty(context).join()) {
             throw new RecordCoreException("Cannot clear queue usage indicator: pending write queue is not empty");
         }
@@ -899,7 +899,6 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
     private TestDocument createHugeDocument(Random random) {
         StringBuilder builder = new StringBuilder();
         for (int i = 0 ; i < 500_000 ; i++) {
@@ -919,8 +918,9 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
     }
 
     private PendingWriteQueue getQueue(FDBRecordContext context, LuceneSerializer serializer, boolean allowIncarnation) {
-        Subspace queueSpace = path.toSubspace(context).subspace(Tuple.from(0));
-        Subspace counterSpace = path.toSubspace(context).subspace(Tuple.from(1));
+        final KeySpacePath nonNullPath = Objects.requireNonNull(path);
+        Subspace queueSpace = nonNullPath.toSubspace(context).subspace(Tuple.from(0));
+        Subspace counterSpace = nonNullPath.toSubspace(context).subspace(Tuple.from(1));
         return new PendingWriteQueue(queueSpace, counterSpace,
                 PendingWriteQueue.DEFAULT_MAX_PENDING_ENTRIES_TO_REPLAY,
                 PendingWriteQueue.DEFAULT_MAX_PENDING_QUEUE_SIZE,
@@ -1004,9 +1004,8 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
                 assertTrue(entryField.hasTextValue());
                 return entryField.getTextValue();
             default:
-                fail("Unknown type");
+                return fail("Unknown type");
         }
-        return null;
     }
 
     private List<TestDocument> createTestDocuments() {
@@ -1040,7 +1039,6 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
         return List.of(docWithNoFields, docWithOneFields, docWithMultipleFields, hugeDoc, docWithAllFieldTypes);
     }
 
-    @Nonnull
     private static Tuple primaryKey(String text) {
         return Tuple.from(text, System.nanoTime());
     }
@@ -1083,15 +1081,13 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
             super(true, false, null, true);
         }
 
-        @Nullable
         @Override
-        public byte[] encode(@Nullable final byte[] data) {
+        public byte @Nullable [] encode(final byte @Nullable [] data) {
             throw new RecordCoreInternalException("Failing to encode");
         }
 
-        @Nullable
         @Override
-        public byte[] decode(@Nullable final byte[] data) {
+        public byte @Nullable [] decode(final byte @Nullable [] data) {
             throw new RecordCoreInternalException("Failing to decode");
         }
     }
@@ -1101,15 +1097,13 @@ class PendingWriteQueueTest extends FDBRecordStoreTestBase {
             super(true, false, null, true);
         }
 
-        @Nullable
         @Override
-        public byte[] encode(@Nullable final byte[] data) {
+        public byte @Nullable [] encode(final byte @Nullable [] data) {
             return data;
         }
 
-        @Nullable
         @Override
-        public byte[] decode(@Nullable final byte[] data) {
+        public byte @Nullable [] decode(final byte @Nullable [] data) {
             return data;
         }
     }

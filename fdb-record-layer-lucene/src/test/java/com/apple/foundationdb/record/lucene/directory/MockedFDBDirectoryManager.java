@@ -23,25 +23,26 @@ package com.apple.foundationdb.record.lucene.directory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 
 /**
  * A Testing-focused {@link FDBDirectoryManager} that allows a mocked-FDBDirectory to be injected into the system.
  */
 public class MockedFDBDirectoryManager extends FDBDirectoryManager {
+    @Nullable
     private InjectedFailureRepository injectedFailures;
 
-    public MockedFDBDirectoryManager(@Nonnull final IndexMaintainerState state) {
+    public MockedFDBDirectoryManager(final IndexMaintainerState state) {
         super(state);
     }
 
-    @Nonnull
     @Override
     protected FDBDirectoryWrapper createNewDirectoryWrapper(final IndexMaintainerState state, final Tuple key,
                                                             final int mergeDirectoryCount, final AgilityContext agilityContext,
                                                             final int blockCacheMaximumSize) {
         return new MockedFDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize,
-                injectedFailures, writerAnalyzer, exceptionAtCreation);
+                Objects.requireNonNull(injectedFailures), writerAnalyzer, exceptionAtCreation);
     }
 
     /**
@@ -49,9 +50,8 @@ public class MockedFDBDirectoryManager extends FDBDirectoryManager {
      * @param state the state to use for the manager
      * @return a cached instance of the manager if one exists, create a new one otherwise
      */
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public static FDBDirectoryManager getManager(@Nonnull IndexMaintainerState state) {
+    public static FDBDirectoryManager getManager(IndexMaintainerState state) {
         return getOrCreateManager(state, () -> new MockedFDBDirectoryManager(state));
     }
 

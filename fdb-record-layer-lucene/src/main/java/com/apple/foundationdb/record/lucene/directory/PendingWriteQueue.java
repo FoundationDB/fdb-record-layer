@@ -54,12 +54,12 @@ import org.apache.lucene.index.IndexWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -127,7 +127,7 @@ public class PendingWriteQueue {
      * @param allowIncarnation whether to prefix queue keys with an incarnation value, ensuring entries from newer
      * incarnations sort after older ones. See {@link FDBRecordStore#getIncarnation()}
      */
-    public PendingWriteQueue(@Nonnull Subspace queueSubspace, @Nonnull Subspace queueSizeSubspace, int maxEntriesToReplay, int maxQueueSize, LuceneSerializer serializer, boolean allowIncarnation) {
+    public PendingWriteQueue(Subspace queueSubspace, Subspace queueSizeSubspace, int maxEntriesToReplay, int maxQueueSize, LuceneSerializer serializer, boolean allowIncarnation) {
         this.queueSubspace = queueSubspace;
         this.queueSizeSubspace = queueSizeSubspace;
         this.maxEntriesToReplay = maxEntriesToReplay;
@@ -145,9 +145,9 @@ public class PendingWriteQueue {
      * @param incarnationValue the incarnation value to prefix queue keys with (see {@link FDBRecordStore#getIncarnation()})
      */
     public void enqueueInsert(
-            @Nonnull FDBRecordContext context,
-            @Nonnull Tuple primaryKey,
-            @Nonnull List<LuceneDocumentFromRecord.DocumentField> fields,
+            FDBRecordContext context,
+            Tuple primaryKey,
+            List<LuceneDocumentFromRecord.DocumentField> fields,
             int incarnationValue) {
 
         enqueueOperationInternal(
@@ -166,8 +166,8 @@ public class PendingWriteQueue {
      * @param incarnationValue the incarnation value to prefix queue keys with (see {@link FDBRecordStore#getIncarnation()})
      */
     public void enqueueDelete(
-            @Nonnull FDBRecordContext context,
-            @Nonnull Tuple primaryKey,
+            FDBRecordContext context,
+            Tuple primaryKey,
             int incarnationValue) {
 
         enqueueOperationInternal(
@@ -195,11 +195,14 @@ public class PendingWriteQueue {
      *
      * @return a record cursor that iterates through the elements of the queue, in order
      */
-    @SuppressWarnings("PMD.CloseResource")
+    // NullAway/JSpecify does not currently track @Nullable on array (byte[])
+    // parameters of KeyValueCursorBase.Builder#setContinuation (out of
+    // scope to fix here); null intentionally means "start from the beginning".
+    @SuppressWarnings({"PMD.CloseResource", "NullAway"})
     public RecordCursor<QueueEntry> getQueueCursor(
-            @Nonnull FDBRecordContext context,
-            @Nonnull ScanProperties scanProperties,
-            @Nullable byte[] continuation) {
+            FDBRecordContext context,
+            ScanProperties scanProperties,
+            byte @Nullable [] continuation) {
         // Force snapshot isolation on the inner cursor (the only component that issues FDB reads) so the drain
         // never installs a read-conflict range over the queue subspace. The unsplitter still receives the
         // original scanProperties, so the caller's row/byte/skip limits are honored (it issues no reads itself,
@@ -250,7 +253,7 @@ public class PendingWriteQueue {
      * @param context the context to use
      * @param entry the entry to remove
      */
-    public void clearEntry(@Nonnull FDBRecordContext context, @Nonnull QueueEntry entry) {
+    public void clearEntry(FDBRecordContext context, QueueEntry entry) {
         // Install a read-conflict range over the keys this entry occupies. Clears are blind writes that do not
         // conflict with each other, so without this two transactions could concurrently clear the same entry and
         // each decrement the size counter, making it drift. The read conflict ensures at most one clear of
@@ -277,8 +280,7 @@ public class PendingWriteQueue {
      * @param context the record context
      * @return a future that resolves to {@code true} if the queue is empty, {@code false} otherwise
      */
-    @Nonnull
-    public CompletableFuture<Boolean> isQueueEmpty(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<Boolean> isQueueEmpty(FDBRecordContext context) {
         // This is using direct count as it is still efficient, and is accurate in all cases, even when the counter is
         // uninitialized or has drifted
         // Return true if empty
@@ -296,7 +298,6 @@ public class PendingWriteQueue {
      *
      * @return CompletableFuture that completes when all operations have been replayed
      */
-    @Nonnull
     public CompletableFuture<Void> replayQueuedOperations(FDBRecordContext context, IndexWriter indexWriter, Index index) {
         ScanProperties scanProperties = ScanProperties.FORWARD_SCAN;
         if (maxEntriesToReplay > 0) {
@@ -311,7 +312,8 @@ public class PendingWriteQueue {
         // There is no need to replay with a continuation as all the replayed items need to make it into the
         // current writer in the given transaction to be queried
         return getQueueCursor(context, scanProperties, null).forEachResult(entry -> {
-            replayOperation(entry.get(), indexWriter, index);
+            // forEachResult only invokes this for results where hasNext() is true, so get() is non-null.
+            replayOperation(Objects.requireNonNull(entry.get()), indexWriter, index);
         }).thenAccept(lastResult -> {
             if (lastResult.getNoNextReason().equals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED)) {
                 // Reached the row limit
@@ -323,7 +325,7 @@ public class PendingWriteQueue {
     /**
      * Replay a single queued operation directly to the IndexWriter.
      */
-    private void replayOperation(@Nonnull QueueEntry entry, @Nonnull IndexWriter indexWriter, @Nonnull Index index) {
+    private void replayOperation(QueueEntry entry, IndexWriter indexWriter, Index index) {
         LucenePendingWriteQueueProto.PendingWriteItem.OperationType opType = entry.getOperationType();
 
         try {
@@ -354,9 +356,9 @@ public class PendingWriteQueue {
     }
 
     private void enqueueOperationInternal(
-            @Nonnull FDBRecordContext context,
-            @Nonnull LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType,
-            @Nonnull Tuple primaryKey,
+            FDBRecordContext context,
+            LucenePendingWriteQueueProto.PendingWriteItem.OperationType operationType,
+            Tuple primaryKey,
             @Nullable List<LuceneDocumentFromRecord.DocumentField> fields,
             int incarnation) {
 
@@ -388,7 +390,8 @@ public class PendingWriteQueue {
                          ? Tuple.from(incarnation, recordVersion.toVersionstamp())
                          : Tuple.from(recordVersion.toVersionstamp());
         long startTime = System.nanoTime();
-        byte[] value = serializer.encode(builder.build().toByteArray());
+        // serializer.encode() only returns null when given null input; the encoded bytes are non-null here.
+        byte[] value = Objects.requireNonNull(serializer.encode(builder.build().toByteArray()));
         context.record(LuceneEvents.Waits.WAIT_LUCENE_SERIALIZE, System.nanoTime() - startTime);
         // save with splits
         SplitHelper.saveWithSplit(context, queueSubspace, keyTuple, value, null, true, false, false, null, null);
@@ -408,7 +411,7 @@ public class PendingWriteQueue {
         }
     }
 
-    private KeyValueLogMessage getLogMessage(final @Nonnull String staticMsg) {
+    private KeyValueLogMessage getLogMessage(final String staticMsg) {
         return KeyValueLogMessage.build(staticMsg)
                 .addKeyAndValue(LogMessageKeys.SUBSPACE, queueSubspace);
     }
@@ -421,7 +424,7 @@ public class PendingWriteQueue {
      * @param context the context to use
      * @param amount the amount by which to mutate the counter
      */
-    private void mutateQueueSizeCounter(final @Nonnull FDBRecordContext context, final int amount) {
+    private void mutateQueueSizeCounter(final FDBRecordContext context, final int amount) {
         context.ensureActive().mutate(MutationType.ADD, queueSizeSubspace.pack(), encodeQueueSize(amount));
     }
 
@@ -450,14 +453,14 @@ public class PendingWriteQueue {
      *
      * @return a future that resolves to the queue size, or {@code null} if the counter does not exist
      */
-    @Nonnull
-    public CompletableFuture<Long> getQueueSize(@Nonnull FDBRecordContext context) {
+    public CompletableFuture<Long> getQueueSize(FDBRecordContext context) {
         return context.readTransaction(true).get(queueSizeSubspace.pack())
                 .thenApply(size -> {
                     if (size == null) {
                         return null;
                     } else {
-                        final Long actualSize = decodeQueueSize(size);
+                        // decodeQueueSize() only returns null when given null bytes; size is non-null here.
+                        final Long actualSize = Objects.requireNonNull(decodeQueueSize(size));
                         context.recordSize(LuceneEvents.SizeEvents.LUCENE_QUEUE_SIZE, actualSize);
                         return actualSize;
                     }
@@ -468,6 +471,7 @@ public class PendingWriteQueue {
         return ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(count).array();
     }
 
+    @Nullable
     private Long decodeQueueSize(@Nullable byte[] bytes) {
         return bytes == null ? null : ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getLong();
     }

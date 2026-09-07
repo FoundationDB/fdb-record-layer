@@ -47,6 +47,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -127,8 +128,8 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
                 if (type.usesOptimizedStoredFields) {
                     assertDocCountPerSegment(directory, List.of("_0"), List.of(3));
-                    assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 1);
-                    assertTrue(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
+                    assertTrue(Objects.requireNonNull(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS)).getCount() > 1);
+                    assertTrue(Objects.requireNonNull(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS)).getCount() >= 3);
                 } else {
                     assertTotalDocCountInSegments(0, segments, directory);
                 }
@@ -172,8 +173,8 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 // TODO: Find a way to force a merge and make sure the old segments are gone
                 if (type.usesOptimizedStoredFields) {
                     assertDocCountPerSegment(directory, List.of("_0", "_1", "_2", "_3"), List.of(1, 1, 1, 0));
-                    assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 1);
-                    assertTrue(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
+                    assertTrue(Objects.requireNonNull(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS)).getCount() > 1);
+                    assertTrue(Objects.requireNonNull(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS)).getCount() >= 3);
                 } else {
                     assertTotalDocCountInSegments(0, segments, directory);
                 }
@@ -227,7 +228,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 // After a merge, all tombstones are removed and one document remains
                 if (type.usesOptimizedStoredFields) {
                     assertTotalDocCountInSegments(1, segments, directory);
-                    assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
+                    assertTrue(Objects.requireNonNull(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS)).getCount() > 0);
                 } else {
                     assertTotalDocCountInSegments(0, segments, directory);
                 }
@@ -320,7 +321,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 // After a merge, all tombstones are removed and 3 documents remain
                 if (type.usesOptimizedStoredFields) {
                     assertTotalDocCountInSegments(3, segments, directory);
-                    assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
+                    assertTrue(Objects.requireNonNull(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS)).getCount() > 0);
                 } else {
                     assertTotalDocCountInSegments(0, segments, directory);
                 }
@@ -368,7 +369,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
                 if (type.usesOptimizedStoredFields) {
                     // When deleting all docs from the index, the first segment (_0) was merged away and the last segment (_1) gets removed
                     assertDocCountPerSegment(directory, List.of("_0", "_1"), List.of(0, 0));
-                    assertTrue(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS).getCount() > 0);
+                    assertTrue(Objects.requireNonNull(timer.getCounter(LuceneEvents.Counts.LUCENE_DELETE_STORED_FIELDS)).getCount() > 0);
                 } else {
                     assertTotalDocCountInSegments(0, segments, directory);
                 }
@@ -424,8 +425,8 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
             try (FDBDirectory directory = new FDBDirectory(recordStore.indexSubspace(index), context, index.getOptions())) {
                 if (type.usesOptimizedStoredFields) {
                     assertDocCountPerSegment(directory, List.of("_0"), List.of(3));
-                    assertTrue(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS).getCount() > 5);
-                    assertTrue(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS).getCount() >= 3);
+                    assertTrue(Objects.requireNonNull(timer.getCounter(LuceneEvents.Waits.WAIT_LUCENE_GET_STORED_FIELDS)).getCount() > 5);
+                    assertTrue(Objects.requireNonNull(timer.getCounter(LuceneEvents.SizeEvents.LUCENE_WRITE_STORED_FIELDS)).getCount() >= 3);
                 } else {
                     assertTotalDocCountInSegments(0, segments, directory);
                 }
@@ -473,12 +474,12 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
     }
 
     private Object toFieldValue(final FDBQueriedRecord<Message> record, final String fieldName) {
-        final Message storedRecord = record.getStoredRecord().getRecord();
+        final Message storedRecord = Objects.requireNonNull(record.getStoredRecord()).getRecord();
         return storedRecord.getField(storedRecord.getDescriptorForType().findFieldByName(fieldName));
     }
 
     private Tuple toPrimaryKey(final FDBQueriedRecord<Message> record) {
-        return record.getIndexEntry().getPrimaryKey();
+        return Objects.requireNonNull(record.getIndexEntry()).getPrimaryKey();
     }
 
     private void validatePrimaryKeySegmentIndex(final Index index, final Set<Tuple> primaryKeys, final String documentType) throws IOException {
@@ -523,9 +524,11 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
     }
 
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
-        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, isUseCascadesPlanner());
-        this.recordStore = pair.getLeft();
-        this.planner = pair.getRight();
+        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), document, index, isUseCascadesPlanner());
+        // Pair#getLeft/getRight are @Nullable in general (a Pair may hold nulls), but
+        // rebuildIndexMetaData always constructs its result from the non-null store/planner it builds.
+        this.recordStore = Objects.requireNonNull(pair.getLeft());
+        this.planner = Objects.requireNonNull(pair.getRight());
         recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
     }
 }

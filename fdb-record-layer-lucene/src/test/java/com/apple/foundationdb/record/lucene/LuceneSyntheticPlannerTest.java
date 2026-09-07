@@ -38,8 +38,8 @@ import com.google.common.collect.Sets;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 
-import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.query;
 import static com.apple.foundationdb.record.lucene.LucenePlanMatchers.scanParams;
@@ -71,14 +71,14 @@ public class LuceneSyntheticPlannerTest extends FDBRecordStoreTestBase {
                     Sets.newHashSet(IndexTypes.TEXT),
                     Sets.newHashSet(LuceneIndexTypes.LUCENE)
             );
-        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, Objects.requireNonNull(recordStore.getTimer()));
         planner.setConfiguration(planner.getConfiguration()
                 .asBuilder()
                 .setPlanOtherAttemptWholeFilter(attemptWholeFilter)
                 .build());
     }
 
-    private static void metadataHook(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+    private static void metadataHook(final RecordMetaDataBuilder metaDataBuilder) {
         metaDataBuilder.getRecordType("CustomerWithHeader")
                 .setPrimaryKey(Key.Expressions.concat(field("___header").nest("z_key"), field("___header").nest("rec_id")));
         metaDataBuilder.getRecordType("OrderWithHeader")

@@ -43,13 +43,13 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 import org.apache.lucene.index.DirectoryReader;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -59,18 +59,17 @@ import java.util.stream.Collectors;
  * have been indexed, but cannot be found in the segment index.
  */
 public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMissing {
+    @Nullable
     private Collection<RecordType> recordTypes = null;
+    @Nullable
     private Index index;
     private boolean isSynthetic;
 
-    @Nonnull
     private final LucenePartitioner partitioner;
-    @Nonnull
     private final FDBDirectoryManager directoryManager;
-    @Nonnull
     private final LuceneIndexMaintainer indexMaintainer;
 
-    public LuceneIndexScrubbingToolsMissing(@Nonnull LucenePartitioner partitioner, @Nonnull FDBDirectoryManager directoryManager, @Nonnull LuceneIndexMaintainer indexMaintainer) {
+    public LuceneIndexScrubbingToolsMissing(LucenePartitioner partitioner, FDBDirectoryManager directoryManager, LuceneIndexMaintainer indexMaintainer) {
         this.partitioner = partitioner;
         this.directoryManager = directoryManager;
         this.indexMaintainer = indexMaintainer;
@@ -96,14 +95,18 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
     }
 
     @Override
-    @Nullable
-    public CompletableFuture<Issue> handleOneItem(final FDBRecordStore store, final RecordCursorResult<FDBStoredRecord<Message>> result) {
+    // NullAway does not correctly resolve the nested generic nullability of the overridden
+    // ValueIndexScrubbingToolsMissing#handleOneItem (fdb-record-layer-core) across this module
+    // boundary; it reports that method as returning a bare CompletableFuture<Issue>, even though
+    // its actual, correct declaration (like this override) is CompletableFuture<@Nullable Issue>.
+    @SuppressWarnings("NullAway")
+    public CompletableFuture<@Nullable Issue> handleOneItem(final FDBRecordStore store, final RecordCursorResult<FDBStoredRecord<Message>> result) {
         if (recordTypes == null || index == null) {
             throw new IllegalStateException("presetParams was not called appropriately for this scrubbing tool");
         }
 
         final FDBStoredRecord<Message> rec = result.get();
-        if (!shouldHandleItem(rec)) {
+        if (rec == null || !shouldHandleItem(rec)) {
             return CompletableFuture.completedFuture(null);
         }
 
@@ -120,12 +123,21 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
                                     LogMessageKeys.GROUPING_KEY, missingIndexesKeys.getValue(),
                                     LogMessageKeys.REASON, missingIndexesKeys.getKey()),
                             FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES,
-                            null);
+                            noRecordToIndex());
                 });
     }
 
+    // Issue#recordToIndex is documented as nullable ("if non-null, let the indexer index this record"),
+    // but its constructor parameter is not itself annotated @Nullable. The Lucene missing-index scrubber
+    // does not support single-record repair, so this is always null; see the analogous
+    // ValueIndexScrubbingToolsMissing#allowRepairOrNull in fdb-record-layer-core.
+    @SuppressWarnings("NullAway")
+    private static FDBStoredRecord<Message> noRecordToIndex() {
+        return null;
+    }
+
     private boolean shouldHandleItem(FDBStoredRecord<Message> rec) {
-        if (rec == null || !recordTypes.contains(rec.getRecordType())) {
+        if (!Objects.requireNonNull(recordTypes, "presetParams was not called appropriately for this scrubbing tool").contains(rec.getRecordType())) {
             return false;
         }
         return indexMaintainer.maybeFilterRecord(rec) != null;
@@ -135,14 +147,15 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
     private CompletableFuture<Pair<MissingIndexReason, Tuple>> detectMissingIndexKeys(final FDBRecordStore store, FDBStoredRecord<Message> rec) {
         // Generate synthetic record (if applicable) and return the first detected missing (if any).
         final AtomicReference<Pair<MissingIndexReason, Tuple>> issue = new AtomicReference<>();
+        final Index nonNullIndex = Objects.requireNonNull(index, "presetParams was not called appropriately for this scrubbing tool");
 
         if (!isSynthetic) {
             return checkMissingIndexKey(rec, issue).thenApply(ignore -> issue.get());
         }
         final RecordQueryPlanner queryPlanner =
-                new RecordQueryPlanner(store.getRecordMetaData(), store.getRecordStoreState().withWriteOnlyIndexes(Collections.singletonList(index.getName())));
+                new RecordQueryPlanner(store.getRecordMetaData(), store.getRecordStoreState().withWriteOnlyIndexes(Collections.singletonList(nonNullIndex.getName())));
         final SyntheticRecordPlanner syntheticPlanner = new SyntheticRecordPlanner(store, queryPlanner);
-        SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanner.forIndex(index);
+        SyntheticRecordFromStoredRecordPlan syntheticPlan = syntheticPlanner.forIndex(nonNullIndex);
         final RecordCursor<FDBSyntheticRecord> recordCursor = syntheticPlan.execute(store, rec);
 
         return AsyncUtil.whenAll(
@@ -156,7 +169,7 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
     private CompletableFuture<Void> checkMissingIndexKey(FDBIndexableRecord<Message> rec,
                                                          AtomicReference<Pair<MissingIndexReason, Tuple>> issue) {
         // Iterate grouping keys (if any) and detect missing index entry (if any)
-        final KeyExpression root = index.getRootExpression();
+        final KeyExpression root = Objects.requireNonNull(index, "presetParams was not called appropriately for this scrubbing tool").getRootExpression();
         final Map<Tuple, List<LuceneDocumentFromRecord.DocumentField>> recordFields = LuceneDocumentFromRecord.getRecordFields(root, rec);
         if (recordFields.isEmpty()) {
             // recordFields should not be an empty map
@@ -193,7 +206,7 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    private boolean isMissingIndexKey(FDBIndexableRecord<Message> rec, Integer partitionId, Tuple groupingKey) {
+    private boolean isMissingIndexKey(FDBIndexableRecord<Message> rec, @Nullable Integer partitionId, Tuple groupingKey) {
         @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
         if (segmentIndex == null) {
             // Here: internal error, getIndexScrubbingTools should have indicated that scrub missing is not supported.

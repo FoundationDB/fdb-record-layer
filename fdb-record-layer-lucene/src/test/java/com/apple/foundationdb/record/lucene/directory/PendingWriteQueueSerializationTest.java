@@ -41,8 +41,7 @@ import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -68,9 +67,9 @@ class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         final Index index = SIMPLE_TEXT_SUFFIXES;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path,
                         TestRecordsTextProto.SimpleDocument.getDescriptor().getName(),
-                        index, useCascadesPlanner).getLeft();
+                        index, useCascadesPlanner).getLeft());
 
         final long directRecordId = 1001L;
         final long queuedRecordId = 2002L;
@@ -118,7 +117,7 @@ class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         final Index index = TEXT_AND_STORED_COMPLEX;
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         final Function<FDBRecordContext, FDBRecordStore> schemaSetup = context ->
-                LuceneIndexTestUtils.rebuildIndexMetaData(context, path, COMPLEX_DOC, index, useCascadesPlanner).getLeft();
+                Objects.requireNonNull(LuceneIndexTestUtils.rebuildIndexMetaData(context, path, COMPLEX_DOC, index, useCascadesPlanner).getLeft());
 
         final long directRecordId = 1001L;
         final long queuedRecordId = 2002L;
@@ -166,6 +165,9 @@ class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         assertComplexRecordsIdenticalExceptIds(schemaSetup);
     }
 
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     private void assertComplexRecordsIdenticalExceptIds(Function<FDBRecordContext, FDBRecordStore> schemaSetup) {
         try (FDBRecordContext context = openContext()) {
             FDBRecordStore recordStore = Objects.requireNonNull(schemaSetup.apply(context));
@@ -228,6 +230,9 @@ class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         }
     }
 
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     private void assertRecordsIdenticalExceptIds(Function<FDBRecordContext, FDBRecordStore> schemaSetup,
                                                  Index index) {
         try (FDBRecordContext context = openContext()) {
@@ -257,6 +262,9 @@ class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         }
     }
 
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     private void assertQueryFindsRecords(Function<FDBRecordContext, FDBRecordStore> schemaSetup, Index index,
                                          List<String> searchTerms, List<Long> expectedDocIds, boolean isComplex) {
         for (String searchTerm: searchTerms) {
@@ -304,7 +312,6 @@ class PendingWriteQueueSerializationTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Nonnull
     private static LuceneIndexMaintainer getLuceneIndexMaintainer(FDBRecordStore store, Index index) {
         return (LuceneIndexMaintainer) store.getIndexMaintainer(index);
     }

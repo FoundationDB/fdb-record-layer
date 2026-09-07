@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.lucene.LuceneLogMessageKeys;
 
-import javax.annotation.Nonnull;
 import java.io.InputStream;
 
 /**
@@ -51,8 +50,7 @@ public interface SynonymMapConfig {
      */
     boolean expand();
 
-    @Nonnull
-    static InputStream openFile(@Nonnull String file) {
+    static InputStream openFile(String file) {
         InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream(file);
         if (stream == null) {
             throw new RecordCoreException("Synonym file not found").addLogInfo(LuceneLogMessageKeys.FILE_NAME, file);

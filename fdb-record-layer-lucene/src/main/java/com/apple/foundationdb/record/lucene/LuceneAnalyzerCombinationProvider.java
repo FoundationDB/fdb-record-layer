@@ -22,8 +22,7 @@ package com.apple.foundationdb.record.lucene;
 
 import org.apache.lucene.analysis.miscellaneous.PerFieldAnalyzerWrapper;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -36,32 +35,27 @@ import java.util.stream.Collectors;
  */
 public class LuceneAnalyzerCombinationProvider {
 
-    @Nonnull
     private final LuceneAnalyzerWrapper indexAnalyzerWrapper;
-    @Nonnull
     private final LuceneAnalyzerWrapper queryAnalyzerWrapper;
 
-    public LuceneAnalyzerCombinationProvider(@Nonnull AnalyzerChooser defaultIndexAnalyzerChooser,
-                                             @Nonnull AnalyzerChooser defaultQueryAnalyzerChooser,
+    public LuceneAnalyzerCombinationProvider(AnalyzerChooser defaultIndexAnalyzerChooser,
+                                             AnalyzerChooser defaultQueryAnalyzerChooser,
                                              @Nullable Map<String, AnalyzerChooser> indexAnalyzerChooserPerFieldOverride,
                                              @Nullable Map<String, AnalyzerChooser> queryAnalyzerChooserPerFieldOverride) {
         indexAnalyzerWrapper = buildAnalyzerWrapper(defaultIndexAnalyzerChooser, indexAnalyzerChooserPerFieldOverride);
         queryAnalyzerWrapper = buildAnalyzerWrapper(defaultQueryAnalyzerChooser, queryAnalyzerChooserPerFieldOverride);
     }
 
-    @Nonnull
     public LuceneAnalyzerWrapper provideIndexAnalyzer() {
         return indexAnalyzerWrapper;
     }
 
-    @Nonnull
     public LuceneAnalyzerWrapper provideQueryAnalyzer() {
         return queryAnalyzerWrapper;
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    private static LuceneAnalyzerWrapper buildAnalyzerWrapper(@Nonnull AnalyzerChooser defaultAnalyzerChooser,
+    private static LuceneAnalyzerWrapper buildAnalyzerWrapper(AnalyzerChooser defaultAnalyzerChooser,
                                                               @Nullable Map<String, AnalyzerChooser> customizedAnalyzerChooserPerField) {
         final LuceneAnalyzerWrapper defaultAnalyzerWrapper = defaultAnalyzerChooser.chooseAnalyzer();
         if (customizedAnalyzerChooserPerField != null) {
@@ -78,7 +72,7 @@ public class LuceneAnalyzerCombinationProvider {
         }
     }
 
-    private static String buildAnalyzerIdentifier(@Nonnull LuceneAnalyzerWrapper defaultAnalyzerWrapper, @Nonnull Map<String, LuceneAnalyzerWrapper> analyzerWrapperMap) {
+    private static String buildAnalyzerIdentifier(LuceneAnalyzerWrapper defaultAnalyzerWrapper, Map<String, LuceneAnalyzerWrapper> analyzerWrapperMap) {
         final StringBuilder builder = new StringBuilder();
         builder.append(defaultAnalyzerWrapper.getUniqueIdentifier());
         for (String id : analyzerWrapperMap.keySet()) {

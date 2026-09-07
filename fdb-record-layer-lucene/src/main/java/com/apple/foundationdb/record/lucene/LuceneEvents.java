@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link StoreTimer} events associated with Lucene operations.
@@ -85,7 +85,7 @@ public class LuceneEvents {
         private final String title;
         private final String logKey;
 
-        Events(String title, String logKey) {
+        Events(String title, @Nullable String logKey) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : StoreTimer.Event.super.logKey();
         }
@@ -101,7 +101,6 @@ public class LuceneEvents {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }
@@ -117,7 +116,7 @@ public class LuceneEvents {
         private final String title;
         private final String logKey;
 
-        DetailEvents(String title, String logKey) {
+        DetailEvents(String title, @Nullable String logKey) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : StoreTimer.DetailEvent.super.logKey();
         }
@@ -133,7 +132,6 @@ public class LuceneEvents {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }
@@ -191,7 +189,7 @@ public class LuceneEvents {
         private final String title;
         private final String logKey;
 
-        Waits(String title, String logKey) {
+        Waits(String title, @Nullable String logKey) {
             this.title = title;
             this.logKey = (logKey != null) ? logKey : StoreTimer.Wait.super.logKey();
         }
@@ -206,7 +204,6 @@ public class LuceneEvents {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }
@@ -262,7 +259,7 @@ public class LuceneEvents {
         private final String logKey;
         private final boolean delayedUntilCommit;
 
-        Counts(String title, boolean isSize, String logKey, boolean delayedUntilCommit) {
+        Counts(String title, boolean isSize, @Nullable String logKey, boolean delayedUntilCommit) {
             this.title = title;
             this.isSize = isSize;
             this.logKey = (logKey != null) ? logKey : StoreTimer.Count.super.logKey();
@@ -279,7 +276,6 @@ public class LuceneEvents {
         }
 
         @Override
-        @Nonnull
         public String logKey() {
             return this.logKey;
         }
@@ -319,11 +315,11 @@ public class LuceneEvents {
         private final String title;
         private final boolean delayedUntilCommit;
 
-        SizeEvents(@Nonnull String title) {
+        SizeEvents(String title) {
             this(title, false);
         }
 
-        SizeEvents(@Nonnull String title, boolean delayedUntilCommit) {
+        SizeEvents(String title, boolean delayedUntilCommit) {
             this.title = title;
             this.delayedUntilCommit = delayedUntilCommit;
         }

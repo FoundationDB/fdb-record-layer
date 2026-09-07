@@ -66,9 +66,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -241,10 +240,14 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
     }
 
     @BeforeEach
+    // fdb.run(context -> { ...; return null; }): FDBDatabase#run's unbounded <T> type parameter
+    // is treated as @NonNull, so the implicit Void "return null" trips NullAway even though there
+    // is no real value to return.
+    @SuppressWarnings("NullAway")
     protected void clear() {
         if (Config.CLEAR_BEFORE_RUN) {
             fdb.run(context -> {
-                path.deleteAllData(context);
+                Objects.requireNonNull(path).deleteAllData(context);
                 return null;
             });
         }
@@ -264,7 +267,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                 );
             }
 
-            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, Objects.requireNonNull(recordStore.getTimer()));
         }
     }
 
@@ -449,13 +452,11 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
     }
 
 
-    @Nonnull
     private static PrintStream createJson(final String name) throws FileNotFoundException {
         final String filename = ".out/LuceneScaleTest." + Config.ISOLATION_ID + "." + name + ".json";
         return new PrintStream(new FileOutputStream(filename, false), true);
     }
 
-    @Nonnull
     private static PrintStream createCsv(final String name, final boolean append) throws FileNotFoundException {
         final String filename = ".out/LuceneScaleTest." + Config.ISOLATION_ID + "." + name + ".csv";
         boolean writeHeader = !append || !new File(filename).exists();
@@ -514,11 +515,14 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             }
         }
 
+        // Passes a null continuation into FDBRecordStoreBase#scanRecords; NullAway does not reliably
+        // recognize @Nullable on that array (byte[]) parameter.
+        @SuppressWarnings("NullAway")
         private void disableIndex() {
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context);
-                maxDocId = LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
-                        store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount(), context);
+                maxDocId = Objects.requireNonNull(LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
+                        store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount(), context));
                 continuing = maxDocId > 0;
                 logger.info("Disabling index");
                 store.markIndexDisabled(INDEX.getName());
@@ -526,12 +530,15 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
             }
         }
 
+        // Passes a null continuation into FDBRecordStoreBase#scanRecords; NullAway does not reliably
+        // recognize @Nullable on that array (byte[]) parameter.
+        @SuppressWarnings("NullAway")
         private void buildIndex() {
             OnlineIndexer.Builder indexBuilder = null;
             try (FDBRecordContext context = openContext()) {
                 final FDBRecordStore store = openStore(context);
-                maxDocId = LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
-                        store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount(), context);
+                maxDocId = Objects.requireNonNull(LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
+                        store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount(), context));
                 continuing = maxDocId > 0;
                 if (!store.getIndexState(INDEX.getName()).isReadable()) {
                     indexBuilder = OnlineIndexer.newBuilder()
@@ -590,9 +597,11 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
         }
 
         private FDBRecordStore openStore(final FDBRecordContext context) {
-            final Pair<FDBRecordStore, QueryPlanner> res = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, TextIndexTestUtils.COMPLEX_DOC, INDEX, false);
-            recordStore = res.getLeft();
-            planner = res.getRight();
+            final Pair<FDBRecordStore, QueryPlanner> res = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), TextIndexTestUtils.COMPLEX_DOC, INDEX, false);
+            // Pair#getLeft/getRight are @Nullable in general (a Pair may hold nulls), but
+            // rebuildIndexMetaData always constructs its result from the non-null store/planner it builds.
+            recordStore = Objects.requireNonNull(res.getLeft());
+            planner = Objects.requireNonNull(res.getRight());
             return recordStore;
         }
 
@@ -621,7 +630,10 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                     }
                 }
                 context.commit();
-                return store.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
+                // getMergeRequiredIndexes() is declared to return a non-null Set<Index> (see
+                // IndexDeferredMaintenanceControl, fdb-record-layer-core); it is only seen as @Nullable
+                // here because it is unannotated from this module's NullAway perspective.
+                return Objects.requireNonNull(store.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes());
             }
         }
 
@@ -636,14 +648,13 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                     store.saveRecord(builder.build());
                 }
                 context.commit();
-                return store.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes();
+                return Objects.requireNonNull(store.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes());
             }
         }
 
-        @Nonnull
         private Message getRandomRecord(final FDBRecordStore store) {
             // TODO randomly get a record, but skew it towards more recent ones...
-            return store.loadRecord(Tuple.from(1, random.nextInt(maxDocId))).getRecord();
+            return Objects.requireNonNull(store.loadRecord(Tuple.from(1, random.nextInt(maxDocId)))).getRecord();
         }
 
         public void search() throws ExecutionException, InterruptedException {

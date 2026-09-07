@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.directory;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -64,11 +65,11 @@ import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -97,7 +98,6 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     private final int mergeDirectoryCount;
     private final AgilityContext agilityContext;
     private final Tuple key;
-    @Nonnull
     private final LuceneAnalyzerWrapper analyzerWrapper;
     private final int blockCacheMaximumSize;
     /**
@@ -145,12 +145,12 @@ public class FDBDirectoryWrapper implements AutoCloseable {
      */
     private LazyOpener<PendingWriteQueue> pendingWriteQueue;
 
-    FDBDirectoryWrapper(@Nonnull final IndexMaintainerState state,
-                        @Nonnull final Tuple key,
+    FDBDirectoryWrapper(final IndexMaintainerState state,
+                        final Tuple key,
                         int mergeDirectoryCount,
-                        @Nonnull final AgilityContext agilityContext,
+                        final AgilityContext agilityContext,
                         final int blockCacheMaximumSize,
-                        @Nonnull final LuceneAnalyzerWrapper analyzerWrapper,
+                        final LuceneAnalyzerWrapper analyzerWrapper,
                         @Nullable final Exception exceptionAtCreation) {
         this.state = state;
         this.key = key;
@@ -170,12 +170,12 @@ public class FDBDirectoryWrapper implements AutoCloseable {
 
     @VisibleForTesting
     @SuppressWarnings("this-escape")
-    public FDBDirectoryWrapper(@Nonnull final IndexMaintainerState state,
-                               @Nonnull final FDBDirectory directory,
-                               @Nonnull final Tuple key,
+    public FDBDirectoryWrapper(final IndexMaintainerState state,
+                               final FDBDirectory directory,
+                               final Tuple key,
                                int mergeDirectoryCount,
-                               @Nonnull final AgilityContext agilityContext,
-                               @Nonnull final LuceneAnalyzerWrapper analyzerWrapper,
+                               final AgilityContext agilityContext,
+                               final LuceneAnalyzerWrapper analyzerWrapper,
                                @Nullable final Exception exceptionAtCreation) {
         this.state = state;
         this.key = key;
@@ -193,15 +193,13 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         pendingWriteQueue = LazyOpener.supply(() -> directory.createPendingWritesQueue());
     }
 
-    @Nonnull
-    private IndexWriter createIndexWriter(final Exception exceptionAtCreation) throws IOException {
+    private IndexWriter createIndexWriter(@Nullable final Exception exceptionAtCreation) throws IOException {
         useWriter = true;
         IndexWriterConfig indexWriterConfig = createIndexWriterConfig(exceptionAtCreation);
         return new IndexWriter(this.directory, indexWriterConfig);
     }
 
-    @Nonnull
-    private IndexWriterConfig createIndexWriterConfig(final Exception exceptionAtCreation) {
+    private IndexWriterConfig createIndexWriterConfig(@Nullable final Exception exceptionAtCreation) {
         final IndexDeferredMaintenanceControl mergeControl = this.state.store.getIndexDeferredMaintenanceControl();
         final MergePolicy mergePolicy;
         if (mergeControl.shouldAutoMergeDuringCommit() || mergeControl.isExplicitMergePath()) {
@@ -209,8 +207,8 @@ public class FDBDirectoryWrapper implements AutoCloseable {
             // merge policy, and avoid requesting a deferred merge
             mergePolicy = new FDBTieredMergePolicy(mergeControl, this.agilityContext,
                     this.state.indexSubspace, this.key, exceptionAtCreation)
-                    .setMaxMergedSegmentMB(this.state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE))
-                    .setSegmentsPerTier(this.state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
+                    .setMaxMergedSegmentMB(Objects.requireNonNull(this.state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE)))
+                    .setSegmentsPerTier(Objects.requireNonNull(this.state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER)));
         } else {
             // Here: Not a merge path, optimize by using a "no merge" policy and request a deferred merge
             mergePolicy = NoMergePolicy.INSTANCE;
@@ -226,7 +224,6 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                 .setInfoStream(new LuceneLoggerInfoStream(LOGGER));
     }
 
-    @Nonnull
     protected FDBDirectory createFDBDirectory(final IndexMaintainerState state,
                                               final Tuple key,
                                               final AgilityContext agilityContext,
@@ -238,10 +235,11 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         if (sharedCacheManager == null) {
             sharedCacheKey = null;
         } else {
-            if (sharedCacheManager.getSubspace() == null) {
+            final Subspace sharedManagerSubspace = sharedCacheManager.getSubspace();
+            if (sharedManagerSubspace == null) {
                 sharedCacheKey = state.store.getSubspace().unpack(subspace.pack());
             } else {
-                sharedCacheKey = sharedCacheManager.getSubspace().unpack(subspace.pack());
+                sharedCacheKey = sharedManagerSubspace.unpack(subspace.pack());
             }
         }
         return createFDBDirectory(
@@ -249,10 +247,10 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                 agilityContext, lockFactory, blockCacheMaximumSize);
     }
 
-    protected @Nonnull FDBDirectory createFDBDirectory(final Subspace subspace,
+    protected FDBDirectory createFDBDirectory(final Subspace subspace,
                                                        final Map<String, String> options,
-                                                       final FDBDirectorySharedCacheManager sharedCacheManager,
-                                                       final Tuple sharedCacheKey,
+                                                       @Nullable final FDBDirectorySharedCacheManager sharedCacheManager,
+                                                       @Nullable final Tuple sharedCacheKey,
                                                        final boolean useCompoundFile, final AgilityContext agilityContext,
                                                        final @Nullable LockFactory lockFactory,
                                                        final int blockCacheMaximumSize) {
@@ -275,7 +273,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         } else {
             return StandardDirectoryReaderOptimization.open(directory, null, null,
                     state.context.getExecutor(),
-                    state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_OPEN_PARALLELISM));
+                    Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_OPEN_PARALLELISM)));
         }
     }
 
@@ -289,7 +287,6 @@ public class FDBDirectoryWrapper implements AutoCloseable {
      * and will be rolled back once the directory is closed.
      * This object should be closed by callers.
      */
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     public IndexReader getIndexReaderWithReplayedQueue() throws IOException {
         if (useWriter) {
@@ -298,15 +295,15 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         } else {
             PendingWriteQueue queue = getPendingWriteQueue();
             // Use the regular context to find out if the queue has anything
-            final Boolean queueIsEmpty = LuceneConcurrency.asyncToSync(
+            final Boolean queueIsEmpty = Objects.requireNonNull(LuceneConcurrency.asyncToSync(
                     LuceneEvents.Waits.WAIT_LUCENE_READ_PENDING_QUEUE,
                     queue.isQueueEmpty(state.context),
-                    state.context);
+                    state.context));
             if (queueIsEmpty) {
                 // Use the regular reader in case there is nothing in the queue
                 return StandardDirectoryReaderOptimization.open(directory, null, null,
                         state.context.getExecutor(),
-                        state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_OPEN_PARALLELISM));
+                        Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_OPEN_PARALLELISM)));
             } else {
                 // create a reader from a writer that has the queue elements replayed
                 return DirectoryReader.open(replayedQueueIndexWriter.get());
@@ -314,7 +311,6 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         }
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     private IndexWriter createIndexWriterWithReplayedQueue() throws IOException {
         final AgilityContext agilityContextReadOnly = replayedQueueContext.get().getAgilityContext();
@@ -332,7 +328,6 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         return readOnlyIndexWriter;
     }
 
-    @Nonnull
     private CloseableReadOnlyAgilityContext createReadOnlyContext() {
         AgilityContext readOnlyContext = AgilityContext.readOnlyNonAgile(agilityContext.getCallerContext(), null);
         return new CloseableReadOnlyAgilityContext(readOnlyContext);
@@ -370,17 +365,14 @@ public class FDBDirectoryWrapper implements AutoCloseable {
          * This class is temporarily duplicating FDBDirectoryMergeScheduler.
          * TODO: After verified, either delete FDBDirectoryMergeScheduler or delete FDBDirectorySerialMergeScheduler.
          */
-        @Nonnull
         private final IndexMaintainerState state;
         private final int mergeDirectoryCount;
-        @Nonnull
         private final AgilityContext agilityContext;
-        @Nonnull
         private final Tuple key;
 
-        private FDBDirectorySerialMergeScheduler(@Nonnull IndexMaintainerState state, int mergeDirectoryCount,
-                                           @Nonnull final AgilityContext agilityContext,
-                                           @Nonnull final Tuple key) {
+        private FDBDirectorySerialMergeScheduler(IndexMaintainerState state, int mergeDirectoryCount,
+                                           final AgilityContext agilityContext,
+                                           final Tuple key) {
             this.state = state;
             this.mergeDirectoryCount = mergeDirectoryCount;
             this.agilityContext = agilityContext;
@@ -394,7 +386,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         @Override
         public synchronized void merge(final MergeSource mergeSource, final MergeTrigger trigger) throws IOException {
             long startTime = System.nanoTime();
-            if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED) && trigger == MergeTrigger.FULL_FLUSH) {
+            if (Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED)) && trigger == MergeTrigger.FULL_FLUSH) {
                 if (ThreadLocalRandom.current().nextInt(mergeDirectoryCount) == 0) {
                     if (mergeSource.hasPendingMerges()) {
                         MergeUtils.logExecutingMerge(LOGGER, "Executing Merge based on probability", agilityContext, state.indexSubspace, key, trigger);
@@ -441,17 +433,14 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     private static class FDBDirectoryMergeScheduler extends ConcurrentMergeScheduler {
-        @Nonnull
         private final IndexMaintainerState state;
         private final int mergeDirectoryCount;
-        @Nonnull
         private final AgilityContext agilityContext;
-        @Nonnull
         private final Tuple key;
 
-        private FDBDirectoryMergeScheduler(@Nonnull IndexMaintainerState state, int mergeDirectoryCount,
-                                           @Nonnull final AgilityContext agilityContext,
-                                           @Nonnull final Tuple key) {
+        private FDBDirectoryMergeScheduler(IndexMaintainerState state, int mergeDirectoryCount,
+                                           final AgilityContext agilityContext,
+                                           final Tuple key) {
             this.state = state;
             this.mergeDirectoryCount = mergeDirectoryCount;
             this.agilityContext = agilityContext;
@@ -465,7 +454,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         @Override
         public synchronized void merge(final MergeSource mergeSource, final MergeTrigger trigger) throws IOException {
             long startTime = System.nanoTime();
-            if (state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED) && trigger == MergeTrigger.FULL_FLUSH) {
+            if (Objects.requireNonNull(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MULTIPLE_MERGE_OPTIMIZATION_ENABLED)) && trigger == MergeTrigger.FULL_FLUSH) {
                 if (ThreadLocalRandom.current().nextInt(mergeDirectoryCount) == 0) {
                     if (mergeSource.hasPendingMerges()) {
                         MergeUtils.logExecutingMerge(LOGGER, "Executing Merge Concurrently based on probability", agilityContext, state.indexSubspace, key, trigger);
@@ -495,10 +484,10 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         }
     }
 
-    private MergeScheduler getMergeScheduler(@Nonnull IndexMaintainerState state,
+    private MergeScheduler getMergeScheduler(IndexMaintainerState state,
                                              int mergeDirectoryCount,
-                                             @Nonnull final AgilityContext agilityContext,
-                                             @Nonnull final Tuple key) {
+                                             final AgilityContext agilityContext,
+                                             final Tuple key) {
         final Boolean useConcurrent = state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_USE_CONCURRENT_MERGE_SCHEDULER);
         return Boolean.TRUE.equals(useConcurrent) ?
                new FDBDirectoryMergeScheduler(state, mergeDirectoryCount, agilityContext, key) :
@@ -506,7 +495,6 @@ public class FDBDirectoryWrapper implements AutoCloseable {
 
     }
 
-    @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     public IndexWriter getWriter() throws IOException {
         return writer.get();
@@ -552,7 +540,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         return getDirectory().clearOngoingMergeIndicatorIfQueueEmptyAsync();
     }
 
-    public CompletableFuture<Void> drainPendingQueue(@Nonnull final Tuple groupingKey,
+    public CompletableFuture<Void> drainPendingQueue(final Tuple groupingKey,
                                                      @Nullable final Integer partitionId) {
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(KeyValueLogMessage.of("Drain pending queue",
@@ -591,7 +579,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<Void> drainPendingQueueNow(@Nonnull final Tuple groupingKey,
+    private CompletableFuture<Void> drainPendingQueueNow(final Tuple groupingKey,
                                                          @Nullable final Integer partitionId) {
         // Note - since this directory wrapper was already created, agility context should be unused in the next line's path
         final PendingWriteQueue writeQueue = getPendingWriteQueue();
@@ -612,23 +600,34 @@ public class FDBDirectoryWrapper implements AutoCloseable {
                 });
     }
 
+    // Implemented as an explicit anonymous class (rather than a lambda) so that createCursor's own @Nullable
+    // lastResult parameter keeps its correct formal-parameter index in the compiled bytecode. javac's lambda
+    // desugaring prepends captured variables (pendingWriteQueue, preCommitCallback) to the synthetic method's
+    // parameter list without re-indexing the lambda's own parameter type annotations to match, which previously
+    // misattributed lastResult's @Nullable annotation onto the captured pendingWriteQueue parameter and made
+    // SpotBugs (incorrectly) report NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE on pendingWriteQueue.
     private CursorFactory<PendingWriteQueue.QueueEntry> cursorFactory(PendingWriteQueue pendingWriteQueue,
                                                                       @Nullable Function<FDBRecordStore, CompletableFuture<Void>> preCommitCallback) {
-        return (@Nonnull FDBRecordStore store, @Nullable RecordCursorResult<PendingWriteQueue.QueueEntry> lastResult, int rowLimit) -> {
-            if (preCommitCallback != null) {
-                store.getContext().getOrCreateCommitCheck(DRAIN_PRE_COMMIT_HOOK + state.index.getName(),
-                        name -> () -> preCommitCallback.apply(store));
+        return new CursorFactory<PendingWriteQueue.QueueEntry>() {
+            @Override
+            public RecordCursor<PendingWriteQueue.QueueEntry> createCursor(FDBRecordStore store,
+                                                                             @Nullable RecordCursorResult<PendingWriteQueue.QueueEntry> lastResult,
+                                                                             int rowLimit) {
+                if (preCommitCallback != null) {
+                    store.getContext().getOrCreateCommitCheck(DRAIN_PRE_COMMIT_HOOK + state.index.getName(),
+                            name -> () -> preCommitCallback.apply(store));
+                }
+                byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
+                ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(executeProperties -> executeProperties.setReturnedRowLimit(rowLimit));
+                // Note: null could have been used instead of continuation as the preceding items should have been deleted. However,
+                // using a continuation will prevent an infinite loop in case of a bug that doesn't clear items.
+                return pendingWriteQueue.getQueueCursor(store.getContext(), scanProperties, continuation);
             }
-            byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
-            ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(executeProperties -> executeProperties.setReturnedRowLimit(rowLimit));
-            // Note: null could have been used instead of continuation as the preceding items should have been deleted. However,
-            // using a continuation will prevent an infinite loop in case of a bug that doesn't clear items.
-            return pendingWriteQueue.getQueueCursor(store.getContext(), scanProperties, continuation);
         };
     }
 
     private ItemHandler<PendingWriteQueue.QueueEntry> handleOneItemFactory(PendingWriteQueue pendingWriteQueue,
-                                                                           @Nonnull final Tuple groupingKey,
+                                                                           final Tuple groupingKey,
                                                                            @Nullable final Integer partitionId) {
         return (store, lastResult, quotamanager) -> {
             final PendingWriteQueue.QueueEntry queueEntry = lastResult.get();
@@ -676,7 +675,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
             super("Pending queue drain had failed", cause);
         }
 
-        public PendingQueueDrainException(@Nonnull final String msg, @Nullable final Object... keyValues) {
+        public PendingQueueDrainException(final String msg, @Nullable final Object... keyValues) {
             super(msg, keyValues);
         }
     }

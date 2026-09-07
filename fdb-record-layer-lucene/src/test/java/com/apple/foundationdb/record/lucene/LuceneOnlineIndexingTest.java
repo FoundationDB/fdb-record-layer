@@ -73,7 +73,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -81,6 +80,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
@@ -121,9 +121,11 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
 
     private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
-        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, path, document, index, isUseCascadesPlanner());
-        this.recordStore = pair.getLeft();
-        this.planner = pair.getRight();
+        Pair<FDBRecordStore, QueryPlanner> pair = LuceneIndexTestUtils.rebuildIndexMetaData(context, Objects.requireNonNull(path), document, index, isUseCascadesPlanner());
+        // Pair#getLeft/getRight are @Nullable in general (a Pair may hold nulls), but
+        // rebuildIndexMetaData always constructs its result from the non-null store/planner it builds.
+        this.recordStore = Objects.requireNonNull(pair.getLeft());
+        this.planner = Objects.requireNonNull(pair.getRight());
     }
 
     private void disableIndex(Index index, String document) {
@@ -170,8 +172,10 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         assertTrue(allFiles.length < 12);
     }
 
-    @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     @Test
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings({"checkstyle:VariableDeclarationUsageDistance", "NullAway"})
     void luceneOnlineIndexingTestWithRecordUpdates() throws IOException {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
@@ -325,6 +329,9 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             3416978384487730594L, // this one failed reliably when most seeds passed
             6096618498708109618L // this one failed too
     })
+    // Passes a null continuation into FDBRecordStoreBase#scanIndex; NullAway does not reliably
+    // recognize @Nullable on that array (byte[]) parameter.
+    @SuppressWarnings("NullAway")
     void luceneOnlineIndexingTestWithAllRecordUpdates(long seed) {
         final Map<String, String> options = Map.of(
                 INDEX_PARTITION_BY_FIELD_NAME, "timestamp",
@@ -581,14 +588,14 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             TextIndexTestUtils.addRecordTypePrefix(metaDataBuilder);
         };
         try (final FDBRecordContext context = openContext()) {
-            recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             for (Index index: indexes) {
                 recordStore.markIndexDisabled(index).join();
             }
             context.commit();
         }
         try (final FDBRecordContext context = openContext()) {
-            recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             for (int i = 0; i < numRecords; i ++) {
                 long docId = docIds[i];
                 recordStore.saveRecord(createSimpleDocument(docId, randomText(rn), randomGroup(rn)));
@@ -597,7 +604,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
         // overwrite some records (to enforce merge), write others as new
         try (final FDBRecordContext context = openContext()) {
-            recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             for (int i = 0; i < middle; i ++) {
                 long docId = docIds[i];
                 recordStore.saveRecord(createSimpleDocument(docId, randomText(rn), randomGroup(rn)));
@@ -610,7 +617,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
         // build the index ..
         try (final FDBRecordContext context = openContext()) {
-            recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                     .setRecordStore(recordStore)
                     .setTargetIndexes(indexes)
@@ -624,7 +631,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
         }
         // .. and assert readable mode
         try (final FDBRecordContext context = openContext()) {
-            recordStore = LuceneIndexTestUtils.openRecordStore(context, path, hook);
+            recordStore = LuceneIndexTestUtils.openRecordStore(context, Objects.requireNonNull(path), hook);
             for (Index index: indexes) {
                 assertTrue(recordStore.getIndexState(index).isReadable());
             }
@@ -1072,21 +1079,18 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @AutoService(IndexMaintainerFactory.class)
     public static class TerribleMergingIndexMaintainerFactory implements IndexMaintainerFactory {
-        @Nonnull
         @Override
         public Iterable<String> getIndexTypes() {
             return Collections.singletonList("terribleMerger");
         }
 
-        @Nonnull
         @Override
         public IndexValidator getIndexValidator(Index index) {
             return new IndexValidator(index);
         }
 
-        @Nonnull
         @Override
-        public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+        public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
             return new TerribleMergingIndexMaintainer(state);
         }
     }
@@ -1138,21 +1142,18 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @AutoService(IndexMaintainerFactory.class)
     public static class Terrible2MergingIndexMaintainerFactory implements IndexMaintainerFactory {
-        @Nonnull
         @Override
         public Iterable<String> getIndexTypes() {
             return Collections.singletonList("terrible2Merger");
         }
 
-        @Nonnull
         @Override
         public IndexValidator getIndexValidator(Index index) {
             return new IndexValidator(index);
         }
 
-        @Nonnull
         @Override
-        public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+        public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
             return new Terrible2MergingIndexMaintainer(state);
         }
     }
@@ -1257,7 +1258,7 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         newLength = listFiles(index).length;
-        final int timeCommitCount = timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA).getCount();
+        final int timeCommitCount = Objects.requireNonNull(timer.getCounter(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA)).getCount();
         LOGGER.debug("Merge test: number of files: old=" + oldLength + " new=" + newLength +
                      " needMerge=" + recordStore.getIndexDeferredMaintenanceControl().getMergeRequiredIndexes() +
                      " timeCommitCount: " + timeCommitCount);
@@ -1294,21 +1295,18 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @AutoService(IndexMaintainerFactory.class)
     public static class TerribleRebalanceIndexMaintainerFactory implements IndexMaintainerFactory {
-        @Nonnull
         @Override
         public Iterable<String> getIndexTypes() {
             return Collections.singletonList("terribleRebalance");
         }
 
-        @Nonnull
         @Override
         public IndexValidator getIndexValidator(Index index) {
             return new IndexValidator(index);
         }
 
-        @Nonnull
         @Override
-        public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+        public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
             return new TerribleRebalanceIndexMaintainer(state);
         }
     }
@@ -1368,21 +1366,18 @@ class LuceneOnlineIndexingTest extends FDBRecordStoreTestBase {
 
     @AutoService(IndexMaintainerFactory.class)
     public static class Terriblerebalnce2ndChanceIndexMaintainerFactory implements IndexMaintainerFactory {
-        @Nonnull
         @Override
         public Iterable<String> getIndexTypes() {
             return Collections.singletonList("terribleRebalance2ndChance");
         }
 
-        @Nonnull
         @Override
         public IndexValidator getIndexValidator(Index index) {
             return new IndexValidator(index);
         }
 
-        @Nonnull
         @Override
-        public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
+        public IndexMaintainer getIndexMaintainer(IndexMaintainerState state) {
             return new Terriblerebalnce2ndChanceIndexMaintainer(state);
         }
     }

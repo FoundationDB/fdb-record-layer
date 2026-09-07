@@ -30,8 +30,7 @@ import org.apache.lucene.index.TieredMergePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
 
@@ -41,17 +40,15 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBTieredMergePolicy.class);
     @Nullable private final IndexDeferredMaintenanceControl mergeControl;
     private final AgilityContext context;
-    @Nonnull
     private final Subspace indexSubspace;
-    @Nonnull
     private final Tuple key;
     @Nullable
     private final Exception exceptionAtCreation;
 
     public FDBTieredMergePolicy(@Nullable IndexDeferredMaintenanceControl mergeControl,
-                                @Nonnull AgilityContext context,
-                                @Nonnull Subspace indexSubspace,
-                                @Nonnull final Tuple key,
+                                AgilityContext context,
+                                Subspace indexSubspace,
+                                final Tuple key,
                                 @Nullable final Exception exceptionAtCreation) {
         this.mergeControl = mergeControl;
         this.context = context;
@@ -69,6 +66,7 @@ class FDBTieredMergePolicy extends TieredMergePolicy {
     }
 
     @Override
+    @Nullable
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     public MergeSpecification findMerges(MergeTrigger mergeTrigger, SegmentInfos infos, MergeContext mergeContext) throws IOException {
         if (mergeControl == null) {
