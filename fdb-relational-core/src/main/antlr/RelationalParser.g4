@@ -261,6 +261,13 @@ storedQueryParameter
     : parameterName=uid parameterType=functionColumnType nullNotnull?
     ;
 
+// The persisted form of one signature parameter's declaration, i.e. exactly what follows the parameter name in
+// storedQueryParameter. Parsed on its own when a declared type has to be resolved from metadata rather than from a
+// statement being planned. EOF is required so that trailing text is an error instead of a silent partial parse.
+storedQueryParameterDeclaration
+    : parameterType=functionColumnType nullNotnull? EOF
+    ;
+
 storedQueryPreparedCases
     : PREPARE FOR storedQueryPreparedCase (',' storedQueryPreparedCase)*
     ;

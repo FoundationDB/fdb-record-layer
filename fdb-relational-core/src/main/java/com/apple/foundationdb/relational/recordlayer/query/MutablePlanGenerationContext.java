@@ -58,6 +58,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
@@ -523,14 +524,25 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         }
     }
 
+    /**
+     * Turns a named prepared parameter into a value, either from what is bound to it or from its type declaration.
+     *
+     * @param param the parameter name, as the query text spells it
+     * @param tokenIndex the lexical position of the parameter token
+     * @param declaredTypeResolver resolves a declaration's SQL text into the type a value-free constant carries. Passed
+     *        in rather than held, because resolving a declaration may need the schema template, which this context does
+     *        not have; it is only called for a parameter that carries no value, so an ordinary query never invokes it.
+     * @return the value the parameter contributes to the plan
+     */
     @Nonnull
-    public Value processNamedPreparedParam(@Nonnull String param, int tokenIndex) {
+    public Value processNamedPreparedParam(@Nonnull String param, int tokenIndex,
+                                           @Nonnull Function<String, Type> declaredTypeResolver) {
         if (!preparedParams.hasNamedParamValue(param)) {
             // Value-free warm-up: a named parameter declared (via a stored-query signature) with a type but no value.
             // Plan it as a value-free typed constant; the runtime re-issue binds a value at the same constant id.
-            final var declaredType = preparedParams.declaredTypeMaybe(param);
-            if (declaredType.isPresent()) {
-                return valueFreeCovOf(declaredType.get(), param, tokenIndex);
+            final var declaration = preparedParams.declarationMaybe(param);
+            if (declaration.isPresent()) {
+                return valueFreeCovOf(declaredTypeResolver.apply(declaration.get()), param, tokenIndex);
             }
         }
         final var value = preparedParams.namedParamValue(param);
