@@ -32,34 +32,47 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RecordMetaDataStoredQueryTest {
 
     @Test
-    void twoArgConstructorDeclaresNoParameters() {
+    void twoArgConstructorDeclaresNoParametersAndNoCases() {
         final var storedQuery = new RecordMetaData.StoredQuery("select * from t1", List.of("f1", "f2"));
         assertThat(storedQuery.getQuery()).isEqualTo("select * from t1");
         assertThat(storedQuery.getTempFunctions()).containsExactly("f1", "f2");
         assertThat(storedQuery.getParameters()).isEmpty();
+        assertThat(storedQuery.getPreparedCases()).isEmpty();
     }
 
     @Test
-    void threeArgConstructorRetainsParameters() {
+    void fourArgConstructorRetainsParametersAndCases() {
         final var storedQuery = new RecordMetaData.StoredQuery("SELECT id FROM f1(?PARAM_B)", List.of("f1 body"),
-                Map.of("PARAM_A", "BIGINT", "PARAM_B", "STRING NOT NULL"));
+                Map.of("PARAM_A", "BIGINT", "PARAM_B", "STRING NOT NULL"),
+                List.of(Map.of("PARAM_A", "IS_NULL", "PARAM_B", "IS_NOT_NULL"),
+                        Map.of("PARAM_A", "IS_NOT_NULL", "PARAM_B", "IS_NOT_NULL")));
         assertThat(storedQuery.getQuery()).isEqualTo("SELECT id FROM f1(?PARAM_B)");
         assertThat(storedQuery.getTempFunctions()).containsExactly("f1 body");
         assertThat(storedQuery.getParameters()).containsExactlyInAnyOrderEntriesOf(
                 Map.of("PARAM_A", "BIGINT", "PARAM_B", "STRING NOT NULL"));
+        // The record layer keeps the states as the canonical tokens it was handed; it never interprets them.
+        assertThat(storedQuery.getPreparedCases()).containsExactly(
+                Map.of("PARAM_A", "IS_NULL", "PARAM_B", "IS_NOT_NULL"),
+                Map.of("PARAM_A", "IS_NOT_NULL", "PARAM_B", "IS_NOT_NULL"));
     }
 
     @Test
     void constructorCopiesItsInputs() {
         final var tempFunctions = new ArrayList<>(List.of("f1"));
         final var parameters = new HashMap<>(Map.of("PARAM_A", "BIGINT"));
-        final var storedQuery = new RecordMetaData.StoredQuery("select 1", tempFunctions, parameters);
+        final var firstCase = new HashMap<>(Map.of("PARAM_A", "IS_NULL"));
+        final var preparedCases = new ArrayList<Map<String, String>>(List.of(firstCase));
+        final var storedQuery = new RecordMetaData.StoredQuery("select 1", tempFunctions, parameters, preparedCases);
 
-        // mutating the caller's collections after construction must not be visible through the stored query.
+        // mutating the caller's collections after construction must not be visible through the stored query. The cases
+        // are a list of maps, so both levels have to be copied, not just the outer one.
         tempFunctions.add("f2");
         parameters.put("PARAM_B", "STRING");
+        firstCase.put("PARAM_B", "IS_TRUE");
+        preparedCases.add(Map.of("PARAM_A", "IS_NOT_NULL"));
 
         assertThat(storedQuery.getTempFunctions()).containsExactly("f1");
         assertThat(storedQuery.getParameters()).containsOnlyKeys("PARAM_A");
+        assertThat(storedQuery.getPreparedCases()).containsExactly(Map.of("PARAM_A", "IS_NULL"));
     }
 }

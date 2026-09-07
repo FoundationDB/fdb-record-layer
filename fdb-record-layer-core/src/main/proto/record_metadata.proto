@@ -246,6 +246,30 @@ message PStoredQuery {
   // The query's declared parameters. Empty when the query declares none. Used at warm-up to type the query's
   // value-free named parameters.
   repeated PStoredQueryParameter parameters = 4;
+
+  // One combination of parameter states that gets its own warmed plan.
+  message PPreparedCase {
+    message PParameterState {
+      optional string name = 1;
+      // One of exactly four canonical tokens: `IS_NULL`, `IS_NOT_NULL`, `IS_TRUE`, `IS_FALSE`. These are the states
+      // that change the plan itself rather than only its constraints: any other value of a parameter's declared type
+      // yields the same plan as `IS_NOT_NULL`, because literals are stripped before planning.
+      //
+      // Text for the same reason as PStoredQueryParameter.declared_type — the record layer stores this payload and
+      // returns it without interpreting it, so it needs no knowledge of what the states mean. Unlike declared_type,
+      // though, the value is not sliced from the DDL source but written from a closed set, so it cannot vary by
+      // spelling or whitespace and the reader's mapping is a total function on four inputs.
+      optional string state = 2;
+    }
+    // Every parameter the query declares, each with its state. Completeness is enforced by the SQL layer: for a
+    // parameter declared nullable, no state would mean planning it with no value and a nullable type, and such a plan
+    // is not correct for a null binding. For one declared NOT NULL the omission would in fact be safe, since the
+    // declaration already excludes null, but it is required all the same so that a case reads as complete without
+    // consulting the declarations.
+    repeated PParameterState parameter_states = 1;
+  }
+  // The combinations warmed for this query, one plan each. Empty exactly when the query declares no parameters.
+  repeated PPreparedCase prepared_cases = 5;
 }
 
 message JoinedRecordType {
