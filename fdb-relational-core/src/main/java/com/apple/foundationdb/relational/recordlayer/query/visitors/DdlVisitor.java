@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
+import com.apple.foundationdb.relational.api.metadata.StoredQuery;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
@@ -539,6 +540,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 // sends at run time. The name is an ordinary identifier — uppercased unless quoted — while a prepared
                 // parameter name is never normalized, so the normalized spelling is what the client has to use.
                 final var parameters = parseSignature(queryCtx.storedQuerySignature(), sourceText);
+                final var preparedCases = parsePreparedCases(queryCtx.storedQueryPreparedCases(),
+                        queryCtx.storedQuerySignature(), parameters.keySet());
                 final var queryString = rewriteReferencesToParams(sourceText, queryCtx.storedQuery, parameters.keySet());
                 final ImmutableList.Builder<String> tempFunctionTexts = ImmutableList.builder();
                 if (queryCtx.declareBlock() != null) {
@@ -553,7 +556,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                         tempFunctionTexts.add(rewriteDeclaredFunctionToStandalone(dfCtx, sourceText, parameters.keySet()));
                     }
                 }
-                metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts.build(), parameters);
+                metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts.build(), parameters, preparedCases);
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());
@@ -973,6 +976,104 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                     () -> "duplicate stored query signature parameter '" + parameterName + "'");
         }
         return ImmutableMap.copyOf(parameters);
+    }
+
+    /**
+     * Parses the {@code PREPARE FOR} block: the combinations of parameter states this query is warmed for, one plan
+     * each.
+     *
+     * <p>
+     * The block is required whenever the query declares parameters, and every case must pin every one of them. For a
+     * parameter declared nullable — the default — leaving it unpinned would mean planning it with no value and a
+     * nullable type, and such a plan is not correct for a null binding: the null reaches the scan range as the value to
+     * look for. For one declared {@code NOT NULL} the requirement is redundant, since the declaration already excludes
+     * null, but it is kept so that a case states every parameter on its face instead of leaving a reader to work out
+     * which declarations made an omission safe. Requiring completeness also makes the cases non-overlapping by
+     * construction, since each pins every parameter to a definite state, so no rule about which case wins is needed.
+     * </p>
+     *
+     * @param ctx the block, or {@code null} when the query has none
+     * @param signatureCtx the signature the block pins, or {@code null} when the query has none
+     * @param parameterNames the names the signature declares, normalized
+     * @return one map per case, from parameter name to its state, empty if the query declares no parameters
+     */
+    @Nonnull
+    private List<Map<String, StoredQuery.ParameterState>> parsePreparedCases(
+            @Nullable final RelationalParser.StoredQueryPreparedCasesContext ctx,
+            @Nullable final RelationalParser.StoredQuerySignatureContext signatureCtx,
+            @Nonnull final Set<String> parameterNames) {
+        if (ctx == null) {
+            Assert.thatUnchecked(parameterNames.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "stored query declaring parameters " + parameterNames + " requires a PREPARE FOR block");
+            return ImmutableList.of();
+        }
+        Assert.thatUnchecked(signatureCtx != null && !parameterNames.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
+                () -> "PREPARE FOR requires a signature, since it pins the parameters a signature declares");
+        // The two facts about the declarations that a case has to agree with. Collected here rather than kept by
+        // parseSignature, which deliberately keeps a declaration as plain text.
+        final var nonNullableNames = new HashSet<String>();
+        final var booleanNames = new HashSet<String>();
+        for (final var param : signatureCtx.storedQueryParameter()) {
+            final var parameterName = visitUid(param.parameterName).getName();
+            if (param.nullNotnull() != null && param.nullNotnull().NOT() != null) {
+                nonNullableNames.add(parameterName);
+            }
+            // BOOLEAN is a primitive, so this reads off the parse tree and needs no type resolution. A custom type
+            // names a struct or an enum, which is never boolean, and an ARRAY of booleans is not one either.
+            final var declaredType = param.parameterType;
+            if (declaredType.primitiveType() != null && declaredType.primitiveType().BOOLEAN() != null
+                    && declaredType.ARRAY() == null) {
+                booleanNames.add(parameterName);
+            }
+        }
+        final var cases = new ArrayList<Map<String, StoredQuery.ParameterState>>();
+        for (final var caseCtx : ctx.storedQueryPreparedCase()) {
+            final var states = new LinkedHashMap<String, StoredQuery.ParameterState>();
+            for (final var stateCtx : caseCtx.storedQueryParameterState()) {
+                final var parameterName = visitUid(stateCtx.parameterName).getName();
+                Assert.thatUnchecked(parameterNames.contains(parameterName), ErrorCode.UNSUPPORTED_QUERY,
+                        () -> "prepared case names '" + parameterName + "', which the signature does not declare");
+                final var state = parameterStateOf(stateCtx);
+                Assert.thatUnchecked(state != StoredQuery.ParameterState.IS_NULL
+                                || !nonNullableNames.contains(parameterName),
+                        ErrorCode.UNSUPPORTED_QUERY,
+                        () -> "prepared case pins '" + parameterName + "' to IS NULL, but the signature declares it NOT NULL");
+                Assert.thatUnchecked((state != StoredQuery.ParameterState.IS_TRUE
+                                && state != StoredQuery.ParameterState.IS_FALSE)
+                                || booleanNames.contains(parameterName),
+                        ErrorCode.UNSUPPORTED_QUERY,
+                        () -> "prepared case pins '" + parameterName + "' to a boolean, but the signature does not declare it BOOLEAN");
+                Assert.thatUnchecked(states.put(parameterName, state) == null, ErrorCode.UNSUPPORTED_QUERY,
+                        () -> "prepared case names '" + parameterName + "' more than once");
+            }
+            final var unpinned = Sets.difference(parameterNames, states.keySet());
+            Assert.thatUnchecked(unpinned.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "prepared case leaves " + unpinned + " unpinned; every case must pin every declared parameter");
+            // Order-independent, because map equality is: two cases pinning the same parameters to the same states are
+            // the same case however they are written, and warming both would build one plan twice.
+            final var preparedCase = ImmutableMap.copyOf(states);
+            Assert.thatUnchecked(!cases.contains(preparedCase), ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "duplicate prepared case " + preparedCase);
+            cases.add(preparedCase);
+        }
+        return ImmutableList.copyOf(cases);
+    }
+
+    /**
+     * Reads one written state. The two grammar alternatives keep the illegal spellings unrepresentable: there is no
+     * {@code IS NOT TRUE}, which has no counterpart among the states a plan can be warmed for.
+     */
+    @Nonnull
+    private static StoredQuery.ParameterState parameterStateOf(
+            @Nonnull final RelationalParser.StoredQueryParameterStateContext ctx) {
+        if (ctx.nullNotnull() != null) {
+            return ctx.nullNotnull().NOT() == null
+                   ? StoredQuery.ParameterState.IS_NULL
+                   : StoredQuery.ParameterState.IS_NOT_NULL;
+        }
+        return Boolean.parseBoolean(ctx.booleanLiteral().getText())
+               ? StoredQuery.ParameterState.IS_TRUE
+               : StoredQuery.ParameterState.IS_FALSE;
     }
 
     /**

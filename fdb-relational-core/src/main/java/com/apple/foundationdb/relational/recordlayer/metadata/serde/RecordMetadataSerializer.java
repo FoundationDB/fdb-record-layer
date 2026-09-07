@@ -39,10 +39,13 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.metadata.SkeletonVisitor;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
+import java.util.Map;
 
 @API(API.Status.EXPERIMENTAL)
 public class RecordMetadataSerializer extends SkeletonVisitor {
@@ -113,8 +116,14 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         getBuilder().setVersion(schemaTemplate.getVersion());
         for (final var entry : recLayerSchemaTemplate.getStoredQueries().entrySet()) {
             final var storedQuery = entry.getValue();
+            // The record layer stores a prepared case as canonical tokens, since it never interprets them; the enum
+            // constant names are those tokens.
+            final var preparedCases = storedQuery.getPreparedCases().stream()
+                    .map(preparedCase -> preparedCase.entrySet().stream()
+                            .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, state -> state.getValue().name())))
+                    .collect(ImmutableList.<Map<String, String>>toImmutableList());
             getBuilder().addStoredQuery(entry.getKey(), storedQuery.getQuery(), storedQuery.getTempFunctions(),
-                    storedQuery.getParameters());
+                    storedQuery.getParameters(), preparedCases);
         }
     }
 
