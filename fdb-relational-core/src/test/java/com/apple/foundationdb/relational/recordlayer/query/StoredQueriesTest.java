@@ -629,6 +629,10 @@ public class StoredQueriesTest {
 
             Assertions.assertEquals(Long.valueOf(2), new ConnectionUtils(engineDriver).getFromCatalog(
                     conn -> countCachedPlans(conn, templateName)));
+            // Counts plans, not queries: one stored query, two cases, two plans.
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_WARMED));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_FAILED));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED));
         }
     }
 
@@ -746,7 +750,12 @@ public class StoredQueriesTest {
 
             Assertions.assertEquals(Long.valueOf(1), new ConnectionUtils(engineDriver).getFromCatalog(
                     conn -> countCachedPlans(conn, templateName)));
+            // The plan counters are per case, the query counters per query: one case failed and one warmed, and each
+            // belongs to a different stored query, so both query counters read one as well.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_FAILED));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_WARMED));
             Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_FAILED));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED));
         }
     }
 
