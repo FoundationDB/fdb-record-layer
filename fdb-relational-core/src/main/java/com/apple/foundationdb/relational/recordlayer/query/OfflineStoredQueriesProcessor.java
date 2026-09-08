@@ -116,7 +116,9 @@ public final class OfflineStoredQueriesProcessor {
      *
      * <p>Failures are never propagated &mdash; a bad query must not abort startup. Each failure is
      * logged at {@code ERROR} level, and is also surfaced as a metric: per-query failures bump
-     * {@link RelationalMetric.RelationalCount#OFFLINE_STORED_QUERIES_QUERIES_FAILED}.</p>
+     * {@link RelationalMetric.RelationalCount#OFFLINE_STORED_QUERIES_QUERIES_FAILED}. How much the cache was actually
+     * filled is {@link RelationalMetric.RelationalCount#OFFLINE_STORED_QUERIES_PLANS_WARMED}, which counts plans rather
+     * than queries: a stored query with prepared cases warms one plan per case.</p>
      */
     public static void planStoredQueriesForSchemaTemplates(@Nonnull final RelationalPlanCache cache,
                                                            @Nonnull final MetricRegistry metricRegistry,
@@ -135,6 +137,8 @@ public final class OfflineStoredQueriesProcessor {
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_TEMPLATES_PROCESSED, counts.templatesProcessed);
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED, counts.queriesProcessed);
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_FAILED, counts.queriesFailed);
+        metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_WARMED, counts.plansWarmed);
+        metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_FAILED, counts.plansFailed);
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_TEMP_FUNCTIONS_PROCESSED, counts.tempFunctionsProcessed);
         metricCollector.increment(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_TEMP_FUNCTIONS_FAILED, counts.tempFunctionsFailed);
         if (logger.isInfoEnabled()) {
@@ -150,6 +154,7 @@ public final class OfflineStoredQueriesProcessor {
                     "storedQueriesProcessed", counts.queriesProcessed,
                     "storedQueriesFailed", counts.queriesFailed,
                     "plansWarmed", counts.plansWarmed,
+                    "plansFailed", counts.plansFailed,
                     "tempFunctionsProcessed", counts.tempFunctionsProcessed,
                     "tempFunctionsFailed", counts.tempFunctionsFailed,
                     "durationMicros", durationMicros));
@@ -213,8 +218,10 @@ public final class OfflineStoredQueriesProcessor {
             // existed. A signature without cases cannot occur: CREATE requires them together.
             if (planOneCase(cache, metricCollector, template, templateKey, storedQueryName, storedQuery,
                     PreparedParams.empty(), counts)) {
+                counts.plansWarmed++;
                 counts.queriesProcessed++;
             } else {
+                counts.plansFailed++;
                 counts.queriesFailed++;
             }
             return;
@@ -237,11 +244,17 @@ public final class OfflineStoredQueriesProcessor {
                             "storedQueryName", storedQueryName,
                             "preparedCase", preparedCase), e);
                 }
+                counts.plansFailed++;
                 allCasesPlanned = false;
                 continue;
             }
-            allCasesPlanned &= planOneCase(cache, metricCollector, template, templateKey, storedQueryName, storedQuery,
-                    preparedParams, counts);
+            if (planOneCase(cache, metricCollector, template, templateKey, storedQueryName, storedQuery,
+                    preparedParams, counts)) {
+                counts.plansWarmed++;
+            } else {
+                counts.plansFailed++;
+                allCasesPlanned = false;
+            }
         }
         if (allCasesPlanned) {
             counts.queriesProcessed++;
@@ -258,6 +271,12 @@ public final class OfflineStoredQueriesProcessor {
      * The temporary functions are planned inside this method rather than once for the whole stored query, because a
      * signature parameter captured by a function's body changes that function's plan too — so each case needs its own
      * compile, starting from the original template with a fresh factory.
+     * </p>
+     *
+     * <p>
+     * Reports the outcome by its return value rather than by counting it: the caller counts both outcomes side by side,
+     * so that {@code plansWarmed + plansFailed} being the number of attempts is visible in one place. What this method
+     * does count is the temporary functions, which only it can see.
      * </p>
      *
      * @return {@code true} if the body was planned, {@code false} if this case failed
@@ -301,7 +320,6 @@ public final class OfflineStoredQueriesProcessor {
                             "schemaTemplate", templateKey,
                             "storedQueryName", storedQueryName,
                             "storedQuerySql", sql));
-            counts.plansWarmed++;
             return true;
         } catch (RelationalException | RuntimeException e) {
             // error already logged inside getPlan's finally
@@ -312,15 +330,7 @@ public final class OfflineStoredQueriesProcessor {
     private static final class Counts {
         int templatesProcessed;
         int queriesProcessed;
-        /**
-         * Plans inserted into the cache. Distinct from {@code queriesProcessed} because a stored query with prepared
-         * cases warms one plan per case, so this is the number that says how much the cache was actually filled.
-         *
-         * <p>An upper bound rather than an exact count. Two cases that differ only in a parameter the body never
-         * references produce the same plan under the same constraint — the parameter contributes no literal and no
-         * constant, so nothing about it reaches the plan — and the second warm-up then replaces the first rather than
-         * adding to the cache.</p>
-         */
+        int plansFailed;
         int plansWarmed;
         int queriesFailed;
         int tempFunctionsProcessed;
