@@ -80,6 +80,8 @@ The two are compared as raw strings, so the name a client uses is the declared i
 
 ``"CK___zone_key"`` is quoted, so it keeps its spelling and a client binds ``?CK___zone_key``. ``adopter_a`` is not, so it becomes ``ADOPTER_A`` and a client binds ``?ADOPTER_A``. Quote a parameter — in the signature, in the prepared cases, and in every reference in the body — whenever the client's spelling is not already upper case.
 
+A quoted name still has to be one a client can bind: it must start with a letter and continue with letters, digits, ``_`` or ``/``, which is what ``?name`` accepts. ``"my param"`` and ``"a-b"`` are rejected, because a reference to them in the body would become ``?my param``, which does not parse, and ``?a - b``, which parses as something else.
+
 A parameter name must not collide with a parameter of a declared function, since inside that function's body the two references would be indistinguishable.
 
 Prepared cases
