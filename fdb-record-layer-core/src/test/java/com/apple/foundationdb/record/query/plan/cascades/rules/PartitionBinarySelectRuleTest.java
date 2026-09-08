@@ -27,7 +27,9 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -37,6 +39,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructo
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
+
+import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.exists;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldPredicate;
@@ -115,9 +119,170 @@ class PartitionBinarySelectRuleTest {
                 .addResultColumn(projectColumn(tau, "alpha"))
                 .build().buildSelect();
 
-        // Push to the tau quantifier
+        // Push to the tau quantifier. The predicate gets reoriented here so that the tau operand is on its left side.
         final Quantifier newTau = forEach(
-                FDBQueryGraphTestHelpers.selectWithPredicates(tau, joinPredicate));
+                FDBQueryGraphTestHelpers.selectWithPredicates(tau,
+                        fieldPredicate(tau, "beta", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(t, "b")))));
+        final SelectExpression newJoinOnTau = join(t, newTau)
+                .addResultColumn(projectColumn(t, "a"))
+                .addResultColumn(projectColumn(newTau, "alpha"))
+                .build().buildSelect();
+
+        testHelper.assertYields(join, newJoinOnT, newJoinOnTau);
+    }
+
+    /**
+     * Tests that an inequality join predicate pushed to the right quantifier is reoriented with its comparison type
+     * swapped, whereas the copy pushed to the left quantifier is left as is.
+     */
+    @Test
+    void pushInequalityJoinCriterion1() {
+        final Quantifier t = baseT();
+        final Quantifier tau = baseTau();
+        final SelectExpression join = join(t, tau)
+                .addResultColumn(projectColumn(t, "a"))
+                .addResultColumn(projectColumn(tau, "alpha"))
+                .addPredicate(fieldPredicate(t, "b", new Comparisons.ValueComparison(Comparisons.Type.LESS_THAN, fieldValue(tau, "beta"))))
+                .build().buildSelect();
+
+        final Quantifier newT = forEach(selectWithPredicates(t,
+                fieldPredicate(t, "b", new Comparisons.ValueComparison(Comparisons.Type.LESS_THAN, fieldValue(tau, "beta")))));
+        final SelectExpression newJoinOnT = join(tau, newT)
+                .addResultColumn(projectColumn(newT, "a"))
+                .addResultColumn(projectColumn(tau, "alpha"))
+                .build().buildSelect();
+
+        final Quantifier newTau = forEach(selectWithPredicates(tau,
+                fieldPredicate(tau, "beta", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(t, "b")))));
+        final SelectExpression newJoinOnTau = join(t, newTau)
+                .addResultColumn(projectColumn(t, "a"))
+                .addResultColumn(projectColumn(newTau, "alpha"))
+                .build().buildSelect();
+
+        testHelper.assertYields(join, newJoinOnT, newJoinOnTau);
+    }
+
+    /**
+     * Tests that a join predicate that is already written with the right quantifier on its left-hand side is pushed
+     * to that quantifier unchanged, and is reoriented only for the assignment that makes the other quantifier the
+     * right one.
+     */
+    @Test
+    void pushJoinCriterionAlreadyOriented1() {
+        final Quantifier t = baseT();
+        final Quantifier tau = baseTau();
+        final QueryPredicate joinPredicate = fieldPredicate(tau, "beta", new Comparisons.ValueComparison(Comparisons.Type.LESS_THAN, fieldValue(t, "b")));
+        final SelectExpression join = join(t, tau)
+                .addResultColumn(projectColumn(t, "a"))
+                .addResultColumn(projectColumn(tau, "alpha"))
+                .addPredicate(joinPredicate)
+                .build().buildSelect();
+
+        // Pushed to t, the predicate is reoriented towards t instead
+        final Quantifier newT = forEach(selectWithPredicates(t,
+                fieldPredicate(t, "b", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(tau, "beta")))));
+        final SelectExpression newJoinOnT = join(tau, newT)
+                .addResultColumn(projectColumn(newT, "a"))
+                .addResultColumn(projectColumn(tau, "alpha"))
+                .build().buildSelect();
+
+        final Quantifier newTau = forEach(selectWithPredicates(tau, joinPredicate));
+        final SelectExpression newJoinOnTau = join(t, newTau)
+                .addResultColumn(projectColumn(t, "a"))
+                .addResultColumn(projectColumn(newTau, "alpha"))
+                .build().buildSelect();
+
+        testHelper.assertYields(join, newJoinOnT, newJoinOnTau);
+    }
+
+    /**
+     * Tests that a join predicate whose comparison type has no swapped counterpart is pushed to the right quantifier
+     * unchanged.
+     */
+    @Test
+    void pushJoinCriterionNotSwappable1() {
+        final Quantifier t = baseT();
+        final Quantifier tau = baseTau();
+        final QueryPredicate joinPredicate = fieldPredicate(t, "b", new Comparisons.ValueComparison(Comparisons.Type.STARTS_WITH, fieldValue(tau, "beta")));
+        final SelectExpression join = join(t, tau)
+                .addResultColumn(projectColumn(t, "a"))
+                .addResultColumn(projectColumn(tau, "alpha"))
+                .addPredicate(joinPredicate)
+                .build().buildSelect();
+
+        final Quantifier newT = forEach(selectWithPredicates(t, joinPredicate));
+        final SelectExpression newJoinOnT = join(tau, newT)
+                .addResultColumn(projectColumn(newT, "a"))
+                .addResultColumn(projectColumn(tau, "alpha"))
+                .build().buildSelect();
+
+        final Quantifier newTau = forEach(selectWithPredicates(tau, joinPredicate));
+        final SelectExpression newJoinOnTau = join(t, newTau)
+                .addResultColumn(projectColumn(t, "a"))
+                .addResultColumn(projectColumn(newTau, "alpha"))
+                .build().buildSelect();
+
+        testHelper.assertYields(join, newJoinOnT, newJoinOnTau);
+    }
+
+    /**
+     * Tests that a predicate that is written with the constant on its left-hand side is reoriented when it is pushed
+     * to the left quantifier that it is correlated to.
+     */
+    @Test
+    void pushReversedPredicate1() {
+        final Quantifier t = baseT();
+        final Quantifier tau = baseTau();
+        final Value constant = LiteralValue.ofScalar("hello");
+        final SelectExpression join = join(t, tau)
+                .addResultColumn(projectColumn(t, "a"))
+                .addResultColumn(projectColumn(tau, "alpha"))
+                .addPredicate(reversedPredicate(constant, fieldValue(t, "b")))
+                .build().buildSelect();
+
+        final Quantifier newT = forEach(selectWithPredicates(t,
+                fieldPredicate(t, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, constant))));
+        final SelectExpression newJoinTLeft = join(newT, tau)
+                .addResultColumn(projectColumn(newT, "a"))
+                .addResultColumn(projectColumn(tau, "alpha"))
+                .build().buildSelect();
+
+        testHelper.assertYields(join, newJoinTLeft);
+    }
+
+    @Nonnull
+    private static QueryPredicate reversedPredicate(@Nonnull final Value value, @Nonnull final Value comparand) {
+        final RangeConstraints range = RangeConstraints.ofComparisonMaybe(
+                new Comparisons.ValueComparison(Comparisons.Type.EQUALS, comparand)).orElseThrow();
+        return PredicateWithValueAndRanges.sargable(value, range);
+    }
+
+    /**
+     * Tests that a join predicate that cannot become a range, and therefore remains a plain {@link ValuePredicate}, is
+     * reoriented with its comparison type swapped.
+     */
+    @Test
+    void pushNotEqualsJoinCriterion1() {
+        final Quantifier t = baseT();
+        final Quantifier tau = baseTau();
+        final SelectExpression join = join(t, tau)
+                .addResultColumn(projectColumn(t, "a"))
+                .addResultColumn(projectColumn(tau, "alpha"))
+                .addPredicate(new ValuePredicate(fieldValue(t, "b"),
+                        new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(tau, "beta"))))
+                .build().buildSelect();
+
+        final Quantifier newT = forEach(selectWithPredicates(t,
+                new ValuePredicate(fieldValue(t, "b"),
+                        new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(tau, "beta")))));
+        final SelectExpression newJoinOnT = join(tau, newT)
+                .addResultColumn(projectColumn(newT, "a"))
+                .addResultColumn(projectColumn(tau, "alpha"))
+                .build().buildSelect();
+
+        final Quantifier newTau = forEach(selectWithPredicates(tau,
+                new ValuePredicate(fieldValue(tau, "beta"),
+                        new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(t, "b")))));
         final SelectExpression newJoinOnTau = join(t, newTau)
                 .addResultColumn(projectColumn(t, "a"))
                 .addResultColumn(projectColumn(newTau, "alpha"))
@@ -157,7 +322,7 @@ class PartitionBinarySelectRuleTest {
         // Join criterion pushed to tau; uncorrelated predicate to t
         final Quantifier newT2 = forEach(selectWithPredicates(t, uncorrelatedPredicate));
         final Quantifier newTau2 = forEach(selectWithPredicates(tau,
-                fieldPredicate(newT2, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tau, "beta")))));
+                fieldPredicate(tau, "beta", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(newT2, "b")))));
         final SelectExpression newJoin2 = join(newT2, newTau2)
                 .addResultColumn(projectColumn(newT2, "a"))
                 .addResultColumn(projectColumn(newTau2, "alpha"))
@@ -196,7 +361,7 @@ class PartitionBinarySelectRuleTest {
         final Quantifier newT2 = forEach(selectWithPredicates(t,
                 fieldPredicate(t, "c", new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))));
         final Quantifier newTau2 = forEach(selectWithPredicates(tau,
-                fieldPredicate(newT2, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tau, "beta"))),
+                fieldPredicate(tau, "beta", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(newT2, "b"))),
                 fieldPredicate(tau, "gamma", new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))));
         final SelectExpression newJoin2 = join(newT2, newTau2)
                 .addResultColumn(projectColumn(newT2, "a"))
@@ -275,8 +440,9 @@ class PartitionBinarySelectRuleTest {
                 .addPredicate(joinPredicate)
                 .build().buildSelect();
 
-        // Can push the predicate down onto the g quantifier
-        final Quantifier newG = forEach(selectWithPredicates(g, joinPredicate));
+        // Can push the predicate down onto the g quantifier, reoriented so that the g operand is on the left
+        final Quantifier newG = forEach(selectWithPredicates(g,
+                fieldPredicate(g, "two", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(t, "b")))));
         final SelectExpression newJoin = join(t, newG)
                 .addResultColumn(projectColumn(t, "a"))
                 .addResultColumn(projectColumn(newG, "one"))
@@ -364,7 +530,7 @@ class PartitionBinarySelectRuleTest {
         final Quantifier newT = forEach(selectWithPredicates(t, fieldPredicate(t, "c", new Comparisons.NullComparison(Comparisons.Type.IS_NULL))));
         final Quantifier newGLower = explodeField(newT, "g");
         final Quantifier newG = forEach(selectWithPredicates(newGLower,
-                fieldPredicate(newT, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(newGLower, "two"))),
+                fieldPredicate(newGLower, "two", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(newT, "b"))),
                 fieldPredicate(newGLower, "three", new Comparisons.NullComparison(Comparisons.Type.IS_NULL))));
         final SelectExpression newJoin = join(newT, newG)
                 .addResultColumn(projectColumn(newT, "a"))

@@ -86,7 +86,7 @@ test_block:
                exists (select 1 from t3, t2 where t3.t2_id = t2.id and t2.t1_id = t1.id) as has_t3
                from t1
                where exists (select 1 from t2 where t2.t1_id = t1.id)
-      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | MAP (@c38 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | FLATMAP q3 -> { ISCAN(T3_T2_ID [EQUALS q3.ID]) AS q4 RETURN (@c38 AS _0) } | DEFAULT NULL AS q5 RETURN (q0.ID AS ID, exists(q5) AS HAS_T3) }"
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | MAP (@c38 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { ISCAN(T3_T2_ID <,>) | FLATMAP q3 -> { SCAN([IS T2, EQUALS q3.T2_ID]) | FILTER _.T1_ID EQUALS q0.ID AS q4 RETURN (@c38 AS _0) } | DEFAULT NULL AS q5 RETURN (q0.ID AS ID, exists(q5) AS HAS_T3) }"
       - result: [{ID: 1, HAS_T3: true},
                  {ID: 3, HAS_T3: true}]
     -
@@ -95,7 +95,7 @@ test_block:
                exists (select 1 from t2 where t2.t1_id = t1.id) as has_t2,
                exists (select 1 from t3, t2 where t3.t2_id = t2.id and t2.t1_id = t1.id) as has_t3
                from t1
-      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | FLATMAP q1 -> { ISCAN(T3_T2_ID [EQUALS q1.ID]) AS q2 RETURN (@c8 AS _0) } | DEFAULT NULL | FLATMAP q3 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | MAP (@c8 AS _0) | DEFAULT NULL AS q4 RETURN (q4 AS _0, q3 AS _1) } AS q5 RETURN (q0.ID AS ID, exists(q5._0) AS HAS_T2, exists(q5._1) AS HAS_T3) }"
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T3_T2_ID <,>) | FLATMAP q1 -> { SCAN([IS T2, EQUALS q1.T2_ID]) | FILTER _.T1_ID EQUALS q0.ID AS q2 RETURN (@c8 AS _0) } | DEFAULT NULL | FLATMAP q3 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | MAP (@c8 AS _0) | DEFAULT NULL AS q4 RETURN (q4 AS _0, q3 AS _1) } AS q5 RETURN (q0.ID AS ID, exists(q5._0) AS HAS_T2, exists(q5._1) AS HAS_T3) }"
       - result: [{ID: 1, HAS_T2: true, HAS_T3: true},
                  {ID: 2, HAS_T2: false, HAS_T3: false},
                  {ID: 3, HAS_T2: true, HAS_T3: true}]
@@ -137,7 +137,7 @@ test_block:
                exists (select 1 from t3, t2 where t3.t2_id = t2.id and t2.t1_id = t1.id) as has_t3
                from t1
                where not exists (select 1 from t2 where t2.t1_id = t1.id)
-      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | MAP (@c39 AS _0) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | FLATMAP q3 -> { ISCAN(T3_T2_ID [EQUALS q3.ID]) AS q4 RETURN (@c39 AS _0) } | DEFAULT NULL AS q5 RETURN (q0.ID AS ID, exists(q5) AS HAS_T3) }"
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | MAP (@c39 AS _0) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { ISCAN(T3_T2_ID <,>) | FLATMAP q3 -> { SCAN([IS T2, EQUALS q3.T2_ID]) | FILTER _.T1_ID EQUALS q0.ID AS q4 RETURN (@c39 AS _0) } | DEFAULT NULL AS q5 RETURN (q0.ID AS ID, exists(q5) AS HAS_T3) }"
       - result: [{ID: 2, HAS_T3: false}]
     -
       # exists in projection where outer query uses the t3_t2_id index

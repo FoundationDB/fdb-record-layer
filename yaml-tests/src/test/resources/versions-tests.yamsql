@@ -471,7 +471,7 @@ test_block:
       - query: select "__ROW_VERSION", id, col1
            from t4
            where 3 in t4.col4
-      - explain: "ISCAN(T4_COL2 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.COL4) | FILTER promote(@c9 AS LONG) EQUALS _ AS q1 RETURN (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1) }"
+      - explain: "ISCAN(T4_COL2 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.COL4) | FILTER _ EQUALS promote(@c9 AS LONG) AS q1 RETURN (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1) }"
       - unorderedResult: [
            {__ROW_VERSION: !not_null _, ID:  9, COL1: "a" },
            {__ROW_VERSION: !not_null _, ID: 11, COL1: "b" },
@@ -548,7 +548,7 @@ test_block:
       - query: select "__ROW_VERSION", (a.*), (b.*)
                  from t1 as a, (select * from t2) b
                  where a.col2 = b.col1
-      - explain: "ISCAN(I1 <,>) | FLATMAP q0 -> { ISCAN(T2_COL2 <,>) | FILTER q0.COL2 EQUALS _.COL1 AS q1 RETURN (q0.__ROW_VERSION AS __ROW_VERSION, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS A, (q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS B) }"
+      - explain: "ISCAN(I1 <,>) | FLATMAP q0 -> { ISCAN(T2_COL2 <,>) | FILTER _.COL1 EQUALS q0.COL2 AS q1 RETURN (q0.__ROW_VERSION AS __ROW_VERSION, (q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS A, (q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS B) }"
       - initialVersionLessThan: 4.10.1.0
       # Prior to 4.10.1.0, we did not keep track of which quantifiers actually had the version, so this would default to
       # assuming that the row version column was ambiguous
@@ -715,7 +715,7 @@ test_block:
            from t2, t3
            where t2.col2 = 'b' and t3.col1 = 'b'
            and t2."__ROW_VERSION" > t3."__ROW_VERSION"
-      - explain: "ISCAN(T2_COL2 [EQUALS promote(@c21 AS STRING)]) | FLATMAP q0 -> { ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL1 EQUALS promote(@c21 AS STRING) AND q0.__ROW_VERSION GREATER_THAN _.__ROW_VERSION AS q1 RETURN ((q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS T2, (q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS T3) }"
+      - explain: "ISCAN(T2_COL2 [EQUALS promote(@c21 AS STRING)]) | FLATMAP q0 -> { COVERING(T3_VERSION_WITH_COL1 [[LESS_THAN q0.__ROW_VERSION]] -> [COL1: VALUE:[0], ID: KEY:[2]]) | FILTER _.COL1 EQUALS promote(@c21 AS STRING) | FETCH AS q1 RETURN ((q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS T2, (q1.ID AS ID, q1.COL1 AS COL1, q1.COL2 AS COL2) AS T3) }"
       - initialVersionLessThan: 4.10.1.0
       # Prior to 4.10.1.0, the two row version predicates would be transformed incorrectly so that they were
       # evaluated twice on the same record (i.e., `version([_]) > version([_])`) which is a contradiction, so we
@@ -751,7 +751,7 @@ test_block:
       - query: select (A.*) as A, (B.*) as B, (C.*) as C
            from t2_v(2) as A, t3_v(2) as B, t4_v(2) as C
            where A.col2 = B.col1 AND B.col1 = C.col1
-      - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS promote(@c27 AS LONG) | FLATMAP q0 -> { ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS promote(@c27 AS LONG) AND q0.COL1 EQUALS _.COL1 | FLATMAP q1 -> { ISCAN(T2_COL2 [EQUALS q0.COL1]) | FILTER _.COL1 EQUALS promote(@c27 AS LONG) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q3._0.__ROW_VERSION AS __ROW_VERSION, q3._0.ID AS ID, q3._0.COL1 AS COL1, q3._0.COL2 AS COL2) AS A, (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS B, (q3._1.__ROW_VERSION AS __ROW_VERSION, q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2) AS C) }"
+      - explain: "ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS promote(@c27 AS LONG) | FLATMAP q0 -> { ISCAN(T3_VERSION_WITH_COL1 <,>) | FILTER _.COL2 EQUALS promote(@c27 AS LONG) AND _.COL1 EQUALS q0.COL1 | FLATMAP q1 -> { ISCAN(T2_COL2 [EQUALS q0.COL1]) | FILTER _.COL1 EQUALS promote(@c27 AS LONG) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q3._0.__ROW_VERSION AS __ROW_VERSION, q3._0.ID AS ID, q3._0.COL1 AS COL1, q3._0.COL2 AS COL2) AS A, (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1, q0.COL2 AS COL2) AS B, (q3._1.__ROW_VERSION AS __ROW_VERSION, q3._1.ID AS ID, q3._1.COL1 AS COL1, q3._1.COL2 AS COL2) AS C) }"
       - initialVersionLessThan: 4.10.1.0
       - error: UNKNOWN
       - initialVersionAtLeast: 4.10.1.0

@@ -29,13 +29,13 @@ subquery-from:
     ref: subquery-tests.yamsql:90
     explain: SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T3_id_i [EQUALS q0.T2]) AS q1 RETURN
         (q0.T2 AS T2, q1.id AS id, q1.nr AS nr) }
-    task_count: 591
-    task_total_time_ms: 175
-    transform_count: 172
-    transform_time_ms: 121
-    transform_yield_count: 51
-    insert_time_ms: 3
-    insert_new_count: 74
+    task_count: 602
+    task_total_time_ms: 50
+    transform_count: 173
+    transform_time_ms: 15
+    transform_yield_count: 52
+    insert_time_ms: 0
+    insert_new_count: 75
     insert_reused_count: 4
 -   query: EXPLAIN SELECT sq.id, sq.i FROM (SELECT * FROM T3 WHERE id = 1) sq, (SELECT
         f FROM sq.nr WHERE f > 10) sq2 WHERE sq.i = 10 AND sq2.f IS NOT NULL
@@ -224,14 +224,14 @@ exists-subquery:
         [EQUALS q1.id]) AS q2 RETURN (q1 AS _0, q2 AS _1) } | AGG (count_star(*) AS
         _0) GROUP BY (_._0.id AS _0) AS q0 RETURN (q0._0._0 AS id, exists(q0) AS e,
         q0._1._0 AS n) }
-    task_count: 838
-    task_total_time_ms: 38
-    transform_count: 257
-    transform_time_ms: 15
+    task_count: 828
+    task_total_time_ms: 61
+    transform_count: 254
+    transform_time_ms: 19
     transform_yield_count: 71
     insert_time_ms: 1
-    insert_new_count: 93
-    insert_reused_count: 7
+    insert_new_count: 91
+    insert_reused_count: 6
 -   query: EXPLAIN SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM
         T4 GROUP BY T4.i UNION ALL SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2
         = 99) AS e FROM T4 GROUP BY T4.i

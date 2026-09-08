@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,18 +21,28 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+
+import java.util.List;
+import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
@@ -74,6 +84,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * two cases, the rule will be executed twice, once for each assignment of quantifiers to the {@code left} and
  * {@code right}. In the third case, we will generally end up producing the same expression (unless there are
  * predicates uncorrelated to both sides).
+ *
+ * <p>Predicates that are pushed to either side are also reoriented so that the operand that is correlated to the
+ * quantifier of that side sits on the left-hand side of the comparison; see {@link #reorient}.
  *
  * <p>Current thinking on future extensions: At first glance, leaving the resulting {@link SelectExpression} without any
  * predicates, but potentially correlating one side to the other seems to only be beneficial for nested-loop joins.
@@ -133,11 +146,11 @@ public class PartitionBinarySelectRule extends AbstractCascadesRule<SelectExpres
                 // Predicate depends on the right. It must go to the right
                 // Note: this could be problematic if the right depended on the left,
                 // but that should be avoided by the earlier check
-                rightPredicatesBuilder.add(predicate);
+                rightPredicatesBuilder.add(reorient(predicate, rightAlias));
             } else {
                 // Predicate either depends on the left or it is independent. Either way,
                 // it should be sent to the left
-                leftPredicatesBuilder.add(predicate);
+                leftPredicatesBuilder.add(reorient(predicate, leftAlias));
             }
         }
 
@@ -199,5 +212,85 @@ public class PartitionBinarySelectRule extends AbstractCascadesRule<SelectExpres
         final var newSelectExpression = graphExpansionBuilder.build().buildSelectWithResultValue(selectExpression.getResultValue());
 
         call.yieldExploratoryExpression(newSelectExpression);
+    }
+
+    /**
+     * Reorients the given comparison so that the operand that is correlated to {@code alias} (if any) is on its
+     * left-hand side. Having the variable part of a comparison on the left-hand side, as opposed to the part that is
+     * fixed while the quantifier is being evaluated, is the preferred form. It can benefit index matching, for example,
+     * where only the left-hand value of a predicate is considered. If reorienting {@code predicate} is not necessary
+     * or not possible, it is returned as is.
+     *
+     * <p>For example, if the given {@code alias} refers to the quantifier {@code q}, the predicate {@code x = q.a} is
+     * reoriented to {@code q.a = x}, and likewise {@code x < q.a} to {@code q.a > x}.
+     *
+     * <p>This method can only reorient a {@link PredicateWithValueAndRanges} if it consists of a <i>single</i> range
+     * holding a <i>single</i> comparison against another {@link Value}, i.e., is of the form
+     * {@code q.a [«comparison» «Value»]}. More complex predicates such as {@code q.a [= x] OR [= y]} or
+     * {@code q.a [> x AND < y]} cannot easily be reoriented, as there is no single operand.
+     *
+     * @param predicate the predicate to reorient
+     * @param alias the alias of the quantifier whose correlated operand should become the left-hand side
+     * @return the reoriented predicate, or {@code predicate} itself if it cannot be reoriented
+     */
+    @Nonnull
+    private static QueryPredicate reorient(@Nonnull final QueryPredicate predicate,
+                                           @Nonnull final CorrelationIdentifier alias) {
+        if (predicate instanceof ValuePredicate valuePredicate) {
+            return swap(valuePredicate, alias);
+        } else if (predicate instanceof PredicateWithValueAndRanges predicateWithValueAndRanges) {
+            final List<Comparisons.Comparison> comparisons = predicateWithValueAndRanges.getComparisons();
+            if (comparisons.size() != 1) {
+                return predicate;
+            }
+            final ValuePredicate valuePredicate =
+                    new ValuePredicate(predicateWithValueAndRanges.getValue(), comparisons.get(0));
+            final ValuePredicate swappedValuePredicate = swap(valuePredicate, alias);
+            if (swappedValuePredicate == valuePredicate) {
+                return predicate;
+            }
+            final Optional<RangeConstraints> range =
+                    RangeConstraints.ofComparisonMaybe(swappedValuePredicate.getComparison());
+            if (range.isEmpty()) {
+                return predicate;
+            }
+            return predicateWithValueAndRanges.withValueAndRanges(
+                    swappedValuePredicate.getValue(),
+                    ImmutableSet.of(range.get()));
+        } else {
+            return predicate;
+        }
+    }
+
+    /**
+     * Reorients the comparison of the given {@link ValuePredicate} so that the operand that is correlated to
+     * {@code alias} (if any) is on its left-hand side. Exchanges the operands and swaps the comparison type
+     * accordingly.
+     *
+     * @param predicate the {@link ValuePredicate} to swap
+     * @param alias the alias of the quantifier whose correlated operand should become the left-hand side
+     * @return the swapped predicate, or {@code predicate} itself if swapping is not possible or not necessary
+     */
+    @Nonnull
+    private static ValuePredicate swap(@Nonnull final ValuePredicate predicate,
+                                       @Nonnull final CorrelationIdentifier alias) {
+        final Value value = predicate.getValue();
+        if (value.isCorrelatedTo(alias)) {
+            // The predicate is already oriented towards `alias`.
+            return predicate;
+        }
+        if (!(predicate.getComparison() instanceof Comparisons.ValueComparison valueComparison)) {
+            return predicate;
+        }
+        final Value comparand = valueComparison.getComparandValue();
+        if (!comparand.isCorrelatedTo(alias)) {
+            // The comparison does not involve `alias` at all.
+            return predicate;
+        }
+        final Comparisons.Type type = Comparisons.swapComparisonType(valueComparison.getType());
+        if (type == null) {
+            return predicate;
+        }
+        return new ValuePredicate(comparand, new Comparisons.ValueComparison(type, value));
     }
 }
