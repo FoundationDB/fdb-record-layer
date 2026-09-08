@@ -62,4 +62,23 @@
     <Match>
         <Class name="~com\.google\.common\.graph\..*" />
     </Match>
+
+    <!-- SpotBugs does not treat javax.annotation.Nullable (JSR-305) and org.jspecify.annotations.Nullable as
+       equivalent when comparing an overriding method's parameter annotation against its superclass. As jspecify
+       is adopted module-by-module, any not-yet-migrated subclass of an already-migrated base class trips this
+       check even when both sides genuinely agree the parameter is nullable. It also fires, independent of the
+       migration, on our exception hierarchy's deliberate pattern of requiring a non-null cause on a (message,
+       cause) constructor overload while the superclass constructor still allows null. -->
+    <Match>
+        <Bug pattern="NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION" />
+    </Match>
+
+    <!-- Subspace.pack() is not annotated @Nonnull by the vendored FDB client, but never actually returns null;
+       ByteArrayUtil2.loggable() only returns null when handed a null array, which cannot happen here. Surfaced
+       once ByteArrayUtil2 picked up an explicit jspecify @Nullable that SpotBugs could resolve. -->
+    <Match>
+        <Class name="com.apple.foundationdb.record.provider.foundationdb.SubspaceProviderBySubspace" />
+        <Method name="toString" />
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE" />
+    </Match>
 </FindBugsFilter>

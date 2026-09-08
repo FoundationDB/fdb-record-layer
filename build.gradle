@@ -217,6 +217,14 @@ subprojects {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // jspecify annotations are being adopted module-by-module (see AGENTS.md). Declare the
+    // dependency for every module, not just migrated ones, so that SpotBugs (and javac) can
+    // always resolve org.jspecify.annotations.* references found on the compiled classpath of
+    // an already-migrated dependency, even before a given module has done its own migration.
+    dependencies {
+        compileOnly rootProject.libs.jspecify
+    }
+
     def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
     def autoServiceVersion = publishBuild ? rootProject.libs.versions.autoService.asProvider().get() : rootProject.libs.versions.autoService.development.get()
 
