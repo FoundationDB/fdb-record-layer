@@ -92,7 +92,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -498,7 +497,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
     /**
      * Validate what happens if we have concurrent saves and some of those are overwrites of existing records.
-     * This can sometimes hit a deadlock that we have more explicit testing for in
+     * A naïve locking mechanism could result in deadlocks, and we have more explicit testing for that in
      * {@link #concurrentlySaveOtherRecordWhileUpdatingBoundaryKey(boolean)}.
      *
      * @param disableConcurrencyManagement whether to disable the store's concurrency manager in the test
@@ -517,10 +516,6 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             try {
                 saveAllWithConcurrency(totalRecords, concurrency,
                         id -> createRecord(id % 20, 300 + (long)(id % 2 == 0 ? 1 : -1) * id));
-            } catch (TimeoutException e) {
-                // Should only get a timeout if we disable concurrency management
-                assertFalse(disableConcurrencyManagement);
-                Assumptions.assumeFalse(true);
             } catch (ExecutionException e) {
                 // Should only get a FoundSplitWithoutStartException if concurrency management is disabled
                 assertInstanceOf(SplitHelper.FoundSplitWithoutStartException.class, e.getCause());
@@ -537,12 +532,12 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * Validate that we can update records concurrently as long as we don't have a deadlock on reading
-     * boundary key. This test achieves this by inserting 40 records, and then only updating the 5 most
-     * and least relevant. This means the boundary key always points to a record that is in the middle and
-     * is therefore not updated. This means we avoid the concurrency problem alluded to in
-     * {@link #concurrentlySaveOtherRecordWhileUpdatingBoundaryKey(boolean)}. This test makes sure we have
-     * sensible outcomes in such a regime.
+     * Validate that we can update records concurrently in a case that is designed to attempt to not
+     * concurrently mutate the boundary key. This test achieves this by inserting 40 records, and then
+     * only updating the 5 most and least relevant. This means the boundary key always points to a record
+     * that is in the middle and is therefore not updated. This means we avoid the read and write pattern
+     * problem alluded to in {@link #concurrentlySaveOtherRecordWhileUpdatingBoundaryKey(boolean)}
+     * under which a naïve locking scheme could deadlock.
      *
      * @param seed the seed to use when generating random values
      * @throws Exception any exception thrown during the test
@@ -620,25 +615,19 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             // Create a new record (4) and also update the pre-existing record (2) that is on the boundary. They both
             // end up adjusting the window, one of them to 210 and the other to 190.
             //
-            // If we have not disabled store concurrency management, then the first save grab a write lock on record 4,
-            // then when updating the index, it grabs a write lock on the window space and a read lock on record 2. The second save needs to
-            // grab a write lock on record 2, after which it will grab a write lock on the window space. So there's a likely
-            // thread ordering of:
+            // Note that there is room for a deadlock here. In particular, if the store concurrency manager
+            // only read single record locks with no mutation lock, then there would be a problem here given
+            // the following operation ordering:
             //
             //  1. f1 grabs write locks on record 4 and the index window space
             //  2. f2 brags a write lock on record 2 and then waits for f1 to release the index window space lock
-            //  3. f1 attempts to read the boundary key, so it waits for f2 to to release the lock on record 2
+            //  3. f1 attempts to read the boundary key, so it waits for f2 to release the lock on record 2
             //
-            // At this point, they're stuck.
+            // At this point, they'd be stuck. The store concurrency manager's mutation lock currently
+            // prevents that by requiring that f1 fully complete before f2 begins.
             final CompletableFuture<FDBStoredRecord<Message>> f1 = recordStore.saveRecordAsync(createRecord(4, 210));
             final CompletableFuture<FDBStoredRecord<Message>> f2 = recordStore.saveRecordAsync(createRecord(2, 190));
-            try {
-                CompletableFuture.allOf(f1, f2).get(1, TimeUnit.SECONDS);
-            } catch (TimeoutException e) {
-                // Should only time out here if concurrency management is enabled
-                assertFalse(disableConcurrencyManagement);
-                Assumptions.assumeFalse(true);
-            }
+            CompletableFuture.allOf(f1, f2).get(1, TimeUnit.SECONDS);
 
             assertThat(slidingWindow())
                     .hasSizeOf(2)

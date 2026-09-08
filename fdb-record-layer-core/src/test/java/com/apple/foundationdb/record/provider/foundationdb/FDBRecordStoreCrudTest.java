@@ -516,8 +516,8 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
      * @param seed a seed to use in the random number generator used to create test cases
      * @throws Exception any problem hit while running the test
      */
-    @ParameterizedTest
-    @RandomSeedSource
+    @ParameterizedTest(name = "concurrentRecordOperationsStressTest[seed={0})")
+    @RandomSeedSource(value = {0x5ca1ab1e, 0xdeadc0de, 0x11381153})
     void concurrentRecordOperationStressTest(long seed) throws Exception {
         final int concurrentTasks = 100;
         final int totalTasks = 1000;
@@ -582,7 +582,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
 
         // Make sure the most recent update is persisted for each record
         int expectedCount = 0;
-        for (Map.Entry<Tuple, Deque<Pair<Integer, Message>>> entry :  taskState.historyByRecord.entrySet()) {
+        for (Map.Entry<Tuple, Deque<Pair<Integer, Message>>> entry : taskState.historyByRecord.entrySet()) {
             final Tuple primaryKey = entry.getKey();
             final Pair<Integer, Message> mostRecentUpdate = entry.getValue().peekFirst();
             @Nullable final Message expectedMessage = mostRecentUpdate == null ? null : mostRecentUpdate.getRight();
@@ -601,7 +601,7 @@ class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
         final int taskNumber = taskState.taskNumber;
         final int completed = taskState.completed;
         double choice = random.nextDouble();
-        final long recNo = random.nextLong(20);
+        final long recNo = (long) random.nextGaussian(0, 10);
         final Tuple primaryKey = Tuple.from(recNo);
         Deque<Pair<Integer, Message>> recordHistory = taskState.historyByRecord.computeIfAbsent(primaryKey, ignored -> new ConcurrentLinkedDeque<>());
         if (choice < 0.3) {

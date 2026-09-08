@@ -59,32 +59,30 @@ import java.util.function.Supplier;
 @API(API.Status.INTERNAL)
 public sealed interface StoreConcurrencyManager permits NoOpConcurrencyManager, FDBRecordStoreConcurrencyManager {
     /**
-     * Perform an operation with a shared lock covering a single record.
+     * Perform a read operation over a single record.
      * This is applied on operations like {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#loadRecordAsync(Tuple) loadRecordAsync()}
-     * to ensure that the read does not see partial updates, e.g., one split point overwritten by a
-     * concurrent {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#saveRecordAsync(Message) saveRecordAsync()}.
-     * This will wait for any previously started writes to the record to finish before beginning the operation, and it will
-     * block any future writes to the record from beginning until this read has completed.
+     * and other single-record read-only methods to ensure that they are not interfered with
+     * by concurrent mutations.
      *
      * @param primaryKey the primary key of the record being read
      * @param operation an operation to execute
      * @return a future that will complete when the operation has finished
      * @param <T> the type returned by the operation
+     * @see FDBRecordStoreConcurrencyManager#doWithRecordReadLock(Tuple, Supplier) for the default implementation
      */
     <T> CompletableFuture<T> doWithRecordReadLock(@Nonnull Tuple primaryKey, @Nonnull Supplier<CompletableFuture<T>> operation);
 
     /**
-     * Perform an operation with an exclusive lock covering a single record.
+     * Perform a write operation over a single record.
      * This is applied on operations like {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#saveRecordAsync(Message) saveRecordAsync()}
      * and {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#deleteRecordAsync(Tuple) deleteRecordAsync()}
      * to ensure that the writes do not interfere with each other or with any concurrent reads.
-     * This will wait for any previously started operations to the record to finish before beginning, and it will
-     * block any future operations to the record from beginning until this write has completed.
      *
      * @param primaryKey the primary key of the record being written
      * @param operation an operation to execute
      * @return a future that will complete when the operation has finished
      * @param <T> the type returned by the operation
+     * @see FDBRecordStoreConcurrencyManager#doWithRecordWriteLock(Tuple, Supplier) for the default implementation
      */
     <T> CompletableFuture<T> doWithRecordWriteLock(@Nonnull Tuple primaryKey, @Nonnull Supplier<CompletableFuture<T>> operation);
 }
