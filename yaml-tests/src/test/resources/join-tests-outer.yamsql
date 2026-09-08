@@ -111,6 +111,12 @@ test_block:
       - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept, EQUALS q0.dept_id]) | MAP (_.id AS id) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN (q0.fname AS fname, q0.lname AS lname) }"
       - result: [{'Dave', 'Kim'}]
     -
+      # The same anti-join expressed via NOT IN over a subquery, for completeness. However, a subquery IN list is not
+      # supported yet.
+      - query: SELECT "e"."fname", "e"."lname" FROM "emp" "e" WHERE "e"."dept_id" NOT IN (SELECT "d"."id" FROM "dept" "d");
+      - supported_version: !current_version
+      - error: UNSUPPORTED_QUERY
+    -
       # WHERE with a different null-accepting predicate on the null-producing side, projecting that side too.
       # Only Dave is unmatched, so only Dave should appear with a null name.
       - query: SELECT "e"."fname", "d"."name" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id" WHERE "d"."name" IS NULL;

@@ -689,7 +689,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     private Expression visitInPredicate(@Nonnull Expression operand, @Nonnull RelationalParser.InPredicateContext ctx) {
-        Assert.thatUnchecked(ctx.inList().queryExpressionBody() == null, ErrorCode.UNSUPPORTED_QUERY,
+        Assert.thatUnchecked(
+                ctx.inList().queryExpressionBody() == null,
+                ErrorCode.UNSUPPORTED_QUERY,
                 "IN predicate does not support nested SELECT");
         final var right = visitInList(ctx.inList());
         var in = getDelegate().resolveFunction(ctx.IN().getText(), operand, right);
