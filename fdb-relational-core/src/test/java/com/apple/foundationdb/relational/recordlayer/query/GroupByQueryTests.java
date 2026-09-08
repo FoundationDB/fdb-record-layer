@@ -26,7 +26,9 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
+import com.google.common.base.VerifyException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -38,6 +40,7 @@ import java.net.URI;
 
 import static com.apple.foundationdb.relational.recordlayer.query.QueryTestUtils.insertT1Record;
 import static com.apple.foundationdb.relational.recordlayer.query.QueryTestUtils.insertT1RecordColAIsNull;
+import static com.apple.foundationdb.relational.recordlayer.query.QueryTestUtils.insertT1RecordColBIsNull;
 
 public class GroupByQueryTests {
 
@@ -110,6 +113,49 @@ public class GroupByQueryTests {
                         continuation = resultSet.getContinuation();
                     }
                     Assertions.assertTrue(continuation.atEnd());
+                }
+            }
+        }
+    }
+
+    /**
+     * Tests that resuming a group mid-way currently fails a {@code verify()} when one of its aggregates has no value
+     * yet. Pins Issue #4573.
+     */
+    @Test
+    void groupByWithScanLimitAndAggregateWithoutValue() throws Exception {
+        final String schemaTemplate =
+                "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
+                        "CREATE INDEX idx1 ON t1(a, b, c)";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var conn = ddl.setSchemaAndGetConnection()) {
+                final Continuation continuation;
+                try (var statement = conn.createStatement()) {
+                    // Group `a = 1` holds 3 rows, so a scan limit of 2 stops inside the group, at which point `MAX(b)` has no value yet.
+                    insertT1RecordColBIsNull(statement, 2, 1, 20);
+                    insertT1RecordColBIsNull(statement, 3, 1, 5);
+                    insertT1RecordColBIsNull(statement, 4, 1, 15);
+                    insertT1RecordColBIsNull(statement, 5, 2, 10);
+                    insertT1RecordColBIsNull(statement, 6, 2, 40);
+                    insertT1RecordColBIsNull(statement, 7, 2, 90);
+                }
+
+                conn.setOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2);
+                try (var statement = conn.createStatement()) {
+                    Assertions.assertTrue(statement.execute("SELECT a, MAX(c), MAX(b) FROM T1 GROUP BY a"),
+                            "Did not return a result set from a select statement!");
+                    try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                        ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                    }
+                }
+                Assertions.assertFalse(continuation.atEnd(), "expected the scan to stop inside the first group");
+
+                try (var preparedStatement = conn.prepareStatement("EXECUTE CONTINUATION ?param")) {
+                    preparedStatement.setBytes("param", continuation.serialize());
+                    RelationalAssertions.assertThrowsSqlException(preparedStatement::executeQuery)
+                            .rootCause()
+                            .isInstanceOf(VerifyException.class);
                 }
             }
         }
