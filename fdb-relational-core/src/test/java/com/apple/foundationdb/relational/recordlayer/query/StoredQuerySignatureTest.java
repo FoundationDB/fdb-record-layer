@@ -162,6 +162,21 @@ public class StoredQuerySignatureTest {
     }
 
     /**
+     * An {@code IN} list may name an array directly, and that alternative is a bare {@code fullColumnName} rather than
+     * an expression, so a reference there has to be found in its own right. This is the shape a runtime query writes as
+     * {@code IN ?ids}, and the one an array parameter exists for.
+     */
+    @Test
+    void arrayParameterInAnInListBecomesANamedParameter() throws Exception {
+        final var storedQueries = storedQueriesOf("/TEST/SQS_INLIST", TABLE
+                + " CREATE STORED QUERY q(ids BIGINT ARRAY)"
+                + " PREPARE FOR ((ids IS NOT NULL))"
+                + " AS SELECT id FROM t1 WHERE col1 IN ids");
+        Assertions.assertThat(storedQueries.get("Q").getQuery())
+                .isEqualTo("SELECT id FROM t1 WHERE col1 IN ?IDS");
+    }
+
+    /**
      * A {@code PREPARE FOR} block is not part of the query, so it leaves no trace in the stored body.
      */
     @Test

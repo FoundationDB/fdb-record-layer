@@ -1164,13 +1164,19 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      * Collects the single-part column references in {@code tree} that name one of {@code declaredNames}. A qualified
      * reference is left alone: a signature parameter has no qualifier, so {@code t.x} is a column even when a parameter
      * named {@code x} exists.
+     *
+     * <p>
+     * Matched on {@code fullColumnName} itself rather than on the expression atom that wraps it, because an
+     * {@code IN} list names an array through its own {@code fullColumnName} alternative, which is not an expression.
+     * Inside a query every {@code fullColumnName} is a reference — an alias is a plain {@code uid} and a table name a
+     * {@code fullId} — so there is nothing here that must not be rewritten.
+     * </p>
      */
     private void collectParameterReferences(@Nonnull final ParseTree tree,
                                             @Nonnull final Set<String> declaredNames,
                                             @Nonnull final List<RelationalParser.UidContext> references) {
-        if (tree instanceof RelationalParser.FullColumnNameExpressionAtomContext) {
-            final var atom = (RelationalParser.FullColumnNameExpressionAtomContext)tree;
-            final var uids = atom.fullColumnName().fullId().uid();
+        if (tree instanceof RelationalParser.FullColumnNameContext) {
+            final var uids = ((RelationalParser.FullColumnNameContext)tree).fullId().uid();
             if (uids.size() == 1 && declaredNames.contains(visitUid(uids.get(0)).getName())) {
                 references.add(uids.get(0));
                 return;
