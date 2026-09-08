@@ -85,10 +85,16 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
+    // What NAMED_PARAMETER accepts after its '?'. A reference to a signature parameter is rewritten to '?name', so a
+    // name that does not fit here produces stored text that no longer lexes as the parameter it came from. Most
+    // identifiers fit, but a quoted one may hold anything, and even an unquoted one may start with '/'.
+    private static final Pattern BINDABLE_PARAMETER_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_/]*");
+
     // The vector engines an option may apply to. HNSW is the engine used when the VECTOR_ENGINE option is absent.
     private static final Set<VectorIndexEngineKind> ANY_ENGINE =
             ImmutableSet.of(VectorIndexEngineKind.HNSW, VectorIndexEngineKind.GUARDIANN);
@@ -945,9 +951,10 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      * Parses a stored query's signature into a map from parameter name to the SQL text of its declaration. The name is
      * normalized as an ordinary identifier, so an unquoted name is uppercased and a quoted one keeps its spelling; that
      * normalized spelling is what a client has to use for the matching prepared parameter, because a prepared parameter
-     * name is never normalized. The declaration is kept as source text rather than as a resolved type: it may name a
-     * schema template type, which can only be resolved against the template the query is warmed with. The type is
-     * nevertheless visited here so that an unusable one is reported at {@code CREATE} time.
+     * name is never normalized. That normalized name also has to be one a client can bind, since every reference to the
+     * parameter is rewritten to {@code ?name}. The declaration is kept as source text rather than as a resolved type: it
+     * may name a schema template type, which can only be resolved against the template the query is warmed with. The
+     * type is nevertheless visited here so that an unusable one is reported at {@code CREATE} time.
      *
      * @param ctx the signature, or {@code null} when the query declares none
      * @param sourceText the full DDL source, for slicing declaration text out of
@@ -962,6 +969,14 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var parameters = new LinkedHashMap<String, String>();
         for (final var param : ctx.storedQueryParameter()) {
             final var parameterName = visitUid(param.parameterName).getName();
+            // A reference to this parameter becomes '?name', so a name a client could not bind is rejected here rather
+            // than stored as text that no longer means what was written: `"my param"` would give `?my param`, which does
+            // not parse at all, and `"a-b"` would give `?a - b`, which parses as arithmetic wherever a column `b` is in
+            // scope.
+            Assert.thatUnchecked(BINDABLE_PARAMETER_NAME.matcher(parameterName).matches(), ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "stored query signature parameter '" + parameterName + "' cannot be bound as '?"
+                            + parameterName + "'; a parameter name must be a letter followed by letters, digits, "
+                            + "'_' or '/'");
             // Visited so that a malformed type expression is reported at CREATE time. A type that merely names
             // something the template does not define resolves to a placeholder here and is only caught when the query
             // is warmed, because a template type may be declared after the query that uses it.
