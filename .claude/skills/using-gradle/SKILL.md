@@ -25,12 +25,18 @@ Compile a single module without running tests:
 # Style / static analysis checks
 
 **Run this before pushing or opening a PR.** CI's `style` job (`.github/workflows/pull_request.yml`)
-runs `./gradlew build -x test -x destructiveTest -x scalarFallbackTest -PspotbugsEnableHtmlReport`,
-which includes Checkstyle, PMD, and SpotBugs across every module. That's slow for local
-iteration — scope it to the modules you actually touched:
+runs:
+```
+./gradlew build -x test -x destructiveTest -x scalarFallbackTest -PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport
+```
+which includes Checkstyle, PMD, and SpotBugs across every module. The `-PreleaseBuild=false
+-PpublishBuild=false` pair matters — without it you're not running the same task graph as CI, and
+some failures (e.g. dependency-version-resolution differences gated by `publishBuild`) only show
+up with them set. That's slow for local iteration — scope it to the modules you actually touched,
+keeping the same property flags:
 
 ```
-./gradlew :fdb-relational-core:check :fdb-record-layer-core:check -x test -x destructiveTest -x scalarFallbackTest -PspotbugsEnableHtmlReport
+./gradlew :fdb-relational-core:check :fdb-record-layer-core:check -x test -x destructiveTest -x scalarFallbackTest -PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport
 ```
 
 Reports on failure land at `<module>/.out/reports/checkstyle/*.html`, `<module>/.out/reports/pmd/*.html`,
@@ -42,6 +48,25 @@ Common violations you'll hit when merging/rebasing branches by hand:
   the same class imported twice (easy to introduce when resolving import-block merge conflicts).
 - PMD `UnnecessaryFullyQualifiedName` — using a fully-qualified name (e.g. `java.util.Map`)
   when the class is already imported under its simple name.
+
+Gotchas when doing an incremental, module-by-module rollout of a new annotation library (e.g.
+jspecify) across a dependency graph:
+- SpotBugs analyzes a module's compiled classes together with an aux classpath drawn from its
+  own `compileOnly`/`implementation`/`api` dependencies. If module B depends on module A and A's
+  compiled bytecode now carries annotations from a library that's only a `compileOnly` dependency
+  of A (not `api`), that dependency does **not** propagate to B — SpotBugs then fails B's analysis
+  with "The following classes needed for analysis were missing: ..." (SpotBugs exit code 3) even
+  though B's own source never references the new annotation. Fix by making the new annotation
+  library a `compileOnly` dependency of every module (not just migrated ones), e.g. via a root
+  `subprojects {}` block, so the class is always resolvable regardless of migration order.
+- SpotBugs' `NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION` check does not treat two different
+  nullability-annotation libraries (e.g. JSR-305's `javax.annotation.Nullable` and jspecify's
+  `org.jspecify.annotations.Nullable`) as equivalent when comparing an overriding method's
+  parameter annotation against its superclass — it flags a mismatch even when both sides
+  genuinely agree the parameter is nullable. This surfaces as a wave of new findings as soon as
+  a widely-subclassed base class (e.g. an exception hierarchy root) migrates to the new library,
+  in every not-yet-migrated subclass module. See `NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION` in
+  `gradle/codequality/spotbugs_exclude.xml` for how this project suppresses it.
 
 # Running tests
 
