@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -109,7 +108,7 @@ class OfflineValueFreePlanGenerationTest {
      * planned again with the value in hand.
      */
     @Test
-    void aDeclaredTypeRejectsANullBinding() throws Exception {
+    void declaredTypeRejectsANullBinding() throws Exception {
         final var constraint = valueFreePlanConstraint("BIGINT");
 
         assertThat(constraint.compileTimeEval(bindingConstantsOf(constraint, 42L))).isTrue();
@@ -123,7 +122,7 @@ class OfflineValueFreePlanGenerationTest {
      * caller has to remember.
      */
     @Test
-    void aNullableDeclarationStillRejectsANullBinding() throws Exception {
+    void nullableDeclarationStillRejectsANullBinding() throws Exception {
         final var constraint = valueFreePlanConstraint("BIGINT NULL");
 
         assertThat(constraint.compileTimeEval(bindingConstantsOf(constraint, 42L))).isTrue();
@@ -137,7 +136,7 @@ class OfflineValueFreePlanGenerationTest {
      * become two competing entries for one binding.
      */
     @Test
-    void aDeclaredTypeConstrainsAsABoundValueDoes() throws Exception {
+    void declaredTypeConstrainsAsABoundValueDoes() throws Exception {
         final var warmed = valueFreePlanConstraint("BIGINT");
         final var fromValue = planConstraint(PreparedParams.ofNamed(Map.of("param_a", 42L)));
 
@@ -149,7 +148,7 @@ class OfflineValueFreePlanGenerationTest {
      * than guessed: a wrong type would warm a plan no binding could match.
      */
     @Test
-    void aSchemaTemplateTypeCannotBeResolvedFromADeclaration() {
+    void schemaTemplateTypeCannotBeResolvedFromADeclaration() {
         assertThatThrownBy(() -> valueFreePlanConstraint("TYPE some_struct"))
                 .hasMessageContaining("cannot resolve declared type");
     }
