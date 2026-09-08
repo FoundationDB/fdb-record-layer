@@ -1,0 +1,40 @@
+simple-query-graph:
+-   query: EXPLAIN select name as nameNew, rest_no as restNoNew from restaurant_record
+        where rest_no > 1
+    ref: simple-query-graph.yamsql:103
+    explain: SCAN([[GREATER_THAN promote(@c13 AS LONG)]]) | TFILTER RESTAURANT_RECORD
+        | MAP (_.NAME AS NAMENEW, _.REST_NO AS RESTNONEW)
+    task_count: 488
+    task_total_time_ms: 7
+    transform_count: 120
+    transform_time_ms: 4
+    transform_yield_count: 42
+    insert_time_ms: 0
+    insert_new_count: 51
+    insert_reused_count: 4
+-   query: EXPLAIN select name as nameNew, rest_no as restNoNew from restaurant_record
+        where rest_no > 1 order by rest_no desc
+    ref: simple-query-graph.yamsql:110
+    explain: SCAN([[GREATER_THAN promote(@c13 AS LONG)]]) | TFILTER RESTAURANT_RECORD
+        | MAP (_.NAME AS NAMENEW, _.REST_NO AS RESTNONEW)
+    task_count: 256
+    task_total_time_ms: 3
+    transform_count: 71
+    transform_time_ms: 2
+    transform_yield_count: 30
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1
+-   query: EXPLAIN select name as nameNew, rest_no as restNoNew from restaurant_record
+        where rest_no > 1
+    ref: simple-query-graph.yamsql:117
+    explain: SCAN([[GREATER_THAN promote(@c13 AS LONG)]]) | TFILTER RESTAURANT_RECORD
+        | MAP (_.NAME AS NAMENEW, _.REST_NO AS RESTNONEW)
+    task_count: 488
+    task_total_time_ms: 7
+    transform_count: 120
+    transform_time_ms: 4
+    transform_yield_count: 42
+    insert_time_ms: 0
+    insert_new_count: 51
+    insert_reused_count: 4

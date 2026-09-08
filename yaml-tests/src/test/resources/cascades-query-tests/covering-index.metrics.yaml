@@ -1,0 +1,67 @@
+covering-index:
+-   query: EXPLAIN select num_value_unique from my_simple_record where num_value_unique
+        > 990 order by num_value_unique
+    ref: covering-index.yamsql:71
+    explain: 'COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [[GREATER_THAN promote(@c7
+        AS INT)]] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) | MAP (_.NUM_VALUE_UNIQUE
+        AS NUM_VALUE_UNIQUE)'
+    task_count: 384
+    task_total_time_ms: 109
+    transform_count: 97
+    transform_time_ms: 69
+    transform_yield_count: 43
+    insert_time_ms: 6
+    insert_new_count: 38
+    insert_reused_count: 2
+-   query: EXPLAIN select num_value_3_indexed from my_simple_record order by num_value_3_indexed
+    ref: covering-index.yamsql:89
+    explain: 'COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,> -> [NUM_VALUE_3_INDEXED:
+        KEY:[0], REC_NO: KEY:[1]]) | MAP (_.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED)'
+    task_count: 232
+    task_total_time_ms: 21
+    transform_count: 61
+    transform_time_ms: 11
+    transform_yield_count: 34
+    insert_time_ms: 1
+    insert_new_count: 20
+    insert_reused_count: 2
+-   query: EXPLAIN select num_value_unique, num_value_3_indexed from my_simple_record
+        where num_value_unique > 990 order by num_value_unique desc
+    ref: covering-index.yamsql:197
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [[GREATER_THAN promote(@c9 AS
+        INT)]] REVERSE) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.NUM_VALUE_3_INDEXED
+        AS NUM_VALUE_3_INDEXED)
+    task_count: 325
+    task_total_time_ms: 28
+    transform_count: 90
+    transform_time_ms: 14
+    transform_yield_count: 39
+    insert_time_ms: 1
+    insert_new_count: 31
+    insert_reused_count: 1
+-   query: EXPLAIN select num_value_3_indexed from my_simple_record
+    ref: covering-index.yamsql:213
+    explain: 'COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,> -> [NUM_VALUE_3_INDEXED:
+        KEY:[0], REC_NO: KEY:[1]]) | MAP (_.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED)'
+    task_count: 386
+    task_total_time_ms: 37
+    transform_count: 88
+    transform_time_ms: 19
+    transform_yield_count: 45
+    insert_time_ms: 3
+    insert_new_count: 48
+    insert_reused_count: 8
+-   query: EXPLAIN select num_value_3_indexed from my_simple_record where num_value_3_indexed
+        = 1 and num_value_2 < 2
+    ref: covering-index.yamsql:320
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c7 AS INT)])
+        | FILTER _.NUM_VALUE_2 LESS_THAN promote(@c11 AS INT) | MAP (_.NUM_VALUE_3_INDEXED
+        AS NUM_VALUE_3_INDEXED)
+    task_count: 737
+    task_total_time_ms: 50
+    transform_count: 185
+    transform_time_ms: 26
+    transform_yield_count: 59
+    insert_time_ms: 4
+    insert_new_count: 85
+    insert_reused_count: 7

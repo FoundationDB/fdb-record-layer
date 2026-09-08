@@ -1,0 +1,81 @@
+permuted-min-max-str-value:
+-   query: EXPLAIN select num_value_3_indexed, max(num_value_unique) as m from my_simple_record
+        group by str_value_indexed, num_value_2, num_value_3_indexed having str_value_indexed
+        = 'even' and num_value_2 = 0 order by max(num_value_unique)
+    ref: permuted-min-max-str-value.yamsql:71
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_STR_VALUE_2_AND_3 [EQUALS promote(@c21
+        AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3: KEY:[1]])
+        | FILTER _._1 EQUALS promote(@c25 AS INT) | MAP (_._2 AS NUM_VALUE_3_INDEXED,
+        _._3 AS M)'
+    task_count: 325
+    task_total_time_ms: 7
+    transform_count: 106
+    transform_time_ms: 5
+    transform_yield_count: 51
+    insert_time_ms: 0
+    insert_new_count: 23
+    insert_reused_count: 0
+-   query: EXPLAIN select num_value_3_indexed, max(num_value_unique) as m from my_simple_record
+        group by str_value_indexed, num_value_2, num_value_3_indexed having str_value_indexed
+        = 'even' and num_value_2 = 0 order by max(num_value_unique) desc
+    ref: permuted-min-max-str-value.yamsql:84
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_STR_VALUE_2_AND_3 [EQUALS promote(@c21
+        AS STRING)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3:
+        KEY:[1]]) | FILTER _._1 EQUALS promote(@c25 AS INT) | MAP (_._2 AS NUM_VALUE_3_INDEXED,
+        _._3 AS M)'
+    task_count: 325
+    task_total_time_ms: 7
+    transform_count: 106
+    transform_time_ms: 5
+    transform_yield_count: 51
+    insert_time_ms: 0
+    insert_new_count: 23
+    insert_reused_count: 0
+-   query: EXPLAIN select num_value_3_indexed, max(num_value_unique) as m from my_simple_record
+        group by str_value_indexed, num_value_2, num_value_3_indexed having str_value_indexed
+        = 'odd' and num_value_2 = 2 order by max(num_value_unique)
+    ref: permuted-min-max-str-value.yamsql:97
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_STR_VALUE_2_AND_3 [EQUALS promote(@c21
+        AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3: KEY:[1]])
+        | FILTER _._1 EQUALS promote(@c25 AS INT) | MAP (_._2 AS NUM_VALUE_3_INDEXED,
+        _._3 AS M)'
+    task_count: 325
+    task_total_time_ms: 7
+    transform_count: 106
+    transform_time_ms: 5
+    transform_yield_count: 51
+    insert_time_ms: 0
+    insert_new_count: 23
+    insert_reused_count: 0
+-   query: EXPLAIN select num_value_3_indexed, max(num_value_unique) as m from my_simple_record
+        group by str_value_indexed, num_value_2, num_value_3_indexed having str_value_indexed
+        = 'neither' and num_value_2 = 0 order by max(num_value_unique)
+    ref: permuted-min-max-str-value.yamsql:110
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_STR_VALUE_2_AND_3 [EQUALS promote(@c21
+        AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3: KEY:[1]])
+        | FILTER _._1 EQUALS promote(@c25 AS INT) | MAP (_._2 AS NUM_VALUE_3_INDEXED,
+        _._3 AS M)'
+    task_count: 325
+    task_total_time_ms: 7
+    transform_count: 106
+    transform_time_ms: 5
+    transform_yield_count: 51
+    insert_time_ms: 0
+    insert_new_count: 23
+    insert_reused_count: 0
+-   query: EXPLAIN select num_value_3_indexed, max(num_value_unique) as m from my_simple_record
+        group by str_value_indexed, num_value_2, num_value_3_indexed having str_value_indexed
+        = 'even' and num_value_2 = -1 order by max(num_value_unique)
+    ref: permuted-min-max-str-value.yamsql:119
+    explain: 'AISCAN(MAX_NUM_VALUE_UNIQUE_BY_STR_VALUE_2_AND_3 [EQUALS promote(@c21
+        AS STRING)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3: KEY:[1]])
+        | FILTER _._1 EQUALS promote(@c25 AS INT) | MAP (_._2 AS NUM_VALUE_3_INDEXED,
+        _._3 AS M)'
+    task_count: 325
+    task_total_time_ms: 7
+    transform_count: 106
+    transform_time_ms: 5
+    transform_yield_count: 51
+    insert_time_ms: 0
+    insert_new_count: 23
+    insert_reused_count: 0

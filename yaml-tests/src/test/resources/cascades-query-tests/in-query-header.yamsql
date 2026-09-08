@@ -1,0 +1,192 @@
+#
+# in-query-header.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBInQueryTest` — the IN tests built on `test_records_with_header.proto`, where the IN
+# predicates apply to columns inside a nested `header` struct and the index is over
+# (header.rec_no, header.path).
+#
+# The fixture mirrors `setupRecordsWithHeader`: 100 rows with
+#   str_value = '_' + i, header.rec_no = i % 5, header.path = 'String' + (i % 50), header.num = i
+# and the primary key is STR_VALUE.
+#
+# The source's `normalizeNestedFields` parameterization is not reproduced — it is read only by
+# `BooleanNormalizer` on the old-planner path.
+#
+# `testInWithLimit` and `testInWithContinuation` are not reproduced as separate cases: they are the
+# same query under a returned-row limit, and the `ForceContinuations` test configuration already
+# re-runs every query here through continuations.
+---
+schema_template:
+    create type as struct header_record(rec_no bigint, path string, num integer)
+    create table my_record(header header_record, str_value string, repeated_int bigint array,
+        primary key(str_value))
+    create index ind as select header.rec_no, header.path from my_record
+        order by header.rec_no, header.path
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_RECORD (HEADER, STR_VALUE)
+             VALUES
+               ((0, 'String0', 0), '_0'),
+               ((1, 'String1', 1), '_1'),
+               ((2, 'String2', 2), '_2'),
+               ((3, 'String3', 3), '_3'),
+               ((4, 'String4', 4), '_4'),
+               ((0, 'String5', 5), '_5'),
+               ((1, 'String6', 6), '_6'),
+               ((2, 'String7', 7), '_7'),
+               ((3, 'String8', 8), '_8'),
+               ((4, 'String9', 9), '_9'),
+               ((0, 'String10', 10), '_10'),
+               ((1, 'String11', 11), '_11'),
+               ((2, 'String12', 12), '_12'),
+               ((3, 'String13', 13), '_13'),
+               ((4, 'String14', 14), '_14'),
+               ((0, 'String15', 15), '_15'),
+               ((1, 'String16', 16), '_16'),
+               ((2, 'String17', 17), '_17'),
+               ((3, 'String18', 18), '_18'),
+               ((4, 'String19', 19), '_19'),
+               ((0, 'String20', 20), '_20'),
+               ((1, 'String21', 21), '_21'),
+               ((2, 'String22', 22), '_22'),
+               ((3, 'String23', 23), '_23'),
+               ((4, 'String24', 24), '_24'),
+               ((0, 'String25', 25), '_25'),
+               ((1, 'String26', 26), '_26'),
+               ((2, 'String27', 27), '_27'),
+               ((3, 'String28', 28), '_28'),
+               ((4, 'String29', 29), '_29'),
+               ((0, 'String30', 30), '_30'),
+               ((1, 'String31', 31), '_31'),
+               ((2, 'String32', 32), '_32'),
+               ((3, 'String33', 33), '_33'),
+               ((4, 'String34', 34), '_34'),
+               ((0, 'String35', 35), '_35'),
+               ((1, 'String36', 36), '_36'),
+               ((2, 'String37', 37), '_37'),
+               ((3, 'String38', 38), '_38'),
+               ((4, 'String39', 39), '_39'),
+               ((0, 'String40', 40), '_40'),
+               ((1, 'String41', 41), '_41'),
+               ((2, 'String42', 42), '_42'),
+               ((3, 'String43', 43), '_43'),
+               ((4, 'String44', 44), '_44'),
+               ((0, 'String45', 45), '_45'),
+               ((1, 'String46', 46), '_46'),
+               ((2, 'String47', 47), '_47'),
+               ((3, 'String48', 48), '_48'),
+               ((4, 'String49', 49), '_49'),
+               ((0, 'String0', 50), '_50'),
+               ((1, 'String1', 51), '_51'),
+               ((2, 'String2', 52), '_52'),
+               ((3, 'String3', 53), '_53'),
+               ((4, 'String4', 54), '_54'),
+               ((0, 'String5', 55), '_55'),
+               ((1, 'String6', 56), '_56'),
+               ((2, 'String7', 57), '_57'),
+               ((3, 'String8', 58), '_58'),
+               ((4, 'String9', 59), '_59'),
+               ((0, 'String10', 60), '_60'),
+               ((1, 'String11', 61), '_61'),
+               ((2, 'String12', 62), '_62'),
+               ((3, 'String13', 63), '_63'),
+               ((4, 'String14', 64), '_64'),
+               ((0, 'String15', 65), '_65'),
+               ((1, 'String16', 66), '_66'),
+               ((2, 'String17', 67), '_67'),
+               ((3, 'String18', 68), '_68'),
+               ((4, 'String19', 69), '_69'),
+               ((0, 'String20', 70), '_70'),
+               ((1, 'String21', 71), '_71'),
+               ((2, 'String22', 72), '_72'),
+               ((3, 'String23', 73), '_73'),
+               ((4, 'String24', 74), '_74'),
+               ((0, 'String25', 75), '_75'),
+               ((1, 'String26', 76), '_76'),
+               ((2, 'String27', 77), '_77'),
+               ((3, 'String28', 78), '_78'),
+               ((4, 'String29', 79), '_79'),
+               ((0, 'String30', 80), '_80'),
+               ((1, 'String31', 81), '_81'),
+               ((2, 'String32', 82), '_82'),
+               ((3, 'String33', 83), '_83'),
+               ((4, 'String34', 84), '_84'),
+               ((0, 'String35', 85), '_85'),
+               ((1, 'String36', 86), '_86'),
+               ((2, 'String37', 87), '_87'),
+               ((3, 'String38', 88), '_88'),
+               ((4, 'String39', 89), '_89'),
+               ((0, 'String40', 90), '_90'),
+               ((1, 'String41', 91), '_91'),
+               ((2, 'String42', 92), '_92'),
+               ((3, 'String43', 93), '_93'),
+               ((4, 'String44', 94), '_94'),
+               ((0, 'String45', 95), '_95'),
+               ((1, 'String46', 96), '_96'),
+               ((2, 'String47', 97), '_97'),
+               ((3, 'String48', 98), '_98'),
+               ((4, 'String49', 99), '_99')
+---
+test_block:
+  name: in-query-header
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testInWithNesting — an equality on the first index column and an IN on the second. Only
+      # 'String6', 'String1' and 'String11' can coexist with header.rec_no = 1; 'String25' matches
+      # rows whose rec_no is 0.
+      - query: select * from my_record
+               where header.rec_no = 1
+                 and header.path in ('String6', 'String1', 'String25', 'String11')
+      - explain: "[IN arrayDistinct(@c15)] | INJOIN q0 -> { ISCAN(IND [EQUALS promote(@c9 AS LONG), EQUALS q0]) }"
+      - unorderedResult: [{HEADER: {REC_NO: 1, PATH: 'String1', NUM: 1}, STR_VALUE: '_1', REPEATED_INT: !null _},
+                          {HEADER: {REC_NO: 1, PATH: 'String6', NUM: 6}, STR_VALUE: '_6', REPEATED_INT: !null _},
+                          {HEADER: {REC_NO: 1, PATH: 'String11', NUM: 11}, STR_VALUE: '_11', REPEATED_INT: !null _},
+                          {HEADER: {REC_NO: 1, PATH: 'String1', NUM: 51}, STR_VALUE: '_51', REPEATED_INT: !null _},
+                          {HEADER: {REC_NO: 1, PATH: 'String6', NUM: 56}, STR_VALUE: '_56', REPEATED_INT: !null _},
+                          {HEADER: {REC_NO: 1, PATH: 'String11', NUM: 61}, STR_VALUE: '_61', REPEATED_INT: !null _}]
+    -
+      # testMultipleInQueryIndex — an IN on *both* index columns, so the plan nests two in-unions.
+      - query: select * from my_record
+               where header.rec_no in (1, 4)
+                 and header.path in ('String6', 'String25', 'String1', 'String34')
+      - explain: "[IN arrayDistinct(promote(@c9 AS ARRAY(LONG)))] | INJOIN q0 -> { [IN arrayDistinct(@c19)] | INJOIN q1 -> { ISCAN(IND [EQUALS q0, EQUALS q1]) } }"
+      - unorderedResult: [{HEADER: {REC_NO: 1, PATH: 'String1', NUM: 1}, STR_VALUE: '_1', REPEATED_INT: !null _},
+                          {HEADER: {REC_NO: 1, PATH: 'String6', NUM: 6}, STR_VALUE: '_6', REPEATED_INT: !null _},
+                          {HEADER: {REC_NO: 4, PATH: 'String34', NUM: 34}, STR_VALUE: '_34', REPEATED_INT: !null _},
+                          {HEADER: {REC_NO: 1, PATH: 'String1', NUM: 51}, STR_VALUE: '_51', REPEATED_INT: !null _},
+                          {HEADER: {REC_NO: 1, PATH: 'String6', NUM: 56}, STR_VALUE: '_56', REPEATED_INT: !null _},
+                          {HEADER: {REC_NO: 4, PATH: 'String34', NUM: 84}, STR_VALUE: '_84', REPEATED_INT: !null _}]
+    -
+      # testMultipleInQueryIndexSorted — the same query with the index order requested explicitly, so
+      # the nested in-unions have to produce (header.rec_no, header.path, str_value) order.
+      - query: select * from my_record
+               where header.rec_no in (1, 4)
+                 and header.path in ('String6', 'String25', 'String1', 'String34')
+               order by header.rec_no, header.path
+      - explain: "[IN arrayDistinct(promote(@c9 AS ARRAY(LONG))) ⋈ IN arrayDistinct(@c19)] INUNION q0, q1 -> { COVERING(IND [EQUALS q0, EQUALS q1] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } COMPARE BY (_.HEADER.REC_NO, _.HEADER.PATH, _.STR_VALUE) | FETCH"
+      - unorderedResult: [{HEADER: {REC_NO: 1, PATH: 'String1', NUM: 1}, STR_VALUE: '_1', REPEATED_INT: !null _},
+                          {HEADER: {REC_NO: 1, PATH: 'String1', NUM: 51}, STR_VALUE: '_51', REPEATED_INT: !null _},
+                          {HEADER: {REC_NO: 1, PATH: 'String6', NUM: 56}, STR_VALUE: '_56', REPEATED_INT: !null _},
+                          {HEADER: {REC_NO: 1, PATH: 'String6', NUM: 6}, STR_VALUE: '_6', REPEATED_INT: !null _},
+                          {HEADER: {REC_NO: 4, PATH: 'String34', NUM: 34}, STR_VALUE: '_34', REPEATED_INT: !null _},
+                          {HEADER: {REC_NO: 4, PATH: 'String34', NUM: 84}, STR_VALUE: '_84', REPEATED_INT: !null _}]
+...

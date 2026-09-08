@@ -1,0 +1,25 @@
+record-store-query-null:
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed <> 'yes'
+    ref: record-store-query-null.yamsql:63
+    explain: 'COVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,> -> [REC_NO: KEY:[1],
+        STR_VALUE_INDEXED: KEY:[0]]) | FILTER _.STR_VALUE_INDEXED NOT_EQUALS promote(@c8
+        AS STRING) | FETCH'
+    task_count: 574
+    task_total_time_ms: 5
+    transform_count: 136
+    transform_time_ms: 2
+    transform_yield_count: 57
+    insert_time_ms: 0
+    insert_new_count: 72
+    insert_reused_count: 6
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed is not null
+    ref: record-store-query-null.yamsql:68
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED ([null],>)
+    task_count: 557
+    task_total_time_ms: 5
+    transform_count: 130
+    transform_time_ms: 2
+    transform_yield_count: 56
+    insert_time_ms: 0
+    insert_new_count: 64
+    insert_reused_count: 6

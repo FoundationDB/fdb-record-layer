@@ -1,0 +1,17 @@
+or-query-to-union-no-index:
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        and (num_value_3_indexed = 1 or num_value_3_indexed = 2 or num_value_3_indexed
+        = 4)
+    ref: or-query-to-union-no-index.yamsql:53
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)])
+        | FILTER _.NUM_VALUE_3_INDEXED EQUALS promote(@c12 AS INT) OR _.NUM_VALUE_3_INDEXED
+        EQUALS promote(@c16 AS INT) OR _.NUM_VALUE_3_INDEXED EQUALS promote(@c20 AS
+        INT)
+    task_count: 483
+    task_total_time_ms: 7
+    transform_count: 114
+    transform_time_ms: 3
+    transform_yield_count: 45
+    insert_time_ms: 0
+    insert_new_count: 57
+    insert_reused_count: 4

@@ -1,0 +1,157 @@
+long-arithmetic-functions:
+-   query: EXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed
+        = -1
+    ref: long-arithmetic-functions.yamsql:176
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9
+        AS INT)])
+    task_count: 644
+    task_total_time_ms: 41
+    transform_count: 157
+    transform_time_ms: 20
+    transform_yield_count: 69
+    insert_time_ms: 2
+    insert_new_count: 79
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed
+        = 0
+    ref: long-arithmetic-functions.yamsql:182
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9
+        AS INT)])
+    task_count: 644
+    task_total_time_ms: 41
+    transform_count: 157
+    transform_time_ms: 20
+    transform_yield_count: 69
+    insert_time_ms: 2
+    insert_new_count: 79
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed
+        = 1
+    ref: long-arithmetic-functions.yamsql:194
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9
+        AS INT)])
+    task_count: 644
+    task_total_time_ms: 41
+    transform_count: 157
+    transform_time_ms: 20
+    transform_yield_count: 69
+    insert_time_ms: 2
+    insert_new_count: 79
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed
+        = 2
+    ref: long-arithmetic-functions.yamsql:212
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9
+        AS INT)])
+    task_count: 644
+    task_total_time_ms: 41
+    transform_count: 157
+    transform_time_ms: 20
+    transform_yield_count: 69
+    insert_time_ms: 2
+    insert_new_count: 79
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed
+        = 3
+    ref: long-arithmetic-functions.yamsql:237
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9
+        AS INT)])
+    task_count: 644
+    task_total_time_ms: 41
+    transform_count: 157
+    transform_time_ms: 20
+    transform_yield_count: 69
+    insert_time_ms: 2
+    insert_new_count: 79
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed
+        = 4
+    ref: long-arithmetic-functions.yamsql:262
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9
+        AS INT)])
+    task_count: 644
+    task_total_time_ms: 41
+    transform_count: 157
+    transform_time_ms: 20
+    transform_yield_count: 69
+    insert_time_ms: 2
+    insert_new_count: 79
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed
+        = 5
+    ref: long-arithmetic-functions.yamsql:287
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9
+        AS INT)])
+    task_count: 644
+    task_total_time_ms: 41
+    transform_count: 157
+    transform_time_ms: 20
+    transform_yield_count: 69
+    insert_time_ms: 2
+    insert_new_count: 79
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed
+        = 6
+    ref: long-arithmetic-functions.yamsql:306
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9
+        AS INT)])
+    task_count: 644
+    task_total_time_ms: 41
+    transform_count: 157
+    transform_time_ms: 20
+    transform_yield_count: 69
+    insert_time_ms: 2
+    insert_new_count: 79
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed
+        = 7
+    ref: long-arithmetic-functions.yamsql:317
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9
+        AS INT)])
+    task_count: 644
+    task_total_time_ms: 41
+    transform_count: 157
+    transform_time_ms: 20
+    transform_yield_count: 69
+    insert_time_ms: 2
+    insert_new_count: 79
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed
+        = 8
+    ref: long-arithmetic-functions.yamsql:323
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9
+        AS INT)])
+    task_count: 644
+    task_total_time_ms: 41
+    transform_count: 157
+    transform_time_ms: 20
+    transform_yield_count: 69
+    insert_time_ms: 2
+    insert_new_count: 79
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed
+        = 9
+    ref: long-arithmetic-functions.yamsql:329
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9
+        AS INT)])
+    task_count: 644
+    task_total_time_ms: 41
+    transform_count: 157
+    transform_time_ms: 20
+    transform_yield_count: 69
+    insert_time_ms: 2
+    insert_new_count: 79
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed
+        = 10
+    ref: long-arithmetic-functions.yamsql:335
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9
+        AS INT)])
+    task_count: 644
+    task_total_time_ms: 41
+    transform_count: 157
+    transform_time_ms: 20
+    transform_yield_count: 69
+    insert_time_ms: 2
+    insert_new_count: 79
+    insert_reused_count: 7

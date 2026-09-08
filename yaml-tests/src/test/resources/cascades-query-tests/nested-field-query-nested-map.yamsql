@@ -1,0 +1,82 @@
+#
+# nested-field-query-nested-map.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBNestedFieldQueryTest.nestedAndOnNestedMap` — an index over (other_id, map.entry.key)
+# bounds two of the three conditions; the third is on `map.entry.value`, which the index does not carry.
+# The point is that the unsatisfied condition is *not* dropped: it has to survive as a filter.
+#
+# Its own file: `test_records_map.proto` and its map-like repeated `Entry` message exist nowhere else in
+# the class. `OuterRecord.map` is a non-repeated struct that holds the repeated field, so the index
+# reaches through a plain nesting into a fan-out.
+#
+# The source's `OtherRecord` type is not reproduced. It carries no index and no query mentions it;
+# leaving it out keeps the file at one table, which is what INTERMINGLE_TABLES=true needs (OuterRecord
+# and OtherRecord both key on `rec_id`, so their primary keys would collide without the record-type
+# prefix).
+#
+# The source saves no records at all — it asserts the plan and stops. Four rows are added here so the
+# query actually runs, chosen so that each one is excluded for a different reason and only the second
+# survives. That is what makes the "filter is not dropped" claim testable rather than asserted: if the
+# `value <> 'test'` condition were lost, REC_ID 1 would come back too.
+#
+# Plan divergence: the source asserts `unorderedPrimaryKeyDistinctPlan(...)` around the index scan and
+# the SQL plan has no distinct operator, but here it does not need one. The scan binds both components
+# of `key_index` to equalities, so it can produce at most one entry per record, and the FLATMAP around
+# it is a semi-join that collapses its inner side. Compare
+# nested-field-query-doubly-nested.yamsql, where the fan-out component is *range*-bounded and the
+# missing distinct becomes wrong answers.
+---
+schema_template:
+    create type as struct map_entry(key string, value string, int_value bigint)
+    create type as struct map_record(entry map_entry array)
+    create table outer_record(
+        rec_id bigint,
+        other_id bigint,
+        map map_record,
+        primary key(rec_id))
+    create index key_index as
+        select r.other_id, sq.key from outer_record as r, (select key from r.map.entry) sq
+        order by r.other_id, sq.key
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO OUTER_RECORD (REC_ID, OTHER_ID, MAP)
+             VALUES
+               (1, 1, ([('alpha', 'test', 0)])),
+               (2, 1, ([('alpha', 'other', 0)])),
+               (3, 1, ([('beta', 'other', 0)])),
+               (4, 2, ([('alpha', 'other', 0)]))
+---
+test_block:
+  name: nested-field-query-nested-map
+  preset: single_repetition_ordered
+  tests:
+    -
+      # nestedAndOnNestedMap
+      # REC_ID 1 is in the scan range and is rejected only by the residual filter; 3 has the wrong key
+      # and 4 the wrong other_id, so both are outside the range.
+      - query: select * from outer_record as r
+               where r.other_id = 1
+                 and exists (select 1 from r.map.entry as e
+                             where e.key = 'alpha' and e.value <> 'test')
+      - explain: "ISCAN(KEY_INDEX [EQUALS promote(@c11 AS LONG), EQUALS promote(@c30 AS STRING)]) | FLATMAP q0 -> { EXPLODE q0.MAP.ENTRY | FILTER _.KEY EQUALS promote(@c30 AS STRING) AND _.VALUE NOT_EQUALS promote(@c37 AS STRING) | MAP (@c11 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 }"
+      - result: [{REC_ID: 2, OTHER_ID: 1,
+                  MAP: {ENTRY: [{KEY: 'alpha', VALUE: 'other', INT_VALUE: 0}]}}]
+...

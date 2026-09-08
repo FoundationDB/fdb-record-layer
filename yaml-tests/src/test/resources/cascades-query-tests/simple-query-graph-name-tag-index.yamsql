@@ -1,0 +1,111 @@
+#
+# simple-query-graph-name-tag-index.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# Ported from `FDBSimpleQueryGraphTest.testEqualityAndSimpleExistentialPredicate` — an `IN` on a
+# non-repeated column combined with an existential predicate over the tags array, both served by one
+# index whose key is concat(name, tags.value).
+#
+# Its own file: the hook adds `Restaurant$name-tagValue`. The source asserts a flat-map whose outer side
+# is a fetch over a covering scan of `RestaurantRecord$name` bounded by the IN, with the existential
+# evaluated per row — so the combined index is offered but the name index wins.
+
+# Schema: `openNestedRecordStore` — *both* TestRecords4 record types in one store, with bare primary keys
+# and no record-type prefix. `WITH OPTIONS(INTERMINGLE_TABLES=true)` reproduces that, and here it is not
+# just safe but load-bearing: it is why the source's plans carry a `typeFilterPlan` over the scan. The
+# primary-key values do not collide (reviewers 1-2, restaurants 1000-1001).
+#
+# Data deviations, both invisible to every query: the apostrophe is dropped from the tag "l'atmosphère"
+# and the accents from "Chez Thénardier" and "éponine". A SQL literal spells an apostrophe as the doubled
+# quote `''`, and decoding that only landed in 4.13.5.0 (b9790b9af), so an older server in a mixed-mode
+# configuration would read the value back with the escape still in it.
+#
+# One thing SQL cannot vary: `setUpWithNullableArray` builds the same records over
+# `test_records_4_wrapper.proto`, where each repeated field is wrapped in a `…List` message with a
+# `values` field. That *is* how the Relational layer models an `ARRAY` — `NullableArrayUtils.wrapArray` is
+# applied to every generated index key — so the wrapped and unwrapped variants are one and the same DDL
+# here, and `testSimplePlanGraphWithNullableArray` collapses into `testSimplePlanGraph`.
+---
+schema_template:
+    create type as struct restaurant_review(reviewer bigint, rating integer)
+    create type as struct restaurant_tag(value string, weight integer)
+    create type as struct reviewer_stats(start_date bigint, school_name string, hometown string)
+    create table restaurant_record(
+        rest_no bigint,
+        name string,
+        reviews restaurant_review array,
+        tags restaurant_tag array,
+        customer string array,
+        primary key(rest_no))
+    create table restaurant_reviewer(
+        id bigint,
+        name string,
+        email string,
+        stats reviewer_stats,
+        category integer,
+        primary key(id))
+    create index restaurant_record_name as select name from restaurant_record
+    create index restaurant_reviewer_name as select name from restaurant_reviewer
+    create index review_rating as
+        select sq.rating from restaurant_record as r, (select rating from r.reviews) sq
+        order by sq.rating
+    create index tag as
+        select sq.value, sq.weight from restaurant_record as r, (select value, weight from r.tags) sq
+        order by sq.value, sq.weight
+    create index customers as
+        select sq.c from restaurant_record as r, (select c from r.customer as c) sq order by sq.c
+    create index customers_name as
+        select sq.c, r.name from restaurant_record as r, (select c from r.customer as c) sq
+        order by sq.c, r.name
+    create index stats_school as
+        select stats.start_date from restaurant_reviewer order by stats.start_date
+    create index restaurant_name_tag_value as
+        select r.name, sq.value from restaurant_record as r, (select value from r.tags) sq
+        order by r.name, sq.value
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO RESTAURANT_REVIEWER (ID, NAME, EMAIL, STATS)
+             VALUES
+               (1, 'Javert', 'inspecteur@policier.fr', (100, null, 'Toulon')),
+               (2, 'M. le Maire', null, (120, null, 'Montreuil-sur-mer'))
+    - query: INSERT INTO RESTAURANT_RECORD (REST_NO, NAME, REVIEWS, TAGS, CUSTOMER)
+             VALUES
+               (1000, 'Chez Thenardier',
+                [(1, 100), (2, 0)],
+                [('latmosphere', 10), ('les aliments', 70)],
+                ['jean', 'fantine', 'cosette', 'eponine']),
+               (1001, 'ABC',
+                [(1, 34), (2, 110)],
+                [('latmosphere', 40), ('les aliments', 20)],
+                ['gavroche', 'enjolras', 'eponine'])
+---
+test_block:
+  name: simple-query-graph-name-tag-index
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testEqualityAndSimpleExistentialPredicate
+      - query: select r.rest_no from restaurant_record as r
+               where r.name in ('ABC')
+                 and exists (select 1 from r.tags as t where t.value in ('les aliments'))
+      - explain: "[IN arrayDistinct(@c13)] | INJOIN q0 -> { ISCAN(RESTAURANT_RECORD_NAME [EQUALS q0]) } | FLATMAP q1 -> { EXPLODE arrayDistinct(@c32) | FLATMAP q2 -> { EXPLODE q1.TAGS | FILTER _.VALUE EQUALS q2 AS q3 RETURN (@c20 AS _0) } | DEFAULT NULL | FILTER _ NOT_NULL | MAP (1 AS _0) AS q4 RETURN (q1.REST_NO AS REST_NO) }"
+      - result: [{REST_NO: 1001}]
+...

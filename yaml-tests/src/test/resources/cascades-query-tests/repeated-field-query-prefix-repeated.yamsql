@@ -1,0 +1,102 @@
+#
+# repeated-field-query-prefix-repeated.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBRepeatedFieldQueryTest.testPrefixRepeated` (:616). An index of
+# `concat(num_value_2, repeater FanOut)` can only be used when the query constrains the array element
+# too, "because repeated introduces duplicates and index entries are ordered by second field and so
+# cannot be deduplicated without additional space" (:611-613).
+#
+# Two queries, both from the source:
+#   query1, NUM_VALUE_2 alone: asserts `filter(num_value_2 EQUALS 1, typeFilter(anything(),
+#           scan(unbounded())))` (:646) and rows [1, 3] (:683).
+#   query2, plus a condition on the array element: asserts
+#           `fetch(primaryKeyDistinct(coveringIndexScan(indexName("prefix_repeated"),
+#           bounds("[[1, 1],[1, 1]]"))))` (:671-672) and row [1] (:691).
+#
+# Own file for PREFIX_REPEATED; the other three indexes are the ones the proto's field options imply,
+# which the source's hook adds to.
+#
+# `oneOfThem().equalsValue(1)` becomes the correlated EXISTS over the unnested array, as in
+# repeated-field-query.yamsql.
+#
+# Data is the source's three records (:626-633) verbatim. REPEATER is written as [] rather than omitted
+# for REC_NO 3, which is how the record layer reads an unset repeated field back; all other columns are
+# left unset as in the source.
+#
+# The SQL plans will carry no distinct operator where the source asserts `primaryKeyDistinct` — that
+# comes from `RecordQuery.removeDuplicates`, not from the fan-out (see the header of
+# nested-field-query.yamsql).
+#
+# Plan divergence on query1: the source plans a full *record* scan, SQL an unbounded scan of the
+# unrelated MY_SIMPLE_RECORD_STR_VALUE_INDEXED with the predicate as a residual filter. Cause is the
+# relational layer's hard-wired `IndexScanPreference.PREFER_INDEX` (`PlannerConfiguration.java:160`),
+# which the Cascades cost model reads when comparing an index scan against a primary scan
+# (`PlanningCostModel.java:497-501`). The load-bearing half of the source's assertion — that
+# PREFIX_REPEATED is *not* used — survives it. Query2 matches: the source's
+# `fetch(coveringIndexScan(prefix_repeated))` and the generated non-covering `ISCAN(PREFIX_REPEATED)`
+# are the same access path, expressed with and without a deferred fetch.
+#
+# Lost: `assertDiscardedAtMost(1, context)` on query1 (:684) and `assertDiscardedNone` on query2
+# (:692); plan hashes.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index prefix_repeated as
+        select r.num_value_2, sq.v from my_simple_record as r, (select v from r.repeater as v) sq
+        order by r.num_value_2, sq.v
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_SIMPLE_RECORD (REC_NO, NUM_VALUE_2, REPEATER)
+             VALUES
+               (1, 1, [1, 2]),
+               (2, 2, [2]),
+               (3, 1, [])
+---
+test_block:
+  name: repeated-field-query-prefix-repeated
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testPrefixRepeated, query1
+      - query: select * from my_simple_record where num_value_2 = 1
+      - explain: "ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2 EQUALS promote(@c7 AS INT)"
+      - result: [{REC_NO: 1, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _,
+                  NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: !null _, REPEATER: [1, 2]},
+                 {REC_NO: 3, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _,
+                  NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: !null _, REPEATER: []}]
+    -
+      # testPrefixRepeated, query2
+      - query: select * from my_simple_record as r
+               where r.num_value_2 = 1 and exists (select v from r.repeater as v where v = 1)
+      - explain: "ISCAN(PREFIX_REPEATED [EQUALS promote(@c11 AS INT), EQUALS @c11])"
+      - result: [{REC_NO: 1, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _,
+                  NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: !null _, REPEATER: [1, 2]}]
+...

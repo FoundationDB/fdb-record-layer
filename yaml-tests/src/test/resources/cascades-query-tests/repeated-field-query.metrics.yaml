@@ -1,0 +1,13 @@
+repeated-field-query:
+-   query: EXPLAIN select * from my_simple_record as r where exists (select v from
+        r.repeater as v where v = 100)
+    ref: repeated-field-query.yamsql:67
+    explain: ISCAN(REPEATER_FANOUT [EQUALS @c20])
+    task_count: 563
+    task_total_time_ms: 14
+    transform_count: 164
+    transform_time_ms: 9
+    transform_yield_count: 64
+    insert_time_ms: 0
+    insert_new_count: 72
+    insert_reused_count: 1
