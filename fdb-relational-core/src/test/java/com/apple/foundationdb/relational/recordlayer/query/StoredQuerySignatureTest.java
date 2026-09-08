@@ -236,6 +236,27 @@ public class StoredQuerySignatureTest {
     }
 
     /**
+     * A quoted identifier may hold anything, but a reference to the parameter is rewritten to {@code ?name}, and
+     * {@code NAMED_PARAMETER} accepts only a letter followed by letters, digits, {@code _} or {@code /}. A name that
+     * does not fit is rejected at {@code CREATE}, where it can still be explained, rather than persisted as text that
+     * says something else: a space gives {@code ?my param}, which does not parse, and a dash gives {@code ?a - b},
+     * which parses as arithmetic wherever a column {@code b} is in scope.
+     */
+    @Test
+    void parameterNameThatCannotBeBoundIsRejected() {
+        expectFailure("/TEST/SQS_BADNAME", TABLE
+                        + " CREATE STORED QUERY q(\"my param\" BIGINT)"
+                        + " PREPARE FOR ((\"my param\" IS NOT NULL))"
+                        + " AS SELECT id FROM t1 WHERE col1 = \"my param\"",
+                "cannot be bound as '?my param'");
+        expectFailure("/TEST/SQS_BADNAME_DASH", TABLE
+                        + " CREATE STORED QUERY q(\"a-b\" BIGINT)"
+                        + " PREPARE FOR ((\"a-b\" IS NOT NULL))"
+                        + " AS SELECT id FROM t1 WHERE col1 = \"a-b\"",
+                "cannot be bound as '?a-b'");
+    }
+
+    /**
      * A signature and its cases have to survive the metadata they are stored in: they are written into
      * {@code PStoredQueryParameter} and {@code PPreparedCase} and read back out, so a warm-up that happens in a later
      * process sees exactly what {@code CREATE} recorded. The states go through the wire as canonical tokens, so this
