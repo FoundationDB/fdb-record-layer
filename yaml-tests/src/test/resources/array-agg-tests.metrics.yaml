@@ -17,7 +17,7 @@ array-agg-scenario:
 -   query: EXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT
         ARRAY_AGG(a.url) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq WHERE
         m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20
-    ref: array-agg-tests.yamsql:357
+    ref: array-agg-tests.yamsql:391
     explain: SCAN([IS doc_rev, EQUALS promote(@c60 AS LONG)]) | FILTER @c50 IN _.tags
         | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0)
         | AGG (array_agg(_._0.url) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN
@@ -36,7 +36,7 @@ array-agg-scenario:
         a.rid AS rid, ARRAY_AGG(a.url) AS assets FROM doc_asset a GROUP BY a.rid)
         sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20 AND sq.rid
         = r.rid
-    ref: array-agg-tests.yamsql:385
+    ref: array-agg-tests.yamsql:419
     explain: ISCAN(doc_asset_by_rid <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.url)
         AS _0) GROUP BY (_._0.rid AS _0) | FLATMAP q0 -> { SCAN([IS doc_rev, EQUALS
         promote(@c63 AS LONG)]) | FILTER @c53 IN _.tags AND q0._0._0 EQUALS _.rid
@@ -54,7 +54,7 @@ array-agg-scenario:
 -   query: EXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT
         ARRAY_AGG((a.*)) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq WHERE
         m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20
-    ref: array-agg-tests.yamsql:397
+    ref: array-agg-tests.yamsql:431
     explain: SCAN([IS doc_rev, EQUALS promote(@c62 AS LONG)]) | FILTER @c52 IN _.tags
         | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0)
         | AGG (array_agg((_._0.aid AS aid, _._0.rid AS rid, _._0.url AS url)) AS _0)

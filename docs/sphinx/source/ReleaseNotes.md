@@ -23,29 +23,14 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 * Fix an aggregate over a whole-record argument planning incorrectly - [PR #4501](https://github.com/FoundationDB/fdb-record-layer/pull/4501)
 * Fix unknown type error that the `MetaDataEvolutionValidator` could hit when validating index evolution on renamed types - [PR #4475](https://github.com/FoundationDB/fdb-record-layer/pull/4475)
-* Fix missing directory field in github-actions dependabot entry - [PR #4451](https://github.com/FoundationDB/fdb-record-layer/pull/4451)
 <h4> Dependency Updates </h4>
 
-* Bump charset-normalizer from 3.4.9 to 3.5.0 in /docs/sphinx - [PR #4529](https://github.com/FoundationDB/fdb-record-layer/pull/4529)
 * Bump com.ibm.icu:icu4j from 69.1 to 78.3 - [PR #4519](https://github.com/FoundationDB/fdb-record-layer/pull/4519)
 * Bump commons-cli:commons-cli from 1.5.0 to 1.11.0 - [PR #4512](https://github.com/FoundationDB/fdb-record-layer/pull/4512)
-* Bump org.apache.httpcomponents.client5:httpclient5 from 5.6.1 to 5.6.4 - [PR #4513](https://github.com/FoundationDB/fdb-record-layer/pull/4513)
-* Bump com.github.spotbugs from 6.5.9 to 6.5.10 - [PR #4514](https://github.com/FoundationDB/fdb-record-layer/pull/4514)
-* Bump gradle-wrapper from 9.5.1 to 9.7.0 - [PR #4504](https://github.com/FoundationDB/fdb-record-layer/pull/4504)
 * Update protobuf from 3.25.8 to 3.25.9 - [PR #4497](https://github.com/FoundationDB/fdb-record-layer/pull/4497)
-* Bump cqse/teamscale-upload-action from 2.9.6 to 2.10.0 in /actions/teamscale-upload - [PR #4509](https://github.com/FoundationDB/fdb-record-layer/pull/4509)
-* Bump junit from 6.1.2 to 6.1.3 - [PR #4508](https://github.com/FoundationDB/fdb-record-layer/pull/4508)
-* Bump com.google.code.gson:gson from 2.13.2 to 2.14.0 - [PR #4507](https://github.com/FoundationDB/fdb-record-layer/pull/4507)
 * Bump log4j from 2.25.5 to 2.26.1 - [PR #4506](https://github.com/FoundationDB/fdb-record-layer/pull/4506)
-* Configure dependabot to also look at the `actions` folder when updating `github-actions` dependencies - [PR #4496](https://github.com/FoundationDB/fdb-record-layer/pull/4496)
-* Bump actions/cache from 5.0.4 to 6.1.0 - [PR #4493](https://github.com/FoundationDB/fdb-record-layer/pull/4493)
 * Bump guava from 33.4.8-jre to 33.6.0-jre and caffeine from 3.1.8 to 3.2.4 - [PR #4483](https://github.com/FoundationDB/fdb-record-layer/pull/4483)
-* Bump peter-evans/create-pull-request from bb88e27d3f9cc69c8bc689eba126096c6fe3dded to b99c9ae23bcf83f0f5aa571c2f0093de8aa85036 - [PR #4494](https://github.com/FoundationDB/fdb-record-layer/pull/4494)
-* Bump actions/download-artifact from 8.0.0 to 8.0.1 - [PR #4491](https://github.com/FoundationDB/fdb-record-layer/pull/4491)
-* Bump actions/checkout from 6.0.2 to 7.0.1 - [PR #4495](https://github.com/FoundationDB/fdb-record-layer/pull/4495)
 * Bump grpc from 1.64.1 to 1.83.0 - [PR #4485](https://github.com/FoundationDB/fdb-record-layer/pull/4485)
-* Bump org.jline:jline from 4.1.3 to 4.3.1 - [PR #4487](https://github.com/FoundationDB/fdb-record-layer/pull/4487)
-* Bump junit from 6.1.0 to 6.1.2 - [PR #4486](https://github.com/FoundationDB/fdb-record-layer/pull/4486)
 * Bump com.squareup:javapoet from 1.12.0 to 1.13.0 - [PR #4484](https://github.com/FoundationDB/fdb-record-layer/pull/4484)
 
 <details>
@@ -60,6 +45,21 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 * Enable the Gradle configuration cache by default - [PR #4517](https://github.com/FoundationDB/fdb-record-layer/pull/4517)
 * Make further Gradle tasks compatible with the configuration cache - [PR #4516](https://github.com/FoundationDB/fdb-record-layer/pull/4516)
 * Add percent-change histogram to metrics diff report - [PR #4247](https://github.com/FoundationDB/fdb-record-layer/pull/4247)
+* Fix missing directory field in github-actions dependabot entry - [PR #4451](https://github.com/FoundationDB/fdb-record-layer/pull/4451)
+* Configure dependabot to also look at the `actions` folder when updating `github-actions` dependencies - [PR #4496](https://github.com/FoundationDB/fdb-record-layer/pull/4496)
+* Bump org.apache.httpcomponents.client5:httpclient5 from 5.6.1 to 5.6.4 - [PR #4513](https://github.com/FoundationDB/fdb-record-layer/pull/4513)
+* Bump charset-normalizer from 3.4.9 to 3.5.0 in /docs/sphinx - [PR #4529](https://github.com/FoundationDB/fdb-record-layer/pull/4529)
+* Bump com.github.spotbugs from 6.5.9 to 6.5.10 - [PR #4514](https://github.com/FoundationDB/fdb-record-layer/pull/4514)
+* Bump gradle-wrapper from 9.5.1 to 9.7.0 - [PR #4504](https://github.com/FoundationDB/fdb-record-layer/pull/4504)
+* Bump cqse/teamscale-upload-action from 2.9.6 to 2.10.0 in /actions/teamscale-upload - [PR #4509](https://github.com/FoundationDB/fdb-record-layer/pull/4509)
+* Bump junit from 6.1.2 to 6.1.3 - [PR #4508](https://github.com/FoundationDB/fdb-record-layer/pull/4508)
+* Bump com.google.code.gson:gson from 2.13.2 to 2.14.0 - [PR #4507](https://github.com/FoundationDB/fdb-record-layer/pull/4507)
+* Bump actions/cache from 5.0.4 to 6.1.0 - [PR #4493](https://github.com/FoundationDB/fdb-record-layer/pull/4493)
+* Bump peter-evans/create-pull-request from bb88e27d3f9cc69c8bc689eba126096c6fe3dded to b99c9ae23bcf83f0f5aa571c2f0093de8aa85036 - [PR #4494](https://github.com/FoundationDB/fdb-record-layer/pull/4494)
+* Bump actions/download-artifact from 8.0.0 to 8.0.1 - [PR #4491](https://github.com/FoundationDB/fdb-record-layer/pull/4491)
+* Bump actions/checkout from 6.0.2 to 7.0.1 - [PR #4495](https://github.com/FoundationDB/fdb-record-layer/pull/4495)
+* Bump org.jline:jline from 4.1.3 to 4.3.1 - [PR #4487](https://github.com/FoundationDB/fdb-record-layer/pull/4487)
+* Bump junit from 6.1.0 to 6.1.2 - [PR #4486](https://github.com/FoundationDB/fdb-record-layer/pull/4486)
 
 </details>
 

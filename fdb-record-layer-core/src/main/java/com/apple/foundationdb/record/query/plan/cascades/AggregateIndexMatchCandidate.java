@@ -394,6 +394,11 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     }
 
     @Nonnull
+    public Value getGroupByResultValue() {
+        return groupByResultValue;
+    }
+
+    @Nonnull
     @Override
     public RecordQueryPlan toEquivalentPlan(@Nonnull final PartialMatch partialMatch,
                                             @Nonnull final PlanContext planContext,
@@ -426,7 +431,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                 recordTypes.get(0).getName(),
                 indexEntryConverter,
                 selectHavingResultValue,
-                groupByResultValue,
+                getGroupByResultValue(),
                 constraintMaybe);
 
         if (regularMatchInfo.getRollUpToGroupingValues() != null) {

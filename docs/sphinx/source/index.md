@@ -25,6 +25,7 @@ Versioning
 Getting started (Java) <GettingStarted>
 Getting started (SQL) <SQL_Getting_Started>
 SchemaEvolution
+Building indexes online <IndexBuilding>
 Extending
 FAQ
 ReleaseNotes

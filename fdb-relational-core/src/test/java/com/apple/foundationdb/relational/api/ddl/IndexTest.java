@@ -1131,6 +1131,19 @@ public class IndexTest {
     }
 
     @Test
+    void createMinEverGroupedByTwoColumns() throws Exception {
+        // the projection holds nothing but the aggregate, so the grouping columns are recovered from the
+        // GroupByExpression rather than from the projection (see IndexSpec.projectionOf)
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T2(col1 bigint, col2 bigint, col3 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT min_ever(col3) FROM T2 group by col1, col2";
+        indexIs(stmt,
+                field("COL3").groupBy(field("COL1"), field("COL2")),
+                IndexTypes.MIN_EVER_TUPLE
+        );
+    }
+
+    @Test
     void createMaxEverLong() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, primary key(col1)) " +
@@ -1518,5 +1531,14 @@ public class IndexTest {
                 "CREATE TABLE T(p bigint, b vector(3, float), c bigint, primary key(p))" +
                 "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) INCLUDE (c) PARTITION BY (p) OPTIONS (CONNECTIVITY = 16)";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "INCLUDE clause is not supported for vector indexes");
+    }
+
+    @Test
+    void createIndexOnWholeRowIsNotSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T2(col1 bigint, col2 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT T2 FROM T2 ORDER BY col1";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, cannot map (base().COL1 AS COL1, base().COL2 AS COL2) to a key expression");
     }
 }

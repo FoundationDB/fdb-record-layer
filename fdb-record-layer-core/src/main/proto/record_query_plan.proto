@@ -1776,9 +1776,10 @@ message PRecordQueryAggregateIndexPlan {
   optional PRecordQueryIndexPlan index_plan = 1;
   optional string record_type_name = 2;
   optional PIndexKeyValueToPartialRecord to_record = 3;
-  optional PValue result_value = 4;
+  optional PValue result_value = 4; // VC0
   optional PQueryPlanConstraint constraint = 5;
-  optional PValue group_by_result_value = 6;
+  optional PValue group_by_result_value = 6; // VC0
+  optional PType result_type = 7; // VC1 onwards.
 }
 
 //

@@ -573,7 +573,13 @@ public abstract class FDBDatabaseFactory {
     }
 
     /**
-     * Set the number of threads per FDB client version. The default value is 1.
+     * Set the number of threads per FDB client version. The default value is 1
+     * (the multi-threaded client is effectively disabled).
+     * <p>
+     * Setting this above 1 enables FDB's multi-threaded client, which also requires
+     * at least one external client library on the FDB network options, even when the
+     * cluster and the local client are on the same version. See
+     * {@link FDBDatabaseFactoryImpl#setThreadsPerClientVersion(int)}.
      *
      * @param threadsPerClientV the number of threads per client version. Cannot be less than 1.
      *
