@@ -79,4 +79,51 @@ test_block:
       - query: select * from B where 6 = coalesce(5, 6)
       - explain: "SCAN([IS B]) | FILTER coalesce_int(@c9, @c5) EQUALS @c5"
       - result: []
+---
+test_block:
+  name: string-literal-escape
+  preset: single_repetition_ordered
+  tests:
+    # A doubled quote inside a string literal denotes ONE quote character.
+    # The lexer says so: SQUOTA_STRING admits '' as a unit inside the string
+    # (RelationalLexer.g4). Before this was decoded, 'it''s' evaluated to the
+    # five characters it''s.
+    -
+      - query: select 'it''s' from B where b1 = 1
+      - supported_version: !current_version
+      - result: [{"it's"}]
+    # A literal that is nothing but one escaped quote.
+    -
+      - query: select '''' from B where b1 = 1
+      - supported_version: !current_version
+      - result: [{"'"}]
+    # The decode runs on the write path too, so the STORED value is the
+    # decoded one and an equality predicate written with the escape matches it.
+    -
+      - query: insert into B values (7, 'it''s', 7)
+      - count: 1
+    -
+      - query: select b2 from B where b1 = 7
+      - supported_version: !current_version
+      - result: [{"it's"}]
+    -
+      - query: select b1 from B where b2 = 'it''s'
+      - supported_version: !current_version
+      - result: [{7}]
+    # Adjacent literals are separate tokens and concatenate. getText() renders
+    # this run identically to the escaped literal above, which is why the
+    # decode works from the tokens rather than from the concatenated text.
+    -
+      - query: select 'a' 'b' from B where b1 = 1
+      - supported_version: !current_version
+      - result: [{'ab'}]
+    # Controls: an empty literal and a plain one are unaffected. The empty
+    # literal is the case an outer-strip-only decoder already got right, which
+    # is why nothing here caught the bug before.
+    -
+      - query: select '' from B where b1 = 1
+      - result: [{''}]
+    -
+      - query: select 'abc' from B where b1 = 1
+      - result: [{'abc'}]
 ...

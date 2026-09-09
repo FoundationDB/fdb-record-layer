@@ -423,6 +423,12 @@ test_block:
       - error: INVALID_ESCAPE_CHARACTER
       - initialVersionLessThan: 4.13.1.0
       - error: INTERNAL_ERROR
+    # Escape character ', pattern '%. Undecoded, the escape was the two
+    # characters '' and this was rejected as too long.
+    -
+      - query: select * from A WHERE A1 LIKE '''%' ESCAPE ''''
+      - supported_version: !current_version
+      - result: [{'%'}]
     -
       - query: select * from A WHERE A1 LIKE '\%'
       - unorderedResult: [{'\\||%'}, {'\xyz'}]

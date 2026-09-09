@@ -27,6 +27,8 @@ schema_template:
     create type as struct st4(s bigint, t bigint)
     create table nested(id bigint, q st4, r st3, primary key(q.s, r.u.w))
     create index i2 as select r.v.z from nested order by r.v.z
+    create table t2(pk bigint, a bigint, b bigint, c bigint, primary key(pk))
+    create index i3 as select a from t2 order by a
 ---
 setup:
   steps:
@@ -53,6 +55,13 @@ setup:
                (6, (329, 6), ((5, 15), (10, 140))),
                (7, (328, 7), ((5, 15), (10, 140))),
                (8, (327, 8), ((5, 15), (10, 140)))
+    - query: INSERT INTO T2
+        VALUES (2, 1, NULL, 20),
+               (3, 1, NULL, 5),
+               (4, 1, NULL, 15),
+               (5, 2, NULL, 10),
+               (6, 2, NULL, 40),
+               (7, 2, NULL, 90)
 ---
 test_block:
   name: group-by-tests
@@ -277,6 +286,20 @@ test_block:
       - result: []
       - result: [{!l 20, !l 8}]
 ---
+# Resuming a group mid-way currently fails when one of its aggregates has no value yet. Pins Issue #4573.
+test_block:
+  name: group-by-with-aggregate-without-value
+  preset: single_repetition_ordered
+  options:
+    connection_options:
+      EXECUTION_SCANNED_ROWS_LIMIT: 2
+  tests:
+    -
+      # Group `a = 1` holds 3 rows, so a scan limit of 2 stops inside the group, at which point `MAX(b)` has no value yet.
+      - query: SELECT a, MAX(c), MAX(b) FROM T2 GROUP BY a
+      - result: []
+      - error: INTERNAL_ERROR
+---
 # Aggregates over a record constructor. These are regression tests for Issue #4481. They exercise the interaction of
 # `collapseSimpleSelectMaybe()`, which collapses some of these record constructors, with the group-by pull-up logic.
 test_block:
@@ -285,12 +308,12 @@ test_block:
     -
       # A star-derived record constructor.
       - query: SELECT COUNT((T1.*)) FROM T1
-      - supported_version: !current_version
+      - supported_version: 4.13.4.0
       - result: [{!l 13}]
     -
       # Record constructor with every column enumerated in declaration order; gets collapsed like the star-derived form.
       - query: SELECT COUNT((T1.id, T1.col1, T1.col2)) FROM T1
-      - supported_version: !current_version
+      - supported_version: 4.13.4.0
       - result: [{!l 13}]
     -
       # The same columns, but out of order. Such a record constructor doesn’t get collapsed.
@@ -304,12 +327,12 @@ test_block:
       # The star-derived form again, but with grouping. Here the pull-up has grouping columns to rewrite alongside the
       # aggregate.
       - query: SELECT col1, COUNT((T1.*)) FROM T1 GROUP BY col1
-      - supported_version: !current_version
+      - supported_version: 4.13.4.0
       - result: [{!l 10, !l 5}, {!l 20, !l 8}]
     -
       # The HAVING predicate is normalized as well, not only the projection.
       - query: SELECT col1 FROM T1 GROUP BY col1 HAVING COUNT((T1.*)) > 5
-      - supported_version: !current_version
+      - supported_version: 4.13.4.0
       - result: [{!l 20}]
     -
       # An ORDER BY over an aggregate is not supported, whatever the aggregate’s argument looks like.

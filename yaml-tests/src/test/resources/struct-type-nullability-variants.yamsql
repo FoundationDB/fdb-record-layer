@@ -57,7 +57,7 @@ setup:
         INSERT INTO users VALUES
         (1, 'John Doe', ('123 Main St', 'Anytown', 12345)),
         (2, 'Jane Smith', ('456 Oak Ave', 'Somewhere', 67890)),
-        (3, 'Bob Johnson', null)  # Null address should be allowed
+        (3, 'Bob Johnson', null)  -- Null address should be allowed
 
     # Insert data into locations table with address arrays
     - query: |
@@ -80,7 +80,7 @@ setup:
          [('101 Branch St', 'New York', 10001), ('202 Office Rd', 'Boston', 02101)]
         ),
         (2, 'Global Inc',
-         null,  # Headquarters can be null
+         null,  -- Headquarters can be null
          [('303 Regional Ave', 'Chicago', 60601)]
         )
 ---

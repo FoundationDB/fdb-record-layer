@@ -29,6 +29,12 @@ dependencies {
     implementation(libs.javaPoet)
     compileOnly(libs.autoService)
     annotationProcessor(libs.autoService)
+
+    testImplementation(libs.bundles.test.impl)
+    testRuntimeOnly(libs.bundles.test.runtime)
+    testCompileOnly(libs.bundles.test.compileOnly)
+    // the processor emits @Nonnull, so the annotation has to be on the classpath of the compilation the tests run
+    testRuntimeOnly(libs.jsr305)
 }
 
 publishing {
