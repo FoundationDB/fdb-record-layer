@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
@@ -1085,6 +1086,41 @@ public class SchemaTemplateSerDeTests {
                 new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
                         arrayElementsExpression("scores", true)));
         Assertions.assertNotEquals(build.get(), differentName);
+
+        // A synthetic table is not declared by CREATE VIEW, so it has no query description to report, and it is never
+        // temporary. Both are part of the View contract it has to satisfy.
+        Assertions.assertThrows(UncheckedRelationalException.class, () -> build.get().getDescription());
+        Assertions.assertFalse(build.get().isTemporary());
+
+        // Guards of equals() that no round-trip exercises: neither the table nor a constituent may equal null or an
+        // object of another class, or a set of them could collapse entries that are not in fact equal. The subject has
+        // to come first, since assertNotEquals compares via Objects.equals on its first argument.
+        final var constituent = new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                arrayElementsExpression("scores", true));
+        Assertions.assertNotEquals(build.get(), null);
+        Assertions.assertNotEquals(build.get(), "__unnested_employees_score_idx");
+        Assertions.assertNotEquals(constituent, null);
+        Assertions.assertNotEquals(constituent, "SQ");
+    }
+
+    /**
+     * The builder derives the parent's proto storage name from its table name when the caller does not supply one, which is
+     * the path taken by any caller that sets the parent by name rather than by type.
+     */
+    @Test
+    void unnestedSyntheticTableBuilderDefaultsParentStorageName() {
+        final var table = RecordLayerUnnestedSyntheticTable.newBuilder()
+                .setName("__unnested_employees_score_idx")
+                .setAlias("row")
+                .setParentTableName("employee.records")
+                .addConstituent(new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                        arrayElementsExpression("scores", true)))
+                .build();
+        Assertions.assertEquals("employee.records", table.getParentTableName());
+        Assertions.assertEquals(ProtoUtils.toProtoBufCompliantName("employee.records"),
+                table.getParentTableStorageName());
+        // the dot cannot survive into a proto identifier, so the derived name is not simply the table name
+        Assertions.assertNotEquals(table.getParentTableName(), table.getParentTableStorageName());
     }
 
     /**

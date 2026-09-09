@@ -38,8 +38,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * A synthetic record type that unnests one or more struct array fields of a stored record type. Each
@@ -106,27 +104,6 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
     @Override
     public Set<String> getUnderlyingTableNames() {
         return Set.of(parentTableName);
-    }
-
-    @Nonnull
-    @Override
-    public String getDescription() {
-        // e.g. SELECT "row".*, SQ.* FROM "T" AS "row", (SELECT * FROM "row"."TAGS") AS SQ
-        // A synthetic record is the stored record together with one element from each constituent, so the parent
-        // is projected alongside the constituents; index keys on this type reference its fields too.
-        final StringBuilder sb = new StringBuilder("SELECT ");
-        sb.append(Stream.concat(Stream.of('"' + alias + '"'),
-                        constituents.stream().map(NestedConstituent::getAlias))
-                .map(projected -> projected + ".*")
-                .collect(Collectors.joining(", ")));
-        sb.append(" FROM \"").append(parentTableName).append("\" AS \"").append(alias).append("\"");
-        for (final NestedConstituent nested : constituents) {
-            // The array is on whichever constituent owns it, which for a chained unnesting is another
-            // nested constituent rather than the stored record.
-            sb.append(", (SELECT * FROM \"").append(nested.getParentAlias()).append("\".\"")
-              .append(String.join("\".\"", nested.getFieldPath())).append("\") AS ").append(nested.getAlias());
-        }
-        return sb.toString();
     }
 
     @Override

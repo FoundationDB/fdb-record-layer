@@ -904,6 +904,24 @@ public class IndexTest {
     }
 
     /**
+     * The same split, ordered by an explicit direction. The ordering functions are keyed by identity on the order-by
+     * columns, so rewriting those columns onto the synthetic table has to re-key the map onto the rewritten values --
+     * a column whose key is stale simply loses its direction, which no other assertion here would notice.
+     */
+    @Test
+    void createIndexWithRepeatedNestedSplitByFieldRetainsOrderingFunctions() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, T1.col5, X.col3 FROM T1, (SELECT col2, col3 FROM T1.A) X " +
+                "ORDER BY X.col2 DESC, T1.col5, X.col3 NULLS LAST";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, (parent, x) -> concat(
+                function("order_desc_nulls_last", field(x).nest("COL2")),
+                field(parent).nest("COL5"),
+                function("order_asc_nulls_last", field(x).nest("COL3"))));
+    }
+
+    /**
      * The unnesting is reached only through an enclosing arithmetic expression, so the key columns are not plain
      * {@code FieldValue}s. Two such columns are non-adjacent, which needs a synthetic type, but a synthetic
      * type's key can only be expressed in constituent-alias paths — so this is rejected rather than silently

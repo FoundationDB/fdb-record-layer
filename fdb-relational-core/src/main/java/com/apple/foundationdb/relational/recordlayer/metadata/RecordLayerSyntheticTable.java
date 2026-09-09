@@ -21,8 +21,10 @@
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.api.metadata.Visitor;
+import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -63,9 +65,19 @@ public abstract sealed class RecordLayerSyntheticTable implements View
         return name;
     }
 
+    /**
+     * A synthetic table is generated from an index definition rather than declared by a {@code CREATE VIEW}, so it has no
+     * defining SQL text to report. Its shape is carried by its constituents instead, and nothing should be asking a
+     * synthetic table to describe itself as a query.
+     *
+     * @throws com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException always
+     */
     @Nonnull
     @Override
-    public abstract String getDescription();
+    public String getDescription() {
+        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION,
+                "A synthetic table has no query description");
+    }
 
     /** Synthetic tables are always permanent. */
     @Override
