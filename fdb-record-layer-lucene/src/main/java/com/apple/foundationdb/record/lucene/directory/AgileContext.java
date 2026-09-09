@@ -286,14 +286,18 @@ public class AgileContext implements AgilityContext {
 
     @Override
     public void clear(final byte[] key) {
-        AgilityContext.super.clear(key);
-        currentWriteSize += key.length;
+        accept(context -> {
+            context.ensureActive().clear(key);
+            currentWriteSize += key.length;
+        });
     }
 
     @Override
     public void clear(final Range range) {
-        AgilityContext.super.clear(range);
-        currentWriteSize += range.begin.length + range.end.length;
+        accept(context -> {
+            context.clear(range);
+            currentWriteSize += range.begin.length + range.end.length;
+        });
     }
 
     private void ensureOpen() {
