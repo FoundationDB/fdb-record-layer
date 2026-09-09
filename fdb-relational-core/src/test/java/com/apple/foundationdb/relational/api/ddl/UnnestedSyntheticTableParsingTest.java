@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
@@ -49,6 +48,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 /**
@@ -159,7 +160,7 @@ public class UnnestedSyntheticTableParsingTest {
         assertThat(syntheticTable.getConstituents().size()).isEqualTo(1);
         final var constituent = syntheticTable.getConstituents().get(0);
         assertThat(constituent.getNestingExpression()).isEqualTo(
-                Key.Expressions.field("a").nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut)));
+                field("a").nest(field("values", KeyExpression.FanType.FanOut)));
         assertThat(constituent.getParentAlias()).isEqualTo(syntheticTable.getAlias());
 
         assertThat(syntheticTable.getIndexes().size()).isEqualTo(1);
@@ -170,10 +171,10 @@ public class UnnestedSyntheticTableParsingTest {
         // Constituent-alias paths, with no fan-out: the fan-out lives in the constituent's nesting
         // expression, and the ORDER BY column order is preserved.
         assertThat(index.getKeyExpression()).isEqualTo(
-                Key.Expressions.concat(
-                        Key.Expressions.field(constituent.getAlias(), KeyExpression.FanType.None).nest("x"),
-                        Key.Expressions.field(syntheticTable.getAlias(), KeyExpression.FanType.None).nest("p"),
-                        Key.Expressions.field(constituent.getAlias(), KeyExpression.FanType.None).nest("y")));
+                concat(
+                        field(constituent.getAlias()).nest("x"),
+                        field(syntheticTable.getAlias()).nest("p"),
+                        field(constituent.getAlias()).nest("y")));
     }
 
     @Nonnull
@@ -219,8 +220,8 @@ public class UnnestedSyntheticTableParsingTest {
     /** Navigates to the elements of a nullable array, which is how the DDL layer stores {@code <T> array}. */
     @Nonnull
     private static KeyExpression wrappedArrayElements(@Nonnull final String arrayFieldName) {
-        return Key.Expressions.field(arrayFieldName)
-                .nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut));
+        return field(arrayFieldName)
+                .nest(field("values", KeyExpression.FanType.FanOut));
     }
 
     /**
@@ -260,14 +261,14 @@ public class UnnestedSyntheticTableParsingTest {
         assertThat(index.getName()).isEqualTo(indexName);
         assertThat(index.getTableName()).isEqualTo(syntheticTableName);
         assertThat(index.getKeyExpression()).isEqualTo(
-                Key.Expressions.concat(
-                        Key.Expressions.field(constituents.get(0).getAlias(), KeyExpression.FanType.None).nest("x"),
-                        Key.Expressions.field(constituents.get(1).getAlias(), KeyExpression.FanType.None).nest("y"),
-                        Key.Expressions.field(constituents.get(2).getAlias(), KeyExpression.FanType.None).nest("z"),
-                        Key.Expressions.field(syntheticTable.getAlias(), KeyExpression.FanType.None).nest("p"),
-                        Key.Expressions.field(constituents.get(0).getAlias(), KeyExpression.FanType.None).nest("x2"),
-                        Key.Expressions.field(constituents.get(1).getAlias(), KeyExpression.FanType.None).nest("y2"),
-                        Key.Expressions.field(constituents.get(2).getAlias(), KeyExpression.FanType.None).nest("z2")));
+                concat(
+                        field(constituents.get(0).getAlias()).nest("x"),
+                        field(constituents.get(1).getAlias()).nest("y"),
+                        field(constituents.get(2).getAlias()).nest("z"),
+                        field(syntheticTable.getAlias()).nest("p"),
+                        field(constituents.get(0).getAlias()).nest("x2"),
+                        field(constituents.get(1).getAlias()).nest("y2"),
+                        field(constituents.get(2).getAlias()).nest("z2")));
     }
 
     @Nonnull
@@ -339,10 +340,9 @@ public class UnnestedSyntheticTableParsingTest {
         assertThat(index.getName()).isEqualTo(indexName);
         assertThat(index.getTableName()).isEqualTo("T");
         assertThat(index.getKeyExpression()).isEqualTo(
-                Key.Expressions.concat(
-                        Key.Expressions.field("s", KeyExpression.FanType.None)
-                                .nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut)),
-                        Key.Expressions.field("p")));
+                concat(
+                        field("s").nest(field("values", KeyExpression.FanType.FanOut)),
+                        field("p")));
     }
 
     @Nonnull
@@ -411,7 +411,7 @@ public class UnnestedSyntheticTableParsingTest {
         assertThat(syntheticTable.getConstituents().size()).isEqualTo(1);
         final var constituent = syntheticTable.getConstituents().get(0);
         assertThat(constituent.getNestingExpression()).isEqualTo(
-                Key.Expressions.field("a").nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut)));
+                field("a").nest(field("values", KeyExpression.FanType.FanOut)));
         assertThat(constituent.getParentAlias()).isEqualTo(syntheticTable.getAlias());
 
         assertThat(syntheticTable.getIndexes().size()).isEqualTo(1);
@@ -421,12 +421,12 @@ public class UnnestedSyntheticTableParsingTest {
         assertThat(index.getTableName()).isEqualTo(syntheticTableName);
         // Struct element field via the constituent; scalar element via a fan-out under the parent.
         assertThat(index.getKeyExpression()).isEqualTo(
-                Key.Expressions.concat(
-                        Key.Expressions.field(constituent.getAlias(), KeyExpression.FanType.None).nest("x"),
-                        Key.Expressions.field(syntheticTable.getAlias(), KeyExpression.FanType.None)
-                                .nest(Key.Expressions.field("s", KeyExpression.FanType.None)
-                                        .nest(Key.Expressions.field("values", KeyExpression.FanType.FanOut))),
-                        Key.Expressions.field(constituent.getAlias(), KeyExpression.FanType.None).nest("y")));
+                concat(
+                        field(constituent.getAlias()).nest("x"),
+                        field(syntheticTable.getAlias())
+                                .nest(field("s")
+                                        .nest(field("values", KeyExpression.FanType.FanOut))),
+                        field(constituent.getAlias()).nest("y")));
     }
 
     @Nonnull

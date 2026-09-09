@@ -65,13 +65,6 @@ public abstract sealed class RecordLayerSyntheticTable implements View
         return name;
     }
 
-    /**
-     * A synthetic table is generated from an index definition rather than declared by a {@code CREATE VIEW}, so it has no
-     * defining SQL text to report. Its shape is carried by its constituents instead, and nothing should be asking a
-     * synthetic table to describe itself as a query.
-     *
-     * @throws com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException always
-     */
     @Nonnull
     @Override
     public String getDescription() {
