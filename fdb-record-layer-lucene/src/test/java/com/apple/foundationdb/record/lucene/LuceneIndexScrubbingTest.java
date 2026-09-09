@@ -108,7 +108,7 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
             for (Map.Entry<Index, IndexState> entry : store.getAllIndexStates().entrySet()) {
                 Index index = entry.getKey();
                 IndexState indexState = entry.getValue();
-                if (index.getType().equalsIgnoreCase("lucene") && indexState.equals(IndexState.READABLE)) {
+                if (index.getType().equalsIgnoreCase("lucene") && indexState.isReadable()) {
                     atLeastOnce = true;
                     try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
                             .setRecordStore(store)
@@ -212,7 +212,7 @@ class LuceneIndexScrubbingTest extends FDBLuceneTestBase {
             for (Map.Entry<Index, IndexState> entry : store.getAllIndexStates().entrySet()) {
                 Index index = entry.getKey();
                 IndexState indexState = entry.getValue();
-                if (index.getType().equalsIgnoreCase("lucene") && indexState.equals(IndexState.READABLE)) {
+                if (index.getType().equalsIgnoreCase("lucene") && indexState.isReadable()) {
                     atLeastOnce = true;
                     try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
                             .setRecordStore(store)

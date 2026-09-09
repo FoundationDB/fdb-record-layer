@@ -556,7 +556,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             indexBuilder.buildIndex();
         }
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexReadable(indexes.get(0)));
+            assertTrue(recordStore.getIndexState(indexes.get(0)).isReadable());
             context.commit();
         }
 
@@ -583,7 +583,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             indexBuilder.buildIndex();
         }
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexReadable(indexes.get(1)));
+            assertTrue(recordStore.getIndexState(indexes.get(1)).isReadable());
             context.commit();
         }
     }

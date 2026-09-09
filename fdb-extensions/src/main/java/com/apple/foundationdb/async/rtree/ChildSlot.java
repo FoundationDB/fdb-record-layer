@@ -51,7 +51,6 @@ public class ChildSlot implements NodeSlot {
     @Nonnull
     private final Tuple largestKey;
 
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
     ChildSlot(@Nonnull final BigInteger smallestHilbertValue, @Nonnull final Tuple smallestKey,
               @Nonnull final BigInteger largestHilbertValue, @Nonnull final Tuple largestKey,
               @Nonnull final byte[] childId, @Nonnull final RTree.Rectangle mbr) {

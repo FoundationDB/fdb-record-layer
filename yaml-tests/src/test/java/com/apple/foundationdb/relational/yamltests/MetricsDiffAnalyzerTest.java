@@ -210,6 +210,52 @@ class MetricsDiffAnalyzerTest {
                 .contains("" + expected.newInfo.getLineNumber());
     }
 
+    @Test
+    void testHistogramAppearsInReport() {
+        // 5 queries with varying base values → varied percent changes → histogram renders with multiple bins
+        final var baseMetrics = createTestMetricsWithStatistics();
+        final var headMetrics = createModifiedTestMetrics();
+        final MetricsDiffAnalyzer.MetricsAnalysisResult result = analyze(baseMetrics, headMetrics);
+        final String report = result.generateReport();
+
+        assertThat(report)
+                .contains("% change distribution")
+                .contains("bin = 2%")
+                .contains("```");
+    }
+
+    @Test
+    void testHistogramEdgeCaseIdenticalPercentDiffs() {
+        // All queries: base task_count=10, head task_count=20 → exactly 100% change.
+        // 100.0 % BIN_WIDTH(2) == 0 means lo == hi before the fix, producing an empty histogram.
+        final var baseBuilder = ImmutableMap.<PlannerMetricsProto.Identifier, MetricsInfo>builder();
+        final var headBuilder = ImmutableMap.<PlannerMetricsProto.Identifier, MetricsInfo>builder();
+        final String explain = "Index(t_by_id)";
+        for (int i = 1; i <= 5; i++) {
+            final var id = PlannerMetricsProto.Identifier.newBuilder()
+                    .setBlockName("test_block")
+                    .setQuery("q" + i)
+                    .build();
+            final var baseInfo = PlannerMetricsProto.Info.newBuilder()
+                    .setExplain(explain)
+                    .setCountersAndTimers(PlannerMetricsProto.CountersAndTimers.newBuilder().setTaskCount(10).build())
+                    .build();
+            final var headInfo = PlannerMetricsProto.Info.newBuilder()
+                    .setExplain(explain)
+                    .setCountersAndTimers(PlannerMetricsProto.CountersAndTimers.newBuilder().setTaskCount(20).build())
+                    .build();
+            baseBuilder.put(id, new MetricsInfo(baseInfo, Paths.get("test.yaml"), i));
+            headBuilder.put(id, new MetricsInfo(headInfo, Paths.get("test.yaml"), i));
+        }
+
+        final MetricsDiffAnalyzer.MetricsAnalysisResult result = analyze(baseBuilder.build(), headBuilder.build());
+        final String report = result.generateReport();
+
+        assertThat(report)
+                .contains("% change distribution")
+                .contains("[+100%, +102%)");
+    }
+
     @Nonnull
     private Map<PlannerMetricsProto.Identifier, MetricsInfo> createTestMetricsWithStatistics() {
         // Create metrics with predictable statistical properties

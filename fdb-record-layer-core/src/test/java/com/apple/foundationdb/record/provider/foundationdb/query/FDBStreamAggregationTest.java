@@ -40,9 +40,12 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ArrayAggValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -53,16 +56,18 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.test.Tags;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
@@ -112,13 +117,13 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void noAggregateGroupByNone(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
+    void noAggregateGroupByNone(final boolean useNestedResult, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                            .build(useNestedResult, serializationMode);
+                            .build(useNestedResult);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf());
@@ -127,7 +132,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateOneGroupByOne(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
+    void aggregateOneGroupByOne(final boolean useNestedResult, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -135,7 +140,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                             .withGroupCriterion("num_value_3_indexed")
-                            .build(useNestedResult, serializationMode);
+                            .build(useNestedResult);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, 1), resultOf(1, 5), resultOf(2, 9));
@@ -144,14 +149,14 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateOneGroupByNone(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
+    void aggregateOneGroupByNone(final boolean useNestedResult, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
-                            .build(useNestedResult, serializationMode);
+                            .build(useNestedResult);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(15));
@@ -160,14 +165,14 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void noAggregateGroupByOne(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
+    void noAggregateGroupByOne(final boolean useNestedResult, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withGroupCriterion("num_value_3_indexed")
-                            .build(useNestedResult, serializationMode);
+                            .build(useNestedResult);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0), resultOf(1), resultOf(2));
@@ -176,7 +181,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateOneGroupByTwo(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
+    void aggregateOneGroupByTwo(final boolean useNestedResult, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -185,7 +190,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                             .withGroupCriterion("num_value_3_indexed")
                             .withGroupCriterion("str_value_indexed")
-                            .build(useNestedResult, serializationMode);
+                            .build(useNestedResult);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, "0", 1), resultOf(1, "0", 2), resultOf(1, "1", 3), resultOf(2, "1", 9));
@@ -194,7 +199,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateTwoGroupByTwo(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
+    void aggregateTwoGroupByTwo(final boolean useNestedResult, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -204,7 +209,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Min(NumericAggregationValue.PhysicalOperator.MIN_I, value))
                             .withGroupCriterion("num_value_3_indexed")
                             .withGroupCriterion("str_value_indexed")
-                            .build(useNestedResult, serializationMode);
+                            .build(useNestedResult);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, "0", 1, 0), resultOf(1, "0", 2, 2), resultOf(1, "1", 3, 3), resultOf(2, "1", 9, 4));
@@ -213,7 +218,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateThreeGroupByTwo(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
+    void aggregateThreeGroupByTwo(final boolean useNestedResult, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -224,7 +229,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Avg(NumericAggregationValue.PhysicalOperator.AVG_I, value))
                             .withGroupCriterion("num_value_3_indexed")
                             .withGroupCriterion("str_value_indexed")
-                            .build(useNestedResult, serializationMode);
+                            .build(useNestedResult);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, "0", 1, 0, 0.5), resultOf(1, "0", 2, 2, 2.0), resultOf(1, "1", 3, 3, 3.0), resultOf(2, "1", 9, 4, 4.5));
@@ -233,7 +238,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateOneGroupByThree(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
+    void aggregateOneGroupByThree(final boolean useNestedResult, final int rowLimit) {
         // each group only has one row
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
@@ -244,7 +249,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withGroupCriterion("num_value_3_indexed")
                             .withGroupCriterion("str_value_indexed")
                             .withGroupCriterion("num_value_unique")
-                            .build(useNestedResult, serializationMode);
+                            .build(useNestedResult);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, "0", 0, 0), resultOf(0, "0", 1, 1), resultOf(1, "0", 2, 2), resultOf(1, "1", 3, 3), resultOf(2, "1", 4, 4), resultOf(2, "1", 5, 5));
@@ -253,7 +258,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateNoRecords(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
+    void aggregateNoRecords(final boolean useNestedResult, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -263,7 +268,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Min(NumericAggregationValue.PhysicalOperator.MIN_I, value))
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Avg(NumericAggregationValue.PhysicalOperator.AVG_I, value))
                             .withGroupCriterion("num_value_3_indexed")
-                            .build(useNestedResult, serializationMode);
+                            .build(useNestedResult);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             Assertions.assertTrue(result.isEmpty());
@@ -272,7 +277,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateNoRecordsNoGroup(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
+    void aggregateNoRecordsNoGroup(final boolean useNestedResult, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -280,7 +285,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Min(NumericAggregationValue.PhysicalOperator.MIN_I, value))
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Avg(NumericAggregationValue.PhysicalOperator.AVG_I, value))
-                    .build(useNestedResult, serializationMode);
+                    .build(useNestedResult);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             Assertions.assertTrue(result.isEmpty());
@@ -289,14 +294,14 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateNoRecordsNoAggregate(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
+    void aggregateNoRecordsNoAggregate(final boolean useNestedResult, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
                             .withGroupCriterion("num_value_3_indexed")
-                            .build(useNestedResult, serializationMode);
+                            .build(useNestedResult);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             Assertions.assertTrue(result.isEmpty());
@@ -305,22 +310,21 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateNoRecordsNoGroupNoAggregate(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
+    void aggregateNoRecordsNoGroupNoAggregate(final boolean useNestedResult, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
-                            .build(useNestedResult, serializationMode);
+                            .build(useNestedResult);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             Assertions.assertTrue(result.isEmpty());
         }
     }
 
-    @ParameterizedTest
-    @EnumSource(value = RecordQueryStreamingAggregationPlan.SerializationMode.class, names = {"TO_OLD", "TO_NEW"})
-    void partialAggregateAggregateThreeGroupByTwo(RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
+    @Test
+    void partialAggregateAggregateThreeGroupByTwo() {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
             final var plan =
@@ -330,44 +334,114 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Avg(NumericAggregationValue.PhysicalOperator.AVG_I, value))
                             .withGroupCriterion("num_value_3_indexed")
                             .withGroupCriterion("str_value_indexed")
-                            .build(false, serializationMode);
+                            .build(false);
             // row0: group0 groupKey = (0, "0")
             // row1: group0
             // row2: group1 groupKey = (1, "0")
             // row3: group2 groupKey = (1, "1")
             // row4: group3 groupKey = (2, "1")
             // row5: group3 groupKey = (2, "1")
-            if (serializationMode == RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW) {
-                // scans row0,1,2, return group0 aggregation result.
-                // row2 is actually a group, but we don't know if the group is finished, so didn't return this group
-                RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, resultOf(0, "0", 1, 0, 0.5));
-                // scans row3, returns group1 aggregation result, again, row3 is actually a group, but nothing is returned because we don't know if the group is finished
-                RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf(1, "0", 2, 2, 2.0));
-                // scans row4, returns group2 aggregation result
-                RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), resultOf(1, "1", 3, 3, 3.0));
-                // scans row5, hit SCAN_LIMIT_REACHED
-                RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes());
-                // hit SOURCE_EXHAUSTED, returns group3 aggregation result
-                RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf(2, "1", 9, 4, 4.5));
-                Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
-            } else {
-                // scan row0,1,2, return group0 and group1 aggregation results
-                RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, resultOf(0, "0", 1, 0, 0.5), resultOf(1, "0", 2, 2, 2.0));
-                // scan row3, return group2 aggregation results
-                RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf(1, "1", 3, 3, 3.0));
-                // scan row4, return partial aggregation result of group3
-                RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), resultOf(2, "1", 4, 4, 4.0));
-                // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
-                RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes(), resultOf(2, "1", 5, 5, 5.0));
-                RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes());
-                Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
-            }
+            // scans row0,1,2, return group0 aggregation result.
+            // row2 is actually a group, but we don't know if the group is finished, so didn't return this group
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, resultOf(0, "0", 1, 0, 0.5));
+            // scans row3, returns group1 aggregation result, again, row3 is actually a group, but nothing is returned because we don't know if the group is finished
+            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf(1, "0", 2, 2, 2.0));
+            // scans row4, returns group2 aggregation result
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), resultOf(1, "1", 3, 3, 3.0));
+            // scans row5, hit SCAN_LIMIT_REACHED
+            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes());
+            // hit SOURCE_EXHAUSTED, returns group3 aggregation result
+            RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf(2, "1", 9, 4, 4.5));
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
         }
     }
 
-    @ParameterizedTest
-    @EnumSource(value = RecordQueryStreamingAggregationPlan.SerializationMode.class, names = {"TO_OLD", "TO_NEW"})
-    void partialAggregateSum(RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
+    /**
+     * Tests that {@code ARRAY_AGG()} restores its partial state from a continuation. Unlike the scalar aggregates,
+     * whose partial state is a scalar, its state is a growing list that has to be serialized into the continuation and
+     * parsed back. That only happens when the cursor stops <em>inside</em> a group, and the only thing that makes it do
+     * so is a record scan limit; a group break carries no partial state, and a returned-row limit is applied above the
+     * aggregate cursor.
+     */
+    @Test
+    void partialAggregateArrayAgg() {
+        try (final var context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", value -> new ArrayAggValue(value, true))
+                            .withGroupCriterion("str_value_indexed")
+                            .build(false);
+
+            // Same scan-limit sequence as `partialAggregateSum()`: 2 groups of 3 rows each. The first execution stops
+            // inside the first group, so its 3 collected elements survive only if they make it into the continuation.
+            final RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null);
+            final RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1,
+                    continuation1.toBytes(), this::assertResultWithArrays, resultOf("0", List.of(0, 1, 2)));
+            final RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1,
+                    continuation2.toBytes());
+            final RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1,
+                    continuation3.toBytes());
+            final RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1,
+                    continuation4.toBytes(), this::assertResultWithArrays, resultOf("1", List.of(3, 4, 5)));
+
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
+        }
+    }
+
+    /**
+     * Tests that resuming mid-group currently fails a {@code verify()} when one of two scalar aggregates has no value
+     * yet. Pins Issue #4573.
+     */
+    @Test
+    void partialAggregateTwoScalarsOneWithoutValue() {
+        try (final var context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(
+                                    NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withAggregateValue("num_value_2", ignored -> new NumericAggregationValue.Sum(
+                                    NumericAggregationValue.PhysicalOperator.SUM_I,
+                                    new NullValue(Type.primitiveType(Type.TypeCode.INT))))
+                            .withGroupCriterion("str_value_indexed")
+                            .build(false);
+
+            // Stops inside the first group, so the continuation carries only 1 state for 2 children.
+            final RecordCursorContinuation continuation = executePlanWithRecordScanLimit(plan, 5, null);
+            Assertions.assertThrows(VerifyException.class,
+                    () -> executePlanWithRecordScanLimit(plan, 1, continuation.toBytes()));
+        }
+    }
+
+    /**
+     * Tests that {@code ARRAY_AGG()} alongside a scalar aggregate without a value fails the same {@code verify()}
+     * as {@link #partialAggregateTwoScalarsOneWithoutValue}. Pins Issue #4573.
+     */
+    @Test
+    void partialAggregateArrayAggWithScalarWithoutValue() {
+        try (final var context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", ignored -> new NumericAggregationValue.Sum(
+                                    NumericAggregationValue.PhysicalOperator.SUM_I,
+                                    new NullValue(Type.primitiveType(Type.TypeCode.INT))))
+                            .withAggregateValue("num_value_2", value -> new ArrayAggValue(value, true))
+                            .withGroupCriterion("str_value_indexed")
+                            .build(false);
+
+            final RecordCursorContinuation continuation = executePlanWithRecordScanLimit(plan, 5, null);
+            Assertions.assertThrows(VerifyException.class,
+                    () -> executePlanWithRecordScanLimit(plan, 1, continuation.toBytes()));
+        }
+    }
+
+    @Test
+    void partialAggregateSum() {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -375,41 +449,26 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                             .withGroupCriterion("str_value_indexed")
-                            .build(false, serializationMode);
-            if (serializationMode == RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW) {
-                // In the testing data, there are 2 groups, each group has 3 rows.
-                // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
-                // although the first group contains exactly 3 rows, we don't know we've finished the first group before we get to the 4th row, so nothing is returned
-                RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null);
-                // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), return the aggregated result of the first group
-                RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf("0", 3));
-                // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), return nothing
-                RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes());
-                // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
-                RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes());
-                // return the aggregated result of the second group
-                RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf("1", 12));
+                            .build(false);
+            // In the testing data, there are 2 groups, each group has 3 rows.
+            // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
+            // although the first group contains exactly 3 rows, we don't know we've finished the first group before we get to the 4th row, so nothing is returned
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null);
+            // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), return the aggregated result of the first group
+            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf("0", 3));
+            // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), return nothing
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes());
+            // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
+            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes());
+            // return the aggregated result of the second group
+            RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf("1", 12));
 
-                Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
-            } else {
-                // scans first 3 rows, returns aggregation result
-                RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, resultOf("0", 3));
-                // scans 4th row, returns "partial" aggregation result
-                RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf("1", 3));
-                // scans 5th row, returns "partial" aggregation result
-                RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), resultOf("1", 4));
-                // scans 6th row, returns "partial" aggregation result
-                RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes(), resultOf("1", 5));
-                RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes());
-
-                Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
-            }
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
         }
     }
 
-    @ParameterizedTest
-    @EnumSource(value = RecordQueryStreamingAggregationPlan.SerializationMode.class, names = {"TO_OLD", "TO_NEW"})
-    void testFilterOutSecondGroup(RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
+    @Test
+    void testFilterOutSecondGroup() {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -419,31 +478,20 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                             .withGroupCriterion("str_value_indexed")
                             .withQueryPredicate("num_value_2", Comparisons.Type.LESS_THAN, 3)
-                            .build(false, serializationMode);
+                            .build(false);
 
-            if (serializationMode == RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW) {
-                // scans num_value_2 = 0, 1, 2 then hit SCAN_LIMIT_REACHED, not knowing if this is end of the group, so return nothing
-                RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 4, null);
-                // scans num_value_2 = 3, 4, all filtered out by FilterCursor, so AggregateCursor doesn't receive any "innerResult", not knowing if this is end of the group, so return nothing
-                RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 2, continuation1.toBytes());
-                // scans num_value_2 = 5, hits SOURCE_EXHAUSTED, returns the result
-                RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 2, continuation2.toBytes(), resultOf("0", 3));
-                Assertions.assertEquals(RecordCursorEndContinuation.END, continuation3);
-            } else {
-                // scans num_value_2 = 0, 1, 2, returns result
-                RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 4, null, resultOf("0", 3));
-                // scans num_value_2 = 3, 4, all filtered out by FilterCursor
-                RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 2, continuation1.toBytes());
-                // scans num_value_2 = 5, hits SOURCE_EXHAUSTED
-                RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 2, continuation2.toBytes());
-                Assertions.assertEquals(RecordCursorEndContinuation.END, continuation3);
-            }
+            // scans num_value_2 = 0, 1, 2 then hit SCAN_LIMIT_REACHED, not knowing if this is end of the group, so return nothing
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 4, null);
+            // scans num_value_2 = 3, 4, all filtered out by FilterCursor, so AggregateCursor doesn't receive any "innerResult", not knowing if this is end of the group, so return nothing
+            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 2, continuation1.toBytes());
+            // scans num_value_2 = 5, hits SOURCE_EXHAUSTED, returns the result
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 2, continuation2.toBytes(), resultOf("0", 3));
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation3);
         }
     }
 
-    @ParameterizedTest
-    @EnumSource(value = RecordQueryStreamingAggregationPlan.SerializationMode.class, names = {"TO_OLD", "TO_NEW"})
-    void testFilterOutFirstGroup(RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
+    @Test
+    void testFilterOutFirstGroup() {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -453,31 +501,20 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                             .withGroupCriterion("str_value_indexed")
                             .withQueryPredicate("num_value_2", Comparisons.Type.GREATER_THAN, 2)
-                            .build(false, serializationMode);
+                            .build(false);
 
-            if (serializationMode == RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW) {
-                // scans num_value_2 = 0, 1, 2 then hit SCAN_LIMIT_REACHED
-                RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 4, null);
-                // scans num_value_2 = 3, 4, then hit SCAN_LIMIT_REACHED
-                RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 2, continuation1.toBytes());
-                // scans num_value_2 = 5, then hit SOURCE_EXHAUSTED, returns result
-                RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 2, continuation2.toBytes(), resultOf("1", 12));
-                Assertions.assertEquals(RecordCursorEndContinuation.END, continuation3);
-            } else {
-                // scans num_value_2 = 0, 1, 2 then hit SCAN_LIMIT_REACHED
-                RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 4, null);
-                // scans num_value_2 = 3, 4, then hit SCAN_LIMIT_REACHED
-                RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 2, continuation1.toBytes(), resultOf("1", 7));
-                // scans num_value_2 = 5, then hit SOURCE_EXHAUSTED, returns result
-                RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 2, continuation2.toBytes(), resultOf("1", 5));
-                Assertions.assertEquals(RecordCursorEndContinuation.END, continuation3);
-            }
+            // scans num_value_2 = 0, 1, 2 then hit SCAN_LIMIT_REACHED
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 4, null);
+            // scans num_value_2 = 3, 4, then hit SCAN_LIMIT_REACHED
+            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 2, continuation1.toBytes());
+            // scans num_value_2 = 5, then hit SOURCE_EXHAUSTED, returns result
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 2, continuation2.toBytes(), resultOf("1", 12));
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation3);
         }
     }
 
-    @ParameterizedTest
-    @EnumSource(value = RecordQueryStreamingAggregationPlan.SerializationMode.class, names = {"TO_OLD", "TO_NEW"})
-    void testFilterOutEverything(RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
+    @Test
+    void testFilterOutEverything() {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -487,7 +524,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                             .withGroupCriterion("str_value_indexed")
                             .withQueryPredicate("num_value_2", Comparisons.Type.LESS_THAN, 0)
-                            .build(false, serializationMode);
+                            .build(false);
 
             // scans num_value_2 = 0, 1, 2, then hit scan_limit_reached
             RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 4, null);
@@ -499,9 +536,8 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @ParameterizedTest
-    @EnumSource(value = RecordQueryStreamingAggregationPlan.SerializationMode.class, names = {"TO_OLD", "TO_NEW"})
-    void partialAggregateCountToNew(RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
+    @Test
+    void partialAggregateCountToNew() {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -509,71 +545,45 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2", value -> new CountValue(CountValue.PhysicalOperator.COUNT, value))
                             .withGroupCriterion("str_value_indexed")
-                            .build(false, serializationMode);
+                            .build(false);
 
-            if (serializationMode == RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW) {
-                // In the testing data, there are 2 groups, each group has 3 rows.
-                // scans 4 rows at a time
-                RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 6, null, resultOf("0", 3L));
-                RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 6, continuation1.toBytes(), resultOf("1", 3L));
-                Assertions.assertEquals(RecordCursorEndContinuation.END, continuation2);
-            } else {
-                // In the testing data, there are 2 groups, each group has 3 rows.
-                // scans 4 rows at a time
-                RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 6, null, resultOf("0", 3L), resultOf("1", 1L));
-                RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 6, continuation1.toBytes(), resultOf("1", 2L));
-                Assertions.assertEquals(RecordCursorEndContinuation.END, continuation2);
-            }
+            // In the testing data, there are 2 groups, each group has 3 rows.
+            // scans 4 rows at a time
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 6, null, resultOf("0", 3L));
+            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 6, continuation1.toBytes(), resultOf("1", 3L));
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation2);
         }
     }
 
-    @ParameterizedTest
-    @EnumSource(value = RecordQueryStreamingAggregationPlan.SerializationMode.class, names = {"TO_OLD", "TO_NEW"})
-    void partialAggregateSumWithoutGroupingKey(RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
+    @Test
+    void partialAggregateSumWithoutGroupingKey() {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
-                            .build(false, serializationMode);
+                            .build(false);
 
-            if (serializationMode == RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW) {
-                // In the testing data, there are 6 rows.
-                // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
-                // because source is not exhausted, nothing is returned
-                RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null);
-                // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), nothing is returned
-                RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes());
-                // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), nothing is returned
-                RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes());
-                // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
-                RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes());
-                // return the aggregated result of the second group
-                RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf(15));
+            // In the testing data, there are 6 rows.
+            // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
+            // because source is not exhausted, nothing is returned
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null);
+            // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), nothing is returned
+            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes());
+            // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), nothing is returned
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes());
+            // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
+            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes());
+            // return the aggregated result of the second group
+            RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf(15));
 
-                Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
-            } else {
-                // In the testing data, there are 6 rows.
-                // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
-                RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, resultOf(3));
-                // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1)
-                RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf(3));
-                // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1)
-                RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), resultOf(4));
-                // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED
-                RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes(), resultOf(5));
-                // hits SOURCE_EXHAUSTED
-                RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes());
-
-                Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
-            }
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
         }
     }
 
-    @ParameterizedTest
-    @EnumSource(value = RecordQueryStreamingAggregationPlan.SerializationMode.class, names = {"TO_OLD", "TO_NEW"})
-    void partialAggregateAvg(RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
+    @Test
+    void partialAggregateAvg() {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -581,44 +591,27 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Avg(NumericAggregationValue.PhysicalOperator.AVG_I, value))
                             .withGroupCriterion("str_value_indexed")
-                            .build(false, serializationMode);
+                            .build(false);
 
-            if (serializationMode == RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW) {
-                // In the testing data, there are 2 groups, each group has 3 rows.
-                // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
-                // although the first group contains exactly 3 rows, we don't know we've finished the first group before we get to the 4th row, so nothing is returned, continuation is back to START
-                RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null);
-                // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), return the aggregated result of the first group
-                RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf("0", 1.0));
-                // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), return nothing
-                RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes());
-                // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
-                RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes());
-                // return the aggregated result of the second group
-                RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf("1", 4.0));
+            // In the testing data, there are 2 groups, each group has 3 rows.
+            // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
+            // although the first group contains exactly 3 rows, we don't know we've finished the first group before we get to the 4th row, so nothing is returned, continuation is back to START
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null);
+            // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), return the aggregated result of the first group
+            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf("0", 1.0));
+            // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), return nothing
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes());
+            // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
+            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes());
+            // return the aggregated result of the second group
+            RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf("1", 4.0));
 
-                Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
-            } else {
-                // In the testing data, there are 2 groups, each group has 3 rows.
-                // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
-                RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, resultOf("0", 1.0));
-                // start the next scan from 4th row
-                RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf("1", 3.0));
-                // start the next scan from 5th row
-                RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), resultOf("1", 4.0));
-                // start the next scan from 6th row
-                RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes(), resultOf("1", 5.0));
-                // hits SOURCE_EXHAUSTED
-                RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes());
-
-                Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
-            }
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
         }
     }
 
-    @ParameterizedTest
-    @EnumSource(value = RecordQueryStreamingAggregationPlan.SerializationMode.class, names = {"TO_OLD", "TO_NEW"})
-    void partialAggregateBitmap(RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
+    @Test
+    void partialAggregateBitmap() {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -626,54 +619,28 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.BitmapConstructAgg(NumericAggregationValue.PhysicalOperator.BITMAP_CONSTRUCT_AGG_I, value))
                             .withGroupCriterion("str_value_indexed")
-                            .build(false, serializationMode);
+                            .build(false);
 
-            if (serializationMode == RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW) {
-                // In the testing data, there are 2 groups, each group has 3 rows.
-                // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
-                // although the first group contains exactly 3 rows, we don't know we've finished the first group before we get to the 4th row, so nothing is returned, continuation is back to START
-                RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null);
-                // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), return the aggregated result of the first group
-                byte[] first = new byte[1250];
-                // first[0] = b'00000111
-                first[0] = 7;
-                RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf("0", ByteString.copyFrom(first)));
-                // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), return nothing
-                RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes());
-                // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
-                RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes());
-                // return the aggregated result of the second group
-                byte[] second = new byte[1250];
-                // second[0] = b'00111000
-                second[0] = 56;
-                RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf("1", ByteString.copyFrom(second)));
+            // In the testing data, there are 2 groups, each group has 3 rows.
+            // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
+            // although the first group contains exactly 3 rows, we don't know we've finished the first group before we get to the 4th row, so nothing is returned, continuation is back to START
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null);
+            // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), return the aggregated result of the first group
+            byte[] first = new byte[1250];
+            // first[0] = b'00000111
+            first[0] = 7;
+            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf("0", ByteString.copyFrom(first)));
+            // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), return nothing
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes());
+            // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
+            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes());
+            // return the aggregated result of the second group
+            byte[] second = new byte[1250];
+            // second[0] = b'00111000
+            second[0] = 56;
+            RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf("1", ByteString.copyFrom(second)));
 
-                Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
-            } else {
-                // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
-                byte[] first = new byte[1250];
-                // first[0] = b'00000111
-                first[0] = 7;
-                RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, resultOf("0", ByteString.copyFrom(first)));
-                // start the next scan from 4th row
-                byte[] fourth = new byte[1250];
-                // fourth[0] = b'00001000
-                fourth[0] = 8;
-                RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf("1", ByteString.copyFrom(fourth)));
-                // start the next scan from 5th row
-                byte[] fifth = new byte[1250];
-                // fifth[0] = b'00010000
-                fifth[0] = 16;
-                RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), resultOf("1", ByteString.copyFrom(fifth)));
-                // start the next scan from 6th row
-                byte[] sixth = new byte[1250];
-                // sixth[0] = b'00100000
-                sixth[0] = 32;
-                RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes(), resultOf("1", ByteString.copyFrom(sixth)));
-                RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes());
-
-                Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
-            }
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
         }
     }
 
@@ -682,10 +649,8 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         // setting rowLimit = 0 is equivalent to no limit
         List<Arguments> arguments = new LinkedList<>();
         for (int i = 0; i <= 4; i++) {
-            arguments.add(Arguments.of(false, RecordQueryStreamingAggregationPlan.SerializationMode.TO_OLD, i));
-            arguments.add(Arguments.of(false, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW, i));
-            arguments.add(Arguments.of(true, RecordQueryStreamingAggregationPlan.SerializationMode.TO_OLD, i));
-            arguments.add(Arguments.of(true, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW, i));
+            arguments.add(Arguments.of(false, i));
+            arguments.add(Arguments.of(true, i));
         }
         return arguments.stream();
     }
@@ -724,6 +689,12 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
     }
 
     private RecordCursorContinuation executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, byte[] continuation, @Nullable List<?>... expectedResult) {
+        return executePlanWithRecordScanLimit(plan, recordScanLimit, continuation, this::assertResultFlattened, expectedResult);
+    }
+
+    private RecordCursorContinuation executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, byte[] continuation,
+                                                                    @Nonnull final BiConsumer<QueryResult, List<?>> checkConsumer,
+                                                                    @Nullable List<?>... expectedResult) {
         List<QueryResult> queryResults = new LinkedList<>();
         try (RecordCursor<QueryResult> currentCursor = executePlan(plan, 0, recordScanLimit, continuation)) {
             RecordCursorResult<QueryResult> currentCursorResult;
@@ -746,7 +717,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             if (expectedResult == null) {
                 Assertions.assertTrue(queryResults.isEmpty());
             } else {
-                assertResults(this::assertResultFlattened, queryResults, expectedResult);
+                assertResults(checkConsumer, queryResults, expectedResult);
             }
             return cursorContinuation;
         }
@@ -788,6 +759,34 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         final var descriptor = message.getDescriptorForType();
         for (final var field : descriptor.getFields()) {
             resultFieldsBuilder.add(message.getField(field));
+        }
+        final var resultFields = resultFieldsBuilder.build();
+
+        Assertions.assertEquals(resultFields.size(), expected.size());
+        for (var i = 0; i < resultFields.size(); i++) {
+            Assertions.assertEquals(expected.get(i), resultFields.get(i));
+        }
+    }
+
+    /**
+     * Asserts a result like {@link #assertResultFlattened}, except that a nullable-array field, which arrives as its
+     * wrapper message, is compared against the expected {@link List} of its elements.
+     */
+    private void assertResultWithArrays(final QueryResult actual, final List<?> expected) {
+        final var message = actual.getMessage();
+        Assertions.assertNotNull(message);
+        final var resultFieldsBuilder = ImmutableList.builder();
+        for (final Descriptors.FieldDescriptor field : message.getDescriptorForType().getFields()) {
+            final Object value = message.getField(field);
+            if (value instanceof Message wrapper) {
+                final var valuesField =
+                        wrapper.getDescriptorForType().findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
+                if (valuesField != null) {
+                    resultFieldsBuilder.add(wrapper.getField(valuesField));
+                    continue;
+                }
+            }
+            resultFieldsBuilder.add(value);
         }
         final var resultFields = resultFieldsBuilder.build();
 
@@ -867,7 +866,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             return this;
         }
 
-        public RecordQueryPlan build(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
+        public RecordQueryPlan build(final boolean useNestedResult) {
             final var currentQuantifier = queryPredicates.isEmpty() ? quantifier : Quantifier.physical(Reference.plannedOf(new RecordQueryPredicatesFilterPlan(quantifier, queryPredicates)));
 
             List<Value> groupValues = new ArrayList<>();
@@ -881,9 +880,9 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             final var groupingKeyValue = RecordConstructorValue.ofUnnamed(groupValues);
             final var aggregateValue = RecordConstructorValue.ofUnnamed(aggregateValues);
             if (useNestedResult) {
-                return RecordQueryStreamingAggregationPlan.ofNested(currentQuantifier, groupingKeyValue, aggregateValue, serializationMode);
+                return RecordQueryStreamingAggregationPlan.ofNested(currentQuantifier, groupingKeyValue, aggregateValue);
             } else {
-                return RecordQueryStreamingAggregationPlan.ofFlattened(currentQuantifier, groupingKeyValue, aggregateValue, serializationMode);
+                return RecordQueryStreamingAggregationPlan.ofFlattened(currentQuantifier, groupingKeyValue, aggregateValue);
             }
         }
 

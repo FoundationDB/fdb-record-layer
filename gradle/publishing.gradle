@@ -115,6 +115,14 @@ publishing {
                     }
                 }
             }
+
+            if (Boolean.parseBoolean(centralPublish)) {
+                // Publish this project to the root project's staging repo
+                // See: central-publishing.gradle
+                maven {
+                    url = rootProject.layout.buildDirectory.dir(rootProject.ext.stagingRepoDirName)
+                }
+            }
         }
     }
 }

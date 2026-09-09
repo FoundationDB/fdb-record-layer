@@ -309,7 +309,7 @@ public abstract class OnlineIndexerTest {
         openSimpleMetaData(allIndexesHook(indexes));
         try (FDBRecordContext context = openContext()) {
             for (Index index : indexes) {
-                assertTrue(recordStore.isIndexReadable(index));
+                assertTrue(recordStore.getIndexState(index).isReadable());
             }
             context.commit();
         }

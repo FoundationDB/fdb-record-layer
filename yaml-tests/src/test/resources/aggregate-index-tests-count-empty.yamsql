@@ -33,7 +33,7 @@ test_block:
   tests:
     -
       - query: select count(*) from t1
-      - explain: "AISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "AISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)"
       - initialVersionLessThan: 4.0.561.0
       - result: []
       - initialVersionAtLeast: 4.0.561.0
@@ -46,7 +46,7 @@ test_block:
       - result: []
     -
       - query: select count(col1) from t1
-      - explain: "AISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "AISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)"
       - initialVersionLessThan: 4.0.561.0
       - result: []
       - initialVersionAtLeast: 4.0.561.0
@@ -62,7 +62,7 @@ test_block:
       - result: []
     -
       - query: select count(*) from t2
-      - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
@@ -72,7 +72,7 @@ test_block:
       - result: []
     -
       - query: select count(col1) from t2
-      - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)"
       - resultMetadata: [{_0: BIGINT}]
       - result: [{0}]
     -
@@ -82,7 +82,7 @@ test_block:
       - result: []
     -
       - query: select count(col2) from t1 where col1 = 22
-      - explain: "AISCAN(MV6 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0 AS _0) | MAP ((_._2 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "AISCAN(MV6 [EQUALS promote(@c10 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | AGG sum_l(_._2) GROUP BY (_._0 AS _0) | MAP ((_._2 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)"
       - resultMetadata: [ { _0: BIGINT } ]
       - result: [{0}]
 ...

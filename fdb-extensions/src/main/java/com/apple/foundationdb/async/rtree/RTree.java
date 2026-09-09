@@ -25,7 +25,6 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.TransactionContext;
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
@@ -2039,7 +2038,6 @@ public class RTree {
         @Nullable
         private CompletableFuture<TraversalState> nextStateFuture;
 
-        @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
         public LeafIterator(@Nonnull final ReadTransaction readTransaction, @Nonnull final byte[] rootId,
                             @Nullable final BigInteger lastHilbertValue, @Nullable final Tuple lastKey,
                             @Nonnull final Predicate<Rectangle> mbrPredicate, @Nonnull final BiPredicate<Tuple, Tuple> suffixKeyPredicate) {

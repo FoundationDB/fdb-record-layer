@@ -98,20 +98,72 @@ public enum IndexState {
         return logName;
     }
 
-    public boolean isScannable() {
-        return this.equals(READABLE) || this.equals(READABLE_UNIQUE_PENDING);
+    /**
+     * Determine if an index in this state is readable.
+     *
+     * @return <code>true</code> if this state is {@link #READABLE} and <code>false</code> otherwise
+     */
+    public boolean isReadable() {
+        return this.equals(READABLE);
     }
 
+    /**
+     * Determine if an index in this state is readable-unique-pending.
+     * The readable-unique-pending index state may happen after a unique index is built, but duplications are
+     * found. The index will be maintained in this mode until the last duplication is resolved, then its state
+     * can be changed to {@link #READABLE}.
+     *
+     * @return <code>true</code> if this state is {@link #READABLE_UNIQUE_PENDING} and <code>false</code> otherwise
+     */
+    public boolean isReadableUniquePending() {
+        return this.equals(READABLE_UNIQUE_PENDING);
+    }
+
+    /**
+     * Determine if an index in this state is scannable - i.e. either {@link #isReadable()} or
+     * {@link #isReadableUniquePending()}.
+     *
+     * @return <code>true</code> if this state is scannable and <code>false</code> otherwise
+     */
+    public boolean isScannable() {
+        return isReadable() || isReadableUniquePending();
+    }
+
+    /**
+     * Determine if an index in this state is write-only (but not write-only-with-queue).
+     *
+     * @return <code>true</code> if this state is {@link #WRITE_ONLY} and <code>false</code> otherwise
+     */
     public boolean isWriteOnlyNoQueue() {
         return this.equals(WRITE_ONLY);
     }
 
+    /**
+     * Determine if an index in this state is write-only with a pending queue.
+     *
+     * @return <code>true</code> if this state is {@link #WRITE_ONLY_WITH_QUEUE} and <code>false</code> otherwise
+     */
     public boolean isWriteOnlyWithQueue() {
         return this.equals(WRITE_ONLY_WITH_QUEUE);
     }
 
+    /**
+     * Determine if an index in this state is write-only in any form ({@link #WRITE_ONLY} or
+     * {@link #WRITE_ONLY_WITH_QUEUE}).
+     *
+     * @return <code>true</code> if this state is write-only in any form and <code>false</code> otherwise
+     */
     public boolean isWriteOnly() {
         return isWriteOnlyNoQueue() || isWriteOnlyWithQueue();
+    }
+
+    /**
+     * Determine if an index in this state is disabled.
+     *
+     * @return <code>true</code> if this state is {@link #DISABLED} and <code>false</code> otherwise
+     */
+    public boolean isDisabled() {
+        return this.equals(DISABLED);
     }
 
     public static IndexState fromCode(@Nonnull Object code) {

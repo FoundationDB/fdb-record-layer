@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.PlanHashable.PlanHashMode;
 import com.apple.foundationdb.record.planprotos.PPlanReference;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
@@ -154,7 +155,14 @@ public class PlanSerializationContext {
     /**
      * Equivalence that is established on record types including their names and structure.
      */
+    @SpotBugsSuppressWarnings(
+            value = "HE_INHERITS_EQUALS_USE_HASHCODE",
+            justification = "Superclass overloads equals just for documentation. This is also a singleton anyway with a " +
+                    "private constructor, so equals and hash code are not useful")
     private static class RecordTypeWithNameEquivalence extends Equivalence<Type.Record> {
+        private RecordTypeWithNameEquivalence() {
+        }
+
         @Override
         protected boolean doEquivalent(@Nonnull final Type.Record a, @Nonnull final Type.Record b) {
             if (!a.equals(b)) {

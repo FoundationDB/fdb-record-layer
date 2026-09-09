@@ -25,18 +25,13 @@ import com.apple.foundationdb.record.query.plan.cascades.ExpressionPartitions;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.Set;
-import java.util.function.BiFunction;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
 
@@ -97,64 +92,10 @@ public class ExpressionsPartitionMatchers {
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static <E extends RelationalExpression, P extends ExpressionPartition<E>> BindingMatcher<P> filterExpressions(@Nonnull final Predicate<E> predicate,
-                                                                                                                         @Nonnull final BindingMatcher<P> downstream) {
+    public static <E extends RelationalExpression, P extends ExpressionPartition<E>> BindingMatcher<P> expressions(@Nonnull final BindingMatcher<? extends Iterable<E>> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<P>)(Class<?>)ExpressionPartition.class,
-                Extractor.of(expressionPartition -> expressionPartition.filter(predicate),
-                        name -> "filtered expressions(" + name + ")"),
+                Extractor.of(ExpressionPartition::getExpressions,
+                        name -> "expressions(" + name + ")"),
                 downstream);
-    }
-
-    @Nonnull
-    public static <C extends Comparable<C>, E extends RelationalExpression> BiFunction<ExpressionPartition<E>, ? super E, C> comparisonByProperty(@Nonnull ExpressionProperty<C> expressionProperty) {
-        return (partition, expression) -> partition.getNonPartitioningPropertyValue(expression, expressionProperty);
-    }
-
-    @Nonnull
-    public static <E extends RelationalExpression> BiFunction<ExpressionPartition<E>, ? super E, Tuple> comparisonByPropertyList(@Nonnull ExpressionProperty<?>... expressionProperties) {
-        return (partition, expression) ->
-                Tuple.fromItems(Arrays.stream(expressionProperties)
-                        .map(property -> partition.getNonPartitioningPropertyValue(expression, property))
-                        .collect(Collectors.toList()));
-    }
-
-    @Nonnull
-    @SuppressWarnings("unchecked")
-    public static <C extends Comparable<C>, E extends RelationalExpression> BindingMatcher<ExpressionPartition<RelationalExpression>> argmin(@Nonnull final ExpressionProperty<C> expressionProperty,
-                                                                                                                                             @Nonnull final BindingMatcher<E> downstream) {
-        return argmin(ExpressionsPartitionMatchers.<C, E>comparisonByProperty(expressionProperty), downstream);
-    }
-
-    @Nonnull
-    @SuppressWarnings("unchecked")
-    public static <C extends Comparable<C>, E extends RelationalExpression> BindingMatcher<ExpressionPartition<RelationalExpression>> argmin(@Nonnull final BiFunction<ExpressionPartition<E>, ? super E, C> comparisonKeyFunction,
-                                                                                                                                             @Nonnull final BindingMatcher<E> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(
-                (Class<ExpressionPartition<RelationalExpression>>)(Class<?>)ExpressionPartition.class,
-                Extractor.of(partition ->
-                                partition.getExpressions()
-                                        .stream()
-                                        .min(Comparator.comparing(
-                                                expression ->
-                                                        comparisonKeyFunction.apply((ExpressionPartition<E>)partition, (E)expression))),
-                        name -> "argmin(" + name + ")"),
-                OptionalIfPresentMatcher.present(downstream));
-    }
-
-    @Nonnull
-    @SuppressWarnings("unchecked")
-    public static <P extends Comparable<P>> BindingMatcher<ExpressionPartition<RelationalExpression>> argmax(@Nonnull final ExpressionProperty<P> expressionProperty,
-                                                                                                             @Nonnull final BindingMatcher<? extends RelationalExpression> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(
-                (Class<ExpressionPartition<RelationalExpression>>)(Class<?>)Collection.class,
-                Extractor.of(partition ->
-                                partition.getExpressions()
-                                        .stream()
-                                        .max(Comparator.comparing(
-                                                expression ->
-                                                        partition.getNonPartitioningPropertyValue(expression,
-                                                                expressionProperty))),
-                        name -> "argmax(" + name + ")"),
-                OptionalIfPresentMatcher.present(downstream));
     }
 }

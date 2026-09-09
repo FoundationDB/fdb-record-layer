@@ -120,7 +120,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         try (FDBRecordContext context = openContextWithDisableOnQueueFull(overflowTimer, true, 2)) {
             final FDBRecordStore store = createStoreBuilder().setContext(context)
                     .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
-            assertTrue(store.isIndexWriteOnlyWithQueue(myIndex));
+            assertTrue(store.getIndexState(myIndex).isWriteOnlyWithQueue());
             saveSimpleRecord(store, 5, 5 * 19);
             context.commit();
         }
@@ -129,7 +129,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
         // The index is now disabled and its queue data cleared.
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexDisabled(myIndex), "the overflowing index should be disabled");
+            assertTrue(recordStore.getIndexState(myIndex).isDisabled(), "the overflowing index should be disabled");
             assertNotNull(recordStore.loadRecord(Tuple.from(5L)), "the overflow record must have been saved");
             // A readable index on the same record type was still maintained in that same transaction.
             final Index uniqueIndex = recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_unique");
@@ -173,7 +173,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
         // The index was not disabled; it is still in the queue state.
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexWriteOnlyWithQueue(myIndex), "the index must remain in the queue state");
+            assertTrue(recordStore.getIndexState(myIndex).isWriteOnlyWithQueue(), "the index must remain in the queue state");
             context.commit();
         }
     }
@@ -233,7 +233,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
         // The index converged to DISABLED and its queue was cleared.
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexDisabled(myIndex), "the index should converge to disabled");
+            assertTrue(recordStore.getIndexState(myIndex).isDisabled(), "the index should converge to disabled");
             context.commit();
         }
         assertNull(queueSizeCounter(myIndex));
@@ -267,7 +267,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                     try (FDBRecordContext context = fdb.openContext(null, writeTimer)) {
                         final FDBRecordStore store = createStoreBuilder().setContext(context)
                                 .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
-                        assertTrue(store.isIndexWriteOnlyWithQueue(index));
+                        assertTrue(store.getIndexState(index).isWriteOnlyWithQueue());
                         for (int recNo : queuedRecNos) {
                             store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                                     .setRecNo(recNo)
@@ -332,7 +332,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                     try (FDBRecordContext context = fdb.openContext(null, writeTimer)) {
                         final FDBRecordStore store = createStoreBuilder().setContext(context)
                                 .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
-                        assertTrue(store.isIndexWriteOnlyWithQueue(index));
+                        assertTrue(store.getIndexState(index).isWriteOnlyWithQueue());
                         for (int recNo : queuedRecNos) {
                             store.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                                     .setRecNo(recNo)
@@ -526,8 +526,8 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                     try (FDBRecordContext context = fdb.openContext(null, writeTimer)) {
                         final FDBRecordStore store = createStoreBuilder().setContext(context)
                                 .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
-                        assertTrue(store.isIndexWriteOnlyNoQueue(index));
-                        assertFalse(store.isIndexWriteOnlyWithQueue(index));
+                        assertTrue(store.getIndexState(index).isWriteOnlyNoQueue());
+                        assertFalse(store.getIndexState(index).isWriteOnlyWithQueue());
                         saveSimpleRecord(store, 1, 19);
                         saveSimpleRecord(store, 3, 57);
                         context.commit();
@@ -560,8 +560,8 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                     try (FDBRecordContext context = fdb.openContext(null, writeTimer)) {
                         final FDBRecordStore store = createStoreBuilder().setContext(context)
                                 .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
-                        assertTrue(store.isIndexWriteOnlyNoQueue(index));
-                        assertFalse(store.isIndexWriteOnlyWithQueue(index));
+                        assertTrue(store.getIndexState(index).isWriteOnlyNoQueue());
+                        assertFalse(store.getIndexState(index).isWriteOnlyWithQueue());
                         saveSimpleRecord(store, 1, 19);
                         saveSimpleRecord(store, 3, 57);
                         context.commit();
@@ -572,7 +572,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         // The build still completes as a normal write-only version index.
         openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexReadable(index));
+            assertTrue(recordStore.getIndexState(index).isReadable());
             context.commit();
         }
     }
@@ -590,8 +590,8 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                 queueIndexerBuilder(index, List.of(index)),
                 () -> {
                     try (FDBRecordContext context = openContext()) {
-                        assertTrue(recordStore.isIndexWriteOnlyWithQueue(index));
-                        assertFalse(recordStore.isIndexReadable(index));
+                        assertTrue(recordStore.getIndexState(index).isWriteOnlyWithQueue());
+                        assertFalse(recordStore.getIndexState(index).isReadable());
                         assertThrows(ScanNonReadableIndexException.class, () ->
                                         recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN),
                                 "queries must not be able to scan the index while it is in the queue state");
@@ -623,9 +623,9 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                     try (FDBRecordContext context = fdb.openContext(null, writeTimer)) {
                         final FDBRecordStore store = createStoreBuilder().setContext(context)
                                 .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
-                        assertTrue(store.isIndexWriteOnlyWithQueue(queuedIndex));
-                        assertTrue(store.isIndexWriteOnlyNoQueue(directIndex));
-                        assertFalse(store.isIndexWriteOnlyWithQueue(directIndex));
+                        assertTrue(store.getIndexState(queuedIndex).isWriteOnlyWithQueue());
+                        assertTrue(store.getIndexState(directIndex).isWriteOnlyNoQueue());
+                        assertFalse(store.getIndexState(directIndex).isWriteOnlyWithQueue());
                         for (int recNo : newRecNos) {
                             saveSimpleRecord(store, recNo, recNo * 19);
                         }
@@ -674,11 +674,11 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                         // The two queued indexes enter the queue state; every other index (including the SUM index) is
                         // plain write-only.
                         for (Index queued : queuedIndexes) {
-                            assertTrue(store.isIndexWriteOnlyWithQueue(queued), queued.getName());
+                            assertTrue(store.getIndexState(queued).isWriteOnlyWithQueue(), queued.getName());
                         }
                         for (Index direct : directIndexes) {
-                            assertTrue(store.isIndexWriteOnlyNoQueue(direct), direct.getName());
-                            assertFalse(store.isIndexWriteOnlyWithQueue(direct), direct.getName());
+                            assertTrue(store.getIndexState(direct).isWriteOnlyNoQueue(), direct.getName());
+                            assertFalse(store.getIndexState(direct).isWriteOnlyWithQueue(), direct.getName());
                         }
                         for (int recNo : newRecNos) {
                             saveSimpleRecord(store, recNo, recNo * 19);
@@ -735,9 +735,9 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                 queueIndexerBuilder(indexes, indexes),
                 () -> {
                     try (FDBRecordContext context = openContext()) {
-                        statesAsExpected.set(recordStore.isIndexWriteOnlyWithQueue(valueIndex)
-                                && recordStore.isIndexWriteOnlyNoQueue(countIndex)
-                                && !recordStore.isIndexWriteOnlyWithQueue(countIndex));
+                        statesAsExpected.set(recordStore.getIndexState(valueIndex).isWriteOnlyWithQueue()
+                                && recordStore.getIndexState(countIndex).isWriteOnlyNoQueue()
+                                && !recordStore.getIndexState(countIndex).isWriteOnlyWithQueue());
                         context.commit();
                     }
                 });
@@ -784,7 +784,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         // The drain recorded the violation and the build completed (no crash) into readable-unique-pending.
         openSimpleMetaData(allIndexesHook(List.of(index)));
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexReadableUniquePending(index),
+            assertTrue(recordStore.getIndexState(index).isReadableUniquePending(),
                     "the index should be readable-unique-pending after a conflict among drained writes");
             assertTrue(recordStore.scanUniquenessViolations(index).getCount().join() > 0,
                     "the uniqueness conflict should have been recorded, not thrown, during the drain");
@@ -869,9 +869,9 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                     try (FDBRecordContext context = fdb.openContext(null, writeTimer)) {
                         final FDBRecordStore store = createStoreBuilder().setContext(context)
                                 .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
-                        assertFalse(store.isIndexWriteOnlyWithQueue(index),
+                        assertFalse(store.getIndexState(index).isWriteOnlyWithQueue(),
                                 "below the required format version the index must not enter the queue state");
-                        assertTrue(store.isIndexWriteOnlyNoQueue(index), "the index should fall back to plain write-only");
+                        assertTrue(store.getIndexState(index).isWriteOnlyNoQueue(), "the index should fall back to plain write-only");
                         for (int recNo : newRecNos) {
                             saveSimpleRecord(store, recNo, recNo * 19);
                         }
@@ -1105,9 +1105,9 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
                         final FDBRecordStore store = createStoreBuilder().setContext(context)
                                 .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
                         // Despite requesting the queue, mutual indexing marks the index plain write-only.
-                        assertTrue(store.isIndexWriteOnlyNoQueue(index),
+                        assertTrue(store.getIndexState(index).isWriteOnlyNoQueue(),
                                 "a mutually-built index should fall back to plain write-only");
-                        assertFalse(store.isIndexWriteOnlyWithQueue(index),
+                        assertFalse(store.getIndexState(index).isWriteOnlyWithQueue(),
                                 "mutual indexing must not enter the queue state");
                         for (int recNo : newRecNos) {
                             saveSimpleRecord(store, recNo, recNo * 19);
@@ -1150,7 +1150,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         // the just-deleted group 1. Drained in order, the trailing insert must survive the range delete.
         try (FDBRecordContext context = openContext()) {
             recordStore.markIndexWriteOnlyWithQueue(valueIndexName).join();
-            assertTrue(recordStore.isIndexWriteOnlyWithQueue(valueIndexName));
+            assertTrue(recordStore.getIndexState(valueIndexName).isWriteOnlyWithQueue());
             saveBasicRecord(5, 1);   // queued ahead of the delete
             saveBasicRecord(6, 2);   // queued ahead of the delete
             recordStore.deleteRecordsWhere(Query.field("num_value_2").equalsValue(1));
@@ -1167,7 +1167,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         assertEquals(4L, queueSize == null ? 0L : queueSize,
                 "the three inserts and the range delete should be deferred onto the queue");
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexWriteOnlyWithQueue(valueIndexName));
+            assertTrue(recordStore.getIndexState(valueIndexName).isWriteOnlyWithQueue());
             final int rawEntryCount = context.ensureActive()
                     .getRange(recordStore.indexSubspace(index).range()).asList().join().size();
             assertEquals(4, rawEntryCount, "no deferred write should be applied to the index before the drain");
@@ -1181,7 +1181,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
 
         // Note: cannot use assertReadable(index) here, as it rebuilds the (MySimpleRecord) simple metadata.
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexReadable(valueIndexName));
+            assertTrue(recordStore.getIndexState(valueIndexName).isReadable());
             context.commit();
         }
         assertEquals(Set.of(7L), indexRecNosForGroup(index, 1));
@@ -1251,7 +1251,7 @@ class OnlineIndexerPendingWriteQueueTest extends OnlineIndexerTest {
         try (FDBRecordContext context = fdb.openContext()) {
             final FDBRecordStore store = createStoreBuilder().setContext(context)
                     .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
-            final boolean readable = store.isIndexReadable(index);
+            final boolean readable = store.getIndexState(index).isReadable();
             context.commit();
             return readable;
         }

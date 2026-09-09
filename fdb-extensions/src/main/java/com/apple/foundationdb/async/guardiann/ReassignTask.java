@@ -41,6 +41,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -256,9 +257,11 @@ class ReassignTask extends AbstractDeferredTask {
                         config.reassignConcurrency())
                 .thenCompose(nearestClusterMetadataWithDistances -> {
 
+                    // numCoreClusters is 1 here — just the target, which always survives — so classifyClusters never
+                    // returns null for reassign.
                     final ClusterClassification classification =
-                            classifyClusters(nearestClusterMetadataWithDistances,
-                                    targetClusterMetadata, getCentroid(), numCoreClusters, numNeighboringClusters);
+                            Objects.requireNonNull(classifyClusters(nearestClusterMetadataWithDistances,
+                                    targetClusterMetadata, getCentroid(), numCoreClusters, numNeighboringClusters));
 
                     final List<ClusterMetadataWithDistance> coreClusters = classification.coreClusters();
                     final List<ClusterMetadataWithDistance> neighboringClusters = classification.neighboringClusters();
@@ -448,12 +451,14 @@ class ReassignTask extends AbstractDeferredTask {
 
     /**
      * Folds the target cluster's collapsed replicas and applies the top-k cutoff. Walks {@code reassignment}'s
-     * ordered (highest-priority-first) replicated references and, for each one whose primary has since been folded
-     * into a collapsed set (a per-replica point lookup in the collapsed store), replaces it with a single reference
-     * to the collapsed area; a later replica that resolves to the same collapsed area is dropped. Because the list is
-     * in descending priority, a collapsed area inherits the highest priority among its members, and duplicates are
-     * recognised by their (synchronously computed) signature without an extra read. Walking stops once {@code k}
-     * references are kept, so the low-priority tail is never read. Returns a {@link Reassignment} whose
+     * ordered (highest-priority-first) replicated references and, for each one that belongs to a collapsed set,
+     * represents that set by a single collapsed-area reference: an already-collapsed representative is kept as-is, and
+     * a member (whose primary was folded, detected by a point lookup in the collapsed store) is replaced by the
+     * collapsed-area reference. Only the first reference seen per signature is kept — because the list is in descending
+     * priority, the collapsed area inherits the highest priority among them — and later references for that signature
+     * are dropped. A same-signature <em>non-member</em> (a live replica, or a duplicate inserted after a collapse and
+     * not yet aggregated) is a distinct record and is kept, not deduped on signature alone. Walking stops once
+     * {@code k} references are kept, so the low-priority tail is never read. Returns a {@link Reassignment} whose
      * {@code assignmentMultimap} additionally holds the kept references under {@code targetClusterId}.
      *
      * @param readTransaction the read transaction
@@ -471,7 +476,9 @@ class ReassignTask extends AbstractDeferredTask {
         final Executor executor = getLocator().getExecutor();
         final List<VectorReference> orderedReplicatedReferences = reassignment.orderedReplicatedReferences();
         final List<VectorReference> keptReplicas = Lists.newArrayList();
-        final Map<UUID, VectorReference> collapsedReplicasBySignature = Maps.newHashMap();
+        // Signatures for which a collapsed-area reference has already been kept; a later replica of the same signature
+        // is a duplicate to drop. Only membership matters, so this is a set rather than a map of the references.
+        final Set<UUID> collapsedSignatures = Sets.newHashSet();
 
         return MoreAsyncUtil.<Void>forLoop(0, null,
                         i -> i < orderedReplicatedReferences.size() && keptReplicas.size() < k,
@@ -479,27 +486,38 @@ class ReassignTask extends AbstractDeferredTask {
                         (i, ignored) -> {
                             final VectorReference replica = orderedReplicatedReferences.get(i);
                             final UUID signature = StorageAdapter.signatureUuid(replica.vector());
-                            if (collapsedReplicasBySignature.containsKey(signature)) {
-                                // already represented by a collapsed-area reference we kept: this is a duplicate, drop it
+                            if (replica.isCollapsed()) {
+                                // This signature's collapsed-area representative — never a member in the collapsed
+                                // store, so no lookup is needed. Keep the first one and claim the signature; a later
+                                // collapsed reference for it is dropped (add() returns false once the signature is
+                                // claimed).
+                                if (collapsedSignatures.add(signature)) {
+                                    keptReplicas.add(replica);
+                                }
                                 return AsyncUtil.DONE;
                             }
+                            // A non-collapsed replica: consult the collapsed store to tell a genuine member from a
+                            // non-member. Dedup only actual members — a same-signature non-member (a live replica, or a
+                            // duplicate inserted after a collapse and not yet aggregated) is a distinct record with its
+                            // own primaryKey and must be kept, not dropped on signature alone.
                             return primitives.fetchCollapsedVectorId(readTransaction, signature,
                                             replica.id().primaryKey())
                                     .thenAccept(storedVectorId -> {
                                         if (storedVectorId == null) {
+                                            // Not a member of any collapsed set: keep it.
                                             keptReplicas.add(replica);
-                                        } else {
-                                            // The replica's primary has since been folded into a collapsed set.
-                                            // cleanUpVectorReferences has already removed stale references, so the
-                                            // stored id must equal this replica's id.
+                                        } else if (collapsedSignatures.add(signature)) {
+                                            // The first member of this signature whose primary was folded into a
+                                            // collapsed set: replace it with the single collapsed-area reference.
+                                            // cleanUpVectorReferences has removed stale references, so the stored id
+                                            // must equal this replica's id.
                                             Verify.verify(storedVectorId.equals(replica.id()),
                                                     "collapsed-store entry %s does not match replica %s",
                                                     storedVectorId, replica.id());
-                                            final VectorReference collapsedReplica =
-                                                    replica.toCollapsed(signature, signature);
-                                            collapsedReplicasBySignature.put(signature, collapsedReplica);
-                                            keptReplicas.add(collapsedReplica);
+                                            keptReplicas.add(replica.toCollapsed(signature, signature));
                                         }
+                                        // else: a later member of a signature already represented by the collapsed-area
+                                        // reference we kept — drop it.
                                     });
                         },
                         executor)

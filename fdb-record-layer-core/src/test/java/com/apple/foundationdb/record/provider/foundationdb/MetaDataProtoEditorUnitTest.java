@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsDoubleNestedProto;
+import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor.FieldTypeMatch;
@@ -112,6 +113,25 @@ public class MetaDataProtoEditorUnitTest {
                 fieldIsType(file, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", ".com.apple.foundationdb.record.test2.MySimpleRecord"));
         assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
                 fieldIsType(file, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", "MyOtherRecord"));
+    }
+
+    /**
+     * An enum-typed field references its enum type, so it matches as nested within the message declaring that enum.
+     */
+    @Test
+    public void fieldIsTypeEnum() throws Descriptors.DescriptorValidationException {
+        final DescriptorProtos.FileDescriptorProto file = TestRecordsEnumProto.getDescriptor().toProto();
+        assertEquals(FieldTypeMatch.MATCHES_AS_NESTED,
+                fieldIsType(file, "MyShapeRecord", "size", "MyShapeRecord"));
+        assertEquals(FieldTypeMatch.MATCHES,
+                fieldIsType(file, "MyShapeRecord", "size", "MyShapeRecord.Size"));
+        assertEquals(FieldTypeMatch.MATCHES,
+                fieldIsType(file, "MyShapeRecord", "size", ".com.apple.foundationdb.record.testenum.MyShapeRecord.Size"));
+        assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
+                fieldIsType(file, "MyShapeRecord", "size", "MyShapeRecord.Color"));
+        // A primitive field references no named type at all.
+        assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
+                fieldIsType(file, "MyShapeRecord", "rec_name", "MyShapeRecord"));
     }
 
     @Test
@@ -522,6 +542,31 @@ public class MetaDataProtoEditorUnitTest {
                             return builder.build();
                         })
                         .collect(Collectors.toList()));
+    }
+
+    /**
+     * Renaming a record type that has enum-typed fields, whose type names have to follow the renamed enclosing type.
+     */
+    @Test
+    void withEnumFields() {
+        final RecordMetaDataProto.MetaData original = RecordMetaData.newBuilder()
+                .setRecords(TestRecordsEnumProto.getDescriptor())
+                .build().toProto();
+
+        final RecordMetaData renamed = runRename(original,
+                MetaDataProtoEditorUnitTest::simpleRename,
+                MetaDataProtoEditorUnitTest::simpleRenameUndo);
+
+        // The enum fields still resolve to their nested enum types, which are unchanged but for their enclosing type.
+        final Descriptors.Descriptor shapeRecord = getMessage(renamed, simpleRename("MyShapeRecord"));
+        for (final String fieldName : List.of("size", "color", "shape")) {
+            final Descriptors.EnumDescriptor originalEnum =
+                    TestRecordsEnumProto.MyShapeRecord.getDescriptor().findFieldByName(fieldName).getEnumType();
+            final Descriptors.EnumDescriptor renamedEnum = shapeRecord.findFieldByName(fieldName).getEnumType();
+            assertEquals(originalEnum.toProto(), renamedEnum.toProto());
+            assertEquals(simpleRename(originalEnum.getContainingType().getName()),
+                    renamedEnum.getContainingType().getName());
+        }
     }
 
     @Nonnull

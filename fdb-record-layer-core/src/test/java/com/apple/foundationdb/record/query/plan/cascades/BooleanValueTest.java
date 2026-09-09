@@ -125,10 +125,10 @@ class BooleanValueTest {
     private static final LiteralValue<byte[]> BYTES_3 = new LiteralValue<>("baz".getBytes(StandardCharsets.UTF_8));
     private static final ThrowsValue THROWS_VALUE = new ThrowsValue(Type.primitiveType(Type.TypeCode.INT));
 
-    private static final ArithmeticValue ADD_INTS_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(List.of(INT_1, INT_2));
-    private static final ArithmeticValue ADD_LONGS_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(List.of(LONG_1, LONG_2));
-    private static final ArithmeticValue ADD_FLOATS_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(List.of(FLOAT_1, FLOAT_2));
-    private static final ArithmeticValue ADD_DOUBLE_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(List.of(DOUBLE_1, DOUBLE_2));
+    private static final ArithmeticValue ADD_INTS_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(INT_1, INT_2));
+    private static final ArithmeticValue ADD_LONGS_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(LONG_1, LONG_2));
+    private static final ArithmeticValue ADD_FLOATS_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(FLOAT_1, FLOAT_2));
+    private static final ArithmeticValue ADD_DOUBLE_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(DOUBLE_1, DOUBLE_2));
 
     private static final LiteralValue<Void> NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.NULL), null);
 
@@ -705,46 +705,46 @@ class BooleanValueTest {
                     Arguments.of(List.of(F), new RelOpValue.NotNullFn(), new ValuePredicate(F, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))),
 
                     /* AND */
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.TRUE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(F, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2))), new AndOrValue.AndFn(), AndPredicate.and(ImmutableList.of(new ValuePredicate(F,
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_1, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_2, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(F, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_2, INT_2))), new AndOrValue.AndFn(), AndPredicate.and(ImmutableList.of(new ValuePredicate(F,
                                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)), ConstantPredicate.TRUE))),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_2)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(F, INT_1))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_NULL)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_NULL, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.NULL),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_NULL, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_NULL)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_1, INT_2)),
+                            new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(F, INT_1))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_1, INT_NULL)),
+                            new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_2, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_1, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_NULL, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_2, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_NULL, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_1, INT_NULL)),
+                            new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_1, INT_2))), new AndOrValue.AndFn(), ConstantPredicate.FALSE),
                     /* OR */
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_1))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(F, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(F, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_2))), new AndOrValue.OrFn(), OrPredicate.or(ImmutableList.of(new ValuePredicate(F,
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_1, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_2, INT_1))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_2, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_1, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(F, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_2, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(F, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_1, INT_2))), new AndOrValue.OrFn(), OrPredicate.or(ImmutableList.of(new ValuePredicate(F,
                                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)), ConstantPredicate.FALSE))),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(F, INT_1))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_NULL)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_2)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_NULL))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_1)),
-                            new RelOpValue.EqualsFn().encapsulate(List.of(INT_NULL, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_2, INT_2)),
+                            new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(F, INT_1))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_1, INT_NULL)),
+                            new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_2, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_2, INT_2)),
+                            new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_1, INT_NULL))), new AndOrValue.OrFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_2, INT_1)),
+                            new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_NULL, INT_2))), new AndOrValue.OrFn(), ConstantPredicate.NULL),
 
                     /* NOT */
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_1))), new NotValue.NotFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_2, INT_1))), new NotValue.NotFn(), ConstantPredicate.TRUE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_NULL, INT_1))), new NotValue.NotFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_1, INT_1))), new NotValue.NotFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_2, INT_1))), new NotValue.NotFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_NULL, INT_1))), new NotValue.NotFn(), ConstantPredicate.NULL),
 
                     /* IN */
                     // INT in [INT...]
@@ -753,20 +753,20 @@ class BooleanValueTest {
                     // INT in [INT...] (w/ Arithmetic evaluation)
                     Arguments.of(List.of(INT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(INT_1, INT_2, ADD_INTS_1_2)), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // INT in [INT..., LONG] -> LONG in [LONG...]
-                    Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of(INT_1, INT_2, LONG_3))), new InOpValue.InFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional(INT_1, INT_2, LONG_3))), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // INT in [INT..., LONG] -> LONG in [LONG...] (w/ Arithmetic evaluation)
-                    Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of(INT_1, INT_2, ADD_LONGS_1_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional(INT_1, INT_2, ADD_LONGS_1_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // INT in [INT..., FLOAT] -> FLOAT in [FLOAT...]
-                    Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of(INT_1, INT_2, FLOAT_3))), new InOpValue.InFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional(INT_1, INT_2, FLOAT_3))), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // INT in [INT..., FLOAT] -> FLOAT in [FLOAT...] (w/ Arithmetic evaluation)
-                    Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of(INT_1, INT_2, ADD_FLOATS_1_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
-                    Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of(ADD_FLOATS_1_2, INT_1, INT_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional(INT_1, INT_2, ADD_FLOATS_1_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional(ADD_FLOATS_1_2, INT_1, INT_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // INT in [INT..., DOUBLE] -> DOUBLE in [DOUBLE...]
-                    Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of(INT_1, INT_2, DOUBLE_3))), new InOpValue.InFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional(INT_1, INT_2, DOUBLE_3))), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // INT in [INT..., DOUBLE] -> DOUBLE in [DOUBLE...] (w/ Arithmetic evaluation)
-                    Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of(INT_1, INT_2, ADD_DOUBLE_1_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional(INT_1, INT_2, ADD_DOUBLE_1_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // INT in []
-                    Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of())), new InOpValue.InFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(INT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional())), new InOpValue.InFn(), ConstantPredicate.FALSE),
                     // INT in [STRING...]
                     Arguments.of(List.of(INT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2, STRING_3)), new InOpValue.InFn(), null),
                     // INT in [BYTES...]
@@ -779,13 +779,13 @@ class BooleanValueTest {
                     Arguments.of(List.of(LONG_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(LONG_1, LONG_2, LONG_3)), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(LONG_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(LONG_1, LONG_2)), new InOpValue.InFn(), ConstantPredicate.FALSE),
                     // LONG in [LONG..., FLOAT] -> FLOAT in [FLOAT...]
-                    Arguments.of(List.of(LONG_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of(LONG_1, LONG_2, FLOAT_3))), new InOpValue.InFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(LONG_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional(LONG_1, LONG_2, FLOAT_3))), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // LONG in [LONG..., FLOAT] -> FLOAT in [FLOAT...] (w/ Arithmetic evaluation)
-                    Arguments.of(List.of(LONG_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of(LONG_1, LONG_2, ADD_FLOATS_1_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(LONG_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional(LONG_1, LONG_2, ADD_FLOATS_1_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // LONG in [LONG..., DOUBLE] -> DOUBLE in [DOUBLE...]
-                    Arguments.of(List.of(LONG_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of(LONG_1, LONG_2, DOUBLE_3))), new InOpValue.InFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(LONG_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional(LONG_1, LONG_2, DOUBLE_3))), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // LONG in [LONG..., DOUBLE] -> DOUBLE in [DOUBLE...] (w/ Arithmetic evaluation)
-                    Arguments.of(List.of(LONG_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of(LONG_1, LONG_2, ADD_DOUBLE_1_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(LONG_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional(LONG_1, LONG_2, ADD_DOUBLE_1_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // LONG in [STRING...]
                     Arguments.of(List.of(LONG_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2, STRING_3)), new InOpValue.InFn(), null),
                     // LONG in [BYTES...]
@@ -793,7 +793,7 @@ class BooleanValueTest {
                     // LONG in [BOOLEAN...]
                     Arguments.of(List.of(LONG_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), null),
                     // LONG in []
-                    Arguments.of(List.of(LONG_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of())), new InOpValue.InFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(LONG_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional())), new InOpValue.InFn(), ConstantPredicate.FALSE),
                     // FLOAT in [INT...]
                     Arguments.of(List.of(FLOAT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(INT_1, INT_2, INT_3)), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // FLOAT in [LONG...]
@@ -802,9 +802,9 @@ class BooleanValueTest {
                     Arguments.of(List.of(FLOAT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(FLOAT_1, FLOAT_2, FLOAT_3)), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(FLOAT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(FLOAT_1, FLOAT_2)), new InOpValue.InFn(), ConstantPredicate.FALSE),
                     // FLOAT in [FLOAT..., DOUBLE] -> DOUBLE in [DOUBLE...]
-                    Arguments.of(List.of(FLOAT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of(FLOAT_1, FLOAT_2, DOUBLE_3))), new InOpValue.InFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(FLOAT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional(FLOAT_1, FLOAT_2, DOUBLE_3))), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // FLOAT in [FLOAT..., DOUBLE] -> DOUBLE in [DOUBLE...] (w/ Arithmetic evaluation)
-                    Arguments.of(List.of(FLOAT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of(FLOAT_1, FLOAT_2, ADD_DOUBLE_1_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(FLOAT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional(FLOAT_1, FLOAT_2, ADD_DOUBLE_1_2))), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // FLOAT in [STRING...]
                     Arguments.of(List.of(FLOAT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(STRING_1, STRING_2, STRING_3)), new InOpValue.InFn(), null),
                     // FLOAT in [BYTES...]
@@ -812,7 +812,7 @@ class BooleanValueTest {
                     // FLOAT in [BOOLEAN...]
                     Arguments.of(List.of(FLOAT_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), null),
                     // FLOAT in []
-                    Arguments.of(List.of(FLOAT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of())), new InOpValue.InFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(FLOAT_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional())), new InOpValue.InFn(), ConstantPredicate.FALSE),
                     // DOUBLE in [INT...]
                     Arguments.of(List.of(DOUBLE_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(INT_1, INT_2, INT_3)), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     // DOUBLE in [LONG...]
@@ -829,7 +829,7 @@ class BooleanValueTest {
                     // DOUBLE in [BOOLEAN...]
                     Arguments.of(List.of(DOUBLE_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), null),
                     // DOUBLE in []
-                    Arguments.of(List.of(DOUBLE_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of())), new InOpValue.InFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(DOUBLE_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional())), new InOpValue.InFn(), ConstantPredicate.FALSE),
                     // STRING in [INT...]
                     Arguments.of(List.of(STRING_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(INT_1, INT_2, INT_3)), new InOpValue.InFn(), null),
                     // STRING in [LONG...]
@@ -846,7 +846,7 @@ class BooleanValueTest {
                     // STRING in [BOOLEAN...]
                     Arguments.of(List.of(STRING_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), null),
                     // STRING in []
-                    Arguments.of(List.of(STRING_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of())), new InOpValue.InFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(STRING_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional())), new InOpValue.InFn(), ConstantPredicate.FALSE),
                     // BYTES in [INT...]
                     Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(INT_1, INT_2, INT_3)), new InOpValue.InFn(), null),
                     // BYTES in [LONG...]
@@ -863,7 +863,7 @@ class BooleanValueTest {
                     // BYTES in [BOOLEAN...]
                     Arguments.of(List.of(BYTES_3, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), null),
                     // BYTES in []
-                    Arguments.of(List.of(BYTES_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of())), new InOpValue.InFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(BYTES_3, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional())), new InOpValue.InFn(), ConstantPredicate.FALSE),
                     // BOOLEAN in [INT...]
                     Arguments.of(List.of(BOOL_TRUE, AbstractArrayConstructorValue.LightArrayConstructorValue.of(INT_1, INT_2, INT_3)), new InOpValue.InFn(), null),
                     // BOOLEAN in [LONG...]
@@ -880,7 +880,7 @@ class BooleanValueTest {
                     Arguments.of(List.of(BOOL_TRUE, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_TRUE, BOOL_FALSE)), new InOpValue.InFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(BOOL_TRUE, AbstractArrayConstructorValue.LightArrayConstructorValue.of(BOOL_FALSE)), new InOpValue.InFn(), ConstantPredicate.FALSE),
                     // BOOLEAN in []
-                    Arguments.of(List.of(BOOL_TRUE, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(List.of())), new InOpValue.InFn(), ConstantPredicate.FALSE)
+                    Arguments.of(List.of(BOOL_TRUE, (new AbstractArrayConstructorValue.ArrayFn()).encapsulate(CallSiteArguments.ofPositional())), new InOpValue.InFn(), ConstantPredicate.FALSE)
             );
         }
     }
@@ -891,11 +891,11 @@ class BooleanValueTest {
                                                             final ExtensionContext context) {
             return Stream.of(
                     /* lazy evaluation tests */
-                    Arguments.of(List.of(new RelOpValue.NotEqualsFn().encapsulate(List.of(INT_1, INT_1)),
-                                    new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, THROWS_VALUE))),
+                    Arguments.of(List.of(new RelOpValue.NotEqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_1, INT_1)),
+                                    new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_1, THROWS_VALUE))),
                             new AndOrValue.AndFn(), ConstantPredicate.FALSE),
-                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, INT_1)),
-                                    new RelOpValue.EqualsFn().encapsulate(List.of(INT_1, THROWS_VALUE))),
+                    Arguments.of(List.of(new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_1, INT_1)),
+                                    new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(INT_1, THROWS_VALUE))),
                             new AndOrValue.OrFn(), ConstantPredicate.TRUE)
             );
         }
@@ -906,7 +906,7 @@ class BooleanValueTest {
     @ArgumentsSource(BinaryPredicateTestProvider.class)
     void testPredicate(List<Value> args, BuiltInFunction function, QueryPredicate result) {
         if (result != null) {
-            Typed value = function.encapsulate(args);
+            Typed value = function.encapsulate(CallSiteArguments.ofPositional(args));
             Assertions.assertTrue(value instanceof BooleanValue);
             value = verifySerialization((Value)value);
             Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(typeRepositoryBuilder.build(),
@@ -914,7 +914,7 @@ class BooleanValueTest {
             Assertions.assertFalse(maybePredicate.isEmpty());
             Assertions.assertEquals(result, maybePredicate.get());
         } else {
-            Assertions.assertThrows(SemanticException.class, () -> function.encapsulate(args));
+            Assertions.assertThrows(SemanticException.class, () -> function.encapsulate(CallSiteArguments.ofPositional(args)));
         }
     }
 
@@ -927,14 +927,14 @@ class BooleanValueTest {
         }
         final var evalContext = EvaluationContext.forTypeRepository(typeRepositoryBuilder.build());
         if (result != null) {
-            Typed value = function.encapsulate(args);
+            Typed value = function.encapsulate(CallSiteArguments.ofPositional(args));
             Assertions.assertInstanceOf(BooleanValue.class, value);
             value = verifySerialization((Value)value);
             Object actual = ((Value)value).evalWithoutStore(evalContext);
             Object expected = result.evalWithoutStore(evalContext);
             Assertions.assertEquals(expected, actual);
         } else {
-            Assertions.assertThrows(SemanticException.class, () -> function.encapsulate(args));
+            Assertions.assertThrows(SemanticException.class, () -> function.encapsulate(CallSiteArguments.ofPositional(args)));
         }
     }
 
@@ -943,25 +943,14 @@ class BooleanValueTest {
     @ArgumentsSource(LazyBinaryPredicateTestProvider.class)
     void testLazyPredicate(List<Value> args, BuiltInFunction function, QueryPredicate result) {
         if (result != null) {
-            Typed value = function.encapsulate(args);
+            Typed value = function.encapsulate(CallSiteArguments.ofPositional(args));
             Assertions.assertTrue(value instanceof BooleanValue);
             Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(typeRepositoryBuilder.build(),
                     Quantifier.current());
             Assertions.assertFalse(maybePredicate.isEmpty());
             Assertions.assertEquals(result, maybePredicate.get());
         } else {
-            Assertions.assertThrows(SemanticException.class, () -> function.encapsulate(args));
-        }
-    }
-
-    @Test
-    void passingIncorrectNumberOfResolutionParameterToBuiltInFunctionThrows() {
-        try {
-            new RelOpValue.EqualsFn().getParameterTypes(-1);
-            Assertions.fail("expected an exception to be thrown");
-        } catch (Exception e) {
-            Assertions.assertTrue(e instanceof VerifyException);
-            Assertions.assertTrue(e.getMessage().contains("unexpected number of arguments"));
+            Assertions.assertThrows(SemanticException.class, () -> function.encapsulate(CallSiteArguments.ofPositional(args)));
         }
     }
 

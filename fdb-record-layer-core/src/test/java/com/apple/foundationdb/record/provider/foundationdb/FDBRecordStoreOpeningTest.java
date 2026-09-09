@@ -1108,7 +1108,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             assertEquals(Map.of(index.getName(), Long.MAX_VALUE, countIndexName, Long.MAX_VALUE),
                     userVersionChecker.needRebuildIndexes);
             assertEquals(IndexState.DISABLED, recordStore.getAllIndexStates().get(index));
-            assertTrue(recordStore.isIndexDisabled(countIndexName));
+            assertTrue(recordStore.getIndexState(countIndexName).isDisabled());
             commit(context);
         }
     }

@@ -42,7 +42,7 @@ tasks.register('checkstyleAll') {
 }
 
 tasks.withType(Checkstyle).configureEach { task ->
-    task.exclude '**/protogen/**'
+    task.exclude '**/generated/**'
     task.configProperties = ["projectDir" : rootProject.projectDir, 'bannedImports': BANNED_IMPORTS.join(',')]
     task.maxHeapSize.set("1g")
 }
@@ -75,7 +75,7 @@ def classLoader = plugins['com.github.spotbugs'].class.classLoader
 def SpotBugsEffort = classLoader.findLoadedClass('com.github.spotbugs.snom.Effort')
 def SpotBugsTaskClass = classLoader.findLoadedClass('com.github.spotbugs.snom.SpotBugsTask')
 spotbugs {
-    toolVersion = libs.versions.spotbugs.get()
+    toolVersion = rootProject.libs.versions.spotbugs.get()
     ignoreFailures = false
     effort = SpotBugsEffort.MAX
     excludeFilter = rootProject.file('gradle/codequality/spotbugs_exclude.xml')
@@ -119,7 +119,6 @@ apply plugin: 'pmd'
 pmd {
     consoleOutput = true
     ignoreFailures = false
-    targetJdk = '1.7'
     sourceSets = [sourceSets.main]
     toolVersion = '6.44.0'
     // an annoying hack to get around Gradle defaults
@@ -128,7 +127,7 @@ pmd {
     ruleSetFiles = rootProject.files("gradle/codequality/pmd-rules.xml")
 }
 tasks.withType(Pmd) { task ->
-    task.exclude '**/protogen/**'
+    task.exclude '**/generated/**'
     task.exclude '**/generated-src/**'
     // the PMD plugin doesn't respect above exclusion, so we manually set the source directory instead
     task.setSource 'src/main/java'

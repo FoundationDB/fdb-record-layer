@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAbstractDataModificationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -175,7 +176,7 @@ public class UpdateExpression extends AbstractRelationalExpressionWithChildren i
     @Override
     public String toString() {
         final var str = new StringBuilder("Update(");
-        str.append(targetRecordType).append(", ");
+        str.append(ProtoUtils.toUserIdentifier(targetRecordType)).append(", ");
         str.append("[").append(transformMap.keySet().stream().map(FieldValue.FieldPath::toString).collect(Collectors.joining(", "))).append("] ");
         return str.toString();
     }
@@ -194,7 +195,7 @@ public class UpdateExpression extends AbstractRelationalExpressionWithChildren i
                 PlannerGraph.fromNodeAndChildGraphs(
                         new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
                                 getResultType(),
-                                ImmutableList.of(targetRecordType)),
+                                ImmutableList.of(ProtoUtils.toUserIdentifier(targetRecordType))),
                         ImmutableList.of());
 
         return PlannerGraph.fromNodeInnerAndTargetForModifications(

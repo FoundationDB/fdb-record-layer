@@ -1131,6 +1131,19 @@ public class IndexTest {
     }
 
     @Test
+    void createMinEverGroupedByTwoColumns() throws Exception {
+        // the projection holds nothing but the aggregate, so the grouping columns are recovered from the
+        // GroupByExpression rather than from the projection (see IndexSpec.projectionOf)
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T2(col1 bigint, col2 bigint, col3 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT min_ever(col3) FROM T2 group by col1, col2";
+        indexIs(stmt,
+                field("COL3").groupBy(field("COL1"), field("COL2")),
+                IndexTypes.MIN_EVER_TUPLE
+        );
+    }
+
+    @Test
     void createMaxEverLong() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(col1 bigint, col2 bigint, primary key(col1)) " +
@@ -1404,6 +1417,75 @@ public class IndexTest {
     }
 
     @Test
+    void createGuardiannVectorIndexWithOptionsWorksCorrectly() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING GUARDIANN ON T(b) PARTITION BY (p) " +
+                "OPTIONS (METRIC = COSINE_METRIC, PRIMARY_CLUSTER_MIN = 20, PRIMARY_CLUSTER_MAX = 200, " +
+                "REPLICATED_CLUSTER_TARGET = 50, REPLICATION_PRIORITY_MIN = 0.75, COLLAPSE_MIN_DUPLICATES = 100)";
+        indexIs(stmt,
+                keyWithValue(concat(field("P"), field("B")), 1),
+                IndexTypes.VECTOR,
+                idx -> {
+                    final var options = idx.getOptions();
+                    Assertions.assertEquals("GUARDIANN", options.get(IndexOptions.VECTOR_ENGINE));
+                    // shared options are written under their (currently canonical) hnsw* wire names
+                    Assertions.assertEquals("3", options.get(IndexOptions.HNSW_NUM_DIMENSIONS));
+                    Assertions.assertEquals("COSINE_METRIC", options.get(IndexOptions.HNSW_METRIC));
+                    Assertions.assertEquals("20", options.get(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MIN));
+                    Assertions.assertEquals("200", options.get(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MAX));
+                    Assertions.assertEquals("50", options.get(IndexOptions.GUARDIANN_REPLICATED_CLUSTER_TARGET));
+                    Assertions.assertEquals("0.75", options.get(IndexOptions.GUARDIANN_REPLICATION_PRIORITY_MIN));
+                    Assertions.assertEquals("100", options.get(IndexOptions.GUARDIANN_COLLAPSE_MIN_DUPLICATES));
+                    // and the same values read back through the typed option keys
+                    final var coreIndex = toCoreIndex(idx);
+                    Assertions.assertEquals(3, VectorIndexOptionKeys.NUM_DIMENSIONS.read(coreIndex));
+                    Assertions.assertEquals(Metric.COSINE_METRIC, VectorIndexOptionKeys.METRIC.read(coreIndex));
+                    Assertions.assertEquals(20, VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN.read(coreIndex));
+                    Assertions.assertEquals(200, VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MAX.read(coreIndex));
+                    Assertions.assertEquals(50, VectorIndexOptionKeys.GUARDIANN_REPLICATED_CLUSTER_TARGET.read(coreIndex));
+                    Assertions.assertEquals(0.75, VectorIndexOptionKeys.GUARDIANN_REPLICATION_PRIORITY_MIN.read(coreIndex));
+                    Assertions.assertEquals(100, VectorIndexOptionKeys.GUARDIANN_COLLAPSE_MIN_DUPLICATES.read(coreIndex));
+                    validateVectorIndex(idx);
+                });
+    }
+
+    @Test
+    void createGuardiannVectorIndexWithHnswOnlyOptionIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING GUARDIANN ON T(b) PARTITION BY (p) OPTIONS (CONNECTIVITY = 16)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "not valid for the GUARDIANN vector engine");
+    }
+
+    @Test
+    void createGuardiannVectorIndexWithNonNumericOptionValueIsRejected() throws Exception {
+        // PRIMARY_CLUSTER_MAX expects an integer. 1.5 is a valid vectorIndexOptionValue (a REAL_LITERAL) but cannot be
+        // coerced to an int, so option parsing surfaces a syntax error rather than letting the NumberFormatException
+        // escape.
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING GUARDIANN ON T(b) PARTITION BY (p) OPTIONS (PRIMARY_CLUSTER_MAX = 1.5)";
+        shouldFailWith(stmt, ErrorCode.SYNTAX_ERROR, "invalid value");
+    }
+
+    @Test
+    void createHnswVectorIndexWithGuardiannOnlyOptionIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p) OPTIONS (PRIMARY_CLUSTER_MIN = 20)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "not valid for the HNSW vector engine");
+    }
+
+    @Test
+    void createVectorIndexWithUnknownOptionIsRejected() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(p bigint, b vector(3, float), primary key(p))" +
+                "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) PARTITION BY (p) OPTIONS (BOGUS_OPTION = 5)";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "unsupported vector index option 'bogus_option'");
+    }
+
+    @Test
     void createVectorIndexOnMultipleColumnsFails() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T(p bigint, b vector(3, float), c vector(3, float), primary key(p))" +
@@ -1449,5 +1531,14 @@ public class IndexTest {
                 "CREATE TABLE T(p bigint, b vector(3, float), c bigint, primary key(p))" +
                 "CREATE VECTOR INDEX MV1 USING HNSW ON T(b) INCLUDE (c) PARTITION BY (p) OPTIONS (CONNECTIVITY = 16)";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "INCLUDE clause is not supported for vector indexes");
+    }
+
+    @Test
+    void createIndexOnWholeRowIsNotSupported() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T2(col1 bigint, col2 bigint, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT T2 FROM T2 ORDER BY col1";
+        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, cannot map (base().COL1 AS COL1, base().COL2 AS COL2) to a key expression");
     }
 }

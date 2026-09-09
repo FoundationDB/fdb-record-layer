@@ -150,7 +150,7 @@ public class TextIndexMaintainerFactory implements IndexMaintainerFactory {
              * @param changedOptions the set of changed options
              */
             @Override
-            protected void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
+            public void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
                 for (String changedOption : changedOptions) {
                     switch (changedOption) {
                         case IndexOptions.TEXT_ADD_AGGRESSIVE_CONFLICT_RANGES_OPTION:

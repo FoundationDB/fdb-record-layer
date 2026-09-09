@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PPredicateWithValueAndRanges;
@@ -134,7 +133,6 @@ public class Placeholder extends PredicateWithValueAndRanges implements WithAlia
                 .filter(ignored -> Objects.equals(parameterAlias, ((Placeholder)other).parameterAlias));
     }
 
-    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
         if (!super.semanticEquals(other, AliasMap.emptyMap())) {

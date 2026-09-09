@@ -21,26 +21,20 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.linear.Metric;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
-import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.IndexValidator;
-import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.apple.foundationdb.record.metadata.MetaDataValidator;
-import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
-import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistry;
+import com.apple.foundationdb.subspace.Subspace;
 import com.google.common.collect.ImmutableMap;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
-import java.util.Objects;
 
-import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
-import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Vector index tests against the HNSW engine. The behavioral scenarios are inherited from
@@ -52,28 +46,46 @@ class HnswVectorIndexTest extends VectorIndexEngineTestSuite {
     @Nonnull
     @Override
     protected Map<String, String> indexOptions() {
-        return ImmutableMap.of(IndexOptions.VECTOR_ENGINE, VectorIndexEngine.Kind.HNSW.name(),
+        return ImmutableMap.of(IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.HNSW.name(),
                 IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name(),
                 IndexOptions.VECTOR_NUM_DIMENSIONS, "128");
     }
 
+    /**
+     * The HNSW engine does everything inline and enqueues no deferred tasks, so it tracks no task counts
+     * ({@code getTaskCounts()} is null) and the maintainer never routes a merge to it — being asked to drain is a
+     * programming error, which {@code executeDeferredTasks} rejects.
+     */
     @Test
-    void directIndexValidatorTest() throws Exception {
+    void executeDeferredTasksIsAnIllegalCall() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            final HnswVectorIndexEngine engine = HnswVectorIndexEngine.fromIndex(index);
+            final Subspace subspace = recordStore.indexSubspace(index);
+
+            assertThat(engine.getTaskCounts())
+                    .as("HNSW tracks no deferred work, so the maintainer never routes a merge to it").isNull();
+            assertThatThrownBy(() ->
+                    engine.executeDeferredTasks(context, subspace, 1, TaskEventRegister.NOOP, Long.MAX_VALUE))
+                    .as("draining the inline HNSW engine is an illegal call")
+                    .isInstanceOf(RecordCoreException.class)
+                    .hasMessageContaining("no deferred tasks");
+        }
+    }
+
+    @Test
+    void optionsEvolutionTest() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, this::addGroupedVectorIndex);
 
-            final Index index =
-                    Objects.requireNonNull(recordStore.getMetaDataProvider())
-                            .getRecordMetaData().getIndex("GroupedVectorIndex");
-            final IndexMaintainerFactoryRegistry indexMaintainerRegistry = recordStore.getIndexMaintainerRegistry();
-            final MetaDataValidator metaDataValidator =
-                    new MetaDataValidator(recordStore.getRecordMetaData(), indexMaintainerRegistry);
-            metaDataValidator.validate();
+            final RecordMetaData metaData = recordStore.getRecordMetaData();
+            final Index index = metaData.getIndex("GroupedVectorIndex");
 
             // validate the allowed changes all at once
-            validateIndexEvolution(metaDataValidator, index,
+            validateOptionsEvolution(metaData, index,
                     ImmutableMap.<String, String>builder()
-                            .put(IndexOptions.VECTOR_ENGINE, VectorIndexEngine.Kind.HNSW.name())
+                            .put(IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.HNSW.name())
                             // cannot change those per se but must accept same value
                             .put(IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name())
                             .put(IndexOptions.VECTOR_NUM_DIMENSIONS, "128")
@@ -96,79 +108,57 @@ class HnswVectorIndexTest extends VectorIndexEngineTestSuite {
                             .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES, "9")
                             .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER, "5").build());
 
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
+            assertInvalidOptionsEvolution(metaData, index,
                     ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
-                            IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_SQUARE_METRIC.name())))
-                    .isInstanceOf(MetaDataException.class);
+                            IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_SQUARE_METRIC.name()));
 
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
-                    ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "768")))
-                    .isInstanceOf(MetaDataException.class);
+            assertInvalidOptionsEvolution(metaData, index,
+                    ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "768"));
 
             // switching the engine is never allowed
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
+            assertInvalidOptionsEvolution(metaData, index,
                     ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
-                            IndexOptions.VECTOR_ENGINE, VectorIndexEngine.Kind.GUARDIANN.name())))
-                    .isInstanceOf(MetaDataException.class);
+                            IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.GUARDIANN.name()));
 
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
+            assertInvalidOptionsEvolution(metaData, index,
                     ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_USE_INLINING, "true"))).isInstanceOf(MetaDataException.class);
+                            IndexOptions.HNSW_USE_INLINING, "true"));
 
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
+            assertInvalidOptionsEvolution(metaData, index,
                     ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_M, "8"))).isInstanceOf(MetaDataException.class);
+                            IndexOptions.HNSW_M, "8"));
 
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
+            assertInvalidOptionsEvolution(metaData, index,
                     ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_M_MAX, "8"))).isInstanceOf(MetaDataException.class);
+                            IndexOptions.HNSW_M_MAX, "8"));
 
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
+            assertInvalidOptionsEvolution(metaData, index,
                     ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_M_MAX_0, "16"))).isInstanceOf(MetaDataException.class);
+                            IndexOptions.HNSW_M_MAX_0, "16"));
 
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
+            assertInvalidOptionsEvolution(metaData, index,
                     ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_EF_CONSTRUCTION, "500"))).isInstanceOf(MetaDataException.class);
+                            IndexOptions.HNSW_EF_CONSTRUCTION, "500"));
 
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
+            assertInvalidOptionsEvolution(metaData, index,
                     ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_EF_REPAIR, "500"))).isInstanceOf(MetaDataException.class);
+                            IndexOptions.HNSW_EF_REPAIR, "500"));
 
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
+            assertInvalidOptionsEvolution(metaData, index,
                     ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_EXTEND_CANDIDATES, "true"))).isInstanceOf(MetaDataException.class);
+                            IndexOptions.HNSW_EXTEND_CANDIDATES, "true"));
 
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
+            assertInvalidOptionsEvolution(metaData, index,
                     ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
-                            IndexOptions.HNSW_KEEP_PRUNED_CONNECTIONS, "true")))
-                    .isInstanceOf(MetaDataException.class);
+                            IndexOptions.HNSW_KEEP_PRUNED_CONNECTIONS, "true"));
 
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
+            assertInvalidOptionsEvolution(metaData, index,
                     ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
-                            IndexOptions.VECTOR_USE_RABITQ, "true"))).isInstanceOf(MetaDataException.class);
+                            IndexOptions.VECTOR_USE_RABITQ, "true"));
 
-            Assertions.assertThatThrownBy(() -> validateIndexEvolution(metaDataValidator, index,
+            assertInvalidOptionsEvolution(metaData, index,
                     ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
-                            IndexOptions.VECTOR_RABITQ_NUM_EX_BITS, "1"))).isInstanceOf(MetaDataException.class);
+                            IndexOptions.VECTOR_RABITQ_NUM_EX_BITS, "1"));
         }
-    }
-
-    private void validateIndexEvolution(@Nonnull final MetaDataValidator metaDataValidator,
-                                        @Nonnull final Index oldIndex, @Nonnull final Map<String, String> optionsMap) {
-        final Index newIndex =
-                new Index("GroupedVectorIndex",
-                        new KeyWithValueExpression(concat(field("group_id"), field("vector_data")), 1),
-                        IndexTypes.VECTOR,
-                        optionsMap);
-
-        final IndexMaintainerFactoryRegistry indexMaintainerRegistry = recordStore.getIndexMaintainerRegistry();
-        final IndexMaintainerFactory indexMaintainerFactory =
-                indexMaintainerRegistry.getIndexMaintainerFactory(oldIndex);
-
-        final IndexValidator validatorForCompatibleNewIndex =
-                indexMaintainerFactory.getIndexValidator(newIndex);
-        validatorForCompatibleNewIndex.validate(metaDataValidator);
-        validatorForCompatibleNewIndex.validateChangedOptions(oldIndex);
     }
 }

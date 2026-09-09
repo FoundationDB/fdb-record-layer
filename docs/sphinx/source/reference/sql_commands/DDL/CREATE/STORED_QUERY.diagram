@@ -1,0 +1,13 @@
+Diagram(
+    Sequence(
+        Terminal('CREATE'),
+        Terminal('STORED'),
+        Terminal('QUERY'),
+        NonTerminal('queryName'),
+        Optional(
+            NonTerminal('declareBlock')
+        ),
+        Terminal('AS'),
+        NonTerminal('query')
+    )
+)

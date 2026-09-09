@@ -37,4 +37,19 @@ import java.util.Set;
 public interface CascadesRule<T> extends PlannerRule<CascadesRuleCall, T> {
     @Nonnull
     Set<PlannerConstraint<?>> getConstraintDependencies();
+
+    default boolean onlyOnPrunedInputs() {
+        return false;
+    }
+
+    // This is a temporary workaround to force rules that run on `final` expressions to fire on expressions
+    // with "pruned" children. We want to make this the default behavior, however currently, the optimization
+    // that yields COVERING plan requires all final expressions in child groups. Hence, we currently mark
+    // Rewriter phase implementation rules that run on final expression with `OnPrunedInputRule` marker.
+    interface OnPrunedInputsRule<T> extends CascadesRule<T> {
+        @Override
+        default boolean onlyOnPrunedInputs() {
+            return true;
+        }
+    }
 }

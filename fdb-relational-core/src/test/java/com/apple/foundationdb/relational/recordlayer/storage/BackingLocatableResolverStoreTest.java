@@ -34,6 +34,7 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.catalog.SchemaExistsBehavior;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -106,7 +107,7 @@ public class BackingLocatableResolverStoreTest {
         dbPath = URI.create("blah/blah");
         try (Transaction transaction = createTransaction()) {
             SchemaTemplate template = LocatableResolverMetaDataProvider.getSchemaTemplate();
-            catalog.saveSchema(transaction, template.generateSchema(dbPath.toString(), "dl"), true);
+            catalog.saveSchema(transaction, template.generateSchema(dbPath.toString(), "dl"), true, SchemaExistsBehavior.ERROR);
             transaction.commit();
         }
     }

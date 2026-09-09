@@ -19,6 +19,7 @@ hs_err_pid*
 /target
 */target
 **/*/build
+/build/reports/
 
 # IntelliJ specific files/directories
 out
@@ -63,9 +64,6 @@ atlassian-ide-plugin.xml
 # NetBeans specific files/directories
 .nbattrs
 
-protogen/
-/protogen/
-*/protogen/*
 **/gen/*
 
 *.orig

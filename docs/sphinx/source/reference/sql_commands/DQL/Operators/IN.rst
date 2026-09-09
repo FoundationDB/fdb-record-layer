@@ -39,10 +39,9 @@ Returns:
 
 - ``TRUE`` if the expression equals any value in the list
 - ``FALSE`` if the expression does not match any value in the list
-- ``NULL`` if:
+- ``NULL`` if the expression is ``NULL``
 
-  - The expression is NULL, OR
-  - The expression doesn't match any non-NULL value AND the list contains at least one NULL
+A ``NULL`` in the list itself is not supported. See `NULL Handling`_ below.
 
 Examples
 ========
@@ -168,29 +167,27 @@ Important Notes
 NULL Handling
 -------------
 
-IN has special NULL semantics that can be surprising:
-
-1. If the expression is NULL, IN returns NULL:
+If the expression is ``NULL``, ``IN`` returns ``NULL``, so the row is not returned:
 
 .. code-block:: sql
 
     WHERE NULL IN (1, 2, 3)     -- Returns NULL
 
-2. If the list contains NULL and no match is found, IN returns NULL (not FALSE):
+A ``NULL`` in the list itself is *not supported*. The Relational Layer represents an ``IN`` list as an array, and an array cannot hold a ``NULL`` element, so the query raises a :sql:`WRONG_OBJECT_TYPE` error (error code ``42809``):
 
 .. code-block:: sql
 
-    WHERE 5 IN (1, 2, NULL)     -- Returns NULL (not FALSE)
-    WHERE 1 IN (1, 2, NULL)     -- Returns TRUE
+    -- ERROR: NULL values are not allowed in the IN list
+    WHERE 5 IN (1, 2, NULL)
+    WHERE 5 NOT IN (1, 2, NULL)
 
-3. NOT IN with NULL in the list can produce unexpected results:
+Only a ``NULL`` written directly in the list is rejected before the query runs. An element with a resolved type is accepted, even if its value turns out to be ``NULL`` while the query runs. Such a query raises an :sql:`UNSUPPORTED_OPERATION` error (error code ``0A000``) during execution:
 
 .. code-block:: sql
 
-    -- Be careful with NOT IN when NULLs might be present
-    WHERE 5 NOT IN (1, 2, NULL) -- Returns NULL (not TRUE!)
-
-To avoid NULL-related issues with NOT IN, consider filtering NULLs or using alternative approaches.
+    -- ERROR: An ARRAY value cannot have NULL elements
+    WHERE a IN (1, CAST(NULL AS BIGINT))  -- fails at runtime
+    WHERE a IN (1, nullable_column)       -- fails at runtime if the column is NULL for some row
 
 Equivalence
 -----------

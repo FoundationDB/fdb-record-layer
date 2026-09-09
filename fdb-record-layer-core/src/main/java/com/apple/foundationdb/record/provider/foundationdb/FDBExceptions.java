@@ -32,6 +32,9 @@ import com.apple.foundationdb.util.LoggableKeysAndValues;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
@@ -253,5 +256,27 @@ public class FDBExceptions {
             current = current.getCause();
         }
         return null;
+    }
+
+    /**
+     * Whether {@code throwable} is, or has anywhere among its (possibly nested) causes, an instance of {@code type}.
+     * Generalizes {@link #getFDBCause} (which looks specifically for an {@link FDBException}) to any exception type, so
+     * a caller that receives a wrapped failure — for example the {@link CompletionException} that
+     * {@link java.util.concurrent.CompletableFuture} composition nests the real cause inside — can recognize a
+     * particular cause without unwrapping by hand. The walk is guarded by an identity set so a self-referential or
+     * cyclic cause chain terminates rather than looping forever.
+     * @param throwable the throwable to inspect (typically a wrapper such as a {@link CompletionException})
+     * @param type the exception type to look for in the cause chain
+     * @return {@code true} if {@code type} is found at or below {@code throwable}
+     */
+    public static boolean isOrHasCause(@Nonnull final Throwable throwable,
+                                       @Nonnull final Class<? extends Throwable> type) {
+        final Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Throwable current = throwable; current != null && seen.add(current); current = current.getCause()) {
+            if (type.isInstance(current)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

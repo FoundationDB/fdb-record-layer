@@ -31,11 +31,15 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.MetaDataEvolutionValidator;
+import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
@@ -718,8 +722,32 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
-            assertThat(recordStore.isIndexReadable(recordStore.getRecordMetaData().getIndex(indexName))).isTrue();
+            assertThat(recordStore.getIndexState(recordStore.getRecordMetaData().getIndex(indexName)).isReadable()).isTrue();
             commit(context);
         }
+    }
+
+    protected void validateOptionsEvolution(@Nonnull RecordMetaData oldMetaData,
+                                            @Nonnull Index oldIndex,
+                                            @Nonnull Map<String, String> newOptions) {
+        final RecordMetaDataProto.MetaData.Builder protoBuilder = oldMetaData.toProto().toBuilder()
+                .setVersion(oldMetaData.getVersion() + 1);
+        for (RecordMetaDataProto.Index.Builder indexBuilder : protoBuilder.getIndexesBuilderList()) {
+            if (indexBuilder.getName().equals(oldIndex.getName())) {
+                indexBuilder.clearOptions();
+                newOptions.forEach((key, value) -> indexBuilder.addOptionsBuilder().setKey(key).setValue(value));
+            }
+        }
+
+        final RecordMetaData newMetaData = RecordMetaData.build(protoBuilder.build());
+        final MetaDataEvolutionValidator evolutionValidator = MetaDataEvolutionValidator.getDefaultInstance();
+        evolutionValidator.validate(oldMetaData, newMetaData);
+    }
+
+    protected void assertInvalidOptionsEvolution(@Nonnull RecordMetaData oldMetaData,
+                                                 @Nonnull Index oldIndex,
+                                                 @Nonnull Map<String, String> newOptions) {
+        Assertions.assertThatThrownBy(() -> validateOptionsEvolution(oldMetaData, oldIndex, newOptions))
+                .isInstanceOf(MetaDataException.class);
     }
 }

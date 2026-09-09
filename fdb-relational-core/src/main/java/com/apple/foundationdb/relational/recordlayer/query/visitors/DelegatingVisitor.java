@@ -75,7 +75,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitStatements(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Object visitStatement(@Nonnull RelationalParser.StatementContext ctx) {
         return getDelegate().visitStatement(ctx);
@@ -275,6 +275,16 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitHnswMetric(final RelationalParser.HnswMetricContext ctx) {
         return getDelegate().visitHnswMetric(ctx);
+    }
+
+    @Override
+    public Object visitVectorEngine(final RelationalParser.VectorEngineContext ctx) {
+        return getDelegate().visitVectorEngine(ctx);
+    }
+
+    @Override
+    public Object visitVectorIndexOptionValue(final RelationalParser.VectorIndexOptionValueContext ctx) {
+        return getDelegate().visitVectorIndexOptionValue(ctx);
     }
 
     @Nonnull
@@ -739,6 +749,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitHavingClause(ctx);
     }
 
+    @Nonnull
     @Override
     public Expression visitQualifyClause(final RelationalParser.QualifyClauseContext ctx) {
         return getDelegate().visitQualifyClause(ctx);
@@ -1290,13 +1301,13 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitExpressionWithOptionalName(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Object visitIfExists(@Nonnull RelationalParser.IfExistsContext ctx) {
         return getDelegate().visitIfExists(ctx);
     }
 
-    @Nonnull
+    @Nullable
     @Override
     public Object visitIfNotExists(@Nonnull RelationalParser.IfNotExistsContext ctx) {
         return getDelegate().visitIfNotExists(ctx);
@@ -1438,6 +1449,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Expression visitAggregateWindowedFunction(@Nonnull RelationalParser.AggregateWindowedFunctionContext ctx) {
         return getDelegate().visitAggregateWindowedFunction(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Boolean visitNullTreatmentClause(@Nonnull RelationalParser.NullTreatmentClauseContext ctx) {
+        return getDelegate().visitNullTreatmentClause(ctx);
     }
 
     @Nonnull

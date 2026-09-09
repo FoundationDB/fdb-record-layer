@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractRuleSet;
 import com.google.common.annotations.VisibleForTesting;
@@ -39,7 +38,6 @@ import java.util.stream.Stream;
 @SuppressWarnings("java:S1452")
 public class CascadesRuleSet extends AbstractRuleSet<CascadesRuleCall, RelationalExpression> {
     @VisibleForTesting
-    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     CascadesRuleSet(@Nonnull Set<CascadesRule<? extends RelationalExpression>> rules) {
         super(rules, ImmutableSetMultimap.of());
     }

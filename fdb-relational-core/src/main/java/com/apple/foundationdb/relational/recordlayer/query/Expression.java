@@ -50,6 +50,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
@@ -231,24 +232,68 @@ public class Expression {
         return false;
     }
 
+    /**
+     * Returns this expression rewritten in terms of the given value, simplifying both sides on the way. See
+     * {@link #pullUp(Value, Value, AliasMap, CorrelationIdentifier, Set)} for details.
+     */
     @Nonnull
     public Expression pullUp(@Nonnull Value value, @Nonnull CorrelationIdentifier correlationIdentifier,
                              @Nonnull Set<CorrelationIdentifier> constantAliases) {
-        final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
-        final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
-        final var underlying = getUnderlying();
-        final var pulledUpUnderlying = Assert.notNullUnchecked(underlying.replace(
+        final AliasMap aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
+        final Value simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
+        final Value simplifiedUnderlying =
+                getUnderlying().simplify(EvaluationContext.empty(), aliasMap, constantAliases);
+        return withUnderlying(pullUp(simplifiedUnderlying, simplifiedValue, aliasMap, correlationIdentifier,
+                constantAliases));
+    }
+
+    /**
+     * Rewrites the given {@code value} in terms of a reference value {@code other}, by replacing every sub-value that
+     * can be expressed as a reference into {@code other} with such a reference.
+     *
+     * <p>The matching is structural. Both {@code value} and {@code other} should therefore be passed in their canonical
+     * form, simplified under the same {@code aliasMap} and {@code constantAliases} that are passed here.
+     *
+     * <p>As an example, in a group-by query {@code SELECT g, COUNT(a) + 1 FROM T GROUP BY g}, the group-by operator
+     * computes {@code (g, COUNT(a))}, and the projection then has to be expressed over that result rather than over
+     * {@code T}. “Pulling up” the {@code COUNT(a) + 1} against it yields {@code _._1._0 + 1}. The {@code COUNT(a)}
+     * sub-value is matched and replaced by a reference to the column that holds it, while the {@code + 1} has no
+     * counterpart on the other side and is left alone.
+     *
+     * @param value the value to rewrite
+     * @param other the value in terms of which to express {@code value}
+     * @param aliasMap the alias map of equalities to match under
+     * @param correlationIdentifier the alias the resulting references are expressed over
+     * @param constantAliases the aliases that are considered constant
+     * @return {@code value}, rewritten in terms of {@code other}
+     */
+    @Nonnull
+    static Value pullUp(@Nonnull Value value, @Nonnull Value other, @Nonnull AliasMap aliasMap,
+                        @Nonnull CorrelationIdentifier correlationIdentifier,
+                        @Nonnull Set<CorrelationIdentifier> constantAliases) {
+        // Walk the value, “offering” every sub-value for replacement in terms of the reference value.
+        return Assert.notNullUnchecked(value.replace(
                 subExpression -> {
-                    final var pulledUpExpressionMap =
-                            simplifiedValue.pullUp(List.of(subExpression), EvaluationContext.empty(), aliasMap,
+                    // Match this sub-value against the reference value.
+                    final Multimap<Value, Value> pulledUpExpressionMap =
+                            other.pullUp(List.of(subExpression), EvaluationContext.empty(), aliasMap,
                                     constantAliases, correlationIdentifier);
-                    if (pulledUpExpressionMap.containsKey(subExpression)) {
-                        return Iterables.getOnlyElement(pulledUpExpressionMap.get(subExpression));
+                    final Collection<Value> references = pulledUpExpressionMap.get(subExpression);
+
+                    // If the reference value cannot express the sub-value, keep it.
+                    if (references.isEmpty()) {
+                        return subExpression;
                     }
-                    return subExpression;
+
+                    // Reject an ambiguous match. If the reference value exposes the same value twice (e.g., `GROUP BY
+                    // a, a`), the query left the column ambiguous, and we can’t just take a guess here.
+                    Assert.thatUnchecked(references.size() == 1,
+                            ErrorCode.AMBIGUOUS_COLUMN, "Ambiguous columns for %s", subExpression);
+
+                    // Replace the sub-value with the reference that came back.
+                    return Iterables.getOnlyElement(references);
                 }
         ));
-        return this.withUnderlying(pulledUpUnderlying);
     }
 
     public boolean canBeDerivedFrom(@Nonnull final Expression expression,
@@ -380,8 +425,12 @@ public class Expression {
                 return Assert.optionalUnchecked(result);
             }
 
-            // Recognize `NullValue` as a null boolean `ConstantPredicate`.
-            if (value instanceof NullValue) {
+            // A NULL predicate matches nothing, so map it to `ConstantPredicate.NULL`.
+            // Check the class and the type, because one SQL NULL arrives in two shapes:
+            //   - `NULL` in the query text becomes a `NullValue` (`ExpressionVisitor.visitNullLiteral`)
+            //   - a parameter bound with `setNull` becomes a `ConstantObjectValue` of NULL type
+            //     (`MutablePlanGenerationContext.processNamedPreparedParam`, via `Type.fromObject(null)`)
+            if (value instanceof NullValue || value.getResultType().isNull()) {
                 return ConstantPredicate.NULL;
             }
 

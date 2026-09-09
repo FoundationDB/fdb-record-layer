@@ -40,7 +40,7 @@ public class VersionFunction extends BuiltInFunction<Value> {
     public VersionFunction() {
         super("version",
                 List.of(Type.any()),
-                (ignored, arguments) -> encapsulateUnnamed(arguments));
+                (ignored, arguments) -> encapsulateUnnamed(arguments.getArgumentsList()));
     }
 
     @Nonnull

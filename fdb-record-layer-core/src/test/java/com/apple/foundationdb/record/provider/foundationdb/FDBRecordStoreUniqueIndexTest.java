@@ -220,7 +220,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", uniqueIndex));
 
-            assertFalse(recordStore.isIndexReadable(uniqueIndex), "index with uniqueness violations should not be readable after being added to the meta-data");
+            assertFalse(recordStore.getIndexState(uniqueIndex).isReadable(), "index with uniqueness violations should not be readable after being added to the meta-data");
             final List<RecordIndexUniquenessViolation> uniquenessViolations = recordStore.scanUniquenessViolations(uniqueIndex).asList().get();
             assertThat(uniquenessViolations, not(empty()));
             for (RecordIndexUniquenessViolation uniquenessViolation : uniquenessViolations) {

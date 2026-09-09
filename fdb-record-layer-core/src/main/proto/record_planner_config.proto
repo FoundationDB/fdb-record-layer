@@ -36,6 +36,12 @@ message PlannerConfiguration {
         USE_REMOTE_FETCH_WITH_FALLBACK = 2;
     }
 
+    enum VectorIndexEnginePreference {
+        NO_PREFERENCE = 0;
+        PREFER_HNSW = 1;
+        PREFER_GUARDIANN = 2;
+    }
+
     message SortConfiguration {
         optional bool shouldAllowNonIndexSort = 1;
     }
@@ -54,4 +60,5 @@ message PlannerConfiguration {
     optional int32 maxNumReplansForInToJoin = 12;
     optional int32 orToUnionMaxNumConjuncts = 13;
     optional int32 maxNumReplansForInUnion = 14;
+    optional VectorIndexEnginePreference vectorIndexEnginePreference = 15;
 }

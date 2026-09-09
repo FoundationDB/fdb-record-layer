@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.events.eventprotos.PPartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -307,7 +306,6 @@ public class PartialMatch {
         return accumulatedPredicateMapSupplier.get();
     }
 
-    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     private PredicateMap computeAccumulatedPredicateMap() {
         final var targetBuilder = PredicateMap.builder();
         final var regularMatchInfo = getRegularMatchInfo();

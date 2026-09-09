@@ -150,7 +150,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             FDBRecordStoreStateCacheTestUtils.assertCacheHit(context.getTimer(), 1);
             recordStore.markIndexWriteOnly("MySimpleRecord$str_value_indexed").get();
             assertTrue(context.hasDirtyStoreState());
-            assertFalse(recordStore.isIndexReadable("MySimpleRecord$str_value_indexed"));
+            assertFalse(recordStore.getIndexState("MySimpleRecord$str_value_indexed").isReadable());
             FDBRecordStore initialRecordStore = recordStore;
 
             // Reopen the store with the same context and ensure the index is still not readable
@@ -158,7 +158,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             FDBRecordStoreStateCacheTestUtils.assertCacheMiss(context.getTimer(), 1);
             assertNotSame(initialRecordStore, recordStore);
             assertNotSame(initialRecordStore.getRecordStoreState(), recordStore.getRecordStoreState());
-            assertFalse(recordStore.isIndexReadable("MySimpleRecord$str_value_indexed"));
+            assertFalse(recordStore.getIndexState("MySimpleRecord$str_value_indexed").isReadable());
 
             commit(context);
         }
@@ -169,7 +169,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             context.setReadVersion(readVersion);
             openSimpleRecordStore(context);
             FDBRecordStoreStateCacheTestUtils.assertCacheHit(context.getTimer(), 1);
-            assertTrue(recordStore.isIndexReadable("MySimpleRecord$str_value_indexed"));
+            assertTrue(recordStore.getIndexState("MySimpleRecord$str_value_indexed").isReadable());
 
             // Add a random write-conflict range to ensure conflicts are actually checked
             context.ensureActive().addWriteConflictKey(recordStore.recordsSubspace().pack(UUID.randomUUID()));
@@ -186,7 +186,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             long newReadVersion = context.getReadVersion();
             assertThat(newReadVersion, greaterThan(readVersion));
             readVersion = newReadVersion;
-            assertFalse(recordStore.isIndexReadable("MySimpleRecord$str_value_indexed"));
+            assertFalse(recordStore.getIndexState("MySimpleRecord$str_value_indexed").isReadable());
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -194,7 +194,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             context.setReadVersion(readVersion);
             openSimpleRecordStore(context);
             FDBRecordStoreStateCacheTestUtils.assertCacheHit(context.getTimer(), 1);
-            assertFalse(recordStore.isIndexReadable("MySimpleRecord$str_value_indexed"));
+            assertFalse(recordStore.getIndexState("MySimpleRecord$str_value_indexed").isReadable());
         }
     }
 
@@ -239,7 +239,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             FDBRecordStoreStateCacheTestUtils.assertCacheMiss(context.getTimer(), 1);
             assertArrayEquals(metaDataVersionStamp, context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
-            assertTrue(recordStore.isIndexWriteOnly("MySimpleRecord$str_value_indexed"));
+            assertTrue(recordStore.getIndexState("MySimpleRecord$str_value_indexed").isWriteOnly());
             commit(context);
         }
 
@@ -260,7 +260,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             assertArrayEquals(metaDataVersionStamp, context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
             FDBRecordStoreStateCacheTestUtils.assertCacheMiss(context.getTimer(), 1);
-            assertTrue(recordStore.isIndexWriteOnly("MySimpleRecord$str_value_indexed"));
+            assertTrue(recordStore.getIndexState("MySimpleRecord$str_value_indexed").isWriteOnly());
             // don't need to commit
         }
 
@@ -269,7 +269,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             context.getTimer().reset();
             openSimpleRecordStore(context);
             FDBRecordStoreStateCacheTestUtils.assertCacheHit(context.getTimer(), 1);
-            assertTrue(recordStore.isIndexWriteOnly("MySimpleRecord$str_value_indexed"));
+            assertTrue(recordStore.getIndexState("MySimpleRecord$str_value_indexed").isWriteOnly());
             recordStore.markIndexReadable("MySimpleRecord$str_value_indexed").get();
             assertTrue(context.hasDirtyStoreState());
             assertNull(context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
@@ -281,7 +281,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             context.getTimer().reset();
             openSimpleRecordStore(context);
             FDBRecordStoreStateCacheTestUtils.assertCacheMiss(context.getTimer(), 1);
-            assertTrue(recordStore.isIndexReadable("MySimpleRecord$str_value_indexed"));
+            assertTrue(recordStore.getIndexState("MySimpleRecord$str_value_indexed").isReadable());
             byte[] trMetaDataVersionStamp = context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT);
             assertNotNull(trMetaDataVersionStamp);
             assertThat(ByteArrayUtil.compareUnsigned(metaDataVersionStamp, trMetaDataVersionStamp), lessThan(0));
@@ -293,7 +293,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             context.getTimer().reset();
             openSimpleRecordStore(context);
             FDBRecordStoreStateCacheTestUtils.assertCacheHit(context.getTimer(), 1);
-            assertTrue(recordStore.isIndexReadable("MySimpleRecord$str_value_indexed"));
+            assertTrue(recordStore.getIndexState("MySimpleRecord$str_value_indexed").isReadable());
             assertArrayEquals(metaDataVersionStamp, context.getMetaDataVersionStamp(IsolationLevel.SNAPSHOT));
         }
 
@@ -596,12 +596,12 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder1, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
             FDBRecordStore store1 = storeBuilder1.setContext(context).open();
             FDBRecordStoreStateCacheTestUtils.assertCacheHit(context.getTimer(), 1);
-            assertTrue(store1.isIndexWriteOnly("MySimpleRecord$str_value_indexed"));
-            assertTrue(store1.isIndexReadable("MySimpleRecord$num_value_3_indexed"));
+            assertTrue(store1.getIndexState("MySimpleRecord$str_value_indexed").isWriteOnly());
+            assertTrue(store1.getIndexState("MySimpleRecord$num_value_3_indexed").isReadable());
             FDBRecordStore store2 = storeBuilder2.setContext(context).open();
             FDBRecordStoreStateCacheTestUtils.assertCacheMiss(context.getTimer(), 1);
-            assertTrue(store2.isIndexReadable("MySimpleRecord$str_value_indexed"));
-            assertTrue(store2.isIndexDisabled("MySimpleRecord$num_value_3_indexed"));
+            assertTrue(store2.getIndexState("MySimpleRecord$str_value_indexed").isReadable());
+            assertTrue(store2.getIndexState("MySimpleRecord$num_value_3_indexed").isDisabled());
 
             readVersion = context.getReadVersion();
         }
@@ -612,12 +612,12 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             context.setReadVersion(readVersion);
             FDBRecordStore store1 = storeBuilder1.setContext(context).open();
             FDBRecordStoreStateCacheTestUtils.assertCacheHit(context.getTimer(), 1);
-            assertTrue(store1.isIndexWriteOnly("MySimpleRecord$str_value_indexed"));
-            assertTrue(store1.isIndexReadable("MySimpleRecord$num_value_3_indexed"));
+            assertTrue(store1.getIndexState("MySimpleRecord$str_value_indexed").isWriteOnly());
+            assertTrue(store1.getIndexState("MySimpleRecord$num_value_3_indexed").isReadable());
             FDBRecordStore store2 = storeBuilder2.setContext(context).open();
             FDBRecordStoreStateCacheTestUtils.assertCacheHit(context.getTimer(), 2);
-            assertTrue(store2.isIndexReadable("MySimpleRecord$str_value_indexed"));
-            assertTrue(store2.isIndexDisabled("MySimpleRecord$num_value_3_indexed"));
+            assertTrue(store2.getIndexState("MySimpleRecord$str_value_indexed").isReadable());
+            assertTrue(store2.getIndexState("MySimpleRecord$num_value_3_indexed").isDisabled());
         }
     }
 
@@ -656,7 +656,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             assertEquals(commitVersion, context.getReadVersion());
             openSimpleRecordStore(context);
             FDBRecordStoreStateCacheTestUtils.assertCacheMiss(timer, 1);
-            assertTrue(recordStore.isIndexDisabled("MySimpleRecord$str_value_indexed"));
+            assertTrue(recordStore.getIndexState("MySimpleRecord$str_value_indexed").isDisabled());
             commit(context); // should be read only-so won't change commit version
         }
 
@@ -666,7 +666,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             assertEquals(commitVersion, context.getReadVersion());
             openSimpleRecordStore(context);
             FDBRecordStoreStateCacheTestUtils.assertCacheHit(timer, 1);
-            assertTrue(recordStore.isIndexDisabled("MySimpleRecord$str_value_indexed"));
+            assertTrue(recordStore.getIndexState("MySimpleRecord$str_value_indexed").isDisabled());
 
             // Add a dummy write to increase the DB version
             context.ensureActive().addWriteConflictKey(recordStore.recordsSubspace().pack(UUID.randomUUID()));
@@ -686,7 +686,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             } else {
                 FDBRecordStoreStateCacheTestUtils.assertCacheHit(timer, 1);
             }
-            assertTrue(recordStore.isIndexDisabled("MySimpleRecord$str_value_indexed"));
+            assertTrue(recordStore.getIndexState("MySimpleRecord$str_value_indexed").isDisabled());
 
             // Add a dummy write to increase the DB version
             context.ensureActive().addWriteConflictKey(recordStore.recordsSubspace().pack(UUID.randomUUID()));
@@ -707,7 +707,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             } else {
                 FDBRecordStoreStateCacheTestUtils.assertCacheHit(timer, 1);
             }
-            assertTrue(recordStore.isIndexDisabled("MySimpleRecord$str_value_indexed"));
+            assertTrue(recordStore.getIndexState("MySimpleRecord$str_value_indexed").isDisabled());
         }
 
         // Load the meta-data using the cached read version.
@@ -716,7 +716,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             assertEquals(readVersion, context.getReadVersion());
             openSimpleRecordStore(context);
             FDBRecordStoreStateCacheTestUtils.assertCacheHit(timer, 1);
-            assertTrue(recordStore.isIndexDisabled("MySimpleRecord$str_value_indexed"));
+            assertTrue(recordStore.getIndexState("MySimpleRecord$str_value_indexed").isDisabled());
         }
     }
 

@@ -539,6 +539,36 @@ public class DelegatingVisitorTest {
     }
 
     @Test
+    void visitVectorEngineTest() {
+        testSimple("GUARDIANN",
+                RelationalParser::vectorEngine,
+                DelegatingVisitor::visitVectorEngine,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitVectorEngine(@Nonnull RelationalParser.VectorEngineContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitVectorIndexOptionValueTest() {
+        testSimple("16",
+                RelationalParser::vectorIndexOptionValue,
+                DelegatingVisitor::visitVectorIndexOptionValue,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitVectorIndexOptionValue(@Nonnull RelationalParser.VectorIndexOptionValueContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
     void visitVectorIndexOptionTest() {
         testSimple("EF_CONSTRUCTION = 100",
                 RelationalParser::vectorIndexOption,
@@ -627,6 +657,25 @@ public class DelegatingVisitorTest {
                     public Expression visitNonAggregateFunctionCall(@Nonnull RelationalParser.NonAggregateFunctionCallContext ctx) {
                         called.set(true);
                         return Expression.ofUnnamed(LiteralValue.ofScalar(42));
+                    }
+                });
+    }
+
+    /**
+     * Covers {@link DelegatingVisitor#visitNullTreatmentClause}.
+     */
+    @Test
+    void visitNullTreatmentClauseTest() {
+        testSimple("IGNORE NULLS",
+                RelationalParser::nullTreatmentClause,
+                (visitor, ctx) -> Assertions.assertThat(visitor.visitNullTreatmentClause(ctx)).isTrue(),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Boolean visitNullTreatmentClause(@Nonnull RelationalParser.NullTreatmentClauseContext ctx) {
+                        called.set(true);
+                        return ctx.nullTreatment.getType() == RelationalParser.IGNORE;
                     }
                 });
     }

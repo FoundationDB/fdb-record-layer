@@ -22,14 +22,19 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
+import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
+import javax.annotation.Nonnull;
 
 /**
  * Tests for {@link RowNumberValue}.
@@ -230,62 +235,121 @@ class RowNumberValueTest {
     }
 
     @Test
-    void testRowNumberHighOrderFnEncapsulateWithNamedArguments() {
-        final var fn = new RowNumberValue.RowNumberHighOrderFn();
+    void testRowNumberFnEncapsulateWithPartitioningOrderingAndOptions() {
+        final var fn = new RowNumberValue.RowNumberFn();
 
-        final var efSearchValue = LiteralValue.ofScalar(100);
-        final var returnsVectorsValue = LiteralValue.ofScalar(true);
-        final var namedArguments = Map.of(
-                RowNumberValue.RowNumberHighOrderFn.EF_SEARCH_ARGUMENT, efSearchValue,
-                RowNumberValue.RowNumberHighOrderFn.INDEX_RETURNS_VECTORS_ARGUMENT, returnsVectorsValue
-        );
+        final var partitioningValues = ImmutableList.<Value>of(LiteralValue.ofScalar(1));
+        final var orderingParts = ImmutableList.of(
+                new WindowOrderingPart(LiteralValue.ofScalar(2), OrderingPart.RequestedSortOrder.ASCENDING));
+        final var windowSpecification = new CallSiteArguments.WindowSpecification(partitioningValues, orderingParts);
+        final var arguments = CallSiteArguments.empty()
+                .withWindowSpecification(windowSpecification)
+                .withOption(RowNumberValue.RowNumberFn.EF_SEARCH, 100)
+                .withOption(RowNumberValue.RowNumberFn.RETURN_VECTORS, true);
 
-        final var result = fn.encapsulate(namedArguments);
+        final var result = fn.encapsulate(arguments);
 
-        Assertions.assertNotNull(result, "Encapsulated value should not be null");
-        Assertions.assertInstanceOf(RowNumberHighOrderValue.class, result,
-                "Result should be RowNumberHighOrderValue");
+        Assertions.assertInstanceOf(RowNumberValue.class, result, "Result should be a RowNumberValue");
+        final var rowNumberValue = (RowNumberValue) result;
+        Assertions.assertEquals(partitioningValues, rowNumberValue.getPartitioningValues(),
+                "Partitioning values should come from the window specification");
+        Assertions.assertEquals(ImmutableList.of(LiteralValue.ofScalar(2)), rowNumberValue.getArgumentValues(),
+                "Argument values should be the ORDER BY columns");
+        final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
+        final var proto = rowNumberValue.toProto(serializationContext);
+        Assertions.assertEquals(100, proto.getEfSearch(), "efSearch should come from the options map");
+        Assertions.assertTrue(proto.getIsReturningVectors(), "isReturningVectors should come from the options map");
     }
 
     @Test
-    void testRowNumberHighOrderFnEncapsulateWithNoArguments() {
-        final var fn = new RowNumberValue.RowNumberHighOrderFn();
-        final var namedArguments = Map.<String, LiteralValue<?>>of();
+    void testRowNumberFnEncapsulateWithoutOptions() {
+        final var fn = new RowNumberValue.RowNumberFn();
 
-        final var result = fn.encapsulate(namedArguments);
+        final var windowSpecification = new CallSiteArguments.WindowSpecification(
+                ImmutableList.of(),
+                ImmutableList.of(new WindowOrderingPart(LiteralValue.ofScalar(2), OrderingPart.RequestedSortOrder.ASCENDING)));
+        final var arguments = CallSiteArguments.empty().withWindowSpecification(windowSpecification);
 
-        Assertions.assertNotNull(result, "Encapsulated value should not be null");
-        Assertions.assertInstanceOf(RowNumberHighOrderValue.class, result,
-                "Result should be RowNumberHighOrderValue");
+        final var result = fn.encapsulate(arguments);
+
+        Assertions.assertInstanceOf(RowNumberValue.class, result, "Result should be a RowNumberValue");
+        final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
+        final var proto = ((RowNumberValue) result).toProto(serializationContext);
+        Assertions.assertFalse(proto.hasEfSearch(), "efSearch should be absent when no options are provided");
+        Assertions.assertFalse(proto.hasIsReturningVectors(), "isReturningVectors should be absent when no options are provided");
     }
 
     @Test
-    void testRowNumberHighOrderFnEncapsulateRejectsInvalidNamedArgument() {
-        final var fn = new RowNumberValue.RowNumberHighOrderFn();
+    void testRowNumberFnEncapsulateCoercesRawIntegralOptionValue() {
+        // a front end may hand over an ef_search literal as a Long; it satisfies the Integer-typed option
+        final var arguments = windowedArgumentsWithRawOption(
+                RowNumberValue.RowNumberFn.EF_SEARCH.getName(), 100L);
 
-        final var invalidValue = LiteralValue.ofScalar(100);
-        final var namedArguments = Map.of("invalid_argument", invalidValue);
+        final var result = new RowNumberValue.RowNumberFn().encapsulate(arguments);
 
-        Assertions.assertThrows(SemanticException.class,
-                () -> fn.encapsulate(namedArguments),
-                "Should reject invalid named arguments");
+        final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
+        final var proto = ((RowNumberValue) result).toProto(serializationContext);
+        Assertions.assertEquals(100, proto.getEfSearch(), "a Long option value should be coerced to the declared Integer");
     }
 
     @Test
-    void testRowNumberHighOrderFnEncapsulateRejectsTooManyNamedArguments() {
-        final var fn = new RowNumberValue.RowNumberHighOrderFn();
+    void testRowNumberFnEncapsulateRejectsOutOfRangeOptionValue() {
+        final var arguments = windowedArgumentsWithRawOption(
+                RowNumberValue.RowNumberFn.EF_SEARCH.getName(), 5_000_000_000L);
 
-        final var efSearchValue = LiteralValue.ofScalar(100);
-        final var returnsVectorsValue = LiteralValue.ofScalar(true);
-        final var extraValue = LiteralValue.ofScalar(42);
-        final var namedArguments = Map.of(
-                RowNumberValue.RowNumberHighOrderFn.EF_SEARCH_ARGUMENT, efSearchValue,
-                RowNumberValue.RowNumberHighOrderFn.INDEX_RETURNS_VECTORS_ARGUMENT, returnsVectorsValue,
-                "extra", extraValue
-        );
+        final var semanticException = Assertions.assertThrows(SemanticException.class,
+                () -> new RowNumberValue.RowNumberFn().encapsulate(arguments),
+                "an out-of-range ef_search should be rejected");
+        Assertions.assertEquals(SemanticException.ErrorCode.INCOMPATIBLE_TYPE, semanticException.getErrorCode());
+        Assertions.assertEquals(RowNumberValue.RowNumberFn.EF_SEARCH.getName(),
+                semanticException.getLogInfo().get(LogMessageKeys.OPTION_NAME.toString()),
+                "the failing option should be named in the log info");
+    }
 
-        Assertions.assertThrows(SemanticException.class,
-                () -> fn.encapsulate(namedArguments),
-                "Should reject too many named arguments");
+    @Test
+    void testRowNumberFnEncapsulateRejectsWronglyTypedOptionValue() {
+        final var arguments = windowedArgumentsWithRawOption(
+                RowNumberValue.RowNumberFn.EF_SEARCH.getName(), "abc");
+
+        final var semanticException = Assertions.assertThrows(SemanticException.class,
+                () -> new RowNumberValue.RowNumberFn().encapsulate(arguments),
+                "a string ef_search should be rejected");
+        Assertions.assertEquals(SemanticException.ErrorCode.INCOMPATIBLE_TYPE, semanticException.getErrorCode());
+    }
+
+    @Test
+    void testRowNumberFnEncapsulateRejectsUnsupportedOption() {
+        final var arguments = windowedArgumentsWithRawOption("bogus", 1);
+
+        final var semanticException = Assertions.assertThrows(SemanticException.class,
+                () -> new RowNumberValue.RowNumberFn().encapsulate(arguments),
+                "an option row_number does not declare should be rejected");
+        Assertions.assertEquals(SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES,
+                semanticException.getErrorCode());
+        Assertions.assertEquals("bogus",
+                semanticException.getLogInfo().get(LogMessageKeys.OPTION_NAME.toString()),
+                "the rejected option should be named in the log info");
+        Assertions.assertEquals("row_number",
+                semanticException.getLogInfo().get(LogMessageKeys.FUNCTION.toString()),
+                "the function should be named in the log info");
+    }
+
+    @Test
+    void testRowNumberFnDeclaresItsOptions() {
+        Assertions.assertEquals(
+                ImmutableSet.of(RowNumberValue.RowNumberFn.EF_SEARCH, RowNumberValue.RowNumberFn.RETURN_VECTORS),
+                new RowNumberValue.RowNumberFn().getSupportedOptions(),
+                "row_number should declare both of its options");
+    }
+
+    @Nonnull
+    private static CallSiteArguments windowedArgumentsWithRawOption(@Nonnull final String optionName,
+                                                                   @Nonnull final Object rawValue) {
+        final var windowSpecification = new CallSiteArguments.WindowSpecification(
+                ImmutableList.of(),
+                ImmutableList.of(new WindowOrderingPart(LiteralValue.ofScalar(2), OrderingPart.RequestedSortOrder.ASCENDING)));
+        return CallSiteArguments.empty()
+                .withWindowSpecification(windowSpecification)
+                .withOptions(CallSiteArguments.Options.builder().putRaw(optionName, rawValue).build());
     }
 }

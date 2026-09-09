@@ -42,7 +42,9 @@ dependencies {
 
     testFixturesImplementation(libs.bundles.test.impl)
     testFixturesImplementation(libs.snakeyaml)
+    testFixturesImplementation(libs.guava)
     testFixturesCompileOnly(libs.bundles.test.compileOnly)
+    testFixturesCompileOnly(libs.jsr305)
     testFixturesImplementation(libs.slf4j.api)
     testFixturesAnnotationProcessor(libs.autoService)
 }
@@ -111,10 +113,11 @@ tasks.register('extractSiftSmall', Copy) {
     into extractDir
 
     doLast {
-        println "Extracted files into: ${extractDir.get().asFile}"
-        fileTree(extractDir).visit { details ->
-            if (!details.isDirectory()) {
-                println " - ${details.file}"
+        File extractedDir = extractDir.get().asFile
+        println "Extracted files into: ${extractedDir}"
+        extractedDir.eachFileRecurse { file ->
+            if (file.isFile()) {
+                println " - ${file}"
             }
         }
     }

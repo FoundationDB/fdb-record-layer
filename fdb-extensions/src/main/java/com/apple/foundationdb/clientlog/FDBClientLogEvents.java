@@ -215,7 +215,7 @@ public class FDBClientLogEvents {
     /**
      * A single key get latency event.
      */
-    @SpotBugsSuppressWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
+    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
     public static class EventGet extends Event {
         private final double latency;
         private final int size;
@@ -359,7 +359,7 @@ public class FDBClientLogEvents {
     /**
      * A failing single key get event.
      */
-    @SpotBugsSuppressWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
+    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
     public static class EventGetError extends Event {
         private final int errorCode;
         @Nonnull
@@ -471,7 +471,7 @@ public class FDBClientLogEvents {
     /**
      * A single mutation in a {@link CommitRequest}.
      */
-    @SpotBugsSuppressWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
+    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
     public static class Mutation {
         // These are not in the binding's MutationType enum.
         public static final int SET_VALUE = 0;
@@ -532,7 +532,7 @@ public class FDBClientLogEvents {
     /**
      * Information about a commit, successful or not, in an event.
      */
-    @SpotBugsSuppressWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
+    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
     public static class CommitRequest {
         @Nonnull
         private final Range[] readConflictRanges;

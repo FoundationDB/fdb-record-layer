@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.common;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -30,7 +29,6 @@ import java.util.Arrays;
  * The internal state of serialization / deserialization, pointing to a portion of a byte array.
  */
 @API(API.Status.INTERNAL)
-@SpotBugsSuppressWarnings("EI_EXPOSE_REP")
 class TransformedRecordSerializerState extends CompressedAndEncryptedSerializerState {
     @Nonnull
     private byte[] data;

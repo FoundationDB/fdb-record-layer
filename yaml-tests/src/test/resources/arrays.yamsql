@@ -42,6 +42,11 @@ test_block:
       - supported_version: 4.11.1.0
       - error: INTERNAL_ERROR
     -
+      # An array cannot hold a NULL element.
+      - query: INSERT INTO A_NOT_NULL VALUES (0, [1, NULL])
+      - supported_version: 4.13.3.0
+      - error: UNSUPPORTED_OPERATION
+    -
       # INSERT + basic SELECT for a not-nullable INTEGER ARRAY.
       - query: INSERT INTO A_NOT_NULL VALUES (0, []), (1, [1]), (2, [1, 2])
       - count: 3
@@ -263,6 +268,16 @@ test_block:
     -
       # X is null for pk=0, so it won't be possible to construct an array.
       - query: select [x[1]] AS arr_1, [pk] AS arr_2 FROM F WHERE pk = 0
-      - supported_version: 4.12.13.0
-      - error: "XXXXX"
+      - supported_version: 4.13.2.0
+      - error: UNSUPPORTED_OPERATION
+    -
+      # An array literal cannot contain NULLs (Issue #3646). A NULL literal is rejected while the literal is resolved.
+      - query: select [1, NULL, 3] FROM A WHERE pk = 1
+      - supported_version: 4.13.2.0
+      - error: UNSUPPORTED_OPERATION
+    -
+      # Same rejection when the NULL element is typed, in which case it is only caught once the array is evaluated.
+      - query: select [1, CAST(NULL AS INTEGER), 3] FROM A WHERE pk = 1
+      - supported_version: 4.13.2.0
+      - error: UNSUPPORTED_OPERATION
 ...

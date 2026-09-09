@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
@@ -172,7 +171,6 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         @Nullable RuntimeException exception = null;
         @Nullable private final List<Object> additionalLogMessageKeyValues;
 
-        @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
         private RunRetriable(@Nullable List<Object> additionalLogMessageKeyValues) {
             this.additionalLogMessageKeyValues = additionalLogMessageKeyValues;
             this.delay = createExponentialDelay();

@@ -135,7 +135,7 @@ public class IndexingByIndex extends IndexingBase {
 
         // readability - This method shouldn't block if one has already opened the record store (as we did)
         Index srcIndex = getSourceIndex(store.getRecordMetaData());
-        validateOrThrowEx(store.isIndexScannable(srcIndex), "source index is not scannable");
+        validateOrThrowEx(store.getIndexState(srcIndex).isScannable(), "source index is not scannable");
         boolean isIdempotent = maintainer.isIdempotent();
         final ScanProperties scanProperties = scanPropertiesWithLimits(isIdempotent);
 
@@ -212,7 +212,7 @@ public class IndexingByIndex extends IndexingBase {
 
         // readability - This method shouldn't block if one has already opened the record store (as we did)
         final Index srcIndex = getSourceIndex(store.getRecordMetaData());
-        validateOrThrowEx(store.isIndexScannable(srcIndex), "source index is not scannable");
+        validateOrThrowEx(store.getIndexState(srcIndex).isScannable(), "source index is not scannable");
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(maintainer.isIdempotent() ? IsolationLevel.SNAPSHOT : IsolationLevel.SERIALIZABLE);

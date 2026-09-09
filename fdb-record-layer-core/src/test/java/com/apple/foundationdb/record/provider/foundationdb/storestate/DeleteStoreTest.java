@@ -169,13 +169,13 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
             openSimpleRecordStore(context);
             assertCacheHit(context.getTimer());
-            assertTrue(recordStore.isIndexDisabled(disabledIndex));
+            assertTrue(recordStore.getIndexState(disabledIndex).isDisabled());
             recordStore.deleteAllRecords();
 
             context.getTimer().reset();
             recordStore = recordStore.asBuilder().open();
             assertCacheHit(context.getTimer());
-            assertTrue(recordStore.isIndexDisabled(disabledIndex));
+            assertTrue(recordStore.getIndexState(disabledIndex).isDisabled());
             commit(context);
         }
     }
@@ -238,14 +238,14 @@ public class DeleteStoreTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
             openSimpleRecordStore(context);
-            assertTrue(recordStore.isIndexDisabled(disabledIndex));
+            assertTrue(recordStore.getIndexState(disabledIndex).isDisabled());
             recordStore.deleteAllRecords();
             commit(context);
         }
 
         try (FDBRecordContext context = testContext.getCachedContext(fdb, storeBuilder, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS)) {
             openSimpleRecordStore(context);
-            assertTrue(recordStore.isIndexDisabled(disabledIndex));
+            assertTrue(recordStore.getIndexState(disabledIndex).isDisabled());
             commit(context);
         }
     }

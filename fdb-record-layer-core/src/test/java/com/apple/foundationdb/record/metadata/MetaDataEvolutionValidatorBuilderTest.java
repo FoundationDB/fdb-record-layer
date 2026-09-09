@@ -24,11 +24,15 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactor
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests of the {@link MetaDataEvolutionValidator.Builder} class. These tests are mainly present to make sure
@@ -164,5 +168,39 @@ class MetaDataEvolutionValidatorBuilderTest {
                 MetaDataEvolutionValidator.Builder::setDisallowTypeRenames,
                 MetaDataEvolutionValidator.Builder::disallowsTypeRenames,
                 MetaDataEvolutionValidator::disallowsTypeRenames);
+    }
+
+    @Test
+    void ignoredIndexOptions() {
+        testSettingOption("ignoredIndexOptions",
+                MetaDataEvolutionValidator.Builder::setIgnoredIndexOptions,
+                MetaDataEvolutionValidator.Builder::getIgnoredIndexOptions,
+                MetaDataEvolutionValidator::getIgnoredIndexOptions,
+                List.of(Collections.emptySet(), Collections.singleton("blah"), Set.of("a", "b", "c")));
+
+        // Data structure is copied, so it should not reflect mutations after calling "set"
+        final Set<String> mutableSet = new HashSet<>(List.of("a", "b", "c"));
+        final MetaDataEvolutionValidator.Builder builder = MetaDataEvolutionValidator.newBuilder()
+                .setIgnoredIndexOptions(mutableSet);
+        mutableSet.add("d");
+        assertThat(builder.getIgnoredIndexOptions())
+                .isNotEqualTo(mutableSet)
+                .containsExactlyInAnyOrder("a", "b", "c");
+        final MetaDataEvolutionValidator validator = builder.build();
+        assertThat(validator.getIgnoredIndexOptions())
+                .isNotEqualTo(mutableSet)
+                .containsExactlyInAnyOrder("a", "b", "c");
+
+        // Should not be able to mutate the return value of getIgnoredIndexOptions()
+        assertThatThrownBy(() -> builder.getIgnoredIndexOptions().add("e"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> validator.getIgnoredIndexOptions().add("f"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThat(mutableSet)
+                .containsExactlyInAnyOrder("a", "b", "c", "d");
+        assertThat(builder.getIgnoredIndexOptions())
+                .containsExactlyInAnyOrder("a", "b", "c");
+        assertThat(validator.getIgnoredIndexOptions())
+                .containsExactlyInAnyOrder("a", "b", "c");
     }
 }

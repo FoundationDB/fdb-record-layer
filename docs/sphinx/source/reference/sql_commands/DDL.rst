@@ -11,6 +11,7 @@ The Data Definition Language (DDL) is used to define the database schema, includ
     DDL/CREATE/INDEX
     DDL/CREATE/SCHEMA
     DDL/CREATE/SCHEMA_TEMPLATE
+    DDL/CREATE/STORED_QUERY
     DDL/CREATE/TABLE
     DDL/CREATE/TEMPORARY_FUNCTION
     DDL/CREATE/TYPE/ENUM

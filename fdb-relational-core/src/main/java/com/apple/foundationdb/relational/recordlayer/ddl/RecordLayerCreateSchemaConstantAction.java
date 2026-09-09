@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreAlreadyExistsException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.catalog.SchemaExistsBehavior;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -79,24 +80,14 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
         if (!catalog.doesDatabaseExist(txn, dbUri)) {
             throw new RelationalException(String.format(Locale.ROOT, "Database %s does not exist", dbUri.getPath()), ErrorCode.UNDEFINED_DATABASE);
         }
-        //verify that the schema doesn't already exist
-        // This is a bit awkward--perhaps we should adjust the behavior of the StoreCatalog?
-        try {
-            final Schema beforeSchema = catalog.loadSchema(txn, dbUri, schemaName);
-            String schemaTemplateName = beforeSchema.getSchemaTemplate().getName();
-            throw new RelationalException("Schema " + schemaName + " already exists with template " + schemaTemplateName, ErrorCode.SCHEMA_ALREADY_EXISTS);
-        } catch (RelationalException ve) {
-            if (ve.getErrorCode() != ErrorCode.UNDEFINED_SCHEMA) {
-                throw ve;
-            }
-        }
 
         final SchemaTemplate schemaTemplate = catalog.getSchemaTemplateCatalog().loadSchemaTemplate(txn, templateName);
 
         //map the schema to the template
         final Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
-        //insert the schema into the catalog
-        catalog.saveSchema(txn, schema, false);
+        //insert the schema into the catalog. ERROR: creation must fail if a schema with this
+        //name already exists
+        catalog.saveSchema(txn, schema, false, SchemaExistsBehavior.ERROR);
         //now create the FDBRecordStore
         final var databasePath = RelationalKeyspaceProvider.toDatabasePath(dbUri, keySpace).schemaPath(schemaName);
         try {

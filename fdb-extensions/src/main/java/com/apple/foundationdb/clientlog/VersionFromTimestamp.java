@@ -24,7 +24,6 @@ import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.system.SystemKeyspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -38,7 +37,6 @@ import java.util.concurrent.CompletableFuture;
  * Map from wall-clock time to transaction time.
  */
 @API(API.Status.EXPERIMENTAL)
-@SpotBugsSuppressWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
 public class VersionFromTimestamp {
 
     /**

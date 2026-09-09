@@ -93,7 +93,11 @@ public class PlanSerializationTest {
         return Stream.of(
                 // Both of these are derived from serializing a now-removed VersionValue. There were two different serialization formats, so this tries both
                 Named.of("VersionValueWithAlias", ByteString.copyFrom(Base64.getDecoder().decode("sgIFCgNxOTk="))),
-                Named.of("VersionValueWithChild", ByteString.copyFrom(Base64.getDecoder().decode("sgItEivyASgKCl9fX2N1cnJlbnQSGjIYCAAYASISCgYKBAgIEAASBmFGaWVsZBgB")))
+                Named.of("VersionValueWithChild", ByteString.copyFrom(Base64.getDecoder().decode("sgItEivyASgKCl9fX2N1cnJlbnQSGjIYCAAYASISCgYKBAgIEAASBmFGaWVsZBgB"))),
+                // Derived from serializing a now-removed RowNumberHighOrderValue with an ef_search of 100 and
+                // return_vectors set. That value was compile-time only, so it was never actually persisted, but its
+                // field number is reserved and this pins that down.
+                Named.of("RowNumberHighOrderValue", ByteString.copyFrom(Base64.getDecoder().decode("0gMEEGQYAQ==")))
         );
     }
 

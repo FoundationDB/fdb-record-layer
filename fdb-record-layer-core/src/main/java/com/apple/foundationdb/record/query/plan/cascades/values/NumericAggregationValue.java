@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.BitmapValueIndexMaintainer;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -242,7 +243,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<? extends Typed> arguments) {
+                                                  @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, BitmapConstructAgg::new);
         }
 
@@ -311,7 +313,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<? extends Typed> arguments) {
+                                                  @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Sum::new);
         }
 
@@ -374,7 +377,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<? extends Typed> arguments) {
+                                                  @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Avg::new);
         }
 
@@ -443,7 +447,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<? extends Typed> arguments) {
+                                                  @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Min::new);
         }
 
@@ -512,7 +517,8 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         @Nonnull
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static AggregateValue encapsulate(@Nonnull BuiltInFunction<AggregateValue> builtInFunction,
-                                                  @Nonnull final List<? extends Typed> arguments) {
+                                                  @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             return NumericAggregationValue.encapsulate(builtInFunction.getFunctionName(), arguments, Max::new);
         }
 

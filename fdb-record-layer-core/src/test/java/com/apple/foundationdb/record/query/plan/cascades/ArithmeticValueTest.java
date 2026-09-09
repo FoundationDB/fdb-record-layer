@@ -317,14 +317,14 @@ class ArithmeticValueTest {
     void testPredicate(List<Value> args, BuiltInFunction function, Object result, boolean shouldFail) {
         if (shouldFail) {
             try {
-                function.encapsulate(args);
+                function.encapsulate(CallSiteArguments.ofPositional(args));
                 Assertions.fail("expected an exception to be thrown");
             } catch (Exception e) {
                 Assertions.assertInstanceOf(VerifyException.class, e);
                 Assertions.assertTrue(e.getMessage().contains("unable to encapsulate arithmetic operation due to type mismatch(es)"));
             }
         } else {
-            Typed value = function.encapsulate(args);
+            Typed value = function.encapsulate(CallSiteArguments.ofPositional(args));
             Assertions.assertInstanceOf(ArithmeticValue.class, value);
             Object actualValue = ((ArithmeticValue)value).eval(null, evaluationContext);
             Assertions.assertEquals(result, actualValue);
@@ -335,9 +335,9 @@ class ArithmeticValueTest {
     @MethodSource("binaryFunctions")
     void equalsWithSameArguments(BuiltInFunction<?> binaryFunction) {
         final List<Value> arguments = List.of(LONG_1, LONG_2);
-        final Value value1 = (Value) binaryFunction.encapsulate(arguments);
+        final Value value1 = (Value) binaryFunction.encapsulate(CallSiteArguments.ofPositional(arguments));
         binaryFunctions().forEach(otherFunction -> {
-            Value value2 = (Value) otherFunction.encapsulate(arguments);
+            Value value2 = (Value) otherFunction.encapsulate(CallSiteArguments.ofPositional(arguments));
             boolean sameFunction = binaryFunction.getClass().equals(otherFunction.getClass());
             Assertions.assertEquals(
                     sameFunction,
@@ -360,9 +360,9 @@ class ArithmeticValueTest {
         final List<Value> args3 = List.of(F, LONG_2);
         final List<List<Value>> argsLists = List.of(args1, args2, args3);
         for (int i = 0; i < argsLists.size(); i++) {
-            final Value value1 = (Value) binaryFunction.encapsulate(argsLists.get(i));
+            final Value value1 = (Value) binaryFunction.encapsulate(CallSiteArguments.ofPositional(argsLists.get(i)));
             for (int j = 0; j < argsLists.size(); j++) {
-                final Value value2 = (Value) binaryFunction.encapsulate(argsLists.get(j));
+                final Value value2 = (Value) binaryFunction.encapsulate(CallSiteArguments.ofPositional(argsLists.get(j)));
                 Assertions.assertEquals(
                         i == j,
                         value1.semanticEquals(value2, AliasMap.emptyMap()),

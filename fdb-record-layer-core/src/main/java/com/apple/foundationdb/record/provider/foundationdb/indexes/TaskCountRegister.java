@@ -1,0 +1,55 @@
+/*
+ * TaskCountRegister.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2025 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.provider.foundationdb.indexes;
+
+import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.tuple.Tuple;
+
+import javax.annotation.Nonnull;
+
+/**
+ * A {@link VectorIndexTaskCounts} handle bound to a single partition {@code prefix}. It is handed to a vector engine's
+ * write listener so that, as deferred tasks are enqueued and executed during an insert/delete, the engine can bump the
+ * outstanding-work counts in the same transaction — without the engine needing to know the register's layout or the
+ * index's secondary subspace.
+ *
+ * @param counts the register to update
+ * @param prefix the partition prefix this handle counts against (empty for an unpartitioned index)
+ */
+record TaskCountRegister(@Nonnull VectorIndexTaskCounts counts, @Nonnull Tuple prefix) implements TaskEventRegister {
+    /**
+     * Records that a task was enqueued for this prefix.
+     * @param transaction the transaction the enqueue happened in
+     */
+    @Override
+    public void onTaskEnqueued(@Nonnull final Transaction transaction) {
+        counts.increment(transaction, prefix);
+    }
+
+    /**
+     * Records that a task for this prefix was executed (and thereby removed from the queue).
+     * @param transaction the transaction the execution happened in
+     */
+    @Override
+    public void onTaskExecuted(@Nonnull final Transaction transaction) {
+        counts.decrement(transaction, prefix);
+    }
+}

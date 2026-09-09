@@ -26,6 +26,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
 import javax.annotation.Nonnull;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -73,7 +74,7 @@ public class AsyncLoadingCache<K, V> {
         this.maxSize = maxSize;
         this.scheduledExecutor = scheduledExecutor;
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
-                .expireAfterWrite(this.refreshTimeMillis, TimeUnit.MILLISECONDS);
+                .expireAfterWrite(Duration.ofMillis(this.refreshTimeMillis));
         if (maxSize != UNLIMITED) {
             cacheBuilder.maximumSize(maxSize);
         }

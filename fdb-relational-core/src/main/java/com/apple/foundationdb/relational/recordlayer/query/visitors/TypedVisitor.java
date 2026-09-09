@@ -757,11 +757,11 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     Expression visitExpressionWithOptionalName(@Nonnull RelationalParser.ExpressionWithOptionalNameContext ctx);
 
-    @Nonnull
+    @Nullable
     @Override
     Object visitIfExists(@Nonnull RelationalParser.IfExistsContext ctx);
 
-    @Nonnull
+    @Nullable
     @Override
     Object visitIfNotExists(@Nonnull RelationalParser.IfNotExistsContext ctx);
 
@@ -852,6 +852,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Expression visitAggregateWindowedFunction(@Nonnull RelationalParser.AggregateWindowedFunctionContext ctx);
+
+    @Nonnull
+    @Override
+    Boolean visitNullTreatmentClause(@Nonnull RelationalParser.NullTreatmentClauseContext ctx);
 
     @Nonnull
     @Override

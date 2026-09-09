@@ -53,4 +53,15 @@ public class QueryTestUtils {
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
         return result;
     }
+
+    public static RelationalStruct insertT1RecordColBIsNull(@Nonnull final RelationalStatement statement, long pk, long a, long c) throws SQLException {
+        var result = EmbeddedRelationalStruct.newBuilder()
+                .addLong("PK", pk)
+                .addLong("A", a)
+                .addLong("C", c)
+                .build();
+        int cnt = statement.executeInsert("T1", result);
+        Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+        return result;
+    }
 }

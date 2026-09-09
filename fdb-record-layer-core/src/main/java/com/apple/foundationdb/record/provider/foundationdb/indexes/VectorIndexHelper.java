@@ -48,7 +48,7 @@ public final class VectorIndexHelper {
         // Reject specifying any option under more than one of its (current/legacy) names before parsing, so an
         // ambiguous options map fails fast rather than silently resolving to the canonical name.
         VectorIndexOptionsHelper.validateNoAliasConflicts(index, VectorIndexOptionKeys.ALL);
-        VectorIndexEngine.fromIndex(index);
+        VectorIndexEngine.validate(index);
     }
 
     /**

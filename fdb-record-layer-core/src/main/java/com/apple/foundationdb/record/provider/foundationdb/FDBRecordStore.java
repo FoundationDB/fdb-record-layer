@@ -882,8 +882,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return syntheticRecordTypes.stream()
                 .map(metaData::getSyntheticRecordType).collect(Collectors.toMap(Function.identity(), syntheticRecordType -> {
                     List<IndexMaintainer> indexMaintainers = new ArrayList<>();
-                    syntheticRecordType.getIndexes().stream().filter(index -> !isIndexDisabled(index)).map(this::getIndexMaintainer).forEach(indexMaintainers::add);
-                    syntheticRecordType.getMultiTypeIndexes().stream().filter(index -> !isIndexDisabled(index)).map(this::getIndexMaintainer).forEach(indexMaintainers::add);
+                    syntheticRecordType.getIndexes().stream().filter(index -> !getIndexState(index).isDisabled()).map(this::getIndexMaintainer).forEach(indexMaintainers::add);
+                    syntheticRecordType.getMultiTypeIndexes().stream().filter(index -> !getIndexState(index).isDisabled()).map(this::getIndexMaintainer).forEach(indexMaintainers::add);
                     return indexMaintainers;
                 }));
     }
@@ -1497,7 +1497,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @SuppressWarnings("PMD.CloseResource")
     public RecordCursor<IndexEntry> scanIndex(@Nonnull Index index, @Nonnull IndexScanBounds scanBounds,
                                               @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
-        if (!isIndexScannable(index)) {
+        if (!getIndexState(index).isScannable()) {
             throw new ScanNonReadableIndexException("Cannot scan non-readable index",
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     subspaceProvider.logKey(), subspaceProvider.toString(context));
@@ -1531,7 +1531,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (commonPrimaryKeyLength <= 0) {
             throw new RecordCoreArgumentException("commonPrimaryKeyLength has to be a positive number", LogMessageKeys.INDEX_NAME, index.getName());
         }
-        if (!isIndexScannable(index)) {
+        if (!getIndexState(index).isScannable()) {
             throw new ScanNonReadableIndexException("Cannot scan non-readable index",
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     subspaceProvider.logKey(), subspaceProvider.toString(context));
@@ -2032,7 +2032,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
 
             indexMaintainers = allIndexes.stream()
-                    .filter(index -> !isIndexDisabled(index))
+                    .filter(index -> !getIndexState(index).isDisabled())
                     .map(FDBRecordStore.this::getIndexMaintainer)
                     .collect(Collectors.toList());
 
@@ -2993,7 +2993,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 if (!replacedByNames.isEmpty()) {
                     // Check if all of the replaced by index names are readable
                     if (replacedByNames.stream()
-                            .allMatch(replacedByName -> metaData.hasIndex(replacedByName) && isIndexReadable(replacedByName))) {
+                            .allMatch(replacedByName -> metaData.hasIndex(replacedByName) && getIndexState(replacedByName).isReadable())) {
                         indexesToRemove.add(index);
                     }
                 }
@@ -3167,7 +3167,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final Map<Index, List<RecordType>> indexesToBuild = getRecordMetaData().getIndexesToBuildSince(-1);
         beginRecordStoreStateRead();
         try {
-            indexesToBuild.keySet().removeIf(this::isIndexReadable);
+            indexesToBuild.keySet().removeIf(index -> getIndexState(index).isReadable());
             return indexesToBuild;
         } finally {
             endRecordStoreStateRead();
@@ -3671,7 +3671,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 context.setMetaDataVersionStamp();
             }
             Transaction tr = context.ensureActive();
-            if (IndexState.READABLE.equals(indexState)) {
+            if (indexState.isReadable()) {
                 tr.clear(indexKey);
             } else {
                 tr.set(indexKey, Tuple.from(indexState.code()).pack());
@@ -3988,7 +3988,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey());
             } else if (uniquenessViolation.isPresent()) {
                 if (allowUniquePending) {
-                    if (isIndexReadableUniquePending(index)) {
+                    if (getIndexState(index).isReadableUniquePending()) {
                         return false;   // Unchanged
                     }
                     updateIndexState(index.getName(), indexKey, IndexState.READABLE_UNIQUE_PENDING);
@@ -4254,6 +4254,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the index is readable and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexReadable(@Nonnull Index index) {
         return isIndexReadable(index.getName());
     }
@@ -4267,8 +4268,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the named index is readable and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexReadable(@Nonnull String indexName) {
-        return getIndexState(indexName).equals(IndexState.READABLE);
+        return getIndexState(indexName).isReadable();
     }
 
     /**
@@ -4285,6 +4287,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the index is readable-unique-pending and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexReadableUniquePending(@Nonnull Index index) {
         return isIndexReadableUniquePending(index.getName());
     }
@@ -4301,8 +4304,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the named index is readable-unique-pending and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexReadableUniquePending(@Nonnull String indexName) {
-        return getIndexState(indexName).equals(IndexState.READABLE_UNIQUE_PENDING);
+        return getIndexState(indexName).isReadableUniquePending();
     }
 
     /**
@@ -4315,6 +4319,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the named index is scannable and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexScannable(@Nonnull Index index) {
         return isIndexScannable(index.getName());
     }
@@ -4329,6 +4334,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the named index is scannable and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexScannable(@Nonnull String indexName) {
         return getIndexState(indexName).isScannable();
     }
@@ -4344,6 +4350,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the index is write-only and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexWriteOnlyNoQueue(@Nonnull Index index) {
         return isIndexWriteOnlyNoQueue(index.getName());
     }
@@ -4357,6 +4364,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the named index is write-only and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexWriteOnlyNoQueue(@Nonnull String indexName) {
         return getIndexState(indexName).isWriteOnlyNoQueue();
     }
@@ -4372,6 +4380,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the index is write-only with a queue and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexWriteOnlyWithQueue(@Nonnull Index index) {
         return isIndexWriteOnlyWithQueue(index.getName());
     }
@@ -4385,8 +4394,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the named index is write-only with a queue and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexWriteOnlyWithQueue(@Nonnull String indexName) {
-        return getIndexState(indexName).equals(IndexState.WRITE_ONLY_WITH_QUEUE);
+        return getIndexState(indexName).isWriteOnlyWithQueue();
     }
 
     /**
@@ -4401,6 +4411,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the index is write-only in any form and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexWriteOnly(@Nonnull Index index) {
         return isIndexWriteOnly(index.getName());
     }
@@ -4415,6 +4426,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the named index is write-only in any form and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexWriteOnly(@Nonnull String indexName) {
         return getIndexState(indexName).isWriteOnly();
     }
@@ -4430,6 +4442,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the index is disabled and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the same name as this index
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexDisabled(@Nonnull Index index) {
         return isIndexDisabled(index.getName());
     }
@@ -4443,8 +4456,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @return <code>true</code> if the named index is disabled and <code>false</code> otherwise
      * @throws IllegalArgumentException if no index in the metadata has the given name
      */
+    @API(API.Status.DEPRECATED)
     public boolean isIndexDisabled(@Nonnull String indexName) {
-        return getIndexState(indexName).equals(IndexState.DISABLED);
+        return getIndexState(indexName).isDisabled();
     }
 
     /**
@@ -4526,7 +4540,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public List<Index> getReadableIndexes(@Nonnull RecordTypeOrBuilder recordType) {
-        return sanitizeIndexes(recordType.getIndexes(), this::isIndexReadable);
+        return sanitizeIndexes(recordType.getIndexes(), index -> getIndexState(index).isReadable());
     }
 
     /**
@@ -4538,7 +4552,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public List<Index> getEnabledIndexes(@Nonnull RecordTypeOrBuilder recordType) {
-        return sanitizeIndexes(recordType.getIndexes(), index -> !isIndexDisabled(index));
+        return sanitizeIndexes(recordType.getIndexes(), index -> !getIndexState(index).isDisabled());
     }
 
     /**
@@ -4550,7 +4564,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public List<Index> getReadableMultiTypeIndexes(@Nonnull RecordTypeOrBuilder recordType) {
-        return sanitizeIndexes(recordType.getMultiTypeIndexes(), this::isIndexReadable);
+        return sanitizeIndexes(recordType.getMultiTypeIndexes(), index -> getIndexState(index).isReadable());
     }
 
     /**
@@ -4562,7 +4576,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public List<Index> getEnabledMultiTypeIndexes(@Nonnull RecordTypeOrBuilder recordType) {
-        return sanitizeIndexes(recordType.getMultiTypeIndexes(), index -> !isIndexDisabled(index));
+        return sanitizeIndexes(recordType.getMultiTypeIndexes(), index -> !getIndexState(index).isDisabled());
     }
 
     /**
@@ -4573,7 +4587,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public List<Index> getReadableUniversalIndexes() {
-        return sanitizeIndexes(getRecordMetaData().getUniversalIndexes(), this::isIndexReadable);
+        return sanitizeIndexes(getRecordMetaData().getUniversalIndexes(), index -> getIndexState(index).isReadable());
     }
 
     /**
@@ -4584,7 +4598,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public List<Index> getEnabledUniversalIndexes() {
-        return sanitizeIndexes(getRecordMetaData().getUniversalIndexes(), index -> !isIndexDisabled(index));
+        return sanitizeIndexes(getRecordMetaData().getUniversalIndexes(), index -> !getIndexState(index).isDisabled());
     }
 
     /**
@@ -4707,7 +4721,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                          @Nonnull StringBuilder errMessageBuilder) {
         // Skip index rebuild if the index is on new record types. This may fail because of reusing an index name whose
         // state hasn't been cleared.
-        if (indexState != IndexState.DISABLED && areAllRecordTypesSince(recordTypes, oldMetaDataVersion)) {
+        if (!indexState.isDisabled() && areAllRecordTypesSince(recordTypes, oldMetaDataVersion)) {
             errMessageBuilder.append("rebuild index with no records");
             return rebuildIndexWithNoRecord(index, reason);
         }
@@ -4995,7 +5009,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (!indexesToBuildSince.containsKey(index) &&
                     !index.isUnique()) {
                 final IndexState indexState = getIndexState(index);
-                if (indexState == IndexState.READABLE_UNIQUE_PENDING || indexState.isWriteOnly()) {
+                if (indexState.isReadableUniquePending() || indexState.isWriteOnly()) {
                     final CompletableFuture<Void> uniquenessFuture = AsyncUtil.getAll(getRecordContext().removeCommitChecks(
                             commitCheck -> {
                                 if (commitCheck instanceof IndexUniquenessCommitCheck) {
@@ -5008,7 +5022,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             err -> err instanceof RecordIndexUniquenessViolation))
                             // Regardless, we want to clear any existing uniqueness violations on disk
                             .thenCompose(vignore -> getIndexMaintainer(index).clearUniquenessViolations());
-                    if (indexState == IndexState.READABLE_UNIQUE_PENDING) {
+                    if (indexState.isReadableUniquePending()) {
                         work.add(uniquenessFuture
                                 .thenCompose(vignore -> markIndexReadable(index, false))
                                 .thenApply(vignore2 -> null));
@@ -5195,7 +5209,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         && oldFormatVersion < SAVE_VERSION_WITH_RECORD_FORMAT_VERSION
                         && !useOldVersionFormat()) {
                     stateFuture = stateFuture.thenApply(state -> {
-                        if (IndexState.READABLE.equals(state)) {
+                        if (state != null && state.isReadable()) {
                             // Do not rebuild any version indexes while the format conversion is going on.
                             // Otherwise, the process moving the versions might race against the index
                             // build and some versions won't be indexed correctly.
@@ -5317,7 +5331,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public void vacuumReadableIndexesBuildData() {
         Map<Index, IndexState> indexStates = getAllIndexStates(); // also adds state to read conflicts
         for (Map.Entry<Index, IndexState> entry : indexStates.entrySet()) {
-            if (entry.getValue().equals(IndexState.READABLE)) {
+            if (entry.getValue().isReadable()) {
                 clearReadableIndexBuildData(entry.getKey());
             }
         }

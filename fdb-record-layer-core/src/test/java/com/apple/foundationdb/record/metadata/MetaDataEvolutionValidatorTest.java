@@ -30,6 +30,8 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.TestRecordsIdenticalTypesProto;
+import com.apple.foundationdb.record.TestRecordsMultidimensionalProto;
+import com.apple.foundationdb.record.TestRecordsSwapProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.evolution.TestHeaderAsGroupProto;
 import com.apple.foundationdb.record.evolution.TestMergedNestedTypesProto;
@@ -39,6 +41,7 @@ import com.apple.foundationdb.record.evolution.TestSelfReferenceUnspooledProto;
 import com.apple.foundationdb.record.evolution.TestSplitNestedTypesProto;
 import com.apple.foundationdb.record.evolution.TestUnmergedNestedTypesProto;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
+import com.apple.foundationdb.record.metadata.expressions.DimensionsKeyExpression;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.PrefixTextTokenizer;
@@ -46,6 +49,7 @@ import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.ParameterizedTestUtils;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
@@ -64,6 +68,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
@@ -1119,6 +1124,124 @@ class MetaDataEvolutionValidatorTest {
         fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
     }
 
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void renameFieldOnReplacedTypeWithIndexes(boolean deprecated) {
+        final RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+
+        // Mutate the original file change the following:
+        //  1. The MySimpleRecord type is renamed MySimpleRecord__Old
+        //  2. Two fields, num_value_3_indexed and num_value_2, are renamed on MySimpleRecord__Old
+        //  3. A new type, also named MySimpleRecord, is added with all the fields from the original MySimpleRecord
+        //  4. Update the RecordTypeUnion to account for the type name and new record type
+        final FileDescriptor mutatedFile = mutateFile(fileBuilder -> {
+            DescriptorProtos.DescriptorProto.Builder newType = DescriptorProtos.DescriptorProto.newBuilder()
+                    .setName("MySimpleRecord");
+
+            for (DescriptorProtos.DescriptorProto.Builder descriptorProto : fileBuilder.getMessageTypeBuilderList()) {
+                if (descriptorProto.getName().equals("MySimpleRecord")) {
+                    descriptorProto.setName("MySimpleRecord__Old");
+                    descriptorProto.getFieldList().forEach(newType::addField);
+                    for (DescriptorProtos.FieldDescriptorProto.Builder field : descriptorProto.getFieldBuilderList()) {
+                        if (field.getName().equals("num_value_3_indexed") || field.getName().equals("num_value_2")) {
+                            field.setName(field.getName() + "__old");
+                            if (deprecated) {
+                                field.getOptionsBuilder().setDeprecated(true);
+                            }
+                        }
+                    }
+                } else if (descriptorProto.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                    for (DescriptorProtos.FieldDescriptorProto.Builder fieldProto : descriptorProto.getFieldBuilderList()) {
+                        if (fieldProto.getTypeName().endsWith("MySimpleRecord")) {
+                            fieldProto.setTypeName("MySimpleRecord__Old");
+                            fieldProto.setName(fieldProto.getName() + "__Old");
+                        }
+                    }
+                    addField(descriptorProto)
+                            .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                            .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                            .setTypeName("MySimpleRecord")
+                            .setName("_MySimpleRecord");
+                }
+            }
+
+            fileBuilder.addMessageType(newType);
+        });
+        // Construct a meta-data object to match the new type
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, mutatedFile, metaData -> {
+            for (RecordMetaDataProto.RecordType.Builder recordType : metaData.getRecordTypesBuilderList()) {
+                if (recordType.getName().equals("MySimpleRecord")) {
+                    recordType.setName("MySimpleRecord__Old");
+                }
+            }
+            metaData.addRecordTypesBuilder()
+                    .setName("MySimpleRecord")
+                    .setPrimaryKey(Key.Expressions.field("rec_no").toKeyExpression())
+                    .setSinceVersion(metaData.getVersion());
+        });
+
+        // Should be invalid. The indexes that were previously on the old record type have been moved over to the new
+        // type
+        fieldRenameChecker.assertInvalidRenaming("new index removes record type", deprecated, metaData1, metaData2);
+
+        // Rename the record type in the references held by each index on the original MySimpleRecord.
+        // Note that the MySimpleRecord$num_value_3_indexed index also needs to update its field. While doing that,
+        // change the field name incorrectly, and validate that we catch that.
+        RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", index ->
+                index.toBuilder().clearRecordType().addRecordType("MySimpleRecord__Old").build());
+        metaData3 = replaceIndex(metaData3, "MySimpleRecord$num_value_unique", index ->
+                index.toBuilder().clearRecordType().addRecordType("MySimpleRecord__Old").build());
+        metaData3 = replaceIndex(metaData3, "MySimpleRecord$num_value_3_indexed", index ->
+                index.toBuilder().clearRecordType().addRecordType("MySimpleRecord__Old").setRootExpression(Key.Expressions.field("num_value_2__old").toKeyExpression()).build());
+
+        fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData3);
+
+        // Correct the field renaming on that final index
+        final RecordMetaData metaData4 = replaceIndex(metaData3, "MySimpleRecord$num_value_3_indexed", index ->
+                index.toBuilder().setRootExpression(Key.Expressions.field("num_value_3_indexed__old").toKeyExpression()).build());
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData4);
+    }
+
+    @Test
+    void swapTypesWithIndexesRequiresRenamingFields() {
+        final RecordMetaData metaData1 = RecordMetaData.build(TestRecordsSwapProto.getDescriptor());
+
+        // The two types, TypeAlpha and TypeBeta, have the same field names, but in different orders.
+        // Swapping the types should therefore be okay, but it will require renaming the referenced
+        // fields within the indexes.
+
+        final FileDescriptor mutatedDescriptor = mutateMessageType("Union", TestRecordsSwapProto.getDescriptor(), unionTypeBuilder -> {
+            for (DescriptorProtos.FieldDescriptorProto.Builder field : unionTypeBuilder.getFieldBuilderList()) {
+                // Swap the union descriptor fields for TypeAlpha and TypeBeta
+                if (field.getNumber() == TestRecordsSwapProto.Union._TYPEALPHA_FIELD_NUMBER) {
+                    field.setNumber(TestRecordsSwapProto.Union._TYPEBETA_FIELD_NUMBER);
+                } else if (field.getNumber() == TestRecordsSwapProto.Union._TYPEBETA_FIELD_NUMBER) {
+                    field.setNumber(TestRecordsSwapProto.Union._TYPEALPHA_FIELD_NUMBER);
+                }
+            }
+        });
+
+        // Initial evolution validation fails because the indexes all swap types (because their
+        // referenced type names still point to the old types)
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, mutatedDescriptor);
+        fieldRenameChecker.assertInvalidRenaming("new index removes record type", false, metaData1, metaData2);
+
+        // Fix the types on each index. This still fails to validate as the index root expressions will
+        // still use the incorrect names
+        RecordMetaData metaData3 = replaceIndex(metaData2, "TypeAlpha$bar", index ->
+                index.toBuilder().clearRecordType().addRecordType("TypeBeta").build());
+        metaData3 = replaceIndex(metaData3, "TypeBeta$bar", index ->
+                index.toBuilder().clearRecordType().addRecordType("TypeAlpha").build());
+        fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", false, metaData1, metaData3);
+
+        // Rename the fields referenced in the index. After that, the evolution should be allowed
+        RecordMetaData metaData4 = replaceIndex(metaData3, "TypeAlpha$bar", index ->
+                index.toBuilder().setRootExpression(Key.Expressions.field("baz").toKeyExpression()).build());
+        metaData4 = replaceIndex(metaData4, "TypeBeta$bar", index ->
+                index.toBuilder().setRootExpression(Key.Expressions.field("foo").toKeyExpression()).build());
+        fieldRenameChecker.assertValidRenaming(false, metaData1, metaData4);
+    }
+
     @Test
     void deprecateField() {
         FileDescriptor deprecatedFile = mutateField("MySimpleRecord", "str_value_indexed",
@@ -2142,12 +2265,20 @@ class MetaDataEvolutionValidatorTest {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         validateIndexMutation("index adds uniqueness constraint", metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
 
-        // Removing the uniqueness constraint is fine
+        // If we ignore the unique option, then it succeeds
         RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setIgnoredIndexOptions(Set.of(IndexOptions.UNIQUE_OPTION))
+                .build();
+        laxerValidator.validate(metaData1, metaData2);
+
+        // Removing the uniqueness constraint is fine
         RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", this::clearOptions);
         validator.validate(metaData2, metaData3);
+        laxerValidator.validate(metaData2, metaData3);
         RecordMetaData metaData4 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", indexProto -> changeOption(indexProto, IndexOptions.UNIQUE_OPTION, "false"));
         validator.validate(metaData2, metaData4);
+        laxerValidator.validate(metaData2, metaData4);
     }
 
     @Test
@@ -2204,8 +2335,16 @@ class MetaDataEvolutionValidatorTest {
         RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed",
                 indexProto -> changeOption(indexProto, IndexOptions.UNIQUE_OPTION, null));
         validator.validate(metaData2, metaData3);
-        validateIndexMutation("index option changed", metaData3, "MySimpleRecord$str_value_indexed",
-                indexProto -> changeOption(indexProto, "dummyOption", "dummyValue2"));
+
+        final UnaryOperator<RecordMetaDataProto.Index> dummyOptionMutation = indexProto -> changeOption(indexProto, "dummyOption", "dummyValue2");
+        validateIndexMutation("index option changed", metaData3, "MySimpleRecord$str_value_indexed", dummyOptionMutation);
+
+        // Ignore the unknown option completely. Validation should now pass
+        final MetaDataEvolutionValidator laxerValidator = validator.asBuilder()
+                .setIgnoredIndexOptions(Set.of("dummyOption"))
+                .build();
+        final RecordMetaData metaData4 = replaceIndex(metaData3, "MySimpleRecord$str_value_indexed", dummyOptionMutation);
+        laxerValidator.validate(metaData3, metaData4);
     }
 
     @Test
@@ -2275,6 +2414,45 @@ class MetaDataEvolutionValidatorTest {
     }
 
     @Test
+    void ignoreSomeButNotAllDisallowedChanges() {
+        final String indexName = "MyMultidimensionalRecord$(start, end)+domain_by_calendar";
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsMultidimensionalProto.getDescriptor());
+        RecordTypeBuilder typeBuilder = metaDataBuilder.getRecordType("MyMultidimensionalRecord");
+        typeBuilder.setPrimaryKey(Key.Expressions.field("rec_no"));
+        metaDataBuilder.addIndex(typeBuilder,
+                new Index(indexName,
+                        DimensionsKeyExpression.of(Key.Expressions.field("calendar_name"), Key.Expressions.concatenateFields("start_epoch", "end_epoch"), Key.Expressions.field("info").nest("rec_domain")),
+                        IndexTypes.MULTIDIMENSIONAL,
+                        Map.of(IndexOptions.RTREE_STORAGE, "BY_SLOT", IndexOptions.RTREE_USE_NODE_SLOT_INDEX, "false", IndexOptions.ALLOWED_FOR_QUERY_OPTION, "true")));
+        RecordMetaData metaData1 = metaDataBuilder.getRecordMetaData();
+
+        // Change three options. The two R-tree specific options are not allowed to change (unless we ignore them), while
+        // the "allowed for query" option can be arbitrarily modified.
+        // The error we get back should reflect that one of the two R-tree options changed, though it isn't strictly important which
+        RecordMetaData metaData2 = replaceIndex(metaData1, indexName, indexProto ->
+                changeOption(changeOption(changeOption(indexProto, IndexOptions.RTREE_STORAGE, "BY_NODE"), IndexOptions.RTREE_USE_NODE_SLOT_INDEX, "true"), IndexOptions.ALLOWED_FOR_QUERY_OPTION, "false"));
+        assertInvalid("rtree storage changed", metaData1, metaData2);
+
+        // Ignore one of the options. The error should reflect the change in the other option
+        MetaDataEvolutionValidator ignoreSlotIndexValidator = validator.asBuilder()
+                .setIgnoredIndexOptions(ImmutableSet.of(IndexOptions.RTREE_USE_NODE_SLOT_INDEX))
+                .build();
+        assertInvalid("rtree storage changed", ignoreSlotIndexValidator, metaData1, metaData2);
+
+        // Ignore the other option. The error should reflect the change in the first option now
+        MetaDataEvolutionValidator ignoreStorageValidator = validator.asBuilder()
+                .setIgnoredIndexOptions(ImmutableSet.of(IndexOptions.RTREE_STORAGE))
+                .build();
+        assertInvalid("rtree use node slot index changed", ignoreStorageValidator, metaData1, metaData2);
+
+        // Ignore both R-tree options. We should now validate.
+        MetaDataEvolutionValidator ignoreBothOptionsValidator = validator.asBuilder()
+                .setIgnoredIndexOptions(ImmutableSet.of(IndexOptions.RTREE_STORAGE, IndexOptions.RTREE_USE_NODE_SLOT_INDEX))
+                .build();
+        ignoreBothOptionsValidator.validate(metaData1, metaData2);
+    }
+
+    @Test
     void optionChangeAllowedWithCustomIndexValidatorRegistry() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", this::makeUnique);
@@ -2295,7 +2473,7 @@ class MetaDataEvolutionValidatorTest {
         }
 
         @Override
-        protected void validateChangedOptions(@Nonnull final Index oldIndex, @Nonnull final Set<String> changedOptions) {
+        public void validateChangedOptions(@Nonnull final Index oldIndex, @Nonnull final Set<String> changedOptions) {
             // Always say it's good to go
         }
     }

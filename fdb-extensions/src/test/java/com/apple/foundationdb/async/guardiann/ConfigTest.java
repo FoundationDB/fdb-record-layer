@@ -37,6 +37,7 @@ class ConfigTest {
         final Metric metric = Metric.COSINE_METRIC;
         final int primaryClusterMin = Config.DEFAULT_PRIMARY_CLUSTER_MIN + 1;
         final int primaryClusterMax = Config.DEFAULT_PRIMARY_CLUSTER_MAX + 1;
+        final int primaryClusterHardMax = Config.DEFAULT_PRIMARY_CLUSTER_HARD_MAX + 1;
         final int underreplicatedPrimaryClusterMax = Config.DEFAULT_UNDERREPLICATED_PRIMARY_CLUSTER_MAX + 1;
         final int replicatedClusterMaxWrites = Config.DEFAULT_REPLICATED_CLUSTER_MAX_WRITES + 1;
         final int replicatedClusterTarget = Config.DEFAULT_REPLICATED_CLUSTER_TARGET + 1;
@@ -71,6 +72,7 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.metric()).isNotSameAs(metric);
         Assertions.assertThat(defaultConfig.primaryClusterMin()).isNotEqualTo(primaryClusterMin);
         Assertions.assertThat(defaultConfig.primaryClusterMax()).isNotEqualTo(primaryClusterMax);
+        Assertions.assertThat(defaultConfig.primaryClusterHardMax()).isNotEqualTo(primaryClusterHardMax);
         Assertions.assertThat(defaultConfig.underreplicatedPrimaryClusterMax()).isNotEqualTo(underreplicatedPrimaryClusterMax);
         Assertions.assertThat(defaultConfig.replicatedClusterMaxWrites()).isNotEqualTo(replicatedClusterMaxWrites);
         Assertions.assertThat(defaultConfig.replicatedClusterTarget()).isNotEqualTo(replicatedClusterTarget);
@@ -105,6 +107,7 @@ class ConfigTest {
                         .setMetric(metric)
                         .setPrimaryClusterMin(primaryClusterMin)
                         .setPrimaryClusterMax(primaryClusterMax)
+                        .setPrimaryClusterHardMax(primaryClusterHardMax)
                         .setUnderreplicatedPrimaryClusterMax(underreplicatedPrimaryClusterMax)
                         .setReplicatedClusterMaxWrites(replicatedClusterMaxWrites)
                         .setReplicatedClusterTarget(replicatedClusterTarget)
@@ -138,6 +141,7 @@ class ConfigTest {
         Assertions.assertThat(newConfig.metric()).isSameAs(metric);
         Assertions.assertThat(newConfig.primaryClusterMin()).isEqualTo(primaryClusterMin);
         Assertions.assertThat(newConfig.primaryClusterMax()).isEqualTo(primaryClusterMax);
+        Assertions.assertThat(newConfig.primaryClusterHardMax()).isEqualTo(primaryClusterHardMax);
         Assertions.assertThat(newConfig.underreplicatedPrimaryClusterMax()).isEqualTo(underreplicatedPrimaryClusterMax);
         Assertions.assertThat(newConfig.replicatedClusterMaxWrites()).isEqualTo(replicatedClusterMaxWrites);
         Assertions.assertThat(newConfig.replicatedClusterTarget()).isEqualTo(replicatedClusterTarget);
@@ -172,7 +176,9 @@ class ConfigTest {
     void testEqualsHashCodeAndToString() {
         final Config config1 = Guardiann.newConfigBuilder().build(NUM_DIMENSIONS);
         final Config config2 = Guardiann.newConfigBuilder().build(NUM_DIMENSIONS);
-        final Config config3 = Guardiann.newConfigBuilder().setPrimaryClusterMax(4).build(NUM_DIMENSIONS);
+        // collapseMinDuplicates must stay below primaryClusterMax (Config invariant), so lower it alongside the cap.
+        final Config config3 = Guardiann.newConfigBuilder().setPrimaryClusterMax(4).setCollapseMinDuplicates(3)
+                .build(NUM_DIMENSIONS);
 
         Assertions.assertThat(config1.hashCode()).isEqualTo(config2.hashCode());
         Assertions.assertThat(config1).isEqualTo(config2);
@@ -191,5 +197,26 @@ class ConfigTest {
                 .isInstanceOf(IllegalArgumentException.class);
         Assertions.assertThatThrownBy(() -> Guardiann.defaultConfig(-1))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void testPrimaryClusterHardMaxMustExceedMax() {
+        // The hard cap must sit strictly above the split threshold; equal is not enough (it would back-pressure before
+        // the normal split ever triggers). collapseMinDuplicates is kept below primaryClusterMax so that the collapse
+        // invariant passes and the hard-cap invariant is the one exercised here.
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setPrimaryClusterMax(100).setCollapseMinDuplicates(50).setPrimaryClusterHardMax(100)
+                        .build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setPrimaryClusterMax(100).setCollapseMinDuplicates(50).setPrimaryClusterHardMax(99)
+                        .build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setPrimaryClusterMax(100).setCollapseMinDuplicates(50).setPrimaryClusterHardMax(101)
+                        .build(NUM_DIMENSIONS)
+                        .primaryClusterHardMax())
+                .isEqualTo(101);
     }
 }

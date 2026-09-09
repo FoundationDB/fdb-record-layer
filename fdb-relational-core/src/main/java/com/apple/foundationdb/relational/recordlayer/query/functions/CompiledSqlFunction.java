@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query.functions;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
@@ -34,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
@@ -44,13 +44,11 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.apple.foundationdb.relational.util.Assert;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -93,26 +91,18 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
 
     @Nonnull
     @Override
-    public RelationalExpression encapsulate(@Nonnull final List<? extends Typed> arguments) {
+    public RelationalExpression encapsulate(@Nonnull final CallSiteArguments arguments) {
         if (parametersCorrelation.isEmpty()) {
             // this should never happen.
             Assert.thatUnchecked(arguments.isEmpty(), ErrorCode.INTERNAL_ERROR,
                     "unexpected parameterless function invocation with non-zero arguments");
             return body;
         }
-        return encapsulateFromArgumentValues(resolveParameterValuesFromArguments(arguments));
-    }
-
-    @Nonnull
-    @Override
-    public RelationalExpression encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
-        if (parametersCorrelation.isEmpty()) {
-            // this should never happen.
-            Assert.thatUnchecked(namedArguments.isEmpty(), ErrorCode.INTERNAL_ERROR,
-                    "unexpected parameterless function invocation with non-zero arguments");
-            return body;
+        if (arguments.isNamed()) {
+            return encapsulateFromArgumentValues(
+                    resolveParameterValuesFromArguments(arguments.asNamedArguments().namedArguments()));
         }
-        return encapsulateFromArgumentValues(resolveParameterValuesFromArguments(namedArguments));
+        return encapsulateFromArgumentValues(resolveParameterValuesFromArguments(arguments.getArgumentsList()));
     }
 
     private RelationalExpression encapsulateFromArgumentValues(@Nonnull final List<Value> resolvedArgumentValues) {
@@ -163,7 +153,7 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
     @Nonnull
     private static Quantifier rangeOfOnePlan() {
         final var rangeFunction = new RangeValue.RangeFn();
-        final var rangeValue = Assert.castUnchecked(rangeFunction.encapsulate(ImmutableList.of(LiteralValue.ofScalar(1L))),
+        final var rangeValue = Assert.castUnchecked(rangeFunction.encapsulate(CallSiteArguments.ofPositional(LiteralValue.ofScalar(1L))),
                 StreamingValue.class);
         final var tableFunctionExpression = new TableFunctionExpression(rangeValue);
         return Quantifier.forEach(Reference.initialOf(tableFunctionExpression));

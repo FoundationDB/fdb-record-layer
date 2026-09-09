@@ -1,7 +1,7 @@
 ω
 ;
 showcasing-tests'EXPLAIN select * from t1 where id > 15;Ή
- £ωΐ- Εi(0εί8@2SCAN([IS T1, [GREATER_THAN promote(@c7 AS LONG)]])θdigraph G {
+’µ€- ώ?(0¦°8@2SCAN([IS T1, [GREATER_THAN promote(@c7 AS LONG)]])θdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

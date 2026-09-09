@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
@@ -115,7 +114,6 @@ public class TableFunctionExpression extends AbstractRelationalExpressionWithout
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
-    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(Object other) {
         return semanticEquals(other);

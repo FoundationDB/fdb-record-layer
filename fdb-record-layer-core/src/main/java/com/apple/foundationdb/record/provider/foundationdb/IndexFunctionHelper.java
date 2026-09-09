@@ -95,7 +95,7 @@ public class IndexFunctionHelper {
             }
         }
         return indexesForRecordTypes(store, recordTypeNames)
-                .filter(store::isIndexReadable)
+                .filter(index -> store.getIndexState(index).isReadable())
                 .map(store::getIndexMaintainer)
                 .filter(i -> i.canEvaluateRecordFunction(function))
                 // Prefer the one that does it in the fewest number of columns.
@@ -114,7 +114,7 @@ public class IndexFunctionHelper {
             }
         }
         return indexesForRecordTypes(store, recordTypeNames)
-                .filter(store::isIndexReadable)
+                .filter(index -> store.getIndexState(index).isReadable())
                 .filter(indexFilter::isQueryable)
                 .map(store::getIndexMaintainer)
                 .filter(i -> i.canEvaluateAggregateFunction(function))
@@ -141,7 +141,7 @@ public class IndexFunctionHelper {
             @Nonnull IndexQueryabilityFilter indexFilter) {
         Verify.verify(functionCall.isGroupingPermutable());
         return indexesForRecordTypes(store, recordTypeNames)
-                .filter(store::isIndexReadable)
+                .filter(index -> store.getIndexState(index).isReadable())
                 .filter(indexFilter::isQueryable)
                 .flatMap(index ->
                         functionCall.enumerateIndexAggregateFunctionCandidates(index.getName())

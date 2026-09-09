@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 
 /**
  * A functional interface that provides an encapsulation of a runtime computation against a set of arguments.
@@ -31,11 +30,11 @@ import java.util.List;
  */
 public interface EncapsulationFunction<T extends Typed> {
     /**
-     * Produces a {@link Typed} object that is able to carry out a computation against a list of arguments.
+     * Produces a {@link Typed} object that is able to carry out a computation against a set of arguments.
      *
      * @param builtInFunction The function that refers to the computation.
      * @param arguments The arguments needed by the computation.
-     * @return A {@link Typed} object capable of doing a runtime computation against a list of arguments.
+     * @return A {@link Typed} object capable of doing a runtime computation against the call-site arguments.
      */
-    T encapsulate(@Nonnull BuiltInFunction<T> builtInFunction, List<? extends Typed> arguments);
+    T encapsulate(@Nonnull BuiltInFunction<T> builtInFunction, @Nonnull CallSiteArguments arguments);
 }

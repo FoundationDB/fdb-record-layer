@@ -8,18 +8,17 @@ runs:
   using: "composite"
   steps:
     - name: Setup JDK
-      uses: actions/setup-java@v5.2.0
+      uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
       with:
         java-version: '21'
         distribution: 'temurin'
     - name: Setup Gradle
-      # Use setup-gradle v6.1.0
-      uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e
+      uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       with:
         # Use the MIT-licensed cache provider
         cache-provider: basic
     - name: Setup Python
       id: setup-python
-      uses: actions/setup-python@v6.2.0
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: '3.13'

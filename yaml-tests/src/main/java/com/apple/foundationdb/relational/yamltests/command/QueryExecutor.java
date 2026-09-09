@@ -310,9 +310,7 @@ public class QueryExecutor {
                                                            final @Nonnull YamlConnection connection) throws SQLException {
         s.setMaxRows(FORCED_MAX_ROWS);
         Object result = executeStatement(s, statementHasQuery, queryString);
-        if (result instanceof RelationalResultSet) {
-            @SuppressWarnings("PMD.CloseResource")
-            RelationalResultSet resultSet = (RelationalResultSet)result;
+        if (result instanceof @SuppressWarnings("PMD.CloseResource") RelationalResultSet resultSet) {
             List<RelationalResultSet> results = new ArrayList<>();
             final RelationalResultSetMetaData metadata = resultSet.getMetaData(); // The first metadata will be used for all
             final boolean hasResult = resultSet.next(); // Initialize result set value retrieval. Has only one row.

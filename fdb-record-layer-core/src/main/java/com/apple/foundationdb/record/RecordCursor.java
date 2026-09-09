@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.cursors.AsyncIteratorCursor;
@@ -697,7 +696,6 @@ public interface RecordCursor<T> extends AutoCloseable {
 
         Function<T, CompletableFuture<Optional<T>>> mapper = new Function<T, CompletableFuture<Optional<T>>>() {
             @Override
-            @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "https://github.com/spotbugs/spotbugs/issues/552")
             public CompletableFuture<Optional<T>> apply(T t) {
                 for (StoreTimer.Count in : inSet) {
                     timer.increment(in);

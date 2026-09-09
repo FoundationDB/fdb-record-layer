@@ -308,7 +308,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
                 // Need to manually rebuild index in this case.
                 Index index = recordStore.getRecordMetaData().getIndex("record_count");
                 recordStore.rebuildIndex(index).get();
-                assertThat(recordStore.isIndexReadable(index), is(true));
+                assertThat(recordStore.getIndexState(index).isReadable(), is(true));
             }
 
             assertEquals(100, recordStore.getSnapshotRecordCount().join().longValue(), "should see all records");
@@ -338,7 +338,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
                 // Need to manually rebuild index in this case.
                 Index index = recordStore.getRecordMetaData().getIndex("record_count");
                 recordStore.rebuildIndex(index).get();
-                assertThat(recordStore.isIndexReadable(index), is(true));
+                assertThat(recordStore.getIndexState(index).isReadable(), is(true));
             }
 
             assertUngroupedCount(132);

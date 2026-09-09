@@ -21,30 +21,34 @@
 package com.apple.foundationdb.async.guardiann;
 
 /**
- * SIFT-specific test fixtures: the on-disk dataset paths and thin wrappers that bind those paths to the
- * dataset-agnostic loaders in {@link TestHelpers}. Anything here that has a "Sift" in its name is just a SIFT-bound
- * convenience over a generic {@code TestHelpers} method; tests that work on another dataset should call the generic
- * {@code TestHelpers} loaders directly with their own {@code .fvecs}/{@code .ivecs} paths.
+ * SIFT-specific test fixtures: the on-disk dataset paths, bound to the dataset-agnostic loaders in
+ * {@link VecsDatasetLoaders}. Anything here that has a "Sift" in its name is just a SIFT-bound path constant fed to a
+ * generic {@code VecsDatasetLoaders} loader; tests that work on another dataset should call the generic
+ * {@code VecsDatasetLoaders} loaders directly with their own {@code .fvecs}/{@code .ivecs} paths. Lives in
+ * {@code testFixtures} so both the fdb-extensions guardiann tests and the record-layer's vector-index tests can share
+ * the same dataset locations.
  */
-class SiftTestHelpers {
+public class SiftTestHelpers {
     /** Path to the SIFT-small base vectors {@code .fvecs} file (10k × 128). Produced by the
      *  gradle {@code extractSiftSmall} task. */
-    static final String SIFT_SMALL_BASE_PATH = ".out/extracted/siftsmall/siftsmall_base.fvecs";
+    public static final String SIFT_SMALL_BASE_PATH = ".out/extracted/siftsmall/siftsmall_base.fvecs";
 
     /** Path to the SIFT-small query vectors {@code .fvecs} file (100 × 128). */
-    static final String SIFT_SMALL_QUERY_PATH = ".out/extracted/siftsmall/siftsmall_query.fvecs";
+    public static final String SIFT_SMALL_QUERY_PATH = ".out/extracted/siftsmall/siftsmall_query.fvecs";
 
     /** Path to the SIFT-small ground-truth top-k indices {@code .ivecs} file. */
-    static final String SIFT_SMALL_GROUNDTRUTH_PATH = ".out/extracted/siftsmall/siftsmall_groundtruth.ivecs";
+    public static final String SIFT_SMALL_GROUNDTRUTH_PATH = ".out/extracted/siftsmall/siftsmall_groundtruth.ivecs";
 
     /** Path to the SIFT-1M base vectors {@code .fvecs} file (1M × 128). Downloaded by gradle to
      *  {@code .out/downloads/sift_base.fvecs}. */
-    static final String SIFT_1M_BASE_PATH = ".out/downloads/sift_base.fvecs";
+    public static final String SIFT_1M_BASE_PATH = ".out/downloads/sift_base.fvecs";
 
     /** Path to the SIFT-1M query vectors {@code .fvecs} file (10k × 128). */
-    static final String SIFT_1M_QUERY_PATH = ".out/downloads/sift_query.fvecs";
+    public static final String SIFT_1M_QUERY_PATH = ".out/downloads/sift_query.fvecs";
 
     /** Path to the SIFT-1M ground-truth top-k indices {@code .ivecs} file. */
-    @SuppressWarnings("unused")
-    static final String SIFT_1M_GROUNDTRUTH_PATH = ".out/downloads/sift_groundtruth.ivecs";
+    public static final String SIFT_1M_GROUNDTRUTH_PATH = ".out/downloads/sift_groundtruth.ivecs";
+
+    private SiftTestHelpers() {
+    }
 }

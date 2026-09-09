@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.base.Equivalence;
@@ -78,7 +77,6 @@ public class SetMatcher<T> implements CollectionMatcher<T> {
     }
 
     @Nonnull
-    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     @SuppressWarnings({"java:S3958", "UnstableApiUsage"})
     public Stream<PlannerBindings> bindMatchesForPermutation(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final List<Equivalence.Wrapper<T>> permutation) {
         Stream<PlannerBindings> bindingStream = Stream.of(PlannerBindings.empty());

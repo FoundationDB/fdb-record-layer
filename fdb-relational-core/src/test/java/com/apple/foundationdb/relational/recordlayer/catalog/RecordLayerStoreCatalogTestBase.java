@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.catalog.SchemaExistsBehavior;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -91,7 +92,7 @@ public abstract class RecordLayerStoreCatalogTestBase {
             for (int i = 0; i < n; i++) {
                 Schema schema = template.generateSchema("/TEST/test_database_id" + i / 2, "test_schema_name" + i);
                 storeCatalog.createDatabase(txn, URI.create(schema.getDatabaseName()));
-                storeCatalog.saveSchema(txn, schema, false);
+                storeCatalog.saveSchema(txn, schema, false, SchemaExistsBehavior.ERROR);
             }
             txn.commit();
         }
@@ -142,7 +143,7 @@ public abstract class RecordLayerStoreCatalogTestBase {
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
-            storeCatalog.saveSchema(txn, schema1, false);
+            storeCatalog.saveSchema(txn, schema1, false, SchemaExistsBehavior.ERROR);
             txn.commit();
         }
         // check schema exists!
@@ -165,7 +166,7 @@ public abstract class RecordLayerStoreCatalogTestBase {
         // save record in FDB
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, schema1.getSchemaTemplate());
-            storeCatalog.saveSchema(txn, schema1, true);
+            storeCatalog.saveSchema(txn, schema1, true, SchemaExistsBehavior.ERROR);
             txn.commit();
         }
         // check schema exists!
@@ -187,8 +188,8 @@ public abstract class RecordLayerStoreCatalogTestBase {
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
-            storeCatalog.saveSchema(txn, schema1, false);
-            storeCatalog.saveSchema(txn, schema2, false);
+            storeCatalog.saveSchema(txn, schema1, false, SchemaExistsBehavior.ERROR);
+            storeCatalog.saveSchema(txn, schema2, false, SchemaExistsBehavior.ERROR);
             txn.commit();
         }
 
@@ -227,7 +228,7 @@ public abstract class RecordLayerStoreCatalogTestBase {
         try (Transaction txn = new RecordContextTransaction(fdb.openContext())) {
             storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, schema1.getSchemaTemplate());
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
-            storeCatalog.saveSchema(txn, schema1, false);
+            storeCatalog.saveSchema(txn, schema1, false, SchemaExistsBehavior.ERROR);
             txn.commit();
         }
 
@@ -246,8 +247,8 @@ public abstract class RecordLayerStoreCatalogTestBase {
             storeCatalog.createDatabase(txn, URI.create(schema1.getDatabaseName()));
             storeCatalog.createDatabase(txn, URI.create(schema2.getDatabaseName()));
             storeCatalog.getSchemaTemplateCatalog().createTemplate(txn, schema1.getSchemaTemplate());
-            storeCatalog.saveSchema(txn, schema1, false);
-            storeCatalog.saveSchema(txn, schema2, false);
+            storeCatalog.saveSchema(txn, schema1, false, SchemaExistsBehavior.ERROR);
+            storeCatalog.saveSchema(txn, schema2, false, SchemaExistsBehavior.ERROR);
             txn.commit();
         }
         // list databases

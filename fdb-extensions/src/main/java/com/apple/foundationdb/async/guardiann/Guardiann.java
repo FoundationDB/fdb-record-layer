@@ -272,12 +272,15 @@ public class Guardiann {
      * @param newPrimaryKey the unique {@link Tuple} primary key for the new vector being inserted
      * @param newVector the {@link RealVector} data to be inserted
      * @param additionalValues additional values to be associated with the new vector/record, or {@code null}
+     * @param maintainInTransaction when {@code true}, drain one deferred maintenance task inside this writing
+     *        transaction (and skip hard-cap back-pressure); when {@code false} tasks accumulate for a background merge
      * @return a {@link CompletableFuture} that completes when the insertion operation is finished
      */
     @Nonnull
     public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple newPrimaryKey,
-                                          @Nonnull final RealVector newVector, @Nullable final Tuple additionalValues) {
-        return insert().insert(transaction, newPrimaryKey, newVector, additionalValues);
+                                          @Nonnull final RealVector newVector, @Nullable final Tuple additionalValues,
+                                          final boolean maintainInTransaction) {
+        return insert().insert(transaction, newPrimaryKey, newVector, additionalValues, maintainInTransaction);
     }
 
     /**
@@ -290,11 +293,37 @@ public class Guardiann {
      * @param transaction the {@link Transaction} context for all database operations
      * @param primaryKey the unique {@link Tuple} primary key of the vector to delete
      * @param vector the {@link RealVector} data of the vector being deleted
+     * @param maintainInTransaction when {@code true}, drain one deferred maintenance task inside this writing
+     *        transaction; when {@code false} tasks accumulate for a background merge
      * @return a {@link CompletableFuture} that completes when the deletion is finished
      */
     @Nonnull
     public CompletableFuture<Void> delete(@Nonnull final Transaction transaction, @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector) {
-        return delete().delete(transaction, primaryKey, vector);
+                                          @Nonnull final RealVector vector, final boolean maintainInTransaction) {
+        return delete().delete(transaction, primaryKey, vector, maintainInTransaction);
+    }
+
+    /**
+     * Drains up to {@code numTasks} of this structure's queued deferred maintenance tasks, running them inline within
+     * {@code transaction}. Stops draining before the next task once {@code System.currentTimeMillis()} reaches
+     * {@code deadlineMillis} (at least one task still runs when the queue is non-empty). Lets a background merge bound
+     * how long it drains within a single transaction by wall-clock time rather than only by task count.
+     * Pass {@link Long#MAX_VALUE} for no time bound.
+     *
+     * @param transaction the {@link Transaction} to fetch and run the tasks within
+     * @param numTasks the maximum number of queued tasks to run
+     * @param deadlineMillis an absolute wall-clock deadline (epoch millis) after which no further task is started
+     * @return a {@link CompletableFuture} of the number of tasks actually executed ({@code 0} if the structure holds
+     *         none, or has never been initialized)
+     */
+    @Nonnull
+    public CompletableFuture<Integer> executeDeferredTasks(@Nonnull final Transaction transaction, final int numTasks,
+                                                           final long deadlineMillis) {
+        final Primitives primitives = getLocator().primitives();
+        return primitives.fetchAccessInfo(transaction)
+                .thenCompose(accessInfo ->
+                        accessInfo == null
+                        ? CompletableFuture.completedFuture(0)
+                        : primitives.executeDeferredTasks(transaction, accessInfo, numTasks, deadlineMillis));
     }
 }

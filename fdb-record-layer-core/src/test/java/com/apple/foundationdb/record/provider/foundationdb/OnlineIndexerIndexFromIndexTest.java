@@ -317,7 +317,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 recordStore.markIndexWriteOnly(srcIndex).join();
                 indexBuilder.rebuildIndex(recordStore);
                 context.commit();
-                assertFalse(recordStore.isIndexReadable(srcIndex));
+                assertFalse(recordStore.getIndexState(srcIndex).isReadable());
             }
         }
 
@@ -984,7 +984,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 recordStore.markIndexWriteOnly(srcIndex).join();
                 indexBuilder.rebuildIndex(recordStore);
                 context.commit();
-                assertFalse(recordStore.isIndexReadable(srcIndex));
+                assertFalse(recordStore.getIndexState(srcIndex).isReadable());
             }
         }
 
@@ -1133,7 +1133,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
             assertTrue(e.getMessage().contains("This index was partly built, and blocked"));
         }
         try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.isIndexWriteOnly(tgtIndex));
+            assertTrue(recordStore.getIndexState(tgtIndex).isWriteOnly());
             context.commit();
         }
 

@@ -1,5 +1,5 @@
 /*
- * IndexGenerator.java
+ * MaterializedViewIndexGenerator.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,813 +21,161 @@
 package com.apple.foundationdb.relational.recordlayer.query.ddl;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.FunctionNames;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
-import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.Column;
-import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.IndexPredicateExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.CardinalityValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.ValueWithChild;
-import com.apple.foundationdb.record.query.plan.cascades.values.Values;
-import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
-import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
-import com.apple.foundationdb.relational.recordlayer.query.FieldValueTrieNode;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.Lists;
-import com.google.common.collect.PeekingIterator;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.IdentityHashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
-import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
-import static com.apple.foundationdb.record.metadata.Key.Expressions.empty;
-import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
-import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty.referencesAndDependencies;
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
 
 /**
- * Generates a {@link KeyExpression} from a given query plan.
+ * Builds a {@link RecordLayerIndex} from the plan of an index-defining query, out of what three passes produce:
+ * {@link QuantifierValues} maps the plan's quantifiers, {@link IndexSpec} collects and validates what the index is made
+ * of, and {@link ValueToKeyExpressionVisitor} turns the projection into the key.
  */
-@SuppressWarnings({"PMD.TooManyStaticImports", "OptionalUsedAsFieldOrParameterType"})
 @API(API.Status.EXPERIMENTAL)
-public final class MaterializedViewIndexGenerator {
-
-    private static final String BITMAP_BIT_POSITION = "bitmap_bit_position";
-    private static final String BITMAP_BUCKET_OFFSET = "bitmap_bucket_offset";
-
-    /**
-     * Map from each correlation in the query plan to its list of results.
-     */
-    @Nonnull
-    private final IdentityHashMap<CorrelationIdentifier, Value> correlatedKeyExpressions = new IdentityHashMap<>();
-
-    @Nonnull
-    private final List<RelationalExpression> relationalExpressions;
+public final class MaterializedViewIndexGenerator implements IndexGenerator {
 
     @Nonnull
     private final RelationalExpression relationalExpression;
 
-    private final boolean useLegacyBasedExtremumEver;
+    @Nonnull
+    private final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder;
 
-    private MaterializedViewIndexGenerator(@Nonnull RelationalExpression relationalExpression, boolean useLegacyBasedExtremumEver) {
-        collectQuantifiers(relationalExpression);
-        final var partialOrder = referencesAndDependencies().evaluate(Reference.initialOf(relationalExpression));
-        relationalExpressions =
-                TopologicalSort.anyTopologicalOrderPermutation(partialOrder)
-                        .orElseThrow(() -> new RelationalException("graph has cycles", ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException())
-                        .stream()
-                        .map(Reference::get)
-                        .collect(toList());
+    @Nonnull
+    private final String indexName;
+
+    @Nonnull
+    private final IndexGenerationOptions options;
+
+    private MaterializedViewIndexGenerator(@Nonnull RelationalExpression relationalExpression,
+                                           @Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
+                                           @Nonnull String indexName,
+                                           @Nonnull IndexGenerationOptions options) {
         this.relationalExpression = relationalExpression;
-        this.useLegacyBasedExtremumEver = useLegacyBasedExtremumEver;
+        this.schemaTemplateBuilder = schemaTemplateBuilder;
+        this.indexName = indexName;
+        this.options = options;
+    }
+
+    /**
+     * A generator for one index definition.
+     *
+     * @param relationalExpression the plan of the index-defining query
+     * @param schemaTemplateBuilder the metadata the index is added to
+     * @param indexName the name the definition gives the index
+     * @param options what the definition asks of the index beyond its key
+     *
+     * @return a generator for that definition
+     */
+    @Nonnull
+    public static MaterializedViewIndexGenerator newInstance(@Nonnull RelationalExpression relationalExpression,
+                                                            @Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
+                                                            @Nonnull String indexName,
+                                                            @Nonnull IndexGenerationOptions options) {
+        return new MaterializedViewIndexGenerator(relationalExpression, schemaTemplateBuilder, indexName, options);
     }
 
     @Nonnull
-    public RecordLayerIndex.Builder generate(@Nonnull RecordLayerSchemaTemplate.Builder schemaTemplateBuilder, @Nonnull String indexName,
-                                             boolean isUnique, boolean containsNullableArray, boolean generateKeyValueExpressionWithEmptyKey) {
-        final String recordTypeName = getRecordTypeName();
-        // Have to use the storage name here because the index generator uses it
-        final Type.Record tableType = schemaTemplateBuilder.findTableByStorageName(recordTypeName).getType();
+    @Override
+    public RecordLayerIndex.Builder generate() {
+        final var spec = IndexSpec.collect(relationalExpression,
+                QuantifierValues.collect(relationalExpression));
+        spec.checkValidity();
+
+        final var translation = translateToKeyExpression(spec);
+        final var indexType = translation.indexType();
+        // the record layer indexes by storage name
+        final var tableType = schemaTemplateBuilder.findTableByStorageName(spec.recordTypeName()).getType();
+
         final var indexBuilder = RecordLayerIndex.newBuilder()
                 .setName(indexName)
                 .setTableType(tableType)
-                .setUnique(isUnique);
-
-        collectQuantifiers(relationalExpression);
-
-        final var partialOrder = referencesAndDependencies().evaluate(Reference.initialOf(relationalExpression));
-        final var expressionRefs =
-                TopologicalSort.anyTopologicalOrderPermutation(partialOrder)
-                        .orElseThrow(() -> new RecordCoreException("graph has cycles")).stream().map(Reference::get).collect(toList());
-
-        checkValidity(expressionRefs);
-
-        // add predicates
-        final var predicate = getTopLevelPredicate(Lists.reverse(expressionRefs));
+                .setUnique(options.unique())
+                .setIndexType(indexType);
+        final var predicate = spec.predicate();
         if (predicate != null) {
             indexBuilder.setPredicate(IndexPredicate.fromQueryPredicate(predicate).toProto());
         }
 
-        final var simplifiedValues = collectResultValues(relationalExpression.getResultValue());
-
-        final var unsupportedAggregates = simplifiedValues.stream().filter(sv -> sv instanceof StreamableAggregateValue && !(sv instanceof IndexableAggregateValue)).collect(toList());
-        Assert.thatUnchecked(unsupportedAggregates.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION,
-                () -> String.format(Locale.ROOT, "Unsupported aggregate index definition containing non-indexable aggregation (%s), consider using a value index on the aggregated column instead.", unsupportedAggregates.stream().map(Objects::toString).collect(joining(","))));
-
-        Assert.thatUnchecked(simplifiedValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof IndexableAggregateValue || sv instanceof ArithmeticValue || sv instanceof CardinalityValue));
-        final var aggregateValues = simplifiedValues.stream().filter(sv -> sv instanceof IndexableAggregateValue).collect(toList());
-        final var fieldValues = simplifiedValues.stream().filter(sv -> !(sv instanceof IndexableAggregateValue)).collect(toList());
-        final var versionValues = simplifiedValues.stream().filter(sv -> sv instanceof FieldValue && sv.getResultType().equals(PseudoField.ROW_VERSION.getType())).collect(toList());
-        Assert.thatUnchecked(versionValues.size() <= 1, ErrorCode.UNSUPPORTED_OPERATION, "Cannot have index with more than one version column");
-        final Map<Value, String> orderingFunctions = new IdentityHashMap<>();
-        final var orderByValues = getOrderByValues(relationalExpression, orderingFunctions);
-        if (aggregateValues.isEmpty()) {
-            indexBuilder.setIndexType(versionValues.isEmpty() ? IndexTypes.VALUE : IndexTypes.VERSION);
-            Assert.thatUnchecked(orderByValues.stream().allMatch(sv -> sv instanceof FieldValue || sv instanceof ArithmeticValue || sv instanceof CardinalityValue), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, order by must be a subset of projection list");
-            if (fieldValues.size() > 1) {
-                Assert.thatUnchecked(!orderByValues.isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, value indexes must have an order by clause at the top level");
-            }
-            final var reordered = reorderValues(fieldValues, orderByValues);
-            final var expression = generate(reordered, orderingFunctions);
-            var splitPoint = orderByValues.size();
-            if (orderByValues.isEmpty() && !generateKeyValueExpressionWithEmptyKey) {
-                splitPoint = -1;
-            }
-            if (splitPoint != -1 && splitPoint < fieldValues.size()) {
-                indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(keyWithValue(expression, splitPoint).toKeyExpression(), tableType, containsNullableArray)));
-            } else {
-                indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(expression.toKeyExpression(), tableType, containsNullableArray)));
-            }
+        var keyExpression = translation.keyExpression();
+        if (spec.projection().aggregate() == null) {
+            keyExpression = splitKeyFromValue(spec, keyExpression, options.emptyKeyAllowed());
         } else {
-            Assert.thatUnchecked(aggregateValues.size() == 1, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, multiple group by aggregations found");
-            final var aggregateValue = (AggregateValue) aggregateValues.get(0);
-            int aggregateOrderIndex = -1;
-            if (!orderByValues.isEmpty()) {
-                boolean inOrder = true;
-                Iterator<Value> fieldIterator = fieldValues.iterator();
-                for (int i = 0; i < orderByValues.size(); i++) {
-                    Value value = orderByValues.get(i);
-                    if (value.equals(aggregateValue)) {
-                        if (aggregateOrderIndex >= 0) {
-                            Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, aggregate can appear only once in ordering clause");
-                        }
-                        aggregateOrderIndex = i;
-                    } else if (fieldIterator.hasNext()) {
-                        Value expectedField = fieldIterator.next();
-                        if (!value.equals(expectedField)) {
-                            inOrder = false;
-                            break;
-                        }
-                    } else {
-                        inOrder = false;
-                        break;
-                    }
-                }
-                if (fieldIterator.hasNext() || !inOrder) {
-                    Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, attempt to create a covering aggregate index");
-                }
-            }
-            final Optional<KeyExpression> groupingKeyExpression = fieldValues.isEmpty() ? Optional.empty() : Optional.of(generate(fieldValues, orderingFunctions));
-            final var indexExpressionAndType = generateAggregateIndexKeyExpression(aggregateValue, groupingKeyExpression);
-            final String indexType = Objects.requireNonNull(indexExpressionAndType.getRight());
-            indexBuilder.setIndexType(indexType);
-            indexBuilder.setKeyExpression(KeyExpression.fromProto(NullableArrayUtils.wrapArray(indexExpressionAndType.getLeft().toKeyExpression(), tableType, containsNullableArray)));
-            if (IndexTypes.PERMUTED_MIN.equals(indexType) || IndexTypes.PERMUTED_MAX.equals(indexType)) {
-                int permutedSize = aggregateOrderIndex < 0 ? 0 : (fieldValues.size() - aggregateOrderIndex);
-                indexBuilder.setOption(IndexOptions.PERMUTED_SIZE_OPTION, permutedSize);
-            } else if (aggregateOrderIndex > 0) {
-                Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition. Cannot order " + indexType + " index by aggregate value");
-            }
+            addAggregatePermutationOptions(indexBuilder, spec, indexType);
         }
+        indexBuilder.setKeyExpression(KeyExpression.fromProto(
+                NullableArrayUtils.wrapArray(keyExpression.toKeyExpression(), tableType, options.containsNullableArray())));
         return indexBuilder;
     }
 
-    @Nonnull
-    private List<Value> collectResultValues(@Nonnull Value value) {
-        final var resultValues = simplify(value);
-        final var isSingleAggregation = resultValues.size() == 1 && resultValues.get(0) instanceof IndexableAggregateValue;
-        final var maybeGroupBy = relationalExpressions.stream().filter(exp -> exp instanceof GroupByExpression).findFirst();
-        if (maybeGroupBy.isPresent()) {
-            // if the final result value contains nothing but the aggregation value, add the grouping values to it.
-            final var groupBy = (GroupByExpression) maybeGroupBy.get();
-            final var groupingValues = groupBy.getGroupingValue();
-            final var adjustResultValues = adjustGroupByFieldPaths(resultValues, groupBy);
-            if (isSingleAggregation) {
-                if (groupingValues == null) {
-                    return adjustResultValues;
-                } else {
-                    final var simplifiedGroupingValues =
-                            Values.deconstructRecord(groupingValues).stream().map(this::dereference)
-                                    .map(v -> v.simplify(EvaluationContext.empty(), AliasMap.emptyMap(),
-                                            Set.of()));
-                    return Stream.concat(adjustResultValues.stream(), simplifiedGroupingValues).collect(toList());
-                }
-            } else {
-                // Make sure the grouping values and the result values are consistent
-                if (groupingValues == null) {
-                    // This shouldn't happen unless there's more than one indexable aggregate value
-                    Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Grouping values absent from aggregate result value");
-                }
-                final var simplifiedGroupingValues =
-                        Values.deconstructRecord(groupingValues).stream()
-                                .map(this::dereference)
-                                .map(v -> v.simplify(EvaluationContext.empty(), AliasMap.emptyMap(),
-                                        Set.of())).iterator();
-                for (Value resultValue : resultValues) {
-                    if (resultValue instanceof IndexableAggregateValue) {
-                        continue;
-                    }
-                    if (!simplifiedGroupingValues.hasNext()) {
-                        Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Aggregate result value contains values missing from the grouping expression");
-                    }
-                    Value groupingValue = simplifiedGroupingValues.next();
-                    if (!resultValue.equals(groupingValue)) {
-                        Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Aggregate result value does not align with grouping value");
-                    }
-                }
-                if (simplifiedGroupingValues.hasNext()) {
-                    Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Grouping value absent from aggregate result value");
-                }
-                return adjustResultValues;
-            }
-        } else {
-            return resultValues;
-        }
-    }
-
-    @Nonnull
-    private static List<Value> adjustGroupByFieldPaths(@Nonnull List<Value> resultValues,
-                                                       @Nonnull GroupByExpression groupByExpression) {
-        /*
-         * This strips the root of the field path from every FieldValue that is referencing an attribute from the
-         * underlying SELECT-WHERE expression.
-         * This is to enable the construction of a valid KeyExpression; it is valid because only single-sourced are
-         * currently allowed in aggregate indexes, in other words, there is no room for ambiguity, even after removing
-         * the root.
-         */
-        final var selectWhereQun = groupByExpression.getQuantifiers().get(0);
-        return resultValues.stream().map(resultValue -> resultValue.replace(value -> {
-            if (!(value instanceof FieldValue)) {
-                return value;
-            }
-            final FieldValue fieldValue = (FieldValue) value;
-            if (!(fieldValue.getChild() instanceof QuantifiedObjectValue)) {
-                return value;
-            }
-            final QuantifiedObjectValue quantifiedObjectValue = (QuantifiedObjectValue) fieldValue.getChild();
-            if (!quantifiedObjectValue.getAlias().equals(selectWhereQun.getAlias())) {
-                return value;
-            }
-            final var fieldAccessors = fieldValue.getFieldPath().getFieldAccessors();
-            return FieldValue.ofFields(fieldValue.getChild(), new FieldValue.FieldPath(fieldAccessors.subList(1, fieldAccessors.size())));
-        })).collect(ImmutableList.toImmutableList());
-    }
-
-    @Nonnull
-    private List<Value> simplify(@Nonnull Value value) {
-        return Values.deconstructRecord(value)
-                .stream()
-                .map(this::dereference)
-                .map(v -> v.simplify(EvaluationContext.empty(), AliasMap.emptyMap(), Set.of()))
-                .collect(toList());
-    }
-
-    @Nonnull
-    private List<Value> getOrderByValues(@Nonnull RelationalExpression relationalExpression,
-                                         @Nonnull Map<Value, String> orderingFunctions) {
-        if (relationalExpression instanceof LogicalSortExpression) {
-            final var logicalSortExpression = (LogicalSortExpression) relationalExpression;
-            final var reverseAliasMap = AliasMap.ofAliases(Quantifier.current(), logicalSortExpression.getQuantifiers().get(0).getAlias());
-            final ImmutableList.Builder<Value> values = ImmutableList.builder();
-            for (var orderingPart : logicalSortExpression.getOrdering().getOrderingParts()) {
-                final String orderingFunction;
-                switch (orderingPart.getSortOrder()) {
-                    case ASCENDING:
-                        orderingFunction = null;
-                        break;
-                    case DESCENDING:
-                        orderingFunction = "order_desc_nulls_last";
-                        break;
-                    case ASCENDING_NULLS_LAST:
-                        orderingFunction = "order_asc_nulls_last";
-                        break;
-                    case DESCENDING_NULLS_FIRST:
-                        orderingFunction = "order_desc_nulls_first";
-                        break;
-                    default:
-                        orderingFunction = null;
-                        break;
-                }
-                if (orderingPart.getValue().getResultType().getTypeCode() == Type.TypeCode.RECORD) {
-                    for (Value value : Values.deconstructRecord(orderingPart.getValue())) {
-                        final var rebased = dereference(value.rebase(reverseAliasMap))
-                                .simplify(EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
-                        values.add(rebased);
-                        if (orderingFunction != null) {
-                            orderingFunctions.put(rebased, orderingFunction);
-                        }
-                    }
-                } else {
-                    final Value rebased = dereference(orderingPart.getValue().rebase(reverseAliasMap))
-                            .simplify(EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
-                    values.add(rebased);
-                    if (orderingFunction != null) {
-                        orderingFunctions.put(rebased, orderingFunction);
-                    }
-                }
-            }
-            return values.build();
-        }
-        return List.of();
-    }
-
-    private static List<Value> reorderValues(@Nonnull List<Value> values, @Nonnull List<Value> orderByValues) {
-        Assert.thatUnchecked(values.size() >= orderByValues.size());
-        if (orderByValues.isEmpty()) {
-            return values;
-        }
-        final var remaining = values.stream().filter(v -> !orderByValues.contains(v)).collect(ImmutableList.toImmutableList());
-        return ImmutableList.<Value>builder().addAll(orderByValues).addAll(remaining).build();
-    }
-
-    @SuppressWarnings({"OptionalIsPresent", "deprecation"})
-    @Nonnull
-    private NonnullPair<KeyExpression, String> generateAggregateIndexKeyExpression(@Nonnull AggregateValue aggregateValue,
-                                                                                   @Nonnull Optional<KeyExpression> maybeGroupingExpression) {
-        Assert.thatUnchecked(aggregateValue instanceof IndexableAggregateValue);
-        final var indexableAggregateValue = (IndexableAggregateValue) aggregateValue;
-        final var child = Iterables.getOnlyElement(aggregateValue.getChildren());
-        var indexTypeName = indexableAggregateValue.getIndexTypeName();
-        final KeyExpression groupedValue;
-        final GroupingKeyExpression keyExpression;
-        // COUNT(*) is a special case.
-        if (aggregateValue instanceof CountValue && IndexTypes.COUNT.equals(indexTypeName)) {
-            if (maybeGroupingExpression.isPresent()) {
-                keyExpression = new GroupingKeyExpression(maybeGroupingExpression.get(), 0);
-            } else {
-                keyExpression = new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0);
-            }
-        } else if (aggregateValue instanceof NumericAggregationValue.BitmapConstructAgg && IndexTypes.BITMAP_VALUE.equals(indexTypeName)) {
-            Assert.thatUnchecked(child instanceof FieldValue || child instanceof ArithmeticValue, "Unsupported index definition, expecting a column argument in aggregation function");
-            groupedValue = generate(List.of(child), Collections.emptyMap());
-            // only support bitmap_construct_agg(bitmap_bit_position(column))
-            // doesn't support bitmap_construct_agg(column)
-            Assert.thatUnchecked(groupedValue instanceof FunctionKeyExpression, "Unsupported index definition, expecting a bitmap_bit_position function in bitmap_construct_agg function");
-            final FunctionKeyExpression functionGroupedValue = (FunctionKeyExpression) groupedValue;
-            Assert.thatUnchecked(BITMAP_BIT_POSITION.equals(functionGroupedValue.getName()), "Unsupported index definition, expecting a bitmap_bit_position function in bitmap_construct_agg function");
-            final var groupedColumnValue = ((ThenKeyExpression) ((FunctionKeyExpression) groupedValue).getArguments()).getChildren().get(0);
-
-            if (maybeGroupingExpression.isPresent()) {
-                final var afterRemove = removeBitmapBucketOffset(maybeGroupingExpression.get());
-                if (afterRemove == null) {
-                    keyExpression = ((FieldKeyExpression) groupedColumnValue).ungrouped();
-                } else {
-                    keyExpression = ((FieldKeyExpression) groupedColumnValue).groupBy(afterRemove);
-                }
-            } else {
-                throw Assert.failUnchecked("Unsupported index definition, unexpected grouping expression " + groupedValue);
-            }
-        } else {
-            Assert.thatUnchecked(child instanceof FieldValue, "Unsupported index definition, expecting a column argument in aggregation function");
-            groupedValue = generate(List.of(child), Collections.emptyMap());
-            Assert.thatUnchecked(groupedValue instanceof FieldKeyExpression || groupedValue instanceof ThenKeyExpression);
-            if (maybeGroupingExpression.isPresent()) {
-                keyExpression = (groupedValue instanceof FieldKeyExpression) ?
-                        ((FieldKeyExpression) groupedValue).groupBy(maybeGroupingExpression.get()) :
-                        ((ThenKeyExpression) groupedValue).groupBy(maybeGroupingExpression.get());
-            } else {
-                keyExpression = (groupedValue instanceof FieldKeyExpression) ?
-                        ((FieldKeyExpression) groupedValue).ungrouped() :
-                        ((ThenKeyExpression) groupedValue).ungrouped();
-            }
-        }
-        // special handling of min_ever and max_ever, depending on index attributes we either create the
-        // long-based version or the tuple-based version.
-        if (IndexTypes.MAX_EVER.equals(indexTypeName)) {
-            if (useLegacyBasedExtremumEver) {
-                final var indexValue = Iterables.getOnlyElement(indexableAggregateValue.getChildren());
-                Verify.verify(indexValue.getResultType().isNumeric(), "only numeric types allowed in " + IndexTypes.MAX_EVER_LONG + " aggregation operation");
-                indexTypeName = IndexTypes.MAX_EVER_LONG;
-            } else {
-                indexTypeName = IndexTypes.MAX_EVER_TUPLE;
-            }
-        } else if (IndexTypes.MIN_EVER.equals(indexTypeName)) {
-            if (useLegacyBasedExtremumEver) {
-                final var indexValue = Iterables.getOnlyElement(indexableAggregateValue.getChildren());
-                Verify.verify(indexValue.getResultType().isNumeric(), "only numeric types allowed in " + IndexTypes.MIN_EVER_LONG + " aggregation operation");
-                indexTypeName = IndexTypes.MIN_EVER_LONG;
-            } else {
-                indexTypeName = IndexTypes.MIN_EVER_TUPLE;
-            }
-        }
-        return NonnullPair.of(keyExpression, indexTypeName);
-    }
-
-    /*
-    remove bitmap_bucket_offset(col) from groupingExpression if it exists
-    return null if groupingExpression only contains bitmap_bucket_offset(col)
+    /**
+     * Translates the projection into the index key, columns in key order: the order-by columns lead a value index, while
+     * an aggregate index keeps the projection's order.
      */
-    @Nullable
-    private KeyExpression removeBitmapBucketOffset(@Nonnull KeyExpression groupingExpression) {
-        // groupingExpression looks like [*, bitmap_bucket_offset(C)+], so it is either a ThenKeyExpression or a FunctionKeyExpression
-        Assert.thatUnchecked(groupingExpression instanceof ThenKeyExpression || groupingExpression instanceof FunctionKeyExpression, "Unsupported index definition, expecting column or function arguments in group by");
-        if (groupingExpression instanceof ThenKeyExpression) {
-            List<KeyExpression> groupingChildren = ((ThenKeyExpression) groupingExpression).getChildren();
-            // check if the last one is bitmap_bucket_offset function, otherwise throws exception
-            Assert.thatUnchecked(groupingChildren.get(groupingChildren.size() - 1) instanceof FunctionKeyExpression && BITMAP_BUCKET_OFFSET.equals(((FunctionKeyExpression) groupingChildren.get(groupingChildren.size() - 1)).getName()), "Unsupported index definition, expecting the last element in group by to be a bitmap_bucket_offset function");
-            // a ThenKeyExpression has at least 2 children
-            if (groupingChildren.size() >= 3) {
-                return new ThenKeyExpression(groupingChildren, 0, groupingChildren.size() - 1);
-            } else {
-                return groupingChildren.get(0);
-            }
-        } else {
-            if (BITMAP_BUCKET_OFFSET.equals(((FunctionKeyExpression) groupingExpression).getName())) {
-                return null;
-            } else {
-                return groupingExpression;
-            }
-        }
+    @Nonnull
+    private ValueToKeyExpressionVisitor.Result translateToKeyExpression(@Nonnull final IndexSpec spec) {
+        final var projection = spec.projection();
+        final var isAggregate = projection.aggregate() != null;
+        final var reorderedValues = isAggregate ? projection.values()
+                                          : reorderValues(projection.fieldValues(), spec.getOrderByValues());
+        return ValueToKeyExpressionVisitor.translate(RecordConstructorValue.ofUnnamed(reorderedValues),
+                isAggregate ? Map.of() : spec.getOrderingFunctions(), options.extremumEverStorage());
     }
 
     @Nonnull
-    private KeyExpression generate(@Nonnull List<Value> fields, @Nonnull Map<Value, String> orderingFunctions) {
-        if (fields.isEmpty()) {
-            return EmptyKeyExpression.EMPTY;
-        } else if (fields.size() == 1) {
-            return toKeyExpression(fields.get(0), orderingFunctions);
+    private static List<Value> reorderValues(@Nonnull final List<Value> allValues, @Nonnull final List<Value> keyValues) {
+        Assert.thatUnchecked(allValues.size() >= keyValues.size());
+        if (keyValues.isEmpty()) {
+            return allValues;
         }
-
-        List<FieldValueTrieNode> trieNodes = new ArrayList<>(fields.size());
-        List<KeyExpression> components = new ArrayList<>(fields.size());
-        PeekingIterator<Value> valueIterator = Iterators.peekingIterator(fields.iterator());
-        while (valueIterator.hasNext()) {
-            if (!(valueIterator.peek() instanceof FieldValue)) {
-                components.add(toKeyExpression(valueIterator.next(), orderingFunctions));
-            } else {
-                FieldValueTrieNode trieNode = FieldValueTrieNode.computeTrieForValues(FieldValue.FieldPath.empty(), valueIterator);
-                trieNode.validateNoOverlaps(trieNodes);
-                trieNodes.add(trieNode);
-
-                components.add(toKeyExpression(trieNode, orderingFunctions));
-            }
-        }
-
-        if (components.size() == 1) {
-            return components.get(0);
-        } else {
-            return concat(components);
-        }
-    }
-
-    @Nonnull
-    private KeyExpression toKeyExpression(Value value, Map<Value, String> orderingFunctions) {
-        var expr = toKeyExpression(value);
-        if (orderingFunctions.containsKey(value)) {
-            return function(orderingFunctions.get(value), expr);
-        } else {
-            return expr;
-        }
+        final var valueValues = allValues.stream()
+                .filter(value -> !keyValues.contains(value))
+                .collect(ImmutableList.toImmutableList());
+        return ImmutableList.<Value>builder().addAll(keyValues).addAll(valueValues).build();
     }
 
     /**
-     * Build the key expression representing the arguments of a {@link FunctionKeyExpression}.
+     * Stores the columns beyond the ordered ones as the index's value rather than as part of its key. With no ordering
+     * clause the caller says whether the key is empty or there is no split at all.
      */
     @Nonnull
-    private static KeyExpression buildArgumentKeyExpression(List<KeyExpression> argumentList) {
-        if (argumentList.isEmpty()) {
-            return empty();
-        } else if (argumentList.size() == 1) {
-            return argumentList.get(0);
-        } else {
-            return concat(argumentList);
+    private static KeyExpression splitKeyFromValue(@Nonnull final IndexSpec spec, @Nonnull final KeyExpression keyExpression,
+                                                   final boolean emptyKeyAllowed) {
+        final var splitPoint = spec.getOrderByValues().size();
+        if (splitPoint == 0 && !emptyKeyAllowed) {
+            return keyExpression;
         }
-    }
-
-    @Nonnull
-    private KeyExpression toKeyExpression(@Nonnull Value value) {
-        if (value instanceof FieldValue) {
-            final FieldValue fieldValue = (FieldValue) value;
-            return toKeyExpression(fieldValue.getFieldPath().getFieldAccessors().iterator(), KeyExpression.FanType.FanOut);
-        } else if (value instanceof CardinalityValue) {
-            // CARDINALITY() consumes an array value. Currently, it can only be applied to a `field` directly. We make
-            // sure here that the field gets accessed with fan-out type `Concatenate` instead of `FanOut` so that it
-            // produces the materialized array.
-            final var it = value.getChildren().iterator();
-            Assert.thatUnchecked(it.hasNext(), "Invalid children list for `CardinalityValue`");
-            final Value childValue = it.next();
-            Assert.thatUnchecked(!it.hasNext(), "Invalid children list for `CardinalityValue`");
-            Assert.thatUnchecked(childValue instanceof FieldValue, "CARDINALITY() must be applied to a `field()` in an index key expression.");
-            final var fieldValue = (FieldValue)childValue;
-            final KeyExpression childKeyExpression = toKeyExpression(fieldValue.getFieldPath().getFieldAccessors().iterator(), KeyExpression.FanType.Concatenate);
-            return function(FunctionNames.CARDINALITY, childKeyExpression);
-        } else if (value instanceof ArithmeticValue) {
-            var children = value.getChildren();
-            var builder = ImmutableList.<KeyExpression>builder();
-            for (Value child : children) {
-                builder.add(toKeyExpression(child));
-            }
-            KeyExpression argumentExpr = buildArgumentKeyExpression(builder.build());
-            final String name = ((ArithmeticValue)value).getLogicalOperator().name().toLowerCase(Locale.ROOT);
-            return function(name, argumentExpr);
-        } else if (value instanceof LiteralValue<?>) {
-            return Key.Expressions.value(((LiteralValue<?>) value).getLiteralValue());
-        } else {
-            Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "unable to construct expression");
-            return null;
-        }
-    }
-
-    @Nonnull
-    private static KeyExpression toKeyExpression(@Nonnull FieldValueTrieNode trieNode,
-                                                 @Nonnull Map<Value, String> orderingFunctions) {
-        Assert.notNullUnchecked(trieNode.getChildrenMap());
-        Assert.thatUnchecked(!trieNode.getChildrenMap().isEmpty());
-
-        final var childrenMap = trieNode.getChildrenMap();
-        final var exprConstituents = childrenMap.entrySet().stream().map(nodeEntry -> {
-            final FieldValue.ResolvedAccessor accessor = nodeEntry.getKey();
-            final FieldValueTrieNode node = nodeEntry.getValue();
-            final KeyExpression expr = toFieldKeyExpression(accessor, KeyExpression.FanType.FanOut);
-            if (node.getChildrenMap() != null) {
-                final FieldKeyExpression fieldExpr = Assert.castUnchecked(expr, FieldKeyExpression.class);
-                return fieldExpr.nest(toKeyExpression(node, orderingFunctions));
-            } else if (orderingFunctions.containsKey(node.getValue())) {
-                return function(orderingFunctions.get(node.getValue()), expr);
-            } else {
-                return expr;
-            }
-        }).collect(toList());
-        if (exprConstituents.size() == 1) {
-            return exprConstituents.get(0);
-        } else {
-            return concat(exprConstituents);
-        }
-    }
-
-    private void checkValidity(@Nonnull List<? extends RelationalExpression> expressions) {
-
-        // there must be exactly one type full-unordered-scan, no joins, no self-joins.
-        final var numScans = expressions.stream().filter(r -> r instanceof FullUnorderedScanExpression).count();
-        Assert.thatUnchecked(numScans == 1, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, %s iteration generator found", numScans == 0 ? "no" : "more than one");
-
-        // there must be at most a single group by
-        final var numGroupBy = expressions.stream().filter(r -> r instanceof GroupByExpression).count();
-        Assert.thatUnchecked(numGroupBy <= 1, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, multiple group by expressions found");
-
-        // there can be only one aggregation in group by expression (maybe we can relax this in the future).
-        final var groupByContainsOneAggregation = expressions.stream().filter(r -> r instanceof GroupByExpression).map(r -> (GroupByExpression) r).noneMatch(g -> Values.deconstructRecord(g.getAggregateValue()).size() > 1);
-        Assert.thatUnchecked(groupByContainsOneAggregation, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found group by expression with more than one aggregation");
-
-        // Result values of each operation must be record-typed. `ExplodeExpression` is excluded because
-        // unnesting a scalar array (e.g., a STRING ARRAY) produces scalar elements, not records.
-        final var allRecordValues = expressions.stream()
-                .filter(r -> !(r instanceof ExplodeExpression))
-                .allMatch(r -> (r.getResultValue().getResultType().getTypeCode() == Type.TypeCode.RECORD));
-        Assert.thatUnchecked(allRecordValues, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, some operators return non-record values");
-
-        // Fields of result values of each record-typed operation must be simple or arithmetic values.
-        final var allSimpleValues = expressions.stream()
-                .filter(r -> r.getResultType().getInnerType() instanceof Type.Record)
-                .allMatch(r -> Values.deconstructRecord(r.getResultValue()).stream().allMatch(v -> v instanceof FieldValue || v instanceof QuantifiedObjectValue || v instanceof AggregateValue || v instanceof ArithmeticValue || v instanceof LiteralValue || v instanceof CardinalityValue));
-        Assert.thatUnchecked(allSimpleValues, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, not all fields can be mapped to key expression in");
-    }
-
-    @Nullable
-    public static QueryPredicate getTopLevelPredicate(@Nonnull List<? extends RelationalExpression> expressions) {
-        if (expressions.isEmpty()) {
-            return null;
-        }
-        int currentExpression = 0;
-        if (expressions.get(currentExpression) instanceof LogicalSortExpression) {
-            currentExpression++;
-        }
-        if (expressions.size() > currentExpression && expressions.get(currentExpression) instanceof SelectExpression) {
-            if (expressions.size() > (currentExpression + 1) && expressions.get(currentExpression + 1) instanceof GroupByExpression) {
-                // the above select-having must not contain any predicate.
-                Assert.thatUnchecked(((SelectExpression) expressions.get(currentExpression)).getPredicates().isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found predicate in select-having");
-                currentExpression++; // group-by expression.
-                Assert.thatUnchecked(expressions.size() > currentExpression);
-                currentExpression++; // select-where.
-            }
-        }
-        // current expression is either top-level select, or select-where or top-level group by.
-        // make sure any other select statement does not have any predicates defined.
-        for (int i = currentExpression + 1; i < expressions.size(); i++) {
-            if (expressions.get(i) instanceof SelectExpression) {
-                final var innerSelect = (SelectExpression) expressions.get(i);
-                Assert.thatUnchecked(innerSelect.getPredicates().isEmpty(), ErrorCode.UNSUPPORTED_OPERATION, "Unsupported index definition, found predicate in inner-select");
-            }
-        }
-        final var expr = expressions.get(currentExpression);
-        if (!(expr instanceof SelectExpression)) {
-            return null;
-        }
-        final var predicates = ((SelectExpression) expr).getPredicates().stream().map(QueryPredicate::toResidualPredicate).collect(toList());
-        // todo (yhatem) make sure we through if the generated DNF does not meet the deserialization requirements.
-        if (predicates.isEmpty()) {
-            return null;
-        }
-        final var conjunction = predicates.size() == 1 ? predicates.get(0) : AndPredicate.and(predicates);
-        final var result = BooleanPredicateNormalizer.getDefaultInstanceForDnf().normalize(conjunction, false).orElse(conjunction);
-        Assert.thatUnchecked(IndexPredicate.isSupported(result), ErrorCode.UNSUPPORTED_OPERATION, () -> String.format(Locale.ROOT, "Unsupported predicate '%s'", result))    ;
-        if (IndexPredicateExpansion.dnfPredicateToRanges(result).isEmpty()) {
-            return conjunction;
-        }
-        return result;
-    }
-
-    private static final class AnnotatedAccessor extends FieldValue.ResolvedAccessor {
-
-        private final int marker;
-
-        private AnnotatedAccessor(@Nonnull Type.Record.Field field,
-                                  int ordinal,
-                                  int marker) {
-            super(field, ordinal);
-            this.marker = marker;
-        }
-
-        @Nonnull
-        public static AnnotatedAccessor of(@Nonnull FieldValue.ResolvedAccessor resolvedAccessor, int marker) {
-            return new AnnotatedAccessor(resolvedAccessor.getField(), resolvedAccessor.getOrdinal(), marker);
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            if (!super.equals(o)) {
-                return false;
-            }
-            AnnotatedAccessor that = (AnnotatedAccessor) o;
-            return marker == that.marker;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(super.hashCode(), marker);
-        }
-    }
-
-    private void collectQuantifiers(@Nonnull RelationalExpression relationalExpression) {
-        AtomicInteger counter = new AtomicInteger(0);
-        collectQuantifiersInternal(relationalExpression, counter);
-    }
-
-    private void collectQuantifiersInternal(@Nonnull RelationalExpression relationalExpression, @Nonnull AtomicInteger explodeCounter) {
-        for (final var qun : relationalExpression.getQuantifiers()) {
-            if (qun.getRangesOver().get() instanceof ExplodeExpression) {
-                explodeCounter.incrementAndGet();
-                final var collectionValue = ((ExplodeExpression) qun.getRangesOver().get()).getCollectionValue();
-                if (collectionValue instanceof FieldValue) {
-                    final var field = (FieldValue) collectionValue;
-                    final var fieldAccessors = new ArrayList<>(field.getFieldPath().getFieldAccessors());
-                    fieldAccessors.set(fieldAccessors.size() - 1, AnnotatedAccessor.of(fieldAccessors.get(fieldAccessors.size() - 1), explodeCounter.get()));
-                    correlatedKeyExpressions.put(qun.getAlias(), FieldValue.ofFields(((FieldValue) collectionValue).getChild(), new FieldValue.FieldPath(fieldAccessors)));
-                } else {
-                    correlatedKeyExpressions.put(qun.getAlias(), collectionValue);
-                }
-            } else {
-                correlatedKeyExpressions.put(qun.getAlias(), qun.getRangesOver().get().getResultValue());
-            }
-            collectQuantifiersInternal(qun.getRangesOver().get(), explodeCounter);
-        }
-    }
-
-    @Nonnull
-    private Value dereference(@Nonnull Value value) {
-        if (value instanceof RecordConstructorValue) {
-            return RecordConstructorValue.ofColumns(
-                    ((RecordConstructorValue) value).getColumns()
-                            .stream()
-                            .map(c -> Column.of(c.getField(), dereference(c.getValue())))
-                            .collect(toList()));
-        } else if (value instanceof CountValue) {
-            final var children = StreamSupport.stream(value.getChildren().spliterator(), false).collect(toList());
-            Verify.verify(children.size() <= 1);
-            if (!children.isEmpty()) {
-                return value.withChildren(Collections.singleton(dereference(children.get(0))));
-            } else {
-                return value;
-            }
-        } else if (value instanceof FieldValue || value instanceof IndexableAggregateValue) {
-            final var valueWithChild = (ValueWithChild) value;
-            return valueWithChild.withNewChild(dereference(valueWithChild.getChild()));
-        } else if (value instanceof QuantifiedObjectValue) {
-            return dereference(correlatedKeyExpressions.get(value.getCorrelatedTo().stream().findFirst().orElseThrow()));
-        } else if (value instanceof ArithmeticValue) {
-            final List<Value> newChildren = new ArrayList<>();
-            for (Value v:value.getChildren()) {
-                newChildren.add(dereference(v));
-            }
-            return ((ArithmeticValue) value).withChildren(newChildren);
-        } else {
-            return value;
-        }
-    }
-
-    @Nonnull
-    private KeyExpression toKeyExpression(@Nonnull Iterator<FieldValue.ResolvedAccessor> resolvedAccessors, KeyExpression.FanType fanTypeForArray) {
-        Assert.thatUnchecked(resolvedAccessors.hasNext(), "cannot resolve empty list");
-        final FieldValue.ResolvedAccessor accessor = resolvedAccessors.next();
-        final KeyExpression expression = toFieldKeyExpression(accessor, fanTypeForArray);
-        if (resolvedAccessors.hasNext()) {
-            KeyExpression childExpression = toKeyExpression(resolvedAccessors, fanTypeForArray);
-            final FieldKeyExpression fieldExpression = Assert.castUnchecked(expression, FieldKeyExpression.class);
-            return fieldExpression.nest(childExpression);
-        } else {
-            return expression;
-        }
-    }
-
-    @Nonnull
-    private String getRecordTypeName() {
-        final var expressionRefs = relationalExpressions.stream()
-                .filter(r -> r instanceof LogicalTypeFilterExpression)
-                .map(r -> (LogicalTypeFilterExpression) r)
-                .collect(toList());
-        Assert.thatUnchecked(expressionRefs.size() == 1, ErrorCode.UNSUPPORTED_OPERATION, "Unsupported query, expected to find exactly one type filter operator");
-        final var recordTypes = expressionRefs.get(0).getRecordTypes();
-        Assert.thatUnchecked(recordTypes.size() == 1, ErrorCode.UNSUPPORTED_OPERATION, () -> String.format(Locale.ROOT, "Unsupported query, expected to find exactly one record type in type filter operator, however found %s", recordTypes.isEmpty() ? "nothing" : String.join(",", recordTypes)));
-        return recordTypes.stream().findFirst().orElseThrow();
+        return splitPoint < spec.projection().fieldValues().size()
+               ? keyWithValue(keyExpression, splitPoint) : keyExpression;
     }
 
     /**
-     * Return a {@link FieldKeyExpression} or {@link VersionKeyExpression} for the given field type, as appropriate.
-     *
-     * @param fanTypeForArray The fan-out type to use for the {@code field} key expression in case the field is an
-     * ARRAY. This should be either {@code FanOut} or {@code Concatenate}.
+     * Tells a permuted index how many columns follow the aggregate in its key. Every other aggregate index type keeps the
+     * aggregate last and cannot be ordered by it.
      */
-    @Nonnull
-    private static KeyExpression toFieldKeyExpression(@Nonnull FieldValue.ResolvedAccessor accessor, KeyExpression.FanType fanTypeForArray) {
-        final Type.Record.Field fieldType = accessor.getField();
-        Assert.notNullUnchecked(fieldType.getFieldStorageName());
-        Assert.thatUnchecked(fanTypeForArray == KeyExpression.FanType.FanOut || fanTypeForArray == KeyExpression.FanType.Concatenate);
-        Assert.thatUnchecked(!fieldType.getFieldType().isArray()
-                        || (accessor instanceof AnnotatedAccessor)
-                        || (fanTypeForArray == KeyExpression.FanType.Concatenate),
-                ErrorCode.UNSUPPORTED_OPERATION,
-                "Unsupported index definition, cannot create index on array field '" +
-                fieldType.getFieldName() + "' without unnesting");
-        final Type type = fieldType.getFieldType();
-        if (PseudoField.ROW_VERSION.getType().equals(type) && PseudoField.ROW_VERSION.getFieldName().equals(fieldType.getFieldName())) {
-            return VersionKeyExpression.VERSION;
+    private static void addAggregatePermutationOptions(@Nonnull final RecordLayerIndex.Builder indexBuilder,
+                                                       @Nonnull final IndexSpec spec, @Nonnull final String indexType) {
+        final var aggregateOrderIndex = spec.aggregateOrderIndex();
+        if (IndexTypes.PERMUTED_MIN.equals(indexType) || IndexTypes.PERMUTED_MAX.equals(indexType)) {
+            indexBuilder.setOption(IndexOptions.PERMUTED_SIZE_OPTION,
+                    aggregateOrderIndex < 0 ? 0 : spec.projection().fieldValues().size() - aggregateOrderIndex);
+        } else {
+            Assert.thatUnchecked(aggregateOrderIndex <= 0, ErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported index definition. Cannot order " + indexType + " index by aggregate value");
         }
-        final var fanType = type.isArray() ? fanTypeForArray : KeyExpression.FanType.None;
-        // Here we need to use the storage field name, as that will be the name referenced in Protobuf storage.
-        return field(fieldType.getFieldStorageName(), fanType);
-    }
-
-    @Nonnull
-    public static MaterializedViewIndexGenerator from(@Nonnull RelationalExpression relationalExpression, boolean useLongBasedExtremumEver) {
-        return new MaterializedViewIndexGenerator(relationalExpression, useLongBasedExtremumEver);
     }
 }

@@ -34,8 +34,6 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
@@ -43,10 +41,13 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -56,7 +57,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 
 /**
  * A {@link Value} that applies a like operator on its child expressions.
@@ -85,17 +85,160 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
     @SuppressWarnings("java:S6213")
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
         String lhs = (String)srcChild.eval(store, context);
-        String rhs = (String)patternChild.eval(store, context);
+        Message rhs = (Message)patternChild.eval(store, context);
         return likeOperation(lhs, rhs);
     }
 
     @Nullable
-    public static Boolean likeOperation(final String lhs, final String rhs) {
+    public static Boolean likeOperation(@Nullable final String lhs, @Nullable final Message rhs) {
         if (lhs == null || rhs == null) {
             return null;
         }
-        Pattern pattern = Pattern.compile(rhs);
-        return pattern.matcher(lhs).find();
+        Descriptors.Descriptor rhsDescriptor = rhs.getDescriptorForType();
+        final Descriptors.FieldDescriptor patternField = Objects.requireNonNull(rhsDescriptor.findFieldByNumber(PatternForLikeValue.PATTERN_FIELD_NUMBER));
+        if (!rhs.hasField(patternField)) {
+            return null;
+        }
+        final String pattern = (String) rhs.getField(patternField);
+        final Descriptors.FieldDescriptor escapeField = Objects.requireNonNull(rhsDescriptor.findFieldByNumber(PatternForLikeValue.ESCAPE_FIELD_NUMBER));
+        final String escape = rhs.hasField(escapeField) ? (String) rhs.getField(escapeField) : null;
+        return matchLike(lhs, pattern, escape);
+    }
+
+    /**
+     * Matcher for the SQL {@code LIKE} operator. It returns whether the given {@code text} matches the given
+     * {@code pattern}.
+     *
+     * <p>
+     * The {@code pattern} is a {@code LIKE} pattern as specified by the SQL specification: {@code '%'} matches any
+     * sequence of characters, {@code '_'} matches exactly one character, and {@code escape} escapes the next character
+     * as a literal. All other characters match themselves. If {@code escape} is null, then no characters are escaped
+     * (which means that there is no way to match the literal {@code '%'} or {@code '_'} characters).
+     * </p>
+     *
+     * <p>
+     * This will reject any escape values that are either already used for wildcards ({@code '%'} or {@code '_'}),
+     * or are not a single character. It also rejects any escape values that are made up of the invalid Unicode
+     * codepoints used by UTF-16 strings to model multi-character codepoints.
+     * </p>
+     *
+     * <p>
+     * Note that the escape character only matches the next character as a literal if the next character is actually
+     * special. So {@code escape + '_'} matches the literal {@code '_'}, {@code escape + '%'} matches the literal
+     * {@code '%'}, and also {@code escape + escape} matches the escape character {@code escape}. If the pattern
+     * has an {@code escape} followed by a non-special character or if it ends with a single {@code escape}, then
+     * this throws a {@link SemanticException} with an {@link SemanticException.ErrorCode#INVALID_ESCAPE_SEQUENCE}
+     * error code.
+     * </p>
+     *
+     * <p>
+     * One note on the implementation. Some care has been taken here to avoid exponential backtracking, which naïve
+     * regex compilation could result in for certain patterns. Instead, this is designed to operate in polynomial time,
+     * though given an adversarial pattern, it can still devolve to <i>O</i>(<i>n</i> &sdot; <i>p</i>) where
+     * <i>n</i> is the length of the {@code text} and <i>p</i> is the length of the {@code pattern}.
+     * </p>
+     *
+     * @param text the text to attempt to match
+     * @param pattern the pattern to match the text against
+     * @param escape an optional escape character
+     */
+    private static boolean matchLike(@Nonnull final String text, @Nonnull final String pattern, @Nullable final String escape) {
+        // Conceptually, this is similar to breaking the pattern down into chunks, separated by the wildcard
+        // character %. For each sequence between %s, we can evaluate if a subsequence from the text
+        // matches in linear time. We then do the following:
+        //
+        //   1. Match a prefix from the text against the prefix from the pattern before the first % (or return false)
+        //   2. Match different lengths of substrings from the text (starting with zero) for the %. Find the shortest
+        //      that allows the next substring of non-% characters from the pattern to match.
+        //   3. If we are able to consume the whole text, then we have a match
+        //
+        // The reason that we can always pick the shortest string for each % is that we can always defer text into
+        // the next % if multiple different choices for each % would match. To see this, consider a pattern
+        // p_1 + % + p_2 + % + p_3, where p_1, p_2, and p_3 are sub-patterns that all contain no %s. Suppose that there's
+        // a string that matches, so t = t_1 + x_1 + t_2 + x_2 + t_3, where t_1 matches p_1, t_2 matches p_2, and t_3
+        // matches p_3 and x_1 and x_2 are "matched" to each %. Assume that the algorithm is wrong, so we are *not*
+        // allowed to pick the smallest string such that there's a substring after it in t that matches p_2. So there's
+        // a smaller y_1 such that t begins t_1 + y_1 + t_2p where t_2p matches p_2. It's possible that t_2 and t_2p overlap,
+        // but it's still possible to construct a y_2 from any non-overlapping suffix of t_2 and x_2 so that
+        // t = t_1 + y_1 + t_2p + y_2 + t_3, which will also match. That's a contradiction, so we were in fact allowed to
+        // always take the smallest one. (Generalizing this to an arbitrary number of %s is left as an exercise for the reader.)
+        //
+        // Worst case, this operates in O(tLen * pLen) time. The reason for this is that we need to visit each character in
+        // the text. For each such character, we need to perform an O(pLen) operation (namely: check the next subsequence
+        // of characters in the text to see if they match the pattern) before we can determine if the character should
+        // be identified with the previous wildcard or not. For a string that approximates this worst case, consider
+        // a text like 100,000 'a' characters, and then a pattern like '%aaaa'. To validate this match, we need to
+        // check 100,000 - 4 ≈ 100,000 different substrings for the prefix, and each one requires reading the next 4
+        // characters to evaluate, so that's around 400,000 character comparisons.
+        int t = 0;
+        int p = 0;
+        int starP = -1;
+        int starT = -1;
+        final int tLen = text.length();
+        final int pLen = pattern.length();
+        final char escapeChar = escape == null ? '\0' : PatternForLikeValue.validateEscapeChar(escape);
+        while (t < tLen) {
+            boolean matched = false;
+            if (p < pLen) {
+                final char pc = pattern.charAt(p);
+                if (escape != null && pc == escapeChar) {
+                    // Escape character. Reject the pattern if the escape character is the final character in the pattern
+                    // or if it is followed by a non-special character
+                    SemanticException.check(p + 1 < pLen, SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE);
+                    char literal =  pattern.charAt(p + 1);
+                    SemanticException.check(literal == '%' || literal == '_' || literal == escapeChar, SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE);
+                    if (literal == text.charAt(t)) {
+                        t++;
+                        p += 2;
+                        matched = true;
+                    }
+                } else if (pc == '%') {
+                    if (p + 1 == pLen) {
+                        // Pattern ends with a %, and we've been able to match everything up to it, so we are
+                        // guaranteed a match. We could remove this early out, but then we'd iterate through
+                        // the rest of the text for no reason
+                        return true;
+                    }
+                    // New %. "Lock in" progress so far. Future backtracking will only reset p to this value.
+                    // Do not advance t, indicating that we're initially mapping the empty string to the wildcard.
+                    starP = p++;
+                    starT = t;
+                    matched = true;
+                } else if (pc == '_') {
+                    if (Character.isHighSurrogate(text.charAt(t)) && t + 1 < tLen && Character.isLowSurrogate(text.charAt(t + 1))) {
+                        // A high surrogate followed by a low surrogate represents a single Unicode codepoint split across
+                        // two characters. Consume both from the text for the one wildcard
+                        t += 2;
+                    } else {
+                        t++;
+                    }
+                    p++;
+                    matched = true;
+                } else if (pc == text.charAt(t)) {
+                    // Single character in the text matches the character in the pattern
+                    t++;
+                    p++;
+                    matched = true;
+                }
+            }
+            if (!matched) {
+                if (starP >= 0) {
+                    // We did not find a match. Try again from the last %, but match an additional character
+                    // in the text to that last wildcard character.
+                    p = starP + 1;
+                    t = ++starT;
+                } else {
+                    // We have not yet hit a % wildcard. Cannot possibly match, so return now.
+                    return false;
+                }
+            }
+        }
+        // Match any trailing wildcards against the empty string.
+        // (Note that if % were allowed as the escape character, we'd need to skip this.)
+        while (p < pLen && pattern.charAt(p) == '%') {
+            p++;
+        }
+        return p == pLen;
     }
 
     @Override
@@ -178,8 +321,8 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
         Verify.verify(arguments.size() == 2);
         Type srcType = arguments.get(0).getResultType();
         Type patternType = arguments.get(1).getResultType();
-        SemanticException.check(srcType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
-        SemanticException.check(patternType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
+        SemanticException.check(srcType.isNull() || srcType.getTypeCode().equals(TypeCode.STRING), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
+        SemanticException.check(PatternForLikeValue.TYPE.equals(patternType), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
 
         return new LikeOperatorValue((Value) arguments.get(0), (Value) arguments.get(1));
     }
@@ -191,8 +334,8 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
     public static class LikeFn extends BuiltInFunction<Value> {
         public LikeFn() {
             super("like",
-                    ImmutableList.of(Type.primitiveType(TypeCode.STRING), Type.primitiveType(TypeCode.STRING)),
-                    (ignored, args) -> LikeOperatorValue.encapsulate(args));
+                    ImmutableList.of(Type.primitiveType(TypeCode.STRING), PatternForLikeValue.TYPE),
+                    (ignored, args) -> LikeOperatorValue.encapsulate(args.getArgumentsList()));
         }
     }
 

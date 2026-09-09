@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -398,7 +399,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                             RecordConstructorValue.ofColumns(List.of(str2, n2))
                         );
 
-                    final var encapsulatedIn = (BooleanValue)new InOpValue.InFn().encapsulate(ImmutableList.of(inArrayValue, comparandValue));
+                    final var encapsulatedIn = (BooleanValue)new InOpValue.InFn().encapsulate(CallSiteArguments.ofPositional(inArrayValue, comparandValue));
                     graphExpansionBuilder.addPredicate(encapsulatedIn.toQueryPredicate(null, Quantifier.current()).orElseThrow());
 
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(strValueIndexed));
@@ -461,7 +462,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                             RecordConstructorValue.ofColumns(List.of(str2, n2))
                     );
 
-                    final var encapsulatedIn = (BooleanValue)new InOpValue.InFn().encapsulate(ImmutableList.of(inArrayValue, comparandValue));
+                    final var encapsulatedIn = (BooleanValue)new InOpValue.InFn().encapsulate(CallSiteArguments.ofPositional(inArrayValue, comparandValue));
                     graphExpansionBuilder.addPredicate(encapsulatedIn.toQueryPredicate(null, Quantifier.current()).orElseThrow());
 
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(strValueIndexed));
@@ -510,7 +511,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
                     final var comparandValue = AbstractArrayConstructorValue.LightArrayConstructorValue.of(RecordConstructorValue.ofColumns(List.of(str1, n1)), RecordConstructorValue.ofColumns(List.of(str2, n2)));
 
-                    final var encapsulatedIn = (BooleanValue)new InOpValue.InFn().encapsulate(ImmutableList.of(inArrayValue, comparandValue));
+                    final var encapsulatedIn = (BooleanValue)new InOpValue.InFn().encapsulate(CallSiteArguments.ofPositional(inArrayValue, comparandValue));
                     graphExpansionBuilder.addPredicate(encapsulatedIn.toQueryPredicate(null, Quantifier.current()).orElseThrow());
 
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(strValueIndexed));

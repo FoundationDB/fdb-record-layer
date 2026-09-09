@@ -41,6 +41,12 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public final class VectorIndexOptionKeys {
+    /**
+     * The engine selector: which vector engine backs the index.
+     */
+    public static final VectorOptionKey<VectorIndexEngineKind> ENGINE =
+            VectorOptionKey.ofEngine(IndexOptions.VECTOR_ENGINE);
+
     //
     // Shared concepts: one option key per concept both engines share.
     //
@@ -99,6 +105,8 @@ public final class VectorIndexOptionKeys {
             VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MIN);
     public static final VectorOptionKey<Integer> GUARDIANN_PRIMARY_CLUSTER_MAX =
             VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MAX);
+    public static final VectorOptionKey<Integer> GUARDIANN_PRIMARY_CLUSTER_HARD_MAX =
+            VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_HARD_MAX);
     public static final VectorOptionKey<Integer> GUARDIANN_UNDERREPLICATED_PRIMARY_CLUSTER_MAX =
             VectorOptionKey.ofInteger(IndexOptions.GUARDIANN_UNDERREPLICATED_PRIMARY_CLUSTER_MAX);
     public static final VectorOptionKey<Integer> GUARDIANN_REPLICATED_CLUSTER_MAX_WRITES =
@@ -154,12 +162,14 @@ public final class VectorIndexOptionKeys {
      * {@code VectorIndexOptionKeysTest.allContainsEveryDeclaredKey}.
      */
     static final List<VectorOptionKey<?>> ALL = ImmutableList.of(
+            ENGINE,
             METRIC, NUM_DIMENSIONS, SAMPLE_VECTOR_STATS_PROBABILITY, MAINTAIN_STATS_PROBABILITY, STATS_THRESHOLD,
             USE_RABITQ, RABITQ_NUM_EX_BITS,
             HNSW_USE_INLINING, HNSW_M, HNSW_M_MAX, HNSW_M_MAX_0, HNSW_EF_CONSTRUCTION, HNSW_EF_REPAIR,
             HNSW_EXTEND_CANDIDATES, HNSW_KEEP_PRUNED_CONNECTIONS, HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER,
             HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES, HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES,
-            GUARDIANN_PRIMARY_CLUSTER_MIN, GUARDIANN_PRIMARY_CLUSTER_MAX, GUARDIANN_UNDERREPLICATED_PRIMARY_CLUSTER_MAX,
+            GUARDIANN_PRIMARY_CLUSTER_MIN, GUARDIANN_PRIMARY_CLUSTER_MAX, GUARDIANN_PRIMARY_CLUSTER_HARD_MAX,
+            GUARDIANN_UNDERREPLICATED_PRIMARY_CLUSTER_MAX,
             GUARDIANN_REPLICATED_CLUSTER_MAX_WRITES, GUARDIANN_REPLICATED_CLUSTER_TARGET,
             GUARDIANN_REPLICATION_PRIORITY_MIN, GUARDIANN_REPLICATION_DISTANCE_RATIO_WEIGHT,
             GUARDIANN_REPLICATION_Z_SCORE_WEIGHT, GUARDIANN_REPLICATION_STATS_MIN_SAMPLE_SIZE,

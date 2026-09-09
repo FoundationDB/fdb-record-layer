@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -1034,7 +1033,6 @@ public abstract class LocatableResolver {
         });
 
         @Nonnull
-        @SpotBugsSuppressWarnings("SE_BAD_FIELD")
         private final Function<ResolverStateProto.State, ResolverStateProto.State> mutation;
 
         StateMutation(@Nonnull Function<ResolverStateProto.State, ResolverStateProto.State> mutation) {
