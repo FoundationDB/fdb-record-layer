@@ -20,15 +20,12 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.RealVector;
-import com.apple.foundationdb.record.CursorStreamingMode;
-import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
@@ -41,7 +38,6 @@ import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.AsyncLockCursor;
-import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.cursors.LazyCursor;
 import com.apple.foundationdb.record.cursors.ListCursor;
 import com.apple.foundationdb.record.locking.LockIdentifier;
@@ -50,20 +46,17 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
-import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
-import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanBounds;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -78,19 +71,18 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 
 /**
  * An index maintainer for a {@link com.apple.foundationdb.record.metadata.IndexTypes#VECTOR vector} index. The
- * maintainer is engine-neutral: it owns the continuation/cursor machinery, the prefix skip-scan, locking, and the
- * translation of engine results into {@link IndexEntry index entries}, while delegating the actual vector-structure work
+ * maintainer is engine-neutral: it owns the continuation/cursor machinery and locking, delegates the prefix
+ * skip-scan to {@link PrefixSkipScanHelper}, and translates engine results into {@link IndexEntry index entries},
+ * while delegating the actual vector-structure work
  * (search, insert, delete) to a {@link VectorIndexEngine}. The engine — an
  * {@link com.apple.foundationdb.async.hnsw.HNSW HNSW} graph or a
  * {@link com.apple.foundationdb.async.guardiann.Guardiann Guardiann} clustered structure — is selected by the
@@ -165,7 +157,10 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
             // forms the outer of a join with an inner that searches the partition's vector structure for that prefix
             // using the query vector of the scan bounds.
             //
-            return RecordCursor.flatMapPipelined(prefixSkipScan(prefixSize, timer, vectorIndexScanBounds, innerScanProperties),
+            return RecordCursor.flatMapPipelined(
+                            PrefixSkipScanHelper.prefixSkipScan(state, prefixSize, timer,
+                                    VectorIndexHelper.Events.VECTOR_SKIP_SCAN,
+                                    vectorIndexScanBounds.getPrefixRange(), innerScanProperties),
                             (prefixTuple, innerContinuation) -> {
                                 Verify.verify(prefixTuple.size() == prefixSize);
                                 final Subspace partitionSubspace = indexSubspace.subspace(prefixTuple);
@@ -278,64 +273,6 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanType scanType, @Nonnull final TupleRange range,
                                          @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
         throw new IllegalStateException("index maintainer does not support this scan api");
-    }
-
-    @Nonnull
-    private Function<byte[], RecordCursor<Tuple>> prefixSkipScan(final int prefixSize,
-                                                                 @Nullable final StoreTimer timer,
-                                                                 @Nonnull final VectorIndexScanBounds vectorIndexScanBounds,
-                                                                 @Nonnull final ScanProperties innerScanProperties) {
-        Verify.verify(prefixSize > 0);
-        return outerContinuation -> {
-            final ChainedCursor<Tuple> chainedCursor = new ChainedCursor<>(state.context,
-                    lastKeyOptional -> nextPrefixTuple(vectorIndexScanBounds.getPrefixRange(),
-                            prefixSize, lastKeyOptional.orElse(null), innerScanProperties),
-                    Tuple::pack,
-                    Tuple::fromBytes,
-                    outerContinuation,
-                    innerScanProperties);
-            return timer == null
-                   ? chainedCursor
-                   : timer.instrument(VectorIndexHelper.Events.VECTOR_SKIP_SCAN, chainedCursor);
-        };
-    }
-
-    @SuppressWarnings({"resource", "PMD.CloseResource"})
-    private CompletableFuture<Optional<Tuple>> nextPrefixTuple(@Nonnull final TupleRange prefixRange,
-                                                               final int prefixSize,
-                                                               @Nullable final Tuple lastPrefixTuple,
-                                                               @Nonnull final ScanProperties scanProperties) {
-        final Subspace indexSubspace = getIndexSubspace();
-        final KeyValueCursor cursor;
-        if (lastPrefixTuple == null) {
-            cursor = KeyValueCursor.Builder.withSubspace(indexSubspace)
-                    .setContext(state.context)
-                    .setRange(prefixRange)
-                    .setContinuation(null)
-                    .setScanProperties(scanProperties.setStreamingMode(CursorStreamingMode.ITERATOR)
-                            .with(innerExecuteProperties -> innerExecuteProperties.setReturnedRowLimit(1)))
-                    .build();
-        } else {
-            KeyValueCursor.Builder builder = KeyValueCursor.Builder.withSubspace(indexSubspace)
-                    .setContext(state.context)
-                    .setContinuation(null)
-                    .setScanProperties(scanProperties)
-                    .setScanProperties(scanProperties.setStreamingMode(CursorStreamingMode.ITERATOR)
-                            .with(innerExecuteProperties -> innerExecuteProperties.setReturnedRowLimit(1)));
-
-            cursor = builder.setLow(indexSubspace.pack(lastPrefixTuple), EndpointType.RANGE_EXCLUSIVE)
-                    .setHigh(prefixRange.getHigh(), prefixRange.getHighEndpoint())
-                    .build();
-        }
-
-        return cursor.onNext().thenApply(next -> {
-            cursor.close();
-            if (next.hasNext()) {
-                final KeyValue kv = Objects.requireNonNull(next.get());
-                return Optional.of(TupleHelpers.subTuple(indexSubspace.unpack(kv.getKey()), 0, prefixSize));
-            }
-            return Optional.empty();
-        });
     }
 
     @Override
