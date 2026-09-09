@@ -68,8 +68,6 @@ public abstract sealed class RecordLayerSyntheticTable implements View
     @Nonnull
     @Override
     public String getDescription() {
-        // Thrown directly rather than through Assert.failUnchecked, which throws internally and so leaves the athrow
-        // here unreachable -- coverage instrumentation probes that instruction and would report this method as dead.
         throw new RelationalException("A synthetic table has no query description",
                 ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException();
     }

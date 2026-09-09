@@ -316,10 +316,6 @@ final class UnnestedRecordTableGenerator {
         @Nonnull
         @Override
         public Value evaluateAtValue(@Nonnull final Value value, @Nonnull final List<Value> childResults) {
-            // Reached for any value with no visitation method of its own, so for everything that is not a plain column
-            // reference. Only a column carries a field path, and only a field path can be re-rooted.
-            // Thrown directly rather than through Assert.failUnchecked, which throws internally and so leaves the athrow
-            // here unreachable -- coverage instrumentation probes that instruction and would report this method as dead.
             throw new RelationalException(
                     "Unsupported index definition, an index over an unnested synthetic table supports only plain column references",
                     ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException();
