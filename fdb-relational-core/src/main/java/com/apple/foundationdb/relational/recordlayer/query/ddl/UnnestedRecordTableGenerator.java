@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.SimpleValueVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
@@ -317,8 +318,11 @@ final class UnnestedRecordTableGenerator {
         public Value evaluateAtValue(@Nonnull final Value value, @Nonnull final List<Value> childResults) {
             // Reached for any value with no visitation method of its own, so for everything that is not a plain column
             // reference. Only a column carries a field path, and only a field path can be re-rooted.
-            throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION,
-                    "Unsupported index definition, an index over an unnested synthetic table supports only plain column references");
+            // Thrown directly rather than through Assert.failUnchecked, which throws internally and so leaves the athrow
+            // here unreachable -- coverage instrumentation probes that instruction and would report this method as dead.
+            throw new RelationalException(
+                    "Unsupported index definition, an index over an unnested synthetic table supports only plain column references",
+                    ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException();
         }
 
         @Nonnull

@@ -22,9 +22,9 @@ package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.api.metadata.Visitor;
-import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -68,8 +68,10 @@ public abstract sealed class RecordLayerSyntheticTable implements View
     @Nonnull
     @Override
     public String getDescription() {
-        throw Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION,
-                "A synthetic table has no query description");
+        // Thrown directly rather than through Assert.failUnchecked, which throws internally and so leaves the athrow
+        // here unreachable -- coverage instrumentation probes that instruction and would report this method as dead.
+        throw new RelationalException("A synthetic table has no query description",
+                ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException();
     }
 
     /** Synthetic tables are always permanent. */
