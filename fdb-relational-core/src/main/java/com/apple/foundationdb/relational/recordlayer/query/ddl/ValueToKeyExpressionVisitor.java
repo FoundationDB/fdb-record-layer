@@ -108,10 +108,18 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
     @Nonnull
     private String indexType = IndexTypes.VALUE;
 
+    /**
+     * Whether a run of adjacent field paths may be collapsed under its shared prefix, as {@code r.s.a, r.s.b} into
+     * {@code field("R").nest(concat(A, B))}.
+     */
+    private final boolean allowCollapsing;
+
     private ValueToKeyExpressionVisitor(@Nonnull final Map<Value, String> orderingFunctions,
-                                        @Nonnull final ExtremumEverStorage extremumEverStorage) {
+                                        @Nonnull final ExtremumEverStorage extremumEverStorage,
+                                        final boolean allowCollapsing) {
         this.orderingFunctions = orderingFunctions;
         this.extremumEverStorage = extremumEverStorage;
+        this.allowCollapsing = allowCollapsing;
     }
 
     //
@@ -124,14 +132,16 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
      * @param value the result value of the select
      * @param orderingFunctions the ordering function per column, keyed by identity on the columns of {@code value}
      * @param extremumEverStorage which form an extremum-ever aggregate is stored in
+     * @param allowCollapsing whether a run of adjacent field paths may be collapsed under its shared prefix
      *
      * @return the key expression and the index type
      */
     @Nonnull
     public static Result translate(@Nonnull final Value value,
                                    @Nonnull final Map<Value, String> orderingFunctions,
-                                   @Nonnull final ExtremumEverStorage extremumEverStorage) {
-        final var visitor = new ValueToKeyExpressionVisitor(orderingFunctions, extremumEverStorage);
+                                   @Nonnull final ExtremumEverStorage extremumEverStorage,
+                                   final boolean allowCollapsing) {
+        final var visitor = new ValueToKeyExpressionVisitor(orderingFunctions, extremumEverStorage, allowCollapsing);
         return new Result(Objects.requireNonNull(value.acceptVisitor(visitor)), visitor.indexType);
     }
 
@@ -287,6 +297,9 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
         }
         if (values.size() == 1) {
             return ordered(values.get(0));
+        }
+        if (!allowCollapsing) {
+            return concatOf(values.stream().map(this::ordered).collect(ImmutableList.toImmutableList()));
         }
         // a run of adjacent field values forms one component; any other value forms its own
         final List<FieldValueTrieNode> tries = new ArrayList<>(values.size());
