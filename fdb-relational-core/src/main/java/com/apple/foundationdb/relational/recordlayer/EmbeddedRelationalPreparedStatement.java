@@ -224,6 +224,14 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
                 .withMetricsCollector(Assert.notNullUnchecked(conn.getMetricCollector()))
                 .withPreparedParameters(PreparedParams.of(parameters, namedParameters))
                 .withSchemaTemplate(conn.getTransaction().getBoundSchemaTemplateMaybe().orElse(conn.getSchemaTemplate()))
+                .withSecondarySchemaLookup(schemaName -> {
+                    try {
+                        return java.util.Optional.of(
+                                conn.getBackingCatalog().loadSchema(conn.getTransaction(), conn.getPath(), schemaName).getSchemaTemplate());
+                    } catch (RelationalException e) {
+                        return java.util.Optional.empty();
+                    }
+                })
                 .build();
     }
 

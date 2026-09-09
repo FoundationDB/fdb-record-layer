@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
+import com.apple.foundationdb.record.query.plan.cascades.SchemaIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
@@ -74,10 +75,18 @@ public class FullUnorderedScanExpression extends AbstractRelationalExpressionWit
     @Nonnull
     final AccessHints accessHints;
 
+    @Nonnull
+    private final SchemaIdentifier schemaId;
+
     public FullUnorderedScanExpression(@Nonnull final Set<String> recordTypes, @Nonnull final Type flowedType, @Nonnull final AccessHints accessHints) {
+        this(recordTypes, flowedType, accessHints, SchemaIdentifier.current());
+    }
+
+    public FullUnorderedScanExpression(@Nonnull final Set<String> recordTypes, @Nonnull final Type flowedType, @Nonnull final AccessHints accessHints, @Nonnull final SchemaIdentifier schemaId) {
         this.recordTypes = ImmutableSet.copyOf(recordTypes);
         this.flowedType = flowedType;
         this.accessHints = accessHints;
+        this.schemaId = schemaId;
     }
 
     @Nonnull
@@ -88,6 +97,11 @@ public class FullUnorderedScanExpression extends AbstractRelationalExpressionWit
     @Nonnull
     public AccessHints getAccessHints() {
         return accessHints;
+    }
+
+    @Nonnull
+    public SchemaIdentifier getSchemaId() {
+        return schemaId;
     }
 
     @Nonnull
@@ -114,7 +128,7 @@ public class FullUnorderedScanExpression extends AbstractRelationalExpressionWit
                                                              final boolean shouldSimplifyValues,
                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
-        // this is ok as there are no new quantifiers
+        // schemaId is not correlation-dependent; return this unchanged
         return this;
     }
 

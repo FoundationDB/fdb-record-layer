@@ -53,6 +53,18 @@ public interface PlanContext {
     @Nonnull
     Set<MatchCandidate> getMatchCandidates();
 
+    /**
+     * Returns the {@link SchemaIdentifier} for a match candidate, or {@link SchemaIdentifier#current()} if the
+     * candidate belongs to the primary (current) schema.
+     *
+     * @param candidate a match candidate
+     * @return the schema identifier for the candidate
+     */
+    @Nonnull
+    default SchemaIdentifier getSchemaIdForMatchCandidate(@Nonnull MatchCandidate candidate) {
+        return SchemaIdentifier.current();
+    }
+
     @Nonnull
     static PlanContext emptyContext() {
         return EMPTY_CONTEXT;

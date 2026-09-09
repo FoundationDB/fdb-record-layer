@@ -64,6 +64,14 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
                 .fromDatabase(conn.getRecordLayerDatabase())
                 .withMetricsCollector(Assert.notNullUnchecked(conn.getMetricCollector()))
                 .withSchemaTemplate(conn.getTransaction().getBoundSchemaTemplateMaybe().orElse(conn.getSchemaTemplate()))
+                .withSecondarySchemaLookup(schemaName -> {
+                    try {
+                        return java.util.Optional.of(
+                                conn.getBackingCatalog().loadSchema(conn.getTransaction(), conn.getPath(), schemaName).getSchemaTemplate());
+                    } catch (RelationalException e) {
+                        return java.util.Optional.empty();
+                    }
+                })
                 .build();
     }
 

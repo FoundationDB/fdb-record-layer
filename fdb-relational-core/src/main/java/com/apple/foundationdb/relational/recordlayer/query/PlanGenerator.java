@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMatchCandidateRegistry;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.SchemaIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel;
@@ -48,6 +49,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.continuation.CompiledStatement;
@@ -64,6 +66,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.RelationalLoggingUtil;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.logging.log4j.LogManager;
@@ -260,11 +263,13 @@ public final class PlanGenerator {
         planGenerationContext.setForExplain(ast.getQueryExecutionContext().isForExplain());
         final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
         try (var ignored = new PlannerEventStatsCollector.DefaultStatsCollectorController()) {
+            final var visitor = new BaseVisitor(planGenerationContext, metadata, planContext.getDdlQueryFactory(),
+                    planContext.getConstantActionFactory(), planContext.getDbUri(), caseSensitive);
+            visitor.getSemanticAnalyzer().setSecondarySchemaLookup(planContext.getSecondarySchemaLookup());
             final var maybePlan = planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
-                    new BaseVisitor(planGenerationContext, metadata, planContext.getDdlQueryFactory(),
-                            planContext.getConstantActionFactory(), planContext.getDbUri(), caseSensitive)
-                            .generateLogicalPlan(ast.getParseTree()));
-            return maybePlan.optimize(planner, planContext, currentPlanHashMode);
+                    visitor.generateLogicalPlan(ast.getParseTree()));
+            final var enrichedPlanContext = enrichWithSecondarySchemas(planContext, visitor.getSemanticAnalyzer().getLoadedSecondarySchemas());
+            return maybePlan.optimize(planner, enrichedPlanContext, currentPlanHashMode);
         } catch (ProtoUtils.InvalidNameException ine) {
             throw new RelationalException(ine.getMessage(), ErrorCode.INVALID_NAME, ine).toUncheckedWrappedException();
         } catch (MetaDataException mde) {
@@ -275,6 +280,22 @@ public final class PlanGenerator {
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
         }
+    }
+
+    @Nonnull
+    private static PlanContext enrichWithSecondarySchemas(@Nonnull final PlanContext planContext,
+                                                          @Nonnull final Map<String, SchemaTemplate> loadedSecondarySchemas) {
+        if (loadedSecondarySchemas.isEmpty()) {
+            return planContext;
+        }
+        final ImmutableMap.Builder<SchemaIdentifier, NonnullPair<RecordMetaData, RecordStoreState>> builder = ImmutableMap.builder();
+        for (final var entry : loadedSecondarySchemas.entrySet()) {
+            final var schemaId = SchemaIdentifier.of(entry.getKey());
+            final var rlTemplate = Assert.castUnchecked(entry.getValue(), RecordLayerSchemaTemplate.class);
+            final var recMeta = rlTemplate.toRecordMetadata();
+            builder.put(schemaId, NonnullPair.of(recMeta, new RecordStoreState(null, null)));
+        }
+        return planContext.withAdditionalSchemas(builder.build());
     }
 
     @Nonnull
