@@ -1385,6 +1385,32 @@ public class IndexTest {
     }
 
     /**
+     * The same chain written as a PartiQL path rather than as correlated subqueries. Without the intervening selects the
+     * second explode ranges over {@code b.q} where {@code b} is the explode's own quantifier, whereas with them it is the
+     * subquery's -- so this is the spelling that does <em>not</em> need the enclosing-unnesting scan in order to find the
+     * owning constituent, and it must still produce the same tree.
+     */
+    @Test
+    void createIndexWithChainedUnnestingWrittenAsPathUsesSyntheticTable() throws Exception {
+        final String stmt = CHAINED_SCHEMA +
+                "CREATE INDEX mv1 AS SELECT b.x, a.k, c.y FROM A AS a, a.p AS b, b.q AS c " +
+                "ORDER BY b.x, a.k, c.y";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, 2, (parent, constituents) -> concat(
+                        field(constituents.get(0)).nest("X"),
+                        field(parent).nest("K"),
+                        field(constituents.get(1)).nest("Y")),
+                (syntheticTable, metaData) -> {
+                    // the inner constituent hangs off the outer one, not off the stored record
+                    final var constituents = syntheticTable.getConstituents();
+                    Assertions.assertEquals(
+                            List.of(syntheticTable.getAlias(), constituents.get(0).getAlias()),
+                            constituents.stream()
+                                    .map(RecordLayerUnnestedSyntheticTable.NestedConstituent::getParentAlias)
+                                    .collect(Collectors.toList()));
+                });
+    }
+
+    /**
      * Constituents branch as well as chain: {@code b} and {@code d} both hang off the stored record, while
      * {@code c} hangs off {@code b}. This is the shape the record layer builds in
      * {@code UnnestedRecordTypeTest#addDoubleNestedType}, and it is the one that needs both lookup directions

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -92,16 +93,19 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
     @Override
     public IndexGenerationResult generate() {
         final var quantifierValues = QuantifierValues.collect(relationalExpression);
-        final var spec = IndexSpec.collect(relationalExpression, quantifierValues);
+        var spec = IndexSpec.collect(relationalExpression, quantifierValues);
         final var unnestedTableGeneratorMaybe = UnnestedRecordTableGenerator.initIfNeeded(
                 schemaTemplateBuilder, spec, indexName, quantifierValues);
-        spec.checkValidity(unnestedTableGeneratorMaybe);
-
-        final var translation = translateToKeyExpression(spec, unnestedTableGeneratorMaybe.orElse(null));
+        spec.checkValidity(unnestedTableGeneratorMaybe.orElse(null));
+        Type.Record tableType;
+        if (unnestedTableGeneratorMaybe.isPresent()) {
+            spec = unnestedTableGeneratorMaybe.get().rewrite(spec);
+            tableType = unnestedTableGeneratorMaybe.get().getSyntheticType();
+        } else {
+            tableType = schemaTemplateBuilder.findTableByStorageName(spec.recordTypeName()).getType();
+        }
+        final var translation = translateToKeyExpression(spec, unnestedTableGeneratorMaybe.isPresent());
         final var indexType = translation.indexType();
-        final var tableType = unnestedTableGeneratorMaybe
-                .map(UnnestedRecordTableGenerator::getSyntheticType)
-                .orElseGet(() -> schemaTemplateBuilder.findTableByStorageName(spec.recordTypeName()).getType());
         final var indexBuilder = RecordLayerIndex.newBuilder()
                 .setName(indexName)
                 .setTableType(tableType)
@@ -129,15 +133,13 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
      * an aggregate index keeps the projection's order.
      */
     @Nonnull
-    private ValueToKeyExpressionVisitor.Result translateToKeyExpression(@Nonnull IndexSpec spec,
-                                                                       @Nullable final UnnestedRecordTableGenerator unnestedTableGenerator) {
-        spec = unnestedTableGenerator == null ? spec : unnestedTableGenerator.rewrite(spec);
+    private ValueToKeyExpressionVisitor.Result translateToKeyExpression(@Nonnull IndexSpec spec, boolean allowCollapsing) {
         final var projectionValue = RecordConstructorValue.ofUnnamed(spec.keyValues());
         final var orderingFunctions = spec.projection().aggregate() != null ?
                                       Map.<Value, String>of() :
                                       spec.getOrderingFunctions();
         return ValueToKeyExpressionVisitor.translate(projectionValue, orderingFunctions,
-                options.extremumEverStorage(), unnestedTableGenerator == null);
+                options.extremumEverStorage(), allowCollapsing);
     }
 
     /**

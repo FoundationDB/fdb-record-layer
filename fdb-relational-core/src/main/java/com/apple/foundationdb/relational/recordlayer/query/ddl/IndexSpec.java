@@ -187,7 +187,7 @@ record IndexSpec(int scanCount, @Nullable String recordTypeName, @Nullable Query
      * Rejects every definition the generator cannot turn into an index, apart from two: the predicate, checked as it is
      * collected, and ordering by the aggregate, checked once the index type is known.
      */
-    public void checkValidity(@Nonnull final Optional<UnnestedRecordTableGenerator> unnestedTableGenerator) {
+    public void checkValidity(@Nullable final UnnestedRecordTableGenerator unnestedTableGenerator) {
         // the traversal rejects a second scan as a join, leaving none to reject here
         Assert.thatUnchecked(scanCount == 1, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, no iteration generator found");
@@ -219,7 +219,7 @@ record IndexSpec(int scanCount, @Nullable String recordTypeName, @Nullable Query
             // rejects a covering aggregate index
             aggregateOrderIndex();
         }
-        if (unnestedTableGenerator.isPresent()) {
+        if (unnestedTableGenerator != null) {
             Assert.thatUnchecked(projection.aggregate() == null,
                     ErrorCode.UNSUPPORTED_OPERATION,
                     "Unsupported index definition, an aggregate cannot be defined on an unnested synthetic table");
@@ -228,7 +228,7 @@ record IndexSpec(int scanCount, @Nullable String recordTypeName, @Nullable Query
             Assert.thatUnchecked(projection.versionValues().isEmpty(),
                     ErrorCode.UNSUPPORTED_OPERATION,
                     "Unsupported index definition, a version column cannot be part of an index over an unnested synthetic table");
-            Assert.thatUnchecked(unnestedTableGenerator.get().scalarUnnestingsReferencedOnce(keyValues()),
+            Assert.thatUnchecked(unnestedTableGenerator.scalarUnnestingsReferencedOnce(keyValues()),
                     ErrorCode.UNSUPPORTED_OPERATION,
                     "Unsupported index definition, a scalar array cannot be referenced at more than one index key position");
             // A predicate would have to be evaluated against the synthetic record rather than the stored one, which is
