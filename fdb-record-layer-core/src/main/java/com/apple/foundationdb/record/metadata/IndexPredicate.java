@@ -88,7 +88,10 @@ public abstract class IndexPredicate {
         final String typeName = type.getName();
         final String keyName = typeName + "#" + objectQuantifier.getId();
         return queryPredicateMap.computeIfAbsent(keyName, ignored -> {
-            final RecordType recordType = metaData.getRecordType(typeName);
+            // An index may be maintained on a synthetic record type, in which case the predicate is evaluated against
+            // the synthetic record and has to resolve against that type's descriptor. Synthetic types are not in
+            // getRecordType's map, so looking there throws for exactly the indexes that need this most.
+            final RecordType recordType = metaData.getIndexableRecordType(typeName);
             Type.Record typeRecord = Type.Record.fromDescriptor(recordType.getDescriptor());
             Value recordValue = QuantifiedObjectValue.of(objectQuantifier, typeRecord);
             return toPredicate(recordValue);
