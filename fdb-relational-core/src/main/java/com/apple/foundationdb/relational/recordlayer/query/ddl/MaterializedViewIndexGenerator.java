@@ -36,7 +36,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Map;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
@@ -97,14 +96,14 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
         final var unnestedTableGeneratorMaybe = UnnestedRecordTableGenerator.initIfNeeded(
                 schemaTemplateBuilder, spec, indexName, quantifierValues);
         spec.checkValidity(unnestedTableGeneratorMaybe.orElse(null));
-        Type.Record tableType;
+        final Type.Record tableType;
         if (unnestedTableGeneratorMaybe.isPresent()) {
             spec = unnestedTableGeneratorMaybe.get().rewrite(spec);
             tableType = unnestedTableGeneratorMaybe.get().getSyntheticType();
         } else {
             tableType = schemaTemplateBuilder.findTableByStorageName(spec.recordTypeName()).getType();
         }
-        final var translation = translateToKeyExpression(spec, unnestedTableGeneratorMaybe.isPresent());
+        final var translation = translateToKeyExpression(spec, unnestedTableGeneratorMaybe.isEmpty());
         final var indexType = translation.indexType();
         final var indexBuilder = RecordLayerIndex.newBuilder()
                 .setName(indexName)
@@ -131,6 +130,12 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
     /**
      * Translates the projection into the index key, columns in key order: the order-by columns lead a value index, while
      * an aggregate index keeps the projection's order.
+     *
+     * @param spec what the index is made of, already rewritten onto the synthetic table if there is one
+     * @param allowCollapsing whether a run of adjacent field paths may merge into a single navigation, which is what a
+     * fan-out on a stored table wants and what an index over constituent aliases must not do
+     *
+     * @return the index key and the index type it implies
      */
     @Nonnull
     private ValueToKeyExpressionVisitor.Result translateToKeyExpression(@Nonnull IndexSpec spec, boolean allowCollapsing) {
