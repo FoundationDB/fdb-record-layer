@@ -389,6 +389,24 @@ class ArrayAggValueTest {
     }
 
     /**
+     * Tests that the cap is a total for the group rather than a per-continuation budget. A resumed accumulator starts
+     * out already at the cap, so it keeps discarding instead of collecting a further {@code limit} elements.
+     */
+    @Test
+    void accumulateAfterRestoringStateStillRespectsLimit() {
+        final var fixture = new Fixture(LONG_TYPE, true, 2);
+        final var accumulator = fixture.accumulator();
+        accumulator.accumulate(100L);
+        accumulator.accumulate(200L);
+
+        final var restored = fixture.restore(accumulator);
+        restored.accumulate(300L);
+        restored.accumulate(400L);
+
+        assertThat(finish(restored)).containsExactly(100L, 200L);
+    }
+
+    /**
      * Tests that a limit of 0 collects nothing, yet still reports a non-empty state, so that the group remains
      * distinguishable from an empty one.
      */

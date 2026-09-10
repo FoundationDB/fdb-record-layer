@@ -529,4 +529,12 @@ test_block:
       - result: [{10, [100, 200, 300]}]
       - result: [{20, [400, 500]}]
       - result: [{30, []}]
+    -
+      # The same, but with an in-call LIMIT of 2. The cap is a total for the group rather than a budget per page, so
+      # the `grp=10` group stays at two elements even though its third row is only read after the resume.
+      - query: SELECT grp, ARRAY_AGG(val IGNORE NULLS LIMIT 2) FROM T1 GROUP BY grp
+      - result: []
+      - result: [{10, [100, 200]}]
+      - result: [{20, [400, 500]}]
+      - result: [{30, []}]
 ...
