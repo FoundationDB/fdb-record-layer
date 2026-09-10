@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -79,7 +79,6 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
         this.constituents = ImmutableList.copyOf(constituents);
     }
 
-    /** Correlation alias of the parent (stored) constituent, e.g. {@code "row"}. */
     @Nonnull
     public String getAlias() {
         return alias;

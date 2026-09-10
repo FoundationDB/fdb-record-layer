@@ -40,7 +40,6 @@ import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -72,6 +71,19 @@ final class UnnestedRecordTableGenerator {
      * Prefixes the name of a synthetic table, keeping it out of the space of names a user can declare.
      */
     private static final String UNNESTED_TABLE_NAME_PREFIX = "__unnested_";
+
+    /**
+     * Alias of the parent (stored record) constituent. Constituent aliases are persisted in the metadata, so they are
+     * derived from the index definition alone rather than taken from the plan's correlation identifiers, whose values
+     * depend on how many quantifiers the JVM has allocated and so differ between runs of the same DDL.
+     */
+    private static final String PARENT_CONSTITUENT_ALIAS = "parent";
+
+    /**
+     * Prefixes the alias of each nested constituent, which is numbered by the order its unnesting was found in. The
+     * record layer reserves {@code "__"} for constituent names of its own, so this cannot carry that prefix.
+     */
+    private static final String NESTED_CONSTITUENT_ALIAS_PREFIX = "unnesting_";
 
     /**
      * Every unnesting the plan performs, composed from what {@link QuantifierValues} recorded, keyed by marker.
@@ -138,7 +150,7 @@ final class UnnestedRecordTableGenerator {
         // Currently, the synthetic table name is derived from the record type. This may or may not be true in the
         // future.
         final var syntheticTableName = UNNESTED_TABLE_NAME_PREFIX + recordTypeName + "_" + indexName;
-        return Optional.of(new UnnestedRecordTableGenerator(unnestings, quantifierValues.parentAlias(),
+        return Optional.of(new UnnestedRecordTableGenerator(unnestings, PARENT_CONSTITUENT_ALIAS,
                 schemaTemplateBuilder, recordTypeName, syntheticTableName));
     }
 
@@ -189,12 +201,20 @@ final class UnnestedRecordTableGenerator {
      */
     @Nonnull
     private static Map<Integer, UnnestingInfo> composeUnnestings(@Nonnull final QuantifierValues quantifierValues) {
+        // Only a struct array becomes a constituent, so only those are named. Markers count scalar unnestings too, so
+        // numbering by marker would leave gaps; the aliases are numbered by their order among the constituents instead.
+        final Map<Integer, String> aliasByMarker = new LinkedHashMap<>();
+        quantifierValues.getExplodes().forEach((marker, explode) -> {
+            if (arrayTypeOf(explode.getRight()).getElementType() instanceof Type.Record) {
+                aliasByMarker.put(marker, NESTED_CONSTITUENT_ALIAS_PREFIX + aliasByMarker.size());
+            }
+        });
         final var result = ImmutableMap.<Integer, UnnestingInfo>builder();
         quantifierValues.getExplodes().forEach((marker, explode) -> {
             final var collectionValue = explode.getRight();
             final var arrayType = arrayTypeOf(collectionValue);
-            result.put(marker, new UnnestingInfo(explode.getLeft().toString(),
-                    owningAlias(marker, collectionValue, quantifierValues),
+            result.put(marker, new UnnestingInfo(aliasByMarker.get(marker),
+                    owningAlias(marker, collectionValue, quantifierValues, aliasByMarker),
                     Assert.notNullUnchecked(collectionValue.getFieldPath().getLastFieldAccessor()
                             .getField().getFieldStorageName()),
                     arrayType.isNullable(),
@@ -205,22 +225,22 @@ final class UnnestedRecordTableGenerator {
 
     /**
      * The alias of the constituent that owns the array an explode ranges over: the innermost struct-array unnesting
-     * enclosing it, or the value's own correlation when the array hangs off the stored record. The raw correlation is
-     * not enough on its own, since for a chained explode it names the enclosing subquery rather than the constituent.
+     * enclosing it, or the parent constituent when the array hangs off the stored record. Only a struct array is named,
+     * so an unnamed enclosing unnesting is a scalar one and cannot be the owner.
      */
     @Nonnull
     private static String owningAlias(final int marker,
                                       @Nonnull final FieldValue collectionValue,
-                                      @Nonnull final QuantifierValues quantifierValues) {
+                                      @Nonnull final QuantifierValues quantifierValues,
+                                      @Nonnull final Map<Integer, String> aliasByMarker) {
         final var markers = unnestingMarkers(quantifierValues.resolve(collectionValue));
         for (int i = markers.indexOf(marker) - 1; i >= 0; i--) {
-            final var enclosing = quantifierValues.getExplodes().get(markers.get(i));
-            // a scalar array cannot be a constituent, so keep looking outwards
-            if (enclosing != null && arrayTypeOf(enclosing.getRight()).getElementType() instanceof Type.Record) {
-                return enclosing.getLeft().toString();
+            final var enclosing = aliasByMarker.get(markers.get(i));
+            if (enclosing != null) {
+                return enclosing;
             }
         }
-        return Iterables.getOnlyElement(collectionValue.getCorrelatedTo()).toString();
+        return PARENT_CONSTITUENT_ALIAS;
     }
 
     @Nonnull
@@ -235,13 +255,13 @@ final class UnnestedRecordTableGenerator {
      * {@code owningAlias}. A scalar array cannot be a constituent, since its elements have no fields to reference, so
      * the same expression is instead emitted as a fan-out inside the owning constituent.
      *
-     * @param alias the correlation the explode is bound to, which is the constituent's alias
+     * @param alias the constituent's alias, or {@code null} for a scalar array, which is not a constituent
      * @param owningAlias the constituent the unnested array lives on
      * @param arrayFieldStorageName the array field, by its protobuf storage name
      * @param nullableArray whether the array is stored wrapped, as {@code { repeated T values; }}
      * @param structArray whether the array's elements are records, and so can be a constituent
      */
-    private record UnnestingInfo(@Nonnull String alias, @Nonnull String owningAlias,
+    private record UnnestingInfo(@Nullable String alias, @Nonnull String owningAlias,
                                 @Nonnull String arrayFieldStorageName, boolean nullableArray, boolean structArray) {
 
         @Nonnull

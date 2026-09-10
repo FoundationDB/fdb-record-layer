@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -34,11 +33,9 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.SimpleValueVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -65,18 +62,10 @@ final class QuantifierValues {
     @Nonnull
     private final Map<Integer, NonnullPair<CorrelationIdentifier, FieldValue>> explodes;
 
-    /**
-     * Alias of the quantifier over the stored record scan, which is the parent constituent of a synthetic table.
-     */
-    @Nullable
-    private final String parentAlias;
-
     private QuantifierValues(@Nonnull final Map<CorrelationIdentifier, Value> valuesByQuantifier,
-                             @Nonnull final Map<Integer, NonnullPair<CorrelationIdentifier, FieldValue>> explodes,
-                             @Nullable final String parentAlias) {
+                             @Nonnull final Map<Integer, NonnullPair<CorrelationIdentifier, FieldValue>> explodes) {
         this.valuesByQuantifier = valuesByQuantifier;
         this.explodes = explodes;
-        this.parentAlias = parentAlias;
     }
 
     /**
@@ -91,15 +80,6 @@ final class QuantifierValues {
     }
 
     /**
-     * Alias of the parent (stored record) constituent.
-     */
-    @Nonnull
-    public String parentAlias() {
-        return Assert.notNullUnchecked(parentAlias, ErrorCode.UNSUPPORTED_OPERATION,
-                "Could not determine parent constituent alias in unnested index definition");
-    }
-
-    /**
      * Collects the mapping for a plan.
      *
      * @param expression the root of the index-defining plan
@@ -110,7 +90,7 @@ final class QuantifierValues {
     public static QuantifierValues collect(@Nonnull final RelationalExpression expression) {
         final var collector = new Collector();
         final var valuesByQuantifier = Assert.notNullUnchecked(collector.visit(expression));
-        return new QuantifierValues(valuesByQuantifier, collector.explodes, collector.parentAlias);
+        return new QuantifierValues(valuesByQuantifier, collector.explodes);
     }
 
     /**
@@ -169,13 +149,6 @@ final class QuantifierValues {
         @Nonnull
         private final Map<Integer, NonnullPair<CorrelationIdentifier, FieldValue>> explodes = new LinkedHashMap<>();
 
-        /**
-         * Alias of the quantifier over the stored record scan. In an index-defining plan that scan is always wrapped in
-         * a {@link LogicalTypeFilterExpression}, and every other quantifier of the select ranges over an explode.
-         */
-        @Nullable
-        private String parentAlias;
-
         @Nonnull
         @Override
         public Map<CorrelationIdentifier, Value> evaluateAtExpression(@Nonnull final RelationalExpression expression,
@@ -184,9 +157,6 @@ final class QuantifierValues {
             for (final var quantifier : expression.getQuantifiers()) {
                 final var rangesOver = quantifier.getRangesOver().get();
                 // a quantifier over an explode stands for the collection being unnested, not for the explode's result
-                if (rangesOver instanceof LogicalTypeFilterExpression) {
-                    parentAlias = quantifier.getAlias().toString();
-                }
                 merged.put(quantifier.getAlias(), rangesOver instanceof ExplodeExpression
                                                   ? unnestedCollectionValue((ExplodeExpression)rangesOver,
                                                           quantifier.getAlias())
