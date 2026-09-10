@@ -84,9 +84,6 @@ public class RelationalSQLLine {
             final List<String> withCustomize = new ArrayList<>();
             withCustomize.add("-ac");
             withCustomize.add("com.apple.foundationdb.relational.cli.sqlline.Customize");
-            // this is the only isolation level we support via setTransactionIsolation so set it automatically
-            // to stop sqlline from warning that we don't support TRANSACTION_REPEATABLE_READ
-            withCustomize.add("--isolation=TRANSACTION_SERIALIZABLE");
             withCustomize.addAll(Arrays.asList(args));
             args = withCustomize.toArray(new String[0]);
             sqlline.SqlLine.main(args);
