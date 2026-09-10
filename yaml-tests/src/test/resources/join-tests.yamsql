@@ -131,7 +131,27 @@ test_block:
       - unorderedResult: [{"Emily", "Martinez"},
                           {"Daniel", "Miller"},
                           {"Megan", "Miller"}]
-
+    -
+      # Anti-join: get names of people not working on any project, via NOT EXISTS.
+      - query: select fname, lname from emp where not exists (select * from project where emp_id = emp.id);
+      - explain: "ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q0.ID | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME) }"
+      - unorderedResult: [{"Jack", "Williams"},
+                          {"Thomas", "Johnson"},
+                          {"Amelia", "Johnson"},
+                          {"Chloe", "Jones"},
+                          {"Charlotte", "Garcia"},
+                          {"Harry", "Smith"}]
+    -
+      # The same anti-join expressed as a LEFT JOIN with an IS NULL filter.
+      - query: select emp.fname, emp.lname from emp left join project on project.emp_id = emp.id where project.id is null;
+      - supported_version: 4.12.6.0
+      - explain: "ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q0.ID | ON EMPTY NULL | FILTER _.ID IS_NULL AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME) }"
+      - unorderedResult: [{"Jack", "Williams"},
+                          {"Thomas", "Johnson"},
+                          {"Amelia", "Johnson"},
+                          {"Chloe", "Jones"},
+                          {"Charlotte", "Garcia"},
+                          {"Harry", "Smith"}]
     -
       # Get names of people working on a project in Sales department
       - query: select fname, lname from

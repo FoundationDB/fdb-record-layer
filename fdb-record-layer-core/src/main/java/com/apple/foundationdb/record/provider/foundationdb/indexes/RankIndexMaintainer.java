@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -42,6 +43,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexFunctionHelper;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
+import com.apple.foundationdb.record.provider.foundationdb.RankScanBounds;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
@@ -129,6 +133,25 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
     public RankIndexMaintainer(IndexMaintainerState state) {
         super(state);
         this.config = RankedSetIndexHelper.getConfig(state.index);
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<IndexEntry> scan(@Nonnull final IndexScanBounds scanBounds, @Nullable final byte[] continuation,
+                                         @Nonnull final ScanProperties scanProperties) {
+        if (scanBounds instanceof final IndexScanRange indexScanRange) {
+            return scan(indexScanRange.getScanType(), indexScanRange.getScanRange(), continuation, scanProperties);
+        }
+        if (!(scanBounds instanceof final RankScanBounds rankScanBounds)) {
+            throw new RecordCoreException("unexpected scan bound " + scanBounds.getClass().getSimpleName());
+        }
+        final var recordCursor = scan(rankScanBounds.getScanType(), rankScanBounds.rankRange(), continuation, scanProperties);
+        if (!rankScanBounds.includeRankAsValue()) {
+            return recordCursor;
+        }
+        return recordCursor.mapPipelined(indexEntry -> rankFor(indexEntry.getKey())
+                        .thenApply(rank -> indexEntry.withValue(Tuple.from(rank))),
+                state.store.getPipelineSize(PipelineOperation.RECORD_FUNCTION));
     }
 
     @Nonnull
@@ -229,17 +252,20 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
     protected <M extends Message> CompletableFuture<Long> rank(@Nonnull EvaluationContext context,
                                                                @Nullable IndexRecordFunction<Long> function,
                                                                @Nonnull FDBRecord<M> record) {
-        final int groupPrefixSize = getGroupingCount();
-        Key.Evaluated indexKey = IndexFunctionHelper.recordFunctionIndexEntry(state.store, state.index, context, function, record, groupPrefixSize);
+        Key.Evaluated indexKey = IndexFunctionHelper.recordFunctionIndexEntry(state.store, state.index, context, function, record, getGroupingCount());
         if (indexKey == null) {
             return CompletableFuture.completedFuture(null);
         }
-        Tuple scoreValue = indexKey.toTuple();
+        return rankFor(indexKey.toTuple());
+    }
+
+    @Nonnull
+    protected CompletableFuture<Long> rankFor(@Nonnull final Tuple indexKey) {
+        final int groupPrefixSize = getGroupingCount();
+        final Tuple scoreValue = Tuple.fromList(indexKey.getItems().subList(groupPrefixSize, groupPrefixSize + getGroupedCount()));
         Subspace rankSubspace = getSecondarySubspace();
         if (groupPrefixSize > 0) {
-            Tuple prefix = Tuple.fromList(scoreValue.getItems().subList(0, groupPrefixSize));
-            rankSubspace = rankSubspace.subspace(prefix);
-            scoreValue = Tuple.fromList(scoreValue.getItems().subList(groupPrefixSize, scoreValue.size()));
+            rankSubspace = rankSubspace.subspace(Tuple.fromList(indexKey.getItems().subList(0, groupPrefixSize)));
         }
         RankedSet rankedSet = new RankedSetIndexHelper.InstrumentedRankedSet(state, rankSubspace, config);
         return RankedSetIndexHelper.rankForScore(state, rankedSet, scoreValue, true);

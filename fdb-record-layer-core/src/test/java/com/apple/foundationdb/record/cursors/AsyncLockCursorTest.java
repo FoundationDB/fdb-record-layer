@@ -20,12 +20,12 @@
 
 package com.apple.foundationdb.record.cursors;
 
-import com.apple.foundationdb.record.LockRegistryTest;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.locking.AsyncLock;
 import com.apple.foundationdb.record.locking.LockIdentifier;
+import com.apple.foundationdb.record.locking.LockRegistryTest;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.util.pair.NonnullPair;

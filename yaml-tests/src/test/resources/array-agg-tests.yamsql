@@ -42,6 +42,8 @@ schema_template:
     CREATE TABLE doc_rev (rid BIGINT, title STRING, tags STRING ARRAY, PRIMARY KEY (rid))
     CREATE TABLE doc_asset (aid BIGINT, rid BIGINT, url STRING, PRIMARY KEY (aid))
     CREATE INDEX doc_asset_by_rid AS SELECT rid FROM doc_asset ORDER BY rid
+
+    CREATE TABLE big (id BIGINT, val BIGINT, PRIMARY KEY (id))
 ---
 setup:
   steps:
@@ -262,6 +264,40 @@ test_block:
       # Variant with a STRING element type, i.e. a primitive other than the BIGINT used everywhere else in this file.
       - query: SELECT ARRAY_AGG(title) FROM doc_rev
       - result: [{['draft', 'final']}]
+    -
+      # The following tests aggregate rows as a whole by passing a bare table alias to ARRAY_AGG(). The alias resolves
+      # to the row as a struct (just like for `SELECT T FROM T`).
+      - query: SELECT ARRAY_AGG(a) FROM doc_asset a WHERE a.rid = 20
+      - supported_version: 4.13.5.0
+      - result: [{[{2, 20, 'b1.png'}, {3, 20, 'b2.png'}]}]
+    -
+      # Control: Outside an aggregate, the bare alias yields the whole row as a struct, as usual.
+      - query: SELECT a FROM doc_asset a WHERE a.rid = 20
+      - result: [{a: {2, 20, 'b1.png'}}, {a: {3, 20, 'b2.png'}}]
+    -
+      # The unaliased table name works the same way.
+      - query: SELECT ARRAY_AGG(doc_asset) FROM doc_asset WHERE rid = 20
+      - supported_version: 4.13.5.0
+      - result: [{[{2, 20, 'b1.png'}, {3, 20, 'b2.png'}]}]
+    -
+      # Bare alias with GROUP BY. This yields one array of rows per group.
+      - query: SELECT a.rid, ARRAY_AGG(a) FROM doc_asset a GROUP BY a.rid
+      - supported_version: 4.13.5.0
+      - result: [{10, [{1, 10, 'a1.png'}]}, {20, [{2, 20, 'b1.png'}, {3, 20, 'b2.png'}]}]
+    -
+      # In a join, each alias resolves to its own row.
+      - query: SELECT ARRAY_AGG(a), ARRAY_AGG(r) FROM doc_asset a, doc_rev r WHERE a.rid = r.rid AND r.rid = 20
+      - supported_version: 4.13.5.0
+      - result: [{[{2, 20, 'b1.png'}, {3, 20, 'b2.png'}], [{20, 'final', ['featured', 'public']}, {20, 'final', ['featured', 'public']}]}]
+    -
+      # A column of the same name takes precedence over the row alias. Here, `array_agg` resolves to the `keywords`
+      # table column, so the aggregate is over BIGINT rather than a struct.
+      - query: SELECT ARRAY_AGG(array_agg) FROM keywords AS array_agg
+      - result: [{[1]}]
+    -
+      # An identifier that names neither a column nor a table in scope fails with UNDEFINED_COLUMN, as usual.
+      - query: SELECT ARRAY_AGG(b) FROM doc_asset a
+      - error: UNDEFINED_COLUMN
 ---
 # ARRAY_AGG() over constant inputs.
 test_block:
@@ -396,4 +432,54 @@ test_block:
       - resultMetadata: [{mid: BIGINT}, {rid: BIGINT}, {assets: {array: [{aid: BIGINT}, {rid: BIGINT}, {url: STRING}]}}]
       - explain: "SCAN([IS doc_rev, EQUALS promote(@c62 AS LONG)]) | FILTER @c52 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg((_._0.aid AS aid, _._0.rid AS rid, _._0.url AS url)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }"
       - result: [{1, 20, [{2, 20, 'b1.png'}, {3, 20, 'b2.png'}]}]
+---
+test_block:
+  name: array-agg-large-group
+  preset: single_repetition_ordered
+  tests:
+    -
+      # Produce a fairly large group of 256 BIGINTs for ARRAY_AGG() to aggregate. (Note: With this method of generating
+      # the data, we can’t go much larger than 256, since a single INSERT would otherwise exceed the FDB transaction
+      # time limit.)
+      - query: INSERT INTO big VALUES
+                  (1, 1),  (2, 1),  (3, 1),  (4, 1),  (5, 1),  (6, 1),  (7, 1),  (8, 1),
+                  (9, 1), (10, 1), (11, 1), (12, 1), (13, 1), (14, 1), (15, 1), (16, 1),
+                 (17, 1), (18, 1), (19, 1), (20, 1), (21, 1), (22, 1), (23, 1), (24, 1),
+                 (25, 1), (26, 1), (27, 1), (28, 1), (29, 1), (30, 1), (31, 1), (32, 1)
+      - count: 32
+    -
+      - query: INSERT INTO big SELECT id + 32, val FROM big
+      - count: 32
+    -
+      - query: INSERT INTO big SELECT id + 64, val FROM big
+      - count: 64
+    -
+      - query: INSERT INTO big SELECT id + 128, val FROM big
+      - count: 128
+    -
+      # Aggregate a single group of all 256 elements. This in particular exercises a large partial ARRAY_AGG() state.
+      - query: SELECT CARDINALITY(sq.a) FROM (SELECT ARRAY_AGG(id) AS a FROM big) sq
+      - result: [{256}]
+    -
+      # Test that every row of the group contributes (via a predicate that is satisfied by all 256 rows).
+      - query: SELECT CARDINALITY(sq.a) FROM (SELECT ARRAY_AGG(val) AS a FROM big WHERE val = 1) sq
+      - result: [{256}]
+---
+# Exercise the continuation that carries the partial ARRAY_AGG() state. To trigger a stop inside a group we need a
+# record scan limit (not `maxRows`, which is applied _above_ the aggregate cursor). So this block sets
+# EXECUTION_SCANNED_ROWS_LIMIT and lets the framework resume across the pages. The `grp=10` group holds three rows,
+# so the limit of 2 will stop within that group.
+test_block:
+  name: array-agg-continuation
+  preset: single_repetition_ordered
+  options:
+    connection_options:
+      EXECUTION_SCANNED_ROWS_LIMIT: 2
+  tests:
+    -
+      - query: SELECT grp, ARRAY_AGG(val IGNORE NULLS) FROM T1 GROUP BY grp
+      - result: []
+      - result: [{10, [100, 200, 300]}]
+      - result: [{20, [400, 500]}]
+      - result: [{30, []}]
 ...
