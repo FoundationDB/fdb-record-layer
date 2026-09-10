@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.metadata.Index;
@@ -28,6 +29,8 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -42,11 +45,11 @@ import javax.annotation.Nonnull;
  * message with the index, the record type it is reported as, and whether a primary key survives.
  * </p>
  * <p>
- * Implementors differ in the <em>shape</em> an entry is decoded into, and the two static helpers name that choice:
- * {@link #intoStoredRecordShape} decodes into a partial copy of the record type, {@link #intoShape} into a shape no
- * stored record has -- an aggregate index plan decodes into the result of its select-having, whose aggregate column
- * exists in no record. Left implicit, that choice is how a plan decodes entries into the wrong shape while every
- * individual step looks right.
+ * Implementors differ in the <em>shape</em> an entry is decoded into. {@link #intoStoredRecordShape} decodes into a
+ * partial copy of the record type; the {@code toQueriedRecord} overloads decode into a shape given explicitly or taken
+ * from a value's result type, which need not be that of any stored record -- an aggregate index plan decodes into the
+ * result of its select-having, whose aggregate column exists in no record. Left implicit, that choice is how a plan
+ * decodes entries into the wrong shape while every individual step looks right.
  * </p>
  * <p>
  * The pieces are passed as arguments rather than bundled, because this runs once per index entry read and should avoid
@@ -57,8 +60,8 @@ import javax.annotation.Nonnull;
 public interface RecordQueryPlanWithIndexEntryToQueriedRecord extends RecordQueryPlan {
 
     /**
-     * Converts one entry of this plan's index into a queried record, via {@link #intoStoredRecordShape} or
-     * {@link #intoShape}.
+     * Converts one entry of this plan's index into a queried record, via {@link #intoStoredRecordShape} or one of the
+     * {@code toQueriedRecord} overloads.
      * @param store the store the query runs against
      * @param context the evaluation context
      * @param indexEntry the entry to convert
@@ -88,7 +91,7 @@ public interface RecordQueryPlanWithIndexEntryToQueriedRecord extends RecordQuer
                                                                         @Nonnull final IndexKeyValueToPartialRecord converter,
                                                                         final boolean hasPrimaryKey,
                                                                         @Nonnull final IndexEntry indexEntry) {
-        return intoShape(store, index, recordType, recordType.getDescriptor(), converter, hasPrimaryKey, indexEntry);
+        return toQueriedRecord(store, index, recordType, recordType.getDescriptor(), converter, hasPrimaryKey, indexEntry);
     }
 
     /**
@@ -106,14 +109,43 @@ public interface RecordQueryPlanWithIndexEntryToQueriedRecord extends RecordQuer
      */
     @Nonnull
     @SuppressWarnings("unchecked")
-    static <M extends Message> FDBQueriedRecord<M> intoShape(@Nonnull final FDBRecordStoreBase<M> store,
-                                                            @Nonnull final Index index,
-                                                            @Nonnull final RecordType recordType,
-                                                            @Nonnull final Descriptors.Descriptor shape,
-                                                            @Nonnull final IndexKeyValueToPartialRecord converter,
-                                                            final boolean hasPrimaryKey,
-                                                            @Nonnull final IndexEntry indexEntry) {
+    static <M extends Message> FDBQueriedRecord<M> toQueriedRecord(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                   @Nonnull final Index index,
+                                                                   @Nonnull final RecordType recordType,
+                                                                   @Nonnull final Descriptors.Descriptor shape,
+                                                                   @Nonnull final IndexKeyValueToPartialRecord converter,
+                                                                   final boolean hasPrimaryKey,
+                                                                   @Nonnull final IndexEntry indexEntry) {
         return store.coveredIndexQueriedRecord(index, indexEntry, recordType,
                 (M)converter.toRecord(shape, indexEntry), hasPrimaryKey);
+    }
+
+    /**
+     * Converts an entry by evaluating {@code indexEntryToRecordValue} against it, the shape being that value's own result
+     * type. The value reads the entry from the evaluation context, so the entry is bound here under
+     * {@link Quantifier#current()} first.
+     * @param store the store the query runs against
+     * @param context the evaluation context, which must hold a type repository describing the value's result type
+     * @param index the index the entry came from
+     * @param recordType the record type the converted record is reported as
+     * @param indexEntryToRecordValue a value computing the record from the entry
+     * @param hasPrimaryKey whether the converted entry carries the primary key of a record
+     * @param indexEntry the entry to convert
+     * @param <M> the Protobuf message type of a record
+     * @return the queried record the entry converts to
+     */
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    static <M extends Message> FDBQueriedRecord<M> toQueriedRecord(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                   @Nonnull final EvaluationContext context,
+                                                                   @Nonnull final Index index,
+                                                                   @Nonnull final RecordType recordType,
+                                                                   @Nonnull final Value indexEntryToRecordValue,
+                                                                   final boolean hasPrimaryKey,
+                                                                   @Nonnull final IndexEntry indexEntry) {
+        final var entryContext =
+                context.withBinding(Bindings.Internal.CORRELATION, Quantifier.current(), indexEntry);
+        return store.coveredIndexQueriedRecord(index, indexEntry, recordType,
+                (M)indexEntryToRecordValue.eval(store, entryContext), hasPrimaryKey);
     }
 }

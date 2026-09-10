@@ -1747,6 +1747,7 @@ message PRecordQueryPlan {
     PRecordQueryStreamingAggregationPlan streaming_aggregation_plan = 38;
     PRecordQueryMultiIntersectionOnValuesPlan multi_intersection_on_values_plan = 39;
     PRecordQueryRecursiveDfsJoinPlan recursive_dfs_join_plan = 40;
+    PRecordQueryCoveringIndexValuePlan covering_index_value_plan = 41;
   }
   // 25: PRecordQueryStreamingAggregationPlan -- superseded by field 38 (same message type, incompatible wire format); retired.
   reserved 25;
@@ -1780,6 +1781,10 @@ message PRecordQueryAggregateIndexPlan {
   optional PQueryPlanConstraint constraint = 5;
   optional PValue group_by_result_value = 6; // VC0
   optional PType result_type = 7; // VC1 onwards.
+  // A value computing the record from an index entry, an alternative to to_record above. See issue 2907. Written
+  // whenever the planner produced one, and used in place of to_record when present. A reader that ignores this field
+  // still decodes entries correctly through the copiers, as does a plan written before this field existed.
+  optional PValue index_entry_to_record_value = 8;
 }
 
 //
@@ -1789,6 +1794,13 @@ message PRecordQueryCoveringIndexPlan {
   optional PRecordQueryPlan index_plan = 1;
   optional string record_type_name = 2;
   optional PIndexKeyValueToPartialRecord to_record = 3;
+}
+
+// A covering index plan that reads an index entry by evaluating a value rather than by running copiers. See issue 2907.
+message PRecordQueryCoveringIndexValuePlan {
+  optional PRecordQueryPlan index_plan = 1;
+  optional string record_type_name = 2;
+  optional PValue index_entry_to_record_value = 3;
 }
 
 message PIndexKeyValueToPartialRecord {
