@@ -389,7 +389,7 @@ class JDBCRelationalConnection implements RelationalConnection {
      */
     @Override
     public int getTransactionIsolation() throws SQLException {
-        return Connection.TRANSACTION_SERIALIZABLE;
+        return JDBCRelationalDatabaseMetaData.ONLY_SUPPORTED_TRANSACTION_ISOLATION_LEVEL;
     }
 
     @Override
@@ -496,7 +496,7 @@ class JDBCRelationalConnection implements RelationalConnection {
 
     @Override
     public void setTransactionIsolation(int level) throws SQLException {
-        if (level != TRANSACTION_SERIALIZABLE) {
+        if (level != JDBCRelationalDatabaseMetaData.ONLY_SUPPORTED_TRANSACTION_ISOLATION_LEVEL) {
             throw new SQLFeatureNotSupportedException("Only SERIALIZABLE isolation level is supported",
                     ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }

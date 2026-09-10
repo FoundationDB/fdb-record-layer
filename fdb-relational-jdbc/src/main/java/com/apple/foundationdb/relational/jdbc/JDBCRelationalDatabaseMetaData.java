@@ -36,6 +36,12 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 class JDBCRelationalDatabaseMetaData implements RelationalDatabaseMetaData {
+
+    /**
+     * We only currently support {@link Connection#TRANSACTION_SERIALIZABLE}.
+     */
+    static final int ONLY_SUPPORTED_TRANSACTION_ISOLATION_LEVEL = Connection.TRANSACTION_SERIALIZABLE;
+
     private final DatabaseMetaDataResponse pbDatabaseMetaDataResponse;
     private final RelationalConnection connection;
 
@@ -93,8 +99,7 @@ class JDBCRelationalDatabaseMetaData implements RelationalDatabaseMetaData {
 
     @Override
     public int getDefaultTransactionIsolation() throws SQLException {
-        // TODO: Pick this for now.
-        return this.connection.getTransactionIsolation();
+        return ONLY_SUPPORTED_TRANSACTION_ISOLATION_LEVEL;
     }
 
     @Override
@@ -104,8 +109,7 @@ class JDBCRelationalDatabaseMetaData implements RelationalDatabaseMetaData {
 
     @Override
     public boolean supportsTransactionIsolationLevel(int level) throws SQLException {
-        // TODO: Do this only for now.
-        return level == getDefaultTransactionIsolation();
+        return level == ONLY_SUPPORTED_TRANSACTION_ISOLATION_LEVEL;
     }
 
     @Nonnull
