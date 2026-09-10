@@ -8,6 +8,69 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.13
 
+{#release-4-13-5-0}
+
+### 4.13.5.0
+
+<h4> Breaking Changes </h4>
+
+* Decode the doubled-quote escape in string literals - [PR #4524](https://github.com/FoundationDB/fdb-record-layer/pull/4524)
+<h4> New Features </h4>
+
+* Expose client knobs through the `FDBDatabaseFactory` - [PR #4488](https://github.com/FoundationDB/fdb-record-layer/pull/4488)
+* Allow a bare table alias to be passed as an aggregate argument - [PR #4535](https://github.com/FoundationDB/fdb-record-layer/pull/4535)
+* Route aggregate index plan breadcrumb values through the match candidate - [PR #4550](https://github.com/FoundationDB/fdb-record-layer/pull/4550)
+* Rewrite the materialized view index generator using generated Value visitation - [PR #4525](https://github.com/FoundationDB/fdb-record-layer/pull/4525)
+* Make index-entry-to-record conversion an explicit contract - [PR #4547](https://github.com/FoundationDB/fdb-record-layer/pull/4547)
+<h4> Performance Improvements </h4>
+
+* Clean up completed entries from the `LockRegistry` - [PR #4545](https://github.com/FoundationDB/fdb-record-layer/pull/4545)
+<h4> Dependency Updates </h4>
+
+* Bump io.dropwizard.metrics:metrics-core from 4.2.28 to 4.2.39 - [PR #4511](https://github.com/FoundationDB/fdb-record-layer/pull/4511)
+* Bump guava from 33.6.0-jre to 33.7.1-jre - [PR #4551](https://github.com/FoundationDB/fdb-record-layer/pull/4551)
+* Bump grpc from 1.83.0 to 1.83.1 - [PR #4556](https://github.com/FoundationDB/fdb-record-layer/pull/4556)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Preserve custom FieldOptions extensions when loading schema metadata from JSON - [PR #4540](https://github.com/FoundationDB/fdb-record-layer/pull/4540)
+* Bump idna from 3.18 to 3.19 in /docs/sphinx - [PR #4555](https://github.com/FoundationDB/fdb-record-layer/pull/4555)
+* Disable the Gradle problems report - [PR #4591](https://github.com/FoundationDB/fdb-record-layer/pull/4591)
+* Add yamsql test coverage for anti-joins and `NOT EXISTS` - [PR #4594](https://github.com/FoundationDB/fdb-record-layer/pull/4594)
+* Bump charset-normalizer from 3.5.0 to 3.5.1 in /docs/sphinx - [PR #4554](https://github.com/FoundationDB/fdb-record-layer/pull/4554)
+* Bump pygments from 2.20.0 to 2.21.0 in /docs/sphinx - [PR #4552](https://github.com/FoundationDB/fdb-record-layer/pull/4552)
+* Add pull request job for validating the documentation build - [PR #4510](https://github.com/FoundationDB/fdb-record-layer/pull/4510)
+* Update `.idea/checkstyle-idea.xml` - [PR #4590](https://github.com/FoundationDB/fdb-record-layer/pull/4590)
+* Add tests to pin Issue #4573 - [PR #4589](https://github.com/FoundationDB/fdb-record-layer/pull/4589)
+* docs: document online index building - [PR #4562](https://github.com/FoundationDB/fdb-record-layer/pull/4562)
+* Bump gradle-wrapper from 9.7.0 to 9.7.1 - [PR #4561](https://github.com/FoundationDB/fdb-record-layer/pull/4561)
+* Warn that setThreadsPerClientVersion needs an external client - [PR #4560](https://github.com/FoundationDB/fdb-record-layer/pull/4560)
+* Bump com.github.spotbugs:spotbugs-annotations from 4.10.3 to 4.10.4 - [PR #4557](https://github.com/FoundationDB/fdb-record-layer/pull/4557)
+* Bump peter-evans/create-pull-request from b99c9ae23bcf83f0f5aa571c2f0093de8aa85036 to c9f8b51aaac1dfba340a97878061732b0e738ec1 - [PR #4553](https://github.com/FoundationDB/fdb-record-layer/pull/4553)
+* Bump com.github.spotbugs from 6.5.10 to 6.5.11 - [PR #4558](https://github.com/FoundationDB/fdb-record-layer/pull/4558)
+* Move the entries in the release notes for 4.13.4.0 so that test- and build-only dependencies are in the "Build/Test etc." section - [PR #4548](https://github.com/FoundationDB/fdb-record-layer/pull/4548)
+* Document SQL support in the FAQ - [PR #4546](https://github.com/FoundationDB/fdb-record-layer/pull/4546)
+
+</details>
+
+
+**[Full Changelog (4.13.4.0...4.13.5.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.13.4.0...4.13.5.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.12.11.0`, ✅`4.12.12.0`, ✅`4.12.13.0`, ✅`4.12.15.0`, ✅`4.12.16.0`, ✅`4.12.18.0`, ✅`4.13.1.0`, ✅`4.13.2.0`, ✅`4.13.3.0`, ✅`4.13.4.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/34466854690)
+
+
+
 {#release-4-13-4-0}
 
 ### 4.13.4.0
