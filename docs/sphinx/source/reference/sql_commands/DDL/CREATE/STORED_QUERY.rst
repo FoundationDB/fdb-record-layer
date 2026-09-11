@@ -41,7 +41,7 @@ parameter list
     Optional. Declares typed named parameters, which the body refers to by name. See `Parameter list`_ below. A parameter list requires a ``PREPARE FOR`` block, and a ``PREPARE FOR`` block requires a parameter list.
 
 ``PREPARE FOR`` block
-    Required whenever a parameter list is present. Lists the combinations of parameter states that each get their own warmed plan. Every case must pin every declared parameter. See `Prepared cases`_ below.
+    Required whenever a parameter list is present. Lists the combinations of parameter states that each get their own warmed plan. Every nullable parameter must be pinned in every case; one declared ``NOT NULL`` may be left out. See `Prepared cases`_ below.
 
 ``DECLARE`` block
     Optional. Declares one or more transaction-local functions that the stored query body may call, using the same syntax as :ref:`CREATE TEMPORARY FUNCTION <create_temporary_function>`. Multiple functions are separated by semicolons.
