@@ -94,9 +94,10 @@ public class StoredQueryParametersTest {
     }
 
     /**
-     * A parameter name is an ordinary identifier: unquoted it is uppercased, quoted it keeps its spelling. That
-     * normalized name is what is persisted, and it is the name a client has to bind, because a prepared parameter name
-     * is never normalized. A case names its parameters the same way.
+     * A quoted parameter name keeps its spelling; an unquoted one is normalized as an ordinary identifier, per the
+     * connection's {@code CASE_SENSITIVE_IDENTIFIERS} option. The normalized name is what is persisted, and it is the
+     * name a client has to bind, because a prepared parameter name always keeps the spelling it was written with. A case
+     * names its parameters the same way.
      */
     @Test
     void declarationIsPersistedUnderTheNormalizedName() throws Exception {
