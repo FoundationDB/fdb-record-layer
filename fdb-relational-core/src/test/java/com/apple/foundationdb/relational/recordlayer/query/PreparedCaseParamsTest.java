@@ -100,7 +100,7 @@ class PreparedCaseParamsTest {
     void valueFreeStateWithoutADeclarationIsRejected() {
         assertThatThrownBy(() -> PreparedCaseParams.of(Map.of(), Map.of("P", ParameterState.IS_NOT_NULL)))
                 .hasMessageContaining("prepared case names 'P'")
-                .hasMessageContaining("the signature does not declare");
+                .hasMessageContaining("the parameter list does not declare");
     }
 
     @Test
