@@ -67,7 +67,7 @@ A parameter is **nullable by default**, as a column is. Write ``NOT NULL`` to de
 Naming
 ------
 
-A parameter name is an ordinary identifier: unquoted it is upper-cased, quoted it keeps its spelling, and the connection option ``CASE_SENSITIVE_IDENTIFIERS`` decides which rule applies. A prepared parameter name, on the other hand, is never normalized — neither the ``?name`` in the query text nor the name passed to ``setLong``, ``setNull`` and the rest.
+A parameter name is an ordinary identifier. Quoted, it keeps its spelling exactly. Unquoted, it is normalized according to the connection option ``CASE_SENSITIVE_IDENTIFIERS``. A prepared parameter name, on the other hand, always keeps the spelling it was written with — both the ``?name`` in the query text and the name passed to ``setLong``, ``setNull`` and the rest.
 
 The two are compared as raw strings, so the name a client uses is the declared identifier **after** normalization:
 
