@@ -118,7 +118,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     /**
      * Creates a <em>value-free</em> {@link ConstantObjectValue} of the given declared type at this token's constant id:
-     * a constant reference that carries a type but no plan-time value (e.g. a typed stored-query signature parameter
+     * a constant reference that carries a type but no plan-time value (e.g. a typed stored-query parameter
      * warmed with no value). A value-free {@link OrderedLiteral} is registered for it, which reserves the constant id
      * and declares the type but — unlike a bound literal — contributes no binding, so the constant id stays unbound in
      * the evaluation context. At runtime the byte-identical parameter token binds a value at the same constant id, and
@@ -397,7 +397,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         final var evaluationContext = getEvaluationContext();
         constantObjectValues.forEach(cov -> {
             if (literals.isValueFree(cov.getConstantId())) {
-                // A value-free constant, e.g. a typed signature parameter planned with no value. Its declared type is
+                // A value-free constant, e.g. a typed declared parameter planned with no value. Its declared type is
                 // all that is known about it, and OfTypeValue.eval already answers expectedType.isNullable() when the
                 // bound value is null, so the OfType constraint above alone would decide null correctly.
                 //
@@ -538,7 +538,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     public Value processNamedPreparedParam(@Nonnull String param, int tokenIndex,
                                            @Nonnull Function<String, Type> declaredTypeResolver) {
         if (!preparedParams.hasNamedParamValue(param)) {
-            // Value-free warm-up: a named parameter declared (via a stored-query signature) with a type but no value.
+            // Value-free warm-up: a named parameter declared (in a stored query's parameter list) with a type but no value.
             // Plan it as a value-free typed constant; the runtime re-issue binds a value at the same constant id.
             final var declaration = preparedParams.declarationMaybe(param);
             if (declaration.isPresent()) {

@@ -48,7 +48,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests the {@link PlanGenerator} entry points that stored-query warm-up uses, i.e. the ones taking caller-supplied
- * {@link PreparedParams}. Warm-up threads a signature's declared types through them so a named parameter with no value
+ * {@link PreparedParams}. Warm-up threads the declared types through them so a named parameter with no value
  * is planned <em>value-free</em>: it reserves a constant id and contributes a type constraint, but binds nothing.
  * <br>
  * These require no database, which is the point — the end-to-end warm-up coverage in {@code StoredQueriesTest} needs a
