@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -83,7 +84,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
     @Nonnull
-    private final Map<String, Descriptors.GenericDescriptor> auxiliaryTypeDescriptorMap;
+    private final Supplier<Map<String, Descriptors.GenericDescriptor>> auxiliaryTypeDescriptorsByFullNameMap;
     @Nonnull
     private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
     @Nonnull
@@ -106,10 +107,6 @@ public class RecordMetaData implements RecordMetaDataProvider {
     private final boolean usesLocalRecordsDescriptor;
     private final Map<Index, Collection<RecordType>> recordTypesForIndex;
 
-    private static final Descriptors.FileDescriptor[] defaultExcludedDependencies = {
-            RecordMetaDataProto.getDescriptor(), RecordMetaDataOptionsProto.getDescriptor(), TupleFieldsProto.getDescriptor()
-    };
-
     protected RecordMetaData(@Nonnull RecordMetaData orig) {
         this(orig.getRecordsDescriptor(),
                 orig.getUnionDescriptor(),
@@ -120,7 +117,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 Collections.unmodifiableMap(orig.indexes),
                 Collections.unmodifiableMap(orig.universalIndexes),
                 Collections.unmodifiableList(orig.formerIndexes),
-                Collections.unmodifiableMap(orig.auxiliaryTypeDescriptorMap),
+                orig.auxiliaryTypeDescriptorsByFullNameMap,
                 Collections.unmodifiableMap(orig.userDefinedFunctionMap),
                 Collections.unmodifiableMap(orig.viewMap),
                 Collections.unmodifiableMap(orig.storedQueries),
@@ -143,7 +140,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
-                             @Nonnull Map<String, Descriptors.GenericDescriptor> auxiliaryTypeDescriptorMap,
+                             @Nonnull Supplier<Map<String, Descriptors.GenericDescriptor>> auxiliaryTypeDescriptorsByFullNameMap,
                              @Nonnull Map<String, UserDefinedFunction> userDefinedFunctionMap,
                              @Nonnull Map<String, View> viewMap,
                              @Nonnull Map<String, StoredQuery> storedQueries,
@@ -163,7 +160,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.indexes = indexes;
         this.universalIndexes = universalIndexes;
         this.formerIndexes = formerIndexes;
-        this.auxiliaryTypeDescriptorMap = auxiliaryTypeDescriptorMap;
+        this.auxiliaryTypeDescriptorsByFullNameMap = auxiliaryTypeDescriptorsByFullNameMap;
         this.userDefinedFunctionMap = userDefinedFunctionMap;
         this.viewMap = viewMap;
         this.storedQueries = storedQueries;
@@ -625,7 +622,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      */
     @Nonnull
     public RecordMetaDataProto.MetaData toProto() {
-        return toProto(defaultExcludedDependencies);
+        return toProto(RecordMetaDataBuilder.defaultExcludedProtoDependencies);
     }
 
     /**
@@ -754,8 +751,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     @Nonnull
-    public Map<String, Descriptors.GenericDescriptor> getAuxiliaryTypeDescriptors() {
-        return auxiliaryTypeDescriptorMap;
+    public Map<String, Descriptors.GenericDescriptor> getAuxiliaryTypeDescriptorsByFullName() {
+        return auxiliaryTypeDescriptorsByFullNameMap.get();
     }
 
     /**

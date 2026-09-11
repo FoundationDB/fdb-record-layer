@@ -22,14 +22,23 @@ package com.apple.foundationdb.record.util;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Internal;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayDeque;
+import java.util.Collection;
+import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Utility functions for interacting with protobuf.
@@ -96,6 +105,86 @@ public class ProtoUtils {
     public static String uniqueName(String prefix) {
         final var safeUuid = UUID.randomUUID().toString().replace('-', '_');
         return prefix + safeUuid;
+    }
+
+    /**
+     * Recursively collects every message and enum type declared in {@code fileDescriptor} and in its transitive
+     * dependencies into {@code descriptorByFullNameBuilder}, keyed by fully-qualified protobuf name. Nested message
+     * and enum types are collected as well, to any depth.
+     * <p>
+     * Dependencies are visited before the types declared in {@code fileDescriptor} itself, so a caller finishing the
+     * map with {@link ImmutableMap.Builder#buildKeepingLast()} resolves a duplicated full name in favour of the file
+     * closest to the root of the walk.
+     * <p>
+     * {@code excludedDependenciesByName} doubles as the set of already-visited files and is mutated accordingly: a
+     * dependency is skipped when it is already present, and is added to the set before being descended into.
+     *
+     * @param fileDescriptor The file whose types, and whose dependencies' types, are collected.
+     * @param descriptorByFullNameBuilder The builder to add the collected descriptors to, keyed by
+     *                                    {@link Descriptors.GenericDescriptor#getFullName()}.
+     * @param excludedDependenciesByName The names of the dependency files to skip, as returned by
+     *                                   {@link Descriptors.FileDescriptor#getFullName()}. Mutated to record the
+     *                                   files that have been visited.
+     */
+    private static void addAllTypesInFileDescriptorToMap(
+            @Nonnull Descriptors.FileDescriptor fileDescriptor,
+            @Nonnull ImmutableMap.Builder<String, Descriptors.GenericDescriptor> descriptorByFullNameBuilder,
+            @Nonnull Set<String> excludedDependenciesByName) {
+        for (final var dependency : fileDescriptor.getDependencies()) {
+            if (!excludedDependenciesByName.contains(dependency.getFullName())) {
+                excludedDependenciesByName.add(dependency.getFullName());
+                addAllTypesInFileDescriptorToMap(
+                        dependency,
+                        descriptorByFullNameBuilder,
+                        excludedDependenciesByName);
+            }
+        }
+
+        final Deque<Descriptors.GenericDescriptor> messageTypesToProcess = new ArrayDeque<>(
+                fileDescriptor.getMessageTypes());
+        messageTypesToProcess.addAll(fileDescriptor.getEnumTypes());
+        while (!messageTypesToProcess.isEmpty()) {
+            final var messageType = messageTypesToProcess.pop();
+            descriptorByFullNameBuilder.put(messageType.getFullName(), messageType);
+            if (messageType instanceof Descriptors.Descriptor descriptor) {
+                messageTypesToProcess.addAll(descriptor.getNestedTypes());
+                messageTypesToProcess.addAll(descriptor.getEnumTypes());
+            }
+        }
+    }
+
+    /**
+     * Collects every message and enum type visible from a file descriptor, keyed by fully-qualified protobuf name.
+     * The result covers the types declared directly in {@code fileDescriptor} as well as those declared in its
+     * transitive dependencies, including nested message and enum types to any depth.
+     * <p>
+     * Files in {@code excludedDependencies} are not descended into, which also excludes any type reachable only
+     * through them. Excluding {@code record_metadata_options.proto}, for instance, drops the {@code descriptor.proto}
+     * types that it imports as well. Listing {@code fileDescriptor} itself has no effect, as the root file is always
+     * walked.
+     * <p>
+     * If there are multiple types with the same full name in multiple files, the type in the file closest to the
+     * provided {@code fileDescriptor} wins.
+     *
+     * @param fileDescriptor The file to collect types from, along with its transitive dependencies.
+     * @param excludedDependencies The dependency files to prune from the walk, together with everything reachable
+     *                             only through them.
+     * @return An immutable map from fully-qualified protobuf name to the corresponding descriptor.
+     */
+    @Nonnull
+    public static Map<String, Descriptors.GenericDescriptor> getTypeDescriptorByFullNameMapForFile(
+            @Nonnull Descriptors.FileDescriptor fileDescriptor,
+            @Nonnull Collection<Descriptors.FileDescriptor> excludedDependencies) {
+        final var descriptorByFullNameMapBuilder =
+                ImmutableMap.<String, Descriptors.GenericDescriptor>builder();
+        addAllTypesInFileDescriptorToMap(
+                fileDescriptor,
+                descriptorByFullNameMapBuilder,
+                new HashSet<>(
+                        excludedDependencies.stream()
+                                .map(Descriptors.FileDescriptor::getFullName)
+                                .collect(Collectors.toSet())));
+        return descriptorByFullNameMapBuilder.buildKeepingLast();
     }
 
     /**

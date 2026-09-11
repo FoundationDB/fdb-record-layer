@@ -44,6 +44,8 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactor
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
+import com.apple.foundationdb.record.util.ProtoUtils;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -62,9 +64,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Supplier;
 
 /**
  * A builder for {@link RecordMetaData}.
@@ -114,8 +118,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, SyntheticRecordTypeBuilder<?>> syntheticRecordTypes;
     @Nonnull
-    private final Map<String, Descriptors.GenericDescriptor> auxiliaryTypeMap;
-    @Nonnull
     private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
     @Nonnull
     private final Map<String, View> viewMap;
@@ -143,6 +145,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     private long subspaceKeyCounter = 0;
     private boolean usesSubspaceKeyCounter = false;
 
+    static final Descriptors.FileDescriptor[] defaultExcludedProtoDependencies = {
+            RecordMetaDataProto.getDescriptor(), RecordMetaDataOptionsProto.getDescriptor(), TupleFieldsProto.getDescriptor()
+    };
+
     /**
      * Creates a blank builder.
      */
@@ -159,7 +165,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         userDefinedFunctionMap = new HashMap<>();
         viewMap = new HashMap<>();
         storedQueries = new HashMap<>();
-        auxiliaryTypeMap = new HashMap<>();
     }
 
     private void processSchemaOptions(boolean processExtensionOptions) {
@@ -320,31 +325,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         unionDescriptor = fetchUnionDescriptor(recordsDescriptor);
         validateRecords(recordsDescriptor, unionDescriptor);
         fillUnionFields(processExtensionOptions);
-
-        fillAuxiliaryTypeMap(recordsDescriptor);
-    }
-
-    private void fillAuxiliaryTypeMap(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
-        final var auxiliaryTypeUnionDescriptor = fileDescriptor
-                .findMessageTypeByName(DEFAULT_AUXILIARY_TYPE_UNION_NAME);
-
-        if (auxiliaryTypeUnionDescriptor == null) {
-            return;
-        }
-
-        for (final var field : auxiliaryTypeUnionDescriptor.getFields()) {
-            switch (field.getType()) {
-                case MESSAGE:
-                    auxiliaryTypeMap.put(field.getName(), field.getMessageType());
-                    break;
-                case ENUM:
-                    auxiliaryTypeMap.put(field.getName(), field.getEnumType());
-                    break;
-                default:
-                    throw new MetaDataException("Unsupported user-defined auxiliary type",
-                            LogMessageKeys.FIELD_NAME, field.getName());
-            }
-        }
     }
 
     @Nonnull
@@ -987,6 +967,22 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
     }
 
+    @Nonnull
+    private Supplier<Map<String, Descriptors.GenericDescriptor>> getAuxiliaryTypesMapSupplier() {
+        final Descriptors.FileDescriptor fileDescriptor = Optional.ofNullable(localFileDescriptor)
+                .or(() -> Optional.ofNullable(recordsDescriptor))
+                .orElseThrow(() -> new MetaDataException("No records added yet"));
+
+        return Suppliers.memoize(() ->
+                ProtoUtils.getTypeDescriptorByFullNameMapForFile(fileDescriptor,
+                                Arrays.asList(defaultExcludedProtoDependencies))
+                    .entrySet().stream()
+                    .filter(typeEntry -> !typeEntry.getValue().equals(unionDescriptor))
+                    .filter(typeEntry -> !(typeEntry.getValue() instanceof Descriptors.Descriptor
+                                                   && unionFields.containsKey(typeEntry.getValue())))
+                .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+    }
+
     @API(API.Status.INTERNAL)
     public static Descriptors.FileDescriptor buildFileDescriptor(@Nonnull DescriptorProtos.FileDescriptorProto fileDescriptorProto,
                                                                  @Nonnull Descriptors.FileDescriptor[] dependencies) {
@@ -1504,7 +1500,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticRecordTypeMap = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
         RecordMetaData metaData = new RecordMetaData(recordsDescriptor, getUnionDescriptor(), unionFields,
                 builtRecordTypes, builtSyntheticRecordTypes, recordTypeKeyToSyntheticRecordTypeMap,
-                indexes, universalIndexes, formerIndexes, auxiliaryTypeMap, userDefinedFunctionMap, viewMap, storedQueries,
+                indexes, universalIndexes, formerIndexes, getAuxiliaryTypesMapSupplier(), userDefinedFunctionMap, viewMap, storedQueries,
                 splitLongRecords, storeRecordVersions, version, subspaceKeyCounter, usesSubspaceKeyCounter, recordCountKey, localFileDescriptor != null);
         for (RecordTypeBuilder recordTypeBuilder : recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();

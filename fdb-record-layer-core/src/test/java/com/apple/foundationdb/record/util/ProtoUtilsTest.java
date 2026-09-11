@@ -20,13 +20,20 @@
 
 package com.apple.foundationdb.record.util;
 
+import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
+import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditorUnitTest;
+import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.IOException;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -113,5 +120,62 @@ class ProtoUtilsTest {
                 .doesNotThrowAnyException();
         assertThatCode(() -> ProtoUtils.checkValidProtoBufCompliantName(name2))
                 .doesNotThrowAnyException();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "NestedMessage.json",
+            "TwoBoringTypes.json",
+            "NestedAndRecordType.json",
+            "TwoBoringTypesInPackage.json"
+    })
+    void getTypeDescriptorByFullNameMapForBasicFiles(String metadataFileName) throws IOException, Descriptors.DescriptorValidationException {
+        final var metadata = MetaDataProtoEditorUnitTest.loadMetaData(metadataFileName).build();
+        final var fileDescriptor = Descriptors.FileDescriptor.buildFrom(metadata.getRecords(),
+                new Descriptors.FileDescriptor[] { RecordMetaDataOptionsProto.getDescriptor().getFile()});
+        final var t1Descriptor = fileDescriptor.findMessageTypeByName("T1");
+        final var t2Descriptor = fileDescriptor.findMessageTypeByName("T2");
+        final var recordTypeUnionDescriptor = fileDescriptor.findMessageTypeByName("RecordTypeUnion");
+
+        final var typeMap = ProtoUtils.getTypeDescriptorByFullNameMapForFile(fileDescriptor,
+                ImmutableList.of(RecordMetaDataOptionsProto.getDescriptor()));
+
+        assertThat(typeMap).hasSize(3)
+                .contains(Map.entry(t1Descriptor.getFullName(), t1Descriptor),
+                        Map.entry(t2Descriptor.getFullName(), t2Descriptor),
+                        Map.entry(recordTypeUnionDescriptor.getFullName(), recordTypeUnionDescriptor));
+    }
+
+    @Test
+    void getTypeDescriptorByFullNameMapForFileWithDependencies() throws IOException, Descriptors.DescriptorValidationException {
+        final var metadata = MetaDataProtoEditorUnitTest.loadMetaData("NestedWithDependency.json").build();
+        assertThat(metadata.getDependenciesList()).hasSize(1);
+        final var dependencyFileDescriptor =
+                Descriptors.FileDescriptor.buildFrom(metadata.getDependencies(0),
+                        new Descriptors.FileDescriptor[]{});
+        final var fileDescriptor = Descriptors.FileDescriptor.buildFrom(metadata.getRecords(),
+                new Descriptors.FileDescriptor[] { RecordMetaDataOptionsProto.getDescriptor().getFile(), dependencyFileDescriptor});
+
+        final var recordTypeUnionDescriptor = fileDescriptor.findMessageTypeByName("RecordTypeUnion");
+        final var t1Descriptor = fileDescriptor.findMessageTypeByName("T1");
+        final var t2Descriptor = fileDescriptor.findMessageTypeByName("T2");
+        final var typeFromDependencyDescriptor = fileDescriptor.getDependencies().stream()
+                .filter(dependencyDescriptor -> dependencyDescriptor.getName().equals("additional_dependency.proto"))
+                .findFirst().map(f -> f.findMessageTypeByName("TypeFromDependency"));
+        final var colourEnumDescriptor = fileDescriptor.getDependencies().stream()
+                .filter(dependencyDescriptor -> dependencyDescriptor.getName().equals("additional_dependency.proto"))
+                .findFirst().map(f -> f.findEnumTypeByName("Colour"));
+        assertThat(typeFromDependencyDescriptor).isPresent();
+        assertThat(colourEnumDescriptor).isPresent();
+
+        final var typeMap = ProtoUtils.getTypeDescriptorByFullNameMapForFile(fileDescriptor,
+                ImmutableList.of(RecordMetaDataOptionsProto.getDescriptor()));
+
+        assertThat(typeMap).hasSize(5)
+                .contains(Map.entry(t1Descriptor.getFullName(), t1Descriptor),
+                        Map.entry(t2Descriptor.getFullName(), t2Descriptor),
+                        Map.entry(typeFromDependencyDescriptor.get().getFullName(), typeFromDependencyDescriptor.get()),
+                        Map.entry(colourEnumDescriptor.get().getFullName(), colourEnumDescriptor.get()),
+                        Map.entry(recordTypeUnionDescriptor.getFullName(), recordTypeUnionDescriptor));
     }
 }

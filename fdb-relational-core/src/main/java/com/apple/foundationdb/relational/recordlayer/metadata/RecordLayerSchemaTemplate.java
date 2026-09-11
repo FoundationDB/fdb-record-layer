@@ -55,6 +55,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -76,7 +77,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     private final Set<RecordLayerTable> tables;
 
     @Nonnull
-    private final Map<String, DataType.Named> auxiliaryTypeMap;
+    private final Map<String, Supplier<DataType.Named>> auxiliaryTypeSuppliers;
 
     @Nonnull
     private final Set<RecordLayerInvokedRoutine> invokedRoutines;
@@ -112,7 +113,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
-                                      @Nonnull final Map<String, DataType.Named> auxiliaryTypeMap,
+                                      @Nonnull final Map<String, Supplier<DataType.Named>> auxiliaryTypeSuppliers,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
                                       @Nonnull final Map<String, StoredQuery> storedQueries,
@@ -122,7 +123,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       boolean intermingleTables) {
         this.name = name;
         this.tables = ImmutableSet.copyOf(tables);
-        this.auxiliaryTypeMap = ImmutableMap.copyOf(auxiliaryTypeMap);
+        this.auxiliaryTypeSuppliers = auxiliaryTypeSuppliers;
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.views = ImmutableSet.copyOf(views);
         this.storedQueries = ImmutableMap.copyOf(storedQueries);
@@ -139,7 +140,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
-                                      @Nonnull final Map<String, DataType.Named> auxiliaryTypeMap,
+                                      @Nonnull final Map<String, Supplier<DataType.Named>> auxiliaryTypeSuppliers,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       @Nonnull final Set<RecordLayerView> views,
                                       @Nonnull final Map<String, StoredQuery> storedQueries,
@@ -151,7 +152,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.name = name;
         this.version = version;
         this.tables = ImmutableSet.copyOf(tables);
-        this.auxiliaryTypeMap = ImmutableMap.copyOf(auxiliaryTypeMap);
+        this.auxiliaryTypeSuppliers = auxiliaryTypeSuppliers;
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.views = ImmutableSet.copyOf(views);
         this.storedQueries = ImmutableMap.copyOf(storedQueries);
@@ -336,8 +337,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     @Nonnull
-    public Map<String, DataType.Named> getAuxiliaryTypes() {
-        return auxiliaryTypeMap;
+    public Map<String, Supplier<DataType.Named>> getAuxiliaryTypeSuppliers() {
+        return auxiliaryTypeSuppliers;
     }
 
     @Nonnull
@@ -369,7 +370,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     public Optional<DataType> findTypeByName(@Nonnull final String typeName) {
         return findTableByName(typeName)
                 .<DataType>map(Table::getDatatype)
-                .or(() -> Optional.ofNullable((DataType)auxiliaryTypeMap.get(typeName)));
+                .or(() -> Optional.ofNullable(auxiliaryTypeSuppliers.get(typeName))
+                        .map((supplier) -> (DataType)supplier.get()));
     }
 
     @Nonnull
@@ -415,8 +417,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         for (final var table : getTables()) {
             table.accept(visitor);
         }
-        for (final var auxiliaryType : auxiliaryTypeMap.values()) {
-            visitor.visit((DataType)auxiliaryType);
+        for (final var auxiliaryType : auxiliaryTypeSuppliers.values()) {
+            visitor.visit((DataType)auxiliaryType.get());
         }
         for (final var invokedRoutine : getInvokedRoutines()) {
             invokedRoutine.accept(visitor);
@@ -443,7 +445,10 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         private final Map<String, RecordLayerTable> tables;
 
         @Nonnull
-        private final Map<String, DataType.Named> auxiliaryTypes;
+        private final Map<String, Supplier<DataType.Named>> unresolvedAuxiliaryTypeSuppliers;
+
+        @Nonnull
+        private final Map<String, Supplier<DataType.Named>> resolvedAuxiliaryTypeSuppliers;
 
         @Nonnull
         private final Map<String, RecordLayerInvokedRoutine> invokedRoutines;
@@ -459,7 +464,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         private Builder() {
             tables = new LinkedHashMap<>();
-            auxiliaryTypes = new LinkedHashMap<>();
+            unresolvedAuxiliaryTypeSuppliers = new LinkedHashMap<>();
+            resolvedAuxiliaryTypeSuppliers = new LinkedHashMap<>();
             invokedRoutines = new LinkedHashMap<>();
             views = new LinkedHashMap<>();
             storedQueries = new LinkedHashMap<>();
@@ -595,9 +601,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         /**
-         * Adds an auxiliary type, an auxiliary type is a type that is merely created, so it can be referenced later on
-         * in a table definition. Any {@link DataType.Named} data type can be added as an auxiliary type such as {@code enum}s
-         * and {@code struct}s.
+         * Adds an auxiliary type, an auxiliary type is a type that can be referenced later on in a table definition,
+         * other auxiliary types or user defined functions. Any {@link DataType.Named} data type can be added as an
+         * auxiliary type such as {@code enum}s and {@code struct}s.
          *
          * @param auxiliaryType The auxiliary {@link DataType} to add.
          * @return {@code this} {@link Builder}.
@@ -605,14 +611,18 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         @Nonnull
         public Builder addAuxiliaryType(@Nonnull DataType.Named auxiliaryType) {
             verifyNameIsNotUsed(auxiliaryType.getName());
-            auxiliaryTypes.put(auxiliaryType.getName(), auxiliaryType);
+            if (((DataType)auxiliaryType).isResolved()) {
+                resolvedAuxiliaryTypeSuppliers.put(auxiliaryType.getName(), () -> auxiliaryType);
+            } else {
+                unresolvedAuxiliaryTypeSuppliers.put(auxiliaryType.getName(), () -> auxiliaryType);
+            }
             return this;
         }
 
         /**
-         * Adds a collection auxiliary types, an auxiliary type is a type that is merely created, so it can be referenced later on
-         * in a table definition. Any {@link DataType.Named} data type can be added as an auxiliary type such as {@code enum}s
-         * and {@code struct}s.
+         * Adds a collection auxiliary types, an auxiliary type is a type that can be referenced later on in a table
+         * definition, other auxiliary types or user defined functions. Any {@link DataType.Named} data type can be
+         * added as an auxiliary type such as {@code enum}s and {@code struct}s.
          *
          * @param auxiliaryTypes The auxiliary {@link DataType}s to add.
          * @return {@code this} {@link Builder}.
@@ -620,6 +630,66 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         @Nonnull
         public Builder addAuxiliaryTypes(@Nonnull Collection<DataType.Named> auxiliaryTypes) {
             auxiliaryTypes.forEach(this::addAuxiliaryType);
+            return this;
+        }
+
+        /**
+         * Adds an auxiliary type via a supplier, which is only evaluated when the type is actually needed.
+         * <p>
+         * An auxiliary type is a type that can be referenced later on in a table definition, in other auxiliary
+         * types, or in user defined functions. Any {@link DataType.Named} data type can be an auxiliary type, such as
+         * {@code enum}s and {@code struct}s. Prefer {@link #addAuxiliaryType(DataType.Named)} when the type is
+         * already in hand; use this method when producing the type is expensive and may never be needed, for example
+         * when deriving it from a {@link RecordMetaData} records descriptor.
+         * <p>
+         * The provided supplier must return a resolved type, that is, {@link DataType#isResolved()} must
+         * return {@code true} for the returned value. This is checked when the supplier is evaluated rather than when
+         * it is added, so a violation surfaces as an {@link ErrorCode#INVALID_SCHEMA_TEMPLATE} error when the supplier
+         * is evaluated. The returned type's name is expected to equal {@code auxiliaryTypeName}, which is the name the
+         * type is registered and looked up under regardless.
+         * <p>
+         * The supplier is evaluated at most once, and only when the type instance is needed:
+         * <ul>
+         *     <li>by {@link #findType(String)} on this builder, or by {@link RecordLayerSchemaTemplate#findTypeByName(String)}
+         *         on the built schema template;</li>
+         *     <li>by {@link RecordLayerSchemaTemplate#accept(Visitor)}, which visits every auxiliary type. This includes
+         *         {@link RecordLayerSchemaTemplate#toRecordMetadata()}, but <em>only</em> for a template built without
+         *         a cached {@link RecordMetaData} set via {@link #setCachedMetadata(RecordMetaData)}.;</li>
+         *     <li>during {@link #build()}, if some other table/auxiliary type requires resolution and names this type
+         *         as a dependency.</li>
+         * </ul>
+         *
+         * @param auxiliaryTypeName The name to register the auxiliary type under.
+         * @param auxiliaryTypeSupplier A supplier of a resolved {@link DataType.Named},
+         *                              evaluated at most once as described above.
+         * @return {@code this} {@link Builder}.
+         */
+        @Nonnull
+        public Builder addResolvedAuxiliaryTypeSupplier(@Nonnull final String auxiliaryTypeName,
+                                                        @Nonnull final Supplier<DataType.Named> auxiliaryTypeSupplier) {
+            verifyNameIsNotUsed(auxiliaryTypeName);
+            resolvedAuxiliaryTypeSuppliers.put(auxiliaryTypeName, Suppliers.memoize(() -> {
+                final var type = auxiliaryTypeSupplier.get();
+                Assert.thatUnchecked(((DataType)type).isResolved(),
+                        ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                        () -> "expected auxiliary type with name '" + auxiliaryTypeName + "' to be resolved");
+                return type;
+            }));
+            return this;
+        }
+
+        /**
+         * Adds a collection of resolved auxiliary type suppliers, keyed by the names to register them under.
+         * <p>
+         * See {@link #addResolvedAuxiliaryTypeSupplier(String, Supplier)} for more details.
+         *
+         * @param resolvedAuxiliaryTypeSuppliersByName A map of resolved {@link DataType.Named} suppliers keyed by the
+         *                                             names to register them under.
+         * @return {@code this} {@link Builder}.
+         */
+        @Nonnull
+        public Builder addResolvedAuxiliaryTypeSuppliers(@Nonnull final Map<String, Supplier<DataType.Named>> resolvedAuxiliaryTypeSuppliersByName) {
+            resolvedAuxiliaryTypeSuppliersByName.forEach(this::addResolvedAuxiliaryTypeSupplier);
             return this;
         }
 
@@ -649,11 +719,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 return Optional.of(tables.get(name).getDatatype());
             }
 
-            if (auxiliaryTypes.containsKey(name)) {
-                return Optional.of((DataType) auxiliaryTypes.get(name));
-            }
-
-            return Optional.empty();
+            return Optional.ofNullable((DataType) unresolvedAuxiliaryTypeSuppliers.get(name))
+                    .or(() -> Optional.ofNullable(resolvedAuxiliaryTypeSuppliers.get(name))
+                            .map((supplier) -> (DataType)supplier.get()));
         }
 
         @Nonnull
@@ -669,14 +737,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 }
             }
 
-            if (!needsResolution) {
-                for (final var auxiliaryType : auxiliaryTypes.values()) {
-                    if (!((DataType) auxiliaryType).isResolved()) {
-                        needsResolution = true;
-                        break;
-                    }
-                }
-            }
+            needsResolution = needsResolution || !unresolvedAuxiliaryTypeSuppliers.isEmpty();
 
             // todo add resolution parts for the view as well.
 
@@ -685,46 +746,58 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             }
 
             if (cachedMetadata != null) {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), auxiliaryTypes,
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), resolvedAuxiliaryTypeSuppliers,
                         new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), storedQueries, version, enableLongRows, storeRowVersions, intermingleTables, cachedMetadata);
             } else {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), auxiliaryTypes,
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), resolvedAuxiliaryTypeSuppliers,
                         new LinkedHashSet<>(invokedRoutines.values()), new LinkedHashSet<>(views.values()), storedQueries, version, enableLongRows, storeRowVersions, intermingleTables);
             }
         }
 
         private void resolveTypes() {
             // collect all named types from tables + auxiliary types.
-            final var mapBuilder = ImmutableMap.<String, DataType>builder();
+            final var typesToResolveBuilder = ImmutableMap.<String, DataType.Named>builder();
+            final var allTypesBuilder = ImmutableMap.<String, Supplier<DataType.Named>>builder();
             for (final var table : tables.values()) {
-                mapBuilder.put(table.getName(), table.getDatatype());
+                allTypesBuilder.put(table.getName(), Suppliers.memoize(table::getDatatype));
+                if (!table.getDatatype().isResolved()) {
+                    typesToResolveBuilder.put(table.getName(), table.getDatatype());
+                }
             }
-            for (final var auxiliaryType : auxiliaryTypes.entrySet()) {
-                mapBuilder.put(auxiliaryType.getKey(), (DataType) auxiliaryType.getValue());
+
+            for (final var auxiliaryType : unresolvedAuxiliaryTypeSuppliers.entrySet()) {
+                allTypesBuilder.put(auxiliaryType.getKey(), auxiliaryType.getValue());
+                typesToResolveBuilder.put(auxiliaryType.getKey(), auxiliaryType.getValue().get());
             }
-            final var namedTypes = mapBuilder.build();
+
+            allTypesBuilder.putAll(resolvedAuxiliaryTypeSuppliers);
+
+            final var allTypes = allTypesBuilder.build();
+            final var typesToResolve = typesToResolveBuilder.build();
 
             // create dependency graph
-            final var depsBuilder = ImmutableMap.<DataType, Set<DataType>>builder();
-            for (final var table : tables.values()) {
-                depsBuilder.put(table.getDatatype(), getDependencies(table.getDatatype(), namedTypes));
+            final var depsBuilder = ImmutableMap.<DataType.Named, Set<DataType.Named>>builder();
+            for (final var typeToResolve : typesToResolve.values()) {
+                depsBuilder.put(typeToResolve, getDependencies((DataType)typeToResolve, allTypes));
             }
-            for (final var auxiliaryType : auxiliaryTypes.entrySet()) {
-                depsBuilder.put((DataType) auxiliaryType.getValue(), getDependencies((DataType) auxiliaryType.getValue(), namedTypes));
-            }
+
             final var deps = depsBuilder.build();
 
             // sort it
-            final var sorted = TopologicalSort.anyTopologicalOrderPermutation(new HashSet<>(namedTypes.values()), id -> deps.getOrDefault(id, ImmutableSet.of()));
+            final var sorted = TopologicalSort.anyTopologicalOrderPermutation(new HashSet<>(typesToResolve.values()), id -> deps.getOrDefault(id, ImmutableSet.of()));
             Assert.thatUnchecked(sorted.isPresent(), ErrorCode.INVALID_SCHEMA_TEMPLATE, "Invalid cyclic dependency in the schema definition");
 
             // resolve types
             final Map<String, DataType.Named> resolvedTypes = new LinkedHashMap<>();
             for (final var type : sorted.get()) {
-                var typeToAdd = type;
-                if (!type.isResolved()) {
-                    typeToAdd = type.resolve(resolvedTypes);
+                final var resolutionMap = new HashMap<String, DataType.Named>();
+                final var depsForType = deps.get(type);
+                if (depsForType != null) {
+                    depsForType.forEach((dependency) ->
+                            resolutionMap.put(dependency.getName(),
+                                    resolvedTypes.getOrDefault(dependency.getName(), dependency)));
                 }
+                final var typeToAdd = ((DataType)type).resolve(resolutionMap);
                 if (typeToAdd instanceof DataType.Named) {
                     final var asNamed = (DataType.Named) typeToAdd;
                     resolvedTypes.put(asNamed.getName(), asNamed);
@@ -735,8 +808,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             final var resolvedTables = ImmutableMap.<String, RecordLayerTable>builder();
             for (final var table : tables.values()) {
                 if (!table.getDatatype().isResolved()) {
+                    final var tableResolvedDataType = (DataType.StructType)resolvedTypes.get(table.getDatatype().getName());
                     final var builder = RecordLayerTable.Builder
-                            .from((DataType.StructType) table.getDatatype().resolve(resolvedTypes).withNullable(table.getDatatype().isNullable()))
+                            .from(tableResolvedDataType.withNullable(table.getDatatype().isNullable()))
                             .setPrimaryKey(table.getPrimaryKey())
                             .addIndexes(table.getIndexes())
                             .addGenerations(table.getGenerations());
@@ -749,54 +823,52 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             tables.clear();
             tables.putAll(resolvedTables.build());
 
-            final var resolvedAuxiliaryTypes = ImmutableMap.<String, DataType.Named>builder();
-            for (final var auxiliaryType : auxiliaryTypes.entrySet()) {
-                final var dataType = (DataType) auxiliaryType.getValue();
-                if (!dataType.isResolved()) {
-                    resolvedAuxiliaryTypes.put(auxiliaryType.getKey(), (DataType.Named) ((DataType) resolvedTypes.get(auxiliaryType.getKey())).withNullable(dataType.isNullable()));
-                } else {
-                    resolvedAuxiliaryTypes.put(auxiliaryType.getKey(), auxiliaryType.getValue());
-                }
+            final var resolvedAuxiliaryTypes = ImmutableMap.<String, Supplier<DataType.Named>>builder();
+            for (final var auxiliaryType : unresolvedAuxiliaryTypeSuppliers.entrySet()) {
+                final var unresolvedDataType = (DataType) auxiliaryType.getValue().get();
+                final var resolvedDataType = (DataType.Named)((DataType) resolvedTypes.get(auxiliaryType.getKey()))
+                        .withNullable(unresolvedDataType.isNullable());
+                resolvedAuxiliaryTypes.put(auxiliaryType.getKey(), () -> resolvedDataType);
             }
 
-            auxiliaryTypes.clear();
-            auxiliaryTypes.putAll(resolvedAuxiliaryTypes.build());
+            unresolvedAuxiliaryTypeSuppliers.clear();
+            resolvedAuxiliaryTypeSuppliers.putAll(resolvedAuxiliaryTypes.build());
         }
 
         private void verifyNameIsNotUsed(@Nonnull final String name) {
             Assert.thatUnchecked(!tables.containsKey(name), ErrorCode.INVALID_SCHEMA_TEMPLATE, () -> "table with name '" + name + "' already exists");
-            Assert.thatUnchecked(!auxiliaryTypes.containsKey(name), ErrorCode.INVALID_SCHEMA_TEMPLATE, () -> "type with name '" + name + "' already exists");
+            Assert.thatUnchecked(!unresolvedAuxiliaryTypeSuppliers.containsKey(name) && !resolvedAuxiliaryTypeSuppliers.containsKey(name), ErrorCode.INVALID_SCHEMA_TEMPLATE, () -> "type with name '" + name + "' already exists");
             Assert.thatUnchecked(!invokedRoutines.containsKey(name), ErrorCode.INVALID_SCHEMA_TEMPLATE, () -> "routine with name '" + name + "' already exists");
             Assert.thatUnchecked(!views.containsKey(name), ErrorCode.INVALID_SCHEMA_TEMPLATE, () -> "view with name '" + name + "' already exists");
         }
 
         @Nonnull
-        private static Set<DataType> getDependencies(@Nonnull final DataType dataType, @Nonnull final Map<String, DataType> types) {
+        private static Set<DataType.Named> getDependencies(@Nonnull final DataType dataType, @Nonnull final Map<String, Supplier<DataType.Named>> types) {
             // TODO (yhatem) I think this doesn't work in case of recursive types.
             //               moreover, this does not work with inlined types, but this is ok since we don't support them anyway.
             switch (dataType.getCode()) {
                 case ARRAY:
                     return getDependencies(((DataType.ArrayType) dataType).getElementType(), types);
                 case STRUCT:
-                    final var mapBuilder = ImmutableSet.<DataType>builder();
+                    final var mapBuilder = ImmutableSet.<DataType.Named>builder();
                     for (final var field : ((DataType.StructType) dataType).getFields()) {
                         final var fieldType = field.getType();
                         if (fieldType instanceof DataType.Named) {
                             final var depName = ((DataType.Named) fieldType).getName();
                             Assert.thatUnchecked(types.containsKey(depName), ErrorCode.UNKNOWN_TYPE, "could not find type '%s'", depName);
-                            mapBuilder.add(types.get(depName));
+                            mapBuilder.add(types.get(depName).get());
                         } else if (fieldType.getCode() == DataType.Code.ARRAY && ((DataType.ArrayType) fieldType).getElementType() instanceof DataType.Named) {
                             final var asArray = (DataType.ArrayType) fieldType;
                             final var depName = ((DataType.Named) asArray.getElementType()).getName();
                             Assert.thatUnchecked(types.containsKey(depName), ErrorCode.UNKNOWN_TYPE, "could not find type '%s'", depName);
-                            mapBuilder.add(types.get(depName));
+                            mapBuilder.add(types.get(depName).get());
                         }
                     }
                     return mapBuilder.build();
                 case UNKNOWN:
                     final var typeName = ((DataType.UnresolvedType) dataType).getName();
                     Assert.thatUnchecked(types.containsKey(typeName), ErrorCode.UNKNOWN_TYPE, "could not find type '%s'", typeName);
-                    return Set.of(types.get(typeName));
+                    return Set.of(types.get(typeName).get());
                 default:
                     return Set.of();
             }
@@ -816,9 +888,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 .setEnableLongRows(enableLongRows)
                 .setIntermingleTables(intermingleTables)
                 .addTables(getTables())
-                .addAuxiliaryTypes(auxiliaryTypeMap.values())
                 .addInvokedRoutines(getInvokedRoutines())
                 .addViews(getViews())
-                .addStoredQueries(getStoredQueries());
+                .addStoredQueries(getStoredQueries())
+                .addResolvedAuxiliaryTypeSuppliers(getAuxiliaryTypeSuppliers());
     }
 }
