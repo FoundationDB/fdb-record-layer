@@ -20,10 +20,9 @@ Syntax
 
     CREATE STORED QUERY query_name
         [ ( parameter_name data_type [ NOT NULL ], ... )
-          PREPARE FOR (
+          PREPARE FOR
               ( parameter_name { IS [ NOT ] NULL | = { TRUE | FALSE } }, ... ),
               ...
-          )
         ]
         [ DECLARE
               FUNCTION function_name ( [IN] parameter_name data_type [DEFAULT default_value], ... )
@@ -58,7 +57,7 @@ A stored query may declare parameters, which is how it stands in for a runtime q
 .. code-block:: sql
 
     CREATE STORED QUERY by_col1(param_a BIGINT)
-        PREPARE FOR ((param_a IS NOT NULL))
+        PREPARE FOR (param_a IS NOT NULL)
         AS SELECT * FROM t1 WHERE col1 = param_a
 
 In the body a parameter is written as a **bare identifier**, with no ``?`` — unlike the runtime statement it stands for, where the same reference is ``?param_a``. It becomes exactly that internally, so the stored form above is equivalent to ``SELECT * FROM t1 WHERE col1 = ?PARAM_A``. A parameter may also be referred to inside a declared function's body.
@@ -75,7 +74,7 @@ The two are compared as raw strings, so the name a client uses is the declared i
 .. code-block:: sql
 
     CREATE STORED QUERY by_region("regionId" BIGINT, owner_a INTEGER)
-        PREPARE FOR (("regionId" IS NOT NULL, owner_a IS NOT NULL))
+        PREPARE FOR ("regionId" IS NOT NULL, owner_a IS NOT NULL)
         AS SELECT * FROM t1 WHERE region_id = "regionId" AND owner = owner_a
 
 ``"regionId"`` is quoted, so it keeps its spelling and a client binds ``?regionId``. ``owner_a`` is not, so it becomes ``OWNER_A`` and a client binds ``?OWNER_A``. Quote a parameter — in the signature, in the prepared cases, and in every reference in the body — whenever the client's spelling is not already upper case.
@@ -113,10 +112,9 @@ Every parameter declared nullable — the default — must be pinned in every ca
 .. code-block:: sql
 
     CREATE STORED QUERY by_region("regionId" BIGINT, show_archived BOOLEAN)
-        PREPARE FOR (
+        PREPARE FOR
             ("regionId" IS NULL,     show_archived = FALSE),
             ("regionId" IS NOT NULL, show_archived = FALSE)
-        )
         AS SELECT * FROM t1 WHERE region_id = "regionId" AND archived = show_archived
 
 Two plans are warmed here. The first has ``"regionId"`` bound to null while planning, so the planner folds that predicate; the second leaves it without a value and only knows it is not null, so the plan keeps the predicate and can use an index on ``region_id``.
@@ -130,7 +128,7 @@ A parameter declared ``NOT NULL`` may be left out, since ``IS NOT NULL`` is the 
 .. code-block:: sql
 
     CREATE STORED QUERY by_region("regionId" BIGINT NOT NULL, owner_a INTEGER)
-        PREPARE FOR ((owner_a IS NOT NULL))
+        PREPARE FOR (owner_a IS NOT NULL)
         AS SELECT * FROM t1 WHERE region_id = "regionId" AND owner = owner_a
 
 Examples
@@ -177,7 +175,7 @@ A signature and a ``DECLARE`` block combine, and a parameter may be captured ins
 .. code-block:: sql
 
     CREATE STORED QUERY by_fn(param_a BIGINT, param_b BIGINT)
-        PREPARE FOR ((param_a IS NOT NULL, param_b IS NOT NULL))
+        PREPARE FOR (param_a IS NOT NULL, param_b IS NOT NULL)
         DECLARE
             FUNCTION f1(IN p BIGINT) AS (SELECT * FROM t1 WHERE col1 = p AND col2 = param_a)
         AS
