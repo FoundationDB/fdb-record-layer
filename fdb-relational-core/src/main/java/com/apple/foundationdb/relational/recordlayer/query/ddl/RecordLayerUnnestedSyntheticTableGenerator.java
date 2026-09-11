@@ -1,5 +1,5 @@
 /*
- * UnnestedRecordTableGenerator.java
+ * RecordLayerUnnestedSyntheticTableGenerator.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -65,7 +65,7 @@ import java.util.Optional;
  * built until {@link #generate} is called, so an index on a stored table costs no more than the decision. What cannot be
  * defined on a synthetic table is rejected by {@link IndexSpec#checkValidity}, with every other rejection.
  */
-final class UnnestedRecordTableGenerator {
+final class RecordLayerUnnestedSyntheticTableGenerator {
 
     /**
      * Prefixes the name of a synthetic table, keeping it out of the space of names a user can declare.
@@ -110,7 +110,7 @@ final class UnnestedRecordTableGenerator {
     @Nonnull
     private final Supplier<Type.Record> syntheticType;
 
-    private UnnestedRecordTableGenerator(@Nonnull final Map<Integer, UnnestingInfo> unnestings,
+    private RecordLayerUnnestedSyntheticTableGenerator(@Nonnull final Map<Integer, UnnestingInfo> unnestings,
                                      @Nonnull final String parentAlias,
                                      @Nonnull final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
                                      @Nonnull final String recordTypeName,
@@ -138,7 +138,7 @@ final class UnnestedRecordTableGenerator {
      * @return a generator for the synthetic table, empty when the index is maintained from the stored table
      */
     @Nonnull
-    static Optional<UnnestedRecordTableGenerator> initIfNeeded(@Nonnull final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
+    static Optional<RecordLayerUnnestedSyntheticTableGenerator> initIfNeeded(@Nonnull final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
                                                            @Nonnull final IndexSpec spec,
                                                            @Nonnull final String indexName,
                                                            @Nonnull final QuantifierValues quantifierValues) {
@@ -150,7 +150,7 @@ final class UnnestedRecordTableGenerator {
         // Currently, the synthetic table name is derived from the record type. This may or may not be true in the
         // future.
         final var syntheticTableName = UNNESTED_TABLE_NAME_PREFIX + recordTypeName + "_" + indexName;
-        return Optional.of(new UnnestedRecordTableGenerator(unnestings, PARENT_CONSTITUENT_ALIAS,
+        return Optional.of(new RecordLayerUnnestedSyntheticTableGenerator(unnestings, PARENT_CONSTITUENT_ALIAS,
                 schemaTemplateBuilder, recordTypeName, syntheticTableName));
     }
 
@@ -217,8 +217,8 @@ final class UnnestedRecordTableGenerator {
                     owningAlias(marker, collectionValue, quantifierValues, aliasByMarker),
                     Assert.notNullUnchecked(collectionValue.getFieldPath().getLastFieldAccessor()
                             .getField().getFieldStorageName()),
-                    arrayType.isNullable(),
-                    arrayType.getElementType() instanceof Type.Record));
+                    arrayType.isNullable(), DataTypeUtils.toRelationalType(
+                            Objects.requireNonNull(arrayType.getElementType()))));
         });
         return result.build();
     }
@@ -257,16 +257,29 @@ final class UnnestedRecordTableGenerator {
      *
      * @param alias the constituent's alias, or {@code null} for a scalar array, which is not a constituent
      * @param owningAlias the constituent the unnested array lives on
-     * @param arrayFieldStorageName the array field, by its protobuf storage name
+     * @param arrayFieldStorageName the array field, by its protobuf storage name, which is what the nesting expression
+     * navigates and so the only place a storage name is wanted
      * @param nullableArray whether the array is stored wrapped, as {@code { repeated T values; }}
-     * @param structArray whether the array's elements are records, and so can be a constituent
+     * @param elementType what one element of the array stands for, taken from the array being unnested. Carrying
+     * the type avoids looking the array field up by name on its owner, where the declared and the
+     * storage name of a column that is not already protobuf-compliant would disagree.
      */
     private record UnnestingInfo(@Nullable String alias, @Nonnull String owningAlias,
-                                @Nonnull String arrayFieldStorageName, boolean nullableArray, boolean structArray) {
+                                @Nonnull String arrayFieldStorageName, boolean nullableArray,
+                                @Nonnull DataType elementType) {
 
         @Nonnull
         public KeyExpression arrayElements() {
             return NullableArrayUtils.arrayElements(arrayFieldStorageName, nullableArray);
+        }
+
+        public boolean structArray() {
+            return elementType.getCode() == DataType.Code.STRUCT;
+        }
+
+        @Nonnull
+        public DataType.StructType structElementType() {
+            return (DataType.StructType) elementType;
         }
     }
 
@@ -280,8 +293,10 @@ final class UnnestedRecordTableGenerator {
      */
     @Nonnull
     public IndexSpec rewrite(@Nonnull final IndexSpec spec) {
-        Assert.isNullUnchecked(spec.predicate(), "predicate on an index over an unnested synthetic table");
-        Assert.isNullUnchecked(spec.groupBy(), "group by on an index over an unnested synthetic table");
+        Assert.isNullUnchecked(spec.predicate(), ErrorCode.UNSUPPORTED_OPERATION,
+                "predicate on an index over an unnested synthetic table");
+        Assert.isNullUnchecked(spec.groupBy(), ErrorCode.UNSUPPORTED_OPERATION,
+                "group by on an index over an unnested synthetic table");
         return new IndexSpec(spec.scanCount(), syntheticTableName, null, null,
                 spec.orderBy() == null ? null : rewrite(spec.orderBy()),
                 new IndexSpec.Projection(rewrite(spec.projection().values())));
@@ -396,36 +411,17 @@ final class UnnestedRecordTableGenerator {
     @Nonnull
     private Type.Record computeSyntheticType() {
         final var parentType = schemaTemplateBuilder.findTableByStorageName(recordTypeName).getDatatype();
-        final Map<String, DataType.StructType> typeByAlias = new LinkedHashMap<>();
-        typeByAlias.put(parentAlias, parentType);
         final var fields = ImmutableList.<DataType.StructType.Field>builder();
+        // Field numbers reach protobuf, where they have to be positive.
         int fieldNumber = 1;
         fields.add(DataType.StructType.Field.from(parentAlias, parentType, fieldNumber++));
         for (final var info : unnestings.values()) {
             if (info.structArray()) {
-                final var ownerType = Assert.notNullUnchecked(typeByAlias.get(info.owningAlias()),
-                        "unknown owning constituent '" + info.owningAlias() + "'");
-                final var elementType = elementTypeOf(ownerType, info.arrayFieldStorageName());
-                typeByAlias.put(info.alias(), elementType);
-                fields.add(DataType.StructType.Field.from(info.alias(), elementType, fieldNumber++));
+                fields.add(DataType.StructType.Field.from(info.alias(), info.structElementType(), fieldNumber++));
             }
         }
         return (Type.Record)DataTypeUtils.toRecordLayerType(
                 DataType.StructType.from(syntheticTableName, fields.build(), false));
-    }
-
-    /**
-     * The element type of an owner's array field, which is what the constituent unnesting that array stands for.
-     */
-    @Nonnull
-    private static DataType.StructType elementTypeOf(@Nonnull final DataType.StructType ownerType,
-                                                     @Nonnull final String arrayFieldName) {
-        final var arrayField = ownerType.getFields().stream()
-                .filter(field -> field.getName().equals(arrayFieldName))
-                .findFirst()
-                .orElseThrow(() -> Assert.failUnchecked("array field '" + arrayFieldName + "' not found on '"
-                        + ownerType.getName() + "'"));
-        return (DataType.StructType)((DataType.ArrayType)arrayField.getType()).getElementType();
     }
 
 

@@ -85,11 +85,6 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
     }
 
     @Nonnull
-    public String getParentTableName() {
-        return parentTableName;
-    }
-
-    @Nonnull
     public String getParentTableStorageName() {
         return parentTableStorageName;
     }
@@ -103,11 +98,6 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
     @Override
     public Set<String> getUnderlyingTableNames() {
         return Set.of(parentTableName);
-    }
-
-    @Override
-    public void accept(@Nonnull final com.apple.foundationdb.relational.api.metadata.Visitor visitor) {
-        super.accept(visitor);
     }
 
     @Override
@@ -281,23 +271,26 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
         @Override
         public RecordLayerUnnestedSyntheticTable build() {
             Assert.notNullUnchecked(name, "unnested type name is not set");
-            ProtoUtils.checkValidProtoBufCompliantName(name);
             Assert.notNullUnchecked(alias, "parent constituent alias is not set");
             Assert.notNullUnchecked(parentTableName, "parent table name is not set");
             if (parentTableStorageName == null) {
                 parentTableStorageName = ProtoUtils.toProtoBufCompliantName(parentTableName);
             }
             Assert.thatUnchecked(!constituents.isEmpty(), "unnested type has no nested constituents");
+            // A constituent's parent has to be known by the time the constituent itself is declared, so the check comes
+            // before its own alias is added. Validating against the complete set instead would accept a forward
+            // reference, and with it a cycle -- two constituents naming each other as parent would both be "known" --
+            // which no later pass rejects, and which the record layer cannot resolve, since it types each constituent
+            // against its parent's descriptor.
             final Set<String> aliases = new LinkedHashSet<>();
             aliases.add(alias);
-            for (final NestedConstituent constituent : constituents) {
-                Assert.thatUnchecked(aliases.add(constituent.getAlias()), ErrorCode.INVALID_SCHEMA_TEMPLATE,
-                        "duplicate constituent alias '%s' in unnested type", constituent.getAlias());
-            }
             for (final NestedConstituent constituent : constituents) {
                 Assert.thatUnchecked(aliases.contains(constituent.getParentAlias()),
                         ErrorCode.INVALID_SCHEMA_TEMPLATE,
                         "constituent parent alias '%s' is not a known alias", constituent.getParentAlias());
+                final var isUnique = aliases.add(constituent.getAlias());
+                Assert.thatUnchecked(isUnique, ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                        "duplicate constituent alias '%s' in unnested type", constituent.getAlias());
             }
             return new RecordLayerUnnestedSyntheticTable(name, alias, parentTableName, parentTableStorageName,
                     constituents, indexes.build());

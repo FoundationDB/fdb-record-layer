@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -70,6 +71,18 @@ public abstract sealed class RecordLayerSyntheticTable implements View
     public String getDescription() {
         throw new RelationalException("A synthetic table has no query description",
                 ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException();
+    }
+
+    /**
+     * The name the synthetic record type carries in the protobuf descriptor, derived from {@link #getName()} the same way
+     * a column's storage name is derived from its declared name. The declared name comes from user identifiers -- the
+     * index name, for an unnested table -- and so need not be a legal protobuf identifier on its own.
+     *
+     * @return the protobuf-compliant form of this table's name
+     */
+    @Nonnull
+    public String getStorageName() {
+        return ProtoUtils.toProtoBufCompliantName(name);
     }
 
     /** Synthetic tables are always permanent. */

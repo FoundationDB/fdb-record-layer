@@ -93,7 +93,7 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
     public IndexGenerationResult generate() {
         final var quantifierValues = QuantifierValues.collect(relationalExpression);
         var spec = IndexSpec.collect(relationalExpression, quantifierValues);
-        final var unnestedTableGeneratorMaybe = UnnestedRecordTableGenerator.initIfNeeded(
+        final var unnestedTableGeneratorMaybe = RecordLayerUnnestedSyntheticTableGenerator.initIfNeeded(
                 schemaTemplateBuilder, spec, indexName, quantifierValues);
         spec.checkValidity(unnestedTableGeneratorMaybe.orElse(null));
         final Type.Record tableType;
@@ -124,7 +124,7 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
         indexBuilder.setKeyExpression(KeyExpression.fromProto(
                 NullableArrayUtils.wrapArray(keyExpression.toKeyExpression(), tableType, options.containsNullableArray())));
         return new IndexGenerationResult(indexBuilder,
-                unnestedTableGeneratorMaybe.map(UnnestedRecordTableGenerator::generate));
+                unnestedTableGeneratorMaybe.map(RecordLayerUnnestedSyntheticTableGenerator::generate));
     }
 
     /**

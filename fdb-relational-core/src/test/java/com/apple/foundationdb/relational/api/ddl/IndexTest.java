@@ -200,8 +200,9 @@ public class IndexTest {
                 Assertions.assertEquals(expectedKey.apply(syntheticTable.getAlias(), constituentAliases),
                         KeyExpression.fromProto(index.getKeyExpression().toKeyExpression()));
                 final var metaData = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class).toRecordMetadata();
-                Assertions.assertTrue(metaData.getSyntheticRecordTypes().containsKey(syntheticTable.getName()),
-                        () -> "synthetic type '" + syntheticTable.getName() + "' missing from serialized metadata, got "
+                // the descriptor is keyed by the storage name, which is the protobuf-compliant form of the declared one
+                Assertions.assertTrue(metaData.getSyntheticRecordTypes().containsKey(syntheticTable.getStorageName()),
+                        () -> "synthetic type '" + syntheticTable.getStorageName() + "' missing from serialized metadata, got "
                                 + metaData.getSyntheticRecordTypes().keySet());
                 validator.accept(syntheticTable, metaData);
                 return txn -> {
@@ -902,6 +903,32 @@ public class IndexTest {
                 field(x).nest("COL3"),
                 field(x).nest("COL4")), 3));
     }
+
+    /**
+     * The synthetic table's name is composed from the index name, which is a user identifier and so need not be a legal
+     * protobuf message name -- and the name does become one, in the synthetic record type's descriptor. A dot has to be
+     * escaped rather than reaching the descriptor, where it would be rejected.
+     */
+    @Test
+    void createIndexWithNonProtoCompliantNameOverUnnestedSyntheticTable() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint, col4 bigint) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, col5 bigint, primary key(col1)) " +
+                "CREATE INDEX \"mv.1\" AS SELECT X.col2, T1.col5, X.col3 FROM T1, (SELECT col2, col3 FROM T1.A) X " +
+                "ORDER BY X.col2, T1.col5, X.col3";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, 1,
+                (parent, constituents) -> concat(
+                        field(constituents.get(0)).nest("COL2"),
+                        field(parent).nest("COL5"),
+                        field(constituents.get(0)).nest("COL3")),
+                (syntheticTable, metaData) -> {
+                    // the table keeps the declared name, exactly as a stored table does
+                    Assertions.assertEquals("__unnested_T1_mv.1", syntheticTable.getName());
+                    // and the descriptor carries the escaped storage name derived from it
+                    Assertions.assertTrue(metaData.getSyntheticRecordTypes().containsKey("__unnested_T1_mv__21"));
+                });
+    }
+
 
     /**
      * The same split, ordered by an explicit direction. The ordering functions are keyed by identity on the order-by

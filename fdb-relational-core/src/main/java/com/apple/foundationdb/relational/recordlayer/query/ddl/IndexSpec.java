@@ -186,7 +186,7 @@ record IndexSpec(int scanCount, @Nullable String recordTypeName, @Nullable Query
      * Rejects every definition the generator cannot turn into an index, apart from two: the predicate, checked as it is
      * collected, and ordering by the aggregate, checked once the index type is known.
      */
-    public void checkValidity(@Nullable final UnnestedRecordTableGenerator unnestedTableGenerator) {
+    public void checkValidity(@Nullable final RecordLayerUnnestedSyntheticTableGenerator unnestedTableGenerator) {
         // the traversal rejects a second scan as a join, leaving none to reject here
         Assert.thatUnchecked(scanCount == 1, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, no iteration generator found");

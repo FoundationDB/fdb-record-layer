@@ -42,6 +42,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.Set;
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.List;
@@ -154,7 +155,7 @@ public class UnnestedSyntheticTableParsingTest {
         assertThat(syntheticTables.size()).isEqualTo(1);
         final var syntheticTable = syntheticTables.stream().findFirst().orElseThrow();
         assertThat(syntheticTable.getName()).isEqualTo(syntheticTableName);
-        assertThat(syntheticTable.getParentTableName()).isEqualTo("T");
+        assertThat(syntheticTable.getUnderlyingTableNames()).isEqualTo(Set.of("T"));
 
         // One nested constituent for the unnested array, parented to the stored-record constituent.
         assertThat(syntheticTable.getConstituents().size()).isEqualTo(1);
@@ -244,7 +245,7 @@ public class UnnestedSyntheticTableParsingTest {
         assertThat(syntheticTables.size()).isEqualTo(1);
         final var syntheticTable = syntheticTables.stream().findFirst().orElseThrow();
         assertThat(syntheticTable.getName()).isEqualTo(syntheticTableName);
-        assertThat(syntheticTable.getParentTableName()).isEqualTo("T");
+        assertThat(syntheticTable.getUnderlyingTableNames()).isEqualTo(Set.of("T"));
 
         // One constituent per unnested array, in declaration order, all parented to the stored record.
         final var constituents = syntheticTable.getConstituents();

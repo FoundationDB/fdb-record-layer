@@ -945,7 +945,7 @@ public class SchemaTemplateSerDeTests {
 
         final var deserialized = deserializeSyntheticTable(recordMetaData);
         Assertions.assertEquals(syntheticName, deserialized.getName());
-        Assertions.assertEquals("employees", deserialized.getParentTableName());
+        Assertions.assertEquals(Set.of("employees"), deserialized.getUnderlyingTableNames());
         Assertions.assertEquals("row", deserialized.getAlias());
 
         final var constituent = Iterables.getOnlyElement(deserialized.getConstituents());
@@ -1015,6 +1015,28 @@ public class SchemaTemplateSerDeTests {
                                 arrayElementsExpression("p", true))));
         Assertions.assertTrue(danglingParent.getMessage().contains("is not a known alias"),
                 () -> "unexpected message: " + danglingParent.getMessage());
+
+        // Two constituents naming each other as parent describe a cycle, not a tree. Both aliases exist, so validating
+        // against the complete set would accept this; the parent has to be known when the constituent is declared.
+        final var cycle = Assertions.assertThrows(UncheckedRelationalException.class, () ->
+                syntheticTable("__unnested_dupes_idx", table, "dupe_idx", key,
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "INNER",
+                                arrayElementsExpression("p", true)),
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("INNER", "SQ",
+                                arrayElementsExpression("q", true))));
+        Assertions.assertTrue(cycle.getMessage().contains("is not a known alias"),
+                () -> "unexpected message: " + cycle.getMessage());
+
+        // The same shape ordered the other way is a forward reference: legal as a set, but the record layer types each
+        // constituent against its parent's descriptor, so the parent must come first.
+        final var forwardReference = Assertions.assertThrows(UncheckedRelationalException.class, () ->
+                syntheticTable("__unnested_dupes_idx", table, "dupe_idx", key,
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("INNER", "SQ",
+                                arrayElementsExpression("q", true)),
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                                arrayElementsExpression("p", true))));
+        Assertions.assertTrue(forwardReference.getMessage().contains("is not a known alias"),
+                () -> "unexpected message: " + forwardReference.getMessage());
     }
 
     /**
@@ -1116,11 +1138,11 @@ public class SchemaTemplateSerDeTests {
                 .addConstituent(new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
                         arrayElementsExpression("scores", true)))
                 .build();
-        Assertions.assertEquals("employee.records", table.getParentTableName());
+        Assertions.assertEquals(Set.of("employee.records"), table.getUnderlyingTableNames());
         Assertions.assertEquals(ProtoUtils.toProtoBufCompliantName("employee.records"),
                 table.getParentTableStorageName());
         // the dot cannot survive into a proto identifier, so the derived name is not simply the table name
-        Assertions.assertNotEquals(table.getParentTableName(), table.getParentTableStorageName());
+        Assertions.assertFalse(table.getUnderlyingTableNames().contains(table.getParentTableStorageName()));
     }
 
     /**
@@ -1150,7 +1172,7 @@ public class SchemaTemplateSerDeTests {
         final var deserialized =
                 deserializeSyntheticTable(serializeWithSyntheticType(originalTemplate, syntheticName));
         Assertions.assertEquals(syntheticName, deserialized.getName());
-        Assertions.assertEquals("nested_employees", deserialized.getParentTableName());
+        Assertions.assertEquals(Set.of("nested_employees"), deserialized.getUnderlyingTableNames());
         Assertions.assertEquals("row", deserialized.getAlias());
 
         // Both constituents must come back with the parent link and array field they went in with; the inner one

@@ -57,7 +57,7 @@ final class QuantifierValues {
      * Every explode the plan performs, keyed by its {@link AnnotatedAccessor} marker, in the order they were found. One
      * marker identifies exactly one explode, so this is a plain map. These are the raw facts of the traversal; what an
      * unnesting <em>means</em> -- which constituent owns its array, whether it can be a constituent at all -- is
-     * composed from them by {@link UnnestedRecordTableGenerator}, which is the only thing that needs to know.
+     * composed from them by {@link RecordLayerUnnestedSyntheticTableGenerator}, which is the only thing that needs to know.
      */
     @Nonnull
     private final Map<Integer, NonnullPair<CorrelationIdentifier, FieldValue>> explodes;
