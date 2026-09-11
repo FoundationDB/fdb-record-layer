@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.async.common;
 
+import com.apple.foundationdb.Database;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.linear.DoubleRealVector;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
@@ -36,13 +38,72 @@ import java.util.List;
 import java.util.NavigableSet;
 import java.util.Random;
 import java.util.TreeSet;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 import java.util.function.ToDoubleBiFunction;
 
 import static com.apple.foundationdb.linear.RealVectorTest.createRandomHalfVector;
 
 public final class CommonTestHelpers {
+    /**
+     * Time budget for a single logical database operation in a test, including any retries.
+     * <p>
+     * A test must never block indefinitely. {@link CompletableFuture#join()} is uninterruptible, so JUnit's
+     * default per-test timeout ({@code junit.jupiter.execution.timeout.default}, see
+     * {@code gradle/testing.gradle}) cannot stop a test that blocks on it: the interrupt JUnit sends is
+     * swallowed, and the timeout failure is only reported once the test finishes on its own. Waiting with a
+     * bounded {@code get} instead fails the test rather than hanging the whole suite.
+     */
+    public static final long ASYNC_TO_SYNC_TIMEOUT_MINUTES = 2L;
+
     private CommonTestHelpers() {
         // nothing
+    }
+
+    /**
+     * Blocks until {@code future} completes, failing after {@link #ASYNC_TO_SYNC_TIMEOUT_MINUTES} minutes.
+     * <p>
+     * This module sits below {@code fdb-record-layer-core}, so the record layer's {@code asyncToSync} is not
+     * reachable from here; this is the stand-in for it.
+     *
+     * @param future the future to wait for
+     * @param <T> the type {@code future} completes with
+     *
+     * @return the result of {@code future}
+     *
+     * @throws ExecutionException if {@code future} completes exceptionally
+     * @throws InterruptedException if the current thread is interrupted while waiting
+     * @throws TimeoutException if {@code future} does not complete within the time budget
+     */
+    public static <T> T asyncToSync(@Nonnull final CompletableFuture<T> future)
+            throws ExecutionException, InterruptedException, TimeoutException {
+        return future.get(ASYNC_TO_SYNC_TIMEOUT_MINUTES, TimeUnit.MINUTES);
+    }
+
+    /**
+     * Runs {@code retryable} in a transaction and blocks for its result, bounding the wait as described in
+     * {@link #asyncToSync(CompletableFuture)}.
+     * <p>
+     * Prefer this over {@code db.run(tr -> something(tr).join())}: the time budget covers the entire
+     * {@link Database#runAsync(Function)} retry loop, which is otherwise unbounded.
+     *
+     * @param db the database to run against
+     * @param retryable the transactional operation to run
+     * @param <T> the type the operation completes with
+     *
+     * @return the result of {@code retryable}
+     *
+     * @throws ExecutionException if the operation completes exceptionally
+     * @throws InterruptedException if the current thread is interrupted while waiting
+     * @throws TimeoutException if the operation does not complete within the time budget
+     */
+    public static <T> T runAsyncToSync(@Nonnull final Database db,
+                                       @Nonnull final Function<? super Transaction, ? extends CompletableFuture<T>> retryable)
+            throws ExecutionException, InterruptedException, TimeoutException {
+        return asyncToSync(db.runAsync(retryable));
     }
 
     @Nonnull
