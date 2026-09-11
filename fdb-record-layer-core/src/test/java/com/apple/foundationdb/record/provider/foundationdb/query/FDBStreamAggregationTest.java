@@ -370,7 +370,8 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                            .withAggregateValue("num_value_2", value -> new ArrayAggValue(value, true))
+                            .withAggregateValue("num_value_2",
+                                    value -> new ArrayAggValue(value, true, ArrayAggValue.NO_LIMIT))
                             .withGroupCriterion("str_value_indexed")
                             .build(false);
 
@@ -430,7 +431,8 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withAggregateValue("num_value_2", ignored -> new NumericAggregationValue.Sum(
                                     NumericAggregationValue.PhysicalOperator.SUM_I,
                                     new NullValue(Type.primitiveType(Type.TypeCode.INT))))
-                            .withAggregateValue("num_value_2", value -> new ArrayAggValue(value, true))
+                            .withAggregateValue("num_value_2",
+                                    value -> new ArrayAggValue(value, true, ArrayAggValue.NO_LIMIT))
                             .withGroupCriterion("str_value_indexed")
                             .build(false);
 
@@ -552,6 +554,62 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 6, null, resultOf("0", 3L));
             RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 6, continuation1.toBytes(), resultOf("1", 3L));
             Assertions.assertEquals(RecordCursorEndContinuation.END, continuation2);
+        }
+    }
+
+    /**
+     * Tests that the partial state of a large group survives a mid-group continuation, and that the continuation stays
+     * proportional to the number of elements collected so far. {@code ARRAY_AGG()} serializes the whole collected
+     * array into the continuation on every mid-group stop, which is unbounded by design; the assertion here only
+     * guards the per-element cost against a potential blowup in the future.
+     */
+    @Test
+    void partialAggregateArrayAggLargeGroup() throws Exception {
+        final int groupSize = 5_000;
+        for (int batch = 0; batch < groupSize; batch += 1_000) {
+            try (FDBRecordContext context = openContext()) {
+                openSimpleRecordStore(context);
+                final var recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+                for (int i = batch; i < Math.min(batch + 1_000, groupSize); i++) {
+                    recBuilder.setRecNo(i);
+                    recBuilder.setNumValue2(i);
+                    recBuilder.setNumValue3Indexed(i / 2);
+                    recBuilder.setStrValueIndexed(Integer.toString(i / 3));
+                    recBuilder.setNumValueUnique(i);
+                    recordStore.saveRecord(recBuilder.build());
+                }
+                commit(context);
+            }
+        }
+
+        try (final var context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            // No grouping criterion, so all rows fall into a single group.
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2",
+                                    value -> new ArrayAggValue(value, true, ArrayAggValue.NO_LIMIT))
+                            .build(false);
+
+            // Stop halfway through the group, which forces the collected elements into the continuation.
+            final int scanLimit = groupSize / 2;
+            final RecordCursorContinuation midGroup = executePlanWithRecordScanLimit(plan, scanLimit, null);
+            final byte[] midGroupBytes = midGroup.toBytes();
+            Assertions.assertNotNull(midGroupBytes, "a mid-group stop must carry partial state");
+            Assertions.assertTrue(midGroupBytes.length < 4 * scanLimit,
+                    () -> "continuation of " + midGroupBytes.length + " bytes for " + scanLimit
+                          + " collected elements is disproportionate");
+
+            // Resuming from that state must run the group to completion, with every element present exactly once.
+            final List<Integer> allElements = new ArrayList<>();
+            for (int i = 0; i < groupSize; i++) {
+                allElements.add(i);
+            }
+            final RecordCursorContinuation end =
+                    executePlanWithRecordScanLimit(plan, Integer.MAX_VALUE, midGroupBytes,
+                            this::assertResultWithArrays, resultOf(allElements));
+            Assertions.assertEquals(RecordCursorEndContinuation.END, end);
         }
     }
 

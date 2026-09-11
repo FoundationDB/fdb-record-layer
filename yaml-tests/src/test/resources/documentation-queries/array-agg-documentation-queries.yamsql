@@ -18,7 +18,7 @@
 # limitations under the License.
 ---
 options:
-  supported_version: 4.13.4.0
+  supported_version: !current_version
 ---
 # The `sales` table and its `product_idx` index are the ones shown in the ARRAY_AGG() documentation page. The index is
 # what allows the GROUP BY query below to be planned, since a streaming aggregation needs its input sorted on the
@@ -54,6 +54,10 @@ test_block:
     -
       - query: SELECT ARRAY_AGG(amount IGNORE NULLS) AS amounts FROM sales
       - result: [{amounts: [200, 100, 150, 120]}]
+
+    -
+      - query: SELECT ARRAY_AGG(amount IGNORE NULLS LIMIT 2) AS amounts FROM sales
+      - result: [{amounts: [200, 100]}]
 
     -
       - query: SELECT product, ARRAY_AGG(amount IGNORE NULLS) AS amounts
