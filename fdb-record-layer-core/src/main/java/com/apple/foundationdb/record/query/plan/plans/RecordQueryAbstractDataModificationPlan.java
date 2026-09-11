@@ -192,6 +192,7 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
+        QueryPlanUtils.enforceSerializable(executeProperties, this.getClass());
         final RecordCursor<QueryResult> results =
                 getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
         final var targetDescriptor = store.getRecordMetaData().getRecordType(Objects.requireNonNull(targetRecordType)).getDescriptor();
@@ -287,7 +288,7 @@ public abstract class RecordQueryAbstractDataModificationPlan extends AbstractRe
         if (getClass() != other.getClass()) {
             return false;
         }
-        final RecordQueryUpdatePlan otherUpdatePlan = (RecordQueryUpdatePlan)other;
+        final RecordQueryAbstractDataModificationPlan otherUpdatePlan = (RecordQueryAbstractDataModificationPlan)other;
         if (!getTargetRecordType().equals(otherUpdatePlan.getTargetRecordType())) {
             return false;
         }

@@ -1,0 +1,90 @@
+#
+# isolation-level-snapshot.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Functional tests for the `OPTIONS (ISOLATION LEVEL SNAPSHOT)` query option. YAMSQL cannot exercise
+# true concurrency, so these verify that the option parses, plans, and executes without error and
+# returns the correct results for a variety of query shapes, and that it is rejected on non-SELECT
+# statements. The actual "no conflict range" behavior is verified in SnapshotIsolationConcurrencyTest.
+# Note: Yamsql does not carry on the option across continuations, so we get no coverage of that from
+# this test either
+---
+options:
+    supported_version: !current_version
+---
+schema_template:
+    CREATE TABLE t1(id BIGINT, col1 BIGINT, col2 BIGINT, PRIMARY KEY(id))
+    CREATE TABLE t2(id BIGINT, name STRING, PRIMARY KEY(id))
+    CREATE INDEX max_ever_col2 AS SELECT MAX_EVER(col2) FROM t1
+    CREATE INDEX max_ever_col2_by_col1 AS SELECT MAX_EVER(col2) FROM t1 GROUP BY col1
+    CREATE INDEX sum_col2_by_col1 AS SELECT SUM(col2) FROM t1 GROUP BY col1
+---
+setup:
+  steps:
+    - query: INSERT INTO t1
+        VALUES (1, 10, 5),
+               (2, 10, 7),
+               (3, 10, 3),
+               (4, 20, 8),
+               (5, 20, 2)
+    - query: INSERT INTO t2
+        VALUES (10, 'ten'),
+               (20, 'twenty')
+---
+test_block:
+  name: snapshot-isolation-aggregates
+  tests:
+    - # This should work on select queries without error
+      - query: SELECT MAX_EVER(col2) FROM t1 OPTIONS (ISOLATION LEVEL SNAPSHOT)
+      - result: [{!l 8}]
+    - # one extra, slightly more interesting query
+      - query: SELECT col1, SUM(col2) FROM t1 GROUP BY col1 HAVING SUM(col2) > 12 OPTIONS (ISOLATION LEVEL SNAPSHOT)
+      - unorderedResult: [{!l 10, !l 15}]
+    - # it should be ok to combine with other options
+      - query: select max_ever(col2) from t1 OPTIONS (ISOLATION LEVEL SNAPSHOT, LOG QUERY)
+      - result: [{!l 8}]
+---
+test_block:
+  name: snapshot-isolation-rejected-on-non-select
+  tests:
+    - # insert is not allowed at snapshot isolation
+      - query: INSERT INTO t1 VALUES (100, 30, 30) OPTIONS (ISOLATION LEVEL SNAPSHOT)
+      - error: "0A000" # UNSUPPORTED_OPERATION
+    - # update is not allowed at snapshot isolation
+      - query: UPDATE t1 SET col2 = 99 WHERE id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT)
+      - error: "0A000" # UNSUPPORTED_OPERATION
+    - # delete is not allowed at snapshot isolation
+      - query: DELETE FROM t1 WHERE id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT)
+      - error: "0A000" # UNSUPPORTED_OPERATION
+    - # ensure that the checks are not confused by a subselect
+      - query: INSERT INTO t2 (SELECT id, 'name' FROM t1 WHERE id = 1) OPTIONS (ISOLATION LEVEL SNAPSHOT)
+      - error: "0A000" # UNSUPPORTED_OPERATION
+    - # double check that options aren't allowed in DDL, a lot of the infrastructure would have to rework to
+      # support this, and require some real thought about the semantics
+      - query: CREATE SCHEMA TEMPLATE snapshot_template CREATE TABLE tt(id BIGINT, v BIGINT, PRIMARY KEY(id)) CREATE INDEX bad_idx AS SELECT v FROM tt OPTIONS (ISOLATION LEVEL SNAPSHOT)
+      - error: "42601" # SYNTAX_ERROR
+    - # double check that options aren't allowed in subselects, a lot of the infrastructure would have to rework to
+      # support this, and require some real thought about the semantics
+      - query: SELECT id FROM (SELECT id FROM t1 WHERE id = 1 OPTIONS (ISOLATION LEVEL SNAPSHOT)) AS sub
+      - error: "42601" # SYNTAX_ERROR
+    -
+      # Options do not attach to a COPY statement, so this is a syntax error. Resuming a COPY continuation with
+      # the option is rejected as UNSUPPORTED_OPERATION; see CopyCommandTest.copyContinuationRejectsSnapshotIsolation.
+      - query: COPY /TEST/FOO PRESERVE INCARNATION OPTIONS (ISOLATION LEVEL SNAPSHOT)
+      - error: "42601" # SYNTAX_ERROR
+...

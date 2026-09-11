@@ -44,9 +44,10 @@
     minute;module;month;names;national;natural;next;no;not;nullif;octet_length;of;on;only;open;option;or;order;outer;
     output;overlaps;pad;partial;position;precision;prepare;preserve;primary;prior;privileges;procedure;public;read;
     references;relative;restrict;revoke;right;rollback;rows;schema;scroll;second;section;select;session;session_;set;
-    size;some;space;sql;sqlcode;sqlerror;sqlstate;struct;substring;sum;system_user;table;template;temporary;then;
-    timezone_;timezone_minute;to;trailing;transaction;translate;translation;trim;type;union;unique;unknown;update;
-    upper;usage;user;using;value;values;varying;view;when;whenever;where;with;work;write;year;zone" ignore_case="true" />
+    size;snapshot;some;space;sql;sqlcode;sqlerror;sqlstate;struct;substring;sum;system_user;
+    table;template;temporary;then;timezone_;timezone_minute;to;trailing;transaction;translate;translation;trim;type;
+    union;unique;unknown;update;upper;usage;user;using;value;values;varying;view;when;whenever;where;with;work;write;
+    year;zone" ignore_case="true" />
     <!-- sql type names and some tags -->
     <keywords2 keywords="bigint;bit;boolean;bytes;char;char_;character;date;dec;decimal;double;float;int;integer;nchar;
     numeric;real;smallint;string;time;timestamp;varchar;!!;!r;!in;!a;!current_version" />

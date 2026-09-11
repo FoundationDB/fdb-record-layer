@@ -60,6 +60,7 @@ dependencies {
     runtimeOnly(libs.log4j.slf4jBinding)
 
     testImplementation(testFixtures(project(":fdb-relational-api")))
+    testImplementation(project(":fdb-test-utils"))
     testImplementation(libs.bundles.test.impl)
     testRuntimeOnly(libs.bundles.test.runtime)
     testImplementation(libs.grpc.testing)

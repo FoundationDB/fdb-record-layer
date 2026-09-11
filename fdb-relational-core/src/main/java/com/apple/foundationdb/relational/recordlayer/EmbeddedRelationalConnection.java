@@ -84,6 +84,8 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
 
     /**
      * We only currently support {@link Connection#TRANSACTION_SERIALIZABLE}.
+     * We support snapshot isolation via options, but that is most appropiate at the statement level, so it is
+     * exposed via {@link Options.Name#ISOLATION_LEVEL_SNAPSHOT}.
      */
     private static final int ONLY_SUPPORTED_TRANSACTION_ISOLATION_LEVEL = Connection.TRANSACTION_SERIALIZABLE;
 

@@ -1,0 +1,8 @@
+Diagram(
+    Terminal('OPTIONS'),
+    Terminal('('),
+    Terminal('ISOLATION'),
+    Terminal('LEVEL'),
+    Terminal('SNAPSHOT'),
+    Terminal(')')
+)
