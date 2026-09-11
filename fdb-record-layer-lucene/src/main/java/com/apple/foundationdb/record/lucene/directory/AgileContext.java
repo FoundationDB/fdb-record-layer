@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -40,6 +41,19 @@ import java.util.function.Function;
 
 /**
  * A floating window (agile) context - create sub contexts and commit them as they reach their time/size quota.
+ *
+ * <p>The size quota deliberately counts only mutations that the caller issued explicitly, through
+ * {@link #set}, {@link #clear(byte[])} and {@link #clear(Range)}. It must <b>not</b> be derived from
+ * {@code FDBTransactionContext.getApproximateTransactionSize()}, even though that value - the summation of
+ * mutations, read conflict ranges and write conflict ranges - is what FDB's commit size limit actually
+ * governs. This is done in order to ensure a read-only transaction does not commit due to read-size quota calculation.
+ * (It may fail with conflicts of ot does).</p>
+ *
+ * <p>The accepted consequence is that two kinds of growth are invisible to the size quota: a write issued
+ * directly on the inner context from inside an {@link #apply} or {@link #accept} lambda, and read conflict
+ * ranges. A read-heavy transaction can therefore still approach FDB's commit size limit with no size-quota
+ * protection, leaving the time quota as the only backstop. Callers that read in bulk should bound their own
+ * work rather than rely on this class to do it. A {@link ReadOnlyNonAgileContext} can also be used.</p>
  */
 @API(API.Status.INTERNAL)
 public class AgileContext implements AgilityContext {
@@ -267,6 +281,22 @@ public class AgileContext implements AgilityContext {
         accept(context -> {
             context.ensureActive().set(key, value);
             currentWriteSize += key.length + value.length;
+        });
+    }
+
+    @Override
+    public void clear(final byte[] key) {
+        accept(context -> {
+            context.ensureActive().clear(key);
+            currentWriteSize += key.length;
+        });
+    }
+
+    @Override
+    public void clear(final Range range) {
+        accept(context -> {
+            context.clear(range);
+            currentWriteSize += range.begin.length + range.end.length;
         });
     }
 

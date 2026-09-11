@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
@@ -239,9 +240,21 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     }
 
     private enum Method {
-        Set,
-        Apply,
-        Accept
+        Set(true, true),
+        Apply(true, false),
+        Accept(true, false),
+        PointClear(false, true),
+        RangeClear(false, true);
+
+        /** Whether the method leaves a readable value behind, which decides how the data is verified. */
+        private final boolean writesValues;
+        /** Whether the method's bytes reach {@code currentWriteSize}, and so can drive the size quota. */
+        private final boolean sizeAccounted;
+
+        Method(final boolean writesValues, final boolean sizeAccounted) {
+            this.writesValues = writesValues;
+            this.sizeAccounted = sizeAccounted;
+        }
     }
 
     private enum LimitType {
@@ -262,11 +275,11 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     static Stream<Arguments> agilityContextLimits() {
         return Stream.of(true, false).flatMap(useProp ->
                 Arrays.stream(LimitType.values()).flatMap(limitType ->
-                        Arrays.stream(Method.values()).filter(method ->
-                                        // AgilityContext is only aware of bytes written when set is called
-                                        limitType == LimitType.Time || method == Method.Set)
-                                .map(method ->
-                                        Arguments.of(useProp, method, limitType))));
+                        Arrays.stream(Method.values())
+                                // A write issued from inside an apply/accept lambda is invisible to the size
+                                // quota so only the methods that account for their own bytes can drive the size limit.
+                                .filter(method -> limitType == LimitType.Time || method.sizeAccounted)
+                                .map(method -> Arguments.of(useProp, method, limitType))));
     }
 
     @ParameterizedTest(name = "useProp:{0},{1} by {2}")
@@ -284,6 +297,20 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                         "And be one traveler, long I stood\n" +
                         "And looked down one as far as I could\n" +
                         "To where it bent in the undergrowth;" ;
+
+        if (!method.writesValues) {
+            // Pre-write data for cases where the Method does not write by itself (so that we can verify that clearing
+            // actually worked). Use fdb.openContext() rather than openContext(): the latter attaches the shared timer, and these
+            // sets would then be counted against the quota events this test asserts on.
+            try (FDBRecordContext context = fdb.openContext()) {
+                final Subspace subspace = path.toSubspace(context);
+                for (int i = 0; i < loopCount; i++) {
+                    context.ensureActive().set(subspace.pack(Tuple.from(2023, i)),
+                            Tuple.from(i, RobertFrost, 0).pack());
+                }
+                context.commit();
+            }
+        }
 
         try (FDBRecordContext context = useProp ? openContext(insertProps) : openContext()) {
             final Subspace subspace = path.toSubspace(context);
@@ -316,6 +343,12 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
                             innerContext.ensureActive().set(key, val);
                         });
                         break;
+                    case PointClear:
+                        agilityContext.clear(key);
+                        break;
+                    case RangeClear:
+                        agilityContext.clear(Range.startsWith(key));
+                        break;
                     default:
                         throw new AssertionError("Unexpected enum value " + method);
                 }
@@ -332,18 +365,99 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
             for (int i = 0; i < loopCount; i++) {
                 byte[] key = subspace.pack(Tuple.from(2023, i));
                 final byte[] bytes = agilityContext.get(key).join();
-                final Tuple retTuple = Tuple.fromBytes(bytes);
-                assertEquals(i, retTuple.getLong(0));
-                assertEquals(RobertFrost, retTuple.getString(1));
+                if (method.writesValues) {
+                    final Tuple retTuple = Tuple.fromBytes(bytes);
+                    assertEquals(i, retTuple.getLong(0));
+                    assertEquals(RobertFrost, retTuple.getString(1));
+                } else {
+                    assertNull(bytes);
+                }
             }
         }
+    }
+
+    private static final int LARGE_OP_COUNT = 10_000;
+    /** Padding that makes each key about 2KB, so that 10,000 operations is roughly 20MB of key bytes. */
+    private static final int PADDED_KEY_LENGTH = 2_000;
+
+    private enum BulkOperation { Set, PointClear, RangeClear }
+
+    /**
+     * Assert that the AgilityContext accounts for mutation size correctly.
+     */
+    @ParameterizedTest(name = "operation:{0}")
+    @EnumSource(BulkOperation.class)
+    void testAgilityContextBulkOperationStaysUnderCommitLimit(BulkOperation operation) {
+        final long sizeQuota = 900_000L;
+        final long timeQuota = 100_000L;
+        final String padding = "x".repeat(PADDED_KEY_LENGTH);
+        try (FDBRecordContext context = openContext()) {
+            final Subspace subspace = path.toSubspace(context);
+            final AgilityContext agilityContext = AgilityContext.agile(context, timeQuota, sizeQuota);
+            for (int i = 0; i < LARGE_OP_COUNT; i++) {
+                final byte[] key = subspace.pack(Tuple.from(operation.name(), i, padding));
+                switch (operation) {
+                    case Set:
+                        agilityContext.set(key, Tuple.from(i).pack());
+                        break;
+                    case PointClear:
+                        agilityContext.clear(key);
+                        break;
+                    case RangeClear:
+                        agilityContext.clear(Range.startsWith(key));
+                        break;
+                    default:
+                        throw new AssertionError("Unexpected enum value " + operation);
+                }
+            }
+            agilityContext.flush();
+            context.commit();
+        }
+        // Around 20MB of keys against a 900KB quota is on the order of 20 commits, and twice that for a range
+        // clear, which charges both bounds. The bound is loose on purpose: the point is that the work was split
+        // at all, not how finely.
+        assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA), Matchers.greaterThan(10));
+    }
+
+    /**
+     * A read must never drive the size quota. This class decides when to commit and the caller cannot opt out
+     * of one, so making a read trigger a commit would expose a caller that only read to {@code NOT_COMMITTED}
+     * conflicts on its read conflict ranges. Deriving the quota from
+     * {@code getApproximateTransactionSize()} does exactly that, and was reverted for it; this test is what
+     * should fail if it is reattempted.
+     * <p>
+     * The read count is deliberately small. A large one would accumulate enough conflict range to exceed
+     * FDB's commit size limit at flush, which is the accepted limitation the class comment records rather
+     * than something this test contradicts.
+     * </p>
+     */
+    @Test
+    void testAgilityContextReadsDoNotTriggerSizeQuota() {
+        final long sizeQuota = 1L;
+        final long timeQuota = 100_000L;
+        final String padding = "x".repeat(PADDED_KEY_LENGTH);
+        try (FDBRecordContext context = openContext()) {
+            final Subspace subspace = path.toSubspace(context);
+            final AgilityContext agilityContext = AgilityContext.agile(context, timeQuota, sizeQuota);
+            for (int i = 0; i < loopCount; i++) {
+                agilityContext.get(subspace.pack(Tuple.from("read", i, padding))).join();
+            }
+            agilityContext.flush();
+            context.commit();
+        }
+        // A size quota of 1 would commit on any observed byte, so zero here means reads were not observed at
+        // all. The large time quota rules out the other trigger.
+        assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_SIZE_QUOTA), Matchers.equalTo(0));
+        assertThat(timer.getCount(LuceneEvents.Counts.LUCENE_AGILE_COMMITS_TIME_QUOTA), Matchers.equalTo(0));
     }
 
     static Stream<Arguments> agilityContextLimitsNotSet() {
         return Stream.of(true, false).flatMap(useProp ->
                 Arrays.stream(LimitType.values()).flatMap(limitType ->
                         Arrays.stream(Method.values())
-                                .filter(method -> method != Method.Set) // There is no good way for us to inject failure
+                                // Failure can only be injected through a lambda, so Set and the clear methods
+                                // are excluded.
+                                .filter(method -> method == Method.Apply || method == Method.Accept)
                                 .map(method -> Arguments.of(useProp, method, limitType))));
     }
 
@@ -459,7 +573,7 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     @ParameterizedTest
     @EnumSource
     void testAgilityContextAtomicAttribute(AgilityContextType contextType) {
-        // assert that commits doesn't happen in he middle of an accept or apply call
+        // assert that commits doesn't happen in the middle of an accept or apply call
         for (int sizeQuota : new int[] {1, 21, 100, 10000}) {
             final RecordLayerPropertyStorage.Builder insertProps = RecordLayerPropertyStorage.newBuilder()
                     .addProp(LuceneRecordContextProperties.LUCENE_AGILE_COMMIT_SIZE_QUOTA, sizeQuota);
