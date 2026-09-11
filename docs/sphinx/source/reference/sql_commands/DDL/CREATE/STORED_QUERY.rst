@@ -20,10 +20,9 @@ Syntax
 
     CREATE STORED QUERY query_name
         [ ( parameter_name data_type [ NOT NULL ], ... )
-          PREPARE FOR (
+          PREPARE FOR
               ( parameter_name { IS [ NOT ] NULL | = { TRUE | FALSE } }, ... ),
               ...
-          )
         ]
         [ DECLARE
               FUNCTION function_name ( [IN] parameter_name data_type [DEFAULT default_value], ... )
@@ -58,7 +57,7 @@ A stored query may declare parameters, which is how it stands in for a runtime q
 .. code-block:: sql
 
     CREATE STORED QUERY by_col1(param_a BIGINT)
-        PREPARE FOR ((param_a IS NOT NULL))
+        PREPARE FOR (param_a IS NOT NULL)
         AS SELECT * FROM t1 WHERE col1 = param_a
 
 In the body a parameter is written as a **bare identifier**, with no ``?`` — unlike the runtime statement it stands for, where the same reference is ``?param_a``. It becomes exactly that internally, so the stored form above is equivalent to ``SELECT * FROM t1 WHERE col1 = ?PARAM_A``. A parameter may also be referred to inside a declared function's body.
@@ -75,7 +74,7 @@ The two are compared as raw strings, so the name a client uses is the declared i
 .. code-block:: sql
 
     CREATE STORED QUERY by_zone("CK___zone_key" BIGINT, adopter_a INTEGER)
-        PREPARE FOR (("CK___zone_key" IS NOT NULL, adopter_a IS NOT NULL))
+        PREPARE FOR ("CK___zone_key" IS NOT NULL, adopter_a IS NOT NULL)
         AS SELECT * FROM t1 WHERE zone_key = "CK___zone_key" AND adopter = adopter_a
 
 ``"CK___zone_key"`` is quoted, so it keeps its spelling and a client binds ``?CK___zone_key``. ``adopter_a`` is not, so it becomes ``ADOPTER_A`` and a client binds ``?ADOPTER_A``. Quote a parameter — in the signature, in the prepared cases, and in every reference in the body — whenever the client's spelling is not already upper case.
@@ -113,10 +112,9 @@ Every parameter declared nullable — the default — must be pinned in every ca
 .. code-block:: sql
 
     CREATE STORED QUERY by_zone("CK___zone_key" BIGINT, zone_wide BOOLEAN)
-        PREPARE FOR (
+        PREPARE FOR
             ("CK___zone_key" IS NULL,     zone_wide = FALSE),
             ("CK___zone_key" IS NOT NULL, zone_wide = FALSE)
-        )
         AS SELECT * FROM t1 WHERE zone_key = "CK___zone_key" AND wide = zone_wide
 
 Two plans are warmed here. The first has ``"CK___zone_key"`` bound to null while planning, so the planner folds that predicate; the second leaves it without a value and only knows it is not null, so the plan keeps the predicate and can use a zone index.
@@ -130,7 +128,7 @@ A parameter declared ``NOT NULL`` may be left out, since ``IS NOT NULL`` is the 
 .. code-block:: sql
 
     CREATE STORED QUERY by_zone("CK___zone_key" BIGINT NOT NULL, adopter_a INTEGER)
-        PREPARE FOR ((adopter_a IS NOT NULL))
+        PREPARE FOR (adopter_a IS NOT NULL)
         AS SELECT * FROM t1 WHERE zone_key = "CK___zone_key" AND adopter = adopter_a
 
 Examples
@@ -177,7 +175,7 @@ A signature and a ``DECLARE`` block combine, and a parameter may be captured ins
 .. code-block:: sql
 
     CREATE STORED QUERY by_fn(param_a BIGINT, param_b BIGINT)
-        PREPARE FOR ((param_a IS NOT NULL, param_b IS NOT NULL))
+        PREPARE FOR (param_a IS NOT NULL, param_b IS NOT NULL)
         DECLARE
             FUNCTION f1(IN p BIGINT) AS (SELECT * FROM t1 WHERE col1 = p AND col2 = param_a)
         AS
