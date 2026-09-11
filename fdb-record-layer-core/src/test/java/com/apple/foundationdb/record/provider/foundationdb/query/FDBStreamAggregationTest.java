@@ -370,7 +370,8 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                            .withAggregateValue("num_value_2", value -> new ArrayAggValue(value, true))
+                            .withAggregateValue("num_value_2",
+                                    value -> new ArrayAggValue(value, true, ArrayAggValue.NO_LIMIT))
                             .withGroupCriterion("str_value_indexed")
                             .build(false);
 
@@ -430,7 +431,8 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withAggregateValue("num_value_2", ignored -> new NumericAggregationValue.Sum(
                                     NumericAggregationValue.PhysicalOperator.SUM_I,
                                     new NullValue(Type.primitiveType(Type.TypeCode.INT))))
-                            .withAggregateValue("num_value_2", value -> new ArrayAggValue(value, true))
+                            .withAggregateValue("num_value_2",
+                                    value -> new ArrayAggValue(value, true, ArrayAggValue.NO_LIMIT))
                             .withGroupCriterion("str_value_indexed")
                             .build(false);
 
@@ -586,7 +588,8 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             // No grouping criterion, so all rows fall into a single group.
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                            .withAggregateValue("num_value_2", value -> new ArrayAggValue(value, true))
+                            .withAggregateValue("num_value_2",
+                                    value -> new ArrayAggValue(value, true, ArrayAggValue.NO_LIMIT))
                             .build(false);
 
             // Stop halfway through the group, which forces the collected elements into the continuation.

@@ -490,6 +490,7 @@ message PCountValue {
 message PArrayAggValue {
   optional PValue child = 1;
   optional bool ignore_nulls = 2;
+  optional int32 limit = 3;
 }
 
 message PDerivedValue {

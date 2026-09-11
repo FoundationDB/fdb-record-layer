@@ -27,6 +27,9 @@ Parameters
 ``RESPECT NULLS``
     Causes ``NULL`` values of ``expression`` to be collected as array elements. This is the default when no null-treatment clause is present. This behavior is subject to limitations; see the note on ``NULL`` handling under :ref:`Important Notes <array-agg-important-notes>`.
 
+``LIMIT count``
+    Collects at most ``count`` elements, discarding any further values of the group. ``count`` must be a non-negative integer literal. A limit of ``0`` yields an empty array.
+
 Returns
 =======
 
@@ -88,6 +91,23 @@ The following query collects the amounts across the whole table into a single ar
 Note that the ``NULL`` amount in row 4 is therefore omitted from the array.
 
 Note also that the elements do not appear in ``id`` order. They are collected in whatever order the rows happen to be read in, and here the query is served by a scan of ``product_idx``, which visits the ``Gadget`` row before the ``Widget`` rows. Adding or removing an index may therefore change the order of the elements within the array.
+
+ARRAY_AGG() with LIMIT
+----------------------
+
+The following query collects at most two amounts, discarding the rest of the group.
+
+.. code-block:: sql
+
+    SELECT ARRAY_AGG(amount IGNORE NULLS LIMIT 2) AS amounts FROM sales
+
+.. list-table::
+    :header-rows: 1
+
+    * - :sql:`amounts`
+    * - :json:`[200, 100]`
+
+Which two amounts are retained follows from the order in which the query plan happens to read the rows. Since the order is unspecified, ``LIMIT`` currently cannot be used to select a particular pair. However, it can be useful to impose a bound on the cost of the aggregation; see the note on group size under :ref:`Important Notes <array-agg-important-notes>`.
 
 ARRAY_AGG() with GROUP BY
 -------------------------
@@ -177,7 +197,7 @@ Important notes
 
 * **Required indexes**: In general, ``GROUP BY`` queries require an appropriate index to be executed. See :ref:`Indexes <index_definition>` for details on creating indexes that support ``GROUP BY`` operations.
 * **ARRAY_AGG() in indexes**: ``ARRAY_AGG()`` itself cannot currently be materialized in an index. Defining an index over it, as in ``CREATE INDEX idx AS SELECT ARRAY_AGG(val) FROM tab GROUP BY grp``, raises an ``UNSUPPORTED_OPERATION`` error.
-* **Group size**: ``ARRAY_AGG()`` assembles the array in memory as the rows of a group are read, and a query paused part-way through a group returns the elements collected so far in its continuation. Neither the array size in memory nor the continuation size is limited, and since they both grow with the group, a very large group can use a substantial amount of memory and produce a large continuation. Note that an ungrouped ``ARRAY_AGG()`` collects the entire input as a single group.
+* **Group size**: ``ARRAY_AGG()`` assembles the array in memory as the rows of a group are read, and a query paused part-way through a group returns the elements collected so far in its continuation. Neither the array size in memory nor the continuation size is limited, and since they both grow with the group, a very large group can use a substantial amount of memory and produce a large continuation. Note that an ungrouped ``ARRAY_AGG()`` collects the entire input as a single group. You can use an in-call ``LIMIT`` clause to impose a hard bound on these sizes.
 * **Element order**: The order of the elements within the returned array is unspecified. Elements are collected in whatever order the rows are read in, which depends on the plan used to execute the query—in particular on which index is used, if any. You therefore cannot rely on the order. There is currently no way to request a particular order, since an in-call ``ORDER BY`` clause is not supported yet. This limitation is tracked by `Issue #4498 <https://github.com/FoundationDB/fdb-record-layer/issues/4498>`_.
 * **NULL handling**: An array cannot currently hold ``NULL`` elements. This is due to a limitation at the level of the FDB Record Layer, tracked by `Issue #3646 <https://github.com/FoundationDB/fdb-record-layer/issues/3646>`_. A query that uses the default ``RESPECT NULLS`` behavior (including when no null-treatment clause is present) will fail at run time with an ``UNSUPPORTED_OPERATION`` error as soon as a ``NULL`` is encountered. To avoid this potential error, use ``IGNORE NULLS`` to omit ``NULL`` values from the array.
 * **Arrays of arrays**: An ``ARRAY``-typed argument would produce an array of arrays, which is not supported. ``ARRAY_AGG()`` over an ``ARRAY`` column raises an ``UNSUPPORTED_OPERATION`` error. This limitation is tracked by `Issue #4167 <https://github.com/FoundationDB/fdb-record-layer/issues/4167>`_. To collect nested collections, you can wrap the inner array in a struct, as in ``ARRAY_AGG((rid, tags))``.
