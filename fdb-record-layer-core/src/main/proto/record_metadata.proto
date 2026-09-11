@@ -232,40 +232,26 @@ message PStoredQuery {
   repeated string temp_functions = 3;
 
   // One declared parameter of a stored query.
-  // Compatible with map<string, string> on the wire; a repeated entry is used instead so that further
-  // per-parameter attributes can be added; see user_field for the same pattern.
   message PStoredQueryParameter {
     optional string name = 1;
     // The SQL text of the parameter's declaration, exactly as written after the parameter name: a type, optionally
     // followed by a nullability clause. For example `BIGINT`, `BIGINT NOT NULL`, `VECTOR(128, FLOAT)` or
-    // `TYPE my_struct ARRAY`. Text rather than a serialized type, so that neither the record layer nor the
-    // relational API representation of a stored query depends on the other's type system, and so that a type
-    // naming a schema template type can be resolved against the template it is warmed with.
+    // `TYPE my_struct ARRAY`.
     optional string declared_type = 2;
   }
-  // The query's declared parameters. Empty when the query declares none. Used at warm-up to type the query's
-  // value-free named parameters.
+  // The query's declared parameters. Empty when the query declares none.
   repeated PStoredQueryParameter parameters = 4;
 
   // One combination of parameter states that gets its own warmed plan.
   message PPreparedCase {
     message PParameterState {
       optional string name = 1;
-      // One of exactly four canonical tokens: `IS_NULL`, `IS_NOT_NULL`, `IS_TRUE`, `IS_FALSE`. These are the states
-      // that change the plan itself rather than only its constraints: any other value of a parameter's declared type
-      // yields the same plan as `IS_NOT_NULL`, because literals are stripped before planning.
-      //
-      // Text for the same reason as PStoredQueryParameter.declared_type — the record layer stores this payload and
-      // returns it without interpreting it, so it needs no knowledge of what the states mean. Unlike declared_type,
-      // though, the value is not sliced from the DDL source but written from a closed set, so it cannot vary by
-      // spelling or whitespace and the reader's mapping is a total function on four inputs.
+      // One of exactly four canonical tokens: `IS_NULL`, `IS_NOT_NULL`, `IS_TRUE`, `IS_FALSE`. The record layer stores
+      // this payload and returns it without interpreting it.
       optional string state = 2;
     }
-    // Every parameter the query declares, each with its state. Completeness is enforced by the SQL layer, which fills
-    // in the parameters the author left out: a parameter declared nullable has to be pinned explicitly, since no state
-    // would mean planning it with no value and a nullable type, and such a plan is not correct for a null binding. One
-    // declared NOT NULL may be omitted, because its declaration already excludes null, and is recorded here as
-    // IS_NOT_NULL. So a reader of this message never has to consult the declarations to learn what an omission meant.
+    // Every parameter the query declares, each with its state. The SQL layer fills in a NOT NULL parameter the author
+    // left out of PREPARE FOR, so a reader never has to consult the declarations to learn what an omission meant.
     repeated PParameterState parameter_states = 1;
   }
   // The combinations warmed for this query, one plan each. Empty exactly when the query declares no parameters.
