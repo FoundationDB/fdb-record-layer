@@ -90,9 +90,7 @@ import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
-    // What NAMED_PARAMETER accepts after its '?'. A reference to a declared parameter is rewritten to '?name', so a
-    // name that does not fit here produces stored text that no longer lexes as the parameter it came from. Most
-    // identifiers fit, but a quoted one may hold anything, and even an unquoted one may start with '/'.
+    // Must match what NAMED_PARAMETER accepts after its '?', since a reference is rewritten to '?name'.
     private static final Pattern BINDABLE_PARAMETER_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_/]*");
 
     // The vector engines an option may apply to. HNSW is the engine used when the VECTOR_ENGINE option is absent.
@@ -541,11 +539,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 final var queryCtx = templateClause.storedQueryDefinition();
                 final var name = visitUid(queryCtx.queryName).getName();
                 final var sourceText = getDelegate().getPlanGenerationContext().getQuery();
-                // Parse the optional parameter list. Each parameter is referenced by name in the query body and in declared
-                // function bodies, and those references are rewritten to '?name' below, which is the form a client
-                // sends at run time. An unquoted name is normalized as an ordinary identifier, per the connection's
-                // CASE_SENSITIVE_IDENTIFIERS option, while a prepared parameter name always keeps the spelling it was
-                // written with — so the normalized spelling is what the client has to use.
                 final var parameters = parseParameterList(queryCtx.storedQueryParameterList(), sourceText);
                 final var preparedCases = parsePreparedCases(queryCtx.storedQueryPreparedCases(),
                         queryCtx.storedQueryParameterList(), parameters.keySet());
@@ -553,9 +546,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 final ImmutableList.Builder<String> tempFunctionTexts = ImmutableList.builder();
                 if (queryCtx.declareBlock() != null) {
                     for (final var dfCtx : queryCtx.declareBlock().declaredFunction()) {
-                        // A declared parameter and one of this function's own parameters naming the same identifier
-                        // are indistinguishable in the body, so the rewrite would capture the function's parameter
-                        // instead of shadowing it. Reject rather than silently changing what was written.
+                        // The two are indistinguishable in the body, so the rewrite cannot tell them apart.
                         final var shadowed = Sets.intersection(ownParameterNames(dfCtx), parameters.keySet());
                         Assert.thatUnchecked(shadowed.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
                                 () -> "declared function parameter " + shadowed
@@ -941,22 +932,14 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                                                        @Nonnull final Set<String> declaredNames) {
         final String name = sliceSource(sourceText, ctx.functionName);
         final String paramList = sliceSource(sourceText, ctx.sqlParameterDeclarationList());
-        // Only the body may reference the stored query's declared parameters; scoping the rewrite to the body subtree
-        // is what keeps the function name and its own parameter declarations out of reach. With no declared parameters
-        // the rewrite is a plain slice of the body.
         final String body = rewriteReferencesToParams(sourceText, ctx.functionBody, declaredNames);
         return "CREATE TEMPORARY FUNCTION " + name + paramList + " ON COMMIT DROP FUNCTION AS " + body;
     }
 
     /**
-     * Parses a stored query's parameter list into a map from parameter name to the SQL text of its declaration. A
-     * quoted name keeps its spelling; an unquoted one is normalized as an ordinary identifier, per the connection's
-     * {@code CASE_SENSITIVE_IDENTIFIERS} option. That normalized spelling is what a client has to use for the matching
-     * prepared parameter, because a prepared parameter name always keeps the spelling it was written with. It also has
-     * to be a name a client can bind, since every reference to the parameter is rewritten to {@code ?name}. The
-     * declaration is kept as source text rather than as a resolved type: it may name a schema template type, which can
-     * only be resolved against the template the query is warmed with. The type is nevertheless visited here so that an
-     * unusable one is reported at {@code CREATE} time.
+     * Parses a stored query's parameter list into a map from normalized parameter name to the SQL text of its
+     * declaration. The declaration is kept as source text, not as a resolved type, because it may name a schema
+     * template type that only resolves against the template the query is warmed with.
      *
      * @param ctx the parameter list, or {@code null} when the query declares none
      * @param sourceText the full DDL source, for slicing declaration text out of
@@ -971,21 +954,15 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var parameters = new LinkedHashMap<String, String>();
         for (final var param : ctx.storedQueryParameter()) {
             final var parameterName = visitUid(param.parameterName).getName();
-            // A reference to this parameter becomes '?name', so a name a client could not bind is rejected here rather
-            // than stored as text that no longer means what was written: `"my param"` would give `?my param`, which does
-            // not parse at all, and `"a-b"` would give `?a - b`, which parses as arithmetic wherever a column `b` is in
-            // scope.
             Assert.thatUnchecked(BINDABLE_PARAMETER_NAME.matcher(parameterName).matches(), ErrorCode.UNSUPPORTED_QUERY,
                     () -> "stored query parameter '" + parameterName + "' cannot be bound as '?"
                             + parameterName + "'; a parameter name must be a letter followed by letters, digits, "
                             + "'_' or '/'");
-            // Visited so that a malformed type expression is reported at CREATE time. A type that merely names
-            // something the template does not define resolves to a placeholder here and is only caught when the query
-            // is warmed, because a template type may be declared after the query that uses it.
+            // Visited for the side effect: a malformed type is reported at CREATE time. A name the template does not
+            // define resolves to a placeholder here and is only caught at warm-up.
             Assert.notNullUnchecked(visitFunctionColumnType(param.parameterType));
-            // The declaration spans the type and, when present, the nullability clause after it. Sliced out of the
-            // source rather than rebuilt from tokens, because the lexer skips whitespace and `BIGINT ARRAY` would come
-            // back as `BIGINTARRAY`.
+            // Sliced from the source, not rebuilt from tokens: the lexer skips whitespace, so `BIGINT ARRAY` would
+            // come back as `BIGINTARRAY`.
             final ParserRuleContext lastCtx = param.nullNotnull() != null ? param.nullNotnull() : param.parameterType;
             final var declaredType = sourceText.substring(param.parameterType.start.getStartIndex(),
                     lastCtx.stop.getStopIndex() + 1);
@@ -998,16 +975,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     /**
      * Parses the {@code PREPARE FOR} block: the combinations of parameter states this query is warmed for, one plan
      * each.
-     *
-     * <p>
-     * The block is required whenever the query declares parameters, and every parameter declared nullable — the default
-     * — must be pinned in every case. Leaving one unpinned would mean planning it with no value and a nullable type,
-     * and such a plan is not correct for a null binding: the null reaches the scan range as the value to look for. A
-     * parameter declared {@code NOT NULL} may be left out, since its declaration already excludes null; it is recorded
-     * as {@code IS_NOT_NULL}, the only state it could be given, so the persisted case still states every parameter.
-     * Since every parameter ends up with a definite state, no two cases can overlap and no rule about which case wins
-     * is needed.
-     * </p>
      *
      * @param ctx the block, or {@code null} when the query has none
      * @param parameterListCtx the parameter list the block pins, or {@code null} when the query has none
@@ -1038,8 +1005,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     /**
-     * The facts about the declared parameters that a prepared case has to agree with. Derived from the parse tree
-     * rather than kept by {@link #parseParameterList}, which deliberately keeps a declaration as plain text.
+     * The facts about the declared parameters that a prepared case has to agree with.
      *
      * @param nonNullable the parameters declared {@code NOT NULL}
      * @param booleans the parameters declared as the primitive {@code BOOLEAN}
@@ -1056,8 +1022,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             if (param.nullNotnull() != null && param.nullNotnull().NOT() != null) {
                 nonNullable.add(parameterName);
             }
-            // BOOLEAN is a primitive, so this reads off the parse tree and needs no type resolution. A custom type
-            // names a struct or an enum, which is never boolean, and an ARRAY of booleans is not one either.
+            // BOOLEAN is a primitive, so this reads off the parse tree and needs no type resolution.
             final var declaredType = param.parameterType;
             if (declaredType.primitiveType() != null && declaredType.primitiveType().BOOLEAN() != null
                     && declaredType.ARRAY() == null) {
@@ -1100,21 +1065,15 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.thatUnchecked(unpinnedNullable.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
                 () -> "prepared case leaves nullable " + unpinnedNullable
                         + " unpinned; a nullable parameter must be pinned to IS NULL or IS NOT NULL");
-        // A NOT NULL parameter may be left out: its declaration already excludes null, so IS NOT NULL is the only state
-        // it could be given and writing it says nothing new. It is recorded all the same, so that the persisted case
-        // states every parameter and warm-up never has to fall back to the declaration to learn what an omission meant.
+        // A NOT NULL parameter left out is recorded as IS_NOT_NULL, so the persisted case states every parameter.
         for (final var parameterName : unpinned) {
             states.put(parameterName, StoredQuery.ParameterState.IS_NOT_NULL);
         }
-        // Order-independent, because map equality is: two cases pinning the same parameters to the same states are the
-        // same case however they are written, and warming both would build one plan twice. Comparing the completed cases
-        // also means an omission and an explicit IS NOT NULL count as the same case.
         return ImmutableMap.copyOf(states);
     }
 
     /**
-     * Reads one written state. The two grammar alternatives keep the illegal spellings unrepresentable: there is no
-     * {@code IS NOT TRUE}, which has no counterpart among the states a plan can be warmed for.
+     * Reads one written state.
      */
     @Nonnull
     private static StoredQuery.ParameterState parameterStateOf(
