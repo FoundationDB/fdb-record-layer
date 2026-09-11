@@ -102,9 +102,10 @@ public final class StoredQuery {
     }
 
     /**
-     * The combinations this query is warmed for, one plan each. Every case pins every declared parameter, so a
-     * parameter is never planned with no value and a nullable type at once — such a plan is not correct for a null
-     * binding. Empty exactly when the query declares no parameters.
+     * The combinations this query is warmed for, one plan each. Every case here gives every declared parameter a
+     * state: one the author left out of the SQL is filled in before it reaches this point. So a parameter is never
+     * planned with no value and a nullable type at once — such a plan is not correct for a null binding. Empty exactly
+     * when the query declares no parameters.
      * @return one map per case, from parameter name to the state it is pinned to.
      */
     @Nonnull
