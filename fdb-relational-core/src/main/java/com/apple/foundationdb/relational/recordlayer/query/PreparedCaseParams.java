@@ -46,7 +46,7 @@ import java.util.Map;
  * <p>
  * Every declaration is passed on unchanged, not just the ones a case leaves value-free, because a declaration is only
  * ever read for a parameter that carries no value: one that is also bound never consults it. So there is nothing to
- * filter per case, and this stays a pure function of a signature and a case — no database, no schema template, no
+ * filter per case, and this stays a pure function of a parameter list and a case — no database, no schema template, no
  * planner.
  * </p>
  */
@@ -59,7 +59,7 @@ final class PreparedCaseParams {
     /**
      * Builds the parameters for one case.
      *
-     * @param declarations the signature, from parameter name to the SQL text of its declaration
+     * @param declarations the parameter list, from parameter name to the SQL text of its declaration
      * @param preparedCase the case, from parameter name to the state it is pinned to
      * @return the parameters to plan this case with
      */
@@ -87,7 +87,7 @@ final class PreparedCaseParams {
                     // the same, because a state with no declaration behind it would otherwise be planned as an ordinary
                     // unbound parameter and fail with a message about a missing value rather than a missing declaration.
                     Assert.thatUnchecked(declarations.containsKey(parameterName), ErrorCode.INTERNAL_ERROR,
-                            () -> "prepared case names '" + parameterName + "', which the signature does not declare");
+                            () -> "prepared case names '" + parameterName + "', which the parameter list does not declare");
                     break;
                 default:
                     throw Assert.failUnchecked(ErrorCode.INTERNAL_ERROR,
