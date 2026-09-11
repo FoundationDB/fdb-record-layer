@@ -50,7 +50,7 @@ public final class PreparedParams {
 
     /**
      * Declared types for named parameters that carry a type but <em>no</em> value. Populated during value-free
-     * stored-query warm-up from the query's signature: when a named parameter {@code ?name} has an entry here but no
+     * stored-query warm-up from the query's parameter list: when a named parameter {@code ?name} has an entry here but no
      * value in {@link #namedParams}, it is planned as a value-free typed {@link
      * com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue}. Empty for ordinary
      * (value-bound) execution.
