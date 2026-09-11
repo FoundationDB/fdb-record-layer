@@ -69,7 +69,9 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Any;
+import com.google.protobuf.BoolValue;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -1215,8 +1217,81 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void updateWhileWriteOnlyPreemptiveDeletes() throws Exception {
-        // The preemptive delete in updateWhileWriteOnly must touch the sliding-window, but not the delegate
+    void updateWhileWriteOnlyReinsertsIntoFullWindowWithoutOverflow() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(1, 300);
+            rec(2, 200);
+            assertThat(slidingWindow())
+                    .as("a size-2 window filled exactly to capacity, nothing in overflow")
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
+
+            timer.reset();
+            replayInsertOf(2L);
+
+            assertReplayLeftTheWindowAlone();
+            commit(context);
+        }
+    }
+
+    @Test
+    void updateWhileWriteOnlyReinsertsIntoFullWindowOverOverflow() throws Exception {
+        // Occupied overflow makes no difference: rec 3 is neither promoted nor evicted.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            rec(1, 300);
+            rec(2, 200);
+            rec(3, 100);
+            assertThat(slidingWindow())
+                    .as("a size-2 window with rec 3 left in overflow")
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(1L, 2L);
+
+            timer.reset();
+            replayInsertOf(2L);
+
+            assertReplayLeftTheWindowAlone();
+            commit(context);
+        }
+    }
+
+    /**
+     * Replays an insert of an already-indexed record, the way online indexing does when it builds a range holding a
+     * record that a write already indexed. The record is loaded rather than re-saved, so the only window maintenance
+     * is the replay itself.
+     */
+    private void replayInsertOf(final long recNo) {
+        final var rec = recordStore.loadRecord(Tuple.from(recNo));
+        assertNotNull(rec);
+        final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+        recordStore.getIndexMaintainer(index).updateWhileWriteOnly(null, rec).join();
+    }
+
+    /**
+     * Asserts that a replayed insert of rec 2 left the window exactly as it was, for a single delegate upsert and no
+     * window maintenance at all.
+     */
+    private void assertReplayLeftTheWindowAlone() {
+        assertThat(slidingWindow())
+                .as("replaying an insert of an entry the window already holds")
+                .hasSizeOf(2)
+                .underlyingHnsw()
+                .containsInAnyOrder(1L, 2L);
+        assertEquals(1, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_REINSERT_ALREADY_TRACKED));
+        assertEquals(0, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_ITEM_PROMOTED_FROM_OVERFLOW));
+        assertEquals(0, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_WINDOW_SHRUNK_NO_OVERFLOW));
+        assertEquals(0, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowEvent.SW_EVICT_AND_REPLACE));
+        assertEquals(1, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowEvent.SW_DELEGATE_INSERT));
+        assertEquals(0, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowEvent.SW_DELEGATE_DELETE));
+    }
+
+    @Test
+    void updateFromQueueReinsertsAlreadyTracked() throws Exception {
+        // Draining an already-tracked entry from the pending write queue must refresh the delegate, but leave the
+        // sliding-window alone.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC);
             final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
@@ -1231,14 +1306,14 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             assertEquals(2, delegate.inserts);
             assertEquals(0, delegate.deletes);
 
-            // Re-present rec 2, already tracked, with no old record: exercises the preemptive delete.
+            // Drain rec 2, already tracked, with no old record: exercises the already-tracked reinsert.
             delegate.inserts = 0;
             delegate.deletes = 0;
-            sw.updateWhileWriteOnly(null, storedRec(2, 200)).join();
+            sw.updateFromQueue(sw.serializePendingWriteQueue(null, storedRec(2, 200))).join();
 
             assertEquals(0, delegate.deletes);
             assertEquals(1, delegate.inserts);
-            assertEquals(1, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY));
+            assertEquals(1, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_REINSERT_ALREADY_TRACKED));
             commit(context);
         }
     }
@@ -1267,13 +1342,13 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
             assertEquals(1, delegate.deletes);
             assertEquals(1, delegate.inserts);
-            assertEquals(0, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY));
+            assertEquals(0, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_REINSERT_ALREADY_TRACKED));
             commit(context);
         }
     }
 
     @Test
-    void updateWhileWriteOnlyChangedWindowKeyRefreshesDelegate() throws Exception {
+    void updateFromQueueChangedWindowKeyRefreshesDelegate() throws Exception {
         // The complement of the same-window-key case
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC);
@@ -1288,14 +1363,16 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1, delegate.inserts);
             assertEquals(0, delegate.deletes);
 
-            // Update to a different window key (relevance 200 -> 300).
+            // Drain an update to a different window key (relevance 200 -> 300).
             delegate.inserts = 0;
             delegate.deletes = 0;
-            sw.updateWhileWriteOnly(storedRec(2, 200), storedRec(2, 300)).join();
+            sw.updateFromQueue(sw.serializePendingWriteQueue(storedRec(2, 200), storedRec(2, 300))).join();
 
             assertEquals(1, delegate.deletes);
             assertEquals(1, delegate.inserts);
-            assertEquals(1, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_PREEMPTIVE_DELETE_WRITE_ONLY));
+            // Nothing was tracked at relevance 300 before this drain, so the insert found no existing entry:
+            // the old entry at relevance 200 is removed by the delete half.
+            assertEquals(0, timer.getCount(SlidingWindowIndexMaintainer.SlidingWindowCounter.SW_REINSERT_ALREADY_TRACKED));
             commit(context);
         }
     }
@@ -1357,6 +1434,55 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                     .hasSizeOf(3)
                     .underlyingHnsw()
                     .containsInAnyOrder(1L, 2L, 5L);
+            commit(context);
+        }
+    }
+
+    // ===== Double-counting tests =====
+
+    @Test
+    void writeOnlyNoQueueThenOnlineIndexBuild() throws Exception {
+        // Writes under plain WRITE_ONLY (no queue) are applied straight to the window by
+        // updateWhileWriteOnly, and the online indexer then builds the very same records through
+        // update(null, record). Both applications must together account for each record exactly once.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 5, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
+            assertTrue(recordStore.isIndexWriteOnlyNoQueue(INDEX_NAME));
+
+            rec(1, 100);
+            rec(2, 200);
+            rec(3, 300);
+
+            // The window holds 5, so all three writes land in it right away.
+            assertThat(slidingWindow()).hasSizeOf(3).underlyingHnsw().containsInAnyOrder(1L, 2L, 3L);
+            commit(context);
+        }
+
+        // Finish the build with the online indexer, which marks the index readable.
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 5, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .build()) {
+                indexer.buildIndex(true);
+            }
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 5, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            assertTrue(recordStore.isIndexReadable(index));
+            assertThat(slidingWindow())
+                    .as("the online indexer must not count again the records that the write-only writes "
+                            + "already indexed: a count above the number of records means the window counter "
+                            + "was double counted")
+                    .hasSizeOf(3)
+                    .underlyingHnsw().containsInAnyOrder(1, 2, 3);
             commit(context);
         }
     }
@@ -1427,6 +1553,9 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         // This test exercises that path directly: after a clear + a single new write, the
         // count must be exactly 1. Without the fix, the count would be 2 (the stale pre-clear
         // value, preserved through a window-full eviction).
+        //
+        // The build that follows then indexes all three records, which proves the write-only
+        // write was neither lost nor counted twice.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 2, Direction.DESC);
             rec(1, 100);   // window: count becomes 1
@@ -1451,7 +1580,33 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                             + "reflect only the new record. A count > 1 means clearIndexData left "
                             + "stale window bookkeeping behind, corrupting the window's internal "
                             + "accounting.")
-                    .hasSizeOf(1);
+                    .hasSizeOf(1)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(3L);
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            final Index index = recordStore.getRecordMetaData().getIndex(INDEX_NAME);
+            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setIndex(index)
+                    .build()) {
+                indexer.buildIndex(true);
+            }
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openStore(context, 2, Direction.DESC);
+            assertTrue(recordStore.isIndexReadable(INDEX_NAME));
+            // The build indexes all three records; the window of 2 keeps the two highest relevances,
+            // so rec3 — already indexed by the write-only write above — stays in and rec1 does not.
+            assertThat(slidingWindow())
+                    .as("The build must index the record that was written while WRITE_ONLY, and count "
+                            + "each record exactly once.")
+                    .hasSizeOf(2)
+                    .underlyingHnsw()
+                    .containsInAnyOrder(2L, 3L);
             commit(context);
         }
     }
@@ -1917,6 +2072,33 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
         @Nonnull
         public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable final FDBIndexableRecord<M> o, @Nullable final FDBIndexableRecord<M> n) {
             return update(o, n);
+        }
+
+        // The sliding window defers its delegate's delete and insert as two separate entries, so a single flag is
+        // all the delegate needs to tell them apart when they are drained back.
+
+        @Nonnull
+        @Override
+        public <M extends Message> Any serializePendingWriteQueue(@Nullable final FDBIndexableRecord<M> oldRecord,
+                                                                  @Nullable final FDBIndexableRecord<M> newRecord) {
+            return Any.pack(BoolValue.of(newRecord != null));
+        }
+
+        @Nonnull
+        @Override
+        public CompletableFuture<Void> updateFromQueue(@Nonnull final Any data) {
+            final boolean isInsert;
+            try {
+                isInsert = data.unpack(BoolValue.class).getValue();
+            } catch (InvalidProtocolBufferException ex) {
+                throw new RecordCoreException("unexpected delegate pending write queue entry", ex);
+            }
+            if (isInsert) {
+                inserts++;
+            } else {
+                deletes++;
+            }
+            return AsyncUtil.DONE;
         }
     }
 
@@ -2487,7 +2669,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     @Test
     void updateFromQueueAppliedTwiceIsIdempotent() throws Exception {
         // Re-draining the same entry (e.g. a retried indexer) must leave the window unchanged, relying on the
-        // preemptive-delete-before-reinsert behavior of the write-only path.
+        // already-tracked reinsert behavior of the write-only path.
         try (FDBRecordContext context = openContext()) {
             openStore(context, 3, Direction.DESC);
             rec(1, 100);
