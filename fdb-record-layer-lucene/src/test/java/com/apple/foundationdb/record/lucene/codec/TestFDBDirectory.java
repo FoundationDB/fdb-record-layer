@@ -60,6 +60,7 @@ public class TestFDBDirectory extends FDBDirectory {
     private static final LuceneOptimizedFieldInfosFormat FIELD_INFOS_FORMAT = new LuceneOptimizedFieldInfosFormat();
     private static boolean fullBufferToSurviveDeletes;
     private static boolean allowAddIndexes;
+    private static boolean calledAddIndexes;
 
     private static final AtomicReference<NonnullPair<String, FieldInfos>> previousFieldInfos = new AtomicReference<>();
     private static final AtomicReference<NonnullPair<String, Map<Long, byte[]>>> previousStoredFields = new AtomicReference<>();
@@ -68,6 +69,7 @@ public class TestFDBDirectory extends FDBDirectory {
      * indicate that {@code addIndexes} is being called.
      */
     private static boolean blockAddIndexes = true;
+    private static boolean disableFieldInfosCountCheck;
 
     public TestFDBDirectory() {
         super(new Subspace(Tuple.from("record-test", "unit", "lucene")),
@@ -127,8 +129,14 @@ public class TestFDBDirectory extends FDBDirectory {
     public static void reset() {
         fullBufferToSurviveDeletes = false;
         allowAddIndexes = false;
+        calledAddIndexes = false;
+        disableFieldInfosCountCheck = false;
         previousFieldInfos.set(null);
         previousStoredFields.set(null);
+    }
+
+    public static void disableFieldInfosCountCheck() {
+        disableFieldInfosCountCheck = true;
     }
 
     @Nonnull
@@ -208,9 +216,19 @@ public class TestFDBDirectory extends FDBDirectory {
                     previousStoredFields.compareAndSet(previous, null);
                     return indexOutput;
                 }
+                calledAddIndexes = true;
             }
         }
         return indexOutput;
+    }
+
+    @Override
+    public void close() throws IOException {
+        if (!calledAddIndexes && !disableFieldInfosCountCheck) {
+            assertThat(asyncToSync(LuceneEvents.Waits.WAIT_LUCENE_READ_FIELD_INFOS, getFieldInfosCount()),
+                    Matchers.lessThanOrEqualTo(1));
+        }
+        super.close();
     }
 
     private static boolean isStacktraceCopySegmentAsIs() {
