@@ -148,7 +148,11 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             return ctx.FALSE() == null;
         });
         literalNodes.put(RelationalParser.BytesConstantContext.class, context -> ParseHelpers.parseBytes(context.getText()));
-        literalNodes.put(RelationalParser.StringConstantContext.class, context -> SemanticAnalyzer.normalizeString(context.getText(), false));
+        // Must decode exactly as ExpressionVisitor.visitStringLiteral does: this is the value the
+        // literal is extracted as for the plan cache, and a literal that caches differently from the
+        // way it evaluates is a cache that answers with the wrong constant.
+        literalNodes.put(RelationalParser.StringConstantContext.class, context ->
+                SemanticAnalyzer.normalizeStringLiteral(((RelationalParser.StringConstantContext) context).stringLiteral()));
         literalNodes.put(RelationalParser.DecimalConstantContext.class, context -> ParseHelpers.parseDecimal(context.getText()));
         literalNodes.put(RelationalParser.NegativeDecimalConstantContext.class, context -> ParseHelpers.parseDecimal(context.getText()));
     }
@@ -448,25 +452,30 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         } else if (ctx.inList().fullColumnName() != null) {
             visit(ctx.inList().fullColumnName());
         } else {
-            rejectNullItems(ctx.inList().expressions());
+            Assert.thatUnchecked(
+                    ctx.inList().queryExpressionBody() == null,
+                    ErrorCode.UNSUPPORTED_QUERY,
+                    "IN predicate does not support nested SELECT");
+            final RelationalParser.ExpressionsContext expressions = ctx.inList().expressions();
+            rejectNullItems(expressions);
             sqlCanonicalizer.append("( ");
-            if (ParseHelpers.isConstant(ctx.inList().expressions())) {
+            if (ParseHelpers.isConstant(expressions)) {
                 // todo (yhatem) we should prevent making the constant expressions
                 //   contribute to the hash or the canonical query representation.
                 queryHasherContextBuilder.getLiteralsBuilder().startArrayLiteral();
                 allowTokenAddition = false;
                 sqlCanonicalizer.append("[ ");
-                for (int i = 0; i < ctx.inList().expressions().expression().size(); i++) {
-                    visit(ctx.inList().expressions().expression(i));
+                for (int i = 0; i < expressions.expression().size(); i++) {
+                    visit(expressions.expression(i));
                 }
                 queryHasherContextBuilder.getLiteralsBuilder().finishArrayLiteral(null,
                         null, true, ctx.inList().getStart().getTokenIndex());
                 allowTokenAddition = true;
                 sqlCanonicalizer.append("] ");
             } else {
-                final var size = ctx.inList().expressions().expression().size();
+                final var size = expressions.expression().size();
                 for (int i = 0; i < size; i++) {
-                    visit(ctx.inList().expressions().expression(i));
+                    visit(expressions.expression(i));
                     if (i < size - 1) {
                         sqlCanonicalizer.append(", ");
                     }

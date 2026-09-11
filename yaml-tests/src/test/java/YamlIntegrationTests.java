@@ -198,6 +198,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void fieldOptionsExtensionTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("field-options-extension.yamsql");
+    }
+
+    @TestTemplate
     void functions(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("functions.yamsql");
     }
@@ -358,6 +363,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void scopedKeysetPagination(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("scoped-keyset-pagination.yamsql");
+    }
+
+    @TestTemplate
     public void selectAStar(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("select-a-star.yamsql");
     }
@@ -395,6 +405,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void sparseIndex(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("sparse-index-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void sqlComments(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("sql-comments.yamsql");
     }
 
     @TestTemplate

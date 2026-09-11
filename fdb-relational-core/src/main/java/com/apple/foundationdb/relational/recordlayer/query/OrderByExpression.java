@@ -86,7 +86,10 @@ public final class OrderByExpression {
                                 Stream.of(orderBy))
                 .map(orderBy -> {
                     final var orderByExpression = orderBy.getExpression();
-                    final var underlying = orderByExpression.getUnderlying();
+                    // Simplify this side as well, so that both sides have the same, canonical shape for purposes of
+                    // the structural matching inside `pullUp()`.
+                    final var underlying = orderByExpression.getUnderlying()
+                            .simplify(EvaluationContext.empty(), aliasMap, constantAliases);
                     final var pulledUpUnderlying = Assert.notNullUnchecked(underlying.replace(
                             subExpression -> {
                                 final var pulledUpExpressionMap =

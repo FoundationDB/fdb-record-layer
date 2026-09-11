@@ -302,7 +302,7 @@ public class RelationalServerTest {
             System.setOut(new PrintStream(outputStream));
             RelationalServer.main(new String[]{"-h"});
             String output = outputStream.toString();
-            Assertions.assertTrue(output.contains("usage: relational"));
+            Assertions.assertTrue(output.contains("usage:  relational"));
             Assertions.assertTrue(output.contains("help"));
         } finally {
             System.setOut(originalOut);

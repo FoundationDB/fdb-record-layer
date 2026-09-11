@@ -29,6 +29,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -50,6 +51,21 @@ public class NullableArrayTypeUtils {
     @Nonnull
     public static String getRepeatedFieldName() {
         return REPEATED_FIELD_NAME;
+    }
+
+    /**
+     * Constructs the record type that wraps a nullable array, that is, a record with a single repeated field named
+     * {@link #getRepeatedFieldName()} holding the array’s elements. A nullable array is represented this way because a
+     * protobuf {@code repeated} field cannot itself be null, so the wrapper’s presence indicates the nullness of the
+     * array.
+     *
+     * @param elementType the type of the array elements
+     * @return the wrapper record type for an array of {@code elementType}
+     */
+    @Nonnull
+    public static Type.Record wrapperTypeFor(@Nonnull final Type elementType) {
+        return Type.Record.fromFields(List.of(
+                Type.Record.Field.of(new Type.Array(elementType), Optional.of(getRepeatedFieldName()))));
     }
 
     /**

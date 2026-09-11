@@ -77,18 +77,23 @@ tasks.register('checksumsVerify') {
 // to date as dependencies are added. Used in CI (see .github/workflows/pull_request.yml)
 // to determine which subprojects are affected by a PR's changes.
 tasks.register('printDependentSubprojects') {
-    doLast {
-        // Direct forward graph: subproject name -> set of subproject names it depends on.
-        def forward = subprojects.collectEntries { sp ->
-            def deps = new TreeSet<String>()
-            sp.configurations.each { cfg ->
-                cfg.dependencies.withType(ProjectDependency).each { dep ->
-                    deps.add(dep.path.replaceFirst(/^:/, ''))
-                }
-            }
-            [sp.name, deps]
-        }
+    def outputPath = findProperty('subprojectDeps.output')
+    def outputFile = outputPath ? file(outputPath) : null
 
+    // Direct forward graph: subproject name -> set of subproject names it depends on.
+    // Note: We build this graph here, at configuration time, since the `doLast` block below is not allowed to access
+    // `subprojects` at execution time under the Gradle configuration cache.
+    def forward = subprojects.collectEntries { sp ->
+        def deps = new TreeSet<String>()
+        sp.configurations.each { cfg ->
+            cfg.dependencies.withType(ProjectDependency).each { dep ->
+                deps.add(dep.path.replaceFirst(/^:/, ''))
+            }
+        }
+        [sp.name, deps]
+    }
+
+    doLast {
         // Reverse graph: subproject name -> set of subprojects that directly depend on it.
         def reverse = forward.keySet().collectEntries { [it, new TreeSet<String>()] }
         forward.each { name, deps ->
@@ -111,9 +116,8 @@ tasks.register('printDependentSubprojects') {
         }
 
         def json = JsonOutput.toJson(affected)
-        def outputPath = findProperty('subprojectDeps.output')
-        if (outputPath) {
-            file(outputPath).text = json
+        if (outputFile != null) {
+            outputFile.text = json
         } else {
             println json
         }

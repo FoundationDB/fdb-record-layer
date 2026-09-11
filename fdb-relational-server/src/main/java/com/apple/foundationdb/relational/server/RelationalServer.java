@@ -42,10 +42,10 @@ import me.dinowernli.grpc.prometheus.MonitoringServerInterceptor;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.help.HelpFormatter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -248,14 +248,14 @@ public class RelationalServer implements Closeable {
         options.addOption(help);
         // Has to be a 'Number.class', see https://stackoverflow.com/questions/5585634/apache-commons-cli-option-type-and-default-value
         Option grpcPortOption = Option.builder().option("g").longOpt("grpcPort").hasArg(true).type(Number.class)
-                .desc("Port for GRPC to listen on; default=" + GrpcConstants.DEFAULT_SERVER_PORT + ".").build();
+                .desc("Port for GRPC to listen on; default=" + GrpcConstants.DEFAULT_SERVER_PORT + ".").get();
         options.addOption(grpcPortOption);
         Option httpPortOption = Option.builder().option("p").longOpt("httpPort").hasArg(true).type(Number.class)
-                .desc("Port for HTTP to listen on; default=" + DEFAULT_HTTP_PORT + ".").build();
+                .desc("Port for HTTP to listen on; default=" + DEFAULT_HTTP_PORT + ".").get();
         options.addOption(httpPortOption);
         Option clusterFileOption = Option.builder().option("c").longOpt("clusterFile").optionalArg(true)
                 .hasArg(true).type(String.class)
-                .desc("Path to the cluster file; default=null.").build();
+                .desc("Path to the cluster file; default=null.").get();
         options.addOption(clusterFileOption);
         CommandLineParser parser = new DefaultParser();
         CommandLine cli = null;
@@ -266,8 +266,8 @@ public class RelationalServer implements Closeable {
             System.exit(1);
         }
         if (cli.hasOption(help.getOpt())) {
-            HelpFormatter formatter = new HelpFormatter();
-            formatter.printHelp("relational", options, true);
+            HelpFormatter formatter = HelpFormatter.builder().get();
+            formatter.printHelp("relational", null, options, null, true);
             return;
         }
 

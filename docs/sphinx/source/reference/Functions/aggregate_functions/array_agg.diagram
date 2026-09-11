@@ -1,0 +1,27 @@
+Diagram(
+    Terminal('ARRAY_AGG'),
+    Terminal('('),
+    Optional(
+        Terminal('ALL'),
+        'skip'
+    ),
+    NonTerminal('expression'),
+    Optional(
+        Sequence(
+            Choice(0,
+                Terminal('IGNORE'),
+                Terminal('RESPECT'),
+            ),
+            Terminal('NULLS'),
+        ),
+        'skip'
+    ),
+    Optional(
+        Sequence(
+            Terminal('LIMIT'),
+            NonTerminal('count'),
+        ),
+        'skip'
+    ),
+    Terminal(')'),
+)

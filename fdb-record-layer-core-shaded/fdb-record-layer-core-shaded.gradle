@@ -71,19 +71,24 @@ tasks.register('shadedJavadocJar', Jar) {
 ext.shadedDependencyConfigs = ['api', 'implementation']
 ext.shadedDependencyNames = ['guava', 'protobuf-java', 'fdb-extensions']
 
-def addDependencies(projectObj, dependenciesNode) {
+// Collect the coordinates of the dependencies that are not shaded into the jar, so that they remain declared in the
+// generated POM. We resolve the coordinates eagerly into plain maps here, at configuration time, because the `withXml`
+// closure below runs at execution time and isn’t allowed to reference a Project under the configuration cache.
+def collectUnshadedDependencies(projectObj) {
+    def list = []
     shadedDependencyConfigs.forEach { config ->
         projectObj.configurations[config].getDependencies().forEach { dep ->
             if (!shadedDependencyNames.contains(dep.name)) {
-                def dependencyNode = dependenciesNode.appendNode('dependency')
-                dependencyNode.appendNode('groupId', dep.group)
-                dependencyNode.appendNode('artifactId', dep.name)
-                dependencyNode.appendNode('version', dep.version)
-                dependencyNode.appendNode('scope', config)
+                list.add([group: dep.group, name: dep.name, version: dep.version, scope: config])
             }
         }
     }
+    return list
 }
+
+def unshadedDependencies =
+        collectUnshadedDependencies(project(coreProject)) +
+        collectUnshadedDependencies(project(':fdb-extensions'))
 
 ext.publishLibrary = false
 
@@ -110,8 +115,13 @@ publishing {
                     }
                     // Add a section containing all non-shaded dependencies
                     def dependenciesNode = xml.asNode().appendNode('dependencies')
-                    addDependencies(project(coreProject), dependenciesNode)
-                    addDependencies(project(':fdb-extensions'), dependenciesNode)
+                    unshadedDependencies.forEach { dep ->
+                        def dependencyNode = dependenciesNode.appendNode('dependency')
+                        dependencyNode.appendNode('groupId', dep.group)
+                        dependencyNode.appendNode('artifactId', dep.name)
+                        dependencyNode.appendNode('version', dep.version)
+                        dependencyNode.appendNode('scope', dep.scope)
+                    }
                 }
             }
             artifact tasks.named('shadedSourcesJar')
