@@ -394,18 +394,11 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
     @Override
     public <M extends Message> CompletableFuture<Void> updateWhileWriteOnly(@Nullable FDBIndexableRecord<M> oldRecord,
                                                                             @Nullable FDBIndexableRecord<M> newRecord) {
-        // During a write-only index build, the sliding window cannot rely on the normal
-        // update(old, new) contract because the indexer may have already processed newRecord
-        // in an earlier range scan. Blindly adding newRecord to the window would increment the
-        // counter a second time, leading to an inflated count and incorrect eviction and
-        // re-election behavior.
-        //
-        // The standard index maintainer (StandardIndexMaintainer.updateWriteOnlyByRecords)
-        // handles this by checking the range set to see if the record's primary key has
-        // already been built, and deferring the write to the build when it has not. The
-        // sliding window instead applies the write immediately and relies on handleInsert
-        // dropping an already-tracked entry before re-adding it, which makes an insert safe to
-        // apply twice no matter which of the two applications gets there first.
+        // During a write-only build the indexer may have already processed newRecord in an earlier range scan, so
+        // adding it blindly would count it twice and skew eviction and re-election. Where the standard maintainer
+        // (StandardIndexMaintainer.updateWriteOnlyByRecords) consults the range set and defers the write to the
+        // build, the sliding window applies it immediately and leans on handleInsert leaving an already-tracked
+        // entry alone, which makes an insert safe to apply twice whichever application arrives first.
         final EntryKey oldKey = shouldMaintain(oldRecord) ? entryKeyOf(oldRecord) : null;
         final EntryKey newKey = shouldMaintain(newRecord) ? entryKeyOf(newRecord) : null;
         return updateWindowWhileWriteOnly(oldKey, newKey,
@@ -556,17 +549,21 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         final Subspace entriesSubspace = partitionSubspace.subspace(ENTRIES_SUBSPACE_KEY);
         final Subspace metaSubspace = partitionSubspace.subspace(META_SUBSPACE_KEY);
 
-        // Avoid double counting when re-inserting an already-tracked entry, which online indexing does whenever it
-        // builds a range holding a record that a write already indexed: IndexingBase replays build updates as a
-        // plain update(null, record) with no dedup of its own. Deleting the tracked entry first turns the replay
-        // into a delete/insert pair that nets out. The delete skips the delegate, since the insert re-adds it.
+        // An entry key is the window value followed by the primary key, so a key that is already present means the
+        // entries subspace, the count and the boundary already hold what this insert would produce. Online indexing
+        // hits this whenever it builds a range holding a record a write already indexed. Only the delegate can need
+        // anything, and only for a window entry: overflow entries are not in it.
         return tr.get(entriesSubspace.pack(key.entriesKey())).thenCompose(existingEntry -> {
             if (existingEntry == null) {
                 return insertUntrackedEntry(key, entriesSubspace, metaSubspace, tr, delegateInsert);
             }
-            incrementCounter(SlidingWindowCounter.SW_PREEMPTIVE_DELETE_BEFORE_INSERT);
-            return handleDelete(key, () -> AsyncUtil.DONE).thenCompose(vignore ->
-                    insertUntrackedEntry(key, entriesSubspace, metaSubspace, tr, delegateInsert));
+            incrementCounter(SlidingWindowCounter.SW_REINSERT_ALREADY_TRACKED);
+            return tr.get(metaSubspace.pack(BOUNDARY_KEY)).thenCompose(boundaryBytes -> {
+                validateOrThrowEx(boundaryBytes != null, "sliding window boundary is missing but entry exists, possible corruption");
+                return extremumType.isInWindow(key.entriesKey(), Tuple.fromBytes(boundaryBytes))
+                       ? instrument(SlidingWindowEvent.SW_DELEGATE_INSERT, delegateInsert.get())
+                       : AsyncUtil.DONE;
+            });
         });
     }
 
@@ -860,7 +857,7 @@ public class SlidingWindowIndexMaintainer extends IndexMaintainer {
         SW_PARTITION_EMPTIED("partition emptied (no entries remain)"),
         SW_EVICTED_RECORD_MISSING("boundary record could not be loaded for eviction"),
         SW_PROMOTED_RECORD_MISSING("overflow record could not be loaded for promotion"),
-        SW_PREEMPTIVE_DELETE_BEFORE_INSERT("preemptive delete of an already-tracked entry before inserting it"),
+        SW_REINSERT_ALREADY_TRACKED("reinsert of an already-tracked entry, needing no window maintenance"),
         SW_PARTITION_CLEARED("partition cleared via deleteWhere");
 
         @Nonnull
