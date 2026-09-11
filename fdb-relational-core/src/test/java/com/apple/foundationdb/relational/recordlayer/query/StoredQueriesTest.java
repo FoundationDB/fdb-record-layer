@@ -111,7 +111,7 @@ public class StoredQueriesTest {
                     " AS SELECT * FROM sq1(10)";
 
     /**
-     * One stored query with a signature, warmed for both halves of its parameter's domain: a plan built with the null
+     * One stored query with a declared parameter, warmed for both halves of its domain: a plan built with the null
      * bound, and a plan built value-free with a non-nullable type.
      */
     private static final String SCHEMA_TEMPLATE_TWO_CASES =
@@ -133,7 +133,7 @@ public class StoredQueriesTest {
      * The first stored query declares a parameter whose type warm-up cannot resolve, since the built schema template
      * keeps no named types. The second is ordinary, and must still be warmed.
      *
-     * <p>A template type in a signature is written {@code TYPE s1}: unlike a column definition, {@code
+     * <p>A template type in a parameter list is written {@code TYPE s1}: unlike a column definition, {@code
      * functionColumnType} requires the keyword.</p>
      */
     private static final String SCHEMA_TEMPLATE_UNRESOLVABLE_TYPE =
@@ -612,7 +612,7 @@ public class StoredQueriesTest {
     }
 
     /**
-     * One stored query, two prepared cases, two plans. This is what a signature buys: the same query text warmed once
+     * One stored query, two prepared cases, two plans. This is what a parameter list buys: the same query text warmed once
      * with the null bound and once value-free, so both halves of the parameter's domain arrive warm.
      */
     @Test
