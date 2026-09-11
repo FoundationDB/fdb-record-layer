@@ -71,11 +71,13 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -131,6 +133,29 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
     }
 
     @ParameterizedTest
+    @MethodSource("randomSeedsWithAsync")
+    void basicWriteReadWithOverwritesTest(final long seed, final boolean useAsync) throws Exception {
+        final Random random = new Random(seed);
+        final Function<Long, VectorRecord> baseRecordGenerator = getRecordGenerator(random, 0.3);
+        final List<FDBStoredRecord<Message>> savedRecords =
+                saveRandomRecords(useAsync, this::addVectorIndexes, 1000, recNo -> baseRecordGenerator.apply(recNo % 10));
+        final Map<Tuple, Set<Message>> candidatesByPrimaryKey = new HashMap<>();
+        savedRecords.forEach(savedRecord ->
+                candidatesByPrimaryKey.computeIfAbsent(savedRecord.getPrimaryKey(), k -> Sets.newHashSet()).add(savedRecord.getRecord()));
+        try (final FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addVectorIndexes);
+            for (final Map.Entry<Tuple, Set<Message>> entry : candidatesByPrimaryKey.entrySet()) {
+                final FDBStoredRecord<Message> loadedRecord =
+                        recordStore.loadRecord(entry.getKey());
+
+                assertThat(loadedRecord).isNotNull();
+                assertThat(loadedRecord.getRecord()).isIn(entry.getValue());
+            }
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest
     @MethodSource("randomSeedsWithAsyncAndLimit")
     void basicWriteIndexReadWithContinuationTest(final long seed, final boolean useAsync, final int limit) throws Exception {
         final int k = 100;
@@ -142,6 +167,43 @@ abstract class VectorIndexEngineTestSuite extends VectorIndexTestBase {
 
         final Set<Long> expectedResults =
                 sortByDistances(savedRecords, queryVector, Metric.EUCLIDEAN_METRIC).stream()
+                        .limit(k)
+                        .map(nodeReferenceWithDistance ->
+                                nodeReferenceWithDistance.getPrimaryKey().getLong(0))
+                        .collect(ImmutableSet.toImmutableSet());
+
+        final RecordQueryIndexPlan indexPlan =
+                createIndexPlan(queryVector, k, "UngroupedVectorIndex");
+
+        checkResults(indexPlan, limit, expectedResults);
+    }
+
+    @ParameterizedTest
+    @MethodSource("randomSeedsWithAsyncAndLimit")
+    void basicWriteIndexReadWithOverwritesTest(final long seed, final boolean useAsync, final int limit) throws Exception {
+        final int k = 10;
+        final Random random = new Random(seed);
+        final HalfRealVector queryVector = randomHalfVector(random, 128);
+
+        // Save 1000 random records, but with only 50 unique primary keys
+        final Function<Long, VectorRecord> baseRecordGenerator = getRecordGenerator(random, 0.0);
+        final List<FDBStoredRecord<Message>> savedRecords =
+                saveRandomRecords(useAsync, this::addUngroupedVectorIndex, 1000, recNo -> baseRecordGenerator.apply(random.nextLong(50)));
+        final Map<Tuple, Set<Message>> candidatesByPrimaryKey = new HashMap<>();
+        savedRecords.forEach(saved -> candidatesByPrimaryKey.computeIfAbsent(saved.getPrimaryKey(), ignore -> Sets.newHashSet()).add(saved.getRecord()));
+
+        final List<FDBStoredRecord<Message>> loadedRecords;
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            loadedRecords = recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).asList().get();
+            assertThat(loadedRecords)
+                    .hasSizeLessThanOrEqualTo(50)
+                    .allSatisfy(loadedRecord ->
+                            assertThat(loadedRecord.getRecord()).isIn(candidatesByPrimaryKey.get(loadedRecord.getPrimaryKey())));
+        }
+
+        final Set<Long> expectedResults =
+                sortByDistances(loadedRecords, queryVector, Metric.EUCLIDEAN_METRIC).stream()
                         .limit(k)
                         .map(nodeReferenceWithDistance ->
                                 nodeReferenceWithDistance.getPrimaryKey().getLong(0))
