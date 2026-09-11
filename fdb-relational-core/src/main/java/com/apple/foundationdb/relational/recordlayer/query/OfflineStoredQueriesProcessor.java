@@ -214,8 +214,8 @@ public final class OfflineStoredQueriesProcessor {
                                         @Nonnull final Counts counts) {
         final var preparedCases = storedQuery.getPreparedCases();
         if (preparedCases.isEmpty()) {
-            // No signature, so nothing to pin and one plan to build — the shape a stored query had before signatures
-            // existed. A signature without cases cannot occur: CREATE requires them together.
+            // No declared parameters, so nothing to pin and one plan to build — the shape a stored query had
+            // before they existed. Parameters without cases cannot occur: CREATE requires them together.
             if (planOneCase(cache, metricCollector, template, templateKey, storedQueryName, storedQuery,
                     PreparedParams.empty(), counts)) {
                 counts.plansWarmed++;
@@ -269,7 +269,7 @@ public final class OfflineStoredQueriesProcessor {
      *
      * <p>
      * The temporary functions are planned inside this method rather than once for the whole stored query, because a
-     * signature parameter captured by a function's body changes that function's plan too — so each case needs its own
+     * declared parameter captured by a function's body changes that function's plan too — so each case needs its own
      * compile, starting from the original template with a fresh factory.
      * </p>
      *
