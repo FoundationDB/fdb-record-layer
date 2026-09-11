@@ -781,12 +781,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     // Push the old/new record to a write pending queue instead of updating the index directly. The
                     // ongoing online indexer will drain the queue and perform the actual index update. A maintainer that
                     // does not support the queue will throw from serializePendingWriteQueue below.
-                    future = IndexingPendingWriteQueue.enqueuePendingIndexUpdate(this, index,
-                            IndexBuildProto.PendingWritesQueueEntry.newBuilder()
-                                    .setOperation(IndexBuildProto.PendingWritesQueueEntry.Operation.UPDATE)
-                                    .setData(maintainer.serializePendingWriteQueue(oldRecord, newRecord))
-                                    .build());
-                    context.addToSessionSet(ContextSessionKey.WRITE_ONLY_WITH_QUEUE_INDEXES_UPDATED, index.getName());
+                    final Any pendingWriteData = maintainer.serializePendingWriteQueue(oldRecord, newRecord);
+                    if (pendingWriteData == null) {
+                        // Nothing to defer onto the queue.
+                        future = AsyncUtil.DONE;
+                    } else {
+                        future = IndexingPendingWriteQueue.enqueuePendingIndexUpdate(this, index,
+                                IndexBuildProto.PendingWritesQueueEntry.newBuilder()
+                                        .setOperation(IndexBuildProto.PendingWritesQueueEntry.Operation.UPDATE)
+                                        .setData(pendingWriteData)
+                                        .build());
+                        context.addToSessionSet(ContextSessionKey.WRITE_ONLY_WITH_QUEUE_INDEXES_UPDATED, index.getName());
+                    }
                     break;
 
                 case WRITE_ONLY:
