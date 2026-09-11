@@ -67,7 +67,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.rollUpPartitionsTo;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.atLeastOne;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutDefaultOnEmptyOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.anyExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.isFinalExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
@@ -200,7 +200,7 @@ public class PredicatePushDownRule extends AbstractCascadesRule<SelectExpression
 
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> quantifiersMatcher =
-            atLeastOne(forEachQuantifierWithoutDefaultOnEmptyOverRef(childReferenceMatcher));
+            atLeastOne(forEachQuantifierOverRef(childReferenceMatcher));
 
     private static final BindingMatcher<SelectExpression> root =
             selectExpression(quantifiersMatcher).where(isFinalExpression());

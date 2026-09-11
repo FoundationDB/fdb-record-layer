@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesR
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -33,15 +34,17 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctReco
 import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPlanPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyForEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalDistinctExpression;
 
 /**
@@ -69,9 +72,13 @@ public class ImplementDistinctRule extends AbstractCascadesRule<LogicalDistinctE
             planPartitions(filterPlanPartitions(planPartition -> planPartition.getPartitionPropertyValue(StoredRecordProperty.storedRecord()),
                     any(innerPlanPartitionMatcher)));
 
+    // This rule establishes null-on-empty semantics if desired, so it can match _any_ for-each quantifier.
+    @Nonnull
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = anyForEachQuantifierOverRef(innerReferenceMatcher);
+
     @Nonnull
     private static final BindingMatcher<LogicalDistinctExpression> root =
-            logicalDistinctExpression(only(forEachQuantifierOverRef(innerReferenceMatcher)));
+            logicalDistinctExpression(only(innerQuantifierMatcher));
 
     public ImplementDistinctRule() {
         super(root);
@@ -79,17 +86,24 @@ public class ImplementDistinctRule extends AbstractCascadesRule<LogicalDistinctE
 
     @Override
     public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+        final var innerQuantifier = call.get(innerQuantifierMatcher);
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
         final var innerReference = call.get(innerReferenceMatcher);
 
-        if (innerPlanPartition.getPartitionPropertyValue(DistinctRecordsProperty.distinctRecords())) {
-            call.yieldPlans(innerPlanPartition.getPlans());
-        } else {
-            // these create duplicates
-            call.yieldPlan(
-                    new RecordQueryUnorderedPrimaryKeyDistinctPlan(
-                            Quantifier.physical(
-                                    call.memoizeMemberPlansFromOther(innerReference, innerPlanPartition.getPlans()))));
+        // If the inner plans create duplicates, wrap a `RecordQueryUnorderedPrimaryKeyDistinctPlan` around.
+        Set<RecordQueryPlan> plans = innerPlanPartition.getPlans();
+        if (!innerPlanPartition.getPartitionPropertyValue(DistinctRecordsProperty.distinctRecords())) {
+            final Reference innerPlansReference = call.memoizeMemberPlansFromOther(innerReference, plans);
+            final Quantifier.Physical innerPhysicalQuantifier = Quantifier.physical(innerPlansReference);
+            plans = ImmutableSet.of(new RecordQueryUnorderedPrimaryKeyDistinctPlan(innerPhysicalQuantifier));
         }
+
+        // Establish the null-on-empty semantics if necessary. Note that if the branch above added a distinct plan, the
+        // glue will be _above_ that plan rather than below it, where the foreach quantifier used to sit. That is fine:
+        // The distinct plan passes a single null record through unchanged, and it never turns a non-empty input into an
+        // empty one, which would trigger the ON EMPTY NULL. Below would not work anyway, as the distinct plan requires
+        // a primary key on each record, which an ON EMPTY NULL record does not have.
+        final var builder = Quantifiers.applyGlue(call, innerQuantifier, call.memoizePlansBuilder(plans));
+        call.yieldPlans(builder.members());
     }
 }

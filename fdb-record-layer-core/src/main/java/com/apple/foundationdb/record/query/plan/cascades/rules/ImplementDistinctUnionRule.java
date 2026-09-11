@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
@@ -62,8 +63,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPlanPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitionsTo;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyForEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalDistinctExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUnionExpression;
 
@@ -85,8 +86,9 @@ public class ImplementDistinctUnionRule extends AbstractCascadesRule<LogicalDist
                                                   planPartition.getPartitionPropertyValue(PrimaryKeyProperty.primaryKey()).isPresent(),
                     rollUpPartitionsTo(unionLegPlanPartitionsMatcher, allAttributesExcept(DistinctRecordsProperty.distinctRecords()))));
 
+    // This rule establishes null-on-empty semantics if desired, so it can match _any_ for-each quantifier.
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =
-            all(forEachQuantifierOverRef(unionLegReferenceMatcher));
+            all(anyForEachQuantifierOverRef(unionLegReferenceMatcher));
 
     @Nonnull
     private static final BindingMatcher<LogicalUnionExpression> unionExpressionMatcher =
@@ -206,7 +208,11 @@ public class ImplementDistinctUnionRule extends AbstractCascadesRule<LogicalDist
                     final var newQuantifiers =
                             Streams.zip(partitions.stream(),
                                             allForEachQuantifiers.stream(),
-                                            (partition, quantifier) -> call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), partition.getPlans()))
+                                            (partition, quantifier) -> {
+                                                final Reference legReference =
+                                                        call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), partition.getPlans());
+                                                return Quantifiers.applyGlue(call, quantifier, legReference);
+                                            })
                                     .map(Quantifier::physical)
                                     .collect(ImmutableList.toImmutableList());
 

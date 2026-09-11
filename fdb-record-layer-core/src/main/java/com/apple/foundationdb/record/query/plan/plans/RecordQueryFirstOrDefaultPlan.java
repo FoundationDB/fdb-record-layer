@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.DerivedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
@@ -83,6 +85,26 @@ public class RecordQueryFirstOrDefaultPlan extends AbstractRelationalExpressionW
         this.onEmptyResultValue = onEmptyResultValue;
         this.resultValue = new DerivedValue(ImmutableList.of(inner.getFlowedObjectValue(), onEmptyResultValue),
                 innerType.withNullability(onEmptyResultValue.getResultType().isNullable()));
+    }
+
+    /**
+     * Constructs a {@link RecordQueryFirstOrDefaultPlan} that implements the given existential quantifier. The returned
+     * plan ranges over {@code innerReference} via a physical quantifier with the same alias as {@code existential}, and
+     * emits a single null row (typed as the flowed object type of the existential) when the inner produces no records.
+     *
+     * @param existential an existential quantifier
+     * @param innerReference the reference whose plans should be wrapped
+     * @return a new {@link RecordQueryFirstOrDefaultPlan}
+     */
+    @Nonnull
+    public static RecordQueryFirstOrDefaultPlan forExistential(@Nonnull final Quantifier.Existential existential,
+                                                               @Nonnull final Reference innerReference) {
+        Debugger.sanityCheck(() -> Verify.verify(
+                innerReference.getFinalExpressions().stream().allMatch(RecordQueryPlan.class::isInstance)));
+        final Quantifier.Physical inner
+                = Quantifier.physicalBuilder().withAlias(existential.getAlias()).build(innerReference);
+        final NullValue onEmptyResultValue = new NullValue(existential.getFlowedObjectType());
+        return new RecordQueryFirstOrDefaultPlan(inner, onEmptyResultValue);
     }
 
     @Nonnull

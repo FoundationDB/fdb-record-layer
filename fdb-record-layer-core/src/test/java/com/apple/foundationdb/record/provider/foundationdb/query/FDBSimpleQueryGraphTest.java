@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
@@ -68,7 +69,6 @@ import org.apache.logging.log4j.Level;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -233,7 +233,6 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    @Disabled(value = "Null-on-empty quantifiers must be below selects until we address: https://github.com/FoundationDB/fdb-record-layer/issues/3431")
     void testPlanQueryOnRestNoWithNullOnEmpty() {
         CascadesPlanner cascadesPlanner = setUp();
         final var plan = planGraph(
@@ -247,27 +246,93 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 });
 
-        // Note: this is a bug as the "null on empty" part of the quantifier is dropped
         assertMatchesExactly(plan,
-                mapPlan(
-                        typeFilterPlan(
-                                scanPlan()
-                                        .where(scanComparisons(range("([1000000],>")))))
-                        .where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("rest_no"), fieldValueWithFieldNames("name"))))));
+                defaultOnEmptyPlan(
+                        mapPlan(
+                                typeFilterPlan(
+                                        scanPlan()
+                                                .where(scanComparisons(range("([1000000],>")))))
+                                .where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("rest_no"), fieldValueWithFieldNames("name")))))));
 
+        // The expected result is a single null value.
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
-
-            // Note: this should return a single null value rather than an empty list
             try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
                 List<QueryResult> results = cursor.asList().join();
-                assertThat(results, Matchers.empty());
+                assertThat(results, Matchers.hasSize(1));
+                assertThat(results.get(0).getDatum(), Matchers.nullValue());
+            }
+        }
+    }
+
+    /**
+     * Verifies that {@code ImplementDistinctRule} honors a null-on-empty quantifier owned by a
+     * {@link LogicalDistinctExpression}.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testPlanDistinctWithNullOnEmpty() {
+        CascadesPlanner cascadesPlanner = setUp();
+        final RecordQueryPlan plan = planGraph(
+                () -> {
+                    final Quantifier base = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
+                    // No projection, so the inner keeps flowing stored records, which is what `ImplementDistinctRule`
+                    // matches on.
+                    final Quantifier noneMatching = forEachWithNullOnEmpty(selectWithPredicates(base,
+                            fieldPredicate(base, "rest_no", new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1_000_000L))));
+                    final Quantifier distinct = forEach(new LogicalDistinctExpression(noneMatching));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(distinct));
+                });
+
+        // The expected result is a single null value.
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+            try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
+                final List<QueryResult> results = cursor.asList().join();
+                assertThat(results, Matchers.hasSize(1));
+                assertThat(results.get(0).getDatum(), Matchers.nullValue());
+            }
+        }
+    }
+
+    /**
+     * Verifies that the {@code DefaultOnEmpty} wrapper is transparent when the inner does produce records, that is,
+     * that it flows them through without adding a null row of its own.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testPlanQueryOnRestNoWithNullOnEmpty2() {
+        CascadesPlanner cascadesPlanner = setUp();
+        final RecordQueryPlan plan = planGraph(
+                () -> {
+                    Quantifier qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
+                    qun = forEachWithNullOnEmpty(selectWithPredicates(qun,
+                            ImmutableList.of("rest_no", "name"),
+                            fieldPredicate(qun, "rest_no", new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 999L))
+                    ));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(qun));
+                });
+
+        assertMatchesExactly(plan,
+                defaultOnEmptyPlan(
+                        mapPlan(
+                                typeFilterPlan(
+                                        scanPlan()
+                                                .where(scanComparisons(range("([999],>")))))
+                                .where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("rest_no"), fieldValueWithFieldNames("name")))))));
+
+        // Both restaurants match, so the wrapper must not contribute a null row on top of them.
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+            try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
+                final List<QueryResult> results = cursor.asList().join();
+                assertThat(results, Matchers.hasSize(2));
+                for (final QueryResult result : results) {
+                    assertThat(result.getDatum(), Matchers.notNullValue());
+                }
             }
         }
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    @Disabled(value = "Null-on-empty quantifiers must be below selects until we address: https://github.com/FoundationDB/fdb-record-layer/issues/3431")
     void testPlanQueryOnNameWithNullOnEmpty() {
         CascadesPlanner cascadesPlanner = setUp();
         final var plan = planGraph(
@@ -281,21 +346,20 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 });
 
-        // Note: this is a bug as the "null on empty" part of the quantifier is dropped
         assertMatchesExactly(plan,
-                mapPlan(
-                        coveringIndexPlan()
-                                .where(indexPlanOf(indexPlan().where(indexName("RestaurantRecord$name")).and(scanComparisons(range("[[not_in_db],[not_in_db]]")))))
-                ).where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("rest_no"), fieldValueWithFieldNames("name")))))
-        );
+                defaultOnEmptyPlan(
+                        mapPlan(
+                                coveringIndexPlan()
+                                        .where(indexPlanOf(indexPlan().where(indexName("RestaurantRecord$name")).and(scanComparisons(range("[[not_in_db],[not_in_db]]")))))
+                        ).where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("rest_no"), fieldValueWithFieldNames("name")))))));
 
+        // The expected result is a single null value.
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
-
-            // Note: this should return a single null value rather than an empty list
             try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
                 List<QueryResult> results = cursor.asList().join();
-                assertThat(results, Matchers.empty());
+                assertThat(results, Matchers.hasSize(1));
+                assertThat(results.get(0).getDatum(), Matchers.nullValue());
             }
         }
     }

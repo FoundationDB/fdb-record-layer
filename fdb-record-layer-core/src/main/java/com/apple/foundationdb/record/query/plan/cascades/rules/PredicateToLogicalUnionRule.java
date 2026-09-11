@@ -66,7 +66,7 @@ import java.util.stream.Stream;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MatchPartitionMatchers.ofExpressionAndMatches;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PartialMatchMatchers.anyPartialMatch;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifier;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyPlainQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
 
 /**
@@ -124,8 +124,12 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class PredicateToLogicalUnionRule extends AbstractCascadesRule<MatchPartition> {
     public static final int DEFAULT_MAX_NUM_CONJUNCTS = 9; // 510 combinations
 
+    // Note: We cannot apply this rewrite if there’s a null-on-empty for-each quantifier, since there is no easy way to
+    // preserve the semantics after splitting a SELECT into a UNION of SELECTs. (If we pushed the NoE down, each leg
+    // could contribute its own null row over an empty input, so we might end up with multiple such nulls instead of
+    // one, with no way to properly collapse them.)
     @Nonnull
-    private static final BindingMatcher<Quantifier> qunMatcher = anyQuantifier();
+    private static final BindingMatcher<Quantifier> qunMatcher = anyPlainQuantifier();
     @Nonnull
     private static final CollectionMatcher<QueryPredicate> combinationPredicateMatcher = all(anyPredicate());
     @Nonnull

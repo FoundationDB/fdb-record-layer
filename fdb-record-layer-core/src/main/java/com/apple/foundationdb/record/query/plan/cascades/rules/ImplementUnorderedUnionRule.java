@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesR
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -42,7 +43,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyForEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUnionExpression;
 
 /**
@@ -60,9 +61,10 @@ public class ImplementUnorderedUnionRule extends AbstractCascadesRule<LogicalUni
     private static final BindingMatcher<Reference> unionLegReferenceMatcher =
             planPartitions(rollUpPartitions(any(unionLegPlanPartitionsMatcher)));
 
+    // This rule establishes null-on-empty semantics if desired, so it can match _any_ for-each quantifier.
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =
-            all(forEachQuantifierOverRef(unionLegReferenceMatcher));
+            all(anyForEachQuantifierOverRef(unionLegReferenceMatcher));
 
     @Nonnull
     private static final BindingMatcher<LogicalUnionExpression> root =
@@ -80,7 +82,11 @@ public class ImplementUnorderedUnionRule extends AbstractCascadesRule<LogicalUni
 
         final ImmutableList<Quantifier.Physical> quantifiers =
                 Streams.zip(planPartitions.stream(), allQuantifiers.stream(),
-                                (planPartition, quantifier) -> call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), planPartition.getPlans()))
+                                (planPartition, quantifier) -> {
+                                    final Reference legReference =
+                                            call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), planPartition.getPlans());
+                                    return Quantifiers.applyGlue(call, quantifier, legReference);
+                                })
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList());
 

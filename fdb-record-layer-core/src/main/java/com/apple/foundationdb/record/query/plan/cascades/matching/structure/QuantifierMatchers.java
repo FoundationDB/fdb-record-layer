@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -29,10 +30,12 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.function.Predicate;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.members;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithPredicate.typedMatcherWithPredicate;
 
 /**
  * Matchers for {@link Quantifier}s.
@@ -100,22 +103,62 @@ public class QuantifierMatchers {
         return ofTypeRangingOverRef(Quantifier.Existential.class, downstream);
     }
 
+    /**
+     * Matches any quantifier except a for-each quantifier with null-on-empty semantics. Unlike
+     * {@link #forEachQuantifier()}, this matcher is rooted at {@link Quantifier} and therefore also matches
+     * existential and physical quantifiers, so it can be used under an {@code all()} over the quantifiers of an
+     * expression.
+     */
+    @Nonnull
+    public static BindingMatcher<Quantifier> anyPlainQuantifier() {
+        return typedMatcherWithPredicate(Quantifier.class, Predicate.not(Quantifiers::isForEachWithNullOnEmpty));
+    }
+
+    /**
+     * Matches a for-each quantifier without null-on-empty semantics.
+     */
     @Nonnull
     public static BindingMatcher<Quantifier.ForEach> forEachQuantifier() {
+        return withoutNullOnEmpty(anyForEachQuantifier());
+    }
+
+    /**
+     * Matches a for-each quantifier with or without null-on-empty semantics. This is appropriate for rules that keep
+     * those semantics intact, either by handing the quantifier on unchanged or by establishing them (typically by
+     * injecting a {@code RecordQueryDefaultOnEmptyPlan} node).
+     */
+    @Nonnull
+    public static BindingMatcher<Quantifier.ForEach> anyForEachQuantifier() {
         return ofTypeRangingOverRef(Quantifier.ForEach.class, ReferenceMatchers.anyRef());
     }
 
-
+    /**
+     * Matches a for-each quantifier without null-on-empty semantics.
+     */
     @Nonnull
     public static BindingMatcher<Quantifier.ForEach> forEachQuantifier(@Nonnull final BindingMatcher<? extends RelationalExpression> downstream) {
+        return withoutNullOnEmpty(anyForEachQuantifier(downstream));
+    }
+
+    /**
+     * Matches a for-each quantifier with or without null-on-empty semantics; see {@link #anyForEachQuantifier()}.
+     */
+    @Nonnull
+    public static BindingMatcher<Quantifier.ForEach> anyForEachQuantifier(@Nonnull final BindingMatcher<? extends RelationalExpression> downstream) {
         return ofTypeRangingOver(Quantifier.ForEach.class, AnyMatcher.any(downstream));
     }
 
+    /**
+     * Matches a for-each quantifier without null-on-empty semantics.
+     */
     @Nonnull
     public static BindingMatcher<Quantifier.ForEach> forEachQuantifier(@Nonnull final CollectionMatcher<? extends RelationalExpression> downstream) {
-        return ofTypeRangingOver(Quantifier.ForEach.class, downstream);
+        return withoutNullOnEmpty(ofTypeRangingOver(Quantifier.ForEach.class, downstream));
     }
 
+    /**
+     * Matches only a for-each quantifier with null-on-empty semantics.
+     */
     @Nonnull
     public static BindingMatcher<Quantifier.ForEach> forEachQuantifierWithDefaultOnEmpty() {
         return typedWithDownstream(Quantifier.ForEach.class,
@@ -123,37 +166,33 @@ public class QuantifierMatchers {
                 PrimitiveMatchers.equalsObject(true));
     }
 
+    /**
+     * Matches a for-each quantifier without null-on-empty semantics.
+     */
     @Nonnull
     public static BindingMatcher<Quantifier.ForEach> forEachQuantifierOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
+        return withoutNullOnEmpty(anyForEachQuantifierOverRef(downstream));
+    }
+
+    /**
+     * Matches a for-each quantifier with or without null-on-empty semantics; see {@link #anyForEachQuantifier()}.
+     */
+    @Nonnull
+    public static BindingMatcher<Quantifier.ForEach> anyForEachQuantifierOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
         return ofTypeRangingOverRef(Quantifier.ForEach.class, downstream);
     }
 
-    @Nonnull
-    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream, BindingMatcher<? super Boolean> defaultOnEmptyMatcher) {
-        return typedWithDownstream(Quantifier.ForEach.class,
-                Extractor.identity(),
-                AllOfMatcher.matchingAllOf(Quantifier.ForEach.class,
-                        ImmutableList.of(
-                                typedWithDownstream(Quantifier.ForEach.class,
-                                        Extractor.of(Quantifier.ForEach::isNullOnEmpty, name -> "withDefaultOnEmpty(" + name + ")"),
-                                        defaultOnEmptyMatcher
-                                ),
-                                typedWithDownstream(Quantifier.ForEach.class,
-                                        Extractor.of(Quantifier::getRangesOver, name -> "rangesOver(" + name + ")"),
-                                        downstream)
-                        )));
-    }
-
+    /**
+     * Matches only a for-each quantifier with null-on-empty semantics.
+     */
     @Nonnull
     public static BindingMatcher<Quantifier.ForEach> forEachQuantifierWithDefaultOnEmptyOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
-        return forEachQuantifierOverRef(downstream, PrimitiveMatchers.equalsObject(true));
+        return constrainNullOnEmpty(anyForEachQuantifierOverRef(downstream), PrimitiveMatchers.equalsObject(true));
     }
 
-    @Nonnull
-    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierWithoutDefaultOnEmptyOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
-        return forEachQuantifierOverRef(downstream, PrimitiveMatchers.equalsObject(false));
-    }
-
+    /**
+     * Matches a for-each quantifier without null-on-empty semantics.
+     */
     @Nonnull
     public static BindingMatcher<Quantifier.ForEach> forEachQuantifierOverPlans(@Nonnull final CollectionMatcher<RecordQueryPlan> downstream) {
         return forEachQuantifierOverRef(members(downstream));
@@ -177,5 +216,31 @@ public class QuantifierMatchers {
     @Nonnull
     public static BindingMatcher<Quantifier.Physical> physicalQuantifierOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
         return ofTypeRangingOverRef(Quantifier.Physical.class, downstream);
+    }
+
+    /**
+     * Constrains the given for-each quantifier matcher to quantifiers without null-on-empty semantics.
+     */
+    @Nonnull
+    private static BindingMatcher<Quantifier.ForEach> withoutNullOnEmpty(@Nonnull final BindingMatcher<Quantifier.ForEach> downstream) {
+        return constrainNullOnEmpty(downstream, PrimitiveMatchers.equalsObject(false));
+    }
+
+    /**
+     * Constrains the given for-each quantifier matcher to quantifiers whose {@link Quantifier.ForEach#isNullOnEmpty()}
+     * flag is matched by {@code nullOnEmptyMatcher}.
+     */
+    @Nonnull
+    private static BindingMatcher<Quantifier.ForEach> constrainNullOnEmpty(
+            @Nonnull final BindingMatcher<Quantifier.ForEach> downstream,
+            @Nonnull final BindingMatcher<? super Boolean> nullOnEmptyMatcher) {
+        return typedWithDownstream(Quantifier.ForEach.class,
+                Extractor.identity(),
+                AllOfMatcher.matchingAllOf(Quantifier.ForEach.class,
+                        ImmutableList.of(
+                                typedWithDownstream(Quantifier.ForEach.class,
+                                        Extractor.of(Quantifier.ForEach::isNullOnEmpty, name -> "withDefaultOnEmpty(" + name + ")"),
+                                        nullOnEmptyMatcher),
+                                downstream)));
     }
 }
