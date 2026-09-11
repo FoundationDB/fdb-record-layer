@@ -360,22 +360,29 @@ public class SplitHelper {
                     tr.addWriteConflictRange(keySplitSubspaceRange.begin, keySplitSubspaceRange.end);
                     List<Long> offsets = offsets(previousSizeInfo);
                     for (Long offset : offsets) {
-                        tr.clear(keySplitSubspace.pack(offset));
+                        byte[] keyWithOffset = keySplitSubspace.pack(offset);
+                        if (offset == RECORD_VERSION) {
+                            // Use FDBRecordContext::clear to ensure incomplete version is handled appropriately
+                            context.clear(keyWithOffset);
+                        } else {
+                            tr.clear(keyWithOffset);
+                        }
                     }
                 } else {
                     if (previousSizeInfo.isSplit() || previousSizeInfo.isVersionedInline()) {
-                        tr.clear(keySplitSubspace.range()); // Record might be shorter than previous split.
+                        // Record takes up more than one key, so issue a single range delete (including the local version cache)
+                        context.clear(keySplitSubspace.range());
                     } else {
-                        // Record was previously unsplit and had unsplit suffix because we are splitting long records.
+                        // Record was previously a single key, with the unsplit record suffix.
+                        // Use tr.clear as that one key is _not_ an incomplete version.
                         tr.clear(keySplitSubspace.pack(UNSPLIT_RECORD));
                     }
                 }
             }
         } else {
-            tr.clear(keySplitSubspace.range()); // Clears both unsplit and previous longer split.
+            // Clear the whole range for the record, including any incomplete version information
+            context.clear(keySplitSubspace.range());
         }
-        final byte[] versionKey = keySplitSubspace.pack(RECORD_VERSION);
-        context.getLocalVersion(versionKey).ifPresent(localVersion -> context.removeVersionMutation(versionKey));
     }
 
     /**
