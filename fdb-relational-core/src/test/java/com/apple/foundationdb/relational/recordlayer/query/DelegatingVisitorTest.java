@@ -245,14 +245,14 @@ public class DelegatingVisitorTest {
     }
 
     @Test
-    void visitStoredQuerySignatureTest() {
+    void visitStoredQueryParameterListTest() {
         testSimple("(param_a BIGINT, param_b STRING NOT NULL)",
-                RelationalParser::storedQuerySignature,
-                DelegatingVisitor::visitStoredQuerySignature,
+                RelationalParser::storedQueryParameterList,
+                DelegatingVisitor::visitStoredQueryParameterList,
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
                         generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
                     @Override
-                    public Object visitStoredQuerySignature(RelationalParser.StoredQuerySignatureContext ctx) {
+                    public Object visitStoredQueryParameterList(RelationalParser.StoredQueryParameterListContext ctx) {
                         called.set(true);
                         return null;
                     }
