@@ -1,5 +1,5 @@
 /*
- * StoredQuerySignatureTest.java
+ * StoredQueryParametersTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -39,18 +39,18 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The signature of a stored query and the {@code PREPARE FOR} block that goes with it: how parameters are declared,
+ * The parameter list of a stored query and the {@code PREPARE FOR} block that goes with it: how parameters are declared,
  * which combinations of their states are warmed, what is persisted for both, and how references to a parameter in the
  * body are turned into the {@code ?name} form a prepared statement uses.
  *
- * <p>A signature and a {@code PREPARE FOR} block require each other, so they are tested together. Every nullable
+ * <p>A parameter list and a {@code PREPARE FOR} block require each other, so they are tested together. Every nullable
  * parameter is pinned in every case, which is what keeps a parameter from being planned with no value and a nullable
  * type at once — such a plan is not correct for a null binding. A {@code NOT NULL} parameter may be left out and is
  * filled in.</p>
  *
- * <p>These tests stop at the metadata. Planning a stored query from its signature is exercised separately.</p>
+ * <p>These tests stop at the metadata. Planning a stored query from its declared parameters is exercised separately.</p>
  */
-public class StoredQuerySignatureTest {
+public class StoredQueryParametersTest {
 
     private static final String TABLE =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 string, flag boolean, PRIMARY KEY(id))";
@@ -190,7 +190,7 @@ public class StoredQuerySignatureTest {
     }
 
     /**
-     * A qualified reference is a column, not a parameter, even when a parameter of that name exists — a signature
+     * A qualified reference is a column, not a parameter, even when a parameter of that name exists — a declared
      * parameter never has a qualifier.
      */
     @Test
@@ -223,11 +223,11 @@ public class StoredQuerySignatureTest {
     }
 
     /**
-     * A query with no signature keeps the behaviour it had before signatures existed: nothing declared, no cases, body
+     * A query that declares no parameters keeps the behaviour it had before they existed: nothing declared, no cases, body
      * verbatim. With no parameters there is nothing to pin, so no {@code PREPARE FOR} is required.
      */
     @Test
-    void queryWithoutSignatureIsUnchanged() throws Exception {
+    void queryWithoutParametersIsUnchanged() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_NONE", TABLE
                 + " CREATE STORED QUERY q AS SELECT id FROM t1 WHERE col1 = 10");
         Assertions.assertThat(storedQueries.get("Q").getParameters()).isEmpty();
@@ -257,13 +257,13 @@ public class StoredQuerySignatureTest {
     }
 
     /**
-     * A signature and its cases have to survive the metadata they are stored in: they are written into
+     * The declared parameters and their cases have to survive the metadata they are stored in: they are written into
      * {@code PStoredQueryParameter} and {@code PPreparedCase} and read back out, so a warm-up that happens in a later
      * process sees exactly what {@code CREATE} recorded. The states go through the wire as canonical tokens, so this
      * also pins that mapping in both directions.
      */
     @Test
-    void signatureAndCasesSurviveAProtoRoundTrip() throws Exception {
+    void parametersAndCasesSurviveAProtoRoundTrip() throws Exception {
         final var template = templateOf("/TEST/SQS_ROUNDTRIP", TABLE
                 + " CREATE STORED QUERY q(param_a BIGINT, \"mixedCase\" STRING NOT NULL, p3 BIGINT ARRAY, b BOOLEAN)"
                 + " PREPARE FOR (param_a IS NULL, \"mixedCase\" IS NOT NULL, p3 IS NOT NULL, b = TRUE),"
@@ -296,7 +296,7 @@ public class StoredQuerySignatureTest {
 
     /**
      * Two parameters that normalize to the same identifier are the same parameter, so the second is a mistake rather
-     * than a redefinition. This is caught while reading the signature, before the cases are looked at, which is why the
+     * than a redefinition. This is caught while reading the parameter list, before the cases are looked at, which is why the
      * statement needs no {@code PREPARE FOR} to reach it.
      */
     @Test
@@ -304,11 +304,11 @@ public class StoredQuerySignatureTest {
         expectFailure("/TEST/SQS_DUP", TABLE
                         + " CREATE STORED QUERY q(param_a BIGINT, PARAM_A BIGINT)"
                         + " AS SELECT id FROM t1 WHERE col1 = param_a",
-                "duplicate stored query signature parameter");
+                "duplicate stored query parameter");
     }
 
     /**
-     * A signature parameter and one of a declared function's own parameters naming the same identifier are
+     * A declared parameter and one of a declared function's own parameters naming the same identifier are
      * indistinguishable inside that function's body, so the rewrite would capture the wrong one.
      */
     @Test
@@ -318,7 +318,7 @@ public class StoredQuerySignatureTest {
                         + " PREPARE FOR (p IS NOT NULL)"
                         + " DECLARE FUNCTION f1(p BIGINT) AS (SELECT * FROM t1 WHERE col1 = p)"
                         + " AS SELECT id FROM f1(p)",
-                "collides with a stored query signature parameter");
+                "collides with a stored query parameter");
     }
 
     /**
@@ -326,7 +326,7 @@ public class StoredQuerySignatureTest {
      * nor a non-nullable type, and no single plan is correct for both a null and a non-null binding.
      */
     @Test
-    void signatureWithoutPreparedCasesIsRejected() {
+    void parametersWithoutPreparedCasesAreRejected() {
         expectFailure("/TEST/SQS_NOCASES", TABLE
                         + " CREATE STORED QUERY q(param_a BIGINT)"
                         + " AS SELECT id FROM t1 WHERE col1 = param_a",
@@ -337,12 +337,12 @@ public class StoredQuerySignatureTest {
      * The other direction: a block with nothing to pin.
      */
     @Test
-    void preparedCasesWithoutSignatureAreRejected() {
+    void preparedCasesWithoutParametersAreRejected() {
         expectFailure("/TEST/SQS_NOSIG", TABLE
                         + " CREATE STORED QUERY q"
                         + " PREPARE FOR (param_a IS NOT NULL)"
                         + " AS SELECT id FROM t1 WHERE col1 = 10",
-                "PREPARE FOR requires a signature");
+                "PREPARE FOR requires a parameter list");
     }
 
     @Test
@@ -351,7 +351,7 @@ public class StoredQuerySignatureTest {
                         + " CREATE STORED QUERY q(param_a BIGINT)"
                         + " PREPARE FOR (param_a IS NOT NULL, param_b IS NOT NULL)"
                         + " AS SELECT id FROM t1 WHERE col1 = param_a",
-                "which the signature does not declare");
+                "which the parameter list does not declare");
     }
 
     /**
@@ -414,7 +414,7 @@ public class StoredQuerySignatureTest {
                         + " CREATE STORED QUERY q(param_a BIGINT NOT NULL)"
                         + " PREPARE FOR (param_a IS NULL)"
                         + " AS SELECT id FROM t1 WHERE col1 = param_a",
-                "but the signature declares it NOT NULL");
+                "but the parameter list declares it NOT NULL");
     }
 
     /**

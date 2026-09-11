@@ -90,7 +90,7 @@ import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
-    // What NAMED_PARAMETER accepts after its '?'. A reference to a signature parameter is rewritten to '?name', so a
+    // What NAMED_PARAMETER accepts after its '?'. A reference to a declared parameter is rewritten to '?name', so a
     // name that does not fit here produces stored text that no longer lexes as the parameter it came from. Most
     // identifiers fit, but a quoted one may hold anything, and even an unquoted one may start with '/'.
     private static final Pattern BINDABLE_PARAMETER_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_/]*");
@@ -541,24 +541,24 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 final var queryCtx = templateClause.storedQueryDefinition();
                 final var name = visitUid(queryCtx.queryName).getName();
                 final var sourceText = getDelegate().getPlanGenerationContext().getQuery();
-                // Parse the optional signature. Each parameter is referenced by name in the query body and in declared
+                // Parse the optional parameter list. Each parameter is referenced by name in the query body and in declared
                 // function bodies, and those references are rewritten to '?name' below, which is the form a client
                 // sends at run time. The name is an ordinary identifier — uppercased unless quoted — while a prepared
                 // parameter name is never normalized, so the normalized spelling is what the client has to use.
-                final var parameters = parseSignature(queryCtx.storedQuerySignature(), sourceText);
+                final var parameters = parseParameterList(queryCtx.storedQueryParameterList(), sourceText);
                 final var preparedCases = parsePreparedCases(queryCtx.storedQueryPreparedCases(),
-                        queryCtx.storedQuerySignature(), parameters.keySet());
+                        queryCtx.storedQueryParameterList(), parameters.keySet());
                 final var queryString = rewriteReferencesToParams(sourceText, queryCtx.storedQuery, parameters.keySet());
                 final ImmutableList.Builder<String> tempFunctionTexts = ImmutableList.builder();
                 if (queryCtx.declareBlock() != null) {
                     for (final var dfCtx : queryCtx.declareBlock().declaredFunction()) {
-                        // A signature parameter and one of this function's own parameters naming the same identifier
+                        // A declared parameter and one of this function's own parameters naming the same identifier
                         // are indistinguishable in the body, so the rewrite would capture the function's parameter
                         // instead of shadowing it. Reject rather than silently changing what was written.
                         final var shadowed = Sets.intersection(ownParameterNames(dfCtx), parameters.keySet());
                         Assert.thatUnchecked(shadowed.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
                                 () -> "declared function parameter " + shadowed
-                                        + " collides with a stored query signature parameter");
+                                        + " collides with a stored query parameter");
                         tempFunctionTexts.add(rewriteDeclaredFunctionToStandalone(dfCtx, sourceText, parameters.keySet()));
                     }
                 }
@@ -940,15 +940,15 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                                                        @Nonnull final Set<String> declaredNames) {
         final String name = sliceSource(sourceText, ctx.functionName);
         final String paramList = sliceSource(sourceText, ctx.sqlParameterDeclarationList());
-        // Only the body may reference the stored query's signature parameters; scoping the rewrite to the body subtree
-        // is what keeps the function name and its own parameter declarations out of reach. With no signature the
-        // rewrite is a plain slice of the body.
+        // Only the body may reference the stored query's declared parameters; scoping the rewrite to the body subtree
+        // is what keeps the function name and its own parameter declarations out of reach. With no declared parameters
+        // the rewrite is a plain slice of the body.
         final String body = rewriteReferencesToParams(sourceText, ctx.functionBody, declaredNames);
         return "CREATE TEMPORARY FUNCTION " + name + paramList + " ON COMMIT DROP FUNCTION AS " + body;
     }
 
     /**
-     * Parses a stored query's signature into a map from parameter name to the SQL text of its declaration. The name is
+     * Parses a stored query's parameter list into a map from parameter name to the SQL text of its declaration. The name is
      * normalized as an ordinary identifier, so an unquoted name is uppercased and a quoted one keeps its spelling; that
      * normalized spelling is what a client has to use for the matching prepared parameter, because a prepared parameter
      * name is never normalized. That normalized name also has to be one a client can bind, since every reference to the
@@ -956,12 +956,12 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      * may name a schema template type, which can only be resolved against the template the query is warmed with. The
      * type is nevertheless visited here so that an unusable one is reported at {@code CREATE} time.
      *
-     * @param ctx the signature, or {@code null} when the query declares none
+     * @param ctx the parameter list, or {@code null} when the query declares none
      * @param sourceText the full DDL source, for slicing declaration text out of
      * @return the declared parameters, keyed by normalized name, empty if there are none
      */
     @Nonnull
-    private Map<String, String> parseSignature(@Nullable final RelationalParser.StoredQuerySignatureContext ctx,
+    private Map<String, String> parseParameterList(@Nullable final RelationalParser.StoredQueryParameterListContext ctx,
                                                @Nonnull final String sourceText) {
         if (ctx == null) {
             return ImmutableMap.of();
@@ -974,7 +974,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             // not parse at all, and `"a-b"` would give `?a - b`, which parses as arithmetic wherever a column `b` is in
             // scope.
             Assert.thatUnchecked(BINDABLE_PARAMETER_NAME.matcher(parameterName).matches(), ErrorCode.UNSUPPORTED_QUERY,
-                    () -> "stored query signature parameter '" + parameterName + "' cannot be bound as '?"
+                    () -> "stored query parameter '" + parameterName + "' cannot be bound as '?"
                             + parameterName + "'; a parameter name must be a letter followed by letters, digits, "
                             + "'_' or '/'");
             // Visited so that a malformed type expression is reported at CREATE time. A type that merely names
@@ -988,7 +988,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final var declaredType = sourceText.substring(param.parameterType.start.getStartIndex(),
                     lastCtx.stop.getStopIndex() + 1);
             Assert.thatUnchecked(parameters.put(parameterName, declaredType) == null, ErrorCode.UNSUPPORTED_QUERY,
-                    () -> "duplicate stored query signature parameter '" + parameterName + "'");
+                    () -> "duplicate stored query parameter '" + parameterName + "'");
         }
         return ImmutableMap.copyOf(parameters);
     }
@@ -1008,23 +1008,23 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      * </p>
      *
      * @param ctx the block, or {@code null} when the query has none
-     * @param signatureCtx the signature the block pins, or {@code null} when the query has none
-     * @param parameterNames the names the signature declares, normalized
+     * @param parameterListCtx the parameter list the block pins, or {@code null} when the query has none
+     * @param parameterNames the names the list declares, normalized
      * @return one map per case, from parameter name to its state, empty if the query declares no parameters
      */
     @Nonnull
     private List<Map<String, StoredQuery.ParameterState>> parsePreparedCases(
             @Nullable final RelationalParser.StoredQueryPreparedCasesContext ctx,
-            @Nullable final RelationalParser.StoredQuerySignatureContext signatureCtx,
+            @Nullable final RelationalParser.StoredQueryParameterListContext parameterListCtx,
             @Nonnull final Set<String> parameterNames) {
         if (ctx == null) {
             Assert.thatUnchecked(parameterNames.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
                     () -> "stored query declaring parameters " + parameterNames + " requires a PREPARE FOR block");
             return ImmutableList.of();
         }
-        Assert.thatUnchecked(signatureCtx != null && !parameterNames.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
-                () -> "PREPARE FOR requires a signature, since it pins the parameters a signature declares");
-        final var facts = signatureFactsOf(signatureCtx);
+        Assert.thatUnchecked(parameterListCtx != null && !parameterNames.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
+                () -> "PREPARE FOR requires a parameter list, since it pins the parameters the list declares");
+        final var facts = parameterFactsOf(parameterListCtx);
         final var cases = new ArrayList<Map<String, StoredQuery.ParameterState>>();
         for (final var caseCtx : ctx.storedQueryPreparedCase()) {
             final var preparedCase = parsePreparedCase(caseCtx, parameterNames, facts);
@@ -1036,17 +1036,17 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     /**
-     * The facts about a signature's declarations that a prepared case has to agree with. Derived from the parse tree
-     * rather than kept by {@link #parseSignature}, which deliberately keeps a declaration as plain text.
+     * The facts about the declared parameters that a prepared case has to agree with. Derived from the parse tree
+     * rather than kept by {@link #parseParameterList}, which deliberately keeps a declaration as plain text.
      *
      * @param nonNullable the parameters declared {@code NOT NULL}
      * @param booleans the parameters declared as the primitive {@code BOOLEAN}
      */
-    private record SignatureFacts(@Nonnull Set<String> nonNullable, @Nonnull Set<String> booleans) {
+    private record ParameterFacts(@Nonnull Set<String> nonNullable, @Nonnull Set<String> booleans) {
     }
 
     @Nonnull
-    private SignatureFacts signatureFactsOf(@Nonnull final RelationalParser.StoredQuerySignatureContext ctx) {
+    private ParameterFacts parameterFactsOf(@Nonnull final RelationalParser.StoredQueryParameterListContext ctx) {
         final var nonNullable = ImmutableSet.<String>builder();
         final var booleans = ImmutableSet.<String>builder();
         for (final var param : ctx.storedQueryParameter()) {
@@ -1062,7 +1062,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 booleans.add(parameterName);
             }
         }
-        return new SignatureFacts(nonNullable.build(), booleans.build());
+        return new ParameterFacts(nonNullable.build(), booleans.build());
     }
 
     /**
@@ -1073,22 +1073,22 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     private Map<String, StoredQuery.ParameterState> parsePreparedCase(
             @Nonnull final RelationalParser.StoredQueryPreparedCaseContext ctx,
             @Nonnull final Set<String> parameterNames,
-            @Nonnull final SignatureFacts facts) {
+            @Nonnull final ParameterFacts facts) {
         final var states = new LinkedHashMap<String, StoredQuery.ParameterState>();
         for (final var stateCtx : ctx.storedQueryParameterState()) {
             final var parameterName = visitUid(stateCtx.parameterName).getName();
             Assert.thatUnchecked(parameterNames.contains(parameterName), ErrorCode.UNSUPPORTED_QUERY,
-                    () -> "prepared case names '" + parameterName + "', which the signature does not declare");
+                    () -> "prepared case names '" + parameterName + "', which the parameter list does not declare");
             final var state = parameterStateOf(stateCtx);
             Assert.thatUnchecked(state != StoredQuery.ParameterState.IS_NULL
                             || !facts.nonNullable().contains(parameterName),
                     ErrorCode.UNSUPPORTED_QUERY,
-                    () -> "prepared case pins '" + parameterName + "' to IS NULL, but the signature declares it NOT NULL");
+                    () -> "prepared case pins '" + parameterName + "' to IS NULL, but the parameter list declares it NOT NULL");
             Assert.thatUnchecked((state != StoredQuery.ParameterState.IS_TRUE
                             && state != StoredQuery.ParameterState.IS_FALSE)
                             || facts.booleans().contains(parameterName),
                     ErrorCode.UNSUPPORTED_QUERY,
-                    () -> "prepared case pins '" + parameterName + "' to a boolean, but the signature does not declare it BOOLEAN");
+                    () -> "prepared case pins '" + parameterName + "' to a boolean, but the parameter list does not declare it BOOLEAN");
             Assert.thatUnchecked(states.put(parameterName, state) == null, ErrorCode.UNSUPPORTED_QUERY,
                     () -> "prepared case names '" + parameterName + "' more than once");
         }
@@ -1129,7 +1129,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     /**
      * Returns the names a declared function declares for its own parameters, normalized as identifiers so they can be
-     * compared with a stored query's signature parameters.
+     * compared with a stored query's declared parameters.
      */
     @Nonnull
     private Set<String> ownParameterNames(@Nonnull final RelationalParser.DeclaredFunctionContext ctx) {
@@ -1145,7 +1145,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     /**
-     * Rewrites every reference to a signature parameter inside {@code fragment} from a bare identifier into the
+     * Rewrites every reference to a declared parameter inside {@code fragment} from a bare identifier into the
      * {@code ?name} form a prepared statement uses, and returns the rewritten source. References are matched as
      * identifiers, so a quoted reference finds a quoted declaration, and the emitted name is the normalized one, which
      * is the name the client must bind.
@@ -1177,7 +1177,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     /**
      * Collects the single-part column references in {@code tree} that name one of {@code declaredNames}. A qualified
-     * reference is left alone: a signature parameter has no qualifier, so {@code t.x} is a column even when a parameter
+     * reference is left alone: a declared parameter has no qualifier, so {@code t.x} is a column even when a parameter
      * named {@code x} exists.
      *
      * <p>
