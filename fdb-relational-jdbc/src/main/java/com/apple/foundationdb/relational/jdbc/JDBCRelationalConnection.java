@@ -89,7 +89,6 @@ import java.util.concurrent.TimeUnit;
 // URI query string to have the client connect to the existing inprocess server. E.g:
 // jdbc:relational:///__SYS?schema=CATALOG&server=123e4567-e89b-12d3-a456-42661417400
 class JDBCRelationalConnection implements RelationalConnection {
-
     /**
      * TODO: implement.
      */
@@ -392,7 +391,7 @@ class JDBCRelationalConnection implements RelationalConnection {
      */
     @Override
     public int getTransactionIsolation() throws SQLException {
-        return Connection.TRANSACTION_SERIALIZABLE;
+        return JDBCRelationalDatabaseMetaData.ONLY_SUPPORTED_TRANSACTION_ISOLATION_LEVEL;
     }
 
     @Override
@@ -499,7 +498,7 @@ class JDBCRelationalConnection implements RelationalConnection {
 
     @Override
     public void setTransactionIsolation(int level) throws SQLException {
-        if (level != TRANSACTION_SERIALIZABLE) {
+        if (level != JDBCRelationalDatabaseMetaData.ONLY_SUPPORTED_TRANSACTION_ISOLATION_LEVEL) {
             throw new SQLFeatureNotSupportedException("Only SERIALIZABLE isolation level is supported",
                     ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }

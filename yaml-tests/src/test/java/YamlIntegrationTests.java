@@ -198,6 +198,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void fieldOptionsExtensionTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("field-options-extension.yamsql");
+    }
+
+    @TestTemplate
     void functions(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("functions.yamsql");
     }
@@ -355,6 +360,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void scenarioTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("scenario-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void scopedKeysetPagination(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("scoped-keyset-pagination.yamsql");
     }
 
     @TestTemplate

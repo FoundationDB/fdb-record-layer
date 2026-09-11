@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ArrayAggValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CastValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConditionSelectorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue;
@@ -63,6 +64,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
+import com.google.common.primitives.Longs;
 import com.google.protobuf.ZeroCopyByteString;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
@@ -145,7 +147,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitSelectStarElement(@Nonnull RelationalParser.SelectStarElementContext ignored) {
-        return getDelegate().getSemanticAnalyzer().expandStar(Optional.empty(), getDelegate().getLogicalOperators());
+        return getDelegate().getSemanticAnalyzer().expandStar(null, getDelegate().getLogicalOperators());
     }
 
     @Nonnull
@@ -153,7 +155,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public Expression visitSelectQualifierStarElement(@Nonnull RelationalParser.SelectQualifierStarElementContext ctx) {
         final var identifier = visitUid(ctx.uid());
         // the semantics of valid correlations are extended to expanding a (correlated) qualified star.
-        return getDelegate().getSemanticAnalyzer().expandStar(Optional.of(identifier), getDelegate().getLogicalOperatorsIncludingOuter());
+        return getDelegate().getSemanticAnalyzer().expandStar(identifier, getDelegate().getLogicalOperatorsIncludingOuter());
     }
 
     @Nonnull
@@ -386,6 +388,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final RelationalParser.NullTreatmentClauseContext nullTreatment = functionContext.nullTreatmentClause();
         final boolean ignoreNulls = nullTreatment != null && getDelegate().visitNullTreatmentClause(nullTreatment);
 
+        // Handle the in-call LIMIT clause. The grammar admits it for ARRAY_AGG() only.
+        final RelationalParser.AggregateLimitClauseContext limitClause = functionContext.aggregateLimitClause();
+        final int limit = limitClause == null
+                          ? ArrayAggValue.NO_LIMIT
+                          : getDelegate().visitAggregateLimitClause(limitClause);
+
         // Determine and visit the arguments.
         // * For the star argument of COUNT(*), use an empty record as a stand-in.
         // * Multiple arguments are admitted for COUNT(DISTINCT …) and GROUP_CONCAT(), but not implemented yet. Note
@@ -403,9 +411,11 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         } else if (functionContext.functionArg() != null) {
             args.add(visitFunctionArg(functionContext.functionArg()));
         }
-        // ARRAY_AGG() carries the null treatment as an extra literal argument, to be consumed by its encapsulation.
+        // ARRAY_AGG() carries the null treatment and the limit as two extra literal arguments, to be consumed
+        // by its encapsulation.
         if (functionName.getType() == RelationalParser.ARRAY_AGG) {
             args.add(Expression.ofUnnamed(LiteralValue.ofScalar(ignoreNulls)));
+            args.add(Expression.ofUnnamed(LiteralValue.ofScalar(limit)));
         }
         final Expressions arguments = Expressions.of(args.build());
 
@@ -428,6 +438,19 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Boolean visitNullTreatmentClause(@Nonnull final RelationalParser.NullTreatmentClauseContext ctx) {
         return ctx.nullTreatment.getType() == RelationalParser.IGNORE;
+    }
+
+    /**
+     * Resolves the in-call {@code LIMIT} clause of an aggregate to the maximum number of elements to collect.
+     */
+    @Nonnull
+    @Override
+    public Integer visitAggregateLimitClause(@Nonnull final RelationalParser.AggregateLimitClauseContext ctx) {
+        final Long limit = Longs.tryParse(ctx.limit.getText());
+        Assert.thatUnchecked(
+                limit != null && limit >= 0 && limit <= Integer.MAX_VALUE, ErrorCode.INVALID_PARAMETER,
+                () -> "the LIMIT of an aggregate must be a non-negative integer");
+        return limit.intValue();
     }
 
     @Nonnull
@@ -689,7 +712,9 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     private Expression visitInPredicate(@Nonnull Expression operand, @Nonnull RelationalParser.InPredicateContext ctx) {
-        Assert.thatUnchecked(ctx.inList().queryExpressionBody() == null, ErrorCode.UNSUPPORTED_QUERY,
+        Assert.thatUnchecked(
+                ctx.inList().queryExpressionBody() == null,
+                ErrorCode.UNSUPPORTED_QUERY,
                 "IN predicate does not support nested SELECT");
         final var right = visitInList(ctx.inList());
         var in = getDelegate().resolveFunction(ctx.IN().getText(), operand, right);
@@ -962,14 +987,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                 final var resultValue = RecordConstructorValue.ofUnnamed(List.of(expression.getUnderlying()));
                 return expression.withUnderlying(resultValue);
             } else {
-                final var star = getDelegate().getSemanticAnalyzer().expandStar(Optional.of(id), getDelegate().getLogicalOperators());
+                final var star = getDelegate().getSemanticAnalyzer().expandStar(id, getDelegate().getLogicalOperators());
                 final var resultValue = star.getUnderlying();
                 // Name the column after the qualifier (table name or alias) that was expanded.
                 return Expression.of(resultValue, id);
             }
         }
         if (ctx.STAR() != null) {
-            final var star = getDelegate().getSemanticAnalyzer().expandStar(Optional.empty(), getDelegate().getLogicalOperators());
+            final var star = getDelegate().getSemanticAnalyzer().expandStar(null, getDelegate().getLogicalOperators());
             final var resultValue = star.getUnderlying();
             // Name the column after the sole for-each quantifier in scope.
             // Both standard joins and PartiQL unnest expansions introduce multiple for-each

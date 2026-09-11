@@ -1,0 +1,73 @@
+#
+# scoped-keyset-pagination.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Regression test: a keyset-pagination OR-range on trailing index columns, combined with a
+# genuinely unbound "IS NOT DISTINCT FROM" parameter on the index's LEADING key column.
+---
+options:
+    supported_version: !current_version
+---
+schema_template:
+    create type as struct scope(scope_id bigint, deleted boolean)
+    create table scoped_item(id string, scope scope, ts bigint, payload string, primary key(id))
+    create index scoped_item_scope_ts_idx as select scope.scope_id, ts, id from scoped_item order by scope.scope_id, ts, id
+    create function scoped_item_view(scope_id bigint default null, scope_wide boolean default false, include_deleted boolean default false) as
+        select id, ts, payload
+        from scoped_item
+        where (scope_wide is true or scope_id is not distinct from scope.scope_id)
+          and (scope.deleted is not true or include_deleted is true)
+---
+setup:
+  steps:
+    - query: insert into scoped_item
+            values ('item_1', (null, false), 100, 'a'),
+                   ('item_2', (null, false), 100, 'b'),
+                   ('item_3', (null, false), 200, 'c'),
+                   ('item_4', (1,    false), 300, 'd'),
+                   ('item_5', (null, false), 300, 'e')
+---
+test_block:
+  name: scoped-keyset-pagination-tests
+  preset: single_repetition_ordered
+  options:
+    # scope_id must stay a real bind parameter, not a constant-folded literal.
+    statement_type: prepared
+  tests:
+    # Only item_4 is in scope 1; matches via the "ts > 100" branch.
+    -
+      - query: SELECT id, ts
+              FROM scoped_item_view(scope_id => !! 1 !!)
+              WHERE (ts = !! 100 !! AND id > !! 'item_1' !!) OR (ts > !! 100 !!)
+              ORDER BY ts DESC, id DESC
+      - explain: "ISCAN(SCOPED_ITEM_SCOPE_TS_IDX [NOT_DISTINCT_FROM promote(@c9 AS LONG), EQUALS promote(@c15 AS LONG), [GREATER_THAN promote(@c19 AS STRING)]] REVERSE) | FILTER _.SCOPE.DELETED IS_NULL OR _.SCOPE.DELETED EQUALS false ∪ ISCAN(SCOPED_ITEM_SCOPE_TS_IDX [NOT_DISTINCT_FROM promote(@c9 AS LONG), [GREATER_THAN promote(@c15 AS LONG)]] REVERSE) | FILTER _.SCOPE.DELETED IS_NULL OR _.SCOPE.DELETED EQUALS false COMPARE BY (_.TS, _.ID) | MAP (_.ID AS ID, _.TS AS TS)"
+      - resultMetadata: [{ID: STRING}, {TS: BIGINT}]
+      - result: [{ID: 'item_4', TS: 300}]
+
+    # scope_id bound to NULL instead: gets rewritten to "IS NULL" pre-planning, so this doesn't
+    # exercise the bug, but is a useful positive-path check (matches item_2/3/5, all null-scope).
+    -
+      - query: SELECT id, ts
+              FROM scoped_item_view(scope_id => !! !n null !!)
+              WHERE (ts = !! 100 !! AND id > !! 'item_1' !!) OR (ts > !! 100 !!)
+              ORDER BY ts DESC, id DESC
+      - explain: "ISCAN(SCOPED_ITEM_SCOPE_TS_IDX [NOT_DISTINCT_FROM NULL, EQUALS promote(@c15 AS LONG), [GREATER_THAN promote(@c19 AS STRING)]] REVERSE) | FILTER _.SCOPE.DELETED IS_NULL OR _.SCOPE.DELETED EQUALS false ∪ ISCAN(SCOPED_ITEM_SCOPE_TS_IDX [NOT_DISTINCT_FROM NULL, [GREATER_THAN promote(@c15 AS LONG)]] REVERSE) | FILTER _.SCOPE.DELETED IS_NULL OR _.SCOPE.DELETED EQUALS false COMPARE BY (_.TS, _.ID) | MAP (_.ID AS ID, _.TS AS TS)"
+      - resultMetadata: [{ID: STRING}, {TS: BIGINT}]
+      - result: [{ID: 'item_5', TS: 300},
+                 {ID: 'item_3', TS: 200},
+                 {ID: 'item_2', TS: 100}]

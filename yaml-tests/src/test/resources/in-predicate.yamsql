@@ -414,6 +414,16 @@ test_block:
       - unorderedResult: [
           {ID: 1, F: 'apple', IDX: 1},
           {ID: 3, F: 'apple', IDX: 1}, {ID: 3, F: 'mango', IDX: 3}]
+    -
+      # An IN list holding a subquery, i.e. the semi-join form of IN, is not supported yet.
+      - query: select a, b from ta where b in (select a from ta)
+      - supported_version: !current_version
+      - error: UNSUPPORTED_QUERY
+    -
+      # The NOT IN counterpart, i.e. the anti-join form, is rejected through the same code path.
+      - query: select a, b from ta where b not in (select a from ta)
+      - supported_version: !current_version
+      - error: UNSUPPORTED_QUERY
 ---
 # Following tests are run once because running them the second time around causes the error to be different. This is
 # "expected" as the point of error is different in both the cases.

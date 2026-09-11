@@ -87,7 +87,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
      * We support snapshot isolation via options, but that is most appropiate at the statement level, so it is
      * exposed via {@link Options.Name#ISOLATION_LEVEL_SNAPSHOT}.
      */
-    private static final int DEFAULT_TRANSACTION_LEVEL = Connection.TRANSACTION_SERIALIZABLE;
+    private static final int ONLY_SUPPORTED_TRANSACTION_ISOLATION_LEVEL = Connection.TRANSACTION_SERIALIZABLE;
 
     private boolean isClosed;
     @Nonnull
@@ -328,12 +328,12 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
 
             @Override
             public int getDefaultTransactionIsolation() {
-                return DEFAULT_TRANSACTION_LEVEL;
+                return ONLY_SUPPORTED_TRANSACTION_ISOLATION_LEVEL;
             }
 
             @Override
             public boolean supportsTransactionIsolationLevel(int level) {
-                return getDefaultTransactionIsolation() == level;
+                return ONLY_SUPPORTED_TRANSACTION_ISOLATION_LEVEL == level;
             }
 
             @Override

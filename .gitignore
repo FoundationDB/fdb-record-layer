@@ -19,6 +19,7 @@ hs_err_pid*
 /target
 */target
 **/*/build
+/build/reports/
 
 # IntelliJ specific files/directories
 out

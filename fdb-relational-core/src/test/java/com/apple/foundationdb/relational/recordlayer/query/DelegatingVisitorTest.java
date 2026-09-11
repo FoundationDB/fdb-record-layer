@@ -681,6 +681,25 @@ public class DelegatingVisitorTest {
     }
 
     /**
+     * Covers {@link DelegatingVisitor#visitAggregateLimitClause}.
+     */
+    @Test
+    void visitAggregateLimitClauseTest() {
+        testSimple("LIMIT 42",
+                RelationalParser::aggregateLimitClause,
+                (visitor, ctx) -> Assertions.assertThat(visitor.visitAggregateLimitClause(ctx)).isEqualTo(42),
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Nonnull
+                    @Override
+                    public Integer visitAggregateLimitClause(@Nonnull RelationalParser.AggregateLimitClauseContext ctx) {
+                        called.set(true);
+                        return Integer.parseInt(ctx.limit.getText());
+                    }
+                });
+    }
+
+    /**
      * Covers {@link DelegatingVisitor#visitFunctionNameKeyword}.
      */
     @Test
