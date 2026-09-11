@@ -71,7 +71,7 @@ A parameter may be of any type a prepared statement parameter can be. A type dec
     CREATE TYPE AS STRUCT stats_t (start_date BIGINT, hometown STRING)
     CREATE TABLE reviewer (id BIGINT, stats stats_t, PRIMARY KEY(id))   -- column: bare name
     CREATE STORED QUERY by_stats(p TYPE stats_t)                        -- parameter: TYPE keyword
-        PREPARE FOR ((p IS NOT NULL))
+        PREPARE FOR (p IS NOT NULL)
         AS SELECT id FROM reviewer WHERE stats = p
 
 Such a parameter is not warmed yet: see `What is not warmed`_.
