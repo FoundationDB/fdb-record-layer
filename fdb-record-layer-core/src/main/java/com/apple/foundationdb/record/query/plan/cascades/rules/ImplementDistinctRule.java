@@ -98,10 +98,10 @@ public class ImplementDistinctRule extends AbstractCascadesRule<LogicalDistinctE
             plans = ImmutableSet.of(new RecordQueryUnorderedPrimaryKeyDistinctPlan(innerPhysicalQuantifier));
         }
 
-        // If the ƒ quantifier below the distinct expression has null-on-empty semantics, make sure to re-establish
-        // those semantics here. We do so by injecting an ON EMPTY NULL node _above_ the yielded plans (rather than
-        // below them, where the ƒ used to sit). That is correct because a distinct operation passes a lone null row
-        // through unchanged, and it never turns a non-empty input into an empty one.
+        // If the foreach quantifier below the distinct expression has null-on-empty semantics, make sure to
+        // re-establish those semantics here. We do so by injecting an ON EMPTY NULL node _above_ the yielded plans
+        // (rather than below them, where the foreach quantifier used to sit). That is correct because a distinct
+        // operation passes a lone null row through unchanged, and it never turns a non-empty input into an empty one.
         if (Quantifiers.isForEachWithNullOnEmpty(innerQuantifier)) {
             final Reference plansReference = call.memoizePlansBuilder(plans).reference();
             call.yieldPlan(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(innerQuantifier, plansReference));

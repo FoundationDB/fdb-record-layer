@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -99,6 +100,8 @@ public class RecordQueryDefaultOnEmptyPlan extends AbstractRelationalExpressionW
     public static RecordQueryDefaultOnEmptyPlan forNullOnEmpty(@Nonnull final Quantifier quantifier,
                                                                @Nonnull final Reference innerReference) {
         Verify.verify(Quantifiers.isForEachWithNullOnEmpty(quantifier));
+        Debugger.sanityCheck(() -> Verify.verify(
+                innerReference.getFinalExpressions().stream().allMatch(RecordQueryPlan.class::isInstance)));
         final var forEach = (Quantifier.ForEach)quantifier;
         final Quantifier.Physical inner
                 = Quantifier.physicalBuilder().withAlias(forEach.getAlias()).build(innerReference);

@@ -112,10 +112,10 @@ public class RemoveSortRule extends AbstractCascadesRule<LogicalSortExpression> 
             return;
         }
 
-        // If the ƒ quantifier below the sort expression has null-on-empty semantics, make sure to re-establish those
-        // semantics here. We do so by injecting an ON EMPTY NULL node _above_ the yielded plans (rather than below
-        // them, where the ƒ used to sit). That is correct because a sort passes a lone null row through unchanged, and
-        // it never turns a non-empty input into an empty one.
+        // If the foreach quantifier below the sort expression has null-on-empty semantics, make sure to re-establish
+        // those semantics here. We do so by injecting an ON EMPTY NULL node _above_ the yielded plans (rather than
+        // below them, where the foreach quantifier used to sit). That is correct because a sort passes a lone null row
+        // through unchanged, and it never turns a non-empty input into an empty one.
         if (Quantifiers.isForEachWithNullOnEmpty(innerQuantifier)) {
             final Reference plansReference = call.memoizePlansBuilder(resultPlans).reference();
             call.yieldPlan(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(innerQuantifier, plansReference));

@@ -229,9 +229,6 @@ public class PredicateToLogicalUnionRule extends AbstractCascadesRule<MatchParti
         final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(quantifiers);
         // there is definitely exactly one quantifier in the needed list
         final var onlyNeededForEachQuantifier = aliasToQuantifierMap.get(Iterables.getOnlyElement(ownedForEachAliases));
-        // Verify that the for-each rebuild below is only done for non-NoE quantifiers (which the `qunMatcher` should
-        // already guarantee).
-        Verify.verify(!Quantifiers.isForEachWithNullOnEmpty(onlyNeededForEachQuantifier));
         final Value lowerResultValue = onlyNeededForEachQuantifier.getFlowedObjectValue();
         final var fixedPredicatesCorrelatedTo = fixedPredicates.stream().flatMap(p -> p.getCorrelatedTo().stream()).collect(ImmutableSet.toImmutableSet());
         final var fixedAtomicPredicates =

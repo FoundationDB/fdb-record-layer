@@ -82,10 +82,10 @@ public class ImplementUniqueRule extends AbstractCascadesRule<LogicalUniqueExpre
         for (final PlanPartition partition : innerPlanPartitions) {
             final Set<RecordQueryPlan> plans = partition.getPlans();
 
-            // If the ƒ quantifier below the unique expression has null-on-empty semantics, make sure to re-establish
-            // those semantics here. We do so by injecting an ON EMPTY NULL node _above_ the yielded plans (rather than
-            // below them, where the ƒ used to sit). That is correct because this rule only ever absorbs the unique
-            // expression, so the plans are yielded unchanged.
+            // If the foreach quantifier below the unique expression has null-on-empty semantics, make sure to
+            // re-establish those semantics here. We do so by injecting an ON EMPTY NULL node _above_ the yielded plans
+            // (rather than below them, where the foreach quantifier used to sit). That is correct because this rule
+            // only ever absorbs the unique expression, so the plans are yielded unchanged.
             if (Quantifiers.isForEachWithNullOnEmpty(innerQuantifier)) {
                 final Reference plansReference = call.memoizeMemberPlansFromOther(innerReference, plans);
                 call.yieldPlan(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(innerQuantifier, plansReference));
