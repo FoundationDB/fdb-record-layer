@@ -85,7 +85,7 @@ public class ImplementUnorderedUnionRule extends AbstractCascadesRule<LogicalUni
                                 (planPartition, quantifier) -> {
                                     final Reference legReference =
                                             call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), planPartition.getPlans());
-                                    return Quantifiers.implementNullOnEmptyIfPresent(call, quantifier, legReference);
+                                    return Quantifiers.applyGlue(call, quantifier, legReference);
                                 })
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList());

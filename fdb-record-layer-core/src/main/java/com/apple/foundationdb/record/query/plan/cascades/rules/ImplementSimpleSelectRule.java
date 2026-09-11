@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.google.common.base.Verify;
@@ -138,12 +137,7 @@ public class ImplementSimpleSelectRule extends AbstractCascadesRule<SelectExpres
 
         // Add a FIRST_OR_DEFAULT NULL if the quantifier is existential.
         // Add a ON EMPTY NULL if the quantifier is a null-on-empty for-each.
-        if (innerQuantifier instanceof Quantifier.Existential existential) {
-            builder = call.memoizePlanBuilder(
-                    RecordQueryFirstOrDefaultPlan.forExistential(existential, builder.reference()));
-        } else {
-            builder = Quantifiers.implementNullOnEmptyIfPresent(call, innerQuantifier, builder);
-        }
+        builder = Quantifiers.applyGlue(call, innerQuantifier, builder);
 
         // Add a FILTER if there are non-tautology predicates.
         final var nonTautologyPredicates =

@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -310,11 +309,7 @@ public class ImplementNestedLoopJoinRule extends AbstractCascadesRule<SelectExpr
     private Quantifier.Physical planPartitionToPhysical(@Nonnull final ImplementationCascadesRuleCall call, @Nonnull final Quantifier quantifier, @Nonnull final Reference reference, @Nonnull final List<QueryPredicate> predicates, @Nonnull final PlanPartition planPartition) {
         var ref = call.memoizeMemberPlansFromOther(reference, planPartition.getPlans());
 
-        if (quantifier instanceof Quantifier.Existential existential) {
-            ref = call.memoizePlan(RecordQueryFirstOrDefaultPlan.forExistential(existential, ref));
-        } else {
-            ref = Quantifiers.implementNullOnEmptyIfPresent(call, quantifier, ref);
-        }
+        ref = Quantifiers.applyGlue(call, quantifier, ref);
 
         if (!predicates.isEmpty()) {
             final var newLowerQuantifier = Quantifier.physicalBuilder().withAlias(quantifier.getAlias()).build(ref);

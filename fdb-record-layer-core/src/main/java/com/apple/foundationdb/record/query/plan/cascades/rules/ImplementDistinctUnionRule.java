@@ -211,7 +211,7 @@ public class ImplementDistinctUnionRule extends AbstractCascadesRule<LogicalDist
                                             (partition, quantifier) -> {
                                                 final Reference legReference =
                                                         call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), partition.getPlans());
-                                                return Quantifiers.implementNullOnEmptyIfPresent(call, quantifier, legReference);
+                                                return Quantifiers.applyGlue(call, quantifier, legReference);
                                             })
                                     .map(Quantifier::physical)
                                     .collect(ImmutableList.toImmutableList());
