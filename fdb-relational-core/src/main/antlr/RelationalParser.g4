@@ -250,10 +250,10 @@ viewDefinition
     ;
 
 storedQueryDefinition
-    : STORED QUERY queryName=uid storedQuerySignature? storedQueryPreparedCases? declareBlock? AS storedQuery=query
+    : STORED QUERY queryName=uid storedQueryParameterList? storedQueryPreparedCases? declareBlock? AS storedQuery=query
     ;
 
-storedQuerySignature
+storedQueryParameterList
     : '(' (storedQueryParameter (',' storedQueryParameter)*)? ')'
     ;
 
