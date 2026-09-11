@@ -543,8 +543,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 final var sourceText = getDelegate().getPlanGenerationContext().getQuery();
                 // Parse the optional parameter list. Each parameter is referenced by name in the query body and in declared
                 // function bodies, and those references are rewritten to '?name' below, which is the form a client
-                // sends at run time. The name is an ordinary identifier — uppercased unless quoted — while a prepared
-                // parameter name is never normalized, so the normalized spelling is what the client has to use.
+                // sends at run time. An unquoted name is normalized as an ordinary identifier, per the connection's
+                // CASE_SENSITIVE_IDENTIFIERS option, while a prepared parameter name always keeps the spelling it was
+                // written with — so the normalized spelling is what the client has to use.
                 final var parameters = parseParameterList(queryCtx.storedQueryParameterList(), sourceText);
                 final var preparedCases = parsePreparedCases(queryCtx.storedQueryPreparedCases(),
                         queryCtx.storedQueryParameterList(), parameters.keySet());
@@ -948,13 +949,14 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     /**
-     * Parses a stored query's parameter list into a map from parameter name to the SQL text of its declaration. The name is
-     * normalized as an ordinary identifier, so an unquoted name is uppercased and a quoted one keeps its spelling; that
-     * normalized spelling is what a client has to use for the matching prepared parameter, because a prepared parameter
-     * name is never normalized. That normalized name also has to be one a client can bind, since every reference to the
-     * parameter is rewritten to {@code ?name}. The declaration is kept as source text rather than as a resolved type: it
-     * may name a schema template type, which can only be resolved against the template the query is warmed with. The
-     * type is nevertheless visited here so that an unusable one is reported at {@code CREATE} time.
+     * Parses a stored query's parameter list into a map from parameter name to the SQL text of its declaration. A
+     * quoted name keeps its spelling; an unquoted one is normalized as an ordinary identifier, per the connection's
+     * {@code CASE_SENSITIVE_IDENTIFIERS} option. That normalized spelling is what a client has to use for the matching
+     * prepared parameter, because a prepared parameter name always keeps the spelling it was written with. It also has
+     * to be a name a client can bind, since every reference to the parameter is rewritten to {@code ?name}. The
+     * declaration is kept as source text rather than as a resolved type: it may name a schema template type, which can
+     * only be resolved against the template the query is warmed with. The type is nevertheless visited here so that an
+     * unusable one is reported at {@code CREATE} time.
      *
      * @param ctx the parameter list, or {@code null} when the query declares none
      * @param sourceText the full DDL source, for slicing declaration text out of
