@@ -118,7 +118,7 @@ public class StoredQueriesTest {
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
                     " CREATE INDEX i1 AS SELECT col1 FROM t1" +
                     " CREATE STORED QUERY by_col1(p bigint)" +
-                    "   PREPARE FOR ((p IS NOT NULL), (p IS NULL))" +
+                    "   PREPARE FOR (p IS NOT NULL), (p IS NULL)" +
                     " AS select * from t1 where col1 = p";
 
     /** A boolean pinned to each of its values, which is what gives a plan per value rather than one generic plan. */
@@ -126,7 +126,7 @@ public class StoredQueriesTest {
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, flag boolean, PRIMARY KEY(id))" +
                     " CREATE INDEX i1 AS SELECT col1 FROM t1" +
                     " CREATE STORED QUERY by_flag(b boolean)" +
-                    "   PREPARE FOR ((b = TRUE), (b = FALSE))" +
+                    "   PREPARE FOR (b = TRUE), (b = FALSE)" +
                     " AS select * from t1 where flag = b";
 
     /**
@@ -141,7 +141,7 @@ public class StoredQueriesTest {
                     " CREATE TABLE t1(id bigint, col1 bigint, st s1, PRIMARY KEY(id))" +
                     " CREATE INDEX i1 AS SELECT col1 FROM t1" +
                     " CREATE STORED QUERY by_struct(p TYPE s1)" +
-                    "   PREPARE FOR ((p IS NOT NULL))" +
+                    "   PREPARE FOR (p IS NOT NULL)" +
                     " AS select * from t1 where st = p" +
                     " CREATE STORED QUERY by_col1 AS select * from t1 where col1 = 10";
 
