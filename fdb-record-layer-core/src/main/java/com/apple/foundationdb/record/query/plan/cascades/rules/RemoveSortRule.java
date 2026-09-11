@@ -40,7 +40,6 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProp
 import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableSet;
@@ -104,25 +103,18 @@ public class RemoveSortRule extends AbstractCascadesRule<LogicalSortExpression> 
     @Override
     public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final LogicalSortExpression sortExpression = call.get(root);
+        final RequestedOrdering requestedOrdering = sortExpression.getOrdering();
         final Quantifier.ForEach innerQuantifier = call.get(innerQuantifierMatcher);
         final PlanPartition innerPlanPartition = call.get(innerPlanPartitionMatcher);
-
-        final Set<RecordQueryPlan> resultPlans = satisfyingPlans(call, sortExpression.getOrdering(), innerPlanPartition);
-        if (resultPlans.isEmpty()) {
-            // The inner ordering does not satisfy the request, so the sort cannot be absorbed.
+        final Set<RecordQueryPlan> innerPlans = satisfyingPlans(call, requestedOrdering, innerPlanPartition);
+        // If the inner ordering does not satisfy the request, the sort cannot be absorbed.
+        if (innerPlans.isEmpty()) {
             return;
         }
-
-        // If the foreach quantifier below the sort expression has null-on-empty semantics, make sure to re-establish
-        // those semantics here. We do so by injecting an ON EMPTY NULL node _above_ the yielded plans (rather than
-        // below them, where the foreach quantifier used to sit). That is correct because a sort passes a lone null row
-        // through unchanged, and it never turns a non-empty input into an empty one.
-        if (Quantifiers.isForEachWithNullOnEmpty(innerQuantifier)) {
-            final Reference plansReference = call.memoizePlansBuilder(resultPlans).reference();
-            call.yieldPlan(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(innerQuantifier, plansReference));
-        } else {
-            call.yieldPlans(resultPlans);
-        }
+        // Establish the null-on-empty semantics if necessary. Note that the ON EMPTY NULL, if it triggers, flows a
+        // single record and will thus honor the requested ordering.
+        final var builder = Quantifiers.applyGlue(call, innerQuantifier, call.memoizePlansBuilder(innerPlans));
+        call.yieldPlans(builder.members());
     }
 
     /**

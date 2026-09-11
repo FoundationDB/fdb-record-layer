@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDist
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.google.common.collect.ImmutableSet;
@@ -91,23 +90,20 @@ public class ImplementDistinctRule extends AbstractCascadesRule<LogicalDistinctE
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
         final var innerReference = call.get(innerReferenceMatcher);
 
+        // If the inner plans create duplicates, wrap a `RecordQueryUnorderedPrimaryKeyDistinctPlan` around.
         Set<RecordQueryPlan> plans = innerPlanPartition.getPlans();
         if (!innerPlanPartition.getPartitionPropertyValue(DistinctRecordsProperty.distinctRecords())) {
-            // These create duplicates.
             final Reference innerPlansReference = call.memoizeMemberPlansFromOther(innerReference, plans);
             final Quantifier.Physical innerPhysicalQuantifier = Quantifier.physical(innerPlansReference);
             plans = ImmutableSet.of(new RecordQueryUnorderedPrimaryKeyDistinctPlan(innerPhysicalQuantifier));
         }
 
-        // If the foreach quantifier below the distinct expression has null-on-empty semantics, make sure to
-        // re-establish those semantics here. We do so by injecting an ON EMPTY NULL node _above_ the yielded plans
-        // (rather than below them, where the foreach quantifier used to sit). That is correct because a distinct
-        // operation passes a lone null row through unchanged, and it never turns a non-empty input into an empty one.
-        if (Quantifiers.isForEachWithNullOnEmpty(innerQuantifier)) {
-            final Reference plansReference = call.memoizePlansBuilder(plans).reference();
-            call.yieldPlan(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(innerQuantifier, plansReference));
-        } else {
-            call.yieldPlans(plans);
-        }
+        // Establish the null-on-empty semantics if necessary. Note that if the branch above added a distinct plan, the
+        // glue will be _above_ that plan rather than below it, where the foreach quantifier used to sit. That is fine:
+        // The distinct plan passes a single null record through unchanged, and it never turns a non-empty input into an
+        // empty one, which would trigger the ON EMPTY NULL. Below would not work anyway, as the distinct plan requires
+        // a primary key on each record, which an ON EMPTY NULL record does not have.
+        final var builder = Quantifiers.applyGlue(call, innerQuantifier, call.memoizePlansBuilder(plans));
+        call.yieldPlans(builder.members());
     }
 }

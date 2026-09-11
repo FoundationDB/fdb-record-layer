@@ -33,12 +33,9 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -81,18 +78,11 @@ public class ImplementUniqueRule extends AbstractCascadesRule<LogicalUniqueExpre
         final var innerReference = call.get(innerReferenceMatcher);
         final var innerPlanPartitions = call.get(anyPlanPartitionMatcher);
         for (final PlanPartition partition : innerPlanPartitions) {
-            final Set<RecordQueryPlan> plans = partition.getPlans();
-
-            // If the foreach quantifier below the unique expression has null-on-empty semantics, make sure to
-            // re-establish those semantics here. We do so by injecting an ON EMPTY NULL node _above_ the yielded plans
-            // (rather than below them, where the foreach quantifier used to sit). That is correct because this rule
-            // only ever absorbs the unique expression, so the plans are yielded unchanged.
-            if (Quantifiers.isForEachWithNullOnEmpty(innerQuantifier)) {
-                final Reference plansReference = call.memoizeMemberPlansFromOther(innerReference, plans);
-                call.yieldPlan(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(innerQuantifier, plansReference));
-            } else {
-                call.yieldPlans(plans);
-            }
+            // Establish the null-on-empty semantics if necessary. Note that the ON EMPTY NULL, if it triggers, flows
+            // a single record and will thus preserve the distinctness that this rule relies on.
+            final var builder = Quantifiers.applyGlue(call, innerQuantifier,
+                    call.memoizeMemberPlansBuilder(innerReference, partition.getPlans()));
+            call.yieldPlans(builder.members());
         }
     }
 }
