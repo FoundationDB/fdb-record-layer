@@ -41,14 +41,8 @@ import java.util.Map;
 /**
  * The parameter list of a stored query and the {@code PREPARE FOR} block that goes with it: how parameters are declared,
  * which combinations of their states are warmed, what is persisted for both, and how references to a parameter in the
- * body are turned into the {@code ?name} form a prepared statement uses.
- *
- * <p>A parameter list and a {@code PREPARE FOR} block require each other, so they are tested together. Every nullable
- * parameter is pinned in every case, which is what keeps a parameter from being planned with no value and a nullable
- * type at once — such a plan is not correct for a null binding. A {@code NOT NULL} parameter may be left out and is
- * filled in.</p>
- *
- * <p>These tests stop at the metadata. Planning a stored query from its declared parameters is exercised separately.</p>
+ * body are turned into the {@code ?name} form a prepared statement uses. These tests stop at the metadata; planning a
+ * stored query from its declared parameters is exercised separately.
  */
 public class StoredQueryParametersTest {
 
@@ -93,12 +87,6 @@ public class StoredQueryParametersTest {
                 .hasMessageContaining(messageFragment);
     }
 
-    /**
-     * A quoted parameter name keeps its spelling; an unquoted one is normalized as an ordinary identifier, per the
-     * connection's {@code CASE_SENSITIVE_IDENTIFIERS} option. The normalized name is what is persisted, and it is the
-     * name a client has to bind, because a prepared parameter name always keeps the spelling it was written with. A case
-     * names its parameters the same way.
-     */
     @Test
     void declarationIsPersistedUnderTheNormalizedName() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_NAMES", TABLE
@@ -115,10 +103,6 @@ public class StoredQueryParametersTest {
                         "mixedCase", ParameterState.IS_NOT_NULL));
     }
 
-    /**
-     * The declaration is kept as source text, whitespace and all, so it can be parsed back. Rebuilding it from tokens
-     * would turn {@code BIGINT ARRAY} into {@code BIGINTARRAY}.
-     */
     @Test
     void declarationTextKeepsItsSpacing() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_TEXT", TABLE
@@ -132,10 +116,6 @@ public class StoredQueryParametersTest {
                         "P3", "BIGINT NULL"));
     }
 
-    /**
-     * Each written state is persisted as the constant naming it. The four are the only ones that change a plan rather
-     * than only its constraints.
-     */
     @Test
     void everyStateIsPersisted() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_STATES", TABLE
@@ -148,10 +128,6 @@ public class StoredQueryParametersTest {
                 Map.of("P1", ParameterState.IS_NULL, "P2", ParameterState.IS_NOT_NULL, "B", ParameterState.IS_FALSE));
     }
 
-    /**
-     * A reference in the body becomes {@code ?name}, using the normalized spelling — which is what makes a quoted
-     * declaration reachable by a client that sends a mixed-case parameter name.
-     */
     @Test
     void bodyReferencesBecomeNamedParameters() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_REWRITE", TABLE
@@ -163,9 +139,7 @@ public class StoredQueryParametersTest {
     }
 
     /**
-     * An {@code IN} list may name an array directly, and that alternative is a bare {@code fullColumnName} rather than
-     * an expression, so a reference there has to be found in its own right. This is the shape a runtime query writes as
-     * {@code IN ?ids}, and the one an array parameter exists for.
+     * An {@code IN} list names an array through a bare {@code fullColumnName}, not an expression.
      */
     @Test
     void arrayParameterInAnInListBecomesANamedParameter() throws Exception {
@@ -177,9 +151,6 @@ public class StoredQueryParametersTest {
                 .isEqualTo("SELECT id FROM t1 WHERE col1 IN ?IDS");
     }
 
-    /**
-     * A {@code PREPARE FOR} block is not part of the query, so it leaves no trace in the stored body.
-     */
     @Test
     void preparedCasesAreNotPartOfTheStoredBody() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_BODY", TABLE
@@ -190,10 +161,6 @@ public class StoredQueryParametersTest {
                 .isEqualTo("SELECT id FROM t1 WHERE col1 = ?PARAM_A");
     }
 
-    /**
-     * A qualified reference is a column, not a parameter, even when a parameter of that name exists — a declared
-     * parameter never has a qualifier.
-     */
     @Test
     void qualifiedReferenceIsLeftAlone() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_QUALIFIED", TABLE
@@ -204,10 +171,6 @@ public class StoredQueryParametersTest {
                 .isEqualTo("SELECT id FROM t1 WHERE t1.col1 = 10");
     }
 
-    /**
-     * A parameter may be captured by a declared function's body, and the rewrite reaches into it. The function's own
-     * parameters are untouched.
-     */
     @Test
     void referencesInsideDeclaredFunctionsAreRewritten() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_FUNC", TABLE
@@ -223,10 +186,6 @@ public class StoredQueryParametersTest {
                 .contains("col1 = p AND col2 = ?PARAM_A");
     }
 
-    /**
-     * A query that declares no parameters keeps the behaviour it had before they existed: nothing declared, no cases, body
-     * verbatim. With no parameters there is nothing to pin, so no {@code PREPARE FOR} is required.
-     */
     @Test
     void queryWithoutParametersIsUnchanged() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_NONE", TABLE
@@ -237,11 +196,7 @@ public class StoredQueryParametersTest {
     }
 
     /**
-     * A quoted identifier may hold anything, but a reference to the parameter is rewritten to {@code ?name}, and
-     * {@code NAMED_PARAMETER} accepts only a letter followed by letters, digits, {@code _} or {@code /}. A name that
-     * does not fit is rejected at {@code CREATE}, where it can still be explained, rather than persisted as text that
-     * says something else: a space gives {@code ?my param}, which does not parse, and a dash gives {@code ?a - b},
-     * which parses as arithmetic wherever a column {@code b} is in scope.
+     * Two ways it goes wrong: a space does not parse, a dash parses as something else.
      */
     @Test
     void parameterNameThatCannotBeBoundIsRejected() {
@@ -257,12 +212,6 @@ public class StoredQueryParametersTest {
                 "cannot be bound as '?a-b'");
     }
 
-    /**
-     * The declared parameters and their cases have to survive the metadata they are stored in: they are written into
-     * {@code PStoredQueryParameter} and {@code PPreparedCase} and read back out, so a warm-up that happens in a later
-     * process sees exactly what {@code CREATE} recorded. The states go through the wire as canonical tokens, so this
-     * also pins that mapping in both directions.
-     */
     @Test
     void parametersAndCasesSurviveAProtoRoundTrip() throws Exception {
         final var template = templateOf("/TEST/SQS_ROUNDTRIP", TABLE
@@ -295,11 +244,6 @@ public class StoredQueryParametersTest {
         Assertions.assertThat(after.getTempFunctions()).isEqualTo(before.getTempFunctions());
     }
 
-    /**
-     * Two parameters that normalize to the same identifier are the same parameter, so the second is a mistake rather
-     * than a redefinition. This is caught while reading the parameter list, before the cases are looked at, which is why the
-     * statement needs no {@code PREPARE FOR} to reach it.
-     */
     @Test
     void duplicateParameterIsRejected() {
         expectFailure("/TEST/SQS_DUP", TABLE
@@ -308,10 +252,6 @@ public class StoredQueryParametersTest {
                 "duplicate stored query parameter");
     }
 
-    /**
-     * A declared parameter and one of a declared function's own parameters naming the same identifier are
-     * indistinguishable inside that function's body, so the rewrite would capture the wrong one.
-     */
     @Test
     void parameterCollidingWithDeclaredFunctionParameterIsRejected() {
         expectFailure("/TEST/SQS_SHADOW", TABLE
@@ -322,10 +262,6 @@ public class StoredQueryParametersTest {
                 "collides with a stored query parameter");
     }
 
-    /**
-     * Declaring parameters and leaving the cases out would mean warming a plan for a parameter that has neither a value
-     * nor a non-nullable type, and no single plan is correct for both a null and a non-null binding.
-     */
     @Test
     void parametersWithoutPreparedCasesAreRejected() {
         expectFailure("/TEST/SQS_NOCASES", TABLE
@@ -334,9 +270,6 @@ public class StoredQueryParametersTest {
                 "requires a PREPARE FOR block");
     }
 
-    /**
-     * The other direction: a block with nothing to pin.
-     */
     @Test
     void preparedCasesWithoutParametersAreRejected() {
         expectFailure("/TEST/SQS_NOSIG", TABLE
@@ -355,9 +288,6 @@ public class StoredQueryParametersTest {
                 "which the parameter list does not declare");
     }
 
-    /**
-     * A nullable parameter left out of a case is the state this whole block exists to prevent.
-     */
     @Test
     void caseLeavingANullableParameterUnpinnedIsRejected() {
         expectFailure("/TEST/SQS_INCOMPLETE", TABLE
@@ -368,8 +298,7 @@ public class StoredQueryParametersTest {
     }
 
     /**
-     * A {@code NOT NULL} parameter may be left out: {@code IS NOT NULL} is the only state its declaration allows. It is
-     * recorded as if written, so what is warmed does not depend on whether the author spelled it out.
+     * The omitted parameter is recorded as if it had been written.
      */
     @Test
     void notNullParameterMayBeLeftOutOfACase() throws Exception {
@@ -384,8 +313,7 @@ public class StoredQueryParametersTest {
     }
 
     /**
-     * Since an omission is filled in, a case that omits a {@code NOT NULL} parameter and one that pins it explicitly are
-     * the same case, and writing both would warm one plan twice.
+     * Both spellings are the same case, so warming both would build one plan twice.
      */
     @Test
     void omittingANotNullParameterDuplicatesPinningItExplicitly() {
@@ -405,10 +333,6 @@ public class StoredQueryParametersTest {
                 "more than once");
     }
 
-    /**
-     * A {@code NOT NULL} declaration says the parameter never receives a null, so warming the null case for it
-     * contradicts the declaration rather than refining it.
-     */
     @Test
     void nullCaseForNotNullParameterIsRejected() {
         expectFailure("/TEST/SQS_NOTNULL", TABLE
@@ -418,10 +342,6 @@ public class StoredQueryParametersTest {
                 "but the parameter list declares it NOT NULL");
     }
 
-    /**
-     * {@code = TRUE} pins a value, so it only means something for a parameter that can hold that value. {@code BOOLEAN}
-     * is a primitive, so this is decided from the declaration itself and needs no type resolution.
-     */
     @Test
     void booleanStateForNonBooleanParameterIsRejected() {
         expectFailure("/TEST/SQS_NOTBOOL", TABLE
@@ -431,9 +351,6 @@ public class StoredQueryParametersTest {
                 "does not declare it BOOLEAN");
     }
 
-    /**
-     * An array of booleans is not a boolean either.
-     */
     @Test
     void booleanStateForBooleanArrayParameterIsRejected() {
         expectFailure("/TEST/SQS_BOOLARRAY", TABLE
@@ -444,8 +361,7 @@ public class StoredQueryParametersTest {
     }
 
     /**
-     * Two cases pinning the same parameters to the same states are one case however they are written, and warming both
-     * would build the same plan twice.
+     * Written with the parameters in a different order, which is still the same case.
      */
     @Test
     void duplicateCaseIsRejected() {
@@ -457,9 +373,6 @@ public class StoredQueryParametersTest {
                 "duplicate prepared case");
     }
 
-    /**
-     * Cases that differ are kept in the order written, which is the order they are warmed in.
-     */
     @Test
     void distinctCasesAreKeptInOrder() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_ORDER", TABLE
@@ -472,8 +385,7 @@ public class StoredQueryParametersTest {
     }
 
     /**
-     * The record layer keeps the states as canonical tokens, since it never interprets them. This pins the tokens
-     * themselves, which a rename would silently change for every stored query already persisted.
+     * Pins the tokens: renaming one would silently change every stored query already persisted.
      */
     @Test
     void recordLayerKeepsStatesAsCanonicalTokens() throws Exception {

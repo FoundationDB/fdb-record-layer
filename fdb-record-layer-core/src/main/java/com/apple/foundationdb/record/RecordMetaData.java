@@ -790,9 +790,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
                            @Nonnull final List<Map<String, String>> preparedCases) {
             this.query = storedQuery;
             this.tempFunctions = List.copyOf(tempFunctions);
-            // ImmutableMap rather than Map.copyOf: the latter randomizes iteration order per JVM run, which would make
-            // the same metadata serialize to different bytes each time. Parameters are looked up by name, so the order
-            // itself carries no meaning — only its stability matters.
+            // ImmutableMap, not Map.copyOf: the latter randomizes iteration order per JVM run, which would serialize
+            // the same metadata to different bytes.
             this.parameters = ImmutableMap.copyOf(parameters);
             this.preparedCases = preparedCases.stream()
                     .map(ImmutableMap::copyOf)
@@ -821,9 +820,8 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
         /**
          * The combinations this query is warmed for, one plan each, as a list of maps from parameter name to the
-         * canonical token naming the state that parameter is pinned to. The record layer stores these and returns them
-         * without interpreting them; the tokens are defined by the SQL layer that writes and reads them. Empty if the
-         * query declares no parameters.
+         * canonical token naming its state. The record layer stores these and returns them without interpreting them.
+         * Empty if the query declares no parameters.
          * @return one map per case, keyed by parameter name.
          */
         @Nonnull

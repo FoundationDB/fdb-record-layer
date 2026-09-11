@@ -36,17 +36,13 @@ import java.util.Map;
  */
 public final class StoredQuery {
     /**
-     * How one parameter is pinned in a prepared case. These four are exactly the states that change the plan itself
-     * rather than only its constraints: any other value of a parameter's declared type yields the same plan as
-     * {@link #IS_NOT_NULL}, because literals are stripped before planning.
-     *
-     * <p>The constant names are the canonical tokens the wire format carries, so {@link #name()} and
-     * {@link #valueOf(String)} are the conversion in both directions.</p>
+     * How one parameter is pinned in a prepared case. These four are the only states that change the plan itself rather
+     * than only its constraints. The constant names are the canonical tokens the wire format carries.
      */
     public enum ParameterState {
-        /** Warmed with a real null bound, so the planner folds the predicate away at plan time. */
+        /** Warmed with a real null bound. */
         IS_NULL,
-        /** Warmed value-free, with the declared type forced non-nullable so a null binding cannot match. */
+        /** Warmed value-free, with the declared type forced non-nullable. */
         IS_NOT_NULL,
         /** Warmed with {@code true} bound. */
         IS_TRUE,
@@ -72,9 +68,8 @@ public final class StoredQuery {
                        @Nonnull final List<Map<String, ParameterState>> preparedCases) {
         this.query = storedQuery;
         this.tempFunctions = ImmutableList.copyOf(tempFunctions);
-        // ImmutableMap rather than Map.copyOf: the latter randomizes iteration order per JVM run, which would make the
-        // same metadata serialize to different bytes each time. Parameters are looked up by name, so the order itself
-        // carries no meaning — only its stability matters.
+        // ImmutableMap, not Map.copyOf: the latter randomizes iteration order per JVM run, which would serialize the
+        // same metadata to different bytes.
         this.parameters = ImmutableMap.copyOf(parameters);
         this.preparedCases = preparedCases.stream()
                 .map(ImmutableMap::copyOf)
@@ -103,9 +98,8 @@ public final class StoredQuery {
 
     /**
      * The combinations this query is warmed for, one plan each. Every case here gives every declared parameter a
-     * state: one the author left out of the SQL is filled in before it reaches this point. So a parameter is never
-     * planned with no value and a nullable type at once — such a plan is not correct for a null binding. Empty exactly
-     * when the query declares no parameters.
+     * state: one the author left out of the SQL is filled in before it reaches this point. Empty exactly when the query
+     * declares no parameters.
      * @return one map per case, from parameter name to the state it is pinned to.
      */
     @Nonnull
