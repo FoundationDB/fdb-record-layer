@@ -392,10 +392,11 @@ test_block:
       - query: select z(((5l, 11l), (10l, 100l))) from range(1, 2)
       - unorderedResult: [ { !l 100 } ]
     -
-      - query: select temp_z(((5l, 11l), (10l, 100l))) from range(1, 2)
+      - query: select temp_z(((5l, 11l), (10l, 100l))) as temp_z, temp_z_2(((5l, 11l), (10l, 100l))) as temp_z_2 from range(1, 2)
       - supported_version: !current_version
       - setup: create temporary function temp_z(IN r TYPE st3) returns bigint on commit drop function return r.v.z
-      - unorderedResult: [ { !l 100 } ]
+      - setup: create temporary function temp_z_2(IN r TYPE st3) returns bigint on commit drop function return r.v.z
+      - unorderedResult: [ { temp_z: !l 100, temp_z_2: !l 100 } ]
     -
       - query: select id from nested where r.v.z = z(((5l, 11l), (10l, 100l)))
       - supported_version: !current_version

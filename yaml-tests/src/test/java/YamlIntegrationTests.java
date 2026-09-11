@@ -468,6 +468,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void userDefinedFunctionsInMetadata(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("user-defined-functions-in-metadata-tests.yamsql");
+    }
+
+    @TestTemplate
     public void uuidPreparedTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("uuid-prepared.yamsql");
     }
