@@ -80,7 +80,7 @@ public class OrderedLiteral {
      * Whether this literal carries no value at all, as opposed to carrying the value {@code NULL}. A value-free
      * literal reserves its constant id and declares its {@link #type}, but contributes no binding to the evaluation
      * context (see {@link Literals#asBindings()}), which is what leaves the constant id unbound. This is how a typed
-     * parameter is planned when no value is known yet, e.g. a stored query signature parameter at warm-up.
+     * parameter is planned when no value is known yet, e.g. a declared stored query parameter at warm-up.
      */
     private final boolean valueFree;
 
@@ -263,7 +263,7 @@ public class OrderedLiteral {
     /**
      * Creates a value-free literal for a named parameter: it reserves the constant id and declares the type, but
      * carries no value and therefore contributes no binding. Only named parameters can be value-free today, since the
-     * sole producer is a stored query signature parameter warmed with no value.
+     * sole producer is a declared stored query parameter warmed with no value.
      *
      * @param type the declared type of the parameter
      * @param parameterName the name of the parameter
