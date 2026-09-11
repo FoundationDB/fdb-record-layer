@@ -418,7 +418,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             final var parameterName = namedParameterContext.getText().substring(1);
             if (!preparedStatementParameters.hasNamedParamValue(parameterName)
                     && preparedStatementParameters.declarationMaybe(parameterName).isPresent()) {
-                // Value-free planning: the named parameter is declared (via a stored-query signature) with a type but no
+                // Value-free planning: the named parameter is declared (in a stored query's parameter list) with a type but no
                 // value. Canonicalize it to ?name so the canonical query string — and therefore the plan-cache key —
                 // matches what a runtime client sends. No value is pulled, and nothing is added to the normalizer's
                 // literal table; planning registers a value-free literal for it instead, reserving the constant id

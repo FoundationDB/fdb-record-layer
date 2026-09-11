@@ -50,7 +50,7 @@ class CompilableSqlFunctionTest {
 
     @Test
     void auxiliaryLiteralsCarryValueFreeLiterals() {
-        // A typed signature parameter warmed with no value rides in the function's literal table as a value-free
+        // A typed declared parameter warmed with no value rides in the function's literal table as a value-free
         // literal: it reserves the constant id and declares the type, but contributes no binding.
         final var function = new CompiledSqlFunction("testFunction", ImmutableList.of(), ImmutableList.of(),
                 ImmutableList.of(), Optional.empty(), createDummyBody(), literalsWithValueFreeParameter());

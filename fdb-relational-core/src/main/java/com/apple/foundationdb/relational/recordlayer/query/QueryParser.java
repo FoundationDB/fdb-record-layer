@@ -180,7 +180,7 @@ public class QueryParser {
 
     /**
      * Parses a parameter's type declaration on its own — a type optionally followed by a nullability clause, for
-     * example {@code BIGINT}, {@code BIGINT NOT NULL} or {@code VECTOR(128, FLOAT)}. A stored query's signature keeps
+     * example {@code BIGINT}, {@code BIGINT NOT NULL} or {@code VECTOR(128, FLOAT)}. A stored query's parameter list keeps
      * declarations as source text, so resolving one needs a parse.
      *
      * @param declaration the declaration text
