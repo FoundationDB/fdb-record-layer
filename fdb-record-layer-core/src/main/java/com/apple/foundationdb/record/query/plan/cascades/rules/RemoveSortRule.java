@@ -54,7 +54,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitionsTo;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyForEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalSortExpression;
 
 /**
@@ -91,8 +91,9 @@ public class RemoveSortRule extends AbstractCascadesRule<LogicalSortExpression> 
                     DistinctRecordsProperty.distinctRecords(),
                     PrimaryKeyProperty.primaryKey())));
 
+    // This rule establishes null-on-empty semantics if desired, so it can match _any_ for-each quantifier.
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = anyForEachQuantifierOverRef(innerReferenceMatcher);
     @Nonnull
     private static final BindingMatcher<LogicalSortExpression> root = logicalSortExpression(exactly(innerQuantifierMatcher));
 

@@ -155,7 +155,6 @@ public class Traversal {
                 reference,
                 expression);
         Debugger.sanityCheck(() -> Verify.verify(reference.containsExactly(expression)));
-        Debugger.sanityCheck(() -> Quantifiers.verifyNullOnEmptyAwareness(expression));
         containedInMultiMap.put(expression, reference);
         if (expression.getQuantifiers().isEmpty()) {
             leafReferences.add(reference);

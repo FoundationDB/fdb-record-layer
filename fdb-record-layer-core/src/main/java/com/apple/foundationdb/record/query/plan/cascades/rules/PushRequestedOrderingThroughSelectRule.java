@@ -38,7 +38,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyForEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -49,8 +49,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class PushRequestedOrderingThroughSelectRule extends AbstractCascadesRule<SelectExpression> implements PreOrderRule {
     @Nonnull
     private static final BindingMatcher<Reference> lowerRefMatcher = ReferenceMatchers.anyRef();
+    // This rule passes the quantifier on unchanged, so it can match _any_ for-each quantifier.
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = anyForEachQuantifierOverRef(lowerRefMatcher);
     @Nonnull
     private static final BindingMatcher<SelectExpression> root =
             selectExpression(any(innerQuantifierMatcher));

@@ -28,12 +28,7 @@ import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Existential;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.ForEach;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier.Physical;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.ComputingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.DependencyUtils;
@@ -74,20 +69,6 @@ import java.util.stream.StreamSupport;
  * Auxiliary class containing factory methods and helpers for {@link Quantifier}.
  */
 public final class Quantifiers {
-
-    /**
-     * “Allowlist” of expressions whose corresponding implementation rules recognize and honor for-each quantifiers with
-     * null-on-empty semantics.
-     */
-    @Nonnull
-    private static final Set<Class<? extends RelationalExpression>> NULL_ON_EMPTY_AWARE_EXPRESSIONS =
-            ImmutableSet.of(
-                    SelectExpression.class,          // ImplementSimpleSelectRule, ImplementNestedLoopJoinRule
-                    LogicalSortExpression.class,     // RemoveSortRule
-                    LogicalDistinctExpression.class, // ImplementDistinctRule
-                    LogicalUniqueExpression.class,   // ImplementUniqueRule
-                    LogicalUnionExpression.class     // ImplementDistinctUnionRule, ImplementUnorderedUnionRule
-            );
 
     private Quantifiers() {
         // prevent instantiation
@@ -132,23 +113,6 @@ public final class Quantifiers {
             return call.memoizePlanBuilder(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(quantifier, builder.reference()));
         }
         return builder;
-    }
-
-    /**
-     * Verifies that the given expression does not own a for-each quantifier with null-on-empty semantics which its
-     * implementation would not honor. Only a limited set of implementation rules recognize null-on-empty and translate
-     * it into an appropriate plan such as {@link RecordQueryDefaultOnEmptyPlan}. On any other expression, such a
-     * quantifier would silently be ignored.
-     */
-    static void verifyNullOnEmptyAwareness(@Nonnull final RelationalExpression expression) {
-        if (NULL_ON_EMPTY_AWARE_EXPRESSIONS.stream().anyMatch(type -> type.isInstance(expression))) {
-            return;
-        }
-        for (final Quantifier quantifier : expression.getQuantifiers()) {
-            Verify.verify(!isForEachWithNullOnEmpty(quantifier),
-                    "Unsupported null-on-empty for-each quantifier on expression of type %s",
-                    expression.getClass().getSimpleName());
-        }
     }
 
     @Nonnull

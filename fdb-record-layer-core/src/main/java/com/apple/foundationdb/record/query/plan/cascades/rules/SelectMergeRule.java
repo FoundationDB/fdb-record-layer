@@ -60,7 +60,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.rollUpPartitionsTo;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutDefaultOnEmptyOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.isFinalExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.withPredicatesExpression;
@@ -90,7 +90,7 @@ public class SelectMergeRule extends AbstractCascadesRule<SelectExpression> impl
 
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> quantifiersMatcher =
-            some(forEachQuantifierWithoutDefaultOnEmptyOverRef(childReferenceMatcher));
+            some(forEachQuantifierOverRef(childReferenceMatcher));
 
     @Nonnull
     private static final BindingMatcher<SelectExpression> root = selectExpression(quantifiersMatcher).where(isFinalExpression());
