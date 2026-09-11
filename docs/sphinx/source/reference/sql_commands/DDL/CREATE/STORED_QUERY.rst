@@ -37,11 +37,11 @@ Parameters
 ``query_name``
     The name of the stored query, unique within the schema template. The name identifies the stored query in metadata; it is not used to invoke the query.
 
-signature
-    Optional. Declares typed named parameters, which the body refers to by name. See `Signature`_ below. A signature requires a ``PREPARE FOR`` block, and a ``PREPARE FOR`` block requires a signature.
+parameter list
+    Optional. Declares typed named parameters, which the body refers to by name. See `Parameter list`_ below. A parameter list requires a ``PREPARE FOR`` block, and a ``PREPARE FOR`` block requires a parameter list.
 
 ``PREPARE FOR`` block
-    Required whenever a signature is present. Lists the combinations of parameter states that each get their own warmed plan. Every case must pin every declared parameter. See `Prepared cases`_ below.
+    Required whenever a parameter list is present. Lists the combinations of parameter states that each get their own warmed plan. Every case must pin every declared parameter. See `Prepared cases`_ below.
 
 ``DECLARE`` block
     Optional. Declares one or more transaction-local functions that the stored query body may call, using the same syntax as :ref:`CREATE TEMPORARY FUNCTION <create_temporary_function>`. Multiple functions are separated by semicolons.
@@ -49,8 +49,8 @@ signature
 ``query``
     The body of the stored query — any SELECT statement (including CTEs, recursive CTEs, and joins). The body may contain concrete literals.
 
-Signature
-=========
+Parameter list
+==============
 
 A stored query may declare parameters, which is how it stands in for a runtime query that binds values rather than writing them as literals:
 
@@ -77,7 +77,7 @@ The two are compared as raw strings, so the name a client uses is the declared i
         PREPARE FOR ("CK___zone_key" IS NOT NULL, adopter_a IS NOT NULL)
         AS SELECT * FROM t1 WHERE zone_key = "CK___zone_key" AND adopter = adopter_a
 
-``"CK___zone_key"`` is quoted, so it keeps its spelling and a client binds ``?CK___zone_key``. ``adopter_a`` is not, so it becomes ``ADOPTER_A`` and a client binds ``?ADOPTER_A``. Quote a parameter — in the signature, in the prepared cases, and in every reference in the body — whenever the client's spelling is not already upper case.
+``"CK___zone_key"`` is quoted, so it keeps its spelling and a client binds ``?CK___zone_key``. ``adopter_a`` is not, so it becomes ``ADOPTER_A`` and a client binds ``?ADOPTER_A``. Quote a parameter — in the parameter list, in the prepared cases, and in every reference in the body — whenever the client's spelling is not already upper case.
 
 A quoted name still has to be one a client can bind: it must start with a letter and continue with letters, digits, ``_`` or ``/``, which is what ``?name`` accepts. ``"my param"`` and ``"a-b"`` are rejected, because a reference to them in the body would become ``?my param``, which does not parse, and ``?a - b``, which parses as something else.
 
@@ -170,7 +170,7 @@ Temporary functions in scope are part of the plan-cache key, so a runtime query 
 
 The function definition must match the one declared in the stored query; the invocation's literal is stripped, so any argument value reuses the plan.
 
-A signature and a ``DECLARE`` block combine, and a parameter may be captured inside a function's body. ``PREPARE FOR`` comes before ``DECLARE``:
+A parameter list and a ``DECLARE`` block combine, and a parameter may be captured inside a function's body. ``PREPARE FOR`` comes before ``DECLARE``:
 
 .. code-block:: sql
 
