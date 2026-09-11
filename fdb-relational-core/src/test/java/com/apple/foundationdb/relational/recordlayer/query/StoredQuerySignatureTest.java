@@ -102,7 +102,7 @@ public class StoredQuerySignatureTest {
     void declarationIsPersistedUnderTheNormalizedName() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_NAMES", TABLE
                 + " CREATE STORED QUERY q(param_a BIGINT, \"mixedCase\" STRING NOT NULL)"
-                + " PREPARE FOR ((param_a IS NOT NULL, \"mixedCase\" IS NOT NULL))"
+                + " PREPARE FOR (param_a IS NOT NULL, \"mixedCase\" IS NOT NULL)"
                 + " AS SELECT id FROM t1 WHERE col1 = param_a AND col2 = \"mixedCase\"");
         Assertions.assertThat(storedQueries.get("Q").getParameters())
                 .containsExactlyInAnyOrderEntriesOf(Map.of(
@@ -122,7 +122,7 @@ public class StoredQuerySignatureTest {
     void declarationTextKeepsItsSpacing() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_TEXT", TABLE
                 + " CREATE STORED QUERY q(p1 BIGINT ARRAY, p2 BIGINT NOT NULL, p3 BIGINT NULL)"
-                + " PREPARE FOR ((p1 IS NOT NULL, p2 IS NOT NULL, p3 IS NULL))"
+                + " PREPARE FOR (p1 IS NOT NULL, p2 IS NOT NULL, p3 IS NULL)"
                 + " AS SELECT id FROM t1 WHERE col1 = p2");
         Assertions.assertThat(storedQueries.get("Q").getParameters())
                 .containsExactlyInAnyOrderEntriesOf(Map.of(
@@ -139,8 +139,8 @@ public class StoredQuerySignatureTest {
     void everyStateIsPersisted() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_STATES", TABLE
                 + " CREATE STORED QUERY q(p1 BIGINT, p2 BIGINT, b BOOLEAN)"
-                + " PREPARE FOR ((p1 IS NULL, p2 IS NOT NULL, b = TRUE),"
-                + "              (p1 IS NULL, p2 IS NOT NULL, b = FALSE))"
+                + " PREPARE FOR (p1 IS NULL, p2 IS NOT NULL, b = TRUE),"
+                + "             (p1 IS NULL, p2 IS NOT NULL, b = FALSE)"
                 + " AS SELECT id FROM t1 WHERE col1 = p1 AND col2 = p2 AND flag = b");
         Assertions.assertThat(storedQueries.get("Q").getPreparedCases()).containsExactly(
                 Map.of("P1", ParameterState.IS_NULL, "P2", ParameterState.IS_NOT_NULL, "B", ParameterState.IS_TRUE),
@@ -155,7 +155,7 @@ public class StoredQuerySignatureTest {
     void bodyReferencesBecomeNamedParameters() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_REWRITE", TABLE
                 + " CREATE STORED QUERY q(param_a BIGINT, \"mixedCase\" STRING)"
-                + " PREPARE FOR ((param_a IS NOT NULL, \"mixedCase\" IS NOT NULL))"
+                + " PREPARE FOR (param_a IS NOT NULL, \"mixedCase\" IS NOT NULL)"
                 + " AS SELECT id FROM t1 WHERE col1 = param_a AND col2 = \"mixedCase\"");
         Assertions.assertThat(storedQueries.get("Q").getQuery())
                 .isEqualTo("SELECT id FROM t1 WHERE col1 = ?PARAM_A AND col2 = ?mixedCase");
@@ -170,7 +170,7 @@ public class StoredQuerySignatureTest {
     void arrayParameterInAnInListBecomesANamedParameter() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_INLIST", TABLE
                 + " CREATE STORED QUERY q(ids BIGINT ARRAY)"
-                + " PREPARE FOR ((ids IS NOT NULL))"
+                + " PREPARE FOR (ids IS NOT NULL)"
                 + " AS SELECT id FROM t1 WHERE col1 IN ids");
         Assertions.assertThat(storedQueries.get("Q").getQuery())
                 .isEqualTo("SELECT id FROM t1 WHERE col1 IN ?IDS");
@@ -183,7 +183,7 @@ public class StoredQuerySignatureTest {
     void preparedCasesAreNotPartOfTheStoredBody() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_BODY", TABLE
                 + " CREATE STORED QUERY q(param_a BIGINT)"
-                + " PREPARE FOR ((param_a IS NULL), (param_a IS NOT NULL))"
+                + " PREPARE FOR (param_a IS NULL), (param_a IS NOT NULL)"
                 + " AS SELECT id FROM t1 WHERE col1 = param_a");
         Assertions.assertThat(storedQueries.get("Q").getQuery())
                 .isEqualTo("SELECT id FROM t1 WHERE col1 = ?PARAM_A");
@@ -197,7 +197,7 @@ public class StoredQuerySignatureTest {
     void qualifiedReferenceIsLeftAlone() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_QUALIFIED", TABLE
                 + " CREATE STORED QUERY q(col1 BIGINT)"
-                + " PREPARE FOR ((col1 IS NOT NULL))"
+                + " PREPARE FOR (col1 IS NOT NULL)"
                 + " AS SELECT id FROM t1 WHERE t1.col1 = 10");
         Assertions.assertThat(storedQueries.get("Q").getQuery())
                 .isEqualTo("SELECT id FROM t1 WHERE t1.col1 = 10");
@@ -211,7 +211,7 @@ public class StoredQuerySignatureTest {
     void referencesInsideDeclaredFunctionsAreRewritten() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_FUNC", TABLE
                 + " CREATE STORED QUERY q(param_a BIGINT)"
-                + " PREPARE FOR ((param_a IS NOT NULL))"
+                + " PREPARE FOR (param_a IS NOT NULL)"
                 + " DECLARE FUNCTION f1(p BIGINT) AS (SELECT * FROM t1 WHERE col1 = p AND col2 = param_a)"
                 + " AS SELECT id FROM f1(param_a)");
         final var storedQuery = storedQueries.get("Q");
@@ -246,12 +246,12 @@ public class StoredQuerySignatureTest {
     void parameterNameThatCannotBeBoundIsRejected() {
         expectFailure("/TEST/SQS_BADNAME", TABLE
                         + " CREATE STORED QUERY q(\"my param\" BIGINT)"
-                        + " PREPARE FOR ((\"my param\" IS NOT NULL))"
+                        + " PREPARE FOR (\"my param\" IS NOT NULL)"
                         + " AS SELECT id FROM t1 WHERE col1 = \"my param\"",
                 "cannot be bound as '?my param'");
         expectFailure("/TEST/SQS_BADNAME_DASH", TABLE
                         + " CREATE STORED QUERY q(\"a-b\" BIGINT)"
-                        + " PREPARE FOR ((\"a-b\" IS NOT NULL))"
+                        + " PREPARE FOR (\"a-b\" IS NOT NULL)"
                         + " AS SELECT id FROM t1 WHERE col1 = \"a-b\"",
                 "cannot be bound as '?a-b'");
     }
@@ -266,8 +266,8 @@ public class StoredQuerySignatureTest {
     void signatureAndCasesSurviveAProtoRoundTrip() throws Exception {
         final var template = templateOf("/TEST/SQS_ROUNDTRIP", TABLE
                 + " CREATE STORED QUERY q(param_a BIGINT, \"mixedCase\" STRING NOT NULL, p3 BIGINT ARRAY, b BOOLEAN)"
-                + " PREPARE FOR ((param_a IS NULL, \"mixedCase\" IS NOT NULL, p3 IS NOT NULL, b = TRUE),"
-                + "              (param_a IS NOT NULL, \"mixedCase\" IS NOT NULL, p3 IS NOT NULL, b = FALSE))"
+                + " PREPARE FOR (param_a IS NULL, \"mixedCase\" IS NOT NULL, p3 IS NOT NULL, b = TRUE),"
+                + "             (param_a IS NOT NULL, \"mixedCase\" IS NOT NULL, p3 IS NOT NULL, b = FALSE)"
                 + " DECLARE FUNCTION f1(p BIGINT) AS (SELECT * FROM t1 WHERE col1 = p AND col2 = \"mixedCase\")"
                 + " AS SELECT id FROM f1(param_a)");
 
@@ -315,7 +315,7 @@ public class StoredQuerySignatureTest {
     void parameterCollidingWithDeclaredFunctionParameterIsRejected() {
         expectFailure("/TEST/SQS_SHADOW", TABLE
                         + " CREATE STORED QUERY q(p BIGINT)"
-                        + " PREPARE FOR ((p IS NOT NULL))"
+                        + " PREPARE FOR (p IS NOT NULL)"
                         + " DECLARE FUNCTION f1(p BIGINT) AS (SELECT * FROM t1 WHERE col1 = p)"
                         + " AS SELECT id FROM f1(p)",
                 "collides with a stored query signature parameter");
@@ -340,7 +340,7 @@ public class StoredQuerySignatureTest {
     void preparedCasesWithoutSignatureAreRejected() {
         expectFailure("/TEST/SQS_NOSIG", TABLE
                         + " CREATE STORED QUERY q"
-                        + " PREPARE FOR ((param_a IS NOT NULL))"
+                        + " PREPARE FOR (param_a IS NOT NULL)"
                         + " AS SELECT id FROM t1 WHERE col1 = 10",
                 "PREPARE FOR requires a signature");
     }
@@ -349,7 +349,7 @@ public class StoredQuerySignatureTest {
     void unknownParameterInACaseIsRejected() {
         expectFailure("/TEST/SQS_UNKNOWN", TABLE
                         + " CREATE STORED QUERY q(param_a BIGINT)"
-                        + " PREPARE FOR ((param_a IS NOT NULL, param_b IS NOT NULL))"
+                        + " PREPARE FOR (param_a IS NOT NULL, param_b IS NOT NULL)"
                         + " AS SELECT id FROM t1 WHERE col1 = param_a",
                 "which the signature does not declare");
     }
@@ -361,7 +361,7 @@ public class StoredQuerySignatureTest {
     void caseLeavingANullableParameterUnpinnedIsRejected() {
         expectFailure("/TEST/SQS_INCOMPLETE", TABLE
                         + " CREATE STORED QUERY q(param_a BIGINT, param_b BIGINT)"
-                        + " PREPARE FOR ((param_a IS NOT NULL))"
+                        + " PREPARE FOR (param_a IS NOT NULL)"
                         + " AS SELECT id FROM t1 WHERE col1 = param_a AND col2 = param_b",
                 "a nullable parameter must be pinned to IS NULL or IS NOT NULL");
     }
@@ -374,7 +374,7 @@ public class StoredQuerySignatureTest {
     void notNullParameterMayBeLeftOutOfACase() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_OMIT", TABLE
                 + " CREATE STORED QUERY q(param_a BIGINT NOT NULL, param_b BIGINT)"
-                + " PREPARE FOR ((param_b IS NULL))"
+                + " PREPARE FOR (param_b IS NULL)"
                 + " AS SELECT id FROM t1 WHERE col1 = param_a AND col2 = param_b");
         Assertions.assertThat(storedQueries.get("Q").getPreparedCases())
                 .containsExactly(Map.of(
@@ -390,7 +390,7 @@ public class StoredQuerySignatureTest {
     void omittingANotNullParameterDuplicatesPinningItExplicitly() {
         expectFailure("/TEST/SQS_OMITDUP", TABLE
                         + " CREATE STORED QUERY q(param_a BIGINT NOT NULL, param_b BIGINT)"
-                        + " PREPARE FOR ((param_b IS NULL), (param_a IS NOT NULL, param_b IS NULL))"
+                        + " PREPARE FOR (param_b IS NULL), (param_a IS NOT NULL, param_b IS NULL)"
                         + " AS SELECT id FROM t1 WHERE col1 = param_a AND col2 = param_b",
                 "duplicate prepared case");
     }
@@ -399,7 +399,7 @@ public class StoredQuerySignatureTest {
     void parameterNamedTwiceInOneCaseIsRejected() {
         expectFailure("/TEST/SQS_CASEDUP", TABLE
                         + " CREATE STORED QUERY q(param_a BIGINT)"
-                        + " PREPARE FOR ((param_a IS NULL, param_a IS NOT NULL))"
+                        + " PREPARE FOR (param_a IS NULL, param_a IS NOT NULL)"
                         + " AS SELECT id FROM t1 WHERE col1 = param_a",
                 "more than once");
     }
@@ -412,7 +412,7 @@ public class StoredQuerySignatureTest {
     void nullCaseForNotNullParameterIsRejected() {
         expectFailure("/TEST/SQS_NOTNULL", TABLE
                         + " CREATE STORED QUERY q(param_a BIGINT NOT NULL)"
-                        + " PREPARE FOR ((param_a IS NULL))"
+                        + " PREPARE FOR (param_a IS NULL)"
                         + " AS SELECT id FROM t1 WHERE col1 = param_a",
                 "but the signature declares it NOT NULL");
     }
@@ -425,7 +425,7 @@ public class StoredQuerySignatureTest {
     void booleanStateForNonBooleanParameterIsRejected() {
         expectFailure("/TEST/SQS_NOTBOOL", TABLE
                         + " CREATE STORED QUERY q(param_a BIGINT)"
-                        + " PREPARE FOR ((param_a = TRUE))"
+                        + " PREPARE FOR (param_a = TRUE)"
                         + " AS SELECT id FROM t1 WHERE col1 = param_a",
                 "does not declare it BOOLEAN");
     }
@@ -437,7 +437,7 @@ public class StoredQuerySignatureTest {
     void booleanStateForBooleanArrayParameterIsRejected() {
         expectFailure("/TEST/SQS_BOOLARRAY", TABLE
                         + " CREATE STORED QUERY q(flags BOOLEAN ARRAY)"
-                        + " PREPARE FOR ((flags = TRUE))"
+                        + " PREPARE FOR (flags = TRUE)"
                         + " AS SELECT id FROM t1 WHERE col1 = 10",
                 "does not declare it BOOLEAN");
     }
@@ -450,8 +450,8 @@ public class StoredQuerySignatureTest {
     void duplicateCaseIsRejected() {
         expectFailure("/TEST/SQS_DUPCASE", TABLE
                         + " CREATE STORED QUERY q(param_a BIGINT, param_b BIGINT)"
-                        + " PREPARE FOR ((param_a IS NULL, param_b IS NOT NULL),"
-                        + "              (param_b IS NOT NULL, param_a IS NULL))"
+                        + " PREPARE FOR (param_a IS NULL, param_b IS NOT NULL),"
+                        + "             (param_b IS NOT NULL, param_a IS NULL)"
                         + " AS SELECT id FROM t1 WHERE col1 = param_a AND col2 = param_b",
                 "duplicate prepared case");
     }
@@ -463,7 +463,7 @@ public class StoredQuerySignatureTest {
     void distinctCasesAreKeptInOrder() throws Exception {
         final var storedQueries = storedQueriesOf("/TEST/SQS_ORDER", TABLE
                 + " CREATE STORED QUERY q(param_a BIGINT)"
-                + " PREPARE FOR ((param_a IS NOT NULL), (param_a IS NULL))"
+                + " PREPARE FOR (param_a IS NOT NULL), (param_a IS NULL)"
                 + " AS SELECT id FROM t1 WHERE col1 = param_a");
         Assertions.assertThat(storedQueries.get("Q").getPreparedCases()).containsExactly(
                 Map.of("PARAM_A", ParameterState.IS_NOT_NULL),
@@ -478,7 +478,7 @@ public class StoredQuerySignatureTest {
     void recordLayerKeepsStatesAsCanonicalTokens() throws Exception {
         final var recordMetaData = templateOf("/TEST/SQS_TOKENS", TABLE
                 + " CREATE STORED QUERY q(p1 BIGINT, b BOOLEAN)"
-                + " PREPARE FOR ((p1 IS NULL, b = FALSE))"
+                + " PREPARE FOR (p1 IS NULL, b = FALSE)"
                 + " AS SELECT id FROM t1 WHERE col1 = p1 AND flag = b").toRecordMetadata();
         Assertions.assertThat(recordMetaData.getStoredQueries().get("Q").getPreparedCases())
                 .isEqualTo(List.of(Map.of("P1", "IS_NULL", "B", "IS_FALSE")));

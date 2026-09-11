@@ -25,7 +25,6 @@ Diagram(
                 Terminal(')'),
                 Terminal('PREPARE'),
                 Terminal('FOR'),
-                Terminal('('),
                 OneOrMore(
                     Sequence(
                         Terminal('('),
@@ -54,8 +53,7 @@ Diagram(
                         Terminal(')')
                     ),
                     Terminal(',')
-                ),
-                Terminal(')')
+                )
             )
         ),
         Sequence(

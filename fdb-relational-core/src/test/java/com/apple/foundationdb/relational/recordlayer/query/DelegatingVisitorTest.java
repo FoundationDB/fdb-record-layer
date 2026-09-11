@@ -276,7 +276,7 @@ public class DelegatingVisitorTest {
 
     @Test
     void visitStoredQueryPreparedCasesTest() {
-        testSimple("PREPARE FOR ((param_a IS NULL), (param_a IS NOT NULL))",
+        testSimple("PREPARE FOR (param_a IS NULL), (param_a IS NOT NULL)",
                 RelationalParser::storedQueryPreparedCases,
                 DelegatingVisitor::visitStoredQueryPreparedCases,
                 called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),

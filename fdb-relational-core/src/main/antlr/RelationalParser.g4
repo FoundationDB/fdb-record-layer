@@ -262,7 +262,7 @@ storedQueryParameter
     ;
 
 storedQueryPreparedCases
-    : PREPARE FOR '(' storedQueryPreparedCase (',' storedQueryPreparedCase)* ')'
+    : PREPARE FOR storedQueryPreparedCase (',' storedQueryPreparedCase)*
     ;
 
 storedQueryPreparedCase
