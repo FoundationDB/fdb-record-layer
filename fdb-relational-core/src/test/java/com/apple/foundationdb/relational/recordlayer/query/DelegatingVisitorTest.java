@@ -245,6 +245,81 @@ public class DelegatingVisitorTest {
     }
 
     @Test
+    void visitStoredQueryParameterListTest() {
+        testSimple("(param_a BIGINT, param_b STRING NOT NULL)",
+                RelationalParser::storedQueryParameterList,
+                DelegatingVisitor::visitStoredQueryParameterList,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitStoredQueryParameterList(RelationalParser.StoredQueryParameterListContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitStoredQueryParameterTest() {
+        testSimple("param_a BIGINT NOT NULL",
+                RelationalParser::storedQueryParameter,
+                DelegatingVisitor::visitStoredQueryParameter,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitStoredQueryParameter(RelationalParser.StoredQueryParameterContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitStoredQueryPreparedCasesTest() {
+        testSimple("PREPARE FOR (param_a IS NULL), (param_a IS NOT NULL)",
+                RelationalParser::storedQueryPreparedCases,
+                DelegatingVisitor::visitStoredQueryPreparedCases,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitStoredQueryPreparedCases(RelationalParser.StoredQueryPreparedCasesContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitStoredQueryPreparedCaseTest() {
+        testSimple("(param_a IS NOT NULL, param_b = TRUE)",
+                RelationalParser::storedQueryPreparedCase,
+                DelegatingVisitor::visitStoredQueryPreparedCase,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitStoredQueryPreparedCase(RelationalParser.StoredQueryPreparedCaseContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
+    void visitStoredQueryParameterStateTest() {
+        testSimple("param_a IS NOT NULL",
+                RelationalParser::storedQueryParameterState,
+                DelegatingVisitor::visitStoredQueryParameterState,
+                called -> new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, "", "", 42),
+                        generateMetadata(), NoOpQueryFactory.INSTANCE, NoOpMetadataOperationsFactory.INSTANCE, URI.create("/FDB/FRL1"), false) {
+                    @Override
+                    public Object visitStoredQueryParameterState(RelationalParser.StoredQueryParameterStateContext ctx) {
+                        called.set(true);
+                        return null;
+                    }
+                });
+    }
+
+    @Test
     void visitDeclareBlockTest() {
         testSimple("DECLARE FUNCTION f() AS (SELECT 1)",
                 RelationalParser::declareBlock,

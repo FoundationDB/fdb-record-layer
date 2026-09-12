@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
+import com.apple.foundationdb.relational.api.metadata.StoredQuery;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
@@ -65,24 +66,33 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.tree.ParseTree;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
+    // Must match what NAMED_PARAMETER accepts after its '?', since a reference is rewritten to '?name'.
+    private static final Pattern BINDABLE_PARAMETER_NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_/]*");
+
     // The vector engines an option may apply to. HNSW is the engine used when the VECTOR_ENGINE option is absent.
     private static final Set<VectorIndexEngineKind> ANY_ENGINE =
             ImmutableSet.of(VectorIndexEngineKind.HNSW, VectorIndexEngineKind.GUARDIANN);
@@ -529,16 +539,22 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 final var queryCtx = templateClause.storedQueryDefinition();
                 final var name = visitUid(queryCtx.queryName).getName();
                 final var sourceText = getDelegate().getPlanGenerationContext().getQuery();
-                final var start = queryCtx.storedQuery.start.getStartIndex();
-                final var stop = queryCtx.storedQuery.stop.getStopIndex() + 1;
-                final var queryString = sourceText.substring(start, stop);
+                final var parameters = parseParameterList(queryCtx.storedQueryParameterList(), sourceText);
+                final var preparedCases = parsePreparedCases(queryCtx.storedQueryPreparedCases(),
+                        queryCtx.storedQueryParameterList(), parameters.keySet());
+                final var queryString = rewriteReferencesToParams(sourceText, queryCtx.storedQuery, parameters.keySet());
                 final ImmutableList.Builder<String> tempFunctionTexts = ImmutableList.builder();
                 if (queryCtx.declareBlock() != null) {
                     for (final var dfCtx : queryCtx.declareBlock().declaredFunction()) {
-                        tempFunctionTexts.add(rewriteDeclaredFunctionToStandalone(dfCtx, sourceText));
+                        // The two are indistinguishable in the body, so the rewrite cannot tell them apart.
+                        final var shadowed = Sets.intersection(ownParameterNames(dfCtx), parameters.keySet());
+                        Assert.thatUnchecked(shadowed.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
+                                () -> "declared function parameter " + shadowed
+                                        + " collides with a stored query parameter");
+                        tempFunctionTexts.add(rewriteDeclaredFunctionToStandalone(dfCtx, sourceText, parameters.keySet()));
                     }
                 }
-                metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts.build());
+                metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts.build(), parameters, preparedCases);
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());
@@ -911,12 +927,240 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      * for the underlying case-sensitivity behavior of the normalizer.</p>
      */
     @Nonnull
-    private static String rewriteDeclaredFunctionToStandalone(@Nonnull final RelationalParser.DeclaredFunctionContext ctx,
-                                                              @Nonnull final String sourceText) {
+    private String rewriteDeclaredFunctionToStandalone(@Nonnull final RelationalParser.DeclaredFunctionContext ctx,
+                                                       @Nonnull final String sourceText,
+                                                       @Nonnull final Set<String> declaredNames) {
         final String name = sliceSource(sourceText, ctx.functionName);
         final String paramList = sliceSource(sourceText, ctx.sqlParameterDeclarationList());
-        final String body = sliceSource(sourceText, ctx.functionBody);
+        final String body = rewriteReferencesToParams(sourceText, ctx.functionBody, declaredNames);
         return "CREATE TEMPORARY FUNCTION " + name + paramList + " ON COMMIT DROP FUNCTION AS " + body;
+    }
+
+    /**
+     * Parses a stored query's parameter list into a map from normalized parameter name to the SQL text of its
+     * declaration. The declaration is kept as source text, not as a resolved type, because it may name a schema
+     * template type that only resolves against the template the query is warmed with.
+     *
+     * @param ctx the parameter list, or {@code null} when the query declares none
+     * @param sourceText the full DDL source, for slicing declaration text out of
+     * @return the declared parameters, keyed by normalized name, empty if there are none
+     */
+    @Nonnull
+    private Map<String, String> parseParameterList(@Nullable final RelationalParser.StoredQueryParameterListContext ctx,
+                                               @Nonnull final String sourceText) {
+        if (ctx == null) {
+            return ImmutableMap.of();
+        }
+        final var parameters = new LinkedHashMap<String, String>();
+        for (final var param : ctx.storedQueryParameter()) {
+            final var parameterName = visitUid(param.parameterName).getName();
+            Assert.thatUnchecked(BINDABLE_PARAMETER_NAME.matcher(parameterName).matches(), ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "stored query parameter '" + parameterName + "' cannot be bound as '?"
+                            + parameterName + "'; a parameter name must be a letter followed by letters, digits, "
+                            + "'_' or '/'");
+            // Visited for the side effect: a malformed type is reported at CREATE time. A name the template does not
+            // define resolves to a placeholder here and is only caught at warm-up.
+            Assert.notNullUnchecked(visitFunctionColumnType(param.parameterType));
+            // Sliced from the source, not rebuilt from tokens: the lexer skips whitespace, so `BIGINT ARRAY` would
+            // come back as `BIGINTARRAY`.
+            final ParserRuleContext lastCtx = param.nullNotnull() != null ? param.nullNotnull() : param.parameterType;
+            final var declaredType = sourceText.substring(param.parameterType.start.getStartIndex(),
+                    lastCtx.stop.getStopIndex() + 1);
+            Assert.thatUnchecked(parameters.put(parameterName, declaredType) == null, ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "duplicate stored query parameter '" + parameterName + "'");
+        }
+        return ImmutableMap.copyOf(parameters);
+    }
+
+    /**
+     * Parses the {@code PREPARE FOR} block: the combinations of parameter states this query is warmed for, one plan
+     * each.
+     *
+     * @param ctx the block, or {@code null} when the query has none
+     * @param parameterListCtx the parameter list the block pins, or {@code null} when the query has none
+     * @param parameterNames the names the list declares, normalized
+     * @return one map per case, from parameter name to its state, empty if the query declares no parameters
+     */
+    @Nonnull
+    private List<Map<String, StoredQuery.ParameterState>> parsePreparedCases(
+            @Nullable final RelationalParser.StoredQueryPreparedCasesContext ctx,
+            @Nullable final RelationalParser.StoredQueryParameterListContext parameterListCtx,
+            @Nonnull final Set<String> parameterNames) {
+        if (ctx == null) {
+            Assert.thatUnchecked(parameterNames.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "stored query declaring parameters " + parameterNames + " requires a PREPARE FOR block");
+            return ImmutableList.of();
+        }
+        Assert.thatUnchecked(parameterListCtx != null && !parameterNames.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
+                () -> "PREPARE FOR requires a parameter list, since it pins the parameters the list declares");
+        final var facts = parameterFactsOf(parameterListCtx);
+        final var cases = new ArrayList<Map<String, StoredQuery.ParameterState>>();
+        for (final var caseCtx : ctx.storedQueryPreparedCase()) {
+            final var preparedCase = parsePreparedCase(caseCtx, parameterNames, facts);
+            Assert.thatUnchecked(!cases.contains(preparedCase), ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "duplicate prepared case " + preparedCase);
+            cases.add(preparedCase);
+        }
+        return ImmutableList.copyOf(cases);
+    }
+
+    /**
+     * The facts about the declared parameters that a prepared case has to agree with.
+     *
+     * @param nonNullable the parameters declared {@code NOT NULL}
+     * @param booleans the parameters declared as the primitive {@code BOOLEAN}
+     */
+    private record ParameterFacts(@Nonnull Set<String> nonNullable, @Nonnull Set<String> booleans) {
+    }
+
+    @Nonnull
+    private ParameterFacts parameterFactsOf(@Nonnull final RelationalParser.StoredQueryParameterListContext ctx) {
+        final var nonNullable = ImmutableSet.<String>builder();
+        final var booleans = ImmutableSet.<String>builder();
+        for (final var param : ctx.storedQueryParameter()) {
+            final var parameterName = visitUid(param.parameterName).getName();
+            if (param.nullNotnull() != null && param.nullNotnull().NOT() != null) {
+                nonNullable.add(parameterName);
+            }
+            // BOOLEAN is a primitive, so this reads off the parse tree and needs no type resolution.
+            final var declaredType = param.parameterType;
+            if (declaredType.primitiveType() != null && declaredType.primitiveType().BOOLEAN() != null
+                    && declaredType.ARRAY() == null) {
+                booleans.add(parameterName);
+            }
+        }
+        return new ParameterFacts(nonNullable.build(), booleans.build());
+    }
+
+    /**
+     * Parses one case and returns it completed: a {@code NOT NULL} parameter left out is recorded as
+     * {@code IS_NOT_NULL}, which is the only state its declaration allows.
+     */
+    @Nonnull
+    private Map<String, StoredQuery.ParameterState> parsePreparedCase(
+            @Nonnull final RelationalParser.StoredQueryPreparedCaseContext ctx,
+            @Nonnull final Set<String> parameterNames,
+            @Nonnull final ParameterFacts facts) {
+        final var states = new LinkedHashMap<String, StoredQuery.ParameterState>();
+        for (final var stateCtx : ctx.storedQueryParameterState()) {
+            final var parameterName = visitUid(stateCtx.parameterName).getName();
+            Assert.thatUnchecked(parameterNames.contains(parameterName), ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "prepared case names '" + parameterName + "', which the parameter list does not declare");
+            final var state = parameterStateOf(stateCtx);
+            Assert.thatUnchecked(state != StoredQuery.ParameterState.IS_NULL
+                            || !facts.nonNullable().contains(parameterName),
+                    ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "prepared case pins '" + parameterName + "' to IS NULL, but the parameter list declares it NOT NULL");
+            Assert.thatUnchecked((state != StoredQuery.ParameterState.IS_TRUE
+                            && state != StoredQuery.ParameterState.IS_FALSE)
+                            || facts.booleans().contains(parameterName),
+                    ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "prepared case pins '" + parameterName + "' to a boolean, but the parameter list does not declare it BOOLEAN");
+            Assert.thatUnchecked(states.put(parameterName, state) == null, ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "prepared case names '" + parameterName + "' more than once");
+        }
+        // Snapshotted, because Sets.difference is a live view over states.keySet(), which is filled in below.
+        final var unpinned = ImmutableSet.copyOf(Sets.difference(parameterNames, states.keySet()));
+        final var unpinnedNullable = Sets.difference(unpinned, facts.nonNullable());
+        Assert.thatUnchecked(unpinnedNullable.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
+                () -> "prepared case leaves nullable " + unpinnedNullable
+                        + " unpinned; a nullable parameter must be pinned to IS NULL or IS NOT NULL");
+        // A NOT NULL parameter left out is recorded as IS_NOT_NULL, so the persisted case states every parameter.
+        for (final var parameterName : unpinned) {
+            states.put(parameterName, StoredQuery.ParameterState.IS_NOT_NULL);
+        }
+        return ImmutableMap.copyOf(states);
+    }
+
+    /**
+     * Reads one written state.
+     */
+    @Nonnull
+    private static StoredQuery.ParameterState parameterStateOf(
+            @Nonnull final RelationalParser.StoredQueryParameterStateContext ctx) {
+        if (ctx.nullNotnull() != null) {
+            return ctx.nullNotnull().NOT() == null
+                   ? StoredQuery.ParameterState.IS_NULL
+                   : StoredQuery.ParameterState.IS_NOT_NULL;
+        }
+        return Boolean.parseBoolean(ctx.booleanLiteral().getText())
+               ? StoredQuery.ParameterState.IS_TRUE
+               : StoredQuery.ParameterState.IS_FALSE;
+    }
+
+    /**
+     * Returns the names a declared function declares for its own parameters, normalized as identifiers so they can be
+     * compared with a stored query's declared parameters.
+     */
+    @Nonnull
+    private Set<String> ownParameterNames(@Nonnull final RelationalParser.DeclaredFunctionContext ctx) {
+        final var declarations = ctx.sqlParameterDeclarationList().sqlParameterDeclarations();
+        if (declarations == null) {
+            return Set.of();
+        }
+        return declarations.sqlParameterDeclaration().stream()
+                .map(declaration -> declaration.sqlParameterName)
+                .filter(Objects::nonNull)
+                .map(uid -> visitUid(uid).getName())
+                .collect(ImmutableSet.toImmutableSet());
+    }
+
+    /**
+     * Rewrites every reference to a declared parameter inside {@code fragment} from a bare identifier into the
+     * {@code ?name} form a prepared statement uses, and returns the rewritten source. References are matched as
+     * identifiers, so a quoted reference finds a quoted declaration, and the emitted name is the normalized one, which
+     * is the name the client must bind.
+     */
+    @Nonnull
+    private String rewriteReferencesToParams(@Nonnull final String sourceText,
+                                             @Nonnull final ParserRuleContext fragment,
+                                             @Nonnull final Set<String> declaredNames) {
+        final int fragmentStart = fragment.getStart().getStartIndex();
+        final int fragmentStop = fragment.getStop().getStopIndex() + 1;
+        if (declaredNames.isEmpty()) {
+            return sourceText.substring(fragmentStart, fragmentStop);
+        }
+        final List<RelationalParser.UidContext> references = new ArrayList<>();
+        collectParameterReferences(fragment, declaredNames, references);
+        // Splice by character offset into the original text rather than reconstructing from tokens: the lexer skips
+        // whitespace, so rebuilding (e.g. via TokenStreamRewriter) would drop it.
+        references.sort(Comparator.comparingInt(uid -> uid.getStart().getStartIndex()));
+        final var rewritten = new StringBuilder();
+        int copiedUpTo = fragmentStart;
+        for (final var reference : references) {
+            rewritten.append(sourceText, copiedUpTo, reference.getStart().getStartIndex());
+            rewritten.append('?').append(visitUid(reference).getName());
+            copiedUpTo = reference.getStop().getStopIndex() + 1;
+        }
+        rewritten.append(sourceText, copiedUpTo, fragmentStop);
+        return rewritten.toString();
+    }
+
+    /**
+     * Collects the single-part column references in {@code tree} that name one of {@code declaredNames}. A qualified
+     * reference is left alone: a declared parameter has no qualifier, so {@code t.x} is a column even when a parameter
+     * named {@code x} exists.
+     *
+     * <p>
+     * Matched on {@code fullColumnName} itself rather than on the expression atom that wraps it, because an
+     * {@code IN} list names an array through its own {@code fullColumnName} alternative, which is not an expression.
+     * Inside a query every {@code fullColumnName} is a reference — an alias is a plain {@code uid} and a table name a
+     * {@code fullId} — so there is nothing here that must not be rewritten.
+     * </p>
+     */
+    private void collectParameterReferences(@Nonnull final ParseTree tree,
+                                            @Nonnull final Set<String> declaredNames,
+                                            @Nonnull final List<RelationalParser.UidContext> references) {
+        if (tree instanceof RelationalParser.FullColumnNameContext) {
+            final var uids = ((RelationalParser.FullColumnNameContext)tree).fullId().uid();
+            if (uids.size() == 1 && declaredNames.contains(visitUid(uids.get(0)).getName())) {
+                references.add(uids.get(0));
+                return;
+            }
+        }
+        for (int i = 0; i < tree.getChildCount(); i++) {
+            collectParameterReferences(tree.getChild(i), declaredNames, references);
+        }
     }
 
     @Nonnull

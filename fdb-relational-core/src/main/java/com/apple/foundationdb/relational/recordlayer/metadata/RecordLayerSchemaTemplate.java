@@ -560,8 +560,10 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         @Nonnull
         public Builder addStoredQuery(@Nonnull final String name, @Nonnull final String storedQuery,
-                                      @Nonnull final List<String> tempFunctions) {
-            storedQueries.put(name, new StoredQuery(storedQuery, tempFunctions));
+                                      @Nonnull final List<String> tempFunctions,
+                                      @Nonnull final Map<String, String> parameters,
+                                      @Nonnull final List<Map<String, StoredQuery.ParameterState>> preparedCases) {
+            storedQueries.put(name, new StoredQuery(storedQuery, tempFunctions, parameters, preparedCases));
             return this;
         }
 

@@ -28,7 +28,9 @@ import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.ProtoUtils;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.StoredQuery;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
@@ -40,6 +42,8 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -125,7 +129,8 @@ public class RecordMetadataDeserializer {
         }
         for (final var entry : recordMetaData.getStoredQueries().entrySet()) {
             final RecordMetaData.StoredQuery storedQuery = entry.getValue();
-            schemaTemplateBuilder.addStoredQuery(entry.getKey(), storedQuery.getQuery(), storedQuery.getTempFunctions());
+            schemaTemplateBuilder.addStoredQuery(entry.getKey(), storedQuery.getQuery(), storedQuery.getTempFunctions(),
+                    storedQuery.getParameters(), parsePreparedCases(entry.getKey(), storedQuery.getPreparedCases()));
         }
         schemaTemplateBuilder.setCachedMetadata(recordMetaData);
         return schemaTemplateBuilder;
@@ -200,5 +205,40 @@ public class RecordMetadataDeserializer {
     @Nonnull
     public RecordMetaData getRecordMetaData() {
         return recordMetaData;
+    }
+
+    /**
+     * Turns the canonical tokens the record layer stores back into {@link StoredQuery.ParameterState} constants. An
+     * unrecognized token is reported here rather than carried into warm-up.
+     *
+     * @param queryName the stored query the cases belong to, for the error message
+     * @param preparedCases one map per case, from parameter name to canonical token
+     * @return the same cases with each token resolved
+     */
+    @Nonnull
+    private static List<Map<String, StoredQuery.ParameterState>> parsePreparedCases(
+            @Nonnull final String queryName, @Nonnull final List<Map<String, String>> preparedCases) {
+        final ImmutableList.Builder<Map<String, StoredQuery.ParameterState>> parsed = ImmutableList.builder();
+        for (final Map<String, String> preparedCase : preparedCases) {
+            final ImmutableMap.Builder<String, StoredQuery.ParameterState> states = ImmutableMap.builder();
+            for (final Map.Entry<String, String> entry : preparedCase.entrySet()) {
+                states.put(entry.getKey(), parseParameterState(queryName, entry.getKey(), entry.getValue()));
+            }
+            parsed.add(states.build());
+        }
+        return parsed.build();
+    }
+
+    @Nonnull
+    private static StoredQuery.ParameterState parseParameterState(@Nonnull final String queryName,
+                                                                  @Nonnull final String parameterName,
+                                                                  @Nonnull final String token) {
+        try {
+            return StoredQuery.ParameterState.valueOf(token);
+        } catch (final IllegalArgumentException e) {
+            throw Assert.failUnchecked(ErrorCode.INTERNAL_ERROR,
+                    "unknown prepared case state '" + token + "' for parameter '" + parameterName
+                            + "' of stored query '" + queryName + "'", e);
+        }
     }
 }

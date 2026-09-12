@@ -250,7 +250,28 @@ viewDefinition
     ;
 
 storedQueryDefinition
-    : STORED QUERY queryName=uid declareBlock? AS storedQuery=query
+    : STORED QUERY queryName=uid storedQueryParameterList? storedQueryPreparedCases? declareBlock? AS storedQuery=query
+    ;
+
+storedQueryParameterList
+    : '(' (storedQueryParameter (',' storedQueryParameter)*)? ')'
+    ;
+
+storedQueryParameter
+    : parameterName=uid parameterType=functionColumnType nullNotnull?
+    ;
+
+storedQueryPreparedCases
+    : PREPARE FOR storedQueryPreparedCase (',' storedQueryPreparedCase)*
+    ;
+
+storedQueryPreparedCase
+    : '(' storedQueryParameterState (',' storedQueryParameterState)* ')'
+    ;
+
+storedQueryParameterState
+    : parameterName=uid IS nullNotnull
+    | parameterName=uid EQUAL_SYMBOL booleanLiteral
     ;
 
 declareBlock
