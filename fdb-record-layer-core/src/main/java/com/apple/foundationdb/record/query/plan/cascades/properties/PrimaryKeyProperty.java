@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexValuePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -195,6 +196,16 @@ public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Valu
         @Nonnull
         @Override
         public Optional<List<Value>> visitCoveringIndexPlan(@Nonnull final RecordQueryCoveringIndexPlan coveringIndexPlan) {
+            final var indexPlan = coveringIndexPlan.getIndexPlan();
+            if (indexPlan instanceof RecordQueryIndexPlan) {
+                return visitIndexPlan((RecordQueryIndexPlan)indexPlan);
+            }
+            return Optional.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Optional<List<Value>> visitCoveringIndexValuePlan(@Nonnull final RecordQueryCoveringIndexValuePlan coveringIndexPlan) {
             final var indexPlan = coveringIndexPlan.getIndexPlan();
             if (indexPlan instanceof RecordQueryIndexPlan) {
                 return visitIndexPlan((RecordQueryIndexPlan)indexPlan);

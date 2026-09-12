@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
@@ -38,7 +39,10 @@ import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException;
@@ -58,13 +62,16 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -148,6 +155,46 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 EvaluationContext.empty()).getPlan();
 
         assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()));
+    }
+
+    /**
+     * The planner gives an aggregate index plan a value that reads its index entries, alongside the copiers that did so
+     * before. Rewriting the plan -- to a strictly sorted one, or through a translation -- has to carry that value along,
+     * or the rewritten plan would silently fall back to the copiers.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    public void rewritingAnAggregateIndexPlanKeepsItsEntryReader() {
+        setupHookAndAddData(false, true);
+        final var cascadesPlanner = (CascadesPlanner)planner;
+        final var plan = cascadesPlanner.planGraph(
+                () -> constructGroupByPlan(false, false, GroupingKind.REGULAR_GROUPING),
+                Optional.empty(),
+                IndexQueryabilityFilter.TRUE,
+                EvaluationContext.empty()).getPlan();
+        assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()));
+
+        final var aggregatePlan = (RecordQueryAggregateIndexPlan)Iterables.getOnlyElement(plan.getChildren());
+        Assertions.assertTrue(hasEntryReader(aggregatePlan), "the planner builds a value reading index entries");
+
+        final var strictlySorted = aggregatePlan.strictlySorted(Memoizer.noMemoization(PlannerStage.PLANNED));
+        Assertions.assertTrue(strictlySorted.isStrictlySorted());
+        Assertions.assertTrue(hasEntryReader(strictlySorted));
+
+        Assertions.assertSame(aggregatePlan,
+                aggregatePlan.translateCorrelations(TranslationMap.empty(), false, ImmutableList.of()));
+        final var translated = aggregatePlan.translateCorrelations(
+                TranslationMap.ofAliases(CorrelationIdentifier.of("source"), CorrelationIdentifier.of("target")),
+                false, ImmutableList.of());
+        assertEquals(aggregatePlan, translated, "nothing in this plan is correlated, so the translation is a no-op");
+        Assertions.assertTrue(hasEntryReader(translated));
+    }
+
+    /**
+     * Whether the given plan writes a value reading index entries, which is the only way from outside to tell that it
+     * still holds one.
+     */
+    private static boolean hasEntryReader(@Nonnull final RecordQueryAggregateIndexPlan plan) {
+        return plan.toProto(PlanSerializationContext.newForCurrentMode()).hasIndexEntryToRecordValue();
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
