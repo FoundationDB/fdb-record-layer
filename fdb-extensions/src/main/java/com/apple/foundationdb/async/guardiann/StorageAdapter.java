@@ -343,7 +343,10 @@ class StorageAdapter {
                 Math.toIntExact(valueTuple.getLong(2)),
                 runningStandardDeviationFromTuple(valueTuple.getNestedTuple(3)),
                 Math.toIntExact(valueTuple.getLong(4)),
-                Math.toIntExact(valueTuple.getLong(5)));
+                // Values written before the high-water mark existed have no element 5. Zero is a safe default rather
+                // than a lossy one: the ClusterMetadata constructor raises the mark to the cluster's current primary
+                // count, so such a cluster re-derives its peak from where it is now instead of failing to parse.
+                valueTuple.size() > 5 ? Math.toIntExact(valueTuple.getLong(5)) : 0);
     }
 
     @Nonnull

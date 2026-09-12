@@ -72,6 +72,34 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
         return Math.toIntExact(runningStandardDeviation.numElements());
     }
 
+    /**
+     * Computes the primary-vector count below which <em>this</em> cluster becomes merge-eligible: the larger of the
+     * absolute {@link Config#primaryClusterMin()} floor and {@link Config#mergeMaxEverFraction()} of the cluster's own
+     * {@linkplain #maxEverNumPrimaryVectors() lifetime peak}.
+     * <p>
+     * The fraction term is a <em>shrinkage</em> detector, and only that. It fires once a cluster has shed all but that
+     * fraction of the largest it has ever been, which consolidates a cluster that has drained away instead of leaving
+     * it to linger at a size the floor alone would tolerate. It has no say over a cluster sitting at its peak: such a
+     * cluster has {@code current == maxEver}, and since {@code fraction * maxEver < maxEver} for any fraction below
+     * one, the comparison reduces to {@code current < primaryClusterMin} — the floor decides alone. In particular the
+     * fraction does <em>not</em> shield a freshly split child; what keeps a child from being born already
+     * merge-eligible is {@link Config#minChildFraction()}, which bounds how small a split may make one.
+     * <p>
+     * The two terms therefore divide cleanly: the floor sets the smallest cluster worth keeping, and the fraction
+     * decides when a once-large cluster has shrunk enough to fold away. The fraction can only bind at all for clusters
+     * whose peak exceeded {@code primaryClusterMin / fraction}; below that the floor swallows it.
+     * <p>
+     * This lives here rather than on {@link Config} because the threshold is a property of a cluster, not of the
+     * configuration: the peak it is derived from belongs to this record.
+     *
+     * @param config the configuration supplying the floor and the fraction
+     * @return the merge threshold; this cluster wants to merge once it holds fewer primaries than this
+     */
+    public int mergeThreshold(@Nonnull final Config config) {
+        return Math.max(config.primaryClusterMin(),
+                (int) Math.floor(config.mergeMaxEverFraction() * maxEverNumPrimaryVectors()));
+    }
+
     public double meanDistance() {
         return runningStandardDeviation.runningMean();
     }
@@ -145,9 +173,10 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
     public enum State {
         /**
          * The cluster's primary count has crossed a size bound — above {@link Config#primaryClusterMax()} (needs
-         * splitting) or below {@link Config#primaryClusterMin()} (needs merging) — and a pending {@link SplitMergeTask}
-         * will repartition it into new clusters or dissolve it into its neighbors. Suppressed while {@link #COLLAPSE}
-         * is set, since collapsing duplicates changes the cluster's effective size and may make the split/merge moot.
+         * splitting) or below its {@link ClusterMetadata#mergeThreshold(Config) merge threshold} (needs merging) — and
+         * a pending {@link SplitMergeTask} will repartition it into new clusters or dissolve it into its neighbors.
+         * Suppressed while {@link #COLLAPSE} is set, since collapsing duplicates changes the cluster's effective size
+         * and may make the split/merge moot.
          */
         SPLIT_MERGE(1),
         /**

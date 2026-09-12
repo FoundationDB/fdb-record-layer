@@ -307,6 +307,13 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
 
         // Guardiann-only knobs.
         applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN, index, builder::setPrimaryClusterMin);
+        applyDouble(VectorIndexOptionKeys.GUARDIANN_MERGE_MAX_EVER_FRACTION, index,
+                builder::setMergeMaxEverFraction);
+        applyDouble(VectorIndexOptionKeys.GUARDIANN_MIN_CHILD_FRACTION, index, builder::setMinChildFraction);
+        applyDouble(VectorIndexOptionKeys.GUARDIANN_MAX_RELATIVE_IMBALANCE, index,
+                builder::setMaxRelativeImbalance);
+        applyDouble(VectorIndexOptionKeys.GUARDIANN_SPLIT_IMBALANCE_PENALTY, index,
+                builder::setSplitImbalancePenalty);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MAX, index, builder::setPrimaryClusterMax);
         applyInteger(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_HARD_MAX, index,
                 builder::setPrimaryClusterHardMax);
@@ -391,6 +398,14 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
         // Immutable: Guardiann cluster shape, replication scoring, candidate counts, k-means, determinism.
         disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN,
                 oldConfig.primaryClusterMin(), newConfig.primaryClusterMin(), name);
+        disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_MERGE_MAX_EVER_FRACTION,
+                oldConfig.mergeMaxEverFraction(), newConfig.mergeMaxEverFraction(), name);
+        disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_MIN_CHILD_FRACTION,
+                oldConfig.minChildFraction(), newConfig.minChildFraction(), name);
+        disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_MAX_RELATIVE_IMBALANCE,
+                oldConfig.maxRelativeImbalance(), newConfig.maxRelativeImbalance(), name);
+        disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_SPLIT_IMBALANCE_PENALTY,
+                oldConfig.splitImbalancePenalty(), newConfig.splitImbalancePenalty(), name);
         disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MAX,
                 oldConfig.primaryClusterMax(), newConfig.primaryClusterMax(), name);
         disallowChange(changedOptions, VectorIndexOptionKeys.GUARDIANN_UNDERREPLICATED_PRIMARY_CLUSTER_MAX,
