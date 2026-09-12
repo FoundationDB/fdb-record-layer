@@ -375,11 +375,13 @@ class DataRecordsTest {
     @Nonnull
     private static ClusterMetadataDelta clusterMetadataDelta(@Nonnull final Random random,
                                                              @Nonnull final ClusterMetadataDelta original) {
-        // The distance alone guarantees a different value, whatever the remaining components come out as.
+        // Vary the replicated-vector delta and not just the distance. toString() deliberately omits the distance when
+        // statsOp is NONE, since the distance is unused there — so for a NONE delta a difference in distance alone is
+        // invisible, and the toString inequality the caller asserts would not hold.
         return new ClusterMetadataDelta(original.statsOp(),
                 differentDouble(random, original.distance()),
                 original.numPrimaryUnderreplicatedVectorsDelta(),
-                original.numReplicatedVectorsDelta(),
+                original.numReplicatedVectorsDelta() + 1,
                 original.statesToSet(),
                 original.statesToClear());
     }
