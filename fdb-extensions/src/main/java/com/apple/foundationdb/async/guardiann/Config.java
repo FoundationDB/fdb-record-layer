@@ -91,6 +91,9 @@ import javax.annotation.Nonnull;
  * @param splitImbalancePenalty weight of the imbalance term when scoring a <em>split</em>, which biases the choice
  *        between otherwise comparable candidates toward the more balanced one. Merges keep the evaluator's default
  *        weight, since their shape is dictated by the clusters they are handed
+ * @param clusterMetadataMaxPendingDeltas how many appended, not-yet-folded deltas a cluster's metadata value may
+ *        accumulate before a writer compacts it instead of appending again; effectively "compact once every N
+ *        metadata updates". Larger values mean fewer conflicting compactions but more work folding on every read
  */
 @SuppressWarnings("checkstyle:MemberName")
 public record Config(@Nonnull Metric metric,
@@ -137,7 +140,9 @@ public record Config(@Nonnull Metric metric,
                      double mergeMaxEverFraction,
                      double minChildFraction,
                      double maxRelativeImbalance,
-                     double splitImbalancePenalty) implements VectorEncodingConfig {
+                     double splitImbalancePenalty,
+                     // cluster-metadata delta log
+                     int clusterMetadataMaxPendingDeltas) implements VectorEncodingConfig {
 
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final int DEFAULT_PRIMARY_CLUSTER_MAX = 1000;
@@ -163,6 +168,10 @@ public record Config(@Nonnull Metric metric,
     // Weight of the imbalance term when scoring a split; above the evaluator's default of 1.0 so that, between
     // otherwise comparable candidates, the more balanced one wins.
     public static final double DEFAULT_SPLIT_IMBALANCE_PENALTY = 3.0d;
+    // Deltas appended to a cluster's metadata value before a writer folds them back into the base value. See
+    // ClusterMetadataDelta; the cap keeps base + MAX_PENDING x deltaSize far below FDB's value-size limit.
+    public static final int DEFAULT_CLUSTER_METADATA_MAX_PENDING_DELTAS = 64;
+    public static final int MAX_CLUSTER_METADATA_MAX_PENDING_DELTAS = 4096;
     public static final int DEFAULT_UNDERREPLICATED_PRIMARY_CLUSTER_MAX = 50;
     public static final int DEFAULT_REPLICATED_CLUSTER_MAX_WRITES = 3 * DEFAULT_PRIMARY_CLUSTER_MAX / 10;
     public static final int DEFAULT_REPLICATED_CLUSTER_TARGET = DEFAULT_PRIMARY_CLUSTER_MAX / 10;
@@ -221,6 +230,9 @@ public record Config(@Nonnull Metric metric,
                 "maxRelativeImbalance must be in [0, 1]");
         Preconditions.checkArgument(splitImbalancePenalty >= 0.0d,
                 "splitImbalancePenalty must be >= 0");
+        Preconditions.checkArgument(clusterMetadataMaxPendingDeltas >= 1
+                        && clusterMetadataMaxPendingDeltas <= MAX_CLUSTER_METADATA_MAX_PENDING_DELTAS,
+                "clusterMetadataMaxPendingDeltas must be in [1, %s]", MAX_CLUSTER_METADATA_MAX_PENDING_DELTAS);
     }
 
     @Nonnull
@@ -238,7 +250,7 @@ public record Config(@Nonnull Metric metric,
                 collapseMinDuplicates(), splitMergeConcurrency(), reassignConcurrency(),
                 collapseConcurrency(), bounceConcurrency(),
                 constructionSearchConfig(), mergeMaxEverFraction(), minChildFraction(), maxRelativeImbalance(),
-                splitImbalancePenalty());
+                splitImbalancePenalty(), clusterMetadataMaxPendingDeltas());
     }
 
     @Override
@@ -277,6 +289,7 @@ public record Config(@Nonnull Metric metric,
                 ", minChildFraction=" + minChildFraction() +
                 ", maxRelativeImbalance=" + maxRelativeImbalance() +
                 ", splitImbalancePenalty=" + splitImbalancePenalty() +
+                ", clusterMetadataMaxPendingDeltas=" + clusterMetadataMaxPendingDeltas() +
                 "]";
     }
 
@@ -339,6 +352,8 @@ public record Config(@Nonnull Metric metric,
         private double minChildFraction = DEFAULT_MIN_CHILD_FRACTION;
         private double maxRelativeImbalance = DEFAULT_MAX_RELATIVE_IMBALANCE;
         private double splitImbalancePenalty = DEFAULT_SPLIT_IMBALANCE_PENALTY;
+        // cluster-metadata delta log
+        private int clusterMetadataMaxPendingDeltas = DEFAULT_CLUSTER_METADATA_MAX_PENDING_DELTAS;
 
         public ConfigBuilder() {
         }
@@ -367,7 +382,8 @@ public record Config(@Nonnull Metric metric,
                              final double mergeMaxEverFraction,
                              final double minChildFraction,
                              final double maxRelativeImbalance,
-                             final double splitImbalancePenalty) {
+                             final double splitImbalancePenalty,
+                             final int clusterMetadataMaxPendingDeltas) {
             this.metric = metric;
             this.primaryClusterMin = primaryClusterMin;
             this.primaryClusterMax = primaryClusterMax;
@@ -404,6 +420,7 @@ public record Config(@Nonnull Metric metric,
             this.minChildFraction = minChildFraction;
             this.maxRelativeImbalance = maxRelativeImbalance;
             this.splitImbalancePenalty = splitImbalancePenalty;
+            this.clusterMetadataMaxPendingDeltas = clusterMetadataMaxPendingDeltas;
         }
 
         @Nonnull
@@ -470,6 +487,17 @@ public record Config(@Nonnull Metric metric,
         @Nonnull
         public ConfigBuilder setSplitImbalancePenalty(final double splitImbalancePenalty) {
             this.splitImbalancePenalty = splitImbalancePenalty;
+            return this;
+        }
+
+        public int getClusterMetadataMaxPendingDeltas() {
+            return clusterMetadataMaxPendingDeltas;
+        }
+
+        @CanIgnoreReturnValue
+        @Nonnull
+        public ConfigBuilder setClusterMetadataMaxPendingDeltas(final int clusterMetadataMaxPendingDeltas) {
+            this.clusterMetadataMaxPendingDeltas = clusterMetadataMaxPendingDeltas;
             return this;
         }
 
@@ -821,7 +849,8 @@ public record Config(@Nonnull Metric metric,
                     getCollapseMinDuplicates(), getSplitMergeConcurrency(), getReassignConcurrency(),
                     getCollapseConcurrency(), getBounceConcurrency(),
                     getConstructionSearchConfig(), getMergeMaxEverFraction(), getMinChildFraction(),
-                    getMaxRelativeImbalance(), getSplitImbalancePenalty());
+                    getMaxRelativeImbalance(), getSplitImbalancePenalty(),
+                    getClusterMetadataMaxPendingDeltas());
         }
     }
 }

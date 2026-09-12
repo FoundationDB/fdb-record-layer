@@ -72,6 +72,7 @@ class ConfigTest {
         final double minChildFraction = 0.07d;
         final double maxRelativeImbalance = 0.44d;
         final double splitImbalancePenalty = 2.5d;
+        final int clusterMetadataMaxPendingDeltas = Config.DEFAULT_CLUSTER_METADATA_MAX_PENDING_DELTAS + 1;
 
         Assertions.assertThat(defaultConfig.metric()).isNotSameAs(metric);
         Assertions.assertThat(defaultConfig.primaryClusterMin()).isNotEqualTo(primaryClusterMin);
@@ -109,6 +110,7 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.minChildFraction()).isNotEqualTo(minChildFraction);
         Assertions.assertThat(defaultConfig.maxRelativeImbalance()).isNotEqualTo(maxRelativeImbalance);
         Assertions.assertThat(defaultConfig.splitImbalancePenalty()).isNotEqualTo(splitImbalancePenalty);
+        Assertions.assertThat(defaultConfig.clusterMetadataMaxPendingDeltas()).isNotEqualTo(clusterMetadataMaxPendingDeltas);
 
         final Config newConfig =
                 defaultConfig.toBuilder()
@@ -148,6 +150,7 @@ class ConfigTest {
                         .setMinChildFraction(minChildFraction)
                         .setMaxRelativeImbalance(maxRelativeImbalance)
                         .setSplitImbalancePenalty(splitImbalancePenalty)
+                        .setClusterMetadataMaxPendingDeltas(clusterMetadataMaxPendingDeltas)
                         .build(NUM_DIMENSIONS);
 
         Assertions.assertThat(newConfig.metric()).isSameAs(metric);
@@ -186,6 +189,7 @@ class ConfigTest {
         Assertions.assertThat(newConfig.minChildFraction()).isEqualTo(minChildFraction);
         Assertions.assertThat(newConfig.maxRelativeImbalance()).isEqualTo(maxRelativeImbalance);
         Assertions.assertThat(newConfig.splitImbalancePenalty()).isEqualTo(splitImbalancePenalty);
+        Assertions.assertThat(newConfig.clusterMetadataMaxPendingDeltas()).isEqualTo(clusterMetadataMaxPendingDeltas);
 
         // Round-tripping a config whose every component differs from the default is what actually pins toBuilder():
         // doing it on the default config above cannot detect a component that toBuilder() drops or transposes,
@@ -302,5 +306,28 @@ class ConfigTest {
         Assertions.assertThat(Guardiann.newConfigBuilder()
                         .setMergeMaxEverFraction(0.999d).build(NUM_DIMENSIONS).mergeMaxEverFraction())
                 .isEqualTo(0.999d);
+    }
+
+    @Test
+    void testClusterMetadataMaxPendingDeltasIsBounded() {
+        // The upper bound keeps base + threshold x deltaSize far below FDB's value-size limit, so that an append can
+        // never silently fail to fit; the lower bound of 1 keeps compaction from being disabled entirely.
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setClusterMetadataMaxPendingDeltas(0).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setClusterMetadataMaxPendingDeltas(Config.MAX_CLUSTER_METADATA_MAX_PENDING_DELTAS + 1)
+                        .build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setClusterMetadataMaxPendingDeltas(1).build(NUM_DIMENSIONS)
+                        .clusterMetadataMaxPendingDeltas())
+                .isEqualTo(1);
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setClusterMetadataMaxPendingDeltas(Config.MAX_CLUSTER_METADATA_MAX_PENDING_DELTAS)
+                        .build(NUM_DIMENSIONS)
+                        .clusterMetadataMaxPendingDeltas())
+                .isEqualTo(Config.MAX_CLUSTER_METADATA_MAX_PENDING_DELTAS);
     }
 }
