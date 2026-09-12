@@ -1417,6 +1417,11 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
         return expressionVisitor.visitDataTypeFunctionCall(ctx);
     }
 
+    @Override
+    public Expression visitGetVariableFunctionCall(@Nonnull RelationalParser.GetVariableFunctionCallContext ctx) {
+        return expressionVisitor.visitGetVariableFunctionCall(ctx);
+    }
+
     @Nonnull
     @Override
     public Object visitValuesFunctionCall(@Nonnull RelationalParser.ValuesFunctionCallContext ctx) {

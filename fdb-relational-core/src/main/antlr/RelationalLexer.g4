@@ -137,6 +137,7 @@ FROM:                                'FROM';
 FULLTEXT:                            'FULLTEXT';
 GENERATED:                           'GENERATED';
 GET:                                 'GET';
+GET_VARIABLE:                        'GET_VARIABLE';
 GRANT:                               'GRANT';
 GROUP:                               'GROUP';
 HAVING:                              'HAVING';
