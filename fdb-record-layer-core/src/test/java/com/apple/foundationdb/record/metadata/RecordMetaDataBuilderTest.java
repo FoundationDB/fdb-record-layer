@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1EvolvedProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords2Proto;
+import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.TestRecordsBadUnion1Proto;
 import com.apple.foundationdb.record.TestRecordsBadUnion2Proto;
 import com.apple.foundationdb.record.TestRecordsChained1Proto;
@@ -53,6 +54,7 @@ import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Test;
@@ -81,6 +83,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link RecordMetaDataBuilder}.
@@ -888,5 +891,36 @@ public class RecordMetaDataBuilderTest {
         // Verify descriptors
         assertEquals(original.getRecordsDescriptor(), copy.getRecordsDescriptor(), "Records descriptor should match");
         assertEquals(original.getUnionDescriptor(), copy.getUnionDescriptor(), "Union descriptor should match");
+    }
+
+    @Test
+    void getNonRecordTypeDescriptorsByFullNameReturnsAllTypes() {
+        final var expectedNonRecordTypes = ImmutableList.of(
+                "ReviewerEndorsements",
+                "ReviewerEndorsementsList",
+                "RestaurantComplexReview",
+                "ReviewerStats",
+                "RestaurantReview",
+                "RestaurantTag",
+                "StringList",
+                "RestaurantTagList",
+                "RestaurantReviewList",
+                "RestaurantComplexReviewList",
+                "RestaurantComplexRecord");
+        final var packageName = TestRecords4WrapperProto.getDescriptor().getPackage();
+        final RecordMetaData metaDataWithNonRecordTypes = RecordMetaData.newBuilder()
+                .setRecords(TestRecords4WrapperProto.getDescriptor())
+                .build();
+
+        final var actualNonRecordTypes = metaDataWithNonRecordTypes.getNonRecordTypeDescriptorsByFullName();
+        assertEquals(expectedNonRecordTypes.size(), actualNonRecordTypes.size());
+
+        for (final var expectedNonRecordType : expectedNonRecordTypes) {
+            // The map is keyed by the full name (<protobuf_package>.<name>) of the type descriptors.
+            final var expectedFullName = packageName + "." + expectedNonRecordType;
+            assertTrue(actualNonRecordTypes.containsKey(expectedFullName));
+            assertEquals(expectedNonRecordType, actualNonRecordTypes.get(expectedFullName).getName());
+            assertEquals(TestRecords4WrapperProto.getDescriptor(), actualNonRecordTypes.get(expectedFullName).getFile());
+        }
     }
 }

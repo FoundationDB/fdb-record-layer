@@ -46,6 +46,8 @@ import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.cache.NoOpMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.DescriptorProtos;
@@ -303,43 +305,166 @@ public class SchemaTemplateSerDeTests {
     }
 
     @Test
-    void deserializationNestedTypesPreservesNamesCorrectly() {
+    void deserializationAuxiliaryTypesPreservesNamesCorrectly() {
+        final var subtype = DataType.StructType.from(
+                "Subtype",
+                List.of(DataType.StructType.Field.from("field1", DataType.ArrayType.from(DataType.Primitives.INTEGER.type(), false), 1)),
+                true);
         final var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
                 .setName("TestSchemaTemplate")
                 .setVersion(42)
-                .addAuxiliaryType(DataType.StructType.from(
-                        "Subtype",
-                        List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type(), 0)),
-                        true))
+                .addAuxiliaryType(subtype)
                 .addTable(
                         RecordLayerTable.newBuilder(false)
                                 .setName("T1")
                                 .addColumn(RecordLayerColumn.newBuilder()
                                         .setName("COL1")
-                                        .setDataType(
-                                                DataType.StructType.from(
-                                                        "Subtype",
-                                                        List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type(), 1)),
-                                                        true))
+                                        .setDataType(subtype)
                                         .build())
                                 .build())
                 .build();
         final var proto = sampleRecordSchemaTemplate.toRecordMetadata();
-        final var deserializedTableType = RecordLayerSchemaTemplate.fromRecordMetadata(proto, "TestSchemaTemplate", 42).findTableByName("T1");
+        final var deserializedSchemaTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(proto, "TestSchemaTemplate", 42);
+        final var deserializedTableType = deserializedSchemaTemplate.findTableByName("T1");
         Assertions.assertTrue(deserializedTableType.isPresent());
         final var column = deserializedTableType.get().getColumns().stream().findFirst();
         Assertions.assertTrue(column.isPresent());
-        final var type = column.get().getDataType();
-        Assertions.assertInstanceOf(DataType.StructType.class, type);
-        final var typeName = ((DataType.StructType) type).getName();
-        Assertions.assertEquals("Subtype", typeName);
+        final var auxiliaryType = deserializedSchemaTemplate.findTypeByName(subtype.getName());
+        Assertions.assertTrue(auxiliaryType.isPresent());
+        Assertions.assertEquals(subtype, auxiliaryType.get());
+        Assertions.assertEquals(subtype, column.get().getDataType());
     }
 
+    @Test
+    void deserializationAllAuxiliaryTypesArePreservedCorrectly() {
+        final var subtype = DataType.StructType.from(
+                "Subtype",
+                List.of(DataType.StructType.Field.from("field1", DataType.ArrayType.from(DataType.Primitives.INTEGER.type(), false), 1)),
+                true);
+        final var subtype1 = DataType.StructType.from(
+                "Subtype1",
+                List.of(DataType.StructType.Field.from("field1", DataType.ArrayType.from(DataType.Primitives.INTEGER.type(), true), 1)),
+                true);
+        final var subtype2 = DataType.StructType.from(
+                "Subtype2",
+                List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type().withNullable(true), 1)),
+                true);
+        final var subtype3 = DataType.EnumType.from(
+                "Subtype3",
+                List.of(
+                        DataType.EnumType.EnumValue.of("Red", 1),
+                        DataType.EnumType.EnumValue.of("Green", 2)),
+                false);
+        final var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42)
+                .addAuxiliaryType(subtype)
+                .addAuxiliaryType(subtype1)
+                .addAuxiliaryType(subtype2)
+                .addAuxiliaryType(subtype3)
+                .addTable(
+                        RecordLayerTable.newBuilder(false)
+                                .setName("T1")
+                                .addColumn(RecordLayerColumn.newBuilder()
+                                        .setName("COL1")
+                                        .setDataType(subtype2)
+                                        .build())
+                                .build())
+                .build();
+        final var proto = sampleRecordSchemaTemplate.toRecordMetadata();
+        final var deserializedSchemaTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(proto, "TestSchemaTemplate", 42);
+        final var deserializedTableType = deserializedSchemaTemplate.findTableByName("T1");
+        Assertions.assertTrue(deserializedTableType.isPresent());
+        final var deserializedAuxiliaryTypes = deserializedSchemaTemplate.getAuxiliaryTypeSuppliers();
+        for (final var auxiliaryType : sampleRecordSchemaTemplate.getAuxiliaryTypeSuppliers().entrySet()) {
+            Assertions.assertEquals(deserializedAuxiliaryTypes.get(auxiliaryType.getKey()).get(), auxiliaryType.getValue().get());
+        }
+    }
+
+    @Test
+    void auxiliaryTypesSuppliersAreOnlyEvaluatedWhenNeeded() {
+        final var exceptionMessage = "this should not be called";
+        final Supplier<DataType.Named> subtypeSupplier = () -> {
+            throw new RuntimeException(exceptionMessage);
+        };
+        final var subtype2 = DataType.StructType.from(
+                "Subtype2",
+                List.of(DataType.StructType.Field.from("field1", DataType.ArrayType.from(DataType.Primitives.INTEGER.type(), false), 1)),
+                true);
+
+        final var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42)
+                .addResolvedAuxiliaryTypeSupplier("Subtype", subtypeSupplier)
+                .addAuxiliaryType(subtype2)
+                .addTable(
+                        RecordLayerTable.newBuilder(false)
+                                .setName("T1")
+                                .addColumn(RecordLayerColumn.newBuilder()
+                                        .setName("COL1")
+                                        .setDataType(DataType.UnresolvedType.of("Subtype2", true))
+                                        .build())
+                                .build())
+                .build();
+
+        Assertions.assertThrows(RuntimeException.class,
+                () -> sampleRecordSchemaTemplate.findTypeByName("Subtype"),
+                exceptionMessage);
+        Assertions.assertThrows(RuntimeException.class,
+                sampleRecordSchemaTemplate::toRecordMetadata,
+                exceptionMessage);
+        Assertions.assertDoesNotThrow(() -> sampleRecordSchemaTemplate.findTypeByName("Subtype2"));
+    }
+
+    @Test
+    void serializedAndDeserializedTypesAreResolvedCorrectly() {
+        final Supplier<DataType.Named> subtypeSupplier = () -> DataType.StructType.from(
+                "Subtype",
+                List.of(DataType.StructType.Field.from("field1", DataType.ArrayType.from(DataType.Primitives.INTEGER.type(), true), 1)),
+                true);
+        final var subtype2 = DataType.StructType.from(
+                "Subtype2",
+                List.of(DataType.StructType.Field.from("field1", DataType.ArrayType.from(DataType.Primitives.INTEGER.type(), false), 1)),
+                true);
+        final var subtype3 = DataType.StructType.from(
+                "Subtype3",
+                List.of(DataType.StructType.Field.from("field1", DataType.UnresolvedType.of("Subtype", true), 1)),
+                true);
+
+        final var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42)
+                .addResolvedAuxiliaryTypeSupplier("Subtype", subtypeSupplier)
+                .addAuxiliaryType(subtype2)
+                .addAuxiliaryType(subtype3)
+                .addTable(
+                        RecordLayerTable.newBuilder(false)
+                                .setName("T1")
+                                .addColumn(RecordLayerColumn.newBuilder()
+                                        .setName("COL1")
+                                        .setDataType(DataType.UnresolvedType.of("Subtype", true))
+                                        .build())
+                                .build())
+                .build();
+
+        final var proto = sampleRecordSchemaTemplate.toRecordMetadata();
+        final var deserializedSchemaTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(proto, "TestSchemaTemplate", 42);
+        final var deserializedTableType = deserializedSchemaTemplate.findTableByName("T1");
+        Assertions.assertTrue(deserializedTableType.isPresent());
+        Assertions.assertTrue(deserializedTableType.get().getDatatype().isResolved());
+        final var deserializedAuxiliaryTypes = deserializedSchemaTemplate.getAuxiliaryTypeSuppliers();
+        for (final var auxiliaryType : sampleRecordSchemaTemplate.getAuxiliaryTypeSuppliers().entrySet()) {
+            Assertions.assertTrue(((DataType)deserializedAuxiliaryTypes.get(auxiliaryType.getKey()).get()).isResolved());
+            Assertions.assertTrue(((DataType)auxiliaryType.getValue().get()).isResolved());
+            Assertions.assertEquals(auxiliaryType.getValue().get(), deserializedAuxiliaryTypes.get(auxiliaryType.getKey()).get());
+        }
+    }
 
     @Test
     void deserializationTranslatesUserDefinedNameCorrectly() {
+        final var recordsDescriptor = createEscapedRecordTypesDescriptor();
         final var metaDataBuilder = RecordMetaData.newBuilder();
-        metaDataBuilder.setRecords(createEscapedRecordTypesDescriptor());
+        metaDataBuilder.setRecords(recordsDescriptor);
         RecordTypeBuilder typeBuilder = metaDataBuilder.getRecordType("Foo__0Bar__1Baz__2End");
         final var primaryKey = Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("id"));
         typeBuilder.setPrimaryKey(primaryKey);
@@ -376,6 +501,14 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertEquals(expectedTable.getName(), actualRecordTable.getName());
         Assertions.assertEquals(expectedTable.getColumns(), actualRecordTable.getColumns());
         Assertions.assertEquals(expectedTable.getPrimaryKey(), actualRecordTable.getPrimaryKey());
+
+        final var expectedSubtype = DataType.StructType.from(
+                "Sub__Type$1",
+                List.of(DataType.StructType.Field.from("field1", DataType.Primitives.LONG.type().withNullable(true), 1)),
+                true);
+        final var subtype1Maybe = actualSchemaTemplate.findTypeByName(recordsDescriptor.getPackage() + "." + expectedSubtype.getName());
+        Assertions.assertTrue(subtype1Maybe.isPresent());
+        Assertions.assertEquals(expectedSubtype, subtype1Maybe.get());
 
         final var actualIndexes = actualTable.getIndexes();
         Assertions.assertEquals(1, actualIndexes.size(), () -> "actual indexes: " + actualIndexes + " should have size 1");
@@ -440,6 +573,66 @@ public class SchemaTemplateSerDeTests {
         final var actualRecordLayerIndex = (RecordLayerIndex) actualIndex;
         Assertions.assertEquals(Key.Expressions.field("a__b__1c__2d"), actualRecordLayerIndex.getKeyExpression());
         Assertions.assertEquals("_Foo__Bar__1Baz", actualRecordLayerIndex.getTableStorageName());
+    }
+
+    @Test
+    void deserializeTemplateWithAuxiliaryTypes() {
+        final var metaDataBuilder = RecordMetaData.newBuilder();
+        final var recordsDescriptor = createRecordTypesDescriptorWithAuxiliaryTypes();
+        metaDataBuilder.setRecords(recordsDescriptor);
+        RecordTypeBuilder typeBuilder = metaDataBuilder.getRecordType("T1");
+        final var primaryKey = Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("id"));
+        typeBuilder.setPrimaryKey(primaryKey);
+        typeBuilder.setRecordTypeKey(1L);
+        final var expectedSubtype1 = DataType.StructType.from(
+                "Subtype1",
+                List.of(DataType.StructType.Field.from("field1", DataType.Primitives.LONG.type().withNullable(true), 1)),
+                true);
+        final var expectedSubtype2 = DataType.StructType.from(
+                "Subtype2",
+                List.of(DataType.StructType.Field.from("field1", DataType.Primitives.LONG.type().withNullable(true), 1)),
+                true);
+        final var expectedTable = RecordLayerTable.newBuilder(false)
+                .setName("T1")
+                .addColumn(RecordLayerColumn.newBuilder()
+                        .setName("id")
+                        .setDataType(DataType.Primitives.NULLABLE_LONG.type())
+                        .build())
+                .addColumn(RecordLayerColumn.newBuilder()
+                        .setName("field1")
+                        .setDataType(expectedSubtype1)
+                        .build())
+                .addColumn(RecordLayerColumn.newBuilder()
+                        .setName("field2")
+                        .setDataType(DataType.Primitives.NULLABLE_STRING.type())
+                        .build())
+                .setPrimaryKey(primaryKey)
+                .build();
+
+        final RecordMetaData metaData = metaDataBuilder.build();
+        final var actualSchemaTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(
+                metaData,
+                "TestSchemaTemplate",
+                metaData.getVersion());
+
+        final var tableMaybe = actualSchemaTemplate.findTableByName("T1");
+        Assertions.assertTrue(tableMaybe.isPresent());
+        final var actualTable = tableMaybe.get();
+        final var actualRecordTable = Assertions.assertInstanceOf(RecordLayerTable.class, actualTable);
+        Assertions.assertEquals(expectedTable.getName(), actualRecordTable.getName());
+        Assertions.assertEquals(expectedTable.getColumns(), actualRecordTable.getColumns());
+        Assertions.assertEquals(expectedTable.getPrimaryKey(), actualRecordTable.getPrimaryKey());
+
+        final var subtype1Maybe = actualSchemaTemplate.findTypeByName(recordsDescriptor.getPackage() + ".Subtype1");
+        Assertions.assertTrue(subtype1Maybe.isPresent());
+        Assertions.assertEquals(expectedSubtype1, subtype1Maybe.get());
+
+        final var subtype2Maybe = actualSchemaTemplate.findTypeByName(recordsDescriptor.getPackage() + ".Subtype2");
+        Assertions.assertTrue(subtype2Maybe.isPresent());
+        Assertions.assertEquals(expectedSubtype2, subtype2Maybe.get());
+
+        final var nullableArrayTypeMaybe = actualSchemaTemplate.findTypeByName(recordsDescriptor.getPackage() + ".NullableArrayType");
+        Assertions.assertFalse(nullableArrayTypeMaybe.isPresent());
     }
 
     @Test
@@ -596,6 +789,48 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertEquals(intermingleTables, builder.isIntermingleTables());
         sampleRecordSchemaTemplate = builder.build();
         Assertions.assertEquals(intermingleTables, sampleRecordSchemaTemplate.isIntermingleTables());
+    }
+
+    @Test
+    void schemaTemplateToBuilderPreservesAuxiliaryTypes() {
+        final var subtype = DataType.StructType.from(
+                "Subtype",
+                List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type().withNullable(true), 1)),
+                true);
+        final var subtype1 = DataType.StructType.from(
+                "Subtype1",
+                List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type().withNullable(true), 1)),
+                true);
+        final var subtype2 = DataType.StructType.from(
+                "Subtype2",
+                List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type().withNullable(true), 1)),
+                true);
+        final var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42)
+                .addAuxiliaryType(subtype)
+                .addAuxiliaryType(subtype1)
+                .addTable(
+                        RecordLayerTable.newBuilder(false)
+                                .setName("T1")
+                                .addColumn(RecordLayerColumn.newBuilder()
+                                        .setName("COL1")
+                                        .setDataType(subtype)
+                                        .build())
+                                .build())
+                .build();
+        final var proto = sampleRecordSchemaTemplate.toRecordMetadata();
+        final var deserializedSchemaTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(proto, "TestSchemaTemplate", 42);
+        final var deserializedTableType = deserializedSchemaTemplate.findTableByName("T1");
+        Assertions.assertTrue(deserializedTableType.isPresent());
+        final var schemaTemplateFromBuilder = deserializedSchemaTemplate.toBuilder()
+                .addAuxiliaryType(subtype2)
+                .build();
+        for (final var expectedType : ImmutableList.of(subtype, subtype1, subtype2)) {
+            final var actualTypeMaybe = schemaTemplateFromBuilder.findTypeByName(expectedType.getName());
+            Assertions.assertTrue(actualTypeMaybe.isPresent());
+            Assertions.assertEquals(expectedType, actualTypeMaybe.get());
+        }
     }
 
     @Nonnull
@@ -955,6 +1190,15 @@ public class SchemaTemplateSerDeTests {
                         )
                 )
                 .addMessageType(DescriptorProtos.DescriptorProto.newBuilder()
+                        .setName("Sub__0Type__11")
+                        .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
+                                .setName("field1")
+                                .setNumber(1)
+                        )
+                )
+                .addMessageType(DescriptorProtos.DescriptorProto.newBuilder()
                         .setName("RecordTypeUnion")
                         .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
                                 .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
@@ -1007,6 +1251,80 @@ public class SchemaTemplateSerDeTests {
                                 .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
                                 .setTypeName("_Foo__Bar__1Baz")
                                 .setName("__Foo__Bar__1Baz")
+                                .setNumber(1)
+                        )
+                )
+                .build();
+
+        try {
+            return Descriptors.FileDescriptor.buildFrom(fileDescriptorProto, new Descriptors.FileDescriptor[0]);
+        } catch (Descriptors.DescriptorValidationException e) {
+            return Assertions.fail("unable to build file descriptor", e);
+        }
+    }
+
+    @Nonnull
+    private static Descriptors.FileDescriptor createRecordTypesDescriptorWithAuxiliaryTypes() {
+        DescriptorProtos.FileDescriptorProto fileDescriptorProto = DescriptorProtos.FileDescriptorProto.newBuilder()
+                .setName("test_schema_with_auxiliary_types.proto")
+                .setPackage("com.apple.foundationdb.record.test1")
+                .setSyntax("proto2")
+                .addMessageType(DescriptorProtos.DescriptorProto.newBuilder()
+                        .setName("T1")
+                        .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
+                                .setName("id")
+                                .setNumber(1)
+                        )
+                        .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                                .setTypeName("Subtype1")
+                                .setName("field1")
+                                .setNumber(2)
+                        )
+                        .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING)
+                                .setName("field2")
+                                .setNumber(3)
+                        )
+                )
+                .addMessageType(DescriptorProtos.DescriptorProto.newBuilder()
+                        .setName("Subtype1")
+                        .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
+                                .setName("field1")
+                                .setNumber(1)
+                        )
+                )
+                .addMessageType(DescriptorProtos.DescriptorProto.newBuilder()
+                        .setName("Subtype2")
+                        .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
+                                .setName("field1")
+                                .setNumber(1)
+                        )
+                )
+                .addMessageType(DescriptorProtos.DescriptorProto.newBuilder()
+                        .setName("NullableArrayType")
+                        .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_REPEATED)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
+                                .setName("values")
+                                .setNumber(1)
+                        )
+                )
+                .addMessageType(DescriptorProtos.DescriptorProto.newBuilder()
+                        .setName("RecordTypeUnion")
+                        .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                                .setTypeName("T1")
+                                .setName("_T1")
                                 .setNumber(1)
                         )
                 )

@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
@@ -145,6 +146,12 @@ public class NoOpSchemaTemplate implements SchemaTemplate {
     @Override
     public Map<String, StoredQuery> getStoredQueries() throws RelationalException {
         throw new RelationalException("NoOpSchemaTemplate doesn't have stored queries!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
+    public Optional<DataType> findTypeByName(@Nonnull final String typeName) throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have types!", ErrorCode.INVALID_PARAMETER);
     }
 
     @Nonnull

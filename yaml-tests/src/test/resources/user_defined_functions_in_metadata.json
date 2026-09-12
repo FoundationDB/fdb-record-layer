@@ -1,0 +1,308 @@
+{
+  "records": {
+    "name": "with_user_defined_functions.proto",
+    "dependency": ["to_be_imported.proto"],
+    "messageType": [{
+      "name": "U",
+      "field": [{
+        "name": "id",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64",
+        "oneofIndex": 0,
+        "proto3Optional": true
+      }, {
+        "name": "x",
+        "number": 2,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_MESSAGE",
+        "typeName": ".com.apple.foundationdb.relational.yamltests.generated.tobeimported.X",
+        "oneofIndex": 1,
+        "proto3Optional": true
+      }],
+      "oneofDecl": [{
+        "name": "_id"
+      }, {
+        "name": "_x"
+      }]
+    }, {
+      "name": "Y",
+      "field": [{
+        "name": "a",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64",
+        "oneofIndex": 0,
+        "proto3Optional": true
+      }, {
+        "name": "b",
+        "number": 2,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_STRING",
+        "oneofIndex": 1,
+        "proto3Optional": true
+      }],
+      "oneofDecl": [{
+        "name": "_a"
+      }, {
+        "name": "_b"
+      }]
+    }, {
+      "name": "RecordTypeUnion",
+      "field": [{
+        "name": "_U",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_MESSAGE",
+        "typeName": ".U"
+      }]
+    }],
+    "enumType": [{
+      "name": "Colour",
+      "value": [{
+        "name": "Red",
+        "number": 0
+      }, {
+        "name": "Blue",
+        "number": 1
+      }, {
+        "name": "Green",
+        "number": 2
+      }]
+    }],
+    "options": {
+      "javaOuterClassname": "WithUserDefinedFunctionsProto"
+    },
+    "syntax": "proto3"
+  },
+  "indexes": [{
+    "recordType": ["U"],
+    "name": "U$x",
+    "rootExpression": {
+      "nesting": {
+        "parent": {
+          "fieldName": "x",
+          "fanType": "SCALAR",
+          "nullInterpretation": "NOT_UNIQUE"
+        },
+        "child": {
+          "then": {
+            "child": [{
+              "field": {
+                "fieldName": "a",
+                "fanType": "SCALAR",
+                "nullInterpretation": "NOT_UNIQUE"
+              }
+            }, {
+              "field": {
+                "fieldName": "b",
+                "fanType": "SCALAR",
+                "nullInterpretation": "NOT_UNIQUE"
+              }
+            }]
+          }
+        }
+      }
+    },
+    "subspaceKey": "AlUkeAA=",
+    "lastModifiedVersion": 2,
+    "type": "value",
+    "addedVersion": 2
+  }],
+  "recordTypes": [{
+    "name": "U",
+    "primaryKey": {
+      "then": {
+        "child": [{
+          "recordTypeKey": {
+          }
+        }, {
+          "field": {
+            "fieldName": "id",
+            "fanType": "SCALAR",
+            "nullInterpretation": "NOT_UNIQUE"
+          }
+        }]
+      }
+    }
+  }],
+  "userDefinedFunctions": [{
+    "sqlFunction": {
+      "name": "basic_sql_function",
+      "definition": "CREATE FUNCTION \"basic_sql_function\"(in \"q\" bigint) AS select * from \"U\" WHERE \"id\" \u003d \"q\""
+    }
+  }, {
+    "sqlFunction": {
+      "name": "macro_func_for_x",
+      "definition": "CREATE FUNCTION \"macro_func_for_x\"(in \"x\" TYPE \"com.apple.foundationdb.relational.yamltests.generated.tobeimported.X\") RETURN \"x\".\"b\""
+    }
+  }, {
+    "sqlFunction": {
+      "name": "add_one",
+      "definition": "CREATE FUNCTION \"add_one\"(in \"x\" bigint) RETURN \"x\"+1"
+    }
+  }, {
+    "sqlFunction": {
+      "name": "macro_func_for_y",
+      "definition": "CREATE FUNCTION \"macro_func_for_y\"(in \"y\" TYPE \"Y\") RETURN \"y\".\"a\""
+    }
+  }, {
+    "sqlFunction": {
+      "name": "macro_func_for_z",
+      "definition": "CREATE FUNCTION \"macro_func_for_z\"(in \"z\" TYPE \"com.apple.foundationdb.relational.yamltests.generated.tobeimported.X.Z\") RETURN \"z\".\"a\""
+    }
+  }, {
+    "userDefinedMacroFunction" : {
+      "functionName" : "add_func",
+      "arguments" : [ {
+        "quantifiedObjectValue" : {
+          "alias" : "c0",
+          "resultType" : {
+            "primitiveType" : {
+              "typeCode" : "LONG",
+              "isNullable" : true
+            }
+          }
+        }
+      }, {
+        "quantifiedObjectValue" : {
+          "alias" : "c1",
+          "resultType" : {
+            "primitiveType" : {
+              "typeCode" : "LONG",
+              "isNullable" : true
+            }
+          }
+        }
+      } ],
+      "body" : {
+        "arithmeticValue" : {
+          "operator" : "ADD_LL",
+          "leftChild" : {
+            "quantifiedObjectValue" : {
+              "alias" : "c0",
+              "resultType" : {
+                "primitiveType" : {
+                  "typeCode" : "LONG",
+                  "isNullable" : true
+                }
+              }
+            }
+          },
+          "rightChild" : {
+            "quantifiedObjectValue" : {
+              "alias" : "c1",
+              "resultType" : {
+                "primitiveType" : {
+                  "typeCode" : "LONG",
+                  "isNullable" : true
+                }
+              }
+            }
+          }
+        }
+      },
+      "argumentNames" : [ "A", "B" ],
+      "defaultArgumentValues" : [ {
+        "isProvided" : false
+      }, {
+        "isProvided" : false
+      } ]
+    }
+  }],
+  "splitLongRecords": false,
+  "version": 2,
+  "storeRecordVersions": false,
+  "dependencies": [{
+    "name": "to_be_imported.proto",
+    "package": "com.apple.foundationdb.relational.yamltests.generated.tobeimported",
+    "messageType": [{
+      "name": "X",
+      "field": [{
+        "name": "a",
+        "number": 1,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_INT64",
+        "oneofIndex": 0,
+        "proto3Optional": true
+      }, {
+        "name": "b",
+        "number": 2,
+        "label": "LABEL_OPTIONAL",
+        "type": "TYPE_STRING",
+        "oneofIndex": 1,
+        "proto3Optional": true
+      }],
+      "oneofDecl": [{
+        "name": "_a"
+      }, {
+        "name": "_b"
+      }],
+      "nestedType": [{
+        "name": "Z",
+        "field": [
+          {
+            "name": "a",
+            "number": 1,
+            "label": "LABEL_OPTIONAL",
+            "type": "TYPE_INT64",
+            "oneofIndex": 0,
+            "proto3Optional": true
+          },
+          {
+            "name": "b",
+            "number": 2,
+            "label": "LABEL_OPTIONAL",
+            "type": "TYPE_STRING",
+            "oneofIndex": 1,
+            "proto3Optional": true
+          }
+        ],
+        "oneofDecl": [{
+          "name": "_a"
+        }, {
+          "name": "_b"
+        }]
+      }],
+      "enumType": [{
+        "name": "Number",
+        "value": [{
+          "name": "Zero",
+          "number": 0
+        }, {
+          "name": "One",
+          "number": 1
+        }, {
+          "name": "Two",
+          "number": 2
+        }]
+      }]
+    }],
+    "options": {
+      "javaOuterClassname": "ToBeImportedProto"
+    },
+    "syntax": "proto3"
+  }],
+  "auxiliaryTypes": [
+    {
+      "userDefinedName": "com.apple.foundationdb.relational.yamltests.generated.tobeimported.X",
+      "recordsDescriptorFullName": "com.apple.foundationdb.relational.yamltests.generated.tobeimported.X"
+    },
+    {
+      "userDefinedName": "Y",
+      "recordsDescriptorFullName": "Y"
+    },
+    {
+      "userDefinedName": "Z",
+      "recordsDescriptorFullName": "com.apple.foundationdb.relational.yamltests.generated.tobeimported.X.Z"
+    },
+    {
+      "userDefinedName": "Colour",
+      "recordsDescriptorFullName": ".Colour"
+    },
+    {
+      "userDefinedName": "Number",
+      "recordsDescriptorFullName": "com.apple.foundationdb.relational.yamltests.generated.tobeimported.X.Number"
+    }
+  ]
+}

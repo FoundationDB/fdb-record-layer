@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.ProtoUtils;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
@@ -37,6 +38,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.util.Assert;
+import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -86,25 +88,18 @@ public class RecordMetadataDeserializer {
                 .setIntermingleTables(!recordMetaData.primaryKeyHasRecordTypePrefix());
         final Map<String, RecordLayerTable.Builder> nameToTableBuilder = new HashMap<>();
         for (final Descriptors.FieldDescriptor registeredType : registeredTypes) {
-            switch (registeredType.getType()) {
-                case MESSAGE:
-                    final String storageName = registeredType.getMessageType().getName();
-                    final String userName = ProtoUtils.toUserIdentifier(storageName);
-                    nameToTableBuilder
-                            .computeIfAbsent(userName, key -> generateTableBuilder(recordMetaData, key, storageName))
-                            .addGeneration(registeredType.getNumber(), registeredType.getOptions());
-                    break;
-                case ENUM:
-                    // todo (yhatem) this is temporary, we rely on rec layer type system to deserialize protobuf descriptors.
-                    final var recordLayerType = Type.Enum.fromDescriptorPreservingNames(false, registeredType.getEnumType());
-                    schemaTemplateBuilder.addAuxiliaryType((DataType.Named) DataTypeUtils.toRelationalType(recordLayerType));
-                    break;
-                default:
-                    Assert.failUnchecked(String.format(Locale.ROOT, "Unexpected type '%s' found in union descriptor!", registeredType.getType()));
-                    break;
+            if (registeredType.getType().equals(Descriptors.FieldDescriptor.Type.MESSAGE)) {
+                final String storageName = registeredType.getMessageType().getName();
+                final String userName = ProtoUtils.toUserIdentifier(storageName);
+                nameToTableBuilder
+                        .computeIfAbsent(userName, key -> generateTableBuilder(recordMetaData, key, storageName))
+                        .addGeneration(registeredType.getNumber(), registeredType.getOptions());
+            } else {
+                Assert.failUnchecked(String.format(Locale.ROOT, "Unexpected type '%s' found in union descriptor!", registeredType.getType()));
             }
         }
         nameToTableBuilder.values().stream().map(RecordLayerTable.Builder::build).forEach(schemaTemplateBuilder::addTable);
+
         final var metadataProvider = Suppliers.memoize(schemaTemplateBuilder::build);
         if (!recordMetaData.getUserDefinedFunctionMap().isEmpty()) {
             // TODO: topsort deps of functions.
@@ -127,8 +122,39 @@ public class RecordMetadataDeserializer {
             final RecordMetaData.StoredQuery storedQuery = entry.getValue();
             schemaTemplateBuilder.addStoredQuery(entry.getKey(), storedQuery.getQuery(), storedQuery.getTempFunctions());
         }
+
+        for (final var auxiliaryTypeDescriptor : recordMetaData.getNonRecordTypeDescriptorsByFullName().values()) {
+            // Skip descriptors for nullable arrays as these are unwrapped to `DataType.ArrayType` when they are used in
+            // any other type and shouldn't be used in SQL queries.
+            if (auxiliaryTypeDescriptor instanceof Descriptors.Descriptor typeDescriptor
+                    && NullableArrayUtils.isWrappedArrayDescriptor(typeDescriptor)) {
+                continue;
+            }
+            schemaTemplateBuilder.addResolvedAuxiliaryTypeSupplier(
+                    ProtoUtils.toUserIdentifier(auxiliaryTypeDescriptor.getFullName()),
+                    Suppliers.memoize(() -> namedDataTypeFromDescriptor(auxiliaryTypeDescriptor)));
+        }
+
         schemaTemplateBuilder.setCachedMetadata(recordMetaData);
         return schemaTemplateBuilder;
+    }
+
+    @Nonnull
+    private static DataType.Named namedDataTypeFromDescriptor(@Nonnull final Descriptors.GenericDescriptor descriptor) {
+        final Type recordLayerType;
+        if (descriptor instanceof Descriptors.EnumDescriptor) {
+            recordLayerType = Type.Enum.fromDescriptor(false, (Descriptors.EnumDescriptor)descriptor)
+                    .withName(ProtoUtils.toUserIdentifier(descriptor.getName()));
+        } else {
+            Assert.thatUnchecked(descriptor instanceof Descriptors.Descriptor,
+                    ErrorCode.INTERNAL_ERROR,
+                    () -> String.format("Unsupported auxiliary type descriptor with name '%s'", descriptor.getFullName()));
+            recordLayerType = Type.Record
+                    .fromDescriptorPreservingName((Descriptors.Descriptor)descriptor)
+                    .withName(ProtoUtils.toUserIdentifier(descriptor.getName()))
+                    .withNullability(true);
+        }
+        return (DataType.Named)DataTypeUtils.toRelationalType(recordLayerType);
     }
 
     @Nonnull
