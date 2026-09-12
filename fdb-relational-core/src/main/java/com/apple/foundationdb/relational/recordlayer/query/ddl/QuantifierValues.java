@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.SimpleValueVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
@@ -52,8 +53,30 @@ final class QuantifierValues {
     @Nonnull
     private final Map<CorrelationIdentifier, Value> valuesByQuantifier;
 
-    private QuantifierValues(@Nonnull final Map<CorrelationIdentifier, Value> valuesByQuantifier) {
+    /**
+     * Every explode the plan performs, keyed by its {@link AnnotatedAccessor} marker, in the order they were found. One
+     * marker identifies exactly one explode, so this is a plain map. These are the raw facts of the traversal; what an
+     * unnesting <em>means</em> -- which constituent owns its array, whether it can be a constituent at all -- is
+     * composed from them by {@link RecordLayerUnnestedSyntheticTableGenerator}, which is the only thing that needs to know.
+     */
+    @Nonnull
+    private final Map<Integer, NonnullPair<CorrelationIdentifier, FieldValue>> explodes;
+
+    private QuantifierValues(@Nonnull final Map<CorrelationIdentifier, Value> valuesByQuantifier,
+                             @Nonnull final Map<Integer, NonnullPair<CorrelationIdentifier, FieldValue>> explodes) {
         this.valuesByQuantifier = valuesByQuantifier;
+        this.explodes = explodes;
+    }
+
+    /**
+     * The explodes the plan performs, keyed by marker: the correlation each is bound to, which becomes the
+     * constituent's alias, paired with the array it ranges over, tagged at its last accessor with that marker.
+     *
+     * @return what the traversal saw at each explode
+     */
+    @Nonnull
+    public Map<Integer, NonnullPair<CorrelationIdentifier, FieldValue>> getExplodes() {
+        return explodes;
     }
 
     /**
@@ -65,7 +88,9 @@ final class QuantifierValues {
      */
     @Nonnull
     public static QuantifierValues collect(@Nonnull final RelationalExpression expression) {
-        return new QuantifierValues(Assert.notNullUnchecked(new Collector().visit(expression)));
+        final var collector = new Collector();
+        final var valuesByQuantifier = Assert.notNullUnchecked(collector.visit(expression));
+        return new QuantifierValues(valuesByQuantifier, collector.explodes);
     }
 
     /**
@@ -118,6 +143,12 @@ final class QuantifierValues {
         @Nonnull
         private final AtomicInteger explodeCounter = new AtomicInteger(0);
 
+        /**
+         * What was seen at each explode, keyed by marker.
+         */
+        @Nonnull
+        private final Map<Integer, NonnullPair<CorrelationIdentifier, FieldValue>> explodes = new LinkedHashMap<>();
+
         @Nonnull
         @Override
         public Map<CorrelationIdentifier, Value> evaluateAtExpression(@Nonnull final RelationalExpression expression,
@@ -127,7 +158,8 @@ final class QuantifierValues {
                 final var rangesOver = quantifier.getRangesOver().get();
                 // a quantifier over an explode stands for the collection being unnested, not for the explode's result
                 merged.put(quantifier.getAlias(), rangesOver instanceof ExplodeExpression
-                                                  ? unnestedCollectionValue((ExplodeExpression)rangesOver)
+                                                  ? unnestedCollectionValue((ExplodeExpression)rangesOver,
+                                                          quantifier.getAlias())
                                                   : rangesOver.getResultValue());
             }
             return merged;
@@ -141,17 +173,19 @@ final class QuantifierValues {
         }
 
         @Nonnull
-        private Value unnestedCollectionValue(@Nonnull final ExplodeExpression explode) {
+        private Value unnestedCollectionValue(@Nonnull final ExplodeExpression explode,
+                                              @Nonnull final CorrelationIdentifier alias) {
             final var marker = explodeCounter.incrementAndGet();
             final var collectionValue = explode.getCollectionValue();
-            if (!(collectionValue instanceof FieldValue)) {
+            if (!(collectionValue instanceof final FieldValue field)) {
                 return collectionValue;
             }
-            final var field = (FieldValue)collectionValue;
             final var fieldAccessors = new ArrayList<>(field.getFieldPath().getFieldAccessors());
             fieldAccessors.set(fieldAccessors.size() - 1,
                     AnnotatedAccessor.of(fieldAccessors.get(fieldAccessors.size() - 1), marker));
-            return FieldValue.ofFields(field.getChild(), new FieldValue.FieldPath(fieldAccessors));
+            final var annotated = FieldValue.ofFields(field.getChild(), new FieldValue.FieldPath(fieldAccessors));
+            explodes.put(marker, NonnullPair.of(alias, annotated));
+            return annotated;
         }
 
         @Nonnull
@@ -173,6 +207,10 @@ final class QuantifierValues {
         private AnnotatedAccessor(@Nonnull final Type.Record.Field field, final int ordinal, final int marker) {
             super(field, ordinal);
             this.marker = marker;
+        }
+
+        int getMarker() {
+            return marker;
         }
 
         @Nonnull

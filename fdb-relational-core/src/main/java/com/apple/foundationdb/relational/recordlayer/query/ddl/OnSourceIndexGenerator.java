@@ -158,11 +158,12 @@ public final class OnSourceIndexGenerator implements IndexGenerator {
      * The generated index will be ordered according to the key columns and can optionally enforce uniqueness
      * if configured via {@link IndexGenerationOptions#unique()} flag.
      *
-     * @return a fully configured {@link RecordLayerIndex} ready to be added to the schema
+     * @return the generated index, together with the unnested synthetic table to define it on when the
+     *         source unnests a struct array in a way a fan-out cannot express
      */
     @Nonnull
     @Override
-    public RecordLayerIndex.Builder generate() {
+    public IndexGenerationResult generate() {
         final var keyIdentifiers = keyColumns.stream().map(IndexedColumn::identifier).collect(ImmutableList.toImmutableList());
         final var keyIdentifiersAsSet = ImmutableSet.copyOf(keyIdentifiers);
         final var valueIdentifiers = valueColumns.stream().map(IndexedColumn::identifier)
@@ -219,9 +220,9 @@ public final class OnSourceIndexGenerator implements IndexGenerator {
         final var indexGenerator = MaterializedViewIndexGenerator.newInstance(
                 indexPlan.getQuantifier().getRangesOver().get(), metadataBuilder, indexName.toString(),
                 options);
-        final var indexMetadata = indexGenerator.generate();
-        indexMetadata.addAllOptions(indexOptions);
-        return indexMetadata;
+        final var result = indexGenerator.generate();
+        result.indexBuilder().addAllOptions(indexOptions);
+        return result;
     }
 
     public record IndexedColumn(@Nonnull Identifier identifier, boolean isDescending, boolean isNullsLast) {

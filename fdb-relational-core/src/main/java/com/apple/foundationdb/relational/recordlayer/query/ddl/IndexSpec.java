@@ -113,6 +113,31 @@ record IndexSpec(int scanCount, @Nullable String recordTypeName, @Nullable Query
     }
 
     /**
+     * The index key columns in key order: the order-by columns lead, then whatever the projection holds beyond them.
+     * Empty ordering, and an aggregate index, keep the projection's own order.
+     *
+     * @return the key columns, in key order
+     */
+    @Nonnull
+    public List<Value> keyValues() {
+        if (projection().aggregate() != null) {
+            // An aggregate index keeps the projection's own order, and its ordering may name the aggregate, which is not
+            // one of the field values -- so the reordering below does not apply to it.
+            return projection().values();
+        }
+        final var allValues = projection().fieldValues();
+        final var keyValues = getOrderByValues();
+        Assert.thatUnchecked(allValues.size() >= keyValues.size());
+        if (keyValues.isEmpty()) {
+            return allValues;
+        }
+        final var valueValues = allValues.stream()
+                .filter(value -> !keyValues.contains(value))
+                .collect(ImmutableList.toImmutableList());
+        return ImmutableList.<Value>builder().addAll(keyValues).addAll(valueValues).build();
+    }
+
+    /**
      * The projection the index is defined over, resolved down to the base record.
      */
     @Override
@@ -161,7 +186,7 @@ record IndexSpec(int scanCount, @Nullable String recordTypeName, @Nullable Query
      * Rejects every definition the generator cannot turn into an index, apart from two: the predicate, checked as it is
      * collected, and ordering by the aggregate, checked once the index type is known.
      */
-    public void checkValidity() {
+    public void checkValidity(@Nullable final RecordLayerUnnestedSyntheticTableGenerator unnestedTableGenerator) {
         // the traversal rejects a second scan as a join, leaving none to reject here
         Assert.thatUnchecked(scanCount == 1, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, no iteration generator found");
@@ -192,6 +217,24 @@ record IndexSpec(int scanCount, @Nullable String recordTypeName, @Nullable Query
         } else {
             // rejects a covering aggregate index
             aggregateOrderIndex();
+        }
+        if (unnestedTableGenerator != null) {
+            Assert.thatUnchecked(projection.aggregate() == null,
+                    ErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported index definition, an aggregate cannot be defined on an unnested synthetic table");
+            // The row version belongs to a stored record. A synthetic record has none of its own, and taking its parent's
+            // would make the index depend on which constituent the version was read through.
+            Assert.thatUnchecked(projection.versionValues().isEmpty(),
+                    ErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported index definition, a version column cannot be part of an index over an unnested synthetic table");
+            Assert.thatUnchecked(unnestedTableGenerator.scalarUnnestingsReferencedOnce(keyValues()),
+                    ErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported index definition, a scalar array cannot be referenced at more than one index key position");
+            // A predicate would have to be evaluated against the synthetic record rather than the stored one, which is
+            // not worked out yet. Rejected rather than falling back to a fan-out, which cannot express these shapes and
+            // so would fail later with a less clear error.
+            Assert.thatUnchecked(predicate == null, ErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported index definition, a predicate is not supported on an index over an unnested synthetic table");
         }
     }
 

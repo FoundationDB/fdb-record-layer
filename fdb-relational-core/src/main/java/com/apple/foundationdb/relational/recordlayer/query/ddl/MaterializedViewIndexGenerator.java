@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -33,10 +34,8 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Map;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
@@ -91,16 +90,21 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
 
     @Nonnull
     @Override
-    public RecordLayerIndex.Builder generate() {
-        final var spec = IndexSpec.collect(relationalExpression,
-                QuantifierValues.collect(relationalExpression));
-        spec.checkValidity();
-
-        final var translation = translateToKeyExpression(spec);
+    public IndexGenerationResult generate() {
+        final var quantifierValues = QuantifierValues.collect(relationalExpression);
+        var spec = IndexSpec.collect(relationalExpression, quantifierValues);
+        final var unnestedTableGeneratorMaybe = RecordLayerUnnestedSyntheticTableGenerator.initIfNeeded(
+                schemaTemplateBuilder, spec, indexName, quantifierValues);
+        spec.checkValidity(unnestedTableGeneratorMaybe.orElse(null));
+        final Type.Record tableType;
+        if (unnestedTableGeneratorMaybe.isPresent()) {
+            spec = unnestedTableGeneratorMaybe.get().rewrite(spec);
+            tableType = unnestedTableGeneratorMaybe.get().getSyntheticType();
+        } else {
+            tableType = schemaTemplateBuilder.findTableByStorageName(spec.recordTypeName()).getType();
+        }
+        final var translation = translateToKeyExpression(spec, unnestedTableGeneratorMaybe.isEmpty());
         final var indexType = translation.indexType();
-        // the record layer indexes by storage name
-        final var tableType = schemaTemplateBuilder.findTableByStorageName(spec.recordTypeName()).getType();
-
         final var indexBuilder = RecordLayerIndex.newBuilder()
                 .setName(indexName)
                 .setTableType(tableType)
@@ -119,33 +123,28 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
         }
         indexBuilder.setKeyExpression(KeyExpression.fromProto(
                 NullableArrayUtils.wrapArray(keyExpression.toKeyExpression(), tableType, options.containsNullableArray())));
-        return indexBuilder;
+        return new IndexGenerationResult(indexBuilder,
+                unnestedTableGeneratorMaybe.map(RecordLayerUnnestedSyntheticTableGenerator::generate));
     }
 
     /**
      * Translates the projection into the index key, columns in key order: the order-by columns lead a value index, while
      * an aggregate index keeps the projection's order.
+     *
+     * @param spec what the index is made of, already rewritten onto the synthetic table if there is one
+     * @param allowCollapsing whether a run of adjacent field paths may merge into a single navigation, which is what a
+     * fan-out on a stored table wants and what an index over constituent aliases must not do
+     *
+     * @return the index key and the index type it implies
      */
     @Nonnull
-    private ValueToKeyExpressionVisitor.Result translateToKeyExpression(@Nonnull final IndexSpec spec) {
-        final var projection = spec.projection();
-        final var isAggregate = projection.aggregate() != null;
-        final var reorderedValues = isAggregate ? projection.values()
-                                          : reorderValues(projection.fieldValues(), spec.getOrderByValues());
-        return ValueToKeyExpressionVisitor.translate(RecordConstructorValue.ofUnnamed(reorderedValues),
-                isAggregate ? Map.of() : spec.getOrderingFunctions(), options.extremumEverStorage());
-    }
-
-    @Nonnull
-    private static List<Value> reorderValues(@Nonnull final List<Value> allValues, @Nonnull final List<Value> keyValues) {
-        Assert.thatUnchecked(allValues.size() >= keyValues.size());
-        if (keyValues.isEmpty()) {
-            return allValues;
-        }
-        final var valueValues = allValues.stream()
-                .filter(value -> !keyValues.contains(value))
-                .collect(ImmutableList.toImmutableList());
-        return ImmutableList.<Value>builder().addAll(keyValues).addAll(valueValues).build();
+    private ValueToKeyExpressionVisitor.Result translateToKeyExpression(@Nonnull IndexSpec spec, boolean allowCollapsing) {
+        final var projectionValue = RecordConstructorValue.ofUnnamed(spec.keyValues());
+        final var orderingFunctions = spec.projection().aggregate() != null ?
+                                      Map.<Value, String>of() :
+                                      spec.getOrderingFunctions();
+        return ValueToKeyExpressionVisitor.translate(projectionValue, orderingFunctions,
+                options.extremumEverStorage(), allowCollapsing);
     }
 
     /**

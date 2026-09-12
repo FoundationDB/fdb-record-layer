@@ -59,12 +59,16 @@ public interface IndexGenerator {
     /**
      * Builds the index this generator was configured with.
      * <p>
-     * The returned builder is not yet built, so a caller that knows something the definition does not carry can still
-     * add it -- a vector index, for instance, sets its index type and engine options afterwards. Nothing is written to
-     * the schema template until the caller builds it and adds it.
+     * The returned index builder is not yet built, so a caller that knows something the definition does not carry can
+     * still add it -- a vector index, for instance, sets its index type and engine options afterwards. Nothing is
+     * written to the schema template until the caller registers the result.
+     * </p><p>
+     * An index whose key spans a record composed of several others is defined on a synthetic table, which the result
+     * carries alongside the index. {@link IndexGenerationResult#registerOn} registers both, since an index whose
+     * synthetic table is not registered names a type that does not exist.
      * </p>
      *
-     * @return the index the definition asks for
+     * @return the index the definition asks for, with the synthetic table to define it on when there is one
      *
      * @throws com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException with
      * {@link com.apple.foundationdb.relational.api.exceptions.ErrorCode#UNSUPPORTED_OPERATION} if the definition
@@ -72,5 +76,5 @@ public interface IndexGenerator {
      * key expression can express
      */
     @Nonnull
-    RecordLayerIndex.Builder generate();
+    IndexGenerationResult generate();
 }
