@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableMap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Warn: this class is stateful.
@@ -47,20 +48,31 @@ public final class PreparedParams {
     @Nonnull
     private final Map<String, Object> namedParams;
 
+    /**
+     * Declared types for named parameters that carry a type but <em>no</em> value. Populated during value-free
+     * stored-query warm-up from the query's parameter list: when a named parameter {@code ?name} has an entry here but no
+     * value in {@link #namedParams}, it is planned as a value-free typed {@link
+     * com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue}. Empty for ordinary
+     * (value-bound) execution.
+     */
+    @Nonnull
+    private final Map<String, String> declarations;
+
     private int nextParam = 1;
 
     private PreparedParams(@Nonnull Map<Integer, Object> unnamedParams,
                            @Nonnull Map<String, Object> namedParameters) {
-        this.unnamedParams = unnamedParams;
-        this.namedParams = namedParameters;
+        this(unnamedParams, namedParameters, 1, Map.of());
     }
 
     private PreparedParams(@Nonnull Map<Integer, Object> unnamedParams,
                            @Nonnull Map<String, Object> namedParameters,
-                           int nextParam) {
+                           int nextParam,
+                           @Nonnull Map<String, String> declarations) {
         this.unnamedParams = unnamedParams;
         this.namedParams = namedParameters;
         this.nextParam = nextParam;
+        this.declarations = declarations;
     }
 
     public int currentUnnamedParamIndex() {
@@ -81,6 +93,31 @@ public final class PreparedParams {
                 ErrorCode.UNDEFINED_PARAMETER, "No value found for parameter " + name
         );
         return namedParams.get(name);
+    }
+
+    public boolean hasNamedParamValue(@Nonnull String name) {
+        return namedParams.containsKey(name);
+    }
+
+    /**
+     * The SQL text of a named parameter's type declaration, or empty when the parameter declares none. Text rather than
+     * a resolved type because a declaration may name a schema template type, which is resolved against the template the
+     * query is planned with; that happens on the planning path, where the schema template is in hand.
+     *
+     * <p>Only consulted for a parameter that carries no value: a value-bound parameter takes its type from the value.
+     * So a declaration may be supplied for every parameter, and the ones that are also bound simply never read it.</p>
+     */
+    @Nonnull
+    public Optional<String> declarationMaybe(@Nonnull String name) {
+        return Optional.ofNullable(declarations.get(name));
+    }
+
+    /**
+     * Returns a copy of these parameters with type declarations attached. Existing value maps are preserved.
+     */
+    @Nonnull
+    public PreparedParams withDeclarations(@Nonnull Map<String, String> declarations) {
+        return new PreparedParams(unnamedParams, namedParams, nextParam, ImmutableMap.copyOf(declarations));
     }
 
     public boolean isEmpty() {
@@ -116,9 +153,9 @@ public final class PreparedParams {
     @Nonnull
     public static PreparedParams copyOf(@Nonnull PreparedParams other, boolean withCurrentUnnamedParamIndex) {
         if (withCurrentUnnamedParamIndex) {
-            return new PreparedParams(other.unnamedParams, other.namedParams, other.currentUnnamedParamIndex());
+            return new PreparedParams(other.unnamedParams, other.namedParams, other.currentUnnamedParamIndex(), other.declarations);
         } else {
-            return new PreparedParams(other.unnamedParams, other.namedParams);
+            return new PreparedParams(other.unnamedParams, other.namedParams, 1, other.declarations);
         }
     }
 }

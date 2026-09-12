@@ -178,6 +178,20 @@ public class QueryParser {
         return parse(viewDefinition, ignored -> { } , RelationalParser::query);
     }
 
+    /**
+     * Parses a parameter's type declaration on its own — a type optionally followed by a nullability clause, for
+     * example {@code BIGINT}, {@code BIGINT NOT NULL} or {@code VECTOR(128, FLOAT)}. A stored query's parameter list keeps
+     * declarations as source text, so resolving one needs a parse.
+     *
+     * @param declaration the declaration text
+     * @return the parsed declaration
+     */
+    @Nonnull
+    public static RelationalParser.StoredQueryParameterDeclarationContext parseParameterDeclaration(
+            @Nonnull final String declaration) {
+        return parse(declaration, ignored -> { }, RelationalParser::storedQueryParameterDeclaration);
+    }
+
     private static final class PreparedParamsValidator extends RelationalParserBaseVisitor<Void> {
         @Override
         public Void visitPreparedStatementParameter(final RelationalParser.PreparedStatementParameterContext ctx) {
