@@ -71,7 +71,8 @@ import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.r
  *   <tr><td>{@code planHash}</td><td>Validate the query plan hash (integer).</td></tr>
  *   <tr><td>{@code maxRows}</td><td>Limit rows fetched per result set (enables pagination testing with multiple
  *       {@code result} directives).</td></tr>
- *   <tr><td>{@code setup}</td><td>Inline transaction-scoped setup SQL (only {@code CREATE TEMPORARY FUNCTION}).</td></tr>
+ *   <tr><td>{@code setup}</td><td>Inline transaction-scoped setup SQL (only {@code CREATE TEMPORARY FUNCTION} or
+ *       {@code SET TRANSACTION VARIABLE}).</td></tr>
  *   <tr><td>{@code setupReference}</td><td>Reference a named setup from a {@code transaction_setups} block.</td></tr>
  *   <tr><td>{@code supported_version}</td><td>Minimum version for this query. Must be the first directive if
  *       present.</td></tr>

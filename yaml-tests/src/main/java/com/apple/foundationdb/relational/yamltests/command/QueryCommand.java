@@ -69,6 +69,10 @@ import java.util.stream.Collectors;
 public final class QueryCommand extends Command {
     private static final Logger logger = LogManager.getLogger(QueryCommand.class);
 
+    // Statements allowed for inline/referenced transaction setups: both are transaction-local (never committed,
+    // never visible outside the transaction), so they cannot introduce cross-test conflicts under parallel execution.
+    private static final List<String> ALLOWED_SETUP_STATEMENTS = List.of("CREATE TEMPORARY FUNCTION", "SET TRANSACTION VARIABLE");
+
     @Nonnull
     private final List<QueryConfig> queryConfigs;
     @Nonnull
@@ -266,13 +270,14 @@ public final class QueryCommand extends Command {
                 Assert.that(!queryIsRunning, "Transaction setup should not be intermingled with query results");
                 final String setupStatement = Matchers.notNull(Matchers.string(Matchers.notNull(queryConfig.getVal(),
                                 "Setup Config Val"), "Transaction setup"), "Transaction setup");
-                // we restrict transaction setups to CREATE TEMPORARY FUNCTION, because other mutations could be hard
-                // to reason about when running in a parallel world. It's possible the right answer is that we shouldn't
+                // we restrict transaction setups to statements that only affect transaction-local state (never
+                // committed, never visible outside the transaction), because other mutations could be hard to reason
+                // about when running in a parallel world. It's possible the right answer is that we shouldn't
                 // commit after the query, or that we shouldn't allow things that modify state in the database. This will
                 // become clearer as we have more related tests, and for now, just try to stop people from being confused.
-                final String allowedStatement = "CREATE TEMPORARY FUNCTION";
-                Assert.that(setupStatement.regionMatches(true, 0, allowedStatement, 0, allowedStatement.length()),
-                        "Only \"CREATE TEMPORARY FUNCTION\" is allowed for transaction setups");
+                Assert.that(ALLOWED_SETUP_STATEMENTS.stream().anyMatch(allowedStatement ->
+                                setupStatement.regionMatches(true, 0, allowedStatement, 0, allowedStatement.length())),
+                        "Only " + ALLOWED_SETUP_STATEMENTS + " are allowed for transaction setups");
                 executor.addSetup(setupStatement);
             } else if (!QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(queryConfig.getConfigName()) &&
                     !QueryConfig.QUERY_CONFIG_DEBUGGER.equals(queryConfig.getConfigName())) {
