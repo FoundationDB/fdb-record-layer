@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -43,18 +44,29 @@ import java.util.stream.Collectors;
  * @param runningStandardDeviation running statistics of member distances to the centroid; its element count is the
  *        number of primary vectors
  * @param states the set of maintenance operations currently in flight for this cluster
+ * @param maxEverNumPrimaryVectors the high-water mark of {@link #getNumPrimaryVectors()} over this cluster's
+ *        lifetime. Maintained monotonically by the compact constructor (raised to the current primary count on
+ *        every construction, never decremented on shrink), so the merge trigger can fire when the current count
+ *        falls to a fraction of this peak rather than below a fixed absolute floor
  */
 record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, int numReplicatedVectors,
-                       @Nonnull RunningStats runningStandardDeviation, @Nonnull EnumSet<State> states) {
+                       @Nonnull RunningStats runningStandardDeviation, @Nonnull EnumSet<State> states,
+                       int maxEverNumPrimaryVectors) {
     public ClusterMetadata(@Nonnull final UUID id, final int numPrimaryUnderreplicatedVectors,
                            final int numReplicatedVectors,
-                           @Nonnull final RunningStats runningStandardDeviation, final int stateCode) {
+                           @Nonnull final RunningStats runningStandardDeviation, final int stateCode,
+                           final int maxEverNumPrimaryVectors) {
         this(id, numPrimaryUnderreplicatedVectors, numReplicatedVectors, runningStandardDeviation,
-                State.ofCode(stateCode));
+                State.ofCode(stateCode), maxEverNumPrimaryVectors);
     }
 
     ClusterMetadata {
         Preconditions.checkArgument(runningStandardDeviation.numElements() >= numPrimaryUnderreplicatedVectors);
+        // Monotonic high-water mark of the primary count: raised to the current count here and never decremented
+        // on shrink. Every with* passes the prior peak through, so growth past it raises it while a lower count
+        // leaves it untouched — including the reassign target, whose stats are rebuilt to a smaller count.
+        maxEverNumPrimaryVectors =
+                Math.max(maxEverNumPrimaryVectors, Math.toIntExact(runningStandardDeviation.numElements()));
     }
 
     public int getNumPrimaryVectors() {
@@ -70,11 +82,7 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
     }
 
     public int getStatesCode() {
-        int result = 0;
-        for (final State state : states()) {
-            result |= state.getCode();
-        }
-        return result;
+        return State.codeOf(states());
     }
 
     @Nonnull
@@ -84,7 +92,7 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
                                           @Nonnull final EnumSet<State> states) {
         final EnumSet<State> newStates = EnumSet.copyOf(states);
         return new ClusterMetadata(id(), numPrimaryUnderreplicatedVectors, numReplicatedVectors,
-                newStandardDeviation, newStates);
+                newStandardDeviation, newStates, maxEverNumPrimaryVectors());
     }
 
     @Nonnull
@@ -98,7 +106,7 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
     @Nonnull
     public ClusterMetadata withNewStates(@Nonnull final EnumSet<State> newStates) {
         return new ClusterMetadata(id(), numPrimaryUnderreplicatedVectors(), numReplicatedVectors(),
-                runningStandardDeviation(), newStates);
+                runningStandardDeviation(), newStates, maxEverNumPrimaryVectors());
     }
 
     @Nonnull
@@ -111,7 +119,7 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
         return new ClusterMetadata(id(),
                 numPrimaryUnderreplicatedVectors() + numPrimaryUnderreplicatedVectorsAdded,
                 numReplicatedVectors() + numReplicatedVectorsAdded, newStandardDeviation,
-                newStates);
+                newStates, maxEverNumPrimaryVectors());
     }
 
     @Override
@@ -119,6 +127,7 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
     public String toString() {
         return "CM[id=" + id() +
                 ", numPrimaryVectors=" + getNumPrimaryVectors() +
+                ", maxEverNumPrimaryVectors=" + maxEverNumPrimaryVectors() +
                 ", numPrimaryUnderreplicatedVectors=" + numPrimaryUnderreplicatedVectors() +
                 ", numReplicatedVectors=" + numReplicatedVectors() +
                 ", states=" + states() +
@@ -179,6 +188,21 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
                 }
             }
             return resultSet;
+        }
+
+        /**
+         * Packs a set of states into the single-integer bit mask {@link #ofCode(int)} reads back. The inverse of
+         * {@link #ofCode(int)}, kept beside it so the two stay in step.
+         *
+         * @param states the states to pack
+         * @return the bit mask
+         */
+        public static int codeOf(@Nonnull final Set<State> states) {
+            int result = 0;
+            for (final State state : states) {
+                result |= state.getCode();
+            }
+            return result;
         }
     }
 }

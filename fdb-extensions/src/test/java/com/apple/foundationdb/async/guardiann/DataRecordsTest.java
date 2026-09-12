@@ -35,6 +35,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
@@ -85,6 +86,13 @@ class DataRecordsTest {
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
     void testClusterMetadata(final long randomSeed) {
         assertHashCodeEqualsToString(randomSeed, DataRecordsTest::clusterMetadata, DataRecordsTest::clusterMetadata);
+    }
+
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
+    void testClusterMetadataDelta(final long randomSeed) {
+        assertHashCodeEqualsToString(randomSeed, DataRecordsTest::clusterMetadataDelta,
+                DataRecordsTest::clusterMetadataDelta);
     }
 
     @ParameterizedTest
@@ -350,7 +358,41 @@ class DataRecordsTest {
             stats = stats.add(random.nextDouble() * 10.0d);
         }
         return new ClusterMetadata(id, numPrimaryUnderreplicatedVectors, numReplicatedVectors, stats,
-                random.nextInt(8));
+                random.nextInt(8), numElements + random.nextInt(4));
+    }
+
+    @Nonnull
+    private static ClusterMetadataDelta clusterMetadataDelta(@Nonnull final Random random) {
+        final ClusterMetadataDelta.StatsOp[] statsOps = ClusterMetadataDelta.StatsOp.values();
+        return new ClusterMetadataDelta(statsOps[random.nextInt(statsOps.length)],
+                random.nextDouble() * 10.0d,
+                random.nextInt(5) - 2,
+                random.nextInt(5) - 2,
+                randomStates(random),
+                randomStates(random));
+    }
+
+    @Nonnull
+    private static ClusterMetadataDelta clusterMetadataDelta(@Nonnull final Random random,
+                                                             @Nonnull final ClusterMetadataDelta original) {
+        // The distance alone guarantees a different value, whatever the remaining components come out as.
+        return new ClusterMetadataDelta(original.statsOp(),
+                differentDouble(random, original.distance()),
+                original.numPrimaryUnderreplicatedVectorsDelta(),
+                original.numReplicatedVectorsDelta(),
+                original.statesToSet(),
+                original.statesToClear());
+    }
+
+    @Nonnull
+    private static EnumSet<ClusterMetadata.State> randomStates(@Nonnull final Random random) {
+        final EnumSet<ClusterMetadata.State> states = EnumSet.noneOf(ClusterMetadata.State.class);
+        for (final ClusterMetadata.State state : ClusterMetadata.State.values()) {
+            if (random.nextBoolean()) {
+                states.add(state);
+            }
+        }
+        return states;
     }
 
     @Nonnull

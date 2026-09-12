@@ -174,7 +174,10 @@ class SplitMergeTask extends AbstractDeferredTask {
                         return AsyncUtil.DONE;
                     }
 
-                    if (clusterMetadata.getNumPrimaryVectors() >= config.primaryClusterMin() &&
+                    // The lower bound is the hysteresis merge threshold (relative to the cluster's max-ever
+                    // primary count); the upper bound stays the absolute split cap.
+                    final int mergeThreshold = config.mergeThreshold(clusterMetadata.maxEverNumPrimaryVectors());
+                    if (clusterMetadata.getNumPrimaryVectors() >= mergeThreshold &&
                             clusterMetadata.getNumPrimaryVectors() <= config.primaryClusterMax()) {
                         // false alarm
                         final EnumSet<ClusterMetadata.State> newStates = EnumSet.copyOf(clusterMetadata.states());
@@ -186,7 +189,7 @@ class SplitMergeTask extends AbstractDeferredTask {
                     if (clusterMetadata.getNumPrimaryVectors() > config.primaryClusterMax()) {
                         return split(transaction, clusterMetadata, untransformedCentroid);
                     } else {
-                        Verify.verify(clusterMetadata.getNumPrimaryVectors() < config.primaryClusterMin());
+                        Verify.verify(clusterMetadata.getNumPrimaryVectors() < mergeThreshold);
                         return merge(transaction, clusterMetadata, untransformedCentroid);
                     }
                 }).thenAccept(ignored -> logSuccessful(logger));
@@ -588,7 +591,8 @@ class SplitMergeTask extends AbstractDeferredTask {
                             new ClusterMetadata(newClusterId,
                                     0, 0,
                                     RunningStats.identity(),
-                                    EnumSet.noneOf(ClusterMetadata.State.class)),
+                                    EnumSet.noneOf(ClusterMetadata.State.class),
+                                    0),
                             clusterCentroids.get(i), 0.0d));
         }
         final Set<UUID> newClusterIds = newClusterIdsBuilder.build();
@@ -695,7 +699,7 @@ class SplitMergeTask extends AbstractDeferredTask {
                                                           @Nonnull final List<ClusterMetadataWithDistance> replicationCandidates,
                                                           @Nonnull final Map<UUID, RunningStats> standardDeviationsMap) {
         final Config config = getConfig();
-        final List<ClusterMetadataWithDistance> selectedReplicationClusters =
+        final List<Transformed<RealVector>> selectedReplicationCentroids =
                 Lists.newArrayListWithExpectedSize(replicationCandidates.size());
         final ImmutableListMultimap.Builder<UUID, VectorReference> replicasByCluster = ImmutableListMultimap.builder();
 
@@ -721,14 +725,15 @@ class SplitMergeTask extends AbstractDeferredTask {
             replicationPriorityStandardDeviation = replicationPriorityStandardDeviation.add(replicationPriority);
 
             if (replicationPriority >= config.replicationPriorityMin()) {
-                if (StorageAdapter.isOccluded(estimator, replicationCandidate, selectedReplicationClusters)) {
+                if (StorageAdapter.isOccluded(estimator, replicationCandidate.centroid(),
+                        replicationCandidate.distance(), selectedReplicationCentroids)) {
                     numOccluded++;
                     continue;
                 }
 
                 replicasByCluster.put(replicationCandidateClusterMetadata.id(),
                         vectorReference.toReplicatedCopy(replicationPriority));
-                selectedReplicationClusters.add(replicationCandidate);
+                selectedReplicationCentroids.add(replicationCandidate.centroid());
                 numReplicated++;
             }
         }
@@ -1165,11 +1170,23 @@ class SplitMergeTask extends AbstractDeferredTask {
     /**
      * Returns the {@link PartitionEvaluator.Parameters} appropriate for the given transition. The
      * generalized {@link PartitionEvaluator.Parameters} record has a single {@code minSmallestFrac}
-     * / {@code maxLargestFrac} pair, so the caller picks values per transition kind:
+     * / {@code maxLargestFrac} pair, so the caller picks values per transition kind.
+     * <p>
+     * Splits are biased toward balance through a raised {@code gammaImbalancePenalty}, which docks the
+     * {@code scoreGain} of the more lopsided candidate so the more balanced one wins. The hard floor
+     * {@code minSmallestFrac} is deliberately left low: it is the only gate that yields
+     * {@link PartitionEvaluator.Decision#INVALID_CANDIDATE}, and {@code split()} throws when every candidate is
+     * rejected — so a floor high enough to guarantee a balanced child would fail outright on data that admits no
+     * balanced k-means split. Bounding a child's size from below is not this method's job anyway: an undersized
+     * child is kept from immediately re-merging by the hysteresis merge threshold ({@link Config#mergeThreshold}),
+     * which measures a cluster against its own lifetime peak rather than an absolute floor.
      * <ul>
-     *   <li>{@code 1 → 2}: {@code minSmallestFrac=0.03}, no upper bound on the largest cluster.
-     *   <li>{@code 2 → 3}: {@code minSmallestFrac=0.015}, {@code maxLargestFrac=0.55}.
-     *   <li>{@code 2 → 1} / {@code 3 → 2} merges: permissive (no smallest/largest constraints).
+     *   <li>{@code 1 → 2}: {@code minSmallestFrac=0.03}, no upper bound on the largest cluster,
+     *       {@code gammaImbalancePenalty=3.0}.
+     *   <li>{@code 2 → 3}: {@code minSmallestFrac=0.015}, {@code maxLargestFrac=0.55},
+     *       {@code gammaImbalancePenalty=3.0}.
+     *   <li>{@code 2 → 1} / {@code 3 → 2} merges: permissive (fractional caps cannot express a "merged result
+     *       stays under {@code primaryClusterMax}" constraint anyway).
      * </ul>
      *
      * @param estimator the distance estimator the evaluator uses to score partitions
@@ -1185,22 +1202,28 @@ class SplitMergeTask extends AbstractDeferredTask {
         final PartitionEvaluator.Parameters defaults = new PartitionEvaluator.Parameters(estimator);
         final double minSmallestFrac;
         final double maxLargestFrac;
+        final double gammaImbalancePenalty;
         if (currentK == 1 && candidateK == 2) {
             minSmallestFrac = 0.03d;
             maxLargestFrac = 1.0d;
+            gammaImbalancePenalty = 3.0d;
         } else if (currentK == 2 && candidateK == 3) {
             minSmallestFrac = 0.015d;
             maxLargestFrac = 0.55d;
+            gammaImbalancePenalty = 3.0d;
         } else {
-            // merges (2 → 1, 3 → 2): permissive
+            // merges (2 -> 1, 3 -> 2): permissive on shape. Fractional caps cannot express the constraint that
+            // actually matters for a merge -- that the merged result stay under primaryClusterMax -- because a
+            // single-cluster (k==1) candidate has largestFrac == 1.0 by construction.
             minSmallestFrac = 0.0d;
             maxLargestFrac = 1.0d;
+            gammaImbalancePenalty = defaults.gammaImbalancePenalty();
         }
         return new PartitionEvaluator.Parameters(estimator,
                 defaults.minRelativeSseGain(), defaults.minSeparation(), defaults.maxLowMarginRate(),
                 minSmallestFrac, maxLargestFrac, defaults.lowMarginThreshold(),
                 defaults.alphaSseGain(), defaults.betaSeparationGain(),
-                defaults.gammaImbalancePenalty(), defaults.deltaLowMarginPenalty(),
+                gammaImbalancePenalty, defaults.deltaLowMarginPenalty(),
                 defaults.minScoreGain());
     }
 

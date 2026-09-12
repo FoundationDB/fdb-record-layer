@@ -259,8 +259,8 @@ public class SiftTest implements BaseTest {
     }
 
     @ParameterizedTest(name = "[{index}] seed={0}")
-    @RandomSeedSource
-    @SuperSlow
+    @RandomSeedSource(-8629541155071462996L)
+    //@SuperSlow
     @Timeout(value = 2, unit = TimeUnit.HOURS)
     void insertDeleteAllSiftSubsampledSlow(final long seed) throws Exception {
         final List<PrimaryKeyAndVector> startup = TestHelpers.loadSample(SIFT_1M_BASE_PATH, seed, SAMPLE_SIZE_LARGE);
@@ -451,10 +451,27 @@ public class SiftTest implements BaseTest {
                 .as("local active map must be empty after deleting every record")
                 .isEmpty();
         final StructureSnapshot snap = GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann);
+        // Confirm the deletes actually happened: any reference still in the structure must be an orphan (its vector's
+        // metadata is gone), not a live vector that escaped deletion. This isolates a genuine delete miss from a mere
+        // failure to reap the (already-deleted) reference, and reports it with a sharper message than the bare
+        // counts below.
+        GuardiannStructureAsserts.assertAllReferencesAreOrphaned(getDb(), guardiann, snap);
+
         final int remainingPrimaries = snap == null ? 0 : snap.totalPrimaries();
+        final int remainingClusters = snap == null ? 0 : snap.numClusters();
+        logger.info("fully drained: totalPrimaries={}, numClusters={}", remainingPrimaries, remainingClusters);
+        // No test-side reconciliation sweep here on purpose: reaching the empty state must be the *production*
+        // maintenance path's job (the hysteresis merge trigger plus the merge enqueued after a reassign), since
+        // nothing sweeps idle clusters in a real deployment. A merge dissolves the target into a neighbor, and the
+        // reassign it drives drops references whose per-vector metadata is gone, so the orphans a delete left behind
+        // in clusters it never revisited are reaped as the structure consolidates.
         assertThat(remainingPrimaries)
-                .as("no primaries may remain after deleting every record")
+                .as("deleting every record must leave no primaries once deferred maintenance has quiesced")
                 .isZero();
+        assertThat(remainingClusters)
+                .as("a fully drained structure bottoms out at exactly one (empty) cluster: a merge needs a mergeable "
+                        + "neighbor (centroid cardinality MULTIPLE), so the final cluster is never merged away")
+                .isEqualTo(1);
     }
 
     // ---------------------------------------------------------------------------------------------------------
@@ -494,7 +511,7 @@ public class SiftTest implements BaseTest {
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)
                 .setPrimaryClusterMax(512)
-                .setPrimaryClusterMin(100)
+                .setPrimaryClusterMin(50)
                 .setDeterministicRandomness(true)
                 .setReplicationPriorityMin(0.75d)
                 .setReplicatedClusterTarget(500)

@@ -205,6 +205,28 @@ public class MergeScenarioTest implements BaseTest {
         assertThat(afterDelete.totalPrimaries())
                 .as("every surviving vector must remain accounted for as a primary")
                 .isEqualTo(REMAINING_AFTER_DELETE);
+
+        // The delete path removes each vector's metadata record unconditionally (Delete.deleteVectorMetadata), even
+        // when its cluster reference is missed and lingers as an orphan. Assert metadata removal is complete and
+        // decoupled from reference reaping: every deleted key has no metadata left, every survivor still does.
+        final List<PrimaryKeyAndVector> deleted =
+                inserted.subList(0, NUM_NEAR_DUPLICATES - REMAINING_AFTER_DELETE);
+        final List<PrimaryKeyAndVector> survivors =
+                inserted.subList(NUM_NEAR_DUPLICATES - REMAINING_AFTER_DELETE, NUM_NEAR_DUPLICATES);
+        db.run(tr -> {
+            final Primitives primitives = guardiann.getLocator().primitives();
+            for (final PrimaryKeyAndVector record : deleted) {
+                assertThat(primitives.fetchVectorMetadata(tr, record.primaryKey()).join())
+                        .as("deleted vector %s must have no metadata record left", record.primaryKey())
+                        .isNull();
+            }
+            for (final PrimaryKeyAndVector record : survivors) {
+                assertThat(primitives.fetchVectorMetadata(tr, record.primaryKey()).join())
+                        .as("surviving vector %s must keep its metadata record", record.primaryKey())
+                        .isNotNull();
+            }
+            return null;
+        });
     }
 
     private void deleteRecords(@Nonnull final List<PrimaryKeyAndVector> records) throws Exception {
