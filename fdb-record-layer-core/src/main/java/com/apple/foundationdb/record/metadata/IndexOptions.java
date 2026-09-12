@@ -455,8 +455,42 @@ public class IndexOptions {
     // back to the Guardiann config defaults. The nested construction-time search config is deliberately not exposed.
     //
 
-    /** Guardiann-only: minimum number of primary vectors in a cluster before a merge is triggered. */
+    /**
+     * Guardiann-only: floor on the primary-vector count below which a cluster is merged. The effective trigger is the
+     * larger of this floor and {@code guardiannMergeMaxEverFraction} of the cluster's lifetime peak, so this option is
+     * what governs small clusters, whose peak is too low for the fraction to be meaningful.
+     */
     public static final String GUARDIANN_PRIMARY_CLUSTER_MIN = "guardiannPrimaryClusterMin";
+
+    /**
+     * Guardiann-only: fraction of a cluster's lifetime peak primary count below which it is merged, floored by
+     * {@code guardiannPrimaryClusterMin}. Measuring against each cluster's own peak rather than an absolute count gives
+     * the merge trigger hysteresis: a freshly split child sits at its own peak and so is never immediately
+     * merge-eligible however lopsided the split, while a cluster that has since shed most of its members still
+     * consolidates. Must be strictly between {@code 0} and {@code 1}.
+     */
+    public static final String GUARDIANN_MERGE_MAX_EVER_FRACTION = "guardiannMergeMaxEverFraction";
+
+    /**
+     * Guardiann-only: floor on the smallest cluster produced by a split or merge, as a fraction of the population
+     * being repartitioned. A candidate that would produce a smaller cluster is rejected outright, which keeps a
+     * split from creating a cluster born small enough to immediately want merging away again.
+     */
+    public static final String GUARDIANN_MIN_CHILD_FRACTION = "guardiannMinChildFraction";
+
+    /**
+     * Guardiann-only: ceiling on how unevenly a split or merge may size its clusters, as a fraction of the worst
+     * imbalance achievable for that number of clusters. Because it is normalized, one value means the same thing
+     * however many clusters a candidate has, and a merge down to a single cluster — perfectly balanced by
+     * definition — always passes. Use {@code 1} to disable the check.
+     */
+    public static final String GUARDIANN_MAX_RELATIVE_IMBALANCE = "guardiannMaxRelativeImbalance";
+
+    /**
+     * Guardiann-only: weight of the imbalance term when scoring a split, which biases the choice between otherwise
+     * comparable candidates toward the more balanced one. Merges are scored with the default weight.
+     */
+    public static final String GUARDIANN_SPLIT_IMBALANCE_PENALTY = "guardiannSplitImbalancePenalty";
 
     /** Guardiann-only: maximum number of primary vectors in a cluster before a split is triggered. */
     public static final String GUARDIANN_PRIMARY_CLUSTER_MAX = "guardiannPrimaryClusterMax";

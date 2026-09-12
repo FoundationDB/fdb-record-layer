@@ -88,7 +88,7 @@ class Delete {
      * <p>
      * Locates the vector's references in nearby clusters by querying the HNSW centroid index,
      * removes them, adjusts cluster metadata, and enqueues a merge task via
-     * {@link Primitives#updateClusterMetadataAndEnqueueMergeTaskMaybe} if the primary cluster's size drops below the
+     * {@link Primitives#updateClusterMetadataAndEnqueueMergeOrReassignTaskMaybe} if the primary cluster's size drops below the
      * configured minimum (and a mergeable neighbor exists). Finally, removes the vector's metadata entry.
      *
      * @param transaction the {@link Transaction} context for all database operations
@@ -201,7 +201,7 @@ class Delete {
                                                     clusterMetadataWithDistance.distance());
 
                                     primaryUpdateFuture = primaryUpdateFuture.thenCompose(ignored ->
-                                            primitives.updateClusterMetadataAndEnqueueMergeTaskMaybe(transaction,
+                                            primitives.updateClusterMetadataAndEnqueueMergeOrReassignTaskMaybe(transaction,
                                                     random.split(), clusterMetadata,
                                                     clusterMetadataWithDistance.centroid(), accessInfo,
                                                     updatedStandardDeviation));

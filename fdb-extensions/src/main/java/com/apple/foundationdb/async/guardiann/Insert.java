@@ -424,7 +424,7 @@ class Insert {
         final UUID clusterId = RandomHelpers.randomUuid(random, config.deterministicRandomness());
         primitives.writeClusterMetadata(transaction,
                 new ClusterMetadata(clusterId, 0, 0,
-                        RunningStats.identity(), EnumSet.noneOf(ClusterMetadata.State.class)));
+                        RunningStats.identity(), EnumSet.noneOf(ClusterMetadata.State.class), 0));
 
         return primitives.getClusterCentroidsHnsw()
                 .insert(transaction,

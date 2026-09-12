@@ -43,22 +43,61 @@ import java.util.stream.Collectors;
  * @param runningStandardDeviation running statistics of member distances to the centroid; its element count is the
  *        number of primary vectors
  * @param states the set of maintenance operations currently in flight for this cluster
+ * @param maxEverNumPrimaryVectors the high-water mark of {@link #getNumPrimaryVectors()} over this cluster's
+ *        lifetime. Maintained monotonically by the compact constructor (raised to the current primary count on
+ *        every construction, never decremented on shrink), so the merge trigger can fire when the current count
+ *        falls to a fraction of this peak rather than below a fixed absolute floor
  */
 record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, int numReplicatedVectors,
-                       @Nonnull RunningStats runningStandardDeviation, @Nonnull EnumSet<State> states) {
+                       @Nonnull RunningStats runningStandardDeviation, @Nonnull EnumSet<State> states,
+                       int maxEverNumPrimaryVectors) {
     public ClusterMetadata(@Nonnull final UUID id, final int numPrimaryUnderreplicatedVectors,
                            final int numReplicatedVectors,
-                           @Nonnull final RunningStats runningStandardDeviation, final int stateCode) {
+                           @Nonnull final RunningStats runningStandardDeviation, final int stateCode,
+                           final int maxEverNumPrimaryVectors) {
         this(id, numPrimaryUnderreplicatedVectors, numReplicatedVectors, runningStandardDeviation,
-                State.ofCode(stateCode));
+                State.ofCode(stateCode), maxEverNumPrimaryVectors);
     }
 
     ClusterMetadata {
         Preconditions.checkArgument(runningStandardDeviation.numElements() >= numPrimaryUnderreplicatedVectors);
+        // Monotonic high-water mark of the primary count: raised to the current count here and never decremented
+        // on shrink. Every with* passes the prior peak through, so growth past it raises it while a lower count
+        // leaves it untouched — including the reassign target, whose stats are rebuilt to a smaller count.
+        maxEverNumPrimaryVectors =
+                Math.max(maxEverNumPrimaryVectors, Math.toIntExact(runningStandardDeviation.numElements()));
     }
 
     public int getNumPrimaryVectors() {
         return Math.toIntExact(runningStandardDeviation.numElements());
+    }
+
+    /**
+     * Computes the primary-vector count below which <em>this</em> cluster becomes merge-eligible: the larger of the
+     * absolute {@link Config#primaryClusterMin()} floor and {@link Config#mergeMaxEverFraction()} of the cluster's own
+     * {@linkplain #maxEverNumPrimaryVectors() lifetime peak}.
+     * <p>
+     * The fraction term is a <em>shrinkage</em> detector, and only that. It fires once a cluster has shed all but that
+     * fraction of the largest it has ever been, which consolidates a cluster that has drained away instead of leaving
+     * it to linger at a size the floor alone would tolerate. It has no say over a cluster sitting at its peak: such a
+     * cluster has {@code current == maxEver}, and since {@code fraction * maxEver < maxEver} for any fraction below
+     * one, the comparison reduces to {@code current < primaryClusterMin} — the floor decides alone. In particular the
+     * fraction does <em>not</em> shield a freshly split child; what keeps a child from being born already
+     * merge-eligible is {@link Config#minChildFraction()}, which bounds how small a split may make one.
+     * <p>
+     * The two terms therefore divide cleanly: the floor sets the smallest cluster worth keeping, and the fraction
+     * decides when a once-large cluster has shrunk enough to fold away. The fraction can only bind at all for clusters
+     * whose peak exceeded {@code primaryClusterMin / fraction}; below that the floor swallows it.
+     * <p>
+     * This lives here rather than on {@link Config} because the threshold is a property of a cluster, not of the
+     * configuration: the peak it is derived from belongs to this record.
+     *
+     * @param config the configuration supplying the floor and the fraction
+     * @return the merge threshold; this cluster wants to merge once it holds fewer primaries than this
+     */
+    public int mergeThreshold(@Nonnull final Config config) {
+        return Math.max(config.primaryClusterMin(),
+                (int) Math.floor(config.mergeMaxEverFraction() * maxEverNumPrimaryVectors()));
     }
 
     public double meanDistance() {
@@ -84,7 +123,7 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
                                           @Nonnull final EnumSet<State> states) {
         final EnumSet<State> newStates = EnumSet.copyOf(states);
         return new ClusterMetadata(id(), numPrimaryUnderreplicatedVectors, numReplicatedVectors,
-                newStandardDeviation, newStates);
+                newStandardDeviation, newStates, maxEverNumPrimaryVectors());
     }
 
     @Nonnull
@@ -98,7 +137,7 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
     @Nonnull
     public ClusterMetadata withNewStates(@Nonnull final EnumSet<State> newStates) {
         return new ClusterMetadata(id(), numPrimaryUnderreplicatedVectors(), numReplicatedVectors(),
-                runningStandardDeviation(), newStates);
+                runningStandardDeviation(), newStates, maxEverNumPrimaryVectors());
     }
 
     @Nonnull
@@ -111,7 +150,7 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
         return new ClusterMetadata(id(),
                 numPrimaryUnderreplicatedVectors() + numPrimaryUnderreplicatedVectorsAdded,
                 numReplicatedVectors() + numReplicatedVectorsAdded, newStandardDeviation,
-                newStates);
+                newStates, maxEverNumPrimaryVectors());
     }
 
     @Override
@@ -119,6 +158,7 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
     public String toString() {
         return "CM[id=" + id() +
                 ", numPrimaryVectors=" + getNumPrimaryVectors() +
+                ", maxEverNumPrimaryVectors=" + maxEverNumPrimaryVectors() +
                 ", numPrimaryUnderreplicatedVectors=" + numPrimaryUnderreplicatedVectors() +
                 ", numReplicatedVectors=" + numReplicatedVectors() +
                 ", states=" + states() +
@@ -133,9 +173,10 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
     public enum State {
         /**
          * The cluster's primary count has crossed a size bound — above {@link Config#primaryClusterMax()} (needs
-         * splitting) or below {@link Config#primaryClusterMin()} (needs merging) — and a pending {@link SplitMergeTask}
-         * will repartition it into new clusters or dissolve it into its neighbors. Suppressed while {@link #COLLAPSE}
-         * is set, since collapsing duplicates changes the cluster's effective size and may make the split/merge moot.
+         * splitting) or below its {@link ClusterMetadata#mergeThreshold(Config) merge threshold} (needs merging) — and
+         * a pending {@link SplitMergeTask} will repartition it into new clusters or dissolve it into its neighbors.
+         * Suppressed while {@link #COLLAPSE} is set, since collapsing duplicates changes the cluster's effective size
+         * and may make the split/merge moot.
          */
         SPLIT_MERGE(1),
         /**
