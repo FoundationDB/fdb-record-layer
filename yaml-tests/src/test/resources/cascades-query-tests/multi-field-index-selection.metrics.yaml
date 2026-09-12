@@ -1,0 +1,69 @@
+multi-field-index-selection:
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        and num_value_3_indexed = 3 and num_value_2 = 0
+    ref: multi-field-index-selection.yamsql:65
+    explain: ISCAN(MULTI_INDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c15
+        AS INT), EQUALS promote(@c11 AS INT)])
+    task_count: 830
+    task_total_time_ms: 10
+    transform_count: 183
+    transform_time_ms: 6
+    transform_yield_count: 77
+    insert_time_ms: 0
+    insert_new_count: 97
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        and num_value_2 = 0 and num_value_3_indexed >= 2 and num_value_3_indexed <=
+        3
+    ref: multi-field-index-selection.yamsql:75
+    explain: ISCAN(MULTI_INDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11
+        AS INT), [GREATER_THAN_OR_EQUALS promote(@c16 AS INT) && LESS_THAN_OR_EQUALS
+        promote(@c21 AS INT)]])
+    task_count: 807
+    task_total_time_ms: 11
+    transform_count: 179
+    transform_time_ms: 6
+    transform_yield_count: 79
+    insert_time_ms: 0
+    insert_new_count: 95
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where (str_value_indexed = 'even'
+        and num_value_2 = 0) and (num_value_3_indexed >= 2 and num_value_3_indexed
+        <= 3)
+    ref: multi-field-index-selection.yamsql:89
+    explain: ISCAN(MULTI_INDEX [EQUALS promote(@c8 AS STRING), EQUALS promote(@c12
+        AS INT), [GREATER_THAN_OR_EQUALS promote(@c19 AS INT) && LESS_THAN_OR_EQUALS
+        promote(@c24 AS INT)]])
+    task_count: 807
+    task_total_time_ms: 10
+    transform_count: 179
+    transform_time_ms: 5
+    transform_yield_count: 79
+    insert_time_ms: 0
+    insert_new_count: 95
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        and num_value_2 = 0 and num_value_3_indexed >= 2 order by num_value_3_indexed
+    ref: multi-field-index-selection.yamsql:102
+    explain: ISCAN(MULTI_INDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11
+        AS INT), [GREATER_THAN_OR_EQUALS promote(@c16 AS INT)]])
+    task_count: 381
+    task_total_time_ms: 6
+    transform_count: 99
+    transform_time_ms: 3
+    transform_yield_count: 52
+    insert_time_ms: 0
+    insert_new_count: 37
+    insert_reused_count: 2
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        order by num_value_2
+    ref: multi-field-index-selection.yamsql:118
+    explain: ISCAN(MULTI_INDEX [EQUALS promote(@c7 AS STRING)])
+    task_count: 221
+    task_total_time_ms: 4
+    transform_count: 69
+    transform_time_ms: 2
+    transform_yield_count: 42
+    insert_time_ms: 0
+    insert_new_count: 16
+    insert_reused_count: 1

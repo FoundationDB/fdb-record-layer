@@ -1,0 +1,14 @@
+nested-field-query-reviewer-between:
+-   query: EXPLAIN select * from restaurant_reviewer where name = 'Newt A. Robot'
+        and stats.start_date > 100 and stats.start_date < 2000
+    ref: nested-field-query-reviewer-between.yamsql:58
+    explain: ISCAN(STATS_SCHOOL [EQUALS promote(@c7 AS STRING), [GREATER_THAN promote(@c13
+        AS LONG) && LESS_THAN promote(@c19 AS LONG)]])
+    task_count: 519
+    task_total_time_ms: 5
+    transform_count: 117
+    transform_time_ms: 2
+    transform_yield_count: 48
+    insert_time_ms: 0
+    insert_new_count: 59
+    insert_reused_count: 5

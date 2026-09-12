@@ -1,0 +1,36 @@
+record-type-key:
+-   query: EXPLAIN select * from my_simple_record
+    ref: record-type-key.yamsql:104
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,>)
+    task_count: 381
+    task_total_time_ms: 9
+    transform_count: 102
+    transform_time_ms: 6
+    transform_yield_count: 49
+    insert_time_ms: 0
+    insert_new_count: 37
+    insert_reused_count: 14
+-   query: EXPLAIN select * from my_simple_record where rec_no < 400
+    ref: record-type-key.yamsql:110
+    explain: SCAN([IS MY_SIMPLE_RECORD, [LESS_THAN promote(@c7 AS LONG)]])
+    task_count: 611
+    task_total_time_ms: 10
+    transform_count: 138
+    transform_time_ms: 5
+    transform_yield_count: 60
+    insert_time_ms: 0
+    insert_new_count: 76
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where rec_no > 200 and rec_no <
+        500
+    ref: record-type-key.yamsql:116
+    explain: SCAN([IS MY_SIMPLE_RECORD, [GREATER_THAN promote(@c7 AS LONG) && LESS_THAN
+        promote(@c11 AS LONG)]])
+    task_count: 611
+    task_total_time_ms: 10
+    transform_count: 138
+    transform_time_ms: 6
+    transform_yield_count: 60
+    insert_time_ms: 0
+    insert_new_count: 76
+    insert_reused_count: 7

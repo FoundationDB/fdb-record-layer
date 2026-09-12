@@ -1,0 +1,118 @@
+#
+# record-type-key.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `RecordTypeKeyTest` — the primary key of every record type begins with the record-type
+# key, so a query restricted to one type is answered by a *record* scan whose range is bounded by that
+# designator, and any predicate on the rest of the primary key extends that range.
+#
+# THIS IS THE ONE FILE IN THE DIRECTORY THAT MUST NOT SET `INTERMINGLE_TABLES=true`.
+# Every other file here turns intermingling on to strip the record-type prefix, because the core tests
+# it ports use a bare primary key. This class is about the prefix itself, so it needs the default
+# (false): with intermingling off, `RecordLayerTable.Builder` seeds the primary key with
+# `Key.Expressions.recordType()` and appends the declared columns, giving `concat(recordType(),
+# field("rec_no"))` for both tables — exactly the `pkey` that `RecordTypeKeyTest.BASIC_HOOK` installs
+# on `MySimpleRecord` and `MyOtherRecord`.
+#
+# Two tables, and their primary-key values deliberately *do* collide: `MY_SIMPLE_RECORD` and
+# `MY_OTHER_RECORD` both hold REC_NO 123, exactly as `saveSomeRecords` writes them. Separating them is
+# the record-type key's whole job, so if the prefix were missing these rows would overwrite each other
+# and the file would fail loudly rather than silently weaken.
+#
+# Index set: `simpleMetaData` plus `BASIC_HOOK`, i.e. the three indexes declared in
+# `test_records_1.proto` on `MySimpleRecord` and none on `MyOtherRecord`. The hook also drops the two
+# universal COUNT indexes (`globalRecordCount`, `globalRecordUpdateCount`) and adds a universal COUNT
+# index grouped by record type (`countByRecordType`). None of the three is reproducible — a universal
+# index spans record types and `RecordLayerSchemaTemplate.computeIndexes` cannot express one — and no
+# query below can match any of them, so nothing is lost.
+#
+# Not ported from this class:
+#   * `testIndexScan` — its hook puts the record-type prefix on `MySimpleRecord` only and leaves
+#     `MyOtherRecord` with the bare `rec_no` primary key. `INTERMINGLE_TABLES` is a *schema-template*
+#     option, all-or-nothing across the template, so a per-table mix has no DDL. The property the test
+#     turns on ("some record types have no record type key, so an index scan will be better") is also
+#     old-planner-only: its Cascades assertion is byte-identical to `testScan`'s.
+#   * `testWithExplicitRecordTypeKeyComparison` — the filter is a bare
+#     `RecordTypeKeyComparison("MySimpleRecord")` query component. The record-type key is not a column,
+#     so no SQL text produces it, and under Cascades the source asserts that *planning throws*
+#     `Comparisons.EvaluationContextRequiredException` (issue #3813), an internal planner exception
+#     with no yamsql surface.
+#
+# Everything else in the class is out of scope: plain `@Test` (metadata validation, write/read,
+# `deleteRecordsWhere`, the OnlineIndexer suite), `@ParameterizedTest` without `@DualPlannerTest`
+# (`testDoublyBoundedScanWithSort`), or already `@Disabled` upstream.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create table my_other_record(
+        rec_no bigint,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    WITH OPTIONS(INTERMINGLE_TABLES=false)
+---
+# `saveSomeRecords`: two MySimpleRecord and one MyOtherRecord. NUM_VALUE_UNIQUE and REPEATER are never
+# set by the source, so they read back NULL here (the record layer would give REPEATER an empty list —
+# see the ARRAY note in README.md). Two NULLs under a unique index are fine: the record layer's default
+# null standin makes null index entries non-unique.
+setup:
+  steps:
+    - query: INSERT INTO MY_SIMPLE_RECORD (REC_NO, STR_VALUE_INDEXED, NUM_VALUE_2, NUM_VALUE_3_INDEXED)
+             VALUES
+               (123, 'abc', 1, 1),
+               (456, 'xyz', 2, 2)
+    - query: INSERT INTO MY_OTHER_RECORD (REC_NO, NUM_VALUE_2, NUM_VALUE_3_INDEXED)
+             VALUES
+               (123, 2, 2)
+---
+test_block:
+  name: record-type-key
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testScan
+      # No ORDER BY, yet the sequence is asserted: with only these two rows every candidate access path
+      # agrees on it. REC_NO, STR_VALUE_INDEXED and NUM_VALUE_3_INDEXED all rank 123 before 456, and
+      # NUM_VALUE_UNIQUE is NULL in both rows so that index breaks its tie on the primary key. The
+      # MY_OTHER_RECORD row must not appear — that is what the record-type prefix buys.
+      - query: select * from my_simple_record
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,>)"
+      - result: [{REC_NO: 123, STR_VALUE_INDEXED: 'abc', NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+                 {REC_NO: 456, STR_VALUE_INDEXED: 'xyz', NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: !null _}]
+    -
+      # testSinglyBoundedScan
+      - query: select * from my_simple_record where rec_no < 400
+      - explain: "SCAN([IS MY_SIMPLE_RECORD, [LESS_THAN promote(@c7 AS LONG)]])"
+      - result: [{REC_NO: 123, STR_VALUE_INDEXED: 'abc', NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _}]
+    -
+      # testDoublyBoundedScan
+      # The two one-sided inequalities must coalesce into a single range behind the record-type key.
+      - query: select * from my_simple_record where rec_no > 200 and rec_no < 500
+      - explain: "SCAN([IS MY_SIMPLE_RECORD, [GREATER_THAN promote(@c7 AS LONG) && LESS_THAN promote(@c11 AS LONG)]])"
+      - result: [{REC_NO: 456, STR_VALUE_INDEXED: 'xyz', NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: !null _}]
+...

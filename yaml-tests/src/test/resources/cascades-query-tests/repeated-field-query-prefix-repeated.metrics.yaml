@@ -1,0 +1,25 @@
+repeated-field-query-prefix-repeated:
+-   query: EXPLAIN select * from my_simple_record where num_value_2 = 1
+    ref: repeated-field-query-prefix-repeated.yamsql:81
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2
+        EQUALS promote(@c7 AS INT)
+    task_count: 539
+    task_total_time_ms: 6
+    transform_count: 133
+    transform_time_ms: 3
+    transform_yield_count: 57
+    insert_time_ms: 0
+    insert_new_count: 66
+    insert_reused_count: 5
+-   query: EXPLAIN select * from my_simple_record as r where r.num_value_2 = 1 and
+        exists (select v from r.repeater as v where v = 1)
+    ref: repeated-field-query-prefix-repeated.yamsql:90
+    explain: ISCAN(PREFIX_REPEATED [EQUALS promote(@c11 AS INT), EQUALS @c11])
+    task_count: 837
+    task_total_time_ms: 11
+    transform_count: 231
+    transform_time_ms: 6
+    transform_yield_count: 80
+    insert_time_ms: 0
+    insert_new_count: 108
+    insert_reused_count: 6

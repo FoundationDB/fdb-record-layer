@@ -1,0 +1,29 @@
+filter-coalescing-multi-index:
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        and num_value_3_indexed = 3 and num_value_3_indexed = 3
+    ref: filter-coalescing-multi-index.yamsql:55
+    explain: ISCAN(MULTI_INDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11
+        AS INT)])
+    task_count: 818
+    task_total_time_ms: 10
+    transform_count: 177
+    transform_time_ms: 5
+    transform_yield_count: 75
+    insert_time_ms: 0
+    insert_new_count: 94
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        and num_value_3_indexed >= 3 and num_value_3_indexed <= 4 and num_value_3_indexed
+        > 0
+    ref: filter-coalescing-multi-index.yamsql:72
+    explain: ISCAN(MULTI_INDEX [EQUALS promote(@c7 AS STRING), [GREATER_THAN promote(@c21
+        AS INT) && GREATER_THAN_OR_EQUALS promote(@c12 AS INT) && LESS_THAN_OR_EQUALS
+        promote(@c17 AS INT)]])
+    task_count: 803
+    task_total_time_ms: 7
+    transform_count: 177
+    transform_time_ms: 4
+    transform_yield_count: 77
+    insert_time_ms: 0
+    insert_new_count: 95
+    insert_reused_count: 7

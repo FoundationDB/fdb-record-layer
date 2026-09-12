@@ -1,0 +1,56 @@
+#
+# covering-index-primary-key.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBCoveringIndexQueryTest.coveringPrimaryKey` — an index whose key is the primary key
+# itself, with an extra column in the value part, is covering for a primary-key range predicate.
+#
+# The source builds `keyWithValue(concatenateFields("rec_no", "num_value_2"), 1)`; in SQL that is an
+# index ON the primary-key column with NUM_VALUE_2 in `INCLUDE (...)`.
+#
+# REC_NO only runs to 99 over the fixture, so the predicate matches nothing; the source likewise
+# only inspects the plan. The real assertion arrives with the `explain:` value.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index primary_key_index on my_simple_record(rec_no) include (num_value_2)
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    cascades-query-tests/includes/simple-record-100.yamsql
+---
+test_block:
+  name: covering-index-primary-key
+  preset: single_repetition_ordered
+  tests:
+    -
+      # coveringPrimaryKey
+      - query: select num_value_2 from my_simple_record where rec_no >= 1000
+      - explain: "COVERING(PRIMARY_KEY_INDEX [[GREATER_THAN_OR_EQUALS promote(@c8 AS LONG)]] -> [NUM_VALUE_2: VALUE:[0], REC_NO: KEY:[0]]) | MAP (_.NUM_VALUE_2 AS NUM_VALUE_2)"
+      - result: []
+...

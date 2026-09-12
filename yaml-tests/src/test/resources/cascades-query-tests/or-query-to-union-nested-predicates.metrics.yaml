@@ -1,0 +1,81 @@
+or-query-to-union-nested-predicates:
+-   query: EXPLAIN select stats.start_date, stats.hometown, id, name from restaurant_reviewer
+        where category = 0 and (stats.hometown = 'Home Town' or stats.hometown = 'Real
+        Place') order by stats.start_date, name
+    ref: or-query-to-union-nested-predicates.yamsql:87
+    explain: 'COVERING(REVIEWER_CATGORY_STATS [EQUALS promote(@c17 AS INT), EQUALS
+        promote(@c24 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[4], NAME: KEY:[3],
+        STATS: [HOMETOWN: KEY:[1], START_DATE: KEY:[2]]]) ∪ COVERING(REVIEWER_CATGORY_STATS
+        [EQUALS promote(@c17 AS INT), EQUALS promote(@c30 AS STRING)] -> [CATEGORY:
+        KEY:[0], ID: KEY:[4], NAME: KEY:[3], STATS: [HOMETOWN: KEY:[1], START_DATE:
+        KEY:[2]]]) COMPARE BY (_.STATS.START_DATE, _.NAME, _.STATS.HOMETOWN, _.ID)
+        | MAP (_.STATS.START_DATE AS START_DATE, _.STATS.HOMETOWN AS HOMETOWN, _.ID
+        AS ID, _.NAME AS NAME)'
+    task_count: 735
+    task_total_time_ms: 11
+    transform_count: 193
+    transform_time_ms: 5
+    transform_yield_count: 70
+    insert_time_ms: 0
+    insert_new_count: 74
+    insert_reused_count: 8
+-   query: EXPLAIN select stats.start_date, stats.hometown, id, name from restaurant_reviewer
+        where category = 0 and (stats.hometown = 'Home Town' or stats.hometown = 'Real
+        Place') order by stats.start_date desc, name desc
+    ref: or-query-to-union-nested-predicates.yamsql:99
+    explain: 'COVERING(REVIEWER_CATGORY_STATS [EQUALS promote(@c17 AS INT), EQUALS
+        promote(@c24 AS STRING)] REVERSE -> [CATEGORY: KEY:[0], ID: KEY:[4], NAME:
+        KEY:[3], STATS: [HOMETOWN: KEY:[1], START_DATE: KEY:[2]]]) ∪ COVERING(REVIEWER_CATGORY_STATS
+        [EQUALS promote(@c17 AS INT), EQUALS promote(@c30 AS STRING)] REVERSE -> [CATEGORY:
+        KEY:[0], ID: KEY:[4], NAME: KEY:[3], STATS: [HOMETOWN: KEY:[1], START_DATE:
+        KEY:[2]]]) COMPARE BY (_.STATS.START_DATE, _.NAME, _.STATS.HOMETOWN, _.ID)
+        | MAP (_.STATS.START_DATE AS START_DATE, _.STATS.HOMETOWN AS HOMETOWN, _.ID
+        AS ID, _.NAME AS NAME)'
+    task_count: 735
+    task_total_time_ms: 11
+    transform_count: 193
+    transform_time_ms: 5
+    transform_yield_count: 70
+    insert_time_ms: 0
+    insert_new_count: 74
+    insert_reused_count: 8
+-   query: EXPLAIN select stats.start_date, stats.hometown, id, name from restaurant_reviewer
+        where category = 0 and (stats.hometown = 'Home Town' or stats.hometown = 'Real
+        Place') order by stats.start_date
+    ref: or-query-to-union-nested-predicates.yamsql:111
+    explain: 'COVERING(REVIEWER_CATGORY_STATS [EQUALS promote(@c17 AS INT), EQUALS
+        promote(@c24 AS STRING)] -> [CATEGORY: KEY:[0], ID: KEY:[4], NAME: KEY:[3],
+        STATS: [HOMETOWN: KEY:[1], START_DATE: KEY:[2]]]) ∪ COVERING(REVIEWER_CATGORY_STATS
+        [EQUALS promote(@c17 AS INT), EQUALS promote(@c30 AS STRING)] -> [CATEGORY:
+        KEY:[0], ID: KEY:[4], NAME: KEY:[3], STATS: [HOMETOWN: KEY:[1], START_DATE:
+        KEY:[2]]]) COMPARE BY (_.STATS.START_DATE, _.STATS.HOMETOWN, _.NAME, _.ID)
+        | MAP (_.STATS.START_DATE AS START_DATE, _.STATS.HOMETOWN AS HOMETOWN, _.ID
+        AS ID, _.NAME AS NAME)'
+    task_count: 1146
+    task_total_time_ms: 16
+    transform_count: 275
+    transform_time_ms: 7
+    transform_yield_count: 96
+    insert_time_ms: 0
+    insert_new_count: 137
+    insert_reused_count: 18
+-   query: EXPLAIN select stats.start_date, stats.hometown, id, name from restaurant_reviewer
+        where category = 0 and (stats.hometown = 'Home Town' or stats.hometown = 'Real
+        Place') order by stats.start_date desc
+    ref: or-query-to-union-nested-predicates.yamsql:123
+    explain: 'COVERING(REVIEWER_CATGORY_STATS [EQUALS promote(@c17 AS INT), EQUALS
+        promote(@c24 AS STRING)] REVERSE -> [CATEGORY: KEY:[0], ID: KEY:[4], NAME:
+        KEY:[3], STATS: [HOMETOWN: KEY:[1], START_DATE: KEY:[2]]]) ∪ COVERING(REVIEWER_CATGORY_STATS
+        [EQUALS promote(@c17 AS INT), EQUALS promote(@c30 AS STRING)] REVERSE -> [CATEGORY:
+        KEY:[0], ID: KEY:[4], NAME: KEY:[3], STATS: [HOMETOWN: KEY:[1], START_DATE:
+        KEY:[2]]]) COMPARE BY (_.STATS.START_DATE, _.STATS.HOMETOWN, _.NAME, _.ID)
+        | MAP (_.STATS.START_DATE AS START_DATE, _.STATS.HOMETOWN AS HOMETOWN, _.ID
+        AS ID, _.NAME AS NAME)'
+    task_count: 1146
+    task_total_time_ms: 16
+    transform_count: 275
+    transform_time_ms: 7
+    transform_yield_count: 96
+    insert_time_ms: 0
+    insert_new_count: 137
+    insert_reused_count: 18

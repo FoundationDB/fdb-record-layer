@@ -1,0 +1,18 @@
+and-query-to-intersection-two-covering:
+-   query: EXPLAIN select str_value_indexed, num_value_3_indexed from my_simple_record
+        where str_value_indexed = 'even' and num_value_3_indexed = 3
+    ref: and-query-to-intersection-two-covering.yamsql:73
+    explain: 'COVERING(MULTI_VAL_VAL_3 [EQUALS promote(@c9 AS STRING)] -> [NUM_VALUE_2:
+        KEY:[1], NUM_VALUE_3_INDEXED: KEY:[2], REC_NO: KEY:[3], STR_VALUE_INDEXED:
+        KEY:[0]]) ∩ COVERING(MULTI_VAL_3_VAL [EQUALS promote(@c13 AS INT)] -> [NUM_VALUE_2:
+        KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[3], STR_VALUE_INDEXED:
+        KEY:[2]]) COMPARE BY (_.NUM_VALUE_2, _.REC_NO) | MAP (_.STR_VALUE_INDEXED
+        AS STR_VALUE_INDEXED, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED)'
+    task_count: 845
+    task_total_time_ms: 179
+    transform_count: 194
+    transform_time_ms: 105
+    transform_yield_count: 66
+    insert_time_ms: 12
+    insert_new_count: 99
+    insert_reused_count: 9

@@ -1,0 +1,12 @@
+returned-record-limit-no-filter:
+-   query: EXPLAIN select * from my_simple_record
+    ref: returned-record-limit-no-filter.yamsql:81
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,>)
+    task_count: 485
+    task_total_time_ms: 4
+    transform_count: 123
+    transform_time_ms: 2
+    transform_yield_count: 63
+    insert_time_ms: 0
+    insert_new_count: 49
+    insert_reused_count: 18

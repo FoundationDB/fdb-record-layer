@@ -1,0 +1,83 @@
+#
+# nested-field-query-reviewer.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBNestedFieldQueryTest.nestedWithAnd` — an AND over several fields of the *same*
+# non-repeated nested message. The point is that the AND becomes one condition on the parent field, so
+# the index over stats.start_date bounds the scan and the rest stays as a residual filter.
+#
+# Index set: the RestaurantReviewer half of `FDBRecordStoreQueryTestBase.nestedMetaData`, unmodified,
+# plus the `name` index the proto's field option implies. The data is `nestedWithAndSetup`.
+#
+# The RestaurantRecord half of that metadata is not here — see the header of nested-field-query.yamsql
+# for why the two record types are split across files. Every query in this file pins
+# `setRecordType("RestaurantReviewer")`.
+#
+# The `normalizeNestedFields` parameterization collapses: `setNormalizeNestedFields` is read only by
+# `BooleanNormalizer` on the `RecordQueryPlanner` path, so both values give one Cascades plan.
+#
+# Divergence: the source's `Query.field("hometown").startsWith("H")` plans as a prefix range; SQL
+# `LIKE 'H%'` plans as a residual filter. Here it is a residual filter either way, so only the
+# rendering of the predicate differs.
+---
+schema_template:
+    create type as struct reviewer_stats(start_date bigint, school_name string, hometown string)
+    create table restaurant_reviewer(
+        id bigint,
+        name string,
+        email string,
+        stats reviewer_stats,
+        category integer,
+        primary key(id))
+    create index restaurant_reviewer_name as select name from restaurant_reviewer
+    create index stats_school as
+        select stats.start_date from restaurant_reviewer order by stats.start_date
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO RESTAURANT_REVIEWER (ID, NAME, EMAIL, STATS, CATEGORY)
+             VALUES
+               (1, 'Person McPersonface', 'pmp@example.com',
+                (0, 'University of Learning', 'Home Town'), 1),
+               (2, 'Newt A. Robot', 'newtarobot@example.com',
+                (1066, 'Human University', 'Real Place'), 1)
+---
+test_block:
+  name: nested-field-query-reviewer
+  preset: single_repetition_ordered
+  tests:
+    -
+      # nestedWithAnd
+      - query: select * from restaurant_reviewer
+               where stats.start_date > 0 and stats.school_name = 'Human University'
+      - explain: "ISCAN(STATS_SCHOOL [[GREATER_THAN promote(@c9 AS LONG)]]) | FILTER _.STATS.SCHOOL_NAME EQUALS promote(@c15 AS STRING)"
+      - result: [{ID: 2, NAME: 'Newt A. Robot', EMAIL: 'newtarobot@example.com',
+                  STATS: {START_DATE: 1066, SCHOOL_NAME: 'Human University', HOMETOWN: 'Real Place'},
+                  CATEGORY: 1}]
+    -
+      # nestedWithAnd
+      - query: select * from restaurant_reviewer
+               where stats.start_date <= 1000
+                 and stats.school_name < 'University of Procrastination'
+                 and stats.hometown like 'H%'
+      - explain: "ISCAN(STATS_SCHOOL [[LESS_THAN_OR_EQUALS promote(@c10 AS LONG)]]) | FILTER _.STATS.SCHOOL_NAME LESS_THAN promote(@c16 AS STRING) AND _.STATS.HOMETOWN LIKE @c22 ESCAPE 'null'"
+      - result: [{ID: 1, NAME: 'Person McPersonface', EMAIL: 'pmp@example.com',
+                  STATS: {START_DATE: 0, SCHOOL_NAME: 'University of Learning', HOMETOWN: 'Home Town'},
+                  CATEGORY: 1}]
+...

@@ -1,0 +1,55 @@
+or-query-to-union-proto-only:
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'm' or
+        num_value_3_indexed = 3 or (num_value_2 = 3 and num_value_3_indexed = 4)
+    ref: or-query-to-union-proto-only.yamsql:51
+    explain: 'COVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)]
+        -> [REC_NO: KEY:[1], STR_VALUE_INDEXED: KEY:[0]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]])
+        COMPARE BY (_.REC_NO) | FETCH ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [EQUALS promote(@c20 AS INT)]) | FILTER _.NUM_VALUE_2 EQUALS promote(@c11
+        AS INT) COMPARE BY (_.REC_NO)'
+    task_count: 6348
+    task_total_time_ms: 135
+    transform_count: 1209
+    transform_time_ms: 73
+    transform_yield_count: 421
+    insert_time_ms: 9
+    insert_new_count: 1030
+    insert_reused_count: 127
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'outer'
+        and ((num_value_3_indexed > 1 and num_value_3_indexed < 2) or (num_value_3_indexed
+        > 3 and num_value_3_indexed < 4) or (num_value_3_indexed > 5 and num_value_3_indexed
+        < 6) or (num_value_3_indexed > 7 and num_value_3_indexed < 8) or (num_value_3_indexed
+        > 9 and num_value_3_indexed < 10) or (num_value_3_indexed > 11 and num_value_3_indexed
+        < 12) or (num_value_3_indexed > 13 and num_value_3_indexed < 14) or (num_value_3_indexed
+        > 15 and num_value_3_indexed < 16) or (num_value_3_indexed > 17 and num_value_3_indexed
+        < 18))
+    ref: or-query-to-union-proto-only.yamsql:87
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [[GREATER_THAN promote(@c13
+        AS INT) && LESS_THAN promote(@c17 AS INT)]]) | FILTER _.STR_VALUE_INDEXED
+        EQUALS promote(@c7 AS STRING) ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [[GREATER_THAN promote(@c23 AS INT) && LESS_THAN promote(@c27 AS INT)]]) |
+        FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [[GREATER_THAN promote(@c33 AS INT) && LESS_THAN promote(@c37 AS INT)]]) |
+        FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [[GREATER_THAN promote(@c43 AS INT) && LESS_THAN promote(@c47 AS INT)]]) |
+        FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [[GREATER_THAN promote(@c53 AS INT) && LESS_THAN promote(@c57 AS INT)]]) |
+        FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [[GREATER_THAN promote(@c63 AS INT) && LESS_THAN promote(@c67 AS INT)]]) |
+        FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [[GREATER_THAN promote(@c73 AS INT) && LESS_THAN promote(@c77 AS INT)]]) |
+        FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [[GREATER_THAN promote(@c83 AS INT) && LESS_THAN promote(@c87 AS INT)]]) |
+        FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) ∪ ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [[GREATER_THAN promote(@c93 AS INT) && LESS_THAN promote(@c97 AS INT)]]) |
+        FILTER _.STR_VALUE_INDEXED EQUALS promote(@c7 AS STRING) COMPARE BY (_.NUM_VALUE_3_INDEXED,
+        _.REC_NO)
+    task_count: 6202
+    task_total_time_ms: 1825
+    transform_count: 1162
+    transform_time_ms: 1130
+    transform_yield_count: 390
+    insert_time_ms: 600
+    insert_new_count: 921
+    insert_reused_count: 124

@@ -1,0 +1,64 @@
+#
+# covering-index-multi-value.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBCoveringIndexQueryTest.coveringMultiValue` — an index is also covering when some
+# projected columns live in the index's *value* part rather than its key.
+#
+# The source builds `new Index("multi_index_value", field("num_value_unique"), field("num_value_2"),
+# IndexTypes.VALUE, UNIQUE_OPTIONS)`; the SQL equivalent is a unique index on NUM_VALUE_UNIQUE with
+# NUM_VALUE_2 in an `INCLUDE (...)` clause.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create unique index multi_index_value on my_simple_record(num_value_unique) include (num_value_2)
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    cascades-query-tests/includes/simple-record-100.yamsql
+---
+test_block:
+  name: covering-index-multi-value
+  preset: single_repetition_ordered
+  tests:
+    -
+      # coveringMultiValue
+      - query: select num_value_unique, num_value_2 from my_simple_record
+               where num_value_unique > 990
+               order by num_value_unique
+      - explain: "COVERING(MULTI_INDEX_VALUE [[GREATER_THAN promote(@c9 AS INT)]] -> [NUM_VALUE_2: VALUE:[0], NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.NUM_VALUE_2 AS NUM_VALUE_2)"
+      - result: [{NUM_VALUE_UNIQUE: 991, NUM_VALUE_2: 0},
+                 {NUM_VALUE_UNIQUE: 992, NUM_VALUE_2: 2},
+                 {NUM_VALUE_UNIQUE: 993, NUM_VALUE_2: 1},
+                 {NUM_VALUE_UNIQUE: 994, NUM_VALUE_2: 0},
+                 {NUM_VALUE_UNIQUE: 995, NUM_VALUE_2: 2},
+                 {NUM_VALUE_UNIQUE: 996, NUM_VALUE_2: 1},
+                 {NUM_VALUE_UNIQUE: 997, NUM_VALUE_2: 0},
+                 {NUM_VALUE_UNIQUE: 998, NUM_VALUE_2: 2},
+                 {NUM_VALUE_UNIQUE: 999, NUM_VALUE_2: 1},
+                 {NUM_VALUE_UNIQUE: 1000, NUM_VALUE_2: 0}]
+...

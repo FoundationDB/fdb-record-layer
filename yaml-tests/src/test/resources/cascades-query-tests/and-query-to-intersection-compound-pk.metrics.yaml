@@ -1,0 +1,17 @@
+and-query-to-intersection-compound-pk:
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        and num_value_2 = 1 and num_value_3_indexed = 3
+    ref: and-query-to-intersection-compound-pk.yamsql:57
+    explain: 'COVERING(STR_VALUE_3_INDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c15
+        AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], STR_VALUE_INDEXED:
+        KEY:[0]]) ∩ COVERING(STR_VALUE_2_INDEX [EQUALS promote(@c7 AS STRING), EQUALS
+        promote(@c11 AS INT)] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2],
+        STR_VALUE_INDEXED: KEY:[0]]) COMPARE BY (_.NUM_VALUE_UNIQUE) | FETCH'
+    task_count: 892
+    task_total_time_ms: 10
+    transform_count: 188
+    transform_time_ms: 5
+    transform_yield_count: 77
+    insert_time_ms: 0
+    insert_new_count: 106
+    insert_reused_count: 6

@@ -1,0 +1,67 @@
+#
+# nested-field-query-reviewer-hometown-email.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBNestedFieldQueryTest.nestedThenWithAndPartial` — matching only a prefix of an index
+# whose key runs (stats.hometown, stats.school_name, stats.start_date, email). The query binds the
+# first two components and the last one, so the scan range covers the prefix and EMAIL stays behind as
+# a residual filter: a gap in the middle of the key cannot be bridged.
+#
+# Its own file: the hook adds `hometownEmail` on top of the base RestaurantReviewer index set.
+---
+schema_template:
+    create type as struct reviewer_stats(start_date bigint, school_name string, hometown string)
+    create table restaurant_reviewer(
+        id bigint,
+        name string,
+        email string,
+        stats reviewer_stats,
+        category integer,
+        primary key(id))
+    create index restaurant_reviewer_name as select name from restaurant_reviewer
+    create index stats_school as
+        select stats.start_date from restaurant_reviewer order by stats.start_date
+    create index hometown_email as
+        select stats.hometown, stats.school_name, stats.start_date, email from restaurant_reviewer
+        order by stats.hometown, stats.school_name, stats.start_date, email
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO RESTAURANT_REVIEWER (ID, NAME, EMAIL, STATS, CATEGORY)
+             VALUES
+               (1, 'Person McPersonface', 'pmp@example.com',
+                (0, 'University of Learning', 'Home Town'), 1),
+               (2, 'Newt A. Robot', 'newtarobot@example.com',
+                (1066, 'Human University', 'Real Place'), 1)
+---
+test_block:
+  name: nested-field-query-reviewer-hometown-email
+  preset: single_repetition_ordered
+  tests:
+    -
+      # nestedThenWithAndPartial
+      - query: select * from restaurant_reviewer
+               where stats.hometown = 'Home Town'
+                 and stats.school_name = 'University of Learning'
+                 and email = 'pmp@example.com'
+      - explain: "COVERING(HOMETOWN_EMAIL [EQUALS promote(@c9 AS STRING), EQUALS promote(@c15 AS STRING)] -> [EMAIL: KEY:[3], ID: KEY:[4], STATS: [HOMETOWN: KEY:[0], SCHOOL_NAME: KEY:[1], START_DATE: KEY:[2]]]) | FILTER _.EMAIL EQUALS promote(@c19 AS STRING) | FETCH"
+      - result: [{ID: 1, NAME: 'Person McPersonface', EMAIL: 'pmp@example.com',
+                  STATS: {START_DATE: 0, SCHOOL_NAME: 'University of Learning', HOMETOWN: 'Home Town'},
+                  CATEGORY: 1}]
+...

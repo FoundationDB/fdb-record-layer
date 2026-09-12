@@ -1,0 +1,67 @@
+permuted-min-max-repeater:
+-   query: EXPLAIN select r.num_value_2, max(r.num_value_3_indexed) as m from my_simple_record
+        as r, (select x from r.repeater as x) sq where r.str_value_indexed = 'even'
+        group by r.str_value_indexed, sq.x, r.num_value_2 having sq.x = 0 order by
+        max(r.num_value_3_indexed) desc
+    ref: permuted-min-max-repeater.yamsql:182
+    explain: 'AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2 [EQUALS promote(@c34
+        AS STRING), EQUALS @c53] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2:
+        KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS NUM_VALUE_2, _._3 AS M)'
+    task_count: 413
+    task_total_time_ms: 12
+    transform_count: 149
+    transform_time_ms: 9
+    transform_yield_count: 56
+    insert_time_ms: 0
+    insert_new_count: 34
+    insert_reused_count: 0
+-   query: EXPLAIN select r.num_value_2, max(r.num_value_3_indexed) as m from my_simple_record
+        as r, (select x from r.repeater as x) sq where r.str_value_indexed = 'odd'
+        group by r.str_value_indexed, sq.x, r.num_value_2 having sq.x = 3 order by
+        max(r.num_value_3_indexed) desc
+    ref: permuted-min-max-repeater.yamsql:193
+    explain: 'AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2 [EQUALS promote(@c34
+        AS STRING), EQUALS @c53] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1], _2:
+        KEY:[3], _3: KEY:[2]]) | MAP (_._2 AS NUM_VALUE_2, _._3 AS M)'
+    task_count: 413
+    task_total_time_ms: 12
+    transform_count: 149
+    transform_time_ms: 9
+    transform_yield_count: 56
+    insert_time_ms: 0
+    insert_new_count: 34
+    insert_reused_count: 0
+-   query: EXPLAIN select sq.x, r.num_value_2, max(r.num_value_3_indexed) as m from
+        my_simple_record as r, (select x from r.repeater as x) sq where r.str_value_indexed
+        = 'even' group by r.str_value_indexed, sq.x, r.num_value_2 having sq.x in
+        (0, 2) order by max(r.num_value_3_indexed) desc
+    ref: permuted-min-max-repeater.yamsql:206
+    explain: '[IN arrayDistinct(@c57)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2
+        [EQUALS promote(@c38 AS STRING), EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0],
+        _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2,
+        _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)'
+    task_count: 678
+    task_total_time_ms: 17
+    transform_count: 273
+    transform_time_ms: 12
+    transform_yield_count: 71
+    insert_time_ms: 0
+    insert_new_count: 54
+    insert_reused_count: 0
+-   query: EXPLAIN select sq.x, r.num_value_2, max(r.num_value_3_indexed) as m from
+        my_simple_record as r, (select x from r.repeater as x) sq where r.str_value_indexed
+        = 'even' group by r.str_value_indexed, sq.x, r.num_value_2 having sq.x in
+        (0, 0) order by max(r.num_value_3_indexed) desc
+    ref: permuted-min-max-repeater.yamsql:218
+    explain: '[IN arrayDistinct(@c57)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_3_BY_STR_VALUE_REPEATER_AND_2
+        [EQUALS promote(@c38 AS STRING), EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0],
+        _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2,
+        _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)'
+    task_count: 678
+    task_total_time_ms: 17
+    transform_count: 273
+    transform_time_ms: 12
+    transform_yield_count: 71
+    insert_time_ms: 0
+    insert_new_count: 54
+    insert_reused_count: 0

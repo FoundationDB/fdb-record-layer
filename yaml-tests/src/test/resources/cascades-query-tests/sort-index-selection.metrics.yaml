@@ -1,0 +1,47 @@
+sort-index-selection:
+-   query: EXPLAIN select * from my_simple_record order by num_value_unique
+    ref: sort-index-selection.yamsql:67
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE <,>)
+    task_count: 241
+    task_total_time_ms: 3
+    transform_count: 70
+    transform_time_ms: 2
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 17
+    insert_reused_count: 3
+-   query: EXPLAIN select * from my_simple_record order by num_value_unique desc
+    ref: sort-index-selection.yamsql:172
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE <,> REVERSE)
+    task_count: 241
+    task_total_time_ms: 3
+    transform_count: 70
+    transform_time_ms: 2
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 17
+    insert_reused_count: 3
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        order by num_value_3_indexed
+    ref: sort-index-selection.yamsql:279
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,>) | FILTER _.STR_VALUE_INDEXED
+        EQUALS promote(@c7 AS STRING)
+    task_count: 279
+    task_total_time_ms: 4
+    transform_count: 80
+    transform_time_ms: 2
+    transform_yield_count: 45
+    insert_time_ms: 0
+    insert_new_count: 26
+    insert_reused_count: 1
+-   query: EXPLAIN select * from my_simple_record order by str_value_indexed desc
+    ref: sort-index-selection.yamsql:339
+    explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,> REVERSE)
+    task_count: 303
+    task_total_time_ms: 4
+    transform_count: 84
+    transform_time_ms: 2
+    transform_yield_count: 48
+    insert_time_ms: 0
+    insert_new_count: 25
+    insert_reused_count: 8
