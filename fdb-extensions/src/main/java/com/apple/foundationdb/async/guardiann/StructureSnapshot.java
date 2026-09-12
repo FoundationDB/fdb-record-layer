@@ -26,6 +26,7 @@ import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.IntSummaryStatistics;
 import java.util.Map;
 import java.util.UUID;
 
@@ -61,6 +62,61 @@ record StructureSnapshot(@Nonnull Map<UUID, ClusterView> clusters,
     /** Returns the total collapsed-reference count across all clusters. */
     public int totalCollapsedRefs() {
         return clusters.values().stream().mapToInt(c -> c.collapsedRefs().size()).sum();
+    }
+
+    /**
+     * Returns summary statistics over the per-cluster primary counts, as the clusters' own metadata reports them.
+     *
+     * @return count, min, max and mean of the per-cluster primary counts
+     */
+    @Nonnull
+    public IntSummaryStatistics primaryCountStatistics() {
+        return clusters.values().stream()
+                .mapToInt(c -> c.metadata().getNumPrimaryVectors())
+                .summaryStatistics();
+    }
+
+    /**
+     * Returns summary statistics over the per-cluster {@link ClusterMetadata#mergeThreshold(Config)} values — the
+     * counts each cluster must fall below before it wants merging. These vary between clusters because the threshold
+     * is derived from each cluster's own lifetime peak.
+     *
+     * @param config the configuration supplying the floor and the max-ever fraction
+     * @return count, min, max and mean of the per-cluster merge thresholds
+     */
+    @Nonnull
+    public IntSummaryStatistics mergeThresholdStatistics(@Nonnull final Config config) {
+        return clusters.values().stream()
+                .mapToInt(c -> c.metadata().mergeThreshold(config))
+                .summaryStatistics();
+    }
+
+    /**
+     * Returns how many clusters currently hold fewer primaries than their own
+     * {@link ClusterMetadata#mergeThreshold(Config)}, i.e. how many want to be merged away.
+     * <p>
+     * This is what separates "no merge is due" from "merges are due but are not completing": if this stays high while
+     * {@link #numClusters()} does not fall, the trigger is firing and the tasks are not landing.
+     *
+     * @param config the configuration supplying the merge threshold
+     * @return the number of undersized clusters
+     */
+    public int numClustersWantingMerge(@Nonnull final Config config) {
+        return (int)clusters.values().stream()
+                .filter(c -> c.metadata().getNumPrimaryVectors() < c.metadata().mergeThreshold(config))
+                .count();
+    }
+
+    /**
+     * Returns how many clusters carry the given maintenance state, i.e. already have a task of that kind pending.
+     *
+     * @param state the state to count
+     * @return the number of clusters in {@code state}
+     */
+    public int numClustersInState(@Nonnull final ClusterMetadata.State state) {
+        return (int)clusters.values().stream()
+                .filter(c -> c.metadata().states().contains(state))
+                .count();
     }
 
     /**

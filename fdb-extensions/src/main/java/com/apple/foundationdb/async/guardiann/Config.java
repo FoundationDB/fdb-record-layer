@@ -74,9 +74,23 @@ import javax.annotation.Nonnull;
  * @param constructionSearchConfig centroid-walk tuning ({@link SearchConfig}) for the non-search insert/delete/maintenance
  *        paths, which probe the centroid HNSW without a per-query {@code SearchConfig}; only its {@code centroidEf*}
  *        knobs are consulted there
- * @param mergeMaxEverFraction fraction of a cluster's max-ever primary count below which it becomes merge-eligible;
- *        the effective merge threshold is
- *        {@code max(primaryClusterMin, floor(mergeMaxEverFraction * maxEverNumPrimaryVectors))}
+ * @param mergeMaxEverFraction fraction of a cluster's max-ever primary count below which it becomes merge-eligible,
+ *        floored by {@link #primaryClusterMin()}; see {@link ClusterMetadata#mergeThreshold(Config)}, which combines
+ *        the two
+ * @param minChildFraction floor on the smallest child's share of the population being repartitioned, below which a
+ *        split or merge candidate is rejected outright. Guards against producing a cluster born small enough to be
+ *        immediately merge-eligible, and is the <em>only</em> gate that rejects rather than merely disfavours, so
+ *        raising it is what risks leaving a split with no admissible candidate. A plain fraction rather than one
+ *        scaled by {@code k}, since it stands in for an absolute vector count; note that the population being
+ *        repartitioned is itself larger for a wider split (which draws in a neighbouring cluster), so the same
+ *        fraction is a somewhat stricter absolute floor there
+ * @param maxRelativeImbalance ceiling on how uneven a candidate's cluster sizes may be, expressed as a fraction of
+ *        the worst imbalance achievable for that number of clusters, so one value means the same thing for a 2-way
+ *        and a 3-way partitioning. {@code 1} disables the check; a merge to a single cluster is perfectly balanced
+ *        by definition and always passes
+ * @param splitImbalancePenalty weight of the imbalance term when scoring a <em>split</em>, which biases the choice
+ *        between otherwise comparable candidates toward the more balanced one. Merges keep the evaluator's default
+ *        weight, since their shape is dictated by the clusters they are handed
  */
 @SuppressWarnings("checkstyle:MemberName")
 public record Config(@Nonnull Metric metric,
@@ -120,15 +134,35 @@ public record Config(@Nonnull Metric metric,
                      // construction (centroid-walk tuning for the non-search insert/delete/maintenance paths)
                      @Nonnull SearchConfig constructionSearchConfig,
                      // merge trigger (hysteresis relative to a cluster's max-ever primary count)
-                     double mergeMaxEverFraction) implements VectorEncodingConfig {
+                     double mergeMaxEverFraction,
+                     double minChildFraction,
+                     double maxRelativeImbalance,
+                     double splitImbalancePenalty) implements VectorEncodingConfig {
 
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
-    public static final int DEFAULT_PRIMARY_CLUSTER_MIN = 50;
     public static final int DEFAULT_PRIMARY_CLUSTER_MAX = 1000;
+    // A tenth of primaryClusterMax. The ratio matters more than the value: set the floor much lower and clusters
+    // whose lifetime peak is modest end up with a merge threshold pinned to the floor, so they hover just above it
+    // and never consolidate — a population of small clusters that accumulate references to deleted vectors. Set it
+    // much higher and it swallows the max-ever fraction, since that only binds once 0.2 * maxEver exceeds the floor.
+    public static final int DEFAULT_PRIMARY_CLUSTER_MIN = DEFAULT_PRIMARY_CLUSTER_MAX / 10;
     public static final int DEFAULT_PRIMARY_CLUSTER_HARD_MAX = 2 * DEFAULT_PRIMARY_CLUSTER_MAX;
     // fraction of a cluster's max-ever primary count below which a merge is triggered (subject to the
-    // primaryClusterMin floor); see Config#mergeThreshold
+    // primaryClusterMin floor); see ClusterMetadata#mergeThreshold
     public static final double DEFAULT_MERGE_MAX_EVER_FRACTION = 1.0d / 5.0d;
+    // Floor on the smallest child of a repartitioning, as a fraction of the population being split. A child born
+    // below primaryClusterMin is immediately merge-eligible, and a split fires no earlier than primaryClusterMax
+    // vectors, so that ratio is the tightest case. Kept as an expression of the two so it tracks them. This is the
+    // only gate that can reject a candidate outright; lopsidedness is steered softly by maxRelativeImbalance and
+    // splitImbalancePenalty instead, neither of which can leave the evaluator with nothing to choose from.
+    public static final double DEFAULT_MIN_CHILD_FRACTION =
+            DEFAULT_PRIMARY_CLUSTER_MIN / (double)DEFAULT_PRIMARY_CLUSTER_MAX;
+    // Ceiling on relative imbalance, chosen so a 2-way split may put at most ~80% of the population in one child,
+    // keeping it clear of primaryClusterMax rather than pinned against it. Tightens automatically as k grows.
+    public static final double DEFAULT_MAX_RELATIVE_IMBALANCE = 0.36d;
+    // Weight of the imbalance term when scoring a split; above the evaluator's default of 1.0 so that, between
+    // otherwise comparable candidates, the more balanced one wins.
+    public static final double DEFAULT_SPLIT_IMBALANCE_PENALTY = 3.0d;
     public static final int DEFAULT_UNDERREPLICATED_PRIMARY_CLUSTER_MAX = 50;
     public static final int DEFAULT_REPLICATED_CLUSTER_MAX_WRITES = 3 * DEFAULT_PRIMARY_CLUSTER_MAX / 10;
     public static final int DEFAULT_REPLICATED_CLUSTER_TARGET = DEFAULT_PRIMARY_CLUSTER_MAX / 10;
@@ -177,23 +211,16 @@ public record Config(@Nonnull Metric metric,
                 "collapseMinDuplicates must be < primaryClusterMax");
         Preconditions.checkArgument(primaryClusterHardMax > primaryClusterMax,
                 "primaryClusterHardMax must be > primaryClusterMax");
-        Preconditions.checkArgument(mergeMaxEverFraction > 0.0d && mergeMaxEverFraction <= 1.0d,
-                "mergeMaxEverFraction must be in (0, 1]");
-    }
-
-    /**
-     * Computes the primary-vector count below which a cluster becomes merge-eligible: the larger of the absolute
-     * {@link #primaryClusterMin()} floor and {@code mergeMaxEverFraction} of the cluster's lifetime peak. Expressing
-     * the trigger relative to the peak gives hysteresis — a freshly split cluster (at 100% of its own peak) is never
-     * immediately merge-eligible, however lopsided the split — while still consolidating a cluster that has since
-     * shed most of its members.
-     *
-     * @param maxEverNumPrimaryVectors the cluster's {@link ClusterMetadata#maxEverNumPrimaryVectors() high-water}
-     *        primary count
-     * @return the merge threshold; a cluster with fewer current primaries than this wants to merge
-     */
-    public int mergeThreshold(final int maxEverNumPrimaryVectors) {
-        return Math.max(primaryClusterMin(), (int) Math.floor(mergeMaxEverFraction() * maxEverNumPrimaryVectors));
+        Preconditions.checkArgument(mergeMaxEverFraction > 0.0d && mergeMaxEverFraction < 1.0d,
+                "mergeMaxEverFraction must be in (0, 1)");
+        // Anything at or above 1/k makes every k-way candidate unsatisfiable; 0.5 is the loosest value that still
+        // admits a two-way split, and the caller is responsible for staying below 1/k for the widest split it wants.
+        Preconditions.checkArgument(minChildFraction >= 0.0d && minChildFraction < 0.5d,
+                "minChildFraction must be in [0, 0.5)");
+        Preconditions.checkArgument(maxRelativeImbalance >= 0.0d && maxRelativeImbalance <= 1.0d,
+                "maxRelativeImbalance must be in [0, 1]");
+        Preconditions.checkArgument(splitImbalancePenalty >= 0.0d,
+                "splitImbalancePenalty must be >= 0");
     }
 
     @Nonnull
@@ -210,7 +237,8 @@ public record Config(@Nonnull Metric metric,
                 reassignNumNeighboringClusters(),
                 collapseMinDuplicates(), splitMergeConcurrency(), reassignConcurrency(),
                 collapseConcurrency(), bounceConcurrency(),
-                constructionSearchConfig(), mergeMaxEverFraction());
+                constructionSearchConfig(), mergeMaxEverFraction(), minChildFraction(), maxRelativeImbalance(),
+                splitImbalancePenalty());
     }
 
     @Override
@@ -246,6 +274,9 @@ public record Config(@Nonnull Metric metric,
                 ", bounceConcurrency=" + bounceConcurrency() +
                 ", constructionSearchConfig=" + constructionSearchConfig() +
                 ", mergeMaxEverFraction=" + mergeMaxEverFraction() +
+                ", minChildFraction=" + minChildFraction() +
+                ", maxRelativeImbalance=" + maxRelativeImbalance() +
+                ", splitImbalancePenalty=" + splitImbalancePenalty() +
                 "]";
     }
 
@@ -304,6 +335,10 @@ public record Config(@Nonnull Metric metric,
         private SearchConfig constructionSearchConfig = DEFAULT_CONSTRUCTION_SEARCH_CONFIG;
         // merge trigger
         private double mergeMaxEverFraction = DEFAULT_MERGE_MAX_EVER_FRACTION;
+        // repartitioning balance gates
+        private double minChildFraction = DEFAULT_MIN_CHILD_FRACTION;
+        private double maxRelativeImbalance = DEFAULT_MAX_RELATIVE_IMBALANCE;
+        private double splitImbalancePenalty = DEFAULT_SPLIT_IMBALANCE_PENALTY;
 
         public ConfigBuilder() {
         }
@@ -329,7 +364,10 @@ public record Config(@Nonnull Metric metric,
                              final int collapseConcurrency,
                              final int bounceConcurrency,
                              @Nonnull final SearchConfig constructionSearchConfig,
-                             final double mergeMaxEverFraction) {
+                             final double mergeMaxEverFraction,
+                             final double minChildFraction,
+                             final double maxRelativeImbalance,
+                             final double splitImbalancePenalty) {
             this.metric = metric;
             this.primaryClusterMin = primaryClusterMin;
             this.primaryClusterMax = primaryClusterMax;
@@ -363,6 +401,9 @@ public record Config(@Nonnull Metric metric,
             this.bounceConcurrency = bounceConcurrency;
             this.constructionSearchConfig = constructionSearchConfig;
             this.mergeMaxEverFraction = mergeMaxEverFraction;
+            this.minChildFraction = minChildFraction;
+            this.maxRelativeImbalance = maxRelativeImbalance;
+            this.splitImbalancePenalty = splitImbalancePenalty;
         }
 
         @Nonnull
@@ -396,6 +437,39 @@ public record Config(@Nonnull Metric metric,
         @Nonnull
         public ConfigBuilder setMergeMaxEverFraction(final double mergeMaxEverFraction) {
             this.mergeMaxEverFraction = mergeMaxEverFraction;
+            return this;
+        }
+
+        public double getMinChildFraction() {
+            return minChildFraction;
+        }
+
+        @CanIgnoreReturnValue
+        @Nonnull
+        public ConfigBuilder setMinChildFraction(final double minChildFraction) {
+            this.minChildFraction = minChildFraction;
+            return this;
+        }
+
+        public double getMaxRelativeImbalance() {
+            return maxRelativeImbalance;
+        }
+
+        @CanIgnoreReturnValue
+        @Nonnull
+        public ConfigBuilder setMaxRelativeImbalance(final double maxRelativeImbalance) {
+            this.maxRelativeImbalance = maxRelativeImbalance;
+            return this;
+        }
+
+        public double getSplitImbalancePenalty() {
+            return splitImbalancePenalty;
+        }
+
+        @CanIgnoreReturnValue
+        @Nonnull
+        public ConfigBuilder setSplitImbalancePenalty(final double splitImbalancePenalty) {
+            this.splitImbalancePenalty = splitImbalancePenalty;
             return this;
         }
 
@@ -746,7 +820,8 @@ public record Config(@Nonnull Metric metric,
                     getReassignNumNeighboringClusters(),
                     getCollapseMinDuplicates(), getSplitMergeConcurrency(), getReassignConcurrency(),
                     getCollapseConcurrency(), getBounceConcurrency(),
-                    getConstructionSearchConfig(), getMergeMaxEverFraction());
+                    getConstructionSearchConfig(), getMergeMaxEverFraction(), getMinChildFraction(),
+                    getMaxRelativeImbalance(), getSplitImbalancePenalty());
         }
     }
 }

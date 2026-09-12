@@ -259,8 +259,8 @@ public class SiftTest implements BaseTest {
     }
 
     @ParameterizedTest(name = "[{index}] seed={0}")
-    @RandomSeedSource(-8629541155071462996L)
-    //@SuperSlow
+    @RandomSeedSource
+    @SuperSlow
     @Timeout(value = 2, unit = TimeUnit.HOURS)
     void insertDeleteAllSiftSubsampledSlow(final long seed) throws Exception {
         final List<PrimaryKeyAndVector> startup = TestHelpers.loadSample(SIFT_1M_BASE_PATH, seed, SAMPLE_SIZE_LARGE);
@@ -341,9 +341,10 @@ public class SiftTest implements BaseTest {
             if (batchesSinceCheck >= RECALL_CHECK_INTERVAL_BATCHES) {
                 batchesSinceCheck = 0;
                 logger.info("checkpoint after totalBatches={} (deletes={}, inserts={}): active.size={}, "
-                                + "queues left a={}, b={}",
+                                + "queues left a={}, b={}, {}",
                         totalBatches, totalDeleteBatches, totalInsertBatches,
-                        active.size(), deleteQueueA.size(), insertQueueB.size());
+                        active.size(), deleteQueueA.size(), insertQueueB.size(),
+                        describeStructure(guardiann));
                 // Skip the recall check if the active set has dipped below k — happens only pathologically at the
                 // tail when the random schedule has done many more deletes than inserts.
                 if (active.size() >= RECALL_K) {
@@ -426,8 +427,9 @@ public class SiftTest implements BaseTest {
 
             if (batchesSinceCheck >= RECALL_CHECK_INTERVAL_BATCHES) {
                 batchesSinceCheck = 0;
-                logger.info("checkpoint after deleteBatches={}: active.size={}, queue left={}",
-                        totalDeleteBatches, active.size(), deleteQueue.size());
+                logger.info("checkpoint after deleteBatches={}: active.size={}, queue left={}, {}",
+                        totalDeleteBatches, active.size(), deleteQueue.size(),
+                        describeStructure(guardiann));
                 // Recall@k is only measurable while at least k records remain; stop checking once the active set
                 // dips below k (the tail of the drain) and just keep deleting.
                 if (active.size() >= RECALL_K) {
@@ -506,12 +508,13 @@ public class SiftTest implements BaseTest {
 
     @Nonnull
     private static Config buildConfig() {
-        return Guardiann.newConfigBuilder()
+        // Cluster shape comes from ConfigRecommendation so this workload exercises the recommended ratios rather
+        // than a hand-picked set. The overrides below are the parts the recommendation deliberately leaves to the
+        // caller: quantization, determinism, and SIFT's density, which wants far more replication than the generic
+        // max/10 ratio provides.
+        return ConfigRecommendation.forClusterMax(Metric.EUCLIDEAN_METRIC, 1000)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
-                .setMetric(Metric.EUCLIDEAN_METRIC)
-                .setPrimaryClusterMax(512)
-                .setPrimaryClusterMin(50)
                 .setDeterministicRandomness(true)
                 .setReplicationPriorityMin(0.75d)
                 .setReplicatedClusterTarget(500)
@@ -555,6 +558,34 @@ public class SiftTest implements BaseTest {
             copy.set(j, tmp);
         }
         return copy;
+    }
+
+    /**
+     * Summarizes the structure for a checkpoint log line: cluster sizes and how they sit relative to their merge
+     * thresholds (from the snapshot itself), plus the orphaned-reference share (which needs a database read).
+     * <p>
+     * The two halves answer different questions. {@code wantMerge} staying high while {@code clusters} does not fall
+     * would mean merges are being triggered but not landing; {@code wantMerge} at zero means no merge is due, and the
+     * threshold statistics say why. The orphan share is what the search's candidate pool pays for, so it explains any
+     * {@code Insufficient data to form result set} warnings.
+     */
+    @Nonnull
+    private String describeStructure(@Nonnull final Guardiann guardiann) {
+        final StructureSnapshot snapshot = GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann);
+        if (snapshot == null) {
+            return "structure empty";
+        }
+        final Config config = guardiann.getConfig();
+        final var primaries = snapshot.primaryCountStatistics();
+        final var thresholds = snapshot.mergeThresholdStatistics(config);
+        return String.format("clusters=%d, primaries/cluster=[%d..%d] mean=%.0f, mergeThreshold=[%d..%d] mean=%.0f"
+                        + ", wantMerge=%d, pendingSplitMerge=%d, %s",
+                snapshot.numClusters(),
+                primaries.getMin(), primaries.getMax(), primaries.getAverage(),
+                thresholds.getMin(), thresholds.getMax(), thresholds.getAverage(),
+                snapshot.numClustersWantingMerge(config),
+                snapshot.numClustersInState(ClusterMetadata.State.SPLIT_MERGE),
+                GuardiannStructureAsserts.censusOrphans(getDb(), guardiann, snapshot));
     }
 
     /**

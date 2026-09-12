@@ -225,6 +225,110 @@ public class GuardiannStructureAsserts {
     }
 
     /**
+     * How many of the structure's references point at a vector that no longer exists.
+     *
+     * @param numPrimaries total primary references
+     * @param numReplicas total replica references
+     * @param numOrphanPrimaries primary references whose vector metadata is gone
+     * @param numOrphanReplicas replica references whose vector metadata is gone
+     * @param maxClusterOrphanFraction the highest orphan fraction of any single cluster holding at least
+     *        {@code MIN_CLUSTER_SIZE_FOR_WORST_CASE} references. Reported separately from the overall fraction
+     *        because a search draws its candidate pool from the nearest few clusters rather than uniformly, so
+     *        concentrated orphans cost a query far more than the average suggests
+     */
+    public record OrphanCensus(int numPrimaries, int numReplicas, int numOrphanPrimaries, int numOrphanReplicas,
+                               double maxClusterOrphanFraction) {
+        /** Ignore tiny clusters when reporting the worst case; a 1-of-2-orphaned cluster is not informative. */
+        private static final int MIN_CLUSTER_SIZE_FOR_WORST_CASE = 20;
+
+        public int numReferences() {
+            return numPrimaries + numReplicas;
+        }
+
+        public int numOrphans() {
+            return numOrphanPrimaries + numOrphanReplicas;
+        }
+
+        /** Returns the overall orphan share of the reference population, or {@code 0} if there are no references. */
+        public double orphanFraction() {
+            return numReferences() == 0 ? 0.0d : (double)numOrphans() / numReferences();
+        }
+
+        @Nonnull
+        @Override
+        public String toString() {
+            return String.format("orphans=%d/%d (%.1f%%; primaries %d, replicas %d), worstCluster=%.1f%%",
+                    numOrphans(), numReferences(), 100.0d * orphanFraction(),
+                    numOrphanPrimaries(), numOrphanReplicas(), 100.0d * maxClusterOrphanFraction());
+        }
+    }
+
+    /**
+     * Counts how many cluster references point at a vector whose per-vector {@link VectorMetadata} record is gone.
+     * Needs a database read rather than just a {@link StructureSnapshot}, since liveness lives in the per-vector
+     * metadata subspace which the snapshot does not carry; the purely structural questions (cluster sizes, merge
+     * thresholds, pending states) are answered by the snapshot itself.
+     * <p>
+     * This is the quantity the search path pays for: {@code Search.enrichResults} builds a candidate pool of
+     * {@code candidatePoolFactor * k} references and then discards those whose metadata has disappeared, so an orphan
+     * share above the pool's headroom is what makes a k-nearest-neighbour query return fewer than {@code k} results.
+     * It is a lower bound on what the search discards — the search additionally drops references whose metadata
+     * exists but carries a different UUID (the vector was replaced), which this census cannot see from keys alone.
+     * <p>
+     * Collapsed representatives are excluded: they are keyed by content signature rather than by primary key and
+     * never have a per-vector metadata record, so counting them would report 100% orphaned regardless of health.
+     *
+     * @param db the database to read from
+     * @param guardiann the structure the snapshot came from
+     * @param snapshot the snapshot to census
+     * @return the census
+     */
+    @Nonnull
+    public static OrphanCensus censusOrphans(@Nonnull final Database db, @Nonnull final Guardiann guardiann,
+                                             @Nonnull final StructureSnapshot snapshot) {
+        final Subspace metadataSubspace = guardiann.getLocator().primitives().getVectorMetadataSubspace();
+        final Set<Tuple> liveMetadataKeys = db.run(transaction -> {
+            final Set<Tuple> keys = new HashSet<>();
+            for (final var keyValue : transaction.getRange(metadataSubspace.range()).asList().join()) {
+                keys.add(metadataSubspace.unpack(keyValue.getKey()));
+            }
+            return keys;
+        });
+
+        int numPrimaries = 0;
+        int numReplicas = 0;
+        int numOrphanPrimaries = 0;
+        int numOrphanReplicas = 0;
+        double maxClusterOrphanFraction = 0.0d;
+        for (final ClusterView cv : snapshot.clusters().values()) {
+            int clusterRefs = 0;
+            int clusterOrphans = 0;
+            for (final VectorId id : cv.primaries()) {
+                numPrimaries++;
+                clusterRefs++;
+                if (!liveMetadataKeys.contains(id.primaryKey())) {
+                    numOrphanPrimaries++;
+                    clusterOrphans++;
+                }
+            }
+            for (final VectorId id : cv.replicas()) {
+                numReplicas++;
+                clusterRefs++;
+                if (!liveMetadataKeys.contains(id.primaryKey())) {
+                    numOrphanReplicas++;
+                    clusterOrphans++;
+                }
+            }
+            if (clusterRefs >= OrphanCensus.MIN_CLUSTER_SIZE_FOR_WORST_CASE) {
+                maxClusterOrphanFraction =
+                        Math.max(maxClusterOrphanFraction, (double)clusterOrphans / clusterRefs);
+            }
+        }
+        return new OrphanCensus(numPrimaries, numReplicas, numOrphanPrimaries, numOrphanReplicas,
+                maxClusterOrphanFraction);
+    }
+
+    /**
      * Tolerances (as fractions of the relevant vector population) and the deep-check size gate for the soft
      * replication invariants. The deep, per-vector check (invariant 3) runs only when the structure has at most
      * {@link #deepCheckMaxVectors} primaries, so large runs stay fast.

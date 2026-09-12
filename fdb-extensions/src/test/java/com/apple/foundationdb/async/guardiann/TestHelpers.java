@@ -401,18 +401,16 @@ class TestHelpers {
     }
 
     /**
-     * Builds the {@link SearchConfig} the recall checks use: a candidate pool 15% larger than {@code k} (the
-     * dataset-dependent knob), with every other knob left at its builder default (which matches what these checks
-     * have always passed: 48 probed clusters, a min-of-16 prune floor, a 1.5 distance-ratio cutoff). Because the pool
-     * is now expressed as a {@code k}-relative factor ({@link SearchConfig#candidatePoolFactor()}), one config serves
-     * every {@code k}; {@code 1.15} happens to be the builder default, so this is just the all-defaults config, kept as
-     * a named helper so the recall checks document the pool size they rely on.
+     * Builds the {@link SearchConfig} the recall checks use: every knob at its builder default (48 probed clusters, a
+     * min-of-16 prune floor, a 1.5 distance-ratio cutoff, and the default candidate-pool factor). Kept as a named
+     * helper so the recall checks state that they measure what real callers get, rather than a pool size chosen to
+     * make them pass.
      *
      * @return a search config tuned for recall@k checks
      */
     static SearchConfig recallSearchConfig() {
         return new SearchConfig.SearchConfigBuilder()
-                .setCandidatePoolFactor(1.15d)
+                .setCandidatePoolFactor(SearchConfig.DEFAULT_CANDIDATE_POOL_FACTOR)
                 .build();
     }
 
