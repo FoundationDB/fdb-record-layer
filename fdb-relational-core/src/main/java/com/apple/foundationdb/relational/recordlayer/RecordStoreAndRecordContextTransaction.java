@@ -33,6 +33,8 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -85,6 +87,17 @@ public class RecordStoreAndRecordContextTransaction implements Transaction {
     @Override
     public void unsetBoundSchemaTemplate() {
         transaction.unsetBoundSchemaTemplate();
+    }
+
+    @Override
+    public void setLocalVariable(@Nonnull String name, @Nullable Object value) {
+        transaction.setLocalVariable(name, value);
+    }
+
+    @Nonnull
+    @Override
+    public Map<String, Object> getLocalVariables() {
+        return transaction.getLocalVariables();
     }
 
     @Override

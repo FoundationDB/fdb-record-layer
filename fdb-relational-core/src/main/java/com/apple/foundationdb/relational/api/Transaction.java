@@ -25,6 +25,8 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Map;
 import java.util.Optional;
 
 public interface Transaction extends AutoCloseable {
@@ -62,6 +64,21 @@ public interface Transaction extends AutoCloseable {
      * Unsets the bound schema template, if one exists.
      */
     void unsetBoundSchemaTemplate();
+
+    /**
+     * Sets a transaction-scoped local variable, visible only for the duration of this transaction.
+     *
+     * @param name the variable name; the caller is responsible for normalization
+     */
+    void setLocalVariable(@Nonnull String name, @Nullable Object value);
+
+    /**
+     * Returns the local variables set in this transaction.
+     *
+     * @return an unmodifiable view; empty if none have been set
+     */
+    @Nonnull
+    Map<String, Object> getLocalVariables();
 
     @Override
     void close() throws RelationalException;
