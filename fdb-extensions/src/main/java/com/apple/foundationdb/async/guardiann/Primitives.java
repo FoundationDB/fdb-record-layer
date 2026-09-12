@@ -1253,7 +1253,8 @@ class Primitives {
 
     /**
      * Updates a cluster's metadata after a single primary vector has been deleted from it and, when that drops
-     * the cluster below {@code primaryClusterMin}, enqueues a merge {@link SplitMergeTask} — but only when a
+     * the cluster below its {@link ClusterMetadata#mergeThreshold(Config) merge threshold}, enqueues a merge
+     * {@link SplitMergeTask} — but only when a
      * merge is actually possible.
      * <p>
      * A merge needs at least one other cluster to merge with. The clusters are exactly the nodes of the centroid
@@ -1301,7 +1302,8 @@ class Primitives {
     /**
      * Shared merge-decision core for the delete path ({@link #updateClusterMetadataAndEnqueueMergeOrReassignTaskMaybe})
      * and the reassign follow-up ({@link #enqueueMergeTaskMaybeAfterReassign}). Enqueues a merge {@link SplitMergeTask}
-     * iff the cluster is undersized (fewer than {@link Config#mergeThreshold} primaries), is not already
+     * iff the cluster is undersized (fewer primaries than its
+     * {@link ClusterMetadata#mergeThreshold(Config) merge threshold}), is not already
      * {@code SPLIT_MERGE}/{@code COLLAPSE}, and has a mergeable neighbor (centroid cardinality
      * {@link Cardinality#MULTIPLE}). Returns whether a merge was enqueued, so the caller can perform its own
      * non-merge fallback (the delete path persists the decrement; the reassign path does nothing).
@@ -1321,7 +1323,7 @@ class Primitives {
         final boolean wantsMerge =
                 !clusterMetadata.states().contains(ClusterMetadata.State.SPLIT_MERGE) && // not already splitting/merging
                         !clusterMetadata.states().contains(ClusterMetadata.State.COLLAPSE) && // not already collapsing
-                        numTotalPrimaryVectors < config.mergeThreshold(clusterMetadata.maxEverNumPrimaryVectors());
+                        numTotalPrimaryVectors < clusterMetadata.mergeThreshold(config);
         if (!wantsMerge) {
             return CompletableFuture.completedFuture(false);
         }
@@ -1349,11 +1351,13 @@ class Primitives {
 
     /**
      * Merge follow-up for a reassign. If the just-reassigned target cluster has shrunk below its
-     * {@link Config#mergeThreshold merge threshold}, enqueues a merge. Reuses the delete path's merge core but
+     * {@link ClusterMetadata#mergeThreshold(Config) merge threshold}, enqueues a merge. Reuses the delete path's merge core but
      * supplies no fallback — the target metadata has already been written with its final post-reassign counts.
-     * Because {@link ClusterMetadata#maxEverNumPrimaryVectors()} is the preserved lifetime peak, this fires only for
-     * clusters that genuinely shrank; a freshly split child (reassigned post-bounce at ~100% of its peak) is never
-     * caught, so no split-vs-shrink discriminator is needed.
+     * <p>
+     * A freshly split child, reassigned post-bounce while still at its birth size, is not caught here: a cluster at its
+     * own peak is merge-eligible only if it sits below {@link Config#primaryClusterMin()}, and
+     * {@link Config#minChildFraction()} already bounds a split from producing one that small. So no split-vs-shrink
+     * discriminator is needed — but note it is the child-size floor that provides that, not the max-ever peak.
      */
     @Nonnull
     CompletableFuture<Void> enqueueMergeTaskMaybeAfterReassign(@Nonnull final Transaction transaction,
@@ -1370,9 +1374,9 @@ class Primitives {
     /**
      * Enqueues a {@link SplitMergeTask} for the given cluster and writes its metadata with the
      * {@link ClusterMetadata.State#SPLIT_MERGE} state set. This is the shared body used both when adding vectors
-     * pushes a cluster over {@code primaryClusterMax} (a split) and when deleting a primary drops it below
-     * {@code primaryClusterMin} (a merge); the task itself decides at execution time whether to split or merge
-     * based on the cluster's size when it runs.
+     * pushes a cluster over {@code primaryClusterMax} (a split) and when deleting a primary drops it below its
+     * {@link ClusterMetadata#mergeThreshold(Config) merge threshold} (a merge); the task itself decides at execution
+     * time whether to split or merge based on the cluster's size when it runs.
      *
      * @param transaction the transaction to use
      * @param random a source of randomness used to mint a task id

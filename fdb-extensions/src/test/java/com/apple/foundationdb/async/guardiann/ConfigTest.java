@@ -69,6 +69,9 @@ class ConfigTest {
                 .setCentroidEfRingSearch(SearchConfig.DEFAULT_CENTROID_EF_RING_SEARCH + 1)
                 .build();
         final double mergeMaxEverFraction = 0.42d;
+        final double minChildFraction = 0.07d;
+        final double maxRelativeImbalance = 0.44d;
+        final double splitImbalancePenalty = 2.5d;
 
         Assertions.assertThat(defaultConfig.metric()).isNotSameAs(metric);
         Assertions.assertThat(defaultConfig.primaryClusterMin()).isNotEqualTo(primaryClusterMin);
@@ -103,6 +106,9 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.bounceConcurrency()).isNotEqualTo(bounceConcurrency);
         Assertions.assertThat(defaultConfig.constructionSearchConfig()).isNotEqualTo(constructionSearchConfig);
         Assertions.assertThat(defaultConfig.mergeMaxEverFraction()).isNotEqualTo(mergeMaxEverFraction);
+        Assertions.assertThat(defaultConfig.minChildFraction()).isNotEqualTo(minChildFraction);
+        Assertions.assertThat(defaultConfig.maxRelativeImbalance()).isNotEqualTo(maxRelativeImbalance);
+        Assertions.assertThat(defaultConfig.splitImbalancePenalty()).isNotEqualTo(splitImbalancePenalty);
 
         final Config newConfig =
                 defaultConfig.toBuilder()
@@ -139,6 +145,9 @@ class ConfigTest {
                         .setBounceConcurrency(bounceConcurrency)
                         .setConstructionSearchConfig(constructionSearchConfig)
                         .setMergeMaxEverFraction(mergeMaxEverFraction)
+                        .setMinChildFraction(minChildFraction)
+                        .setMaxRelativeImbalance(maxRelativeImbalance)
+                        .setSplitImbalancePenalty(splitImbalancePenalty)
                         .build(NUM_DIMENSIONS);
 
         Assertions.assertThat(newConfig.metric()).isSameAs(metric);
@@ -174,6 +183,14 @@ class ConfigTest {
         Assertions.assertThat(newConfig.bounceConcurrency()).isEqualTo(bounceConcurrency);
         Assertions.assertThat(newConfig.constructionSearchConfig()).isEqualTo(constructionSearchConfig);
         Assertions.assertThat(newConfig.mergeMaxEverFraction()).isEqualTo(mergeMaxEverFraction);
+        Assertions.assertThat(newConfig.minChildFraction()).isEqualTo(minChildFraction);
+        Assertions.assertThat(newConfig.maxRelativeImbalance()).isEqualTo(maxRelativeImbalance);
+        Assertions.assertThat(newConfig.splitImbalancePenalty()).isEqualTo(splitImbalancePenalty);
+
+        // Round-tripping a config whose every component differs from the default is what actually pins toBuilder():
+        // doing it on the default config above cannot detect a component that toBuilder() drops or transposes,
+        // since the rebuilt builder would fall back to exactly the value that was lost.
+        Assertions.assertThat(newConfig.toBuilder().build(NUM_DIMENSIONS)).isEqualTo(newConfig);
     }
 
     @Test
@@ -225,19 +242,51 @@ class ConfigTest {
     }
 
     @Test
-    void testMergeThreshold() {
-        // The merge threshold is max(primaryClusterMin, floor(mergeMaxEverFraction * maxEverNumPrimaryVectors)).
-        final Config config = Guardiann.newConfigBuilder()
-                .setPrimaryClusterMin(50).setMergeMaxEverFraction(0.2d).build(NUM_DIMENSIONS);
-        Assertions.assertThat(config.mergeThreshold(100)).isEqualTo(50);   // max(50, floor(0.2*100)=20) -> floor wins
-        Assertions.assertThat(config.mergeThreshold(1000)).isEqualTo(200); // max(50, floor(0.2*1000)=200) -> fraction
-        Assertions.assertThat(config.mergeThreshold(254)).isEqualTo(50);   // floor(0.2*254)=50 -> ties the floor
-        Assertions.assertThat(config.mergeThreshold(255)).isEqualTo(51);   // floor(0.2*255)=51 -> fraction
-        Assertions.assertThat(config.mergeThreshold(0)).isEqualTo(50);     // empty peak clamps to the floor
+    void testMinChildFractionMustBeInLowerHalfOfUnitInterval() {
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setMinChildFraction(-0.01d).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setMinChildFraction(0.5d).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setMinChildFraction(0.0d).build(NUM_DIMENSIONS).minChildFraction())
+                .isZero();
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setMinChildFraction(0.499d).build(NUM_DIMENSIONS).minChildFraction())
+                .isEqualTo(0.499d);
     }
 
     @Test
-    void testMergeMaxEverFractionMustBeInUnitInterval() {
+    void testMaxRelativeImbalanceMustBeInClosedUnitInterval() {
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setMaxRelativeImbalance(-0.01d).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setMaxRelativeImbalance(1.01d).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        // Both bounds are attainable: 0 admits only perfectly even partitionings, 1 disables the gate.
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setMaxRelativeImbalance(0.0d).build(NUM_DIMENSIONS).maxRelativeImbalance())
+                .isZero();
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setMaxRelativeImbalance(1.0d).build(NUM_DIMENSIONS).maxRelativeImbalance())
+                .isEqualTo(1.0d);
+    }
+
+    @Test
+    void testSplitImbalancePenaltyMustBeNonNegative() {
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setSplitImbalancePenalty(-0.1d).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        // Zero is legal and means imbalance does not influence the score at all.
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setSplitImbalancePenalty(0.0d).build(NUM_DIMENSIONS).splitImbalancePenalty())
+                .isZero();
+    }
+
+    @Test
+    void testMergeMaxEverFractionMustBeStrictlyBetweenZeroAndOne() {
         Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
                         .setMergeMaxEverFraction(0.0d).build(NUM_DIMENSIONS))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -247,9 +296,11 @@ class ConfigTest {
         Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
                         .setMergeMaxEverFraction(1.5d).build(NUM_DIMENSIONS))
                 .isInstanceOf(IllegalArgumentException.class);
-        // The boundary value 1.0 is allowed.
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setMergeMaxEverFraction(1.0d).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
         Assertions.assertThat(Guardiann.newConfigBuilder()
-                        .setMergeMaxEverFraction(1.0d).build(NUM_DIMENSIONS).mergeMaxEverFraction())
-                .isEqualTo(1.0d);
+                        .setMergeMaxEverFraction(0.999d).build(NUM_DIMENSIONS).mergeMaxEverFraction())
+                .isEqualTo(0.999d);
     }
 }
