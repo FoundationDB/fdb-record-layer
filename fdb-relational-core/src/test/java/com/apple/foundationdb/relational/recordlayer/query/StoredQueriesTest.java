@@ -41,6 +41,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.sql.SQLException;
+import java.sql.Types;
 
 public class StoredQueriesTest {
 
@@ -108,6 +109,41 @@ public class StoredQueriesTest {
                     "   DECLARE" +
                     "       FUNCTION1 sq1(in x bigint) AS (SELECT * FROM t1 WHERE col1 < x)" +
                     " AS SELECT * FROM sq1(10)";
+
+    /**
+     * One stored query with a declared parameter, warmed for both halves of its domain: a plan built with the null
+     * bound, and a plan built value-free with a non-nullable type.
+     */
+    private static final String SCHEMA_TEMPLATE_TWO_CASES =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY by_col1(p bigint)" +
+                    "   PREPARE FOR (p IS NOT NULL), (p IS NULL)" +
+                    " AS select * from t1 where col1 = p";
+
+    /** A boolean pinned to each of its values, which is what gives a plan per value rather than one generic plan. */
+    private static final String SCHEMA_TEMPLATE_BOOLEAN_CASES =
+            "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, flag boolean, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY by_flag(b boolean)" +
+                    "   PREPARE FOR (b = TRUE), (b = FALSE)" +
+                    " AS select * from t1 where flag = b";
+
+    /**
+     * The first stored query declares a parameter whose type warm-up cannot resolve, since the built schema template
+     * keeps no named types. The second is ordinary, and must still be warmed.
+     *
+     * <p>A template type in a parameter list is written {@code TYPE s1}: unlike a column definition, {@code
+     * functionColumnType} requires the keyword.</p>
+     */
+    private static final String SCHEMA_TEMPLATE_UNRESOLVABLE_TYPE =
+            "CREATE TYPE AS STRUCT s1(f1 bigint)" +
+                    " CREATE TABLE t1(id bigint, col1 bigint, st s1, PRIMARY KEY(id))" +
+                    " CREATE INDEX i1 AS SELECT col1 FROM t1" +
+                    " CREATE STORED QUERY by_struct(p TYPE s1)" +
+                    "   PREPARE FOR (p IS NOT NULL)" +
+                    " AS select * from t1 where st = p" +
+                    " CREATE STORED QUERY by_col1 AS select * from t1 where col1 = 10";
 
 
     @RegisterExtension
@@ -573,6 +609,153 @@ public class StoredQueriesTest {
                                 .schemaTemplate(SCHEMA_TEMPLATE_TF_BAD_SYNTAX)
                                 .build())
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
+    }
+
+    /**
+     * One stored query, two prepared cases, two plans. This is what a parameter list buys: the same query text warmed once
+     * with the null bound and once value-free, so both halves of the parameter's domain arrive warm.
+     */
+    @Test
+    void eachPreparedCaseWarmsItsOwnPlan() throws Exception {
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_CASES_DB"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_TWO_CASES)
+                .build()) {
+            final String templateName = ddl.getSchemaTemplateName();
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+
+            Assertions.assertEquals(Long.valueOf(2), new ConnectionUtils(engineDriver).getFromCatalog(
+                    conn -> countCachedPlans(conn, templateName)));
+            // Counts plans, not queries: one stored query, two cases, two plans.
+            Assertions.assertEquals(2, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_WARMED));
+            Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_FAILED));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED));
+        }
+    }
+
+    /**
+     * Both warmed plans are reachable from a client. The proof is that the cached plan count does not move: a miss
+     * would plan afresh and insert, so an unchanged count is a hit. That matters because the failure mode here is a
+     * silent miss — correct rows either way, only the warm-up wasted.
+     */
+    @Test
+    void clientBindingHitsThePlanWarmedForItsCase() throws Exception {
+        final String dbUri = "/TEST/SQ_CASES_HIT_DB";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_TWO_CASES)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2)");
+            }
+
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // A non-null binding must match the plan warmed value-free with a non-nullable type.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("select * from t1 where col1 = ?P")) {
+                    ps.setLong("P", 20L);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertTrue(rs.next());
+                        Assertions.assertEquals(2, rs.getLong("ID"));
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            // A null binding must match the other plan, the one built with the null already bound. No row can satisfy
+            // `col1 = NULL`, so the answer is empty — and it comes from a folded plan rather than a scan.
+            connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                try (var ps = c.prepareStatement("select * from t1 where col1 = ?P")) {
+                    ps.setNull("P", Types.BIGINT);
+                    try (RelationalResultSet rs = ps.executeQuery()) {
+                        Assertions.assertFalse(rs.next());
+                    }
+                }
+            });
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+        }
+    }
+
+    /**
+     * A boolean pinned to each of its values gets a plan per value, and each binding finds its own.
+     */
+    @Test
+    void eachBooleanCaseWarmsAndIsHit() throws Exception {
+        final String dbUri = "/TEST/SQ_BOOL_CASES_DB";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_BOOLEAN_CASES)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, 10, 1, true)");
+                stmt.execute("INSERT INTO T1 VALUES (2, 20, 2, false)");
+            }
+
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+            Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            for (final boolean bound : new boolean[]{true, false}) {
+                final long expectedId = bound ? 1L : 2L;
+                connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+                    try (var ps = c.prepareStatement("select * from t1 where flag = ?B")) {
+                        ps.setBoolean("B", bound);
+                        try (RelationalResultSet rs = ps.executeQuery()) {
+                            Assertions.assertTrue(rs.next());
+                            Assertions.assertEquals(expectedId, rs.getLong("ID"));
+                            Assertions.assertFalse(rs.next());
+                        }
+                    }
+                });
+                Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            }
+        }
+    }
+
+    /**
+     * A parameter declared with a schema template type cannot be warmed, because the built template keeps no named
+     * types to resolve the declaration against. That stored query is skipped and the next one still warms — the same
+     * containment the temp-function failures already have.
+     */
+    @Test
+    void parameterTypeWarmUpCannotResolveSkipsOnlyThatQuery() throws Exception {
+        try (var ddl = Ddl.builder()
+                .database(URI.create("/TEST/SQ_UNRESOLVABLE_DB"))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_UNRESOLVABLE_TYPE)
+                .build()) {
+            final String templateName = ddl.getSchemaTemplateName();
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+
+            Assertions.assertEquals(Long.valueOf(1), new ConnectionUtils(engineDriver).getFromCatalog(
+                    conn -> countCachedPlans(conn, templateName)));
+            // The plan counters are per case, the query counters per query: one case failed and one warmed, and each
+            // belongs to a different stored query, so both query counters read one as well.
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_FAILED));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_WARMED));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_FAILED));
+            Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_PROCESSED));
+        }
     }
 
 }
