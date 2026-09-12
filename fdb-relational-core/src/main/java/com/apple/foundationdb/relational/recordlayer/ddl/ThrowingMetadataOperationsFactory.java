@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 
 /**
@@ -97,5 +98,11 @@ public final class ThrowingMetadataOperationsFactory implements MetadataOperatio
     @Override
     public ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists, @Nonnull String temporaryFunctionName) {
         throw reject("DROP TEMPORARY FUNCTION");
+    }
+
+    @Nonnull
+    @Override
+    public ConstantAction getSetLocalVariableConstantAction(@Nonnull String name, @Nullable Object value) {
+        throw reject("SET TRANSACTION VARIABLE");
     }
 }

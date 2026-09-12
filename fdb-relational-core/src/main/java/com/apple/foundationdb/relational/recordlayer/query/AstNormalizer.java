@@ -339,6 +339,14 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
+    public Object visitSetTransactionVariable(@Nonnull RelationalParser.SetTransactionVariableContext ctx) {
+        // SET TRANSACTION VARIABLE embeds the literal value in ProceduralPlan.action, which
+        // withExecutionContext cannot update. Mark it as DDL so the plan cache is bypassed.
+        queryCachingFlags.add(NormalizationResult.QueryCachingFlags.IS_DDL_STATEMENT);
+        return visitChildren(ctx);
+    }
+
+    @Override
     public Object visitUtilityStatement(@Nonnull RelationalParser.UtilityStatementContext ctx) {
         queryCachingFlags.add(NormalizationResult.QueryCachingFlags.IS_UTILITY_STATEMENT);
         return visitChildren(ctx);
