@@ -894,8 +894,8 @@ public class RecordMetaDataBuilderTest {
     }
 
     @Test
-    void auxiliaryTypeDescriptorsByFullNameReturnsAllAuxiliaryTypes() {
-        final var expectedAuxiliaryTypes = ImmutableList.of(
+    void getNonRecordTypeDescriptorsByFullNameReturnsAllTypes() {
+        final var expectedNonRecordTypes = ImmutableList.of(
                 "ReviewerEndorsements",
                 "ReviewerEndorsementsList",
                 "RestaurantComplexReview",
@@ -908,19 +908,19 @@ public class RecordMetaDataBuilderTest {
                 "RestaurantComplexReviewList",
                 "RestaurantComplexRecord");
         final var packageName = TestRecords4WrapperProto.getDescriptor().getPackage();
-        final RecordMetaData metaDataWithAuxiliaryTypes = RecordMetaData.newBuilder()
+        final RecordMetaData metaDataWithNonRecordTypes = RecordMetaData.newBuilder()
                 .setRecords(TestRecords4WrapperProto.getDescriptor())
                 .build();
 
-        final var actualAuxiliaryTypes = metaDataWithAuxiliaryTypes.getAuxiliaryTypeDescriptorsByFullName();
-        assertEquals(expectedAuxiliaryTypes.size(), actualAuxiliaryTypes.size());
+        final var actualNonRecordTypes = metaDataWithNonRecordTypes.getNonRecordTypeDescriptorsByFullName();
+        assertEquals(expectedNonRecordTypes.size(), actualNonRecordTypes.size());
 
-        for (final var expectedAuxiliaryType : expectedAuxiliaryTypes) {
+        for (final var expectedNonRecordType : expectedNonRecordTypes) {
             // The map is keyed by the full name (<protobuf_package>.<name>) of the type descriptors.
-            final var expectedFullName = packageName + "." + expectedAuxiliaryType;
-            assertTrue(actualAuxiliaryTypes.containsKey(expectedFullName));
-            assertEquals(expectedAuxiliaryType, actualAuxiliaryTypes.get(expectedFullName).getName());
-            assertEquals(TestRecords4WrapperProto.getDescriptor(), actualAuxiliaryTypes.get(expectedFullName).getFile());
+            final var expectedFullName = packageName + "." + expectedNonRecordType;
+            assertTrue(actualNonRecordTypes.containsKey(expectedFullName));
+            assertEquals(expectedNonRecordType, actualNonRecordTypes.get(expectedFullName).getName());
+            assertEquals(TestRecords4WrapperProto.getDescriptor(), actualNonRecordTypes.get(expectedFullName).getFile());
         }
     }
 }

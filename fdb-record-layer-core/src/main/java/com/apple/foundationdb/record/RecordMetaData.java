@@ -84,7 +84,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
     @Nonnull
-    private final Supplier<Map<String, Descriptors.GenericDescriptor>> auxiliaryTypeDescriptorsByFullNameMap;
+    private final Supplier<Map<String, Descriptors.GenericDescriptor>> nonRecordTypeDescriptorsByFullNameMap;
     @Nonnull
     private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
     @Nonnull
@@ -117,7 +117,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 Collections.unmodifiableMap(orig.indexes),
                 Collections.unmodifiableMap(orig.universalIndexes),
                 Collections.unmodifiableList(orig.formerIndexes),
-                orig.auxiliaryTypeDescriptorsByFullNameMap,
+                orig.nonRecordTypeDescriptorsByFullNameMap,
                 Collections.unmodifiableMap(orig.userDefinedFunctionMap),
                 Collections.unmodifiableMap(orig.viewMap),
                 Collections.unmodifiableMap(orig.storedQueries),
@@ -140,7 +140,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
-                             @Nonnull Supplier<Map<String, Descriptors.GenericDescriptor>> auxiliaryTypeDescriptorsByFullNameMap,
+                             @Nonnull Supplier<Map<String, Descriptors.GenericDescriptor>> nonRecordTypeDescriptorsByFullNameMap,
                              @Nonnull Map<String, UserDefinedFunction> userDefinedFunctionMap,
                              @Nonnull Map<String, View> viewMap,
                              @Nonnull Map<String, StoredQuery> storedQueries,
@@ -160,7 +160,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.indexes = indexes;
         this.universalIndexes = universalIndexes;
         this.formerIndexes = formerIndexes;
-        this.auxiliaryTypeDescriptorsByFullNameMap = auxiliaryTypeDescriptorsByFullNameMap;
+        this.nonRecordTypeDescriptorsByFullNameMap = nonRecordTypeDescriptorsByFullNameMap;
         this.userDefinedFunctionMap = userDefinedFunctionMap;
         this.viewMap = viewMap;
         this.storedQueries = storedQueries;
@@ -750,9 +750,19 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return storedQueries;
     }
 
+    /**
+     * Returns the descriptors of all non-record types in this RecordMetaData instance keyed by their Protobuf full name.
+     * <p>
+     * All non-record message and enum types included within the descriptor returned by {@link #getRecordsDescriptor()}
+     * and its dependencies are included, except the special {@code RecordUnionType} descriptor. If there are multiple
+     * types with the same full name in the records descriptor or its dependencies, the type closest to the records
+     * descriptor wins.
+     *
+     * @return An immutable map from fully-qualified Protobuf full name to the corresponding non-record type descriptor.
+     */
     @Nonnull
-    public Map<String, Descriptors.GenericDescriptor> getAuxiliaryTypeDescriptorsByFullName() {
-        return auxiliaryTypeDescriptorsByFullNameMap.get();
+    public Map<String, Descriptors.GenericDescriptor> getNonRecordTypeDescriptorsByFullName() {
+        return nonRecordTypeDescriptorsByFullNameMap.get();
     }
 
     /**

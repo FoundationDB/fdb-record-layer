@@ -968,7 +968,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     @Nonnull
-    private Supplier<Map<String, Descriptors.GenericDescriptor>> getAuxiliaryTypesMapSupplier() {
+    private Supplier<Map<String, Descriptors.GenericDescriptor>> getNonRecordTypeDescriptorsMapSupplier() {
         final Descriptors.FileDescriptor fileDescriptor = Optional.ofNullable(localFileDescriptor)
                 .or(() -> Optional.ofNullable(recordsDescriptor))
                 .orElseThrow(() -> new MetaDataException("No records added yet"));
@@ -1500,7 +1500,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticRecordTypeMap = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
         RecordMetaData metaData = new RecordMetaData(recordsDescriptor, getUnionDescriptor(), unionFields,
                 builtRecordTypes, builtSyntheticRecordTypes, recordTypeKeyToSyntheticRecordTypeMap,
-                indexes, universalIndexes, formerIndexes, getAuxiliaryTypesMapSupplier(), userDefinedFunctionMap, viewMap, storedQueries,
+                indexes, universalIndexes, formerIndexes, getNonRecordTypeDescriptorsMapSupplier(), userDefinedFunctionMap, viewMap, storedQueries,
                 splitLongRecords, storeRecordVersions, version, subspaceKeyCounter, usesSubspaceKeyCounter, recordCountKey, localFileDescriptor != null);
         for (RecordTypeBuilder recordTypeBuilder : recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();

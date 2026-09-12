@@ -54,9 +54,6 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
     private final DescriptorProtos.DescriptorProto.Builder unionDescriptorBuilder;
 
     @Nonnull
-    private final DescriptorProtos.DescriptorProto.Builder auxiliaryTypesUnionDescriptorBuilder;
-
-    @Nonnull
     private final Set<String> descriptorNames;
 
     @Nonnull
@@ -85,8 +82,6 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
                 .setName(RecordMetaDataBuilder.DEFAULT_UNION_NAME);
         final RecordMetaDataOptionsProto.RecordTypeOptions options = RecordMetaDataOptionsProto.RecordTypeOptions.newBuilder().setUsage(RecordMetaDataOptionsProto.RecordTypeOptions.Usage.UNION).build();
         unionDescriptorBuilder.getOptionsBuilder().setExtension(RecordMetaDataOptionsProto.record, options);
-        this.auxiliaryTypesUnionDescriptorBuilder = DescriptorProtos.DescriptorProto.newBuilder()
-                .setName(RecordMetaDataBuilder.DEFAULT_AUXILIARY_TYPE_UNION_NAME);
         this.descriptorNames = new LinkedHashSet<>();
         this.enumNames = new LinkedHashSet<>();
         // Starts with 1 to maintain compatibility with the protobuf field number.
@@ -126,25 +121,14 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
     @Override
     public void visit(@Nonnull final DataType auxiliaryType) {
         final var recordLayerType = DataTypeUtils.toRecordLayerType(auxiliaryType);
-        final String typeDescriptor;
-        final DescriptorProtos.FieldDescriptorProto.Type fieldType;
         if (recordLayerType.isEnum()) {
-            typeDescriptor = registerTypeDescriptors((Type.Enum)recordLayerType);
-            fieldType = DescriptorProtos.FieldDescriptorProto.Type.TYPE_ENUM;
+            registerTypeDescriptors((Type.Enum)recordLayerType);
         } else {
             Assert.thatUnchecked(recordLayerType.isRecord(),
                     ErrorCode.UNSUPPORTED_OPERATION,
                     () -> String.format("Unsupported user defined auxiliary type in schema template of type: %s", auxiliaryType.getCode()));
-            typeDescriptor = registerTypeDescriptors((Type.Record)recordLayerType);
-            fieldType = DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE;
+            registerTypeDescriptors((Type.Record)recordLayerType);
         }
-        final var userDefinedTypeEntryInUnionDescriptor = DescriptorProtos.FieldDescriptorProto.newBuilder()
-                .setNumber(auxiliaryTypesUnionDescriptorBuilder.getFieldCount() + 1)
-                .setName(typeDescriptor)
-                .setType(fieldType)
-                .setTypeName(typeDescriptor)
-                .build();
-        auxiliaryTypesUnionDescriptorBuilder.addField(userDefinedTypeEntryInUnionDescriptor);
     }
 
     // (yhatem) this is temporary, we use rec layer typing also as a bridge to PB serialization for now.
@@ -203,9 +187,7 @@ public class FileDescriptorSerializer extends SkeletonVisitor {
 
     private void finish() {
         final var unionDescriptor = unionDescriptorBuilder.build();
-        final var auxiliaryTypeUnionDescriptor = auxiliaryTypesUnionDescriptorBuilder.build();
         fileBuilder.addMessageType(unionDescriptor);
-        fileBuilder.addMessageType(auxiliaryTypeUnionDescriptor);
     }
 
     @Nonnull

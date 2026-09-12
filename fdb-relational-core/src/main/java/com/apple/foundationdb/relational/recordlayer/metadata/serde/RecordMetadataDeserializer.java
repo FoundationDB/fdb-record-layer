@@ -123,7 +123,7 @@ public class RecordMetadataDeserializer {
             schemaTemplateBuilder.addStoredQuery(entry.getKey(), storedQuery.getQuery(), storedQuery.getTempFunctions());
         }
 
-        for (final var auxiliaryTypeDescriptor : recordMetaData.getAuxiliaryTypeDescriptorsByFullName().values()) {
+        for (final var auxiliaryTypeDescriptor : recordMetaData.getNonRecordTypeDescriptorsByFullName().values()) {
             // Skip descriptors for nullable arrays as these are unwrapped to `DataType.ArrayType` when they are used in
             // any other type and shouldn't be used in SQL queries.
             if (auxiliaryTypeDescriptor instanceof Descriptors.Descriptor typeDescriptor
