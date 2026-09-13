@@ -59,6 +59,7 @@
     {
       "name": "additional_dependency.proto",
       "package": "com.apple.foundationdb.test.additionaldependency",
+      "dependency": ["additional_dependency_2.proto"],
       "messageType": [
         {
           "name": "TypeFromDependency",
@@ -91,6 +92,22 @@
             {
               "name": "Green",
               "number": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "additional_dependency_2.proto",
+      "package": "com.apple.foundationdb.test.additionaldependency",
+      "messageType": [
+        {
+          "name": "TypeFromDependency",
+          "field": [
+            {
+              "name": "a",
+              "number": 1,
+              "type": "TYPE_INT64"
             }
           ]
         }

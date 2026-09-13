@@ -112,12 +112,12 @@ public class ProtoUtils {
      * dependencies into {@code descriptorByFullNameBuilder}, keyed by fully-qualified protobuf name. Nested message
      * and enum types are collected as well, to any depth.
      * <p>
-     * Dependencies are visited before the types declared in {@code fileDescriptor} itself, so a caller finishing the
-     * map with {@link ImmutableMap.Builder#buildKeepingLast()} resolves a duplicated full name in favour of the file
-     * closest to the root of the walk.
+     * Dependencies are visited (in reverse order) before the types declared in {@code fileDescriptor} itself, so
+     * a caller finishing the map with {@link ImmutableMap.Builder#buildKeepingLast()} resolves a duplicated full name
+     * in favour of the file closest to the root of the walk.
      * <p>
-     * {@code excludedDependenciesByName} doubles as the set of already-visited files and is mutated accordingly: a
-     * dependency is skipped when it is already present, and is added to the set before being descended into.
+     * {@code excludedDependenciesByName} doubles as the set of already-visited files and is mutated accordingly:
+     * a dependency is skipped when it is already present, and is added to the set before being descended into.
      *
      * @param fileDescriptor The file whose types, and whose dependencies' types, are collected.
      * @param descriptorByFullNameBuilder The builder to add the collected descriptors to, keyed by
@@ -130,13 +130,15 @@ public class ProtoUtils {
             @Nonnull Descriptors.FileDescriptor fileDescriptor,
             @Nonnull ImmutableMap.Builder<String, Descriptors.GenericDescriptor> descriptorByFullNameBuilder,
             @Nonnull Set<String> excludedDependenciesByName) {
-        for (final var dependency : fileDescriptor.getDependencies()) {
+        // Iterate over dependencies in reverse order to make sure that types in dependencies declared first
+        // win any collisions.
+        final var dependencyIterator = fileDescriptor.getDependencies().listIterator(
+                fileDescriptor.getDependencies().size());
+        while (dependencyIterator.hasPrevious()) {
+            final var dependency = dependencyIterator.previous();
             if (!excludedDependenciesByName.contains(dependency.getFullName())) {
                 excludedDependenciesByName.add(dependency.getFullName());
-                addAllTypesInFileDescriptorToMap(
-                        dependency,
-                        descriptorByFullNameBuilder,
-                        excludedDependenciesByName);
+                addAllTypesInFileDescriptorToMap(dependency, descriptorByFullNameBuilder, excludedDependenciesByName);
             }
         }
 

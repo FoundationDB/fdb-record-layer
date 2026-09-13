@@ -149,24 +149,28 @@ class ProtoUtilsTest {
     @Test
     void getTypeDescriptorByFullNameMapForFileWithDependencies() throws IOException, Descriptors.DescriptorValidationException {
         final var metadata = MetaDataProtoEditorUnitTest.loadMetaData("NestedWithDependency.json").build();
-        assertThat(metadata.getDependenciesList()).hasSize(1);
-        final var dependencyFileDescriptor =
-                Descriptors.FileDescriptor.buildFrom(metadata.getDependencies(0),
-                        new Descriptors.FileDescriptor[]{});
+        assertThat(metadata.getDependenciesList()).hasSize(2);
+        final var additionalDependency1Proto = metadata.getDependencies(0);
+        final var additionalDependency2Proto = metadata.getDependencies(1);
+        final var additionalDependency2 =  Descriptors.FileDescriptor.buildFrom(
+                additionalDependency2Proto, new Descriptors.FileDescriptor[0]);
+        final var additionalDependency1 = Descriptors.FileDescriptor.buildFrom(
+                additionalDependency1Proto, new Descriptors.FileDescriptor[]{additionalDependency2});
         final var fileDescriptor = Descriptors.FileDescriptor.buildFrom(metadata.getRecords(),
-                new Descriptors.FileDescriptor[] { RecordMetaDataOptionsProto.getDescriptor().getFile(), dependencyFileDescriptor});
+                new Descriptors.FileDescriptor[] {
+                        RecordMetaDataOptionsProto.getDescriptor().getFile(), additionalDependency1, additionalDependency2});
 
         final var recordTypeUnionDescriptor = fileDescriptor.findMessageTypeByName("RecordTypeUnion");
         final var t1Descriptor = fileDescriptor.findMessageTypeByName("T1");
         final var t2Descriptor = fileDescriptor.findMessageTypeByName("T2");
-        final var typeFromDependencyDescriptor = fileDescriptor.getDependencies().stream()
-                .filter(dependencyDescriptor -> dependencyDescriptor.getName().equals("additional_dependency.proto"))
-                .findFirst().map(f -> f.findMessageTypeByName("TypeFromDependency"));
-        final var colourEnumDescriptor = fileDescriptor.getDependencies().stream()
-                .filter(dependencyDescriptor -> dependencyDescriptor.getName().equals("additional_dependency.proto"))
-                .findFirst().map(f -> f.findEnumTypeByName("Colour"));
-        assertThat(typeFromDependencyDescriptor).isPresent();
-        assertThat(colourEnumDescriptor).isPresent();
+
+        // There are two message types with the full name 'com.apple.foundationdb.test.additionaldependency.TypeFromDependency',
+        // one in each dependency file. Since additionalDependency1 is depended on by the recordsDescriptor, it should
+        // be preferred over the one coming from additionalDependency2 which is further from the root file descriptor.
+        final var typeFromDependencyDescriptor = additionalDependency1.findMessageTypeByName("TypeFromDependency");
+        final var colourEnumDescriptor = additionalDependency1.findEnumTypeByName("Colour");
+        assertThat(typeFromDependencyDescriptor).isNotNull();
+        assertThat(colourEnumDescriptor).isNotNull();
 
         final var typeMap = ProtoUtils.getTypeDescriptorByFullNameMapForFile(fileDescriptor,
                 ImmutableList.of(RecordMetaDataOptionsProto.getDescriptor()));
@@ -174,8 +178,8 @@ class ProtoUtilsTest {
         assertThat(typeMap).hasSize(5)
                 .contains(Map.entry(t1Descriptor.getFullName(), t1Descriptor),
                         Map.entry(t2Descriptor.getFullName(), t2Descriptor),
-                        Map.entry(typeFromDependencyDescriptor.get().getFullName(), typeFromDependencyDescriptor.get()),
-                        Map.entry(colourEnumDescriptor.get().getFullName(), colourEnumDescriptor.get()),
+                        Map.entry(typeFromDependencyDescriptor.getFullName(), typeFromDependencyDescriptor),
+                        Map.entry(colourEnumDescriptor.getFullName(), colourEnumDescriptor),
                         Map.entry(recordTypeUnionDescriptor.getFullName(), recordTypeUnionDescriptor));
     }
 }
