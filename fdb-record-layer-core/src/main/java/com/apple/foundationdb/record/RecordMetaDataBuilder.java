@@ -103,7 +103,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     private static final Descriptors.FileDescriptor[] emptyDependencyList = new Descriptors.FileDescriptor[0];
     public static final String DEFAULT_UNION_NAME = "RecordTypeUnion";
-    public static final String DEFAULT_AUXILIARY_TYPE_UNION_NAME = "AuxiliaryTypeUnion";
 
     @Nullable
     private Descriptors.FileDescriptor recordsDescriptor;

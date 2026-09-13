@@ -55,7 +55,6 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -719,9 +718,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 return Optional.of(tables.get(name).getDatatype());
             }
 
-            return Optional.ofNullable((DataType) unresolvedAuxiliaryTypeSuppliers.get(name))
-                    .or(() -> Optional.ofNullable(resolvedAuxiliaryTypeSuppliers.get(name))
-                            .map((supplier) -> (DataType)supplier.get()));
+            return Optional.ofNullable(unresolvedAuxiliaryTypeSuppliers.get(name))
+                    .or(() -> Optional.ofNullable(resolvedAuxiliaryTypeSuppliers.get(name)))
+                            .map((supplier) -> (DataType)supplier.get());
         }
 
         @Nonnull
@@ -784,27 +783,27 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             final var deps = depsBuilder.build();
 
             // sort it
-            final var sorted = TopologicalSort.anyTopologicalOrderPermutation(new HashSet<>(typesToResolve.values()), id -> deps.getOrDefault(id, ImmutableSet.of()));
-            Assert.thatUnchecked(sorted.isPresent(), ErrorCode.INVALID_SCHEMA_TEMPLATE, "Invalid cyclic dependency in the schema definition");
+            final var sortedUnresolvedTypes = TopologicalSort.anyTopologicalOrderPermutation(
+                    new HashSet<>(typesToResolve.values()),
+                    id -> deps.getOrDefault(id, ImmutableSet.of()));
+            Assert.thatUnchecked(sortedUnresolvedTypes.isPresent(), ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                    "Invalid cyclic dependency in the schema definition");
 
             // resolve types
             final Map<String, DataType.Named> resolvedTypes = new LinkedHashMap<>();
-            for (final var type : sorted.get()) {
-                final var resolutionMap = new HashMap<String, DataType.Named>();
-                final var depsForType = deps.get(type);
-                if (depsForType != null) {
-                    depsForType.forEach((dependency) ->
-                            resolutionMap.put(dependency.getName(),
-                                    resolvedTypes.getOrDefault(dependency.getName(), dependency)));
-                }
-                final var typeToAdd = ((DataType)type).resolve(resolutionMap);
-                if (typeToAdd instanceof DataType.Named) {
-                    final var asNamed = (DataType.Named) typeToAdd;
+            for (final var unresolvedType : sortedUnresolvedTypes.get()) {
+                // Make sure that already resolved types from resolvedAuxiliaryTypeSuppliers which
+                // unresolvedType depends on are added to the types map used for resolution as well.
+                Optional.ofNullable(deps.get(unresolvedType))
+                        .orElse(ImmutableSet.of())
+                        .forEach((dependency) -> resolvedTypes.putIfAbsent(dependency.getName(), dependency));
+                final var typeToAdd = ((DataType)unresolvedType).resolve(resolvedTypes);
+                if (typeToAdd instanceof final DataType.Named asNamed) {
                     resolvedTypes.put(asNamed.getName(), asNamed);
                 }
             }
 
-            // use the resolve types now to resolve tables and auxiliary types
+            // use the resolved types now to resolve tables and auxiliary types
             final var resolvedTables = ImmutableMap.<String, RecordLayerTable>builder();
             for (final var table : tables.values()) {
                 if (!table.getDatatype().isResolved()) {
