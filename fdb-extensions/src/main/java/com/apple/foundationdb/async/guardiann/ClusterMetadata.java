@@ -44,9 +44,10 @@ import java.util.stream.Collectors;
  *        number of primary vectors
  * @param states the set of maintenance operations currently in flight for this cluster
  * @param maxEverNumPrimaryVectors the high-water mark of {@link #getNumPrimaryVectors()} over this cluster's
- *        lifetime. Maintained monotonically by the compact constructor (raised to the current primary count on
- *        every construction, never decremented on shrink), so the merge trigger can fire when the current count
- *        falls to a fraction of this peak rather than below a fixed absolute floor
+ *        lifetime, so the merge trigger can fire when the current count falls to a fraction of this peak rather than
+ *        below a fixed absolute floor. Must never be below the current primary count; whoever changes the running
+ *        statistics is responsible for raising it, and the compact constructor rejects any instance that would
+ *        violate this
  */
 record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, int numReplicatedVectors,
                        @Nonnull RunningStats runningStandardDeviation, @Nonnull EnumSet<State> states,
@@ -61,11 +62,27 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
 
     ClusterMetadata {
         Preconditions.checkArgument(runningStandardDeviation.numElements() >= numPrimaryUnderreplicatedVectors);
-        // Monotonic high-water mark of the primary count: raised to the current count here and never decremented
-        // on shrink. Every with* passes the prior peak through, so growth past it raises it while a lower count
-        // leaves it untouched — including the reassign target, whose stats are rebuilt to a smaller count.
-        maxEverNumPrimaryVectors =
-                Math.max(maxEverNumPrimaryVectors, Math.toIntExact(runningStandardDeviation.numElements()));
+        // The high-water mark is checked, not corrected: a caller that changes the running statistics raises it
+        // itself, so that the raise is visible where it happens rather than applied invisibly here. Silently
+        // patching it would also hide a caller that dropped the prior peak, which is the one mistake that matters —
+        // a peak that fails to grow degrades the merge trigger to the bare primaryClusterMin floor.
+        Preconditions.checkArgument(maxEverNumPrimaryVectors >= runningStandardDeviation.numElements(),
+                "maxEverNumPrimaryVectors (%s) must be >= the current primary count (%s)",
+                maxEverNumPrimaryVectors, runningStandardDeviation.numElements());
+    }
+
+    /**
+     * Returns the high-water mark this cluster would carry after adopting {@code newStandardDeviation}: the larger of
+     * the peak it holds now and the primary count those statistics imply.
+     * <p>
+     * Every caller that replaces the running statistics must route the mark through here, since the compact
+     * constructor rejects a mark below the current count rather than quietly raising it.
+     *
+     * @param newStandardDeviation the statistics about to be adopted
+     * @return the peak to pass to the constructor
+     */
+    private int raisedMaxEver(@Nonnull final RunningStats newStandardDeviation) {
+        return Math.max(maxEverNumPrimaryVectors(), Math.toIntExact(newStandardDeviation.numElements()));
     }
 
     public int getNumPrimaryVectors() {
@@ -123,7 +140,7 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
                                           @Nonnull final EnumSet<State> states) {
         final EnumSet<State> newStates = EnumSet.copyOf(states);
         return new ClusterMetadata(id(), numPrimaryUnderreplicatedVectors, numReplicatedVectors,
-                newStandardDeviation, newStates, maxEverNumPrimaryVectors());
+                newStandardDeviation, newStates, raisedMaxEver(newStandardDeviation));
     }
 
     @Nonnull
@@ -140,6 +157,28 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
                 runningStandardDeviation(), newStates, maxEverNumPrimaryVectors());
     }
 
+    /**
+     * Returns a copy with the two auxiliary counts adjusted by the given deltas, the running statistics replaced, and
+     * the given states raised on top of the existing ones.
+     * <p>
+     * Note the asymmetry: the underreplicated and replicated counts arrive as <em>deltas</em>, but the primary count
+     * does not, because it has no independent representation —
+     * {@link #getNumPrimaryVectors()} is the element count of the running statistics. So a primary added or removed is
+     * expressed solely by {@code newStandardDeviation} carrying one more or one fewer distance sample, and neither
+     * delta parameter has any bearing on it.
+     * <p>
+     * That is also why this method passes the existing {@link #maxEverNumPrimaryVectors()} through untouched rather
+     * than trying to raise it: the compact constructor clamps the mark up to the new primary count on every
+     * construction, so the caller's only obligation is not to <em>lose</em> the prior peak. Since
+     * {@code Math.max} can only move it up, preservation across a shrink falls out for free.
+     *
+     * @param numPrimaryUnderreplicatedVectorsAdded change in the number of underreplicated primary vectors
+     * @param numReplicatedVectorsAdded change in the number of replicated vectors
+     * @param newStandardDeviation the running statistics to adopt, whose element count <em>is</em> the new primary
+     *        count
+     * @param additionalStates states to raise in addition to those already set
+     * @return the updated metadata
+     */
     @Nonnull
     public ClusterMetadata withAdditionalVectorsAndStates(final int numPrimaryUnderreplicatedVectorsAdded,
                                                           final int numReplicatedVectorsAdded,
@@ -150,7 +189,7 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
         return new ClusterMetadata(id(),
                 numPrimaryUnderreplicatedVectors() + numPrimaryUnderreplicatedVectorsAdded,
                 numReplicatedVectors() + numReplicatedVectorsAdded, newStandardDeviation,
-                newStates, maxEverNumPrimaryVectors());
+                newStates, raisedMaxEver(newStandardDeviation));
     }
 
     @Override
