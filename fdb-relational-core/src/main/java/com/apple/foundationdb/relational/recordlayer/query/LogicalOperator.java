@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableIn
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -322,8 +323,11 @@ public class LogicalOperator {
             final Type elementType = explode.getElementType();
             attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(elementType),
                     FieldValue.ofOrdinalNumber(flowedObjectValue, 0)));
-            attributesBuilder.add(new Expression(atAlias, DataType.Primitives.INTEGER.type(),
-                    FieldValue.ofOrdinalNumber(flowedObjectValue, 1)));
+            // The explode flows 0-based ordinals. SQL `AT` is 1-based per the standard.
+            final Value oneBasedOrdinal = new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_II,
+                    FieldValue.ofOrdinalNumber(flowedObjectValue, 1),
+                    new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT, false), 1));
+            attributesBuilder.add(new Expression(atAlias, DataType.Primitives.INTEGER.type(), oneBasedOrdinal));
         } else if (flowedObjectType.isPrimitive()) {
             attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(explode.getExplodeResultType()),
                     flowedObjectValue));
