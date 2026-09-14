@@ -21,7 +21,7 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Database;
-import com.apple.foundationdb.async.AsyncIterator;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.common.BaseTest;
 import com.apple.foundationdb.async.common.CommonTestHelpers;
 import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
@@ -79,6 +79,7 @@ import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -88,6 +89,7 @@ import java.util.stream.Stream;
 
 import static com.apple.foundationdb.async.common.CommonTestHelpers.orderedByDistances;
 import static com.apple.foundationdb.async.common.CommonTestHelpers.randomVectors;
+import static com.apple.foundationdb.async.common.CommonTestHelpers.runAsyncToSync;
 import static com.apple.foundationdb.linear.RealVectorTest.createRandomDoubleVector;
 import static com.apple.foundationdb.linear.RealVectorTest.createRandomHalfVector;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -161,7 +163,7 @@ class OperationsTest implements BaseTest {
                     return randomCompactNode;
                 });
 
-        db.run(tr -> storageAdapter.fetchNode(tr, StorageTransform.identity(), 0,
+        runAsyncToSync(db, tr -> storageAdapter.fetchNode(tr, StorageTransform.identity(), 0,
                         originalNode.getPrimaryKey())
                 .thenAccept(node ->
                         assertThat(node).satisfies(
@@ -179,7 +181,7 @@ class OperationsTest implements BaseTest {
                                     originalNeighbors.sort(Comparator.comparing(NodeReference::getPrimaryKey));
                                     assertThat(neighbors).isEqualTo(originalNeighbors);
                                 }
-                )).join());
+                )));
 
         assertThat(
                 TestHelpers.dumpLayer(getDb(), getSubspace(), HNSW.newConfigBuilder()
@@ -210,7 +212,7 @@ class OperationsTest implements BaseTest {
                     return randomInliningNode;
                 });
 
-        db.run(tr -> storageAdapter.fetchNode(tr, StorageTransform.identity(), 1,
+        runAsyncToSync(db, tr -> storageAdapter.fetchNode(tr, StorageTransform.identity(), 1,
                         originalNode.getPrimaryKey())
                 .thenAccept(node ->
                         assertThat(node).satisfies(
@@ -226,7 +228,7 @@ class OperationsTest implements BaseTest {
                                     originalNeighbors.sort(Comparator.comparing(NodeReference::getPrimaryKey));
                                     assertThat(neighbors).isEqualTo(originalNeighbors);
                                 }
-                        )).join());
+                        )));
 
         assertThat(
                 TestHelpers.dumpLayer(getDb(), getSubspace(), HNSW.newConfigBuilder()
@@ -363,8 +365,7 @@ class OperationsTest implements BaseTest {
         onReadListener.reset();
         final long beginTs = System.nanoTime();
         final List<? extends ResultEntry> results =
-                db.run(tr ->
-                        hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
+                runAsyncToSync(db, tr -> hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector));
         final long endTs = System.nanoTime();
 
         final ImmutableSet<Tuple> trueNN =
@@ -432,8 +433,8 @@ class OperationsTest implements BaseTest {
         onReadListener.reset();
         final long beginTs = System.nanoTime();
         final List<? extends ResultEntry> results =
-                db.run(tr ->
-                        hnsw.kNearestNeighborsRingSearch(tr, k, 100, true, queryVector, radius).join());
+                runAsyncToSync(db, tr ->
+                        hnsw.kNearestNeighborsRingSearch(tr, k, 100, true, queryVector, radius));
         final long endTs = System.nanoTime();
 
         final ImmutableSet<Tuple> trueNN =
@@ -482,14 +483,17 @@ class OperationsTest implements BaseTest {
                     CommonTestHelpers.pickRandomVectors(random, remainingData, numVectorsPerDeleteBatch);
 
             final long beginTs = System.nanoTime();
-            db.run(tr -> {
+            runAsyncToSync(db, tr -> {
                 onWriteListener.reset();
                 onReadListener.reset();
 
+                // Chain the deletes rather than issuing them concurrently: this test is about delete
+                // semantics, not about hnsw's handling of concurrent mutations within one transaction.
+                CompletableFuture<Void> future = AsyncUtil.DONE;
                 for (final PrimaryKeyAndVector primaryKeyAndVector : toBeDeleted) {
-                    hnsw.delete(tr, primaryKeyAndVector.primaryKey()).join();
+                    future = future.thenCompose(ignored -> hnsw.delete(tr, primaryKeyAndVector.primaryKey()));
                 }
-                return null;
+                return future;
             });
             long endTs = System.nanoTime();
 
@@ -517,8 +521,7 @@ class OperationsTest implements BaseTest {
 
                 final long beginTsQuery = System.nanoTime();
                 final List<? extends ResultEntry> results =
-                        db.run(tr ->
-                                hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector).join());
+                        runAsyncToSync(db, tr -> hnsw.kNearestNeighborsSearch(tr, k, 100, true, queryVector));
                 final long endTsQuery = System.nanoTime();
 
                 int recallCount = 0;
@@ -543,8 +546,8 @@ class OperationsTest implements BaseTest {
         } while (!remainingData.isEmpty());
 
         final var accessInfo =
-                db.run(transaction -> StorageAdapter.fetchAccessInfo(hnsw.getConfig(),
-                        transaction, hnsw.getSubspace(), OnReadListener.NOOP).join());
+                runAsyncToSync(db, transaction -> StorageAdapter.fetchAccessInfo(hnsw.getConfig(),
+                        transaction, hnsw.getSubspace(), OnReadListener.NOOP));
         assertThat(accessInfo).isNull();
     }
 
@@ -594,8 +597,7 @@ class OperationsTest implements BaseTest {
         // Still run a kNN search to make sure that recall is satisfactory.
         //
         final List<? extends ResultEntry> results =
-                db.run(tr ->
-                        hnsw.kNearestNeighborsSearch(tr, k, 500, true, queryVector).join());
+                runAsyncToSync(db, tr -> hnsw.kNearestNeighborsSearch(tr, k, 500, true, queryVector));
 
         final ImmutableSet<Tuple> trueNN =
                 orderedByDistances(metric, insertedData, queryVector)
@@ -664,16 +666,11 @@ class OperationsTest implements BaseTest {
         onReadListener.reset();
 
         final List<ResultEntry> results =
-                db.run(tr -> {
-                    final AsyncIterator<ResultEntry> it =
-                            hnsw.orderByDistance(tr, 100, 1000, false,
-                                    queryVector, discriminator.distance(), discriminator.primaryKey(), false);
-                    final ImmutableList.Builder<ResultEntry> resultsBuilder = ImmutableList.builder();
-                    while (it.hasNext()) {
-                        resultsBuilder.add(it.next());
-                    }
-                    return resultsBuilder.build();
-                });
+                runAsyncToSync(db, tr ->
+                        AsyncUtil.collectRemaining(
+                                hnsw.orderByDistance(tr, 100, 1000, false,
+                                        queryVector, discriminator.distance(), discriminator.primaryKey(), false),
+                                TestExecutors.defaultThreadPool()));
 
         int numInversions = 0;
         for (int i = 1; i < results.size(); i++) {
