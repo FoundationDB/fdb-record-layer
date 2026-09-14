@@ -47,7 +47,7 @@ import java.util.function.Function;
  * {@code FDBTransactionContext.getApproximateTransactionSize()}, even though that value - the summation of
  * mutations, read conflict ranges and write conflict ranges - is what FDB's commit size limit actually
  * governs. This is done in order to ensure a read-only transaction does not commit due to read-size quota calculation.
- * (It may fail with conflicts of ot does).</p>
+ * (It may fail with conflicts if it does).</p>
  *
  * <p>The accepted consequence is that two kinds of growth are invisible to the size quota: a write issued
  * directly on the inner context from inside an {@link #apply} or {@link #accept} lambda, and read conflict
