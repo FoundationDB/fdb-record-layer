@@ -141,24 +141,11 @@ public record Config(@Nonnull Metric metric,
 
     @Nonnull public static final Metric DEFAULT_METRIC = Metric.EUCLIDEAN_METRIC;
     public static final int DEFAULT_PRIMARY_CLUSTER_MAX = 1000;
-    // A tenth of primaryClusterMax. The ratio matters more than the value: set the floor much lower and clusters
-    // whose lifetime peak is modest end up with a merge threshold pinned to the floor, so they hover just above it
-    // and never consolidate — a population of small clusters that accumulate references to deleted vectors. Set it
-    // much higher and it swallows the max-ever fraction, since that only binds once 0.2 * maxEver exceeds the floor.
     public static final int DEFAULT_PRIMARY_CLUSTER_MIN = DEFAULT_PRIMARY_CLUSTER_MAX / 10;
     public static final int DEFAULT_PRIMARY_CLUSTER_HARD_MAX = 2 * DEFAULT_PRIMARY_CLUSTER_MAX;
-    // fraction of a cluster's max-ever primary count below which a merge is triggered (subject to the
-    // primaryClusterMin floor); see ClusterMetadata#mergeThreshold
     public static final double DEFAULT_MERGE_MAX_EVER_FRACTION = 1.0d / 5.0d;
-    // Floor on the smallest child of a repartitioning, as a fraction of the population being split. A child born
-    // below primaryClusterMin is immediately merge-eligible, and a split fires no earlier than primaryClusterMax
-    // vectors, so that ratio is the tightest case. Kept as an expression of the two so it tracks them. This is the
-    // only gate that can reject a candidate outright; lopsidedness is steered softly by maxRelativeImbalance and
-    // splitImbalancePenalty instead, neither of which can leave the evaluator with nothing to choose from.
     public static final double DEFAULT_MIN_CHILD_FRACTION =
             DEFAULT_PRIMARY_CLUSTER_MIN / (double)DEFAULT_PRIMARY_CLUSTER_MAX;
-    // Ceiling on relative imbalance, chosen so a 2-way split may put at most ~80% of the population in one child,
-    // keeping it clear of primaryClusterMax rather than pinned against it. Tightens automatically as k grows.
     public static final double DEFAULT_MAX_RELATIVE_IMBALANCE = 0.36d;
     // Weight of the imbalance term when scoring a split; above the evaluator's default of 1.0 so that, between
     // otherwise comparable candidates, the more balanced one wins.
