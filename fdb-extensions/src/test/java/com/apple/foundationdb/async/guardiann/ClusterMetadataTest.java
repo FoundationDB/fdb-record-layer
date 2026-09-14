@@ -161,6 +161,23 @@ class ClusterMetadataTest {
                 .isLessThan(belowTheFloor.mergeThreshold(config));
     }
 
+    @Test
+    void zeroFractionLeavesPrimaryClusterMinAsTheWholeTrigger() {
+        // At a fraction of zero the threshold is primaryClusterMin, no matter how far a cluster has fallen from its
+        // peak. That is how the trigger behaved before the high-water mark existed.
+        final Config config = config(50, 0.0d);
+        assertThat(shrunkFrom(1000, 60).mergeThreshold(config)).isEqualTo(50);
+        assertThat(atPeak(60).mergeThreshold(config)).isEqualTo(50);
+
+        // Paired with a primaryClusterMin of 1 this is how a test turns merges off: only an empty cluster qualifies.
+        final Config mergesOff = config(1, 0.0d);
+        final ClusterMetadata drained = shrunkFrom(1000, 1);
+        assertThat(drained.mergeThreshold(mergesOff)).isEqualTo(1);
+        assertThat(drained.getNumPrimaryVectors())
+                .as("at a fraction of zero and primaryClusterMin of 1, even a cluster drained from 1000 is ineligible")
+                .isGreaterThanOrEqualTo(drained.mergeThreshold(mergesOff));
+    }
+
     @Nonnull
     private static Config config(final int primaryClusterMin, final double mergeMaxEverFraction) {
         return Guardiann.newConfigBuilder()

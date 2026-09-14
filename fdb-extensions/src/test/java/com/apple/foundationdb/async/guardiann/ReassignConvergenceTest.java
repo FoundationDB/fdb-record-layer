@@ -269,6 +269,7 @@ public class ReassignConvergenceTest implements BaseTest {
                 .setPrimaryClusterMax(80)
                 .setCollapseMinDuplicates(40)
                 .setPrimaryClusterMin(1)
+                .setMergeMaxEverFraction(0.0d)
                 .setDeterministicRandomness(true)
                 .setUnderreplicatedPrimaryClusterMax(3)
                 .setReplicationPriorityMin(0.65d)

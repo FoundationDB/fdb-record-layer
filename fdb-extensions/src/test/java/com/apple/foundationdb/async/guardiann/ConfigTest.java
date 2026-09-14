@@ -286,10 +286,7 @@ class ConfigTest {
     }
 
     @Test
-    void testMergeMaxEverFractionMustBeStrictlyBetweenZeroAndOne() {
-        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
-                        .setMergeMaxEverFraction(0.0d).build(NUM_DIMENSIONS))
-                .isInstanceOf(IllegalArgumentException.class);
+    void testMergeMaxEverFractionMustBeNonNegativeAndBelowOne() {
         Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
                         .setMergeMaxEverFraction(-0.1d).build(NUM_DIMENSIONS))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -299,6 +296,10 @@ class ConfigTest {
         Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
                         .setMergeMaxEverFraction(1.0d).build(NUM_DIMENSIONS))
                 .isInstanceOf(IllegalArgumentException.class);
+        // Zero is legal and disables the peak-relative term, leaving primaryClusterMin as the whole trigger.
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setMergeMaxEverFraction(0.0d).build(NUM_DIMENSIONS).mergeMaxEverFraction())
+                .isZero();
         Assertions.assertThat(Guardiann.newConfigBuilder()
                         .setMergeMaxEverFraction(0.999d).build(NUM_DIMENSIONS).mergeMaxEverFraction())
                 .isEqualTo(0.999d);

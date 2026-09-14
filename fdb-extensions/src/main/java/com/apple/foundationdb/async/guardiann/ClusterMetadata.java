@@ -102,9 +102,11 @@ record ClusterMetadata(@Nonnull UUID id, int numPrimaryUnderreplicatedVectors, i
      * fraction does <em>not</em> shield a freshly split child; what keeps a child from being born already
      * merge-eligible is {@link Config#minChildFraction()}, which bounds how small a split may make one.
      * <p>
-     * The two terms therefore divide cleanly: the floor sets the smallest cluster worth keeping, and the fraction
-     * decides when a once-large cluster has shrunk enough to fold away. The fraction can only bind at all for clusters
-     * whose peak exceeded {@code primaryClusterMin / fraction}; below that the floor swallows it.
+     * The two terms have distinct roles: the floor sets the smallest cluster worth keeping, and the fraction decides
+     * when a once-large cluster has shrunk enough to be merged. A non-zero fraction affects the outcome only for a
+     * cluster whose peak is large enough that the fraction of that peak exceeds the floor; for any smaller peak the
+     * floor is the larger of the two terms and determines the threshold on its own. A fraction of {@code 0} removes
+     * the fraction term for every cluster, so the floor is the entire trigger.
      * <p>
      * This lives here rather than on {@link Config} because the threshold is a property of a cluster, not of the
      * configuration: the peak it is derived from belongs to this record.
