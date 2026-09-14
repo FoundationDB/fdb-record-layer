@@ -80,7 +80,7 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
                             .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MAX, "200")
                             .put(IndexOptions.GUARDIANN_PRIMARY_CLUSTER_MIN, "20")
                             .put(IndexOptions.GUARDIANN_MERGE_MAX_EVER_FRACTION, "0.2")
-                            .put(IndexOptions.GUARDIANN_MIN_CHILD_FRACTION, "0.03")
+                            .put(IndexOptions.GUARDIANN_MIN_CHILD_FRACTION, "0.1")
                             .put(IndexOptions.GUARDIANN_MAX_RELATIVE_IMBALANCE, "0.36")
                             .put(IndexOptions.GUARDIANN_SPLIT_IMBALANCE_PENALTY, "3.0")
                             .put(IndexOptions.GUARDIANN_DETERMINISTIC_RANDOMNESS, "true")
@@ -121,7 +121,7 @@ class GuardiannVectorIndexTest extends VectorIndexEngineTestSuite {
             // the repartitioning balance gates and the split imbalance weight are immutable for the same reason:
             // they decide how existing data gets reshaped
             assertInvalidOptionsEvolution(metaData, index,
-                    optionsWith(IndexOptions.GUARDIANN_MIN_CHILD_FRACTION, "0.1"));
+                    optionsWith(IndexOptions.GUARDIANN_MIN_CHILD_FRACTION, "0.2"));
 
             assertInvalidOptionsEvolution(metaData, index,
                     optionsWith(IndexOptions.GUARDIANN_MAX_RELATIVE_IMBALANCE, "0.5"));

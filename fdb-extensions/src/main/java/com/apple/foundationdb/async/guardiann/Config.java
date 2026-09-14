@@ -76,7 +76,8 @@ import javax.annotation.Nonnull;
  *        knobs are consulted there
  * @param mergeMaxEverFraction fraction of a cluster's max-ever primary count below which it becomes merge-eligible,
  *        floored by {@link #primaryClusterMin()}; see {@link ClusterMetadata#mergeThreshold(Config)}, which combines
- *        the two
+ *        the two. Must be in {@code [0, 1)}; {@code 0} disables the peak-relative term, leaving
+ *        {@link #primaryClusterMin()} as the whole trigger
  * @param minChildFraction floor on the smallest child's share of the population being repartitioned, below which a
  *        split or merge candidate is rejected outright. Guards against producing a cluster born small enough to be
  *        immediately merge-eligible, and is the <em>only</em> gate that rejects rather than merely disfavours, so
@@ -198,8 +199,9 @@ public record Config(@Nonnull Metric metric,
                 "collapseMinDuplicates must be < primaryClusterMax");
         Preconditions.checkArgument(primaryClusterHardMax > primaryClusterMax,
                 "primaryClusterHardMax must be > primaryClusterMax");
-        Preconditions.checkArgument(mergeMaxEverFraction > 0.0d && mergeMaxEverFraction < 1.0d,
-                "mergeMaxEverFraction must be in (0, 1)");
+        // Zero is legal: it disables the peak-relative term, leaving primaryClusterMin as the whole trigger.
+        Preconditions.checkArgument(mergeMaxEverFraction >= 0.0d && mergeMaxEverFraction < 1.0d,
+                "mergeMaxEverFraction must be in [0, 1)");
         // Anything at or above 1/k makes every k-way candidate unsatisfiable; 0.5 is the loosest value that still
         // admits a two-way split, and the caller is responsible for staying below 1/k for the widest split it wants.
         Preconditions.checkArgument(minChildFraction >= 0.0d && minChildFraction < 0.5d,

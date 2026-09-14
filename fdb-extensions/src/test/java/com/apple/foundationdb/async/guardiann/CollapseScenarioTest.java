@@ -858,6 +858,7 @@ public class CollapseScenarioTest implements BaseTest {
                 // uses maintainInTransaction=true, which bypasses the hard-cap valve, so this value never back-pressures.
                 .setPrimaryClusterHardMax(2 * primaryClusterMax)
                 .setPrimaryClusterMin(1)
+                .setMergeMaxEverFraction(0.0d)
                 .setCollapseMinDuplicates(collapseMinDuplicates)
                 .setDeterministicRandomness(true)
                 .build(128);

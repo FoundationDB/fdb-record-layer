@@ -1287,7 +1287,7 @@ class Primitives {
                                                                                     @Nonnull final RunningStats updatedStandardDeviation) {
         // A single primary vector was just deleted, i.e. numPrimaryVectorsAdded == -1.
         final int numTotalPrimaryVectors = clusterMetadata.getNumPrimaryVectors() - 1;
-        return enqueueMergeTaskMaybeIfUndersized(transaction, random, clusterMetadata, clusterCentroid, accessInfo,
+        return enqueueMergeTaskIfUndersizedMaybe(transaction, random, clusterMetadata, clusterCentroid, accessInfo,
                         updatedStandardDeviation, numTotalPrimaryVectors)
                 .thenAccept(merged -> {
                     if (!merged) {
@@ -1312,7 +1312,7 @@ class Primitives {
      *        passes the post-decrement count; the reassign path passes the target's final post-reassign count)
      */
     @Nonnull
-    private CompletableFuture<Boolean> enqueueMergeTaskMaybeIfUndersized(@Nonnull final Transaction transaction,
+    private CompletableFuture<Boolean> enqueueMergeTaskIfUndersizedMaybe(@Nonnull final Transaction transaction,
                                                                          @Nonnull final SplittableRandom random,
                                                                          @Nonnull final ClusterMetadata clusterMetadata,
                                                                          @Nonnull final Transformed<RealVector> clusterCentroid,
@@ -1365,7 +1365,7 @@ class Primitives {
                                                                @Nonnull final ClusterMetadata targetClusterMetadata,
                                                                @Nonnull final Transformed<RealVector> clusterCentroid,
                                                                @Nonnull final AccessInfo accessInfo) {
-        return enqueueMergeTaskMaybeIfUndersized(transaction, random, targetClusterMetadata, clusterCentroid,
+        return enqueueMergeTaskIfUndersizedMaybe(transaction, random, targetClusterMetadata, clusterCentroid,
                 accessInfo, targetClusterMetadata.runningStandardDeviation(),
                 targetClusterMetadata.getNumPrimaryVectors())
                 .thenApply(ignored -> null);

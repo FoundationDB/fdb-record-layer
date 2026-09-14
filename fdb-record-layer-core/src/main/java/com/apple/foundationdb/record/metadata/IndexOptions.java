@@ -467,7 +467,8 @@ public class IndexOptions {
      * {@code guardiannPrimaryClusterMin}. Measuring against each cluster's own peak rather than an absolute count gives
      * the merge trigger hysteresis: a freshly split child sits at its own peak and so is never immediately
      * merge-eligible however lopsided the split, while a cluster that has since shed most of its members still
-     * consolidates. Must be strictly between {@code 0} and {@code 1}.
+     * consolidates. Must be in {@code [0, 1)}; {@code 0} disables the peak-relative term, leaving
+     * {@code guardiannPrimaryClusterMin} as the whole trigger.
      */
     public static final String GUARDIANN_MERGE_MAX_EVER_FRACTION = "guardiannMergeMaxEverFraction";
 
