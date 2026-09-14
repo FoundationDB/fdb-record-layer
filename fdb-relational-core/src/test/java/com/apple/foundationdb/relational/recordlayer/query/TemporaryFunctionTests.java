@@ -1204,7 +1204,7 @@ public class TemporaryFunctionTests {
             try (var statement = connection.prepareStatement(
                     "create temporary function countries_by_colour_and_city(in a type colour, in b type city) " +
                             "on commit drop function as select country.name AS name from country, country.cities AS city" +
-                            " where b.name = city.name AND b.population = city.population and colour = a")) {
+                            " where b.name = city.name and b.population = city.population and colour = a")) {
                 statement.execute();
             }
             try (var statement = connection.prepareStatement("select name from countries_by_colour_and_city('blue', ('Toronto', 2731571))")) {

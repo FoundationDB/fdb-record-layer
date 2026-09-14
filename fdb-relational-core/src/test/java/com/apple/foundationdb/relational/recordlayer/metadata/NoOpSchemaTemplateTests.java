@@ -244,7 +244,7 @@ public class NoOpSchemaTemplateTests {
     }
 
     @Test
-    public void testFindTypeByNameThrowsException() {
+    void testFindTypeByNameThrowsException() {
         final NoOpSchemaTemplate template = new NoOpSchemaTemplate("test", 1);
 
         final RelationalException exception = assertThrows(RelationalException.class,

@@ -41,7 +41,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetada
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataSerializer;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -64,6 +63,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
