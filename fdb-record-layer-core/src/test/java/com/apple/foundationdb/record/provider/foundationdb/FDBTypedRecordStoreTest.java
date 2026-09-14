@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.StoreIsFullyLockedException;
@@ -35,16 +36,21 @@ import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -320,4 +326,83 @@ public class FDBTypedRecordStoreTest {
         }
     }
 
+    @ParameterizedTest(name = "disableConcurrencyManager[{0}]")
+    @BooleanSource
+    void disableConcurrencyManager(boolean disableConcurrencyManager) throws Exception {
+        FDBTypedRecordStore.Builder<TestRecords1Proto.MySimpleRecord> builder = BUILDER.copyBuilder()
+                .setKeySpacePath(path)
+                .setDisableConcurrencyManagement(disableConcurrencyManager);
+        assertEquals(disableConcurrencyManager, builder.isConcurrencyManagementDisabled());
+
+        // Validate that creating a store, creating it, and then turning it back into a builder
+        // preserves the concurrency management setting
+        try (FDBRecordContext context = fdb.openContext()) {
+            recordStore = builder.setContext(context).create();
+            context.commit();
+            builder = recordStore.asBuilder();
+        }
+        assertEquals(disableConcurrencyManager, builder.isConcurrencyManagementDisabled());
+
+        // Basic smoke test of concurrency manager validation. The typed class delegates to the
+        //
+        try (FDBRecordContext context = fdb.openContext()) {
+            recordStore = builder.setContext(context).open();
+
+            final List<CompletableFuture<FDBStoredRecord<TestRecords1Proto.MySimpleRecord>>> futures = IntStream.range(0, 100)
+                    .mapToObj(id -> recordStore.saveRecordAsync(
+                            TestRecords1Proto.MySimpleRecord.newBuilder()
+                                    .setRecNo(100)
+                                    .setNumValueUnique(id)
+                                    .setNumValue3Indexed(id % 3)
+                                    .setStrValueIndexed((id % 2 == 0) ? "even" : "odd")
+                                    .build()
+                    ))
+                    .toList();
+            final CompletableFuture<List<FDBStoredRecord<TestRecords1Proto.MySimpleRecord>>> futureList = AsyncUtil.getAll(futures);
+
+            if (disableConcurrencyManager) {
+                try {
+                    futureList.get();
+                } catch (ExecutionException e) {
+                    // With no concurrency manager, this can throw an exception. Not a lot we can assert here, so just ignore
+                }
+            } else {
+                // Should not throw an exception
+                futureList.get();
+            }
+
+            // Basic validation. Read the one record and make sure it is aligned with one of the ones that was written
+            FDBStoredRecord<TestRecords1Proto.MySimpleRecord> loaded = recordStore.loadRecord(Tuple.from(100L));
+            assertNotNull(loaded);
+            TestRecords1Proto.MySimpleRecord loadedRec = loaded.getRecord();
+            assertThat(loadedRec.getRecNo())
+                    .isEqualTo(100L);
+            assertThat(loadedRec.getNumValueUnique())
+                    .isGreaterThanOrEqualTo(0)
+                    .isLessThan(100);
+            assertThat(loadedRec.getNumValue3Indexed())
+                    .isEqualTo(loadedRec.getNumValueUnique() % 3);
+            assertThat(loadedRec.getStrValueIndexed())
+                    .isEqualTo((loadedRec.getNumValueUnique() % 2 == 0) ? "even" : "odd");
+            context.commit();
+        }
+
+        // Check the num_value_unique index
+        try (OnlineIndexScrubber scrubber = OnlineIndexScrubber.newBuilder()
+                .setRecordStore(recordStore.getUntypedRecordStore())
+                .setIndex(recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_unique"))
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder().setAllowRepair(true).build())
+                .build()) {
+            long dangling = scrubber.scrubDanglingIndexEntries();
+            long missing = scrubber.scrubMissingIndexEntries();
+
+            if (!disableConcurrencyManager) {
+                // With no concurrency manager, it's not guaranteed that the index entries line up
+                assertThat(dangling)
+                        .isZero();
+                assertThat(missing)
+                        .isZero();
+            }
+        }
+    }
 }

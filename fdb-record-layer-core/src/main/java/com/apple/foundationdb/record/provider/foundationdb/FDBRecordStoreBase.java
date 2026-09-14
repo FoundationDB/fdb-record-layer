@@ -71,6 +71,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -2487,6 +2488,36 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         @API(API.Status.EXPERIMENTAL)
         @Nonnull
         BaseBuilder<M, R> setStateCacheabilityOnOpen(@Nonnull FDBRecordStore.StateCacheabilityOnOpen stateCacheabilityOnOpen);
+
+        /**
+         * Whether concurrency management is disabled. See {@link #setDisableConcurrencyManagement(boolean)} for
+         * more details.
+         *
+         * @return whether concurrency management is disabled
+         * @see com.apple.foundationdb.record.provider.foundationdb.concurrency.StoreConcurrencyManager
+         * @see #setDisableConcurrencyManagement(boolean)
+         */
+        @API(API.Status.EXPERIMENTAL)
+        boolean isConcurrencyManagementDisabled();
+
+        /**
+         * Set whether to disable concurrency management. By default, the record store will use an
+         * {@link com.apple.foundationdb.record.provider.foundationdb.concurrency.StoreConcurrencyManager}
+         * to manage concurrent operations on the store. For example, the concurrency manager makes sure that
+         * concurrent operations that save the same record (in the same transaction) do not interfere with each
+         * other. If this is disabled, then those guardrails are removed, and it is the caller's responsibility
+         * to ensure that conflicting operations are not executed at the same time. In general, it is not
+         * recommended to run with this mode. The user should only opt in to this if they notice problems
+         * (e.g., the lock manager is too slow or something about their workflow causes a deadlock).
+         *
+         * @param disableConcurrencyManagement whether to disable concurrency management
+         * @return this builder
+         * @see com.apple.foundationdb.record.provider.foundationdb.concurrency.StoreConcurrencyManager
+         */
+        @API(API.Status.EXPERIMENTAL)
+        @CanIgnoreReturnValue
+        @Nonnull
+        BaseBuilder<M, R> setDisableConcurrencyManagement(boolean disableConcurrencyManagement);
 
         /**
          * Make a copy of this builder.
