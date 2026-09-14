@@ -236,56 +236,56 @@ g
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (@c3 + @c5 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}˜
+}ì
 h
-3user-defined-scalar-function-with-expressions-tests1EXPLAIN select st1_constructor(r.u.x) from nestedä
-”øàÀ6 –©¸(0–⁄(8@UISCAN(I1 <,>) | MAP (promote((_.R.U.X AS A, 0l AS _1) AS LONG AS Y, LONG AS Z) AS _0)ïdigraph G {
+3user-defined-scalar-function-with-expressions-tests1EXPLAIN select st1_constructor(r.u.x) from nested¶
+ê«óæ( çôŸ(0Ä“8@YSCAN([IS NESTED]) | MAP (promote((_.R.U.X AS A, 0l AS _1) AS LONG AS Y, LONG AS Z) AS _0)≠digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote((q2.R.U.X AS A, 0l AS _1) AS LONG AS Y, LONG AS Z) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS Y, LONG AS Z AS _0)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS NESTED]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [NESTED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}˚
+}ó
 l
-3user-defined-scalar-function-with-expressions-tests5EXPLAIN select st1_constructor_alt(r.u.x) from nestedä
-”Œﬁ∏6 îùó(0√Ò"8@UISCAN(I1 <,>) | MAP (promote((_.R.U.X AS A, 5l AS _1) AS LONG AS Y, LONG AS Z) AS _0)ïdigraph G {
+3user-defined-scalar-function-with-expressions-tests5EXPLAIN select st1_constructor_alt(r.u.x) from nested¶
+ê•˛Ú( ﬁÓØ(0±É8@YSCAN([IS NESTED]) | MAP (promote((_.R.U.X AS A, 5l AS _1) AS LONG AS Y, LONG AS Z) AS _0)≠digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote((q2.R.U.X AS A, 5l AS _1) AS LONG AS Y, LONG AS Z) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS Y, LONG AS Z AS _0)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS NESTED]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [NESTED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ß
+}ç
 V
-3user-defined-scalar-function-with-expressions-testsEXPLAIN select z(r) from nestedÃ
-Ôƒ›≥; ·∑û(0äô 8@MCOVERING(I1 <,> -> [ID: KEY:[2], R: [V: [Z: KEY:[0]]]]) | MAP (_.R.V.Z AS _0)ﬂ
+3user-defined-scalar-function-with-expressions-testsEXPLAIN select z(r) from nested≤
+ê∆Ÿ∂( ïàî(0ì◊8@'SCAN([IS NESTED]) | MAP (_.R.V.Z AS _0)Î
 digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q37.R.V.Z AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.R.V.Z AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS NESTED]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [NESTED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q37> label="q37" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}´
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ë
 Z
-3user-defined-scalar-function-with-expressions-tests#EXPLAIN select z_alt(r) from nestedÃ
-ÔÌá‡; É⁄‘(0Ì˚#8@MCOVERING(I1 <,> -> [ID: KEY:[2], R: [V: [Z: KEY:[0]]]]) | MAP (_.R.V.Z AS _0)ﬂ
+3user-defined-scalar-function-with-expressions-tests#EXPLAIN select z_alt(r) from nested≤
+êö°’( ¨àô(0ôπ8@'SCAN([IS NESTED]) | MAP (_.R.V.Z AS _0)Î
 digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q37.R.V.Z AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.R.V.Z AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS NESTED]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [NESTED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q37> label="q37" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }ú
 
 j
@@ -297,28 +297,28 @@ j
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (array(promote(promote((@c4 AS _0, @c6 AS _1) AS LONG AS Y, LONG AS Z) AS LONG AS Y, LONG AS Z)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS Y, LONG AS Z) AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‚
+}˛
 d
-3user-defined-scalar-function-with-expressions-tests-EXPLAIN select st1_array_alt(r.v) from nested˘
-”≤’Í6 ¸ÌÒ(0Ÿõ.8@IISCAN(I1 <,>) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS _0)êdigraph G {
+3user-defined-scalar-function-with-expressions-tests-EXPLAIN select st1_array_alt(r.v) from nestedï
+ê„Óõ( ±â∫(0æÍ8@MSCAN([IS NESTED]) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS _0)®digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (array(promote(q2.R.V AS LONG AS Y, LONG AS Z)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS Y, LONG AS Z) AS _0)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS NESTED]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [NESTED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ú
+}é
 t
-3user-defined-scalar-function-with-expressions-tests=EXPLAIN select st1_array_without_return_type(r.v) from nested˘
-”„≈¬6 ’®†(0…´!8@IISCAN(I1 <,>) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS _0)êdigraph G {
+3user-defined-scalar-function-with-expressions-tests=EXPLAIN select st1_array_without_return_type(r.v) from nestedï
+êﬁÍù( πÁ√(0°©8@MSCAN([IS NESTED]) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS _0)®digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (array(promote(q2.R.V AS LONG AS Y, LONG AS Z)) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ARRAY(LONG AS Y, LONG AS Z) AS _0)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS NESTED]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [NESTED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }Ã
@@ -335,7 +335,7 @@ t
 }˝
 ÷
 3user-defined-scalar-function-with-expressions-tests?EXPLAIN select temp_constructor(r.u.w) from nested where id = 1^create temporary function temp_constructor(IN x bigint) on commit drop function return (x, 5L)°
-°˙∂ìj ’ì±( 0Í˜)8+@VSCAN([IS NESTED, EQUALS promote(@c14 AS LONG)]) | MAP ((_.R.U.W AS X, 5l AS _1) AS _0)´digraph G {
+Ãæó≠9 ®∫(0√ö8@VSCAN([IS NESTED, EQUALS promote(@c14 AS LONG)]) | MAP ((_.R.U.W AS X, 5l AS _1) AS _0)´digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -406,17 +406,18 @@ j
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(&#39;red&#39; AS ENUM&lt;red(0), green(1), blue(2)&gt;) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ENUM&lt;red(0), green(1), blue(2)&gt; AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(promote(@c7 AS LONG), promote(@c9 AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ÿ
+}‡
 ~
-3user-defined-scalar-function-with-expressions-testsGEXPLAIN select id from nested where r.v.z = z(((5l, 11l), (10l, 100l)))’
-µπñ¸
-k ìö≈("0áÿ:8-@’COVERING(I1 [EQUALS promote(((@c15 AS _0, @c17 AS _1) AS _0, (@c21 AS _0, @c23 AS _1) AS _1) AS LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V).V.Z] -> [ID: KEY:[2], R: [V: [Z: KEY:[0]]]]) | MAP (_.ID AS ID)ﬂdigraph G {
+3user-defined-scalar-function-with-expressions-testsGEXPLAIN select id from nested where r.v.z = z(((5l, 11l), (10l, 100l)))›
+ÃÛ¡µ; ÕŒ⁄(0÷8@¬SCAN([IS NESTED]) | FILTER _.R.V.Z EQUALS promote(((@c15 AS _0, @c17 AS _1) AS _0, (@c21 AS _0, @c23 AS _1) AS _1) AS LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V).V.Z | MAP (_.ID AS ID)˙digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q57.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(((@c15 AS _0, @c17 AS _1) AS _0, (@c21 AS _0, @c23 AS _1) AS _1) AS LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V).V.Z]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q57> label="q57" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q22.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.R.V.Z EQUALS promote(((@c15 AS _0, @c17 AS _1) AS _0, (@c21 AS _0, @c23 AS _1) AS _1) AS LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V).V.Z</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS NESTED]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [NESTED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V AS R)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q22> label="q22" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }

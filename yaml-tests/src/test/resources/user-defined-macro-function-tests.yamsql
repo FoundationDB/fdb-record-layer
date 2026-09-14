@@ -225,7 +225,6 @@ setup:
              create type as struct st2(w bigint, x bigint)
              create type as struct st3(u st2, v st1)
              create table nested(id bigint, r st3, primary key(id))
-             create index i1 as select r.v.z from nested order by r.v.z
              create type as struct st4(a bigint, b bigint)
              create type as enum colour ('red', 'green', 'blue')
              create function add_udf(in a bigint, in b bigint) returns bigint return a + b 
@@ -272,7 +271,7 @@ test_block:
       - unorderedResult: [{ !l 15 }]
     -
       - query: select st1_constructor(r.u.x) from nested
-      - explain: "ISCAN(I1 <,>) | MAP (promote((_.R.U.X AS A, 0l AS _1) AS LONG AS Y, LONG AS Z) AS _0)"
+      - explain: "SCAN([IS NESTED]) | MAP (promote((_.R.U.X AS A, 0l AS _1) AS LONG AS Y, LONG AS Z) AS _0)"
       - unorderedResult: [{ {!l 11, !l 0} },
                           { {!l 12, !l 0} },
                           { {!l 13, !l 0} },
@@ -281,7 +280,7 @@ test_block:
                           { {!l 16, !l 0} }]
     -
       - query: select st1_constructor_alt(r.u.x) from nested
-      - explain: "ISCAN(I1 <,>) | MAP (promote((_.R.U.X AS A, 5l AS _1) AS LONG AS Y, LONG AS Z) AS _0)"
+      - explain: "SCAN([IS NESTED]) | MAP (promote((_.R.U.X AS A, 5l AS _1) AS LONG AS Y, LONG AS Z) AS _0)"
       - unorderedResult: [{ {!l 11, !l 5} },
                           { {!l 12, !l 5} },
                           { {!l 13, !l 5} },
@@ -290,11 +289,11 @@ test_block:
                           { {!l 16, !l 5} }]
     -
       - query: select z(r) from nested
-      - explain: "COVERING(I1 <,> -> [ID: KEY:[2], R: [V: [Z: KEY:[0]]]]) | MAP (_.R.V.Z AS _0)"
+      - explain: "SCAN([IS NESTED]) | MAP (_.R.V.Z AS _0)"
       - unorderedResult: [{100}, {100}, {100}, {100}, {140}, {140}]
     -
       - query: select z_alt(r) from nested
-      - explain: "COVERING(I1 <,> -> [ID: KEY:[2], R: [V: [Z: KEY:[0]]]]) | MAP (_.R.V.Z AS _0)"
+      - explain: "SCAN([IS NESTED]) | MAP (_.R.V.Z AS _0)"
       - unorderedResult: [{100}, {100}, {100}, {100}, {140}, {140}]
     -
       - query: select st1_array((1l, 2l)) from range(1, 2)
@@ -302,7 +301,7 @@ test_block:
       - unorderedResult: [{ [ {!l 1, !l 2} ]} ]
     -
       - query: select st1_array_alt(r.v) from nested
-      - explain: "ISCAN(I1 <,>) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS _0)"
+      - explain: "SCAN([IS NESTED]) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS _0)"
       - unorderedResult: [{ [ {y: !l 10, z: !l 100} ]},
                           { [ {y: !l 10, z: !l 100} ]},
                           { [ {y: !l 10, z: !l 100} ]},
@@ -311,7 +310,7 @@ test_block:
                           { [ {y: !l 10, z: !l 140} ]}]
     -
       - query: select st1_array_without_return_type(r.v) from nested
-      - explain: "ISCAN(I1 <,>) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS _0)"
+      - explain: "SCAN([IS NESTED]) | MAP (array(promote(_.R.V AS LONG AS Y, LONG AS Z)) AS _0)"
       - unorderedResult: [{ [ {y: !l 10, z: !l 100} ]},
                           { [ {y: !l 10, z: !l 100} ]},
                           { [ {y: !l 10, z: !l 100} ]},
@@ -400,7 +399,7 @@ test_block:
     -
       - query: select id from nested where r.v.z = z(((5l, 11l), (10l, 100l)))
       - supported_version: !current_version
-      - explain: "COVERING(I1 [EQUALS promote(((@c15 AS _0, @c17 AS _1) AS _0, (@c21 AS _0, @c23 AS _1) AS _1) AS LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V).V.Z] -> [ID: KEY:[2], R: [V: [Z: KEY:[0]]]]) | MAP (_.ID AS ID)"
+      - explain: "SCAN([IS NESTED]) | FILTER _.R.V.Z EQUALS promote(((@c15 AS _0, @c17 AS _1) AS _0, (@c21 AS _0, @c23 AS _1) AS _1) AS LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V).V.Z | MAP (_.ID AS ID)"
       - result: [{!l 1}, {!l 2}, {!l 3}, {!l 4}]
     -
       # TODO: this should be fixed as part of https://github.com/FoundationDB/fdb-record-layer/issues/4183
