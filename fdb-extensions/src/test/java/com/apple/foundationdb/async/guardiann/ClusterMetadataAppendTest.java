@@ -95,7 +95,7 @@ public class ClusterMetadataAppendTest implements BaseTest {
         db.run(transaction -> {
             primitives.writeClusterMetadata(transaction,
                     new ClusterMetadata(clusterId, 0, 0, RunningStats.of(1.0d),
-                            EnumSet.noneOf(ClusterMetadata.State.class), 0));
+                            EnumSet.noneOf(ClusterMetadata.State.class), 1));
             return null;
         });
         assertThat(pendingDeltas(guardiann, clusterId)).isZero();
@@ -158,7 +158,7 @@ public class ClusterMetadataAppendTest implements BaseTest {
         db.run(transaction -> {
             primitives.writeClusterMetadata(transaction,
                     new ClusterMetadata(clusterId, 0, 0, RunningStats.of(1.0d),
-                            EnumSet.noneOf(ClusterMetadata.State.class), 0));
+                            EnumSet.noneOf(ClusterMetadata.State.class), 1));
             return null;
         });
 
