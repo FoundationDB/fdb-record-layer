@@ -242,4 +242,13 @@ public class NoOpSchemaTemplateTests {
                 template::getStoredQueries);
         assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
     }
+
+    @Test
+    public void testFindStoredQueryByNameThrows() {
+        final NoOpSchemaTemplate template = new NoOpSchemaTemplate("test", 1);
+        final RelationalException exception = assertThrows(RelationalException.class,
+                () -> template.findStoredQueryByName("some_query"));
+        assertEquals(ErrorCode.INVALID_PARAMETER, exception.getErrorCode());
+        assertEquals("NoOpSchemaTemplate doesn't have stored queries!", exception.getMessage());
+    }
 }

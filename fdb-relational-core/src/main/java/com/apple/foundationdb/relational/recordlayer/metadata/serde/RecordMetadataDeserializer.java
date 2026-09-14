@@ -209,7 +209,7 @@ public class RecordMetadataDeserializer {
 
     /**
      * Turns the canonical tokens the record layer stores back into {@link StoredQuery.ParameterState} constants. An
-     * unrecognized token is reported here rather than carried into warm-up.
+     * unrecognized token throws, which fails the load of the whole schema template.
      *
      * @param queryName the stored query the cases belong to, for the error message
      * @param preparedCases one map per case, from parameter name to canonical token
