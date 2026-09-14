@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.Ordering;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -34,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.properties.ContinuableWithoutDuplicatesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
@@ -41,7 +44,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
@@ -114,13 +119,43 @@ public class ImplementStreamingAggregationRule extends AbstractCascadesRule<Grou
                                 DefaultValueSimplificationRuleSet.instance(),
                                 call.getEvaluationContext(), AliasMap.emptyMap(), correlatedTo));
 
+        // An in-call ORDER BY of one of the aggregates constrains the order of the rows within each group. It is
+        // served purely by the input stream, since the accumulators collect in stream order. Note that the parts
+        // undergo the same normalization as the grouping values, by way of `RequestedOrdering.ofParts()`.
+        final var requiredInCallOrderingParts =
+                groupByExpression.getInCallOrdering(correlatedTo).getOrderingParts();
+
         final var planPartitions = bindings.getAll(innerPlanPartitions);
         for (final var planPartition : planPartitions) {
             final var providedOrdering = planPartition.getPartitionPropertyValue(OrderingProperty.ordering());
-            if (requiredOrderingKeyValues == null || providedOrdering.satisfiesGroupingValues(requiredOrderingKeyValues)) {
+            if (satisfies(providedOrdering, requiredOrderingKeyValues, requiredInCallOrderingParts)) {
                 call.yieldPlan(implementGroupBy(call, planPartition, groupByExpression));
             }
         }
+    }
+
+    /**
+     * Returns whether a plan providing the given ordering can feed the streaming aggregation. The grouping values only
+     * have to bring the rows of a group together, so any order among them will do, whereas the in-call sort keys
+     * determine the order <em>within</em> a group and therefore have to follow the grouping prefix precisely. Without
+     * such sort keys the cheaper, order-insensitive check suffices.
+     *
+     * @param providedOrdering the ordering the candidate plan provides
+     * @param requiredOrderingKeyValues the grouping values, or {@code null} if there is no grouping
+     * @param requiredInCallOrderingParts the ordering parts of the in-call {@code ORDER BY} clause of the aggregates,
+     *        possibly empty
+     * @return {@code true} if the provided ordering satisfies both requirements
+     */
+    private static boolean satisfies(@Nonnull final Ordering providedOrdering,
+                                     @Nullable final Set<Value> requiredOrderingKeyValues,
+                                     @Nonnull final List<RequestedOrderingPart> requiredInCallOrderingParts) {
+        if (requiredInCallOrderingParts.isEmpty()) {
+            return requiredOrderingKeyValues == null
+                   || providedOrdering.satisfiesGroupingValues(requiredOrderingKeyValues);
+        }
+        return providedOrdering.satisfiesGroupingValuesAndOrderingParts(
+                requiredOrderingKeyValues == null ? ImmutableSet.of() : requiredOrderingKeyValues,
+                requiredInCallOrderingParts);
     }
 
     @Nonnull

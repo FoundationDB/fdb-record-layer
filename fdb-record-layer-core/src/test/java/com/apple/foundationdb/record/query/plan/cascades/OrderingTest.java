@@ -871,6 +871,173 @@ class OrderingTest {
         assertTrue(mergedOrdering.satisfies(requestedOrdering));
     }
 
+    /**
+     * Tests that the grouping values may appear in any order in the provided ordering, as they only have to bring the
+     * rows of a group together, while the sort key still has to follow all of them.
+     */
+    @Test
+    void satisfiesGroupingValuesAndOrderingParts1() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+
+        // The ordering lists the two grouping values in the opposite order to the request.
+        final var providedOrdering =
+                Ordering.ofOrderingSequence(
+                        bindingMap(b, ProvidedSortOrder.ASCENDING,
+                                a, ProvidedSortOrder.ASCENDING,
+                                c, ProvidedSortOrder.ASCENDING),
+                        ImmutableList.of(b, a, c),
+                        false);
+
+        assertTrue(providedOrdering.satisfiesGroupingValuesAndOrderingParts(ImmutableSet.of(a, b),
+                requested(c, RequestedSortOrder.ASCENDING)));
+    }
+
+    /**
+     * Tests that a sort key interleaved with the grouping values is rejected, since it would not order the rows
+     * <em>within</em> a group.
+     */
+    @Test
+    void satisfiesGroupingValuesAndOrderingParts2() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+
+        final var providedOrdering =
+                Ordering.ofOrderingSequence(
+                        bindingMap(a, ProvidedSortOrder.ASCENDING,
+                                c, ProvidedSortOrder.ASCENDING,
+                                b, ProvidedSortOrder.ASCENDING),
+                        ImmutableList.of(a, c, b),
+                        false);
+
+        assertFalse(providedOrdering.satisfiesGroupingValuesAndOrderingParts(ImmutableSet.of(a, b),
+                requested(c, RequestedSortOrder.ASCENDING)));
+    }
+
+    /**
+     * Tests that the sort order of a sort key has to be compatible, unlike that of a grouping value.
+     */
+    @Test
+    void satisfiesGroupingValuesAndOrderingParts3() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+
+        final var providedOrdering =
+                Ordering.ofOrderingSequence(
+                        bindingMap(a, ProvidedSortOrder.ASCENDING,
+                                b, ProvidedSortOrder.ASCENDING),
+                        ImmutableList.of(a, b),
+                        false);
+
+        assertTrue(providedOrdering.satisfiesGroupingValuesAndOrderingParts(ImmutableSet.of(a),
+                requested(b, RequestedSortOrder.ASCENDING)));
+        assertFalse(providedOrdering.satisfiesGroupingValuesAndOrderingParts(ImmutableSet.of(a),
+                requested(b, RequestedSortOrder.DESCENDING)));
+    }
+
+    /**
+     * Tests that a repeated sort key is dropped rather than making the request unsatisfiable. The second occurrence
+     * requires nothing the first does not, so it must not lengthen the prefix to be matched.
+     */
+    @Test
+    void satisfiesGroupingValuesAndOrderingParts4() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+
+        final var providedOrdering =
+                Ordering.ofOrderingSequence(
+                        bindingMap(a, ProvidedSortOrder.ASCENDING,
+                                b, ProvidedSortOrder.ASCENDING),
+                        ImmutableList.of(a, b),
+                        false);
+
+        assertTrue(providedOrdering.satisfiesGroupingValuesAndOrderingParts(ImmutableSet.of(a),
+                requested(b, RequestedSortOrder.ASCENDING, b, RequestedSortOrder.ASCENDING)));
+    }
+
+    /**
+     * Tests that a sort key which is also a grouping value is dropped, as it is constant within the group, leaving a
+     * plain grouping-values check.
+     */
+    @Test
+    void satisfiesGroupingValuesAndOrderingParts5() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+
+        final var providedOrdering =
+                Ordering.ofOrderingSequence(
+                        bindingMap(a, ProvidedSortOrder.ASCENDING,
+                                b, ProvidedSortOrder.ASCENDING),
+                        ImmutableList.of(a, b),
+                        false);
+
+        assertTrue(providedOrdering.satisfiesGroupingValuesAndOrderingParts(ImmutableSet.of(a, b),
+                requested(a, RequestedSortOrder.ASCENDING)));
+    }
+
+    /**
+     * Tests that an equality-bound sort key is satisfied whatever its requested direction, since it is constant across
+     * the whole stream, and that an unbound one is not satisfied at all.
+     */
+    @Test
+    void satisfiesGroupingValuesAndOrderingParts6() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+        final var c = ValueTestHelpers.field(qov, "c");
+
+        final var providedOrdering =
+                Ordering.ofOrderingSequence(
+                        bindingMap(a, ProvidedSortOrder.ASCENDING,
+                                b, new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+                        ImmutableList.of(a),
+                        false);
+
+        assertTrue(providedOrdering.satisfiesGroupingValuesAndOrderingParts(ImmutableSet.of(a),
+                requested(b, RequestedSortOrder.DESCENDING)));
+        // `c` is not bound by this ordering at all.
+        assertFalse(providedOrdering.satisfiesGroupingValuesAndOrderingParts(ImmutableSet.of(a),
+                requested(c, RequestedSortOrder.ASCENDING)));
+    }
+
+    /**
+     * Tests that a sort key bound to several fixed values is rejected. Such a binding stands for a disjunction, so the
+     * value is not in fact constant and the rows it would order are interleaved. Only a union ordering can hold one, as
+     * a plain {@link Ordering} forbids it, which is why this goes through {@link Ordering#merge}.
+     */
+    @Test
+    void satisfiesGroupingValuesAndOrderingParts7() {
+        final var qov = ValueTestHelpers.qov();
+        final var a = ValueTestHelpers.field(qov, "a");
+        final var b = ValueTestHelpers.field(qov, "b");
+
+        final var leftOrdering =
+                Ordering.ofOrderingSequence(
+                        bindingMap(a, ProvidedSortOrder.ASCENDING,
+                                b, new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+                        ImmutableList.of(a),
+                        false);
+        final var rightOrdering =
+                Ordering.ofOrderingSequence(
+                        bindingMap(a, ProvidedSortOrder.ASCENDING,
+                                b, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)),
+                        ImmutableList.of(a),
+                        false);
+        final var providedOrdering = Ordering.merge(leftOrdering, rightOrdering, Ordering.UNION, false);
+
+        // The grouping value alone is still fine, as `b` does not take part in it.
+        assertTrue(providedOrdering.satisfiesGroupingValues(ImmutableSet.of(a)));
+        assertFalse(providedOrdering.satisfiesGroupingValuesAndOrderingParts(ImmutableSet.of(a),
+                requested(b, RequestedSortOrder.ASCENDING)));
+    }
+
     @Nonnull
     private static RecordConstructorValue select(@Nonnull final String... projection) {
 

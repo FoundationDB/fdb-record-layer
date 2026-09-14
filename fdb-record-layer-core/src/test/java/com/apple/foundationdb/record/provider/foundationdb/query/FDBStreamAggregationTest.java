@@ -371,7 +371,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2",
-                                    value -> new ArrayAggValue(value, true, ArrayAggValue.NO_LIMIT))
+                                    value -> new ArrayAggValue(value, true, ArrayAggValue.NO_LIMIT, null))
                             .withGroupCriterion("str_value_indexed")
                             .build(false);
 
@@ -432,7 +432,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                                     NumericAggregationValue.PhysicalOperator.SUM_I,
                                     new NullValue(Type.primitiveType(Type.TypeCode.INT))))
                             .withAggregateValue("num_value_2",
-                                    value -> new ArrayAggValue(value, true, ArrayAggValue.NO_LIMIT))
+                                    value -> new ArrayAggValue(value, true, ArrayAggValue.NO_LIMIT, null))
                             .withGroupCriterion("str_value_indexed")
                             .build(false);
 
@@ -589,7 +589,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2",
-                                    value -> new ArrayAggValue(value, true, ArrayAggValue.NO_LIMIT))
+                                    value -> new ArrayAggValue(value, true, ArrayAggValue.NO_LIMIT, null))
                             .build(false);
 
             // Stop halfway through the group, which forces the collected elements into the continuation.

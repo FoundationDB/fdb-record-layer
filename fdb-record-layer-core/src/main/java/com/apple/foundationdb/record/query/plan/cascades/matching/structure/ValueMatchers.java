@@ -43,6 +43,7 @@ import java.util.Arrays;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AllOfMatcher.matchingAllOf;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.atLeastOne;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithPredicate.typedMatcherWithPredicate;
@@ -233,7 +234,9 @@ public class ValueMatchers {
 
     @Nonnull
     public static BindingMatcher<StreamableAggregateValue> streamableAggregateValue() {
-        return streamableAggregateValue(exactly(ImmutableList.of(anyValue())));
+        // Note: The child count is left open past the first, as an aggregate may carry more than just the aggregated
+        // expression. For example, `ArrayAggValue` holds the sort keys of an in-call ORDER BY clause as a further child.
+        return streamableAggregateValue(atLeastOne(anyValue()));
     }
 
     @Nonnull

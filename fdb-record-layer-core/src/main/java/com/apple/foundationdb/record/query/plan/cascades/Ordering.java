@@ -51,6 +51,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -465,6 +466,88 @@ public class Ordering {
             final var satisfies = permutation.size() >= requestedGroupingValues.size() &&
                     requestedGroupingValues.containsAll(permutation.subList(0, requestedGroupingValues.size()));
             if (satisfies) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Verifies that a given set of grouping values forms a valid prefix of an enumerated sequence supported by
+     * this ordering, and that the given ordering parts follow that prefix in exactly the given order and with
+     * compatible sort orders.
+     *
+     * <p>This is the requirement of a grouped aggregation whose aggregates carry an in-call {@code ORDER BY} clause.
+     * The grouping values may appear in any order, as they only have to bring the rows of a group together, whereas
+     * the sort keys have to be honored precisely, as they determine the order <em>within</em> the group.
+     *
+     * <p>A sort key that is also a grouping value is constant within a group and therefore imposes no requirement of
+     * its own; such a key is dropped before the check.
+     *
+     * @param requestedGroupingValues the set of values which needs to match a prefix of a valid sequence
+     * @param requestedOrderingParts the ordering parts which need to follow that prefix, in the given order
+     * @return the result of satisfiability in this ordering
+     */
+    public boolean satisfiesGroupingValuesAndOrderingParts(
+            @Nonnull final Set<Value> requestedGroupingValues,
+            @Nonnull final List<RequestedOrderingPart> requestedOrderingParts) {
+        final ImmutableSet<Value> orderingSetElements = getOrderingSet().getSet();
+
+        // Collect the values of those sort keys that impose a requirement of their own, checking as we go that each is
+        // bound with a compatible sort order. Two kinds of sort key are dropped, exactly as
+        // `RequestedOrdering.concatWithoutDuplicates()` drops them from the requested ordering: one that is also a
+        // grouping value, as it is constant within a group, and one that repeats an earlier sort key, as the earlier
+        // occurrence already requires everything it would. Dropping them here is what keeps the prefix length below in
+        // step with the number of elements the permuted sub-poset can actually supply.
+        final LinkedHashSet<Value> orderingPartValueSet = new LinkedHashSet<>();
+        for (final RequestedOrderingPart part : requestedOrderingParts) {
+            final Value partValue = part.getValue();
+            if (requestedGroupingValues.contains(partValue) || orderingPartValueSet.contains(partValue)) {
+                continue;
+            }
+            final Set<Binding> bindings = bindingMap.get(partValue);
+            if (bindings.isEmpty() || !orderingSetElements.contains(partValue)
+                    || (areAllBindingsFixed(bindings) && hasMultipleFixedBindings(bindings))
+                    || !sortOrder(bindings).isCompatibleWithRequestedSortOrder(part.getSortOrder())) {
+                return false;
+            }
+            orderingPartValueSet.add(partValue);
+        }
+        final ImmutableList<Value> orderingPartValues = ImmutableList.copyOf(orderingPartValueSet);
+        if (orderingPartValues.isEmpty()) {
+            return satisfiesGroupingValues(requestedGroupingValues);
+        }
+
+        // Every grouping value must be bound, and it must not be bound to several fixed values, as those would
+        // interleave the groups. Only those that are elements of the ordering set count towards the length of the
+        // prefix to be matched below; an ordering may well be bound to values it does not order by.
+        int orderedGroupingValueCount = 0;
+        for (final Value groupingValue : requestedGroupingValues) {
+            final Set<Binding> bindings = bindingMap.get(groupingValue);
+            if (bindings.isEmpty() || (areAllBindingsFixed(bindings) && hasMultipleFixedBindings(bindings))) {
+                return false;
+            }
+            if (orderingSetElements.contains(groupingValue)) {
+                orderedGroupingValueCount++;
+            }
+        }
+
+        // Accept a permutation whose prefix is the grouping values in any order, followed by the sort keys in exactly
+        // their declared order. The permuted sub-poset holds nothing but those two disjoint groups, so testing a prefix
+        // element against all requested grouping values is the same as testing it against the ordered ones.
+        final int prefixSize = orderedGroupingValueCount + orderingPartValues.size();
+        final var permutations =
+                TopologicalSort.topologicalOrderPermutations(
+                        getOrderingSet().filterElements(value -> requestedGroupingValues.contains(value)
+                                                                 || orderingPartValueSet.contains(value)));
+        for (final List<Value> permutation : permutations) {
+            if (permutation.size() < prefixSize) {
+                continue;
+            }
+            if (!requestedGroupingValues.containsAll(permutation.subList(0, orderedGroupingValueCount))) {
+                continue;
+            }
+            if (permutation.subList(orderedGroupingValueCount, prefixSize).equals(orderingPartValues)) {
                 return true;
             }
         }
