@@ -1363,7 +1363,7 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1, delegate.inserts);
             assertEquals(0, delegate.deletes);
 
-            // Drain an update to a different window key (relevance 200 -> 300).
+            // Drain a queued update that moves rec 2 to a different window key (relevance 200 -> 300).
             delegate.inserts = 0;
             delegate.deletes = 0;
             sw.updateFromQueue(sw.serializePendingWriteQueue(storedRec(2, 200), storedRec(2, 300))).join();
