@@ -790,8 +790,6 @@ public class RecordMetaData implements RecordMetaDataProvider {
                            @Nonnull final List<Map<String, String>> preparedCases) {
             this.query = storedQuery;
             this.tempFunctions = List.copyOf(tempFunctions);
-            // ImmutableMap, not Map.copyOf: the latter randomizes iteration order per JVM run, which would serialize
-            // the same metadata to different bytes.
             this.parameters = ImmutableMap.copyOf(parameters);
             this.preparedCases = preparedCases.stream()
                     .map(ImmutableMap::copyOf)
