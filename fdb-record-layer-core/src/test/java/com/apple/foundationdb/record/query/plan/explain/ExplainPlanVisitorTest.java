@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.TextScan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.IndexEntryToRecordValueHelper;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
@@ -67,6 +68,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexValuePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
@@ -309,6 +311,33 @@ public class ExplainPlanVisitorTest {
                 "COVERING(" + childPlan.getRight() + " -> " + partialRecord + ")");
     }
 
+    /**
+     * The same covering scan, reading its entries by evaluating a value rather than by running copiers. It explains the
+     * same way except for what follows the arrow, which is the value instead of the copiers.
+     */
+    @Nonnull
+    private static NonnullPair<RecordQueryPlan, String> randomCoveringIndexValuePlan(@Nonnull Random r) {
+        NonnullPair<RecordQueryPlan, String> childPlan;
+        if (r.nextDouble() < 0.8) {
+            childPlan = randomIndexDetails(r);
+        } else {
+            childPlan = randomTextIndexDetails(r);
+        }
+
+        assertThat(childPlan.getLeft(), Matchers.instanceOf(RecordQueryPlanWithIndex.class));
+        RecordQueryPlanWithIndex planWithIndex = (RecordQueryPlanWithIndex) childPlan.getLeft();
+        Type.Record baseType = Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor());
+        IndexEntryToRecordValueHelper covered = new IndexEntryToRecordValueHelper();
+        covered.withChild("str_value_indexed").cover(
+                IndexEntryToRecordValueHelper.entryColumn(QuantifiedObjectValue.of(Quantifier.current(), baseType),
+                        "str_value_indexed",
+                        r.nextBoolean() ? IndexKeyValueToPartialRecord.TupleSource.KEY : IndexKeyValueToPartialRecord.TupleSource.VALUE,
+                        r.nextInt(10)));
+        Value indexEntryToRecordValue = covered.toRecordValue(baseType);
+        return NonnullPair.of(new RecordQueryCoveringIndexValuePlan(planWithIndex, randomTypeName(r), indexEntryToRecordValue),
+                "COVERING(" + childPlan.getRight() + " -> " + indexEntryToRecordValue + ")");
+    }
+
     @Nonnull
     private static NonnullPair<RecordQueryPlan, String> randomExplodePlan(@Nonnull Random r) {
         Value collectionValue;
@@ -480,15 +509,17 @@ public class ExplainPlanVisitorTest {
         if (leafChoice * decay < 0.2) {
             // Choose a leaf plan
             double choice = r.nextDouble();
-            if (choice < 0.17) {
+            if (choice < 0.15) {
                 return randomScanPlan(r);
-            } else if (choice < 0.34) {
+            } else if (choice < 0.3) {
                 return randomIndexPlan(r);
-            } else if (choice < 0.5) {
+            } else if (choice < 0.44) {
                 return randomTextIndexPlan(r);
-            } else if (choice < 0.67) {
+            } else if (choice < 0.58) {
                 return randomCoveringIndexPlan(r);
-            } else if (choice < 0.84) {
+            } else if (choice < 0.72) {
+                return randomCoveringIndexValuePlan(r);
+            } else if (choice < 0.86) {
                 return randomExplodePlan(r);
             } else {
                 return randomLoadByKeysPlan(r);

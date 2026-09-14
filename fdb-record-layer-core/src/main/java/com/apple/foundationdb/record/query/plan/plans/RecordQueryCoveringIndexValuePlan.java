@@ -1,5 +1,5 @@
 /*
- * RecordQueryCoveringIndexPlan.java
+ * RecordQueryCoveringIndexValuePlan.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -31,15 +31,13 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.planprotos.PRecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.planprotos.PRecordQueryCoveringIndexValuePlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
-import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
@@ -68,40 +66,37 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * A query plan that reconstructs records from the entries in a covering index.
+ * A query plan that reconstructs records from the entries in a covering index, by evaluating a value rather than by
+ * running the copiers of an {@link com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord}, which
+ * {@link RecordQueryCoveringIndexPlan} does for the heuristic planner. See
+ * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2907">issue 2907</a>.
  */
 @API(API.Status.INTERNAL)
-@HeuristicPlanner
-public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithMatchCandidate, RecordQueryPlanWithIndexEntryToQueriedRecord {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Covering-Index-Plan");
+public class RecordQueryCoveringIndexValuePlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithMatchCandidate, RecordQueryPlanWithIndexEntryToQueriedRecord {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Covering-Index-Value-Plan");
 
     @Nonnull
     private final RecordQueryPlanWithIndex indexPlan;
     @Nonnull
     private final String recordTypeName;
-    @Nullable
-    private final AvailableFields availableFields;
     @Nonnull
-    private final IndexKeyValueToPartialRecord toRecord;
+    private final Value indexEntryToRecordValue;
 
-    protected RecordQueryCoveringIndexPlan(@Nonnull final PlanSerializationContext serializationContext,
-                                           @Nonnull final PRecordQueryCoveringIndexPlan recordQueryCoveringIndexPlanProto) {
+    protected RecordQueryCoveringIndexValuePlan(@Nonnull final PlanSerializationContext serializationContext,
+                                                @Nonnull final PRecordQueryCoveringIndexValuePlan recordQueryCoveringIndexValuePlanProto) {
         this.indexPlan = (RecordQueryPlanWithIndex)RecordQueryPlan.fromRecordQueryPlanProto(serializationContext,
-                Objects.requireNonNull(recordQueryCoveringIndexPlanProto.getIndexPlan()));
-        this.availableFields = null; // planner field
-        this.recordTypeName = Objects.requireNonNull(recordQueryCoveringIndexPlanProto.getRecordTypeName());
-        this.toRecord = IndexKeyValueToPartialRecord.fromProto(serializationContext,
-                Objects.requireNonNull(recordQueryCoveringIndexPlanProto.getToRecord()));
+                Objects.requireNonNull(recordQueryCoveringIndexValuePlanProto.getIndexPlan()));
+        this.recordTypeName = Objects.requireNonNull(recordQueryCoveringIndexValuePlanProto.getRecordTypeName());
+        this.indexEntryToRecordValue = Value.fromValueProto(serializationContext,
+                Objects.requireNonNull(recordQueryCoveringIndexValuePlanProto.getIndexEntryToRecordValue()));
     }
 
-    public RecordQueryCoveringIndexPlan(@Nonnull RecordQueryPlanWithIndex indexPlan,
-                                        @Nonnull final String recordTypeName,
-                                        @Nonnull AvailableFields availableFields,
-                                        @Nonnull IndexKeyValueToPartialRecord toRecord) {
+    public RecordQueryCoveringIndexValuePlan(@Nonnull RecordQueryPlanWithIndex indexPlan,
+                                            @Nonnull final String recordTypeName,
+                                             @Nonnull Value indexEntryToRecordValue) {
         this.indexPlan = indexPlan;
-        this.availableFields = availableFields;
         this.recordTypeName = recordTypeName;
-        this.toRecord = toRecord;
+        this.indexEntryToRecordValue = indexEntryToRecordValue;
     }
 
     @Nonnull
@@ -123,10 +118,10 @@ public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWi
                                                                             @Nonnull final EvaluationContext context,
                                                                             @Nonnull final IndexEntry indexEntry) {
         final var metaData = store.getRecordMetaData();
-        return RecordQueryPlanWithIndexEntryToQueriedRecord.intoStoredRecordShape(store,
+        return RecordQueryPlanWithIndexEntryToQueriedRecord.toQueriedRecord(store, context,
                 metaData.getIndex(getIndexName()),
                 metaData.getQueryableRecordType(recordTypeName),
-                toRecord,
+                indexEntryToRecordValue,
                 !getScanType().equals(IndexScanType.BY_GROUP),
                 indexEntry);
     }
@@ -183,8 +178,8 @@ public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWi
     }
 
     @Override
-    public RecordQueryCoveringIndexPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
-        return new RecordQueryCoveringIndexPlan(indexPlan.strictlySorted(memoizer), recordTypeName, getAvailableFields(), toRecord);
+    public RecordQueryCoveringIndexValuePlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
+        return new RecordQueryCoveringIndexValuePlan(indexPlan.strictlySorted(memoizer), recordTypeName, indexEntryToRecordValue);
     }
 
     @Nonnull
@@ -196,12 +191,12 @@ public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWi
     @Nonnull
     @Override
     public AvailableFields getAvailableFields() {
-        return Objects.requireNonNull(availableFields);
+        return AvailableFields.ALL_FIELDS;
     }
 
     @Nonnull
-    public IndexKeyValueToPartialRecord getToRecord() {
-        return toRecord;
+    public Value getIndexEntryToRecordValue() {
+        return indexEntryToRecordValue;
     }
 
     @Override
@@ -234,7 +229,7 @@ public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWi
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public RecordQueryCoveringIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
+    public RecordQueryCoveringIndexValuePlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                               final boolean shouldSimplifyValues,
                                                               @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
@@ -245,7 +240,7 @@ public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWi
         final var translatedIndexPlan =
                 indexPlan.translateCorrelations(translationMap, shouldSimplifyValues, translatedQuantifiers);
         if (translatedIndexPlan != indexPlan) {
-            return new RecordQueryCoveringIndexPlan(translatedIndexPlan, recordTypeName, getAvailableFields(), toRecord);
+            return new RecordQueryCoveringIndexValuePlan(translatedIndexPlan, recordTypeName, indexEntryToRecordValue);
         }
         return this;
     }
@@ -257,10 +252,10 @@ public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWi
 
     @Nonnull
     @Override
-    public RecordQueryCoveringIndexPlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
+    public RecordQueryCoveringIndexValuePlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
         Verify.verify(newQuantifiers.isEmpty());
-        return new RecordQueryCoveringIndexPlan((RecordQueryPlanWithIndex)indexPlan.minimize(newQuantifiers),
-                recordTypeName, getAvailableFields(), toRecord);
+        return new RecordQueryCoveringIndexValuePlan((RecordQueryPlanWithIndex)indexPlan.minimize(newQuantifiers),
+                recordTypeName, indexEntryToRecordValue);
     }
 
     @Nonnull
@@ -282,10 +277,10 @@ public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWi
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        final RecordQueryCoveringIndexPlan other = (RecordQueryCoveringIndexPlan) otherExpression;
+        final RecordQueryCoveringIndexValuePlan other = (RecordQueryCoveringIndexValuePlan) otherExpression;
         return indexPlan.structuralEquals(other.indexPlan, equivalencesMap) &&
                recordTypeName.equals(other.recordTypeName) &&
-               toRecord.equals(other.toRecord);
+               indexEntryToRecordValue.equals(other.indexEntryToRecordValue);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -301,7 +296,7 @@ public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWi
 
     @Override
     public int computeHashCodeWithoutChildren() {
-        return Objects.hash(indexPlan, recordTypeName, toRecord);
+        return Objects.hash(indexPlan, recordTypeName, indexEntryToRecordValue);
     }
 
     @Override
@@ -343,42 +338,42 @@ public class RecordQueryCoveringIndexPlan extends AbstractRelationalExpressionWi
 
     @Nonnull
     @Override
-    public PRecordQueryCoveringIndexPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRecordQueryCoveringIndexPlan.newBuilder()
+    public PRecordQueryCoveringIndexValuePlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PRecordQueryCoveringIndexValuePlan.newBuilder()
                 .setIndexPlan(indexPlan.toRecordQueryPlanProto(serializationContext))
                 .setRecordTypeName(recordTypeName)
-                .setToRecord(toRecord.toProto(serializationContext))
+                .setIndexEntryToRecordValue(indexEntryToRecordValue.toValueProto(serializationContext))
                 .build();
     }
 
     @Nonnull
     @Override
     public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRecordQueryPlan.newBuilder().setCoveringIndexPlan(toProto(serializationContext)).build();
+        return PRecordQueryPlan.newBuilder().setCoveringIndexValuePlan(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static RecordQueryCoveringIndexPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                         @Nonnull final PRecordQueryCoveringIndexPlan recordQueryCoveringIndexPlanProto) {
-        return new RecordQueryCoveringIndexPlan(serializationContext, recordQueryCoveringIndexPlanProto);
+    public static RecordQueryCoveringIndexValuePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                         @Nonnull final PRecordQueryCoveringIndexValuePlan recordQueryCoveringIndexPlanProto) {
+        return new RecordQueryCoveringIndexValuePlan(serializationContext, recordQueryCoveringIndexPlanProto);
     }
 
     /**
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PRecordQueryCoveringIndexPlan, RecordQueryCoveringIndexPlan> {
+    public static class Deserializer implements PlanDeserializer<PRecordQueryCoveringIndexValuePlan, RecordQueryCoveringIndexValuePlan> {
         @Nonnull
         @Override
-        public Class<PRecordQueryCoveringIndexPlan> getProtoMessageClass() {
-            return PRecordQueryCoveringIndexPlan.class;
+        public Class<PRecordQueryCoveringIndexValuePlan> getProtoMessageClass() {
+            return PRecordQueryCoveringIndexValuePlan.class;
         }
 
         @Nonnull
         @Override
-        public RecordQueryCoveringIndexPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                      @Nonnull final PRecordQueryCoveringIndexPlan recordQueryCoveringIndexPlanProto) {
-            return RecordQueryCoveringIndexPlan.fromProto(serializationContext, recordQueryCoveringIndexPlanProto);
+        public RecordQueryCoveringIndexValuePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                      @Nonnull final PRecordQueryCoveringIndexValuePlan recordQueryCoveringIndexPlanProto) {
+            return RecordQueryCoveringIndexValuePlan.fromProto(serializationContext, recordQueryCoveringIndexPlanProto);
         }
     }
 }
