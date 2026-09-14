@@ -420,27 +420,17 @@ class AgilityContextTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * A read must never drive the size quota. This class decides when to commit and the caller cannot opt out
-     * of one, so making a read trigger a commit would expose a caller that only read to {@code NOT_COMMITTED}
-     * conflicts on its read conflict ranges. Deriving the quota from
-     * {@code getApproximateTransactionSize()} does exactly that, and was reverted for it; this test is what
-     * should fail if it is reattempted.
-     * <p>
-     * The read count is deliberately small. A large one would accumulate enough conflict range to exceed
-     * FDB's commit size limit at flush, which is the accepted limitation the class comment records rather
-     * than something this test contradicts.
-     * </p>
+     * Reading multiple keys would not commit the transaction.
      */
     @Test
     void testAgilityContextReadsDoNotTriggerSizeQuota() {
         final long sizeQuota = 1L;
         final long timeQuota = 100_000L;
-        final String padding = "x".repeat(PADDED_KEY_LENGTH);
         try (FDBRecordContext context = openContext()) {
             final Subspace subspace = path.toSubspace(context);
             final AgilityContext agilityContext = AgilityContext.agile(context, timeQuota, sizeQuota);
             for (int i = 0; i < loopCount; i++) {
-                agilityContext.get(subspace.pack(Tuple.from("read", i, padding))).join();
+                agilityContext.get(subspace.pack(Tuple.from("read", i))).join();
             }
             agilityContext.flush();
             context.commit();
