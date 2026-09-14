@@ -20,9 +20,6 @@
 
 package com.apple.foundationdb.relational.api.metadata;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
@@ -34,12 +31,12 @@ import java.util.Map;
  *
  * <p>The SELECT body and each temp-function declaration are kept as their original verbatim source.</p>
  */
-public final class StoredQuery {
+public interface StoredQuery extends Metadata {
     /**
      * How one parameter is pinned in a prepared case. These four are the only states that change the plan itself rather
      * than only its constraints. The constant names are the canonical tokens the wire format carries.
      */
-    public enum ParameterState {
+    enum ParameterState {
         /** Warmed with a real null bound. */
         IS_NULL,
         /** Warmed value-free, with the declared type forced non-nullable. */
@@ -50,41 +47,19 @@ public final class StoredQuery {
         IS_FALSE
     }
 
+    /**
+     * The SELECT body, as its original verbatim source.
+     * @return the query text.
+     */
     @Nonnull
-    private final String query;
-    @Nonnull
-    private final List<String> tempFunctions;
-    @Nonnull
-    private final Map<String, String> parameters;
-    @Nonnull
-    private final List<Map<String, ParameterState>> preparedCases;
+    String getQuery();
 
-    public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions) {
-        this(storedQuery, tempFunctions, ImmutableMap.of(), ImmutableList.of());
-    }
-
-    public StoredQuery(@Nonnull final String storedQuery, @Nonnull final List<String> tempFunctions,
-                       @Nonnull final Map<String, String> parameters,
-                       @Nonnull final List<Map<String, ParameterState>> preparedCases) {
-        this.query = storedQuery;
-        this.tempFunctions = ImmutableList.copyOf(tempFunctions);
-        // ImmutableMap, not Map.copyOf: the latter randomizes iteration order per JVM run, which would serialize the
-        // same metadata to different bytes.
-        this.parameters = ImmutableMap.copyOf(parameters);
-        this.preparedCases = preparedCases.stream()
-                .map(ImmutableMap::copyOf)
-                .collect(ImmutableList.toImmutableList());
-    }
-
+    /**
+     * The {@code CREATE TEMPORARY FUNCTION} declarations to install before the body is planned.
+     * @return the declaration texts, in the order written.
+     */
     @Nonnull
-    public String getQuery() {
-        return query;
-    }
-
-    @Nonnull
-    public List<String> getTempFunctions() {
-        return tempFunctions;
-    }
+    List<String> getTempFunctions();
 
     /**
      * The parameters this query declares, as a map from parameter name to the SQL text of its declaration: a type,
@@ -92,9 +67,7 @@ public final class StoredQuery {
      * @return the declared parameters, keyed by name.
      */
     @Nonnull
-    public Map<String, String> getParameters() {
-        return parameters;
-    }
+    Map<String, String> getParameters();
 
     /**
      * The combinations this query is warmed for, one plan each. Every case here gives every declared parameter a
@@ -103,7 +76,10 @@ public final class StoredQuery {
      * @return one map per case, from parameter name to the state it is pinned to.
      */
     @Nonnull
-    public List<Map<String, ParameterState>> getPreparedCases() {
-        return preparedCases;
+    List<Map<String, ParameterState>> getPreparedCases();
+
+    @Override
+    default void accept(@Nonnull final Visitor visitor) {
+        visitor.visit(this);
     }
 }
