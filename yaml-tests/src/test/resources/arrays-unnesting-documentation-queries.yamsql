@@ -86,6 +86,7 @@ test_block:
     -
       # "Element Ordinals with AT" example.
       - query: SELECT order_id, tag, at FROM orders, orders.tags AS tag AT at
+      - supported_version: !current_version
       - unorderedResult: [
           {order_id: 1, tag: 'priority', at: 1},
           {order_id: 1, tag: 'gift', at: 2},
@@ -93,6 +94,7 @@ test_block:
     -
       # "Element Ordinals with AT" example, omitting the element alias.
       - query: SELECT order_id, at FROM orders, orders.items AT at
+      - supported_version: !current_version
       - unorderedResult: [
           {order_id: 1, at: 1},
           {order_id: 1, at: 2},
@@ -105,6 +107,7 @@ test_block:
       - query: SELECT order_id, item.sku AS sku, item.qty AS qty, at
                  FROM orders, orders.items AS item AT at
                 WHERE item.qty >= 2
+      - supported_version: !current_version
       - unorderedResult: [
           {order_id: 1, sku: 'A1', qty: 2, at: 1},
           {order_id: 2, sku: 'B1', qty: 3, at: 1},
@@ -114,6 +117,7 @@ test_block:
       - query: SELECT order_id, item.sku AS sku, item.qty AS qty,
                       orders.prices[at] AS price
                  FROM orders, orders.items AS item AT at
+      - supported_version: !current_version
       - unorderedResult: [
           {order_id: 1, sku: 'A1', qty: 2, price: 9.99},
           {order_id: 1, sku: 'A2', qty: 1, price: 19.99},
@@ -127,6 +131,7 @@ test_block:
                  FROM orders,
                       orders.tags AS tag AT at_t,
                       orders.items AS item AT at_i
+      - supported_version: !current_version
       - unorderedResult: [
           {order_id: 1, tag: 'priority',  sku: 'A1', at_t: 1, at_i: 1},
           {order_id: 1, tag: 'priority',  sku: 'A2', at_t: 1, at_i: 2},
@@ -142,6 +147,7 @@ test_block:
                          FROM orders.prices AS price AT at2
                         WHERE at2 = at AND price >= 15.0
                       ) AS sq
+      - supported_version: !current_version
       - unorderedResult: [
           {order_id: 1, sku: 'A2', matched_price: 19.99},
           {order_id: 3, sku: 'C1', matched_price: 29.99}]
