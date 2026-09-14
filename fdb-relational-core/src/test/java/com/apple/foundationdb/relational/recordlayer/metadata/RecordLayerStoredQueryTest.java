@@ -1,5 +1,5 @@
 /*
- * StoredQueryTest.java
+ * RecordLayerStoredQueryTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,8 +18,9 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.metadata;
+package com.apple.foundationdb.relational.recordlayer.metadata;
 
+import com.apple.foundationdb.relational.api.metadata.StoredQuery;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -29,11 +30,12 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class StoredQueryTest {
+class RecordLayerStoredQueryTest {
 
     @Test
-    void twoArgConstructorDeclaresNoParametersAndNoCases() {
-        final var storedQuery = new StoredQuery("select * from t1", List.of("f1", "f2"));
+    void threeArgConstructorDeclaresNoParametersAndNoCases() {
+        final var storedQuery = new RecordLayerStoredQuery("Q", "select * from t1", List.of("f1", "f2"));
+        assertThat(storedQuery.getName()).isEqualTo("Q");
         assertThat(storedQuery.getQuery()).isEqualTo("select * from t1");
         assertThat(storedQuery.getTempFunctions()).containsExactly("f1", "f2");
         assertThat(storedQuery.getParameters()).isEmpty();
@@ -41,8 +43,8 @@ class StoredQueryTest {
     }
 
     @Test
-    void fourArgConstructorRetainsParametersAndCases() {
-        final var storedQuery = new StoredQuery("SELECT id FROM f1(?PARAM_B)", List.of("f1 body"),
+    void fiveArgConstructorRetainsParametersAndCases() {
+        final var storedQuery = new RecordLayerStoredQuery("Q", "SELECT id FROM f1(?PARAM_B)", List.of("f1 body"),
                 Map.of("PARAM_A", "BIGINT", "PARAM_B", "STRING NOT NULL"),
                 List.of(Map.of("PARAM_A", StoredQuery.ParameterState.IS_NULL,
                                 "PARAM_B", StoredQuery.ParameterState.IS_NOT_NULL),
@@ -65,10 +67,9 @@ class StoredQueryTest {
         final var parameters = new HashMap<>(Map.of("PARAM_A", "BIGINT"));
         final var firstCase = new HashMap<>(Map.of("PARAM_A", StoredQuery.ParameterState.IS_NULL));
         final var preparedCases = new ArrayList<Map<String, StoredQuery.ParameterState>>(List.of(firstCase));
-        final var storedQuery = new StoredQuery("select 1", tempFunctions, parameters, preparedCases);
+        final var storedQuery = new RecordLayerStoredQuery("Q", "select 1", tempFunctions, parameters, preparedCases);
 
-        // mutating the caller's collections after construction must not be visible through the stored query. The cases
-        // are a list of maps, so both levels have to be copied, not just the outer one.
+        // The cases are a list of maps, so both levels have to be copied, not just the outer one.
         tempFunctions.add("f2");
         parameters.put("PARAM_B", "STRING");
         firstCase.put("PARAM_B", StoredQuery.ParameterState.IS_TRUE);
