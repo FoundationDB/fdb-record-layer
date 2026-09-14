@@ -25,14 +25,32 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.RecordDoesNotExistException;
+import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
+import com.apple.foundationdb.record.query.plan.cascades.ExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -42,7 +60,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+
 
 /**
  * A {@linkplain SyntheticRecordType synthetic record type} representing an unnesting of some kind of
@@ -356,5 +376,94 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
             }
         }
         return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    @API(API.Status.INTERNAL)
+    public GraphExpansion expand(@Nonnull final AccessHint accessHint) {
+        final RecordMetaData metaData = getRecordMetaData();
+        final NestedConstituent parentConstituent = getParentConstituent();
+        final RecordType parentRecordType = parentConstituent.getRecordType();
+        final Quantifier.ForEach parentQuantifier =
+                Quantifier.forEach(ExpansionVisitor.createBaseRef(metaData.getRecordTypes().keySet(),
+                        ImmutableSet.of(parentRecordType.getName()),
+                        metaData.getPlannerType(parentRecordType.getName()), null,
+                        accessHint));
+
+        final Map<String, Value> elementValuesByConstituent = new HashMap<>();
+        final GraphExpansion.Builder builder = GraphExpansion.builder();
+        final ImmutableList.Builder<Column<? extends Value>> positionColumns = ImmutableList.builder();
+        for (final NestedConstituent constituent : getConstituents()) {
+            final Value elementValue;
+            if (constituent.isParent()) {
+                builder.addQuantifier(parentQuantifier);
+                elementValue = parentQuantifier.getFlowedObjectValue();
+            } else {
+                final Value ownerElementValue =
+                        Objects.requireNonNull(elementValuesByConstituent.get(constituent.getParentName()));
+                final Quantifier.ForEach constituentQuantifier =
+                        constituentQuantifier(ownerElementValue, constituent.getNestingExpression());
+                builder.addQuantifier(constituentQuantifier);
+                final Value flowedValue = constituentQuantifier.getFlowedObjectValue();
+                elementValue = FieldValue.ofOrdinalNumber(flowedValue, 0);
+                // The explode is asked for 0-based ordinals, which is how positions are stored; all that is left is
+                // to widen the INT the explode flows to the LONG the `Positions` message declares. The types have to
+                // agree, or the record `expand` flows is not of this type's planner type. It matters only for
+                // matching, not for the stored bytes: the tuple layer encodes integers by value, so 3 and 3L are
+                // identical on disk.
+                final Value positionValue = PromoteValue.inject(FieldValue.ofOrdinalNumber(flowedValue, 1),
+                        Type.primitiveType(Type.TypeCode.LONG, false));
+                positionColumns.add(Column.of(Optional.of(constituent.getName()), positionValue));
+            }
+            elementValuesByConstituent.put(constituent.getName(), elementValue);
+            builder.addResultColumn(Column.of(Optional.of(constituent.getName()), elementValue));
+        }
+        builder.addResultColumn(Column.of(Optional.of(POSITIONS_FIELD),
+                RecordConstructorValue.ofColumns(positionColumns.build())));
+        return builder.build();
+    }
+
+    /**
+     * Builds the quantifier standing for one constituent: a select over an explode of the constituent's array. The
+     * select returns the exploded struct itself rather than a list of its columns, so any field of the element can be
+     * navigated from the quantifier, at as many index key positions as needed.
+     *
+     * <p>The explode is created {@code WITH ORDINALITY}, so it flows an anonymous {@code (element, ordinal)} struct.
+     * The ordinal is what lets the caller reconstruct the {@code __positions} field of a synthetic record, without
+     * which the synthetic primary key cannot be expressed. It is asked for 0-based, so that it <em>is</em> the
+     * position, rather than one more than it.
+     *
+     * @param ownerElementValue the record the array hangs off -- the stored record for a constituent of the parent, or
+     *        the owning constituent's element for a chained one
+     * @param nestingExpression the constituent's nesting expression
+     * @return a quantifier flowing {@code (element, ordinal)} structs for the constituent's array
+     */
+    @Nonnull
+    private static Quantifier.ForEach constituentQuantifier(@Nonnull final Value ownerElementValue,
+                                                            @Nonnull final KeyExpression nestingExpression) {
+        final Quantifier.ForEach explodeQuantifier =
+                Quantifier.forEach(Reference.initialOf(new ExplodeExpression(
+                        FieldValue.ofFieldNames(ownerElementValue, arrayFieldPath(nestingExpression)), true, true)));
+        return Quantifier.forEach(Reference.initialOf(GraphExpansion.ofQuantifier(explodeQuantifier)
+                .seal()
+                .buildSimpleSelectOverQuantifier(explodeQuantifier)));
+    }
+
+    @Nonnull
+    private static List<String> arrayFieldPath(@Nonnull final KeyExpression nestingExpression) {
+        final ImmutableList.Builder<String> pathBuilder = ImmutableList.builder();
+        KeyExpression current = nestingExpression;
+        while (current instanceof final NestingKeyExpression nesting) {
+            final FieldKeyExpression parent = nesting.getParent();
+            pathBuilder.add(ProtoUtils.toUserIdentifier(parent.getFieldName()));
+            final var wrapperFanType = NullableArrayTypeUtils.matchArrayWrapper(nesting);
+            if (wrapperFanType.isPresent()) {
+                return pathBuilder.build();
+            }
+            current = nesting.getChild();
+        }
+        pathBuilder.add(ProtoUtils.toUserIdentifier(((FieldKeyExpression)current).getFieldName()));
+        return pathBuilder.build();
     }
 }
