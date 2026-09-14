@@ -76,10 +76,7 @@ import java.util.stream.IntStream;
  *
  * <p>In the {@code WITH ORDINALITY} variant, {@code EXPLODE} also generates ordinals of the array elements. In this
  * case the plan produces a {@link DynamicMessage} struct with two anonymous fields (the element and the ordinal)
- * instead of the bare element. The ordinals are <em>0-based</em>, matching the positions an
- * {@link com.apple.foundationdb.record.metadata.UnnestedRecordType} stores for its constituents. SQL {@code AT} is
- * 1-based per the standard (Foundation, Section 4.10.2), and the SQL layer adds the one back when it binds the
- * {@code AT} alias.
+ * instead of the bare element. The ordinals are <em>0-based</em>.
  *
  * @see RecordQueryFlatMapPlan
  */
