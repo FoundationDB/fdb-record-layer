@@ -183,7 +183,7 @@ public class ImplementNestedLoopJoinRule extends AbstractCascadesRule<SelectExpr
                 for (final PlanPartition innerPlanPartition : rollUpIfSatisfyOrdering(requestedOrdering, innerQuantifier, bindings.getAll(innerPlanPartitionsMatcher), Ordering.empty(),
                         o -> pullUpOrderingFromSelectChild(o, selectExpression, innerAlias))) {
                     final Quantifier.Physical newInnerQuantifier = planPartitionToPhysical(call, innerQuantifier, innerReference, outerInnerPredicates, innerPlanPartition);
-                    call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
+                    call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Scalar));
                 }
             }
 
@@ -197,7 +197,7 @@ public class ImplementNestedLoopJoinRule extends AbstractCascadesRule<SelectExpr
                 final Quantifier.Physical newOuterQuantifier = planPartitionToPhysical(call, outerQuantifier, outerReference, outerPredicates, outerPlanPartition);
                 for (final PlanPartition innerPlanPartition : PlanPartitions.rollUpTo(bindings.getAll(innerPlanPartitionsMatcher), ImmutableSet.of())) {
                     final Quantifier.Physical newInnerQuantifier = planPartitionToPhysical(call, innerQuantifier, innerReference, outerInnerPredicates, innerPlanPartition);
-                    call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
+                    call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Scalar));
                 }
             }
 
@@ -210,7 +210,7 @@ public class ImplementNestedLoopJoinRule extends AbstractCascadesRule<SelectExpr
                 for (final PlanPartition innerPlanPartition : rollUpIfSatisfyOrdering(requestedOrdering, innerQuantifier, bindings.getAll(innerPlanPartitionsMatcher), outerOrdering,
                         o -> pullUpOrderingFromSelectChild(o, selectExpression, innerAlias))) {
                     final Quantifier.Physical newInnerQuantifier = planPartitionToPhysical(call, innerQuantifier, innerReference, outerInnerPredicates, innerPlanPartition);
-                    call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
+                    call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Scalar));
                 }
             }
         }
@@ -223,8 +223,8 @@ public class ImplementNestedLoopJoinRule extends AbstractCascadesRule<SelectExpr
 
     @Nonnull
     private NonnullPair<List<PlanPartition>, List<PlanPartition>> separateByMaxCardinalityOne(@Nonnull final Quantifier quantifier, @Nonnull final List<PlanPartition> planPartitions) {
-        if (quantifier instanceof Quantifier.Existential) {
-            // Existential quantifiers always have an effective cardinality of exactly one. Group all the plans together in the max-cardinality-one bucket
+        if (quantifier instanceof Quantifier.Scalar) {
+            // Scalar quantifiers always have an effective cardinality of exactly one. Group all the plans together in the max-cardinality-one bucket
             return NonnullPair.of(PlanPartitions.rollUpTo(planPartitions, ImmutableSet.of()), ImmutableList.of());
         }
 
@@ -272,7 +272,10 @@ public class ImplementNestedLoopJoinRule extends AbstractCascadesRule<SelectExpr
     private List<PlanPartition> rollUpIfSatisfyOrdering(@Nonnull final RequestedOrdering requestedOrdering, @Nonnull final Quantifier quantifier, @Nonnull final List<PlanPartition> planPartitions, @Nonnull final Ordering prefix, @Nonnull final Function<Ordering, Ordering> pullUpFn) {
         final ImmutableList.Builder<PlanPartition> satisfyingOrdering = ImmutableList.builderWithExpectedSize(planPartitions.size());
         for (final PlanPartition planPartition : planPartitions) {
-            final Ordering pulledUpOrdering = quantifier instanceof Quantifier.Existential ? Ordering.empty() : pullUpFn.apply(planPartition.getPartitionPropertyValue(OrderingProperty.ordering()));
+            final Ordering pulledUpOrdering
+                    = quantifier instanceof Quantifier.Scalar
+                      ? Ordering.empty()
+                      : pullUpFn.apply(planPartition.getPartitionPropertyValue(OrderingProperty.ordering()));
             final Ordering ordering = prefix.isEmpty() ? pulledUpOrdering : Ordering.concatOrderings(prefix, pulledUpOrdering);
             if (ordering.satisfies(requestedOrdering)) {
                 satisfyingOrdering.add(planPartition);

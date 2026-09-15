@@ -203,11 +203,11 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
                                     ImmutableList.toImmutableList()));
 
             //
-            // Note that this works because there is only one for-each and potentially 0 - n existential quantifiers
-            // that are covered by the match partition. Even though that logically forms a join, the existential
+            // Note that this works because there is only one for-each and potentially 0–n scalar quantifiers
+            // that are covered by the match partition. Even though that logically forms a join, the scalar
             // quantifiers do not mutate the result of the join, they only cause filtering, that is, the resulting
             // record is exactly what the for each quantifier produced filtered by the predicates expressed on the
-            // existential quantifiers.
+            // scalar quantifiers.
             //
             for (final var matchPartitionEntry : matchPartitionsForAliasesByPredicates.entrySet()) {
                 final var matchPartition = matchPartitionEntry.getValue();
