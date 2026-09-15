@@ -51,4 +51,6 @@ public interface Visitor {
     void visit(@Nonnull InvokedRoutine invokedRoutine);
 
     void visit(@Nonnull View view);
+
+    void visit(@Nonnull DataType auxiliaryType);
 }
