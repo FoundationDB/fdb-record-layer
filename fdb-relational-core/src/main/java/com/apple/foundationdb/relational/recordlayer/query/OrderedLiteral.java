@@ -77,10 +77,9 @@ public class OrderedLiteral {
     private final Optional<String> scope;
 
     /**
-     * Whether this literal carries no value at all, as opposed to carrying the value {@code NULL}. A value-free
-     * literal reserves its constant id and declares its {@link #type}, but contributes no binding to the evaluation
-     * context (see {@link Literals#asBindings()}), which is what leaves the constant id unbound. This is how a typed
-     * parameter is planned when no value is known yet, e.g. a declared stored query parameter at warm-up.
+     * Whether this literal carries no value at all, as opposed to carrying the value {@code NULL}. It reserves its
+     * constant id and declares its {@link #type}, but contributes no binding (see {@link Literals#asBindings()}), which
+     * is what leaves the constant id unbound.
      */
     private final boolean valueFree;
 
@@ -183,12 +182,10 @@ public class OrderedLiteral {
     }
 
     /**
-     * Returns whether this literal is the identical literal to {@code other}, i.e. the same constant id filled the
-     * same way. This is <em>not</em> a comparison of values for the purpose of deduplication — that is keyed on the
-     * literal object itself, see {@link Literals.Builder#getFirstValueDuplicateMaybe}. It is used when importing a
-     * literal table into another one, to assert that a literal landing on an already-occupied constant id is the one
-     * already there and can therefore be skipped. Two value-free literals at the same constant id are identical;
-     * a value-free literal and one bound to {@code NULL} are not, even though both have a null literal object.
+     * Returns whether this literal is the identical literal to {@code other}: the same constant id filled the same way.
+     * Not a comparison of values for deduplication, which is keyed on the literal object — see
+     * {@link Literals.Builder#getFirstValueDuplicateMaybe}. A value-free literal and one bound to {@code NULL} are not
+     * identical, even though both have a null literal object.
      *
      * @param other the literal to compare against
      * @return {@code true} if the two are the identical literal
@@ -204,8 +201,8 @@ public class OrderedLiteral {
     @Override
     public String toString() {
         if (valueFree) {
-            // No value to show, so show the declared type in its place, e.g. "?param_a:{LONG}@c12". The constant id is
-            // rendered rather than the bare token index, since that is what a Missing binding message reports.
+            // The declared type stands in for the value, and the constant id is rendered because that is what a
+            // missing-binding message reports: "?param_a:{LONG}@c12".
             return "?" + parameterName + ":{" + type + "}@" + getConstantId();
         }
         return parameterName != null ?
@@ -217,9 +214,8 @@ public class OrderedLiteral {
 
     @Nonnull
     TypedQueryArgument toProto(@Nonnull final PlanSerializationContext serializationContext, int literalTableIndex) {
-        // A value-free literal cannot be serialized: the wire format encodes a missing value as an unset (or empty)
-        // LiteralObject, which fromProto() reconstructs as a literal bound to NULL. Reaching here means a warm-up
-        // context leaked into execution, since only warm-up produces value-free literals and it never continues a query.
+        // The wire format encodes a missing value as an unset LiteralObject, which fromProto() reads back as bound to
+        // NULL. Reaching here means a warm-up context leaked into execution.
         Assert.thatUnchecked(!isValueFree(), ErrorCode.INTERNAL_ERROR, "attempt to serialize a value-free literal");
         final var type = getType();
         final var argumentBuilder = TypedQueryArgument.newBuilder()
@@ -262,8 +258,7 @@ public class OrderedLiteral {
 
     /**
      * Creates a value-free literal for a named parameter: it reserves the constant id and declares the type, but
-     * carries no value and therefore contributes no binding. Only named parameters can be value-free today, since the
-     * sole producer is a declared stored query parameter warmed with no value.
+     * contributes no binding.
      *
      * @param type the declared type of the parameter
      * @param parameterName the name of the parameter
