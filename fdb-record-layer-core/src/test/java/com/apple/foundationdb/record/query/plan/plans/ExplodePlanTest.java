@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpr
 import com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -151,6 +152,36 @@ public class ExplodePlanTest {
                                       @Nonnull final List<Integer> expectedResult,
                                       boolean shouldReachLimit) {
         verifyCursor(actualCursorBuilder.build(), expectedResult, shouldReachLimit);
+    }
+
+    /**
+     * The ordinals an explode flows are 0-based. SQL {@code AT} is 1-based, so the SQL layer adds the one when it binds
+     * the {@code AT} alias -- which means the yamsql tests only ever observe the adjusted ordinals. This asserts what
+     * the plan itself produces.
+     */
+    @Test
+    @SuppressWarnings("DataFlowIssue") // explode transposes a constant array Value, it does not need a record store.
+    void explodeWithOrdinalityFlowsZeroBasedOrdinals() {
+        final var elements = List.of(100, 200, 300);
+        final var plan = new RecordQueryExplodePlan(LiteralValue.ofList(elements), true);
+        final var resultType = plan.getExplodeResultType();
+
+        // The plan builds a `DynamicMessage` of its result type, so that type has to be resolvable at run time.
+        final var typeRepository = TypeRepository.newBuilder().addTypeIfNeeded(resultType).build();
+        final var cursor = plan.executePlan(null, EvaluationContext.forTypeRepository(typeRepository), null,
+                ExecuteProperties.newBuilder().build());
+
+        final var descriptor = Objects.requireNonNull(typeRepository.getMessageDescriptor(resultType));
+        final var elementField = descriptor.getFields().get(0);
+        final var ordinalField = descriptor.getFields().get(1);
+        for (int i = 0; i < elements.size(); i++) {
+            final var result = cursor.getNext();
+            Assertions.assertTrue(result.hasNext());
+            final var message = Objects.requireNonNull(result.get()).getMessage();
+            Assertions.assertEquals(elements.get(i), message.getField(elementField));
+            Assertions.assertEquals(i, message.getField(ordinalField), "ordinals must be 0-based");
+        }
+        Assertions.assertFalse(cursor.getNext().hasNext());
     }
 
     @Test

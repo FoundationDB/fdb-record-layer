@@ -324,9 +324,11 @@ public class LogicalOperator {
             attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(elementType),
                     FieldValue.ofOrdinalNumber(flowedObjectValue, 0)));
             // The explode flows 0-based ordinals. SQL `AT` is 1-based per the standard.
-            final Value oneBasedOrdinal = new ArithmeticValue(ArithmeticValue.PhysicalOperator.ADD_II,
-                    FieldValue.ofOrdinalNumber(flowedObjectValue, 1),
-                    new LiteralValue<>(Type.primitiveType(Type.TypeCode.INT, false), 1));
+            // TODO: `ArithmeticValue` reports a nullable result type even when both of its operands are not nullable,
+            //       so the sum is nullable while the `AT` column is declared not-nullable. See issue below.
+            final Value oneBasedOrdinal = (Value)new ArithmeticValue.AddFn()
+                    .encapsulate(CallSiteArguments.ofPositional(FieldValue.ofOrdinalNumber(flowedObjectValue, 1),
+                            LiteralValue.ofScalar(1)));
             attributesBuilder.add(new Expression(atAlias, DataType.Primitives.INTEGER.type(), oneBasedOrdinal));
         } else if (flowedObjectType.isPrimitive()) {
             attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(explode.getExplodeResultType()),
