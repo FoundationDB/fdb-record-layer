@@ -504,12 +504,9 @@ class ExpressionTests {
     }
 
     /**
-     * {@link Expression#dereferenced} substitutes a constant's value so that expressions can be compared structurally,
-     * which is how {@code GROUP BY} validation decides whether an output expression is composable from the grouping
-     * expressions. A value-free constant has no value to substitute, and folding it anyway would collapse every
-     * value-free parameter of a given type onto the same {@code NULL} literal — at which point an output expression
-     * referencing one parameter would look composable from a grouping expression referencing a different one, and an
-     * invalid query would be accepted.
+     * {@link Expression#dereferenced} substitutes a constant's value so expressions can be compared structurally, which
+     * is how {@code GROUP BY} validation works. Folding a value-free constant anyway would collapse every value-free
+     * parameter of a type onto the same {@code NULL} literal, and an invalid query would be accepted.
      */
     @Test
     void dereferencedLeavesValueFreeConstantsUnfolded() {
