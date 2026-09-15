@@ -1,0 +1,69 @@
+#
+# repeated-field-query-prefix-repeated-nested.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBRepeatedFieldQueryTest.testPrefixRepeatedNested` (:741) — the nested-field version of
+# testPrefixRepeated. An index of `concat(header.path, repeated_int FanOut)` cannot serve a query that
+# constrains only `header.path`.
+#
+# The source asserts `predicatesFilterPlan(typeFilterPlan(scanPlan()))` with
+# `header.path STARTS_WITH "b"` (:788-790), and rows [2, 3] (:797).
+#
+# Own file: TestRecordsWithHeader, with the primary key the source sets, `header.rec_no` (:744).
+#
+# `startsWith("b")` becomes `LIKE 'b%'`. That is the documented divergence — core plans a prefix range,
+# SQL a residual filter — but it is invisible here, since the source also asserts a residual filter.
+#
+# Data is the source's three records (:752-777) verbatim; STR_VALUE and HEADER.NUM are left unset as in
+# the source, and REPEATED_INT is written as [] rather than omitted for REC_NO 1.
+#
+# Lost: plan hashes.
+---
+schema_template:
+    create type as struct header_record(rec_no bigint, path string, num integer)
+    create table my_record(
+        header header_record,
+        str_value string,
+        repeated_int bigint array,
+        primary key(header.rec_no))
+    create index fanout_index as
+        select r.header.path, sq.v from my_record as r, (select v from r.repeated_int as v) sq
+        order by r.header.path, sq.v
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_RECORD (HEADER, REPEATED_INT)
+             VALUES
+               ((1, 'foo', null), []),
+               ((2, 'bar', null), [1000, 2000]),
+               ((3, 'baz', null), [1000, 2000, 3000])
+---
+test_block:
+  name: repeated-field-query-prefix-repeated-nested
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testPrefixRepeatedNested
+      - query: select * from my_record where header.path like 'b%'
+      - explain: "SCAN(<,>) | TFILTER MY_RECORD | FILTER _.HEADER.PATH LIKE @c9 ESCAPE 'null'"
+      - result: [{HEADER: {REC_NO: 2, PATH: 'bar', NUM: !null _}, STR_VALUE: !null _,
+                  REPEATED_INT: [1000, 2000]},
+                 {HEADER: {REC_NO: 3, PATH: 'baz', NUM: !null _}, STR_VALUE: !null _,
+                  REPEATED_INT: [1000, 2000, 3000]}]
+...

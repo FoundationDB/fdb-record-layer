@@ -1,0 +1,18 @@
+or-query-to-union-compound-pk-ordered:
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed = 1 or
+        num_value_3_indexed = 3 order by num_value_3_indexed
+    ref: or-query-to-union-compound-pk-ordered.yamsql:57
+    explain: 'COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c7 AS
+        INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], STR_VALUE_INDEXED:
+        KEY:[1]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c11
+        AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], NUM_VALUE_UNIQUE: KEY:[2], STR_VALUE_INDEXED:
+        KEY:[1]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.STR_VALUE_INDEXED, _.NUM_VALUE_UNIQUE)
+        | FETCH'
+    task_count: 2413
+    task_total_time_ms: 18
+    transform_count: 421
+    transform_time_ms: 7
+    transform_yield_count: 144
+    insert_time_ms: 1
+    insert_new_count: 257
+    insert_reused_count: 26

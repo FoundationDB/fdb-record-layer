@@ -1,0 +1,15 @@
+nested-field-query-complex:
+-   query: EXPLAIN select * from restaurant_record as r where r.name = 'something'
+        and r.name = 'something' and r.rest_no = 1 and exists (select 1 from r.reviews
+        as rv where rv.reviewer = 10 and rv.rating = 20)
+    ref: nested-field-query-complex.yamsql:83
+    explain: ISCAN(COMPLEX [EQUALS promote(@c11 AS STRING), EQUALS promote(@c23 AS
+        LONG), EQUALS promote(@c40 AS LONG), EQUALS promote(@c46 AS INT)])
+    task_count: 1059
+    task_total_time_ms: 27
+    transform_count: 289
+    transform_time_ms: 15
+    transform_yield_count: 93
+    insert_time_ms: 1
+    insert_new_count: 130
+    insert_reused_count: 5

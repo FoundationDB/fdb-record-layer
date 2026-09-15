@@ -1,0 +1,133 @@
+or-query-to-union-ordered:
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'odd'
+        and (num_value_2 = 0 or num_value_2 = 2) order by num_value_3_indexed
+    ref: or-query-to-union-ordered.yamsql:61
+    explain: 'COVERING(MULTI_INDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c12
+        AS INT)] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[2], REC_NO: KEY:[3],
+        STR_VALUE_INDEXED: KEY:[0]]) ∪ COVERING(MULTI_INDEX [EQUALS promote(@c7 AS
+        STRING), EQUALS promote(@c16 AS INT)] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[2], REC_NO: KEY:[3], STR_VALUE_INDEXED: KEY:[0]]) COMPARE BY (_.NUM_VALUE_3_INDEXED,
+        _.NUM_VALUE_2, _.REC_NO) | FETCH'
+    task_count: 948
+    task_total_time_ms: 22
+    transform_count: 231
+    transform_time_ms: 13
+    transform_yield_count: 94
+    insert_time_ms: 1
+    insert_new_count: 108
+    insert_reused_count: 13
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'odd'
+        or str_value_indexed = 'even' order by num_value_2
+    ref: or-query-to-union-ordered.yamsql:103
+    explain: 'COVERING(MULTI_INDEX [EQUALS promote(@c7 AS STRING)] -> [NUM_VALUE_2:
+        KEY:[1], NUM_VALUE_3_INDEXED: KEY:[2], REC_NO: KEY:[3], STR_VALUE_INDEXED:
+        KEY:[0]]) ∪ COVERING(MULTI_INDEX [EQUALS promote(@c11 AS STRING)] -> [NUM_VALUE_2:
+        KEY:[1], NUM_VALUE_3_INDEXED: KEY:[2], REC_NO: KEY:[3], STR_VALUE_INDEXED:
+        KEY:[0]]) COMPARE BY (_.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED, _.STR_VALUE_INDEXED,
+        _.REC_NO) | FETCH'
+    task_count: 690
+    task_total_time_ms: 14
+    transform_count: 184
+    transform_time_ms: 8
+    transform_yield_count: 79
+    insert_time_ms: 0
+    insert_new_count: 62
+    insert_reused_count: 8
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'odd'
+        or num_value_3_indexed = 0 order by rec_no desc
+    ref: or-query-to-union-ordered.yamsql:211
+    explain: 'COVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)]
+        REVERSE -> [REC_NO: KEY:[1], STR_VALUE_INDEXED: KEY:[0]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [EQUALS promote(@c11 AS INT)] REVERSE -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO:
+        KEY:[1]]) COMPARE BY (_.REC_NO) | FETCH'
+    task_count: 930
+    task_total_time_ms: 16
+    transform_count: 221
+    transform_time_ms: 9
+    transform_yield_count: 87
+    insert_time_ms: 0
+    insert_new_count: 102
+    insert_reused_count: 16
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed = 0 or
+        str_value_indexed = 'odd' order by rec_no desc
+    ref: or-query-to-union-ordered.yamsql:276
+    explain: 'COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c7 AS
+        INT)] REVERSE -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) ∪ COVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED
+        [EQUALS promote(@c11 AS STRING)] REVERSE -> [REC_NO: KEY:[1], STR_VALUE_INDEXED:
+        KEY:[0]]) COMPARE BY (_.REC_NO) | FETCH'
+    task_count: 930
+    task_total_time_ms: 15
+    transform_count: 221
+    transform_time_ms: 9
+    transform_yield_count: 87
+    insert_time_ms: 1
+    insert_new_count: 102
+    insert_reused_count: 16
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'odd'
+        or num_value_3_indexed = 0 or num_value_3_indexed = 3
+    ref: or-query-to-union-ordered.yamsql:341
+    explain: 'COVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)]
+        -> [REC_NO: KEY:[1], STR_VALUE_INDEXED: KEY:[0]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]])
+        ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c15 AS INT)]
+        -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) COMPARE BY (_.REC_NO)
+        | FETCH'
+    task_count: 7527
+    task_total_time_ms: 88
+    transform_count: 1183
+    transform_time_ms: 34
+    transform_yield_count: 342
+    insert_time_ms: 7
+    insert_new_count: 888
+    insert_reused_count: 62
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed = 3 or
+        num_value_3_indexed = 0 or str_value_indexed = 'odd'
+    ref: or-query-to-union-ordered.yamsql:415
+    explain: 'COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c7 AS
+        INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]])
+        ∪ COVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c15 AS STRING)]
+        -> [REC_NO: KEY:[1], STR_VALUE_INDEXED: KEY:[0]]) COMPARE BY (_.REC_NO) |
+        FETCH'
+    task_count: 7537
+    task_total_time_ms: 81
+    transform_count: 1183
+    transform_time_ms: 33
+    transform_yield_count: 342
+    insert_time_ms: 7
+    insert_new_count: 887
+    insert_reused_count: 64
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        and num_value_2 = 0 and (num_value_3_indexed = 0 or (num_value_3_indexed >=
+        2 and num_value_3_indexed <= 3))
+    ref: or-query-to-union-ordered.yamsql:492
+    explain: 'COVERING(MULTI_INDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11
+        AS INT), EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED:
+        KEY:[2], REC_NO: KEY:[3], STR_VALUE_INDEXED: KEY:[0]]) ∪ COVERING(MULTI_INDEX
+        [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS INT), [GREATER_THAN_OR_EQUALS
+        promote(@c22 AS INT) && LESS_THAN_OR_EQUALS promote(@c27 AS INT)]] -> [NUM_VALUE_2:
+        KEY:[1], NUM_VALUE_3_INDEXED: KEY:[2], REC_NO: KEY:[3], STR_VALUE_INDEXED:
+        KEY:[0]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH'
+    task_count: 8192
+    task_total_time_ms: 110
+    transform_count: 1420
+    transform_time_ms: 52
+    transform_yield_count: 496
+    insert_time_ms: 7
+    insert_new_count: 1289
+    insert_reused_count: 116
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'odd'
+        or num_value_3_indexed = 0
+    ref: or-query-to-union-ordered.yamsql:508
+    explain: 'COVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)]
+        -> [REC_NO: KEY:[1], STR_VALUE_INDEXED: KEY:[0]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]])
+        COMPARE BY (_.REC_NO) | FETCH'
+    task_count: 3499
+    task_total_time_ms: 39
+    transform_count: 625
+    transform_time_ms: 19
+    transform_yield_count: 215
+    insert_time_ms: 2
+    insert_new_count: 468
+    insert_reused_count: 45

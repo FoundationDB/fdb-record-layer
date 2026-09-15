@@ -1,0 +1,65 @@
+#
+# covering-index-header-compound-pk.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBCoveringIndexQueryTest.coveringWithHeader` — when the primary key is the compound
+# `(header.path, header.rec_no)`, both of those nested columns end up in every index, so an index on
+# STR_VALUE alone is covering for a query that projects them.
+#
+# Its own file because the primary key differs from covering-index-header.yamsql. This is the one
+# header test that populates the store, so the results are real.
+---
+schema_template:
+    create type as struct header_record(rec_no bigint, path string, num integer)
+    create table my_record(header header_record, str_value string, repeated_int bigint array,
+        primary key(header.path, header.rec_no))
+    create index my_record_str_value as select str_value from my_record
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_RECORD (HEADER, STR_VALUE)
+             VALUES ((1, 'a', 0), 'lynx'),
+                    ((2, 'a', 1), 'bobcat'),
+                    ((3, 'a', 2), 'panther'),
+                    ((1, 'b', 3), 'jaguar'),
+                    ((2, 'b', 4), 'leopard'),
+                    ((3, 'b', 5), 'lion'),
+                    ((4, 'b', 6), 'tiger')
+---
+test_block:
+  name: covering-index-header-compound-pk
+  preset: single_repetition_ordered
+  tests:
+    -
+      # coveringWithHeader
+      - query: select header.rec_no from my_record where str_value = 'lion'
+      - explain: "COVERING(MY_RECORD_STR_VALUE [EQUALS promote(@c9 AS STRING)] -> [STR_VALUE: KEY:[0], HEADER: [PATH: KEY:[1], REC_NO: KEY:[2]]]) | MAP (_.HEADER.REC_NO AS REC_NO)"
+      - result: [{REC_NO: 3}]
+    -
+      # coveringWithHeader
+      # A prefix predicate over the same covering index, projecting both primary-key columns and the
+      # indexed column. The source asserts the order [(b, 2), (b, 3), (a, 1)] — i.e. STR_VALUE order
+      # leopard, lion, lynx.
+      - query: select header.path, header.rec_no, str_value from my_record
+               where str_value like 'l%'
+      - explain: "COVERING(MY_RECORD_STR_VALUE <,> -> [STR_VALUE: KEY:[0], HEADER: [PATH: KEY:[1], REC_NO: KEY:[2]]]) | FILTER _.STR_VALUE LIKE @c15 ESCAPE 'null' | MAP (_.HEADER.PATH AS PATH, _.HEADER.REC_NO AS REC_NO, _.STR_VALUE AS STR_VALUE)"
+      - result: [{PATH: 'b', REC_NO: 2, STR_VALUE: 'leopard'},
+                 {PATH: 'b', REC_NO: 3, STR_VALUE: 'lion'},
+                 {PATH: 'a', REC_NO: 1, STR_VALUE: 'lynx'}]
+...

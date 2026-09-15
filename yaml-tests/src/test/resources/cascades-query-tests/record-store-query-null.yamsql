@@ -1,0 +1,71 @@
+#
+# record-store-query-null.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBRecordStoreQueryTest.nullQuery` — an inequality on a column that is NULL in one row
+# must not match that row, and `IS NOT NULL` must match exactly the rows that do have a value.
+#
+# Its own file for the *data*: the index set is bare `test_records_1.proto`
+# (`openSimpleRecordStore` with no hook), as in the `-even-odd`, `-continuation` and `-exclude-null`
+# siblings, but the store here holds three hand-written rows rather than a hundred generated ones.
+# The third has no STR_VALUE_INDEXED, which is what both queries turn on.
+#
+# `Query.field(...).notEquals("yes")` and SQL's `<> 'yes'` agree on the NULL row: the record layer
+# drops it, and under three-valued logic `NULL <> 'yes'` is UNKNOWN and therefore not true. So the
+# first query returns one row, matching the source's count of 1.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: |
+        INSERT INTO MY_SIMPLE_RECORD
+          (REC_NO, STR_VALUE_INDEXED, NUM_VALUE_UNIQUE, NUM_VALUE_2, NUM_VALUE_3_INDEXED, REPEATER)
+        VALUES
+          (1, 'yes', 1, null, null, []),
+          (2, 'no', 2, null, null, []),
+          (3, null, 3, null, null, [])
+---
+test_block:
+  name: record-store-query-null
+  preset: single_repetition_ordered
+  tests:
+    -
+      # nullQuery — first query. One row, so the sequence is trivially determined.
+      - query: select * from my_simple_record where str_value_indexed <> 'yes'
+      - explain: "COVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,> -> [REC_NO: KEY:[1], STR_VALUE_INDEXED: KEY:[0]]) | FILTER _.STR_VALUE_INDEXED NOT_EQUALS promote(@c8 AS STRING) | FETCH"
+      - result: [{REC_NO: 2, STR_VALUE_INDEXED: 'no', NUM_VALUE_UNIQUE: 2, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []}]
+    -
+      # nullQuery — second query.
+      - query: select * from my_simple_record where str_value_indexed is not null
+      - explain: "ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED ([null],>)"
+      - unorderedResult: [{REC_NO: 1, STR_VALUE_INDEXED: 'yes', NUM_VALUE_UNIQUE: 1, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []},
+                          {REC_NO: 2, STR_VALUE_INDEXED: 'no', NUM_VALUE_UNIQUE: 2, NUM_VALUE_2: !null _, NUM_VALUE_3_INDEXED: !null _, REPEATER: []}]
+...

@@ -1,0 +1,15 @@
+covering-index-additional-filter:
+-   query: EXPLAIN select num_value_3_indexed from my_simple_record where num_value_3_indexed
+        < 1 and num_value_2 < 2
+    ref: covering-index-additional-filter.yamsql:54
+    explain: 'COVERING(MULTI_INDEX [[LESS_THAN promote(@c7 AS INT)]] -> [NUM_VALUE_2:
+        KEY:[1], NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2]]) | FILTER _.NUM_VALUE_2
+        LESS_THAN promote(@c11 AS INT) | MAP (_.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED)'
+    task_count: 817
+    task_total_time_ms: 8
+    transform_count: 198
+    transform_time_ms: 3
+    transform_yield_count: 64
+    insert_time_ms: 0
+    insert_new_count: 96
+    insert_reused_count: 9

@@ -1,0 +1,13 @@
+sparse-index-implied:
+-   query: EXPLAIN select num_value_2 from my_simple_record where num_value_2 > 50
+    ref: sparse-index-implied.yamsql:60
+    explain: 'COVERING(SPARSE_INDEX [[GREATER_THAN promote(@c7 AS INT)]] -> [NUM_VALUE_2:
+        KEY:[0], REC_NO: KEY:[1]]) | MAP (_.NUM_VALUE_2 AS NUM_VALUE_2)'
+    task_count: 784
+    task_total_time_ms: 8
+    transform_count: 207
+    transform_time_ms: 3
+    transform_yield_count: 68
+    insert_time_ms: 0
+    insert_new_count: 90
+    insert_reused_count: 8

@@ -1,0 +1,84 @@
+#
+# ordering-query.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBOrderingQueryTest` — planning and executing queries whose required ordering is
+# expressed with a non-default direction/null placement.
+#
+# The source builds the ordering with a `function("order_desc_nulls_last", ...)` key expression;
+# the SQL equivalent is `ORDER BY ... DESC NULLS LAST` in the index definition, which produces the
+# same `to_ordered_bytes` index key. The source hooks also *remove*
+# `MySimpleRecord$str_value_indexed`, so it is absent from this template.
+#
+# `testSortOnly` and `testSortAndFilter` are not ported: they are `@ParameterizedTest` without
+# `@DualPlannerTest`, so they only exercise the old planner.
+#
+# `testUnionOrdered2` and `testUnionOrdered3` need a second index and live in
+# ordering-query-two-indexes.yamsql.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index ordered_str_value as select num_value_2, str_value_indexed from my_simple_record
+        order by num_value_2 asc, str_value_indexed desc nulls last
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_SIMPLE_RECORD (REC_NO, NUM_VALUE_2, STR_VALUE_INDEXED)
+             VALUES (1, 100, 'something'),
+                    (2, 101, null),
+                    (3, 101, 'a'),
+                    (4, 101, 'ab'),
+                    (5, 101, 'b'),
+                    (6, 102, 'nothing')
+---
+test_block:
+  name: ordering-query
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testUnionOrdered — an OR over the leading index column becomes an ordered union whose
+      # comparison key includes the DESC NULLS LAST ordering of STR_VALUE_INDEXED.
+      - query: select * from my_simple_record
+               where num_value_2 = 100 or num_value_2 = 101 or num_value_2 = 102
+               order by num_value_2 asc, str_value_indexed desc nulls last
+      - explain: "ISCAN(ORDERED_STR_VALUE [EQUALS promote(@c7 AS INT)]) ∪ ISCAN(ORDERED_STR_VALUE [EQUALS promote(@c11 AS INT)]) ∪ ISCAN(ORDERED_STR_VALUE [EQUALS promote(@c15 AS INT)]) COMPARE BY (_.NUM_VALUE_2, to_ordered_bytes(_.STR_VALUE_INDEXED, DESC_NULLS_LAST), _.REC_NO)"
+      - result: [{REC_NO: 1, STR_VALUE_INDEXED: 'something', NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 100, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 5, STR_VALUE_INDEXED: 'b', NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 101, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 4, STR_VALUE_INDEXED: 'ab', NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 101, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 3, STR_VALUE_INDEXED: 'a', NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 101, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 2, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 101, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 6, STR_VALUE_INDEXED: 'nothing', NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 102, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _}]
+    -
+      # testCoveringOrdered — the projection needs only STR_VALUE_INDEXED, which ORDERED_STR_VALUE
+      # carries, so the plan should be covering. The ORDER BY is the source's `fullOrderingKey`.
+      - query: select str_value_indexed from my_simple_record
+               where num_value_2 = 101 and str_value_indexed > 'a'
+               order by num_value_2 asc, str_value_indexed desc nulls last
+      - explain: "COVERING(ORDERED_STR_VALUE [EQUALS promote(@c7 AS INT), [LESS_THAN to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_LAST)]] -> [NUM_VALUE_2: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED: from_ordered_bytes(KEY:[1], DESC_NULLS_LAST)]) | MAP (_.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.NUM_VALUE_2 AS NUM_VALUE_2) | MAP (_.STR_VALUE_INDEXED AS STR_VALUE_INDEXED)"
+      - result: [{STR_VALUE_INDEXED: 'b'}, {STR_VALUE_INDEXED: 'ab'}]
+...

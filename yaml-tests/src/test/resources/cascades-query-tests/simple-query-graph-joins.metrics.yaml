@@ -1,0 +1,92 @@
+simple-query-graph-joins:
+-   query: EXPLAIN select rv.name as reviewerName, sq.rating as reviewRating from
+        restaurant_record as r, (select reviewer, rating from r.reviews) sq, restaurant_reviewer
+        as rv where r.name = 'name'
+    ref: simple-query-graph-joins.yamsql:120
+    explain: ISCAN(RESTAURANT_RECORD_NAME [EQUALS promote(@c37 AS STRING)]) | FLATMAP
+        q0 -> { EXPLODE q0.REVIEWS AS q1 RETURN q1 } | FLATMAP q1 -> { ISCAN(RESTAURANT_REVIEWER_NAME
+        <,>) AS q3 RETURN (q3.NAME AS REVIEWERNAME, q1.RATING AS REVIEWRATING) }
+    task_count: 734
+    task_total_time_ms: 14
+    transform_count: 222
+    transform_time_ms: 8
+    transform_yield_count: 80
+    insert_time_ms: 0
+    insert_new_count: 98
+    insert_reused_count: 3
+-   query: EXPLAIN select rv.name as reviewerName, sq.rating as reviewRating from
+        restaurant_record as r, (select reviewer, rating from r.reviews) sq, restaurant_reviewer
+        as rv where r.name = 'name' and rv.id = sq.reviewer
+    ref: simple-query-graph-joins.yamsql:130
+    explain: ISCAN(RESTAURANT_RECORD_NAME [EQUALS promote(@c37 AS STRING)]) | FLATMAP
+        q0 -> { EXPLODE q0.REVIEWS | FLATMAP q1 -> { SCAN([EQUALS q1.REVIEWER]) |
+        TFILTER RESTAURANT_REVIEWER | MAP (_ AS _0, q1 AS _1) AS q2 RETURN q2 } AS
+        q3 RETURN (q3._0.NAME AS REVIEWERNAME, q3._1.RATING AS REVIEWRATING) }
+    task_count: 1386
+    task_total_time_ms: 25
+    transform_count: 429
+    transform_time_ms: 13
+    transform_yield_count: 113
+    insert_time_ms: 1
+    insert_new_count: 187
+    insert_reused_count: 15
+-   query: EXPLAIN select rv.name as reviewerName, sq.rating as reviewRating from
+        restaurant_record as r, (select reviewer, rating from r.reviews) sq, restaurant_reviewer
+        as rv where r.name = 'name' and rv.id = sq.reviewer
+    ref: simple-query-graph-joins.yamsql:140
+    explain: ISCAN(RESTAURANT_RECORD_NAME [EQUALS promote(@c37 AS STRING)]) | FLATMAP
+        q0 -> { EXPLODE q0.REVIEWS | FLATMAP q1 -> { SCAN([EQUALS q1.REVIEWER]) |
+        TFILTER RESTAURANT_REVIEWER | MAP (_ AS _0, q1 AS _1) AS q2 RETURN q2 } AS
+        q3 RETURN (q3._0.NAME AS REVIEWERNAME, q3._1.RATING AS REVIEWRATING) }
+    task_count: 1386
+    task_total_time_ms: 25
+    transform_count: 429
+    transform_time_ms: 13
+    transform_yield_count: 113
+    insert_time_ms: 1
+    insert_new_count: 187
+    insert_reused_count: 15
+-   query: EXPLAIN select rv1.name as reviewer1Name, rv2.name as reviewer2Name, r.name
+        as restaurantName, r.rest_no as restaurantNo from restaurant_reviewer as rv1,
+        restaurant_reviewer as rv2, restaurant_record as r where exists (select 1
+        from r.reviews as x where x.reviewer = rv1.id) and exists (select 1 from r.reviews
+        as y where y.reviewer = rv2.id)
+    ref: simple-query-graph-joins.yamsql:151
+    explain: ISCAN(RESTAURANT_RECORD_NAME <,>) | FLATMAP q0 -> { ISCAN(RESTAURANT_REVIEWER_NAME
+        <,>) | FLATMAP q1 -> { ISCAN(RESTAURANT_REVIEWER_NAME <,>) | FLATMAP q2 ->
+        { EXPLODE q0.REVIEWS | FILTER _.REVIEWER EQUALS q2.ID | MAP (@c40 AS _0) |
+        DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q3 -> { EXPLODE q0.REVIEWS | FILTER
+        _.REVIEWER EQUALS q1.ID | MAP (@c40 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL
+        AS q4 RETURN (1 AS _0) } AS q5 RETURN q2 } AS q2 RETURN (q2 AS _0, q1 AS _1)
+        } AS q7 RETURN (q7._0.NAME AS REVIEWER1NAME, q7._1.NAME AS REVIEWER2NAME,
+        q0.NAME AS RESTAURANTNAME, q0.REST_NO AS RESTAURANTNO) }
+    task_count: 6802
+    task_total_time_ms: 239
+    transform_count: 3482
+    transform_time_ms: 90
+    transform_yield_count: 397
+    insert_time_ms: 60
+    insert_new_count: 1065
+    insert_reused_count: 401
+-   query: EXPLAIN select rv1.name as reviewer1Name, rv2.name as reviewer2Name, r.name
+        as restaurantName, r.rest_no as restaurantNo from restaurant_reviewer as rv1,
+        restaurant_reviewer as rv2, restaurant_record as r where exists (select 1
+        from r.reviews as x where x.reviewer = rv1.id) and exists (select 1 from r.reviews
+        as y where y.reviewer = rv2.id)
+    ref: simple-query-graph-joins.yamsql:169
+    explain: ISCAN(RESTAURANT_RECORD_NAME <,>) | FLATMAP q0 -> { ISCAN(RESTAURANT_REVIEWER_NAME
+        <,>) | FLATMAP q1 -> { ISCAN(RESTAURANT_REVIEWER_NAME <,>) | FLATMAP q2 ->
+        { EXPLODE q0.REVIEWS | FILTER _.REVIEWER EQUALS q2.ID | MAP (@c40 AS _0) |
+        DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q3 -> { EXPLODE q0.REVIEWS | FILTER
+        _.REVIEWER EQUALS q1.ID | MAP (@c40 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL
+        AS q4 RETURN (1 AS _0) } AS q5 RETURN q2 } AS q2 RETURN (q2 AS _0, q1 AS _1)
+        } AS q7 RETURN (q7._0.NAME AS REVIEWER1NAME, q7._1.NAME AS REVIEWER2NAME,
+        q0.NAME AS RESTAURANTNAME, q0.REST_NO AS RESTAURANTNO) }
+    task_count: 6802
+    task_total_time_ms: 239
+    transform_count: 3482
+    transform_time_ms: 90
+    transform_yield_count: 397
+    insert_time_ms: 60
+    insert_new_count: 1065
+    insert_reused_count: 401

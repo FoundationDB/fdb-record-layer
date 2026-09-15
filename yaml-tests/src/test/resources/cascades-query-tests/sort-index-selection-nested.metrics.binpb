@@ -1,0 +1,70 @@
+Ó
+R
+sort-index-selection-nested3EXPLAIN select * from my_record order by header.numó
+¬È∏∑6 ùﬁv(0≥Î8@ISCAN(MY_RECORD_HEADER_NUM <,>)Ÿdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_RECORD_HEADER_NUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}∏	
+h
+sort-index-selection-nestedIEXPLAIN select * from my_record where header.num < 50 order by header.numÀ
+ì’›ÚF £Ãw(0û◊8@=ISCAN(MY_RECORD_HEADER_NUM [[LESS_THAN promote(@c9 AS INT)]])Ôdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c9 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_RECORD_HEADER_NUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¨	
+f
+sort-index-selection-nestedGEXPLAIN select * from my_record where header.num = 1 order by str_value¡
+µ≈Ä≤7 á∫d(0¡Æ
+8@8ISCAN(MY_RECORD_HEADER_NUM [EQUALS promote(@c9 AS INT)])Ídigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_RECORD_HEADER_NUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ù	
+É
+sort-index-selection-nesteddEXPLAIN select * from my_record where header.num is null and str_value > 'middle' order by str_valueÎ
+µÎ¶Ω7 åÛh(0Ã“8@MISCAN(MY_RECORD_HEADER_NUM [IS_NULL, [GREATER_THAN promote(@c13 AS STRING)]])ˇdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [IS_NULL, [GREATER_THAN promote(@c13 AS STRING)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_RECORD_HEADER_NUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ï
+j
+sort-index-selection-nestedKEXPLAIN select * from my_record where header.rec_no > 0 order by header.num˝
+à“ä¿B Õ¶h(0Ì8@µCOVERING(MY_RECORD_HEADER_NUM <,> -> [STR_VALUE: KEY:[1], HEADER: [NUM: KEY:[0], PATH: KEY:[2], REC_NO: KEY:[3]]]) | FILTER _.HEADER.REC_NO GREATER_THAN promote(@c9 AS LONG) | FETCH®digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q32.HEADER.REC_NO GREATER_THAN promote(@c9 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_RECORD_HEADER_NUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  3 -> 2 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q34> label="q34" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}∏
+
+sort-index-selection-nested`EXPLAIN select * from my_record where header.rec_no > 10 and header.num < 50 order by header.num¥
+«∆òîM ö˙é(0∫œ8#@‘COVERING(MY_RECORD_HEADER_NUM [[LESS_THAN promote(@c15 AS INT)]] -> [STR_VALUE: KEY:[1], HEADER: [NUM: KEY:[0], PATH: KEY:[2], REC_NO: KEY:[3]]]) | FILTER _.HEADER.REC_NO GREATER_THAN promote(@c9 AS LONG) | FETCHødigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q43.HEADER.REC_NO GREATER_THAN promote(@c9 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[LESS_THAN promote(@c15 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_RECORD_HEADER_NUM</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  3 -> 2 [ label=<&nbsp;q43> label="q43" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

@@ -1,0 +1,25 @@
+multi-field-index-selection-prefix-scalar:
+-   query: EXPLAIN select * from my_simple_record where num_value_2 = 1
+    ref: multi-field-index-selection-prefix-scalar.yamsql:62
+    explain: ISCAN(PREFIX_SCALAR [EQUALS promote(@c7 AS INT)])
+    task_count: 683
+    task_total_time_ms: 6
+    transform_count: 160
+    transform_time_ms: 3
+    transform_yield_count: 71
+    insert_time_ms: 0
+    insert_new_count: 83
+    insert_reused_count: 7
+-   query: EXPLAIN select * from my_simple_record where num_value_2 = 1 and num_value_3_indexed
+        = 1
+    ref: multi-field-index-selection-prefix-scalar.yamsql:71
+    explain: ISCAN(PREFIX_SCALAR [EQUALS promote(@c7 AS INT), EQUALS promote(@c7 AS
+        INT)])
+    task_count: 743
+    task_total_time_ms: 7
+    transform_count: 168
+    transform_time_ms: 3
+    transform_yield_count: 74
+    insert_time_ms: 0
+    insert_new_count: 89
+    insert_reused_count: 7

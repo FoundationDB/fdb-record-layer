@@ -1,0 +1,23 @@
+sort-index-selection-primary-key:
+-   query: EXPLAIN select * from my_simple_record order by rec_no
+    ref: sort-index-selection-primary-key.yamsql:152
+    explain: SCAN(<,>) | TFILTER MY_SIMPLE_RECORD
+    task_count: 201
+    task_total_time_ms: 2
+    transform_count: 55
+    transform_time_ms: 1
+    transform_yield_count: 31
+    insert_time_ms: 0
+    insert_new_count: 14
+    insert_reused_count: 3
+-   query: EXPLAIN select * from my_simple_record order by rec_no desc
+    ref: sort-index-selection-primary-key.yamsql:256
+    explain: SCAN(<,>) | TFILTER MY_SIMPLE_RECORD
+    task_count: 201
+    task_total_time_ms: 1
+    transform_count: 55
+    transform_time_ms: 1
+    transform_yield_count: 31
+    insert_time_ms: 0
+    insert_new_count: 14
+    insert_reused_count: 3

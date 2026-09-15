@@ -1,0 +1,69 @@
+À
+Œ
+in-query-headeryEXPLAIN select * from my_record where header.rec_no = 1 and header.path in ('String6', 'String1', 'String25', 'String11')®
+È›õ‚ö ‘–‹(E0œÕP8}@_[IN arrayDistinct(@c15)] | INJOIN q0 -> { ISCAN(IND [EQUALS promote(@c9 AS LONG), EQUALS q0]) }®digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS LONG), EQUALS q45]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IND</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c15))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    4 -> 2 [ color="red" style="invis" ];
+  }
+}É
+’
+in-query-headerEXPLAIN select * from my_record where header.rec_no in (1, 4) and header.path in ('String6', 'String25', 'String1', 'String34')±
+ˆˆ½¼¢ Ì°±(‘0†öý8ã@$[IN arrayDistinct(promote(@c9 AS ARRAY(LONG)))] | INJOIN q0 -> { [IN arrayDistinct(@c19)] | INJOIN q1 -> { ISCAN(IND [EQUALS q0, EQUALS q1]) } }üdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c19))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q45, EQUALS q47]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IND</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(promote(@c9 AS ARRAY(LONG))))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    6 -> 2 [ color="red" style="invis" ];
+  }
+}’
+·
+in-query-header£EXPLAIN select * from my_record where header.rec_no in (1, 4) and header.path in ('String6', 'String25', 'String1', 'String34') order by header.rec_no, header.pathÕ
+ÓÿÔ¾¿ áÙ¡(“0íêŒ8·@!ˆ[IN arrayDistinct(promote(@c9 AS ARRAY(LONG))) â‹ˆ IN arrayDistinct(@c19)] INUNION q0, q1 -> { COVERING(IND [EQUALS q0, EQUALS q1] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } COMPARE BY (_.HEADER.REC_NO, _.HEADER.PATH, _.STR_VALUE) | FETCH¨digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_.HEADER.REC_NO, _.HEADER.PATH, _.STR_VALUE)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q36 IN arrayDistinct(promote(@c9 AS ARRAY(LONG))), __corr_q38 IN arrayDistinct(@c19)]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q36, EQUALS q38]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IND</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q209> label="q209" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}
