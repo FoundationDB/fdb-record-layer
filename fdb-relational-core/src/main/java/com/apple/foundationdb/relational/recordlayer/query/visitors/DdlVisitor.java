@@ -524,6 +524,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final ImmutableSet.Builder<RelationalParser.IndexDefinitionContext> indexClauses = ImmutableSet.builder();
         final ImmutableSet.Builder<RelationalParser.SqlInvokedFunctionContext> sqlInvokedFunctionClauses = ImmutableSet.builder();
         final ImmutableSet.Builder<RelationalParser.ViewDefinitionContext> viewClauses = ImmutableSet.builder();
+        final ImmutableSet.Builder<RelationalParser.StoredQueryDefinitionContext> storedQueryClauses = ImmutableSet.builder();
         for (final var templateClause : ctx.templateClause()) {
             if (templateClause.enumDefinition() != null) {
                 metadataBuilder.addAuxiliaryType(visitEnumDefinition(templateClause.enumDefinition()));
@@ -536,25 +537,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             } else if (templateClause.viewDefinition() != null) {
                 viewClauses.add(templateClause.viewDefinition());
             } else if (templateClause.storedQueryDefinition() != null) {
-                final var queryCtx = templateClause.storedQueryDefinition();
-                final var name = visitUid(queryCtx.queryName).getName();
-                final var sourceText = getDelegate().getPlanGenerationContext().getQuery();
-                final var parameters = parseParameterList(queryCtx.storedQueryParameterList(), sourceText);
-                final var preparedCases = parsePreparedCases(queryCtx.storedQueryPreparedCases(),
-                        queryCtx.storedQueryParameterList(), parameters.keySet());
-                final var queryString = rewriteReferencesToParams(sourceText, queryCtx.storedQuery, parameters.keySet());
-                final ImmutableList.Builder<String> tempFunctionTexts = ImmutableList.builder();
-                if (queryCtx.declareBlock() != null) {
-                    for (final var dfCtx : queryCtx.declareBlock().declaredFunction()) {
-                        // The two are indistinguishable in the body, so the rewrite cannot tell them apart.
-                        final var shadowed = Sets.intersection(ownParameterNames(dfCtx), parameters.keySet());
-                        Assert.thatUnchecked(shadowed.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
-                                () -> "declared function parameter " + shadowed
-                                        + " collides with a stored query parameter");
-                        tempFunctionTexts.add(rewriteDeclaredFunctionToStandalone(dfCtx, sourceText, parameters.keySet()));
-                    }
-                }
-                metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts.build(), parameters, preparedCases);
+                storedQueryClauses.add(templateClause.storedQueryDefinition());
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());
@@ -562,6 +545,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         structClauses.build().stream().map(this::visitStructDefinition).map(RecordLayerTable::getDatatype).forEach(metadataBuilder::addAuxiliaryType);
         tableClauses.build().stream().map(this::visitTableDefinition).forEach(metadataBuilder::addTable);
+        storedQueryClauses.build().forEach(this::addStoredQueryToMetadata);
         // TODO: this is currently relying on the lexical order of the function to resolve function dependencies which
         //       is limited.
         sqlInvokedFunctionClauses.build().forEach(functionClause -> {
@@ -937,39 +921,80 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     /**
+     * Adds one stored query to the metadata being built. Called after the template's types and tables are registered,
+     * so a declared parameter type resolves here rather than at warm-up.
+     */
+    private void addStoredQueryToMetadata(@Nonnull final RelationalParser.StoredQueryDefinitionContext queryCtx) {
+        final var name = visitUid(queryCtx.queryName).getName();
+        final var sourceText = getDelegate().getPlanGenerationContext().getQuery();
+        final var parameters = parseParameterList(queryCtx.storedQueryParameterList(), sourceText);
+        final var preparedCases = parsePreparedCases(queryCtx.storedQueryPreparedCases(), parameters.types());
+        final var declaredNames = parameters.declarations().keySet();
+        final var queryString = rewriteReferencesToParams(sourceText, queryCtx.storedQuery, declaredNames);
+        final ImmutableList.Builder<String> tempFunctionTexts = ImmutableList.builder();
+        if (queryCtx.declareBlock() != null) {
+            for (final var dfCtx : queryCtx.declareBlock().declaredFunction()) {
+                // The two are indistinguishable in the body, so the rewrite cannot tell them apart.
+                final var shadowed = Sets.intersection(ownParameterNames(dfCtx), declaredNames);
+                Assert.thatUnchecked(shadowed.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
+                        () -> "declared function parameter " + shadowed
+                                + " collides with a stored query parameter");
+                tempFunctionTexts.add(rewriteDeclaredFunctionToStandalone(dfCtx, sourceText, declaredNames));
+            }
+        }
+        metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts.build(), parameters.declarations(),
+                preparedCases);
+    }
+
+    /**
      * Parses a stored query's parameter list into a map from normalized parameter name to the SQL text of its
-     * declaration. The declaration is kept as source text, not as a resolved type, because it may name a schema
-     * template type that only resolves against the template the query is warmed with.
+     * declaration. The type is resolved here only to check it; the declaration is kept as source text, because warm-up
+     * resolves it again against the template it warms with.
      *
      * @param ctx the parameter list, or {@code null} when the query declares none
      * @param sourceText the full DDL source, for slicing declaration text out of
      * @return the declared parameters, keyed by normalized name, empty if there are none
      */
     @Nonnull
-    private Map<String, String> parseParameterList(@Nullable final RelationalParser.StoredQueryParameterListContext ctx,
-                                               @Nonnull final String sourceText) {
+    private DeclaredParameters parseParameterList(@Nullable final RelationalParser.StoredQueryParameterListContext ctx,
+                                                 @Nonnull final String sourceText) {
         if (ctx == null) {
-            return ImmutableMap.of();
+            return new DeclaredParameters(ImmutableMap.of(), ImmutableMap.of());
         }
-        final var parameters = new LinkedHashMap<String, String>();
+        final var declarations = new LinkedHashMap<String, String>();
+        final var types = new LinkedHashMap<String, DataType>();
         for (final var param : ctx.storedQueryParameter()) {
             final var parameterName = visitUid(param.parameterName).getName();
             Assert.thatUnchecked(BINDABLE_PARAMETER_NAME.matcher(parameterName).matches(), ErrorCode.UNSUPPORTED_QUERY,
                     () -> "stored query parameter '" + parameterName + "' cannot be bound as '?"
                             + parameterName + "'; a parameter name must be a letter followed by letters, digits, "
                             + "'_' or '/'");
-            // Visited for the side effect: a malformed type is reported at CREATE time. A name the template does not
-            // define resolves to a placeholder here and is only caught at warm-up.
-            Assert.notNullUnchecked(visitFunctionColumnType(param.parameterType));
+            // Resolved with the declared nullability rather than through visitFunctionColumnType, which hardcodes
+            // nullable and cannot see the nullNotnull clause beside it.
+            final var typeCtx = param.parameterType;
+            final boolean isNullable = param.nullNotnull() == null || param.nullNotnull().NOT() == null;
+            final var dataType = lookupType(typeCtx.customType, typeCtx.primitiveType(), isNullable,
+                    typeCtx.ARRAY() != null);
+            Assert.thatUnchecked(dataType.isResolved(), ErrorCode.UNKNOWN_TYPE,
+                    () -> "unknown type for stored query parameter '" + parameterName + "'");
             // Sliced from the source, not rebuilt from tokens: the lexer skips whitespace, so `BIGINT ARRAY` would
             // come back as `BIGINTARRAY`.
-            final ParserRuleContext lastCtx = param.nullNotnull() != null ? param.nullNotnull() : param.parameterType;
-            final var declaredType = sourceText.substring(param.parameterType.start.getStartIndex(),
+            final ParserRuleContext lastCtx = param.nullNotnull() != null ? param.nullNotnull() : typeCtx;
+            final var declaredType = sourceText.substring(typeCtx.start.getStartIndex(),
                     lastCtx.stop.getStopIndex() + 1);
-            Assert.thatUnchecked(parameters.put(parameterName, declaredType) == null, ErrorCode.UNSUPPORTED_QUERY,
+            Assert.thatUnchecked(declarations.put(parameterName, declaredType) == null, ErrorCode.UNSUPPORTED_QUERY,
                     () -> "duplicate stored query parameter '" + parameterName + "'");
+            types.put(parameterName, dataType);
         }
-        return ImmutableMap.copyOf(parameters);
+        return new DeclaredParameters(ImmutableMap.copyOf(declarations), ImmutableMap.copyOf(types));
+    }
+
+    /**
+     * The declared parameters of one stored query: the SQL text that is persisted, and the resolved type of each, which
+     * the prepared cases are checked against.
+     */
+    private record DeclaredParameters(@Nonnull Map<String, String> declarations,
+                                      @Nonnull Map<String, DataType> types) {
     }
 
     /**
@@ -984,52 +1009,23 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     private List<Map<String, StoredQuery.ParameterState>> parsePreparedCases(
             @Nullable final RelationalParser.StoredQueryPreparedCasesContext ctx,
-            @Nullable final RelationalParser.StoredQueryParameterListContext parameterListCtx,
-            @Nonnull final Set<String> parameterNames) {
+            @Nonnull final Map<String, DataType> parameterTypes) {
         if (ctx == null) {
-            Assert.thatUnchecked(parameterNames.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
-                    () -> "stored query declaring parameters " + parameterNames + " requires a PREPARE FOR block");
+            Assert.thatUnchecked(parameterTypes.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
+                    () -> "stored query declaring parameters " + parameterTypes.keySet()
+                            + " requires a PREPARE FOR block");
             return ImmutableList.of();
         }
-        Assert.thatUnchecked(parameterListCtx != null && !parameterNames.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
+        Assert.thatUnchecked(!parameterTypes.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
                 () -> "PREPARE FOR requires a parameter list, since it pins the parameters the list declares");
-        final var facts = parameterFactsOf(parameterListCtx);
         final var cases = new ArrayList<Map<String, StoredQuery.ParameterState>>();
         for (final var caseCtx : ctx.storedQueryPreparedCase()) {
-            final var preparedCase = parsePreparedCase(caseCtx, parameterNames, facts);
+            final var preparedCase = parsePreparedCase(caseCtx, parameterTypes);
             Assert.thatUnchecked(!cases.contains(preparedCase), ErrorCode.UNSUPPORTED_QUERY,
                     () -> "duplicate prepared case " + preparedCase);
             cases.add(preparedCase);
         }
         return ImmutableList.copyOf(cases);
-    }
-
-    /**
-     * The facts about the declared parameters that a prepared case has to agree with.
-     *
-     * @param nonNullable the parameters declared {@code NOT NULL}
-     * @param booleans the parameters declared as the primitive {@code BOOLEAN}
-     */
-    private record ParameterFacts(@Nonnull Set<String> nonNullable, @Nonnull Set<String> booleans) {
-    }
-
-    @Nonnull
-    private ParameterFacts parameterFactsOf(@Nonnull final RelationalParser.StoredQueryParameterListContext ctx) {
-        final var nonNullable = ImmutableSet.<String>builder();
-        final var booleans = ImmutableSet.<String>builder();
-        for (final var param : ctx.storedQueryParameter()) {
-            final var parameterName = visitUid(param.parameterName).getName();
-            if (param.nullNotnull() != null && param.nullNotnull().NOT() != null) {
-                nonNullable.add(parameterName);
-            }
-            // BOOLEAN is a primitive, so this reads off the parse tree and needs no type resolution.
-            final var declaredType = param.parameterType;
-            if (declaredType.primitiveType() != null && declaredType.primitiveType().BOOLEAN() != null
-                    && declaredType.ARRAY() == null) {
-                booleans.add(parameterName);
-            }
-        }
-        return new ParameterFacts(nonNullable.build(), booleans.build());
     }
 
     /**
@@ -1039,29 +1035,30 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     private Map<String, StoredQuery.ParameterState> parsePreparedCase(
             @Nonnull final RelationalParser.StoredQueryPreparedCaseContext ctx,
-            @Nonnull final Set<String> parameterNames,
-            @Nonnull final ParameterFacts facts) {
+            @Nonnull final Map<String, DataType> parameterTypes) {
         final var states = new LinkedHashMap<String, StoredQuery.ParameterState>();
         for (final var stateCtx : ctx.storedQueryParameterState()) {
             final var parameterName = visitUid(stateCtx.parameterName).getName();
-            Assert.thatUnchecked(parameterNames.contains(parameterName), ErrorCode.UNSUPPORTED_QUERY,
+            final var declaredType = parameterTypes.get(parameterName);
+            Assert.thatUnchecked(declaredType != null, ErrorCode.UNSUPPORTED_QUERY,
                     () -> "prepared case names '" + parameterName + "', which the parameter list does not declare");
             final var state = parameterStateOf(stateCtx);
-            Assert.thatUnchecked(state != StoredQuery.ParameterState.IS_NULL
-                            || !facts.nonNullable().contains(parameterName),
+            Assert.thatUnchecked(state != StoredQuery.ParameterState.IS_NULL || declaredType.isNullable(),
                     ErrorCode.UNSUPPORTED_QUERY,
                     () -> "prepared case pins '" + parameterName + "' to IS NULL, but the parameter list declares it NOT NULL");
             Assert.thatUnchecked((state != StoredQuery.ParameterState.IS_TRUE
                             && state != StoredQuery.ParameterState.IS_FALSE)
-                            || facts.booleans().contains(parameterName),
+                            || declaredType.getCode() == DataType.Code.BOOLEAN,
                     ErrorCode.UNSUPPORTED_QUERY,
                     () -> "prepared case pins '" + parameterName + "' to a boolean, but the parameter list does not declare it BOOLEAN");
             Assert.thatUnchecked(states.put(parameterName, state) == null, ErrorCode.UNSUPPORTED_QUERY,
                     () -> "prepared case names '" + parameterName + "' more than once");
         }
         // Snapshotted, because Sets.difference is a live view over states.keySet(), which is filled in below.
-        final var unpinned = ImmutableSet.copyOf(Sets.difference(parameterNames, states.keySet()));
-        final var unpinnedNullable = Sets.difference(unpinned, facts.nonNullable());
+        final var unpinned = ImmutableSet.copyOf(Sets.difference(parameterTypes.keySet(), states.keySet()));
+        final var unpinnedNullable = unpinned.stream()
+                .filter(name -> parameterTypes.get(name).isNullable())
+                .collect(ImmutableSet.toImmutableSet());
         Assert.thatUnchecked(unpinnedNullable.isEmpty(), ErrorCode.UNSUPPORTED_QUERY,
                 () -> "prepared case leaves nullable " + unpinnedNullable
                         + " unpinned; a nullable parameter must be pinned to IS NULL or IS NOT NULL");
