@@ -56,6 +56,7 @@ import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.ddl.ThrowingMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.query.AstNormalizer.NormalizationResult.QueryCachingFlags;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PhysicalPlanEquivalence;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
@@ -167,6 +168,7 @@ public final class PlanGenerator {
             RelationalLoggingUtil.publishNormalizeQueryLogs(message, stepTimeMicros(), astHashResult.getQueryCacheKey().hashCode(),
                     astHashResult.getQueryCacheKey().getCanonicalQueryString());
             options = options.withChild(astHashResult.getQueryOptions());
+            validateIsolationLevelSnapshotOption(astHashResult.getQueryCachingFlags());
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
@@ -233,7 +235,7 @@ public final class PlanGenerator {
     private Plan<?> generatePhysicalPlan(@Nonnull AstNormalizer.NormalizationResult ast,
                                          @Nonnull Set<PlanHashable.PlanHashMode> validPlanHashModes,
                                          @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
-        if (ast.getQueryCachingFlags().contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT)) {
+        if (ast.getQueryCachingFlags().contains(QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT)) {
             return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_CONTINUED_PLAN, () ->
                     generatePhysicalPlanForExecuteContinuation(ast, validPlanHashModes, currentPlanHashMode));
         } else {
@@ -291,6 +293,16 @@ public final class PlanGenerator {
             throw new RelationalException("unable to parse continuation",
                     ErrorCode.INTERNAL_ERROR, e);
         }
+        // Snapshot isolation is only supported when continuing a SELECT, whose plan is carried in the
+        // continuation as a compiled statement. A continuation may instead carry a COPY plan, which never builds
+        // ExecuteProperties (it always scans at SERIALIZABLE) and would therefore silently ignore the option, so
+        // reject it here rather than accepting it and doing nothing. This check cannot live in
+        // validateIsolationLevelSnapshotOption because the query caching flags are derived from the SQL text alone
+        // and so cannot distinguish a COPY continuation from a SELECT one.
+        Assert.that(!options.<Boolean>getOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT)
+                        || continuation.hasCompiledStatement(),
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "OPTIONS (ISOLATION LEVEL SNAPSHOT) is only supported when continuing a SELECT query");
         if (continuation.hasCompiledStatement()) {
             return generatePhysicalPlanForCompiledStatementContinuation(ast, validPlanHashModes, currentPlanHashMode, continuation, continuationProto);
         } else if (continuation.hasCopyPlan()) {
@@ -464,13 +476,45 @@ public final class PlanGenerator {
      *
      * @return {@code true} if the query should interact with the plan cache, otherwise {@code false}.
      */
-    private static boolean shouldNotCache(@Nonnull final Set<AstNormalizer.NormalizationResult.QueryCachingFlags> queryCachingFlags) {
-        return queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION) ||
-                queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DDL_STATEMENT) ||
+    private static boolean shouldNotCache(@Nonnull final Set<QueryCachingFlags> queryCachingFlags) {
+        return queryCachingFlags.contains(QueryCachingFlags.WITH_NO_CACHE_OPTION) ||
+                queryCachingFlags.contains(QueryCachingFlags.IS_DDL_STATEMENT) ||
                 // avoid caching INSERT statements since they could result in extremely large plans leading to potential
                 // OOM when too many of them are stored in the plan cache.
-                queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_INSERT_STATEMENT);
+                queryCachingFlags.contains(QueryCachingFlags.IS_INSERT_STATEMENT);
 
+    }
+
+    /**
+     * Validates that the {@code OPTIONS (ISOLATION LEVEL SNAPSHOT)} query option, if present, is only used on a
+     * read-only ({@code SELECT}) statement. Applying snapshot isolation to a mutation, DDL, or sub-query is not
+     * currently supported, so those cases are rejected rather than silently ignored. Note that when the option is
+     * attached to a sub-select feeding an {@code INSERT}, the enclosing statement is flagged as an INSERT, so this
+     * check also rejects that case.
+     * <p>
+     * {@code EXECUTE CONTINUATION} is also permitted here. The option is per-execution and is not carried in the
+     * continuation, so it must be repeated on each {@code EXECUTE CONTINUATION} to avoid silently reverting to
+     * serializable. Note that a continuation does not necessarily continue a {@code SELECT}: {@code COPY} for example
+     * also produces (and resumes) continuations. The narrower check that the continuation actually carries a
+     * {@code SELECT} plan lives in {@link #generatePhysicalPlanForExecuteContinuation} once the continuation has
+     * been parsed. Independently, the underlying data-modification plans also double check that we are not
+     * executing insert/update/delete at snapshot isolation.
+     *
+     * @param queryCachingFlags the statement-classification flags produced while normalizing the query.
+     * @throws RelationalException with {@link ErrorCode#UNSUPPORTED_OPERATION} if the option is used on a
+     *         statement that is neither a {@code SELECT} nor an {@code EXECUTE CONTINUATION}.
+     */
+    private void validateIsolationLevelSnapshotOption(@Nonnull final Set<QueryCachingFlags> queryCachingFlags)
+            throws RelationalException {
+        if (!options.<Boolean>getOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT)) {
+            return;
+        }
+        final var isSelect = queryCachingFlags.contains(QueryCachingFlags.IS_DQL_STATEMENT);
+        final var isExecuteContinuation =
+                queryCachingFlags.contains(QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT);
+        Assert.that(isSelect || isExecuteContinuation,
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "OPTIONS (ISOLATION LEVEL SNAPSHOT) is only supported on SELECT queries");
     }
 
     /**

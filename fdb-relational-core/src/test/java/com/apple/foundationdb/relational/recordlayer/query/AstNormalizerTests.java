@@ -1003,6 +1003,31 @@ public class AstNormalizerTests {
     }
 
     @Test
+    void parseDqlStatementWithoutSnapshotIsolationSetsItToFalse() throws Exception {
+        validate(List.of("select * from t1 where col1 > 42"),
+                PreparedParams.empty(),
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
+                List.of(Map.of(constantId(7), 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.ISOLATION_LEVEL_SNAPSHOT, false));
+    }
+
+    @Test
+    void parseDqlStatementWithSnapshotIsolationSetsItToTrue() throws Exception {
+        validate(List.of("select * from t1 where col1 > 42 options (isolation level snapshot)",
+                         "  select * from t1   where   col1 > 42 options (  isolation   level  snapshot     )"),
+                PreparedParams.empty(),
+                "SELECT * FROM \"T1\" WHERE \"COL1\" > ? ",
+                List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.ISOLATION_LEVEL_SNAPSHOT, true));
+    }
+
+    @Test
     void parseUpdateStatementSetsQueryFlagCorrectly() throws Exception {
         validate(List.of("update A set A2 = 52 where A1 > 2"),
                 PreparedParams.empty(),
