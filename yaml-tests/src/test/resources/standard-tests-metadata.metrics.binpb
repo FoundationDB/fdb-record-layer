@@ -1,8 +1,7 @@
 Ú
 ˆ
 standard-tests-metadatamEXPLAIN select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;Ì
-ŒŠŒ‹
-_ Þ—°(0­ö8)@¢SCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)‰digraph G {
+‚à¿¡	_ ®ð«(0 ô8)@¢SCAN([EQUALS promote(@c22 AS LONG)]) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)‰digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

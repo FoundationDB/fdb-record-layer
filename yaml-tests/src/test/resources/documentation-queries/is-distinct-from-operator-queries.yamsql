@@ -38,4 +38,5 @@ test_block:
       - query: SELECT name, price
               FROM products
               WHERE price IS NOT DISTINCT FROM 100
+      - supported_version: !current_version
       - result: [{name: "Widget A", price: 100}]

@@ -123,6 +123,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
                 .put("|", argumentsCount -> BuiltInFunctionCatalog.resolve("bitor", argumentsCount))
                 .put("^", argumentsCount -> BuiltInFunctionCatalog.resolve("bitxor", argumentsCount))
                 .put("[]", argumentsCount -> BuiltInFunctionCatalog.resolve("subscript", argumentsCount))
+                .put("array_agg", argumentsCount -> BuiltInFunctionCatalog.resolve("ARRAY_AGG", argumentsCount))
                 .put("bitmap_bit_position", argumentsCount -> BuiltInFunctionCatalog.resolve("bitmap_bit_position", 1 + argumentsCount))
                 .put("bitmap_bucket_offset", argumentsCount -> BuiltInFunctionCatalog.resolve("bitmap_bucket_offset", 1 + argumentsCount))
                 .put("bitmap_construct_agg", argumentsCount -> BuiltInFunctionCatalog.resolve("BITMAP_CONSTRUCT_AGG", argumentsCount))

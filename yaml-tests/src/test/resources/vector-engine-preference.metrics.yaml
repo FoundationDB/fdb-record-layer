@@ -7,12 +7,12 @@ vector-engine-preference-default-planner:
     explain: 'ISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c16 AS STRING), EQUALS
         promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)'
-    task_count: 311
-    task_total_time_ms: 183
+    task_count: 307
+    task_total_time_ms: 30
     transform_count: 91
-    transform_time_ms: 123
+    transform_time_ms: 15
     transform_yield_count: 39
-    insert_time_ms: 9
+    insert_time_ms: 0
     insert_new_count: 27
     insert_reused_count: 2
 -   query: EXPLAIN select docId as id from documents where zone = 'zone1' and bookshelf
@@ -27,12 +27,12 @@ vector-engine-preference-default-planner:
         BY_DISTANCE) | MAP (_.DOCID AS ID) ⊎ ISCAN(ARTICLESHNSWINDEX [EQUALS promote(@c9
         AS STRING), EQUALS promote(@c53 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL
         @c31: @c37}:[] BY_DISTANCE) | MAP (_.ARTICLEID AS ID)'
-    task_count: 618
-    task_total_time_ms: 223
+    task_count: 610
+    task_total_time_ms: 51
     transform_count: 185
-    transform_time_ms: 140
+    transform_time_ms: 24
     transform_yield_count: 79
-    insert_time_ms: 11
+    insert_time_ms: 0
     insert_new_count: 57
     insert_reused_count: 3
 vector-engine-preference-prefer-hnsw:
@@ -44,12 +44,12 @@ vector-engine-preference-prefer-hnsw:
     explain: 'ISCAN(DOCUMENTSHNSWINDEX [EQUALS promote(@c16 AS STRING), EQUALS promote(@c20
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE) |
         MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)'
-    task_count: 311
-    task_total_time_ms: 43
+    task_count: 307
+    task_total_time_ms: 26
     transform_count: 91
-    transform_time_ms: 25
+    transform_time_ms: 14
     transform_yield_count: 39
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 27
     insert_reused_count: 2
 -   query: EXPLAIN select docId as id from documents where zone = 'zone1' and bookshelf
@@ -64,12 +64,12 @@ vector-engine-preference-prefer-hnsw:
         | MAP (_.DOCID AS ID) ⊎ ISCAN(ARTICLESHNSWINDEX [EQUALS promote(@c9 AS STRING),
         EQUALS promote(@c53 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[]
         BY_DISTANCE) | MAP (_.ARTICLEID AS ID)'
-    task_count: 618
-    task_total_time_ms: 82
+    task_count: 610
+    task_total_time_ms: 28
     transform_count: 185
-    transform_time_ms: 47
+    transform_time_ms: 13
     transform_yield_count: 79
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 57
     insert_reused_count: 3
 -   query: EXPLAIN select docId as id from guardiannOnly where zone = 'zone1' and
@@ -79,10 +79,10 @@ vector-engine-preference-prefer-hnsw:
     explain: 'ISCAN(GUARDIANNONLYINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE)
         | MAP (_.DOCID AS ID)'
-    task_count: 203
-    task_total_time_ms: 28
+    task_count: 199
+    task_total_time_ms: 17
     transform_count: 62
-    transform_time_ms: 16
+    transform_time_ms: 8
     transform_yield_count: 22
     insert_time_ms: 0
     insert_new_count: 17
@@ -94,10 +94,10 @@ vector-engine-preference-prefer-hnsw:
     explain: 'ISCAN(MIXEDMETRICSGUARDIANNCOSINEINDEX [EQUALS promote(@c9 AS STRING),
         EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[]
         BY_DISTANCE) | MAP (_.DOCID AS ID)'
-    task_count: 215
-    task_total_time_ms: 29
+    task_count: 211
+    task_total_time_ms: 18
     transform_count: 66
-    transform_time_ms: 16
+    transform_time_ms: 9
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -111,12 +111,12 @@ vector-engine-preference-prefer-guardiann:
     explain: 'ISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c16 AS STRING), EQUALS
         promote(@c20 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c7: @c44}:[] BY_DISTANCE)
         | MAP (_.DOCID AS DOCID, (_.EMBEDDING) euclidean_distance @c7 AS DISTANCE)'
-    task_count: 311
-    task_total_time_ms: 36
+    task_count: 307
+    task_total_time_ms: 27
     transform_count: 91
-    transform_time_ms: 21
+    transform_time_ms: 14
     transform_yield_count: 39
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 27
     insert_reused_count: 2
 -   query: EXPLAIN select docId as id from documents where zone = 'zone1' and bookshelf
@@ -131,12 +131,12 @@ vector-engine-preference-prefer-guardiann:
         BY_DISTANCE) | MAP (_.DOCID AS ID) ⊎ ISCAN(ARTICLESGUARDIANNINDEX [EQUALS
         promote(@c9 AS STRING), EQUALS promote(@c53 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL
         @c31: @c37}:[] BY_DISTANCE) | MAP (_.ARTICLEID AS ID)'
-    task_count: 618
-    task_total_time_ms: 63
+    task_count: 610
+    task_total_time_ms: 19
     transform_count: 185
-    transform_time_ms: 34
+    transform_time_ms: 9
     transform_yield_count: 79
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 57
     insert_reused_count: 3
 -   query: EXPLAIN select docId as id from hnswOnly where zone = 'zone1' and bookshelf
@@ -146,10 +146,10 @@ vector-engine-preference-prefer-guardiann:
     explain: 'ISCAN(HNSWONLYINDEX [EQUALS promote(@c9 AS STRING), EQUALS promote(@c13
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[] BY_DISTANCE)
         | MAP (_.DOCID AS ID)'
-    task_count: 203
-    task_total_time_ms: 25
+    task_count: 199
+    task_total_time_ms: 15
     transform_count: 62
-    transform_time_ms: 13
+    transform_time_ms: 7
     transform_yield_count: 22
     insert_time_ms: 0
     insert_new_count: 17
@@ -161,10 +161,10 @@ vector-engine-preference-prefer-guardiann:
     explain: 'ISCAN(MIXEDMETRICSHNSWEUCLIDEANINDEX [EQUALS promote(@c9 AS STRING),
         EQUALS promote(@c13 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c31: @c37}:[]
         BY_DISTANCE) | MAP (_.DOCID AS ID)'
-    task_count: 215
-    task_total_time_ms: 17
+    task_count: 211
+    task_total_time_ms: 19
     transform_count: 66
-    transform_time_ms: 10
+    transform_time_ms: 9
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 17
@@ -173,11 +173,11 @@ vector-engine-preference-prefer-guardiann:
     ref: vector-engine-preference.yamsql:255
     explain: 'COVERING(DOCUMENTSBYTITLE [EQUALS promote(@c7 AS STRING)] -> [DOCID:
         KEY:[3], TITLE: KEY:[0], ZONE: KEY:[2]]) | MAP (_.DOCID AS DOCID)'
-    task_count: 479
-    task_total_time_ms: 33
+    task_count: 475
+    task_total_time_ms: 29
     transform_count: 120
-    transform_time_ms: 13
+    transform_time_ms: 9
     transform_yield_count: 48
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 49
     insert_reused_count: 4

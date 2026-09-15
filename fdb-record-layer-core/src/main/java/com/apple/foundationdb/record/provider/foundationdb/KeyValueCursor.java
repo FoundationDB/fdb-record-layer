@@ -38,8 +38,9 @@ public class KeyValueCursor extends KeyValueCursorBase<KeyValue> {
                              @Nonnull final AsyncIterator<KeyValue> iterator,
                              int prefixLength,
                              @Nonnull final CursorLimitManager limitManager,
-                             int valuesLimit) {
-        super(context, iterator, prefixLength, limitManager, valuesLimit);
+                             int valuesLimit,
+                             @Nonnull SerializationMode serializationMode) {
+        super(context, iterator, prefixLength, limitManager, valuesLimit, serializationMode);
     }
 
     /**
@@ -77,7 +78,7 @@ public class KeyValueCursor extends KeyValueCursorBase<KeyValue> {
             final AsyncIterator<KeyValue> iterator = getTransaction()
                     .getRange(getBegin(), getEnd(), getLimit(), isReverse(), getStreamingMode())
                     .iterator();
-            return new KeyValueCursor(getContext(), iterator, getPrefixLength(), getLimitManager(), getValuesLimit());
+            return new KeyValueCursor(getContext(), iterator, getPrefixLength(), getLimitManager(), getValuesLimit(), serializationMode);
         }
 
         @Override

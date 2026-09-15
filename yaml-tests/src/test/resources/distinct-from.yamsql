@@ -73,22 +73,24 @@ test_block:
 ---
 test_block:
   name: not-distinct-from-tests
+  options:
+    supported_version: !current_version
   tests:
     -
       - query: select * from t1 WHERE col2 is      not distinct from null
-      - explain: "COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM NULL | FETCH"
+      - explain: "ISCAN(I2 [NOT_DISTINCT_FROM NULL])"
       - result: [{ID: 2, 10, !null }, {ID: 4, 10, !null }, {ID: 6, 20, !null }, {ID: 7, 20, !null }, {ID: 8, 20, !null }]
     -
       - query: select * from t1 WHERE col1 is not distinct from 20
-      - explain: "COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM promote(@c10 AS INT) | FETCH"
+      - explain: "ISCAN(I1 [NOT_DISTINCT_FROM promote(@c10 AS INT)])"
       - result: [{ID: 6, 20, !null }, {ID: 7, 20, !null }, {ID: 8, 20, !null }, {ID: 9, 20, 9}, {ID: 10, 20, 10}]
     -
       - query: select * from t1 WHERE null is not distinct from col2
-      - explain: "COVERING(I2 <,> -> [COL2: KEY:[0], ID: KEY:[2]]) | FILTER _.COL2 NOT_DISTINCT_FROM NULL | FETCH"
+      - explain: "ISCAN(I2 [NOT_DISTINCT_FROM NULL])"
       - result: [{ID: 2, 10, !null }, {ID: 4, 10, !null }, {ID: 6, 20, !null }, {ID: 7, 20, !null }, {ID: 8, 20, !null }]
     -
       - query: select * from t1 WHERE 20 is not distinct from col1
-      - explain: "COVERING(I1 <,> -> [COL1: KEY:[0], ID: KEY:[2]]) | FILTER _.COL1 NOT_DISTINCT_FROM promote(@c5 AS INT) | FETCH"
+      - explain: "ISCAN(I1 [NOT_DISTINCT_FROM promote(@c5 AS INT)])"
       - result: [{ID: 6, 20, !null }, {ID: 7, 20, !null }, {ID: 8, 20, !null }, {ID: 9, 20, 9}, {ID: 10, 20, 10}]
     -
       - query: select count(*) from t1 WHERE null is not distinct from null

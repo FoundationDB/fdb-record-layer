@@ -75,6 +75,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.ToDoubleBiFunction;
 
+import static com.apple.foundationdb.async.common.CommonTestHelpers.runAsyncToSync;
 import static com.apple.foundationdb.linear.RealVectorTest.createRandomHalfVector;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
@@ -104,7 +105,7 @@ class TestHelpers {
                                                       final long firstId,
                                                       @Nonnull final BiFunction<Transaction, Long, PrimaryKeyAndVector> insertFunction)
             throws ExecutionException, InterruptedException, TimeoutException {
-        return db.runAsync(tr -> {
+        return runAsyncToSync(db, tr -> {
             final TestOnWriteListener onWriteListener = (TestOnWriteListener)hnsw.getOnWriteListener();
             onWriteListener.reset();
             final TestOnReadListener onReadListener = (TestOnReadListener)hnsw.getOnReadListener();
@@ -135,7 +136,7 @@ class TestHelpers {
                                     onReadListener.getNodeCountByLayer(), onReadListener.getBytesReadByLayer());
                         }
                     });
-        }).get(2, TimeUnit.MINUTES); // set a timeout for inserting a single batch including retries so setup won't run forever
+        });
     }
 
     static List<PrimaryKeyAndVector> insertSIFTSmall(@Nonnull final Database db,
@@ -175,7 +176,7 @@ class TestHelpers {
     static void validateSIFTSmall(@Nonnull final Database db,
                                   @Nonnull final HNSW hnsw,
                                   @Nonnull final List<PrimaryKeyAndVector> data,
-                                  final int k) throws IOException {
+                                  final int k) throws IOException, ExecutionException, InterruptedException, TimeoutException {
         final Metric metric = hnsw.getConfig().metric();
         final Path siftSmallGroundTruthPath = Paths.get(".out/extracted/siftsmall/siftsmall_groundtruth.ivecs");
         final Path siftSmallQueryPath = Paths.get(".out/extracted/siftsmall/siftsmall_query.fvecs");
@@ -195,8 +196,8 @@ class TestHelpers {
                 onReadListener.reset();
                 final long beginTs = System.nanoTime();
                 final List<? extends ResultEntry> results =
-                        db.run(tr -> hnsw.kNearestNeighborsSearch(tr, k, 100,
-                                true, queryVector).join());
+                        runAsyncToSync(db, tr -> hnsw.kNearestNeighborsSearch(tr, k, 100,
+                                true, queryVector));
                 final long endTs = System.nanoTime();
                 logger.info("retrieved result in elapsedTimeMs={}, reading numNodes={}, readBytes={}",
                         TimeUnit.NANOSECONDS.toMillis(endTs - beginTs),
@@ -254,9 +255,10 @@ class TestHelpers {
 
     static int getEntryLayer(@Nonnull final Database db,
                              @Nonnull final Subspace subspace,
-                             @Nonnull final Config config) {
-        @Nullable final AccessInfo accessInfo = db.run(readTransaction ->
-                StorageAdapter.fetchAccessInfo(config, readTransaction, subspace, OnReadListener.NOOP).join());
+                             @Nonnull final Config config)
+            throws ExecutionException, InterruptedException, TimeoutException {
+        @Nullable final AccessInfo accessInfo = runAsyncToSync(db, readTransaction ->
+                StorageAdapter.fetchAccessInfo(config, readTransaction, subspace, OnReadListener.NOOP));
         return accessInfo == null
                ? -1
                : accessInfo.getEntryNodeReference().getLayer();
@@ -265,7 +267,8 @@ class TestHelpers {
     static void dumpLayers(@Nonnull final Database db,
                            @Nonnull final Subspace subspace,
                            @Nonnull final Config config,
-                           @Nonnull final Path tempDir) {
+                           @Nonnull final Path tempDir)
+            throws ExecutionException, InterruptedException, TimeoutException {
         final int entryLayer = getEntryLayer(db, subspace, config);
 
         if (entryLayer < 0) {
@@ -394,7 +397,7 @@ class TestHelpers {
 
     static class DumpLayersIfFailure implements AfterTestExecutionCallback {
         @Override
-        public void afterTestExecution(@Nonnull final ExtensionContext context) {
+        public void afterTestExecution(@Nonnull final ExtensionContext context) throws Exception {
             final Optional<Throwable> failure = context.getExecutionException();
             if (failure.isEmpty()) {
                 return;

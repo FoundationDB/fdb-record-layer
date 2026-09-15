@@ -4,8 +4,8 @@ null-operator-tests:
     ref: null-operator-tests.yamsql:50
     explain: SCAN([IS T1, [NOT_NULL]]) | MAP (_ AS _0) | AGG (count_star(*) AS _0)
         GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
-    task_count: 565
-    task_total_time_ms: 21
+    task_count: 557
+    task_total_time_ms: 22
     transform_count: 136
     transform_time_ms: 5
     transform_yield_count: 39

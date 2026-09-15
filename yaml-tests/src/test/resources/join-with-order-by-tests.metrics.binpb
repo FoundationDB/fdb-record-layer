@@ -1,7 +1,7 @@
 ¿
 v
 joins-with-order-by-testsYEXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3≈
-ê‹®üM§ ﬂÃ˘(Ö0µ˝ˆ8¸@åISCAN(t2$b1 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS t2) }îdigraph G {
+éœ¯Ø}§ ’®°-(Ö0¯úç8¸@åISCAN(t2$b1 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS t2) }îdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -27,7 +27,7 @@ v
 }˚!
 Ö
 joins-with-order-by-testshEXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3 order by t1.a2 
-˜€¯õIô úò≤&(a0ÇÌ®8q@»ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c21 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }Ödigraph G {
+ı¥Á¢7ô ¬ú£(a0≈√Ñ8q@»ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c21 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }Ödigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -55,7 +55,7 @@ v
 }∫"
 ä
 joins-with-order-by-testsmEXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3 order by t1.a2 desc™!
-˜ΩªÃ:ô ¬≠´(a0◊ †8q@–ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c21 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }∑digraph G {
+ıâ√ÏJô ÖÆ∫ (a0ÎÀ⁄8q@–ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c21 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }∑digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -80,10 +80,10 @@ v
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}µ%
+}¥%
 Ç
-joins-with-order-by-testseEXPLAIN select (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3 order by t1.a2 desc≠$
-∑ñÄ⁄C© ò‡¶(c0©˘ª8u@¥ISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c15 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2, q0.a2 AS a2) } | MAP (_.t2 AS t2)÷!digraph G {
+joins-with-order-by-testseEXPLAIN select (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3 order by t1.a2 desc¨$
+≥Ø»©7© èì•(c0÷®u8u@¥ISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c15 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2, q0.a2 AS a2) } | MAP (_.t2 AS t2)÷!digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -113,7 +113,7 @@ v
 }Ç!
 ñ
 joins-with-order-by-testsyEXPLAIN select t1.a2, t1.a3, t2.b2, t2.b3 from t1, t2 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3 order by t1.a2 descÊ
-˜’—≠;ô ¶’ƒ(a0Ì›™8q@åISCAN(t1$a1_a2 [EQUALS promote(@c25 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c25 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a2 AS a2, q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3) }∑digraph G {
+ıœäﬂ6ô ö“Ü(a0Ê¬è8q@åISCAN(t1$a1_a2 [EQUALS promote(@c25 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c25 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a2 AS a2, q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3) }∑digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -141,38 +141,37 @@ v
 }´%
 è
 joins-with-order-by-testsrEXPLAIN select t1.a3, t2.b2, t2.b3 from t1, t2 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3 order by t1.a2 descñ$
-∑Óù®3© µ©∂(c0ñ°y8u@∑ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c21 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3, q0.a2 AS a2) } | MAP (_.a3 AS a3, _.b2 AS b2, _.b3 AS b3)Ω!digraph G {
+≥∂à≤2© Ωﬂ⁄(c0ı§{8u@∑ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c21 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3, q0.a2 AS a2) } | MAP (_.a3 AS a3, _.b2 AS b2, _.b3 AS b3)Ω!digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q10.a3 AS a3, q10.b2 AS b2, q10.b3 AS b3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS a3, LONG AS b2, STRING AS b3)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.a3 AS a3, q6.b2 AS b2, q6.b3 AS b3, q2.a2 AS a2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS a3, LONG AS b2, STRING AS b3, LONG AS a2)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c21 AS LONG)]</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t1$a1_a2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.a3 EQUALS q161.b3</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c21 AS LONG)]</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.a3 EQUALS q161.b3</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t1$a1_a2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
   7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c21 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
   8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t2$b1_b3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
-  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q163> label="q163" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 6 [ label=<&nbsp;q161> label="q161" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q163> label="q163" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q161> label="q161" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    6 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    5 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
+    4 -> 3 [ color="red" style="invis" ];
   }
 }ˆ#
 }
 joins-with-order-by-tests`EXPLAIN select (x.*), (y.*) from t1_f(1) as x, t2_f(1) as y where x.a3 = y.b3 order by x.a2 descÙ"
-ô
-ô¡˜]ÿ ÓöÙ'(z0ˆãÅ8©@îISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c15 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS x, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS y) }ºdigraph G {
+˚	„Ó°K÷ ˚ûá!(z0À‡ƒ8©@îISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c15 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS x, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS y) }ºdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -200,8 +199,8 @@ v
 }¢&
 v
 joins-with-order-by-testsYEXPLAIN select (y.*) from t1_f(1) as x, t2_f(1) as y where x.a3 = y.b3 order by x.a2 descß%
-Ÿ
-º´ë\Ë íºù(|0Êﬁ8≠@“ISCAN(t1$a1_a2 [EQUALS promote(@c9 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c9 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS y, q0.a2 AS a2) } | MAP (_.y AS y)±"digraph G {
+π
+Ø‚¿JÊ —«˜(|0âåÆ8≠@“ISCAN(t1$a1_a2 [EQUALS promote(@c9 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c9 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS y, q0.a2 AS a2) } | MAP (_.y AS y)±"digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -231,8 +230,7 @@ v
 }·$
 Å
 joins-with-order-by-testsdEXPLAIN select (x.*), (y.*) from t1_g(1) as x, t2_g(1) as y where x.a3 = y.b3 order by x.the_a2 desc⁄#
-ô
-¥∂πeÿ £†¨)(z0≤ı€8©@∂ISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c15 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3, q0.a2 AS the_a2) AS x, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3, q1.b2 AS the_b2) AS y) }Ä digraph G {
+˚	¸ÆÕO÷ §£∏&(z0Ó‡±8©@∂ISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c15 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3, q0.a2 AS the_a2) AS x, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3, q1.b2 AS the_b2) AS y) }Ä digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -260,8 +258,8 @@ v
 }ı&
 z
 joins-with-order-by-tests]EXPLAIN select (y.*) from t1_g(1) as x, t2_g(1) as y where x.a3 = y.b3 order by x.the_a2 descˆ%
-Ÿ
-¡Ç´UË éÑ¸ (|0¯ŒÍ8≠@ÁISCAN(t1$a1_a2 [EQUALS promote(@c9 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c9 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3, q1.b2 AS the_b2) AS y, q0.a2 AS the_a2) } | MAP (_.y AS y)Î"digraph G {
+π
+ÒöˆMÊ íóË(|0ç ≈8≠@ÁISCAN(t1$a1_a2 [EQUALS promote(@c9 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c9 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3, q1.b2 AS the_b2) AS y, q0.a2 AS the_a2) } | MAP (_.y AS y)Î"digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -291,38 +289,38 @@ z
 }ã&
 ã
 joins-with-order-by-testsnEXPLAIN select x.a2, x.a3, y.b2, y.b3 from t1_g(1) as x, t2_g(1) as y where x.a3 = y.b3 order by x.the_a2 desc˙$
-Ÿ
-„˝Ö[Ë Â»√'(|0©ûÿ8≠@‘ISCAN(t1$a1_a2 [EQUALS promote(@c19 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c19 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a2 AS a2, q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3, q0.a2 AS the_a2) } | MAP (_.a2 AS a2, _.a3 AS a3, _.b2 AS b2, _.b3 AS b3)Ç"digraph G {
+π
+®Ø¶NÊ ◊´ÿ (|0Ö–8≠@‘ISCAN(t1$a1_a2 [EQUALS promote(@c19 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c19 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a2 AS a2, q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3, q0.a2 AS the_a2) } | MAP (_.a2 AS a2, _.a3 AS a3, _.b2 AS b2, _.b3 AS b3)Ç"digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q44.a2 AS a2, q44.a3 AS a3, q44.b2 AS b2, q44.b3 AS b3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS a2, STRING AS a3, LONG AS b2, STRING AS b3)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q12.a2 AS a2, q12.a3 AS a3, q33.b2 AS b2, q33.b3 AS b3, q12.a2 AS the_a2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS a2, STRING AS a3, LONG AS b2, STRING AS b3, LONG AS the_a2)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG)]</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t1$a1_a2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q12.a3 EQUALS q215.b3</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG)]</td></tr><tr><td align="left">direction: reversed</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q12.a3 EQUALS q215.b3</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t1$a1_a2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
   7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
   8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t2$b1_b3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
-  3 -> 2 [ label=<&nbsp;q12> label="q12" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q33> label="q33" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q217> label="q217" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 6 [ label=<&nbsp;q215> label="q215" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q33> label="q33" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q12> label="q12" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q217> label="q217" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q215> label="q215" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q44> label="q44" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    6 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    5 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
+    4 -> 3 [ color="red" style="invis" ];
   }
-}î
+}ì
 ï
-joins-with-order-by-testsxEXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1 and t2.b3 = t1.a3 order by t1.a1 asc, t1.a2 desc˘
-∆ˆüÔSê ò’ˇ.(_0¡ÛÑ8j@çISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c21 AS LONG), EQUALS q0.a3]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }…digraph G {
+joins-with-order-by-testsxEXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1 and t2.b3 = t1.a3 order by t1.a1 asc, t1.a2 desc¯
+ƒ¬†˝7ê ñ°Ä(_0±àp8j@çISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c21 AS LONG), EQUALS q0.a3]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }…digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -346,7 +344,7 @@ z
 }◊
 â
 joins-with-order-by-testslEXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3 order by t2.b3 asc»
-Ë¸≈∏õ ∏ëŸ(a0©µ^8n@èISCAN(t2$b1_b3 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS t2) }ódigraph G {
+Êﬂ±ø9õ ∫ƒÂ(a0áå|8n@èISCAN(t2$b1_b3 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS t2) }ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -372,7 +370,7 @@ z
 }í
 ä
 joins-with-order-by-testsmEXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3 order by t2.b3 descÇ
-Ë∫–6õ ÓÈÜ(a0±∑|8n@óISCAN(t2$b1_b3 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS t2) }…digraph G {
+ÊÑîÿ;õ ≈¸”(a0—ø8n@óISCAN(t2$b1_b3 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS t2) }…digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -398,7 +396,7 @@ z
 }°
 s
 joins-with-order-by-testsVEXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.a1 = 1 and t2.b1 = 1 order by t1.a2©
-⁄à˜Œ$¨ ´Ÿ˝(D0Í’P8A@ÙISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1 [EQUALS promote(@c21 AS LONG)]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }ìdigraph G {
+ÿŒã”$¨ †’˛(D0§˘C8A@ÙISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1 [EQUALS promote(@c21 AS LONG)]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }ìdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -416,10 +414,10 @@ s
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}∏
+}π
 j
-joins-with-order-by-testsMEXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 = 1 and t3.aRef = t1.id…
-¿ Èˆ|Ö ÑÔ≈8(ã0»´ﬂ8Ú@ÙISCAN(t1$a1 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { ISCAN(t3$aRef [EQUALS q0.id]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.c1 AS c1, q1.c2 AS c2, q1.c3 AS c3, q1.aRef AS aRef) AS t3) }∞digraph G {
+joins-with-order-by-testsMEXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 = 1 and t3.aRef = t1.id 
+æäπëÅÖ â§â;(ã0ï≈¯8Ú@ÙISCAN(t1$a1 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { ISCAN(t3$aRef [EQUALS q0.id]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.c1 AS c1, q1.c2 AS c2, q1.c3 AS c3, q1.aRef AS aRef) AS t3) }∞digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -443,7 +441,7 @@ j
 }ä
 ~
 joins-with-order-by-testsaEXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 = 1 and t3.aRef = t1.id order by t1.a2 descá
-£Ç†àVç È“∑2(i0∏πâ8i@ˇISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t3$aRef [EQUALS q0.id]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.c1 AS c1, q1.c2 AS c2, q1.c3 AS c3, q1.aRef AS aRef) AS t3) }Âdigraph G {
+°ŒÂúEç ÍﬁÜ&(i0≠˛Ö8i@ˇISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t3$aRef [EQUALS q0.id]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.c1 AS c1, q1.c2 AS c2, q1.c3 AS c3, q1.aRef AS aRef) AS t3) }Âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -467,7 +465,7 @@ j
 }Ü"
 Ä
 joins-with-order-by-testscEXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 = 1 and t3.aRef = t1.id order by t3.c1, t3.c2Ä!
-¨	⁄±ı7∫ “±Ï(u0∫Ó™8ñ@∞ISCAN(t3$c1_c2 <,>) | FLATMAP q0 -> { COVERING(t1$a1 [EQUALS promote(@c21 AS LONG)] -> [a1: KEY:[0], id: KEY:[1]]) | FILTER q0.aRef EQUALS _.id | FETCH AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS t3) }¨digraph G {
+™	‘Ù¯Y∫ ¢º .(u0˘Í§8ñ@∞ISCAN(t3$c1_c2 <,>) | FLATMAP q0 -> { COVERING(t1$a1 [EQUALS promote(@c21 AS LONG)] -> [a1: KEY:[0], id: KEY:[1]]) | FILTER q0.aRef EQUALS _.id | FETCH AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS t3) }¨digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -495,7 +493,7 @@ j
 }‚
 Ä
 joins-with-order-by-testscEXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 = 1 and t1.id = t3.aRef order by t3.c1, t3.c2‹
-Ö	ìãΩ~≤ ®ÕÖI(t0ªˇ…8ë@˙ISCAN(t3$c1_c2 <,>) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG), EQUALS q0.aRef]) AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS t3) }ædigraph G {
+É	ÖüÆZ≤ π≤Å-(t0‚ƒì8ë@˙ISCAN(t3$c1_c2 <,>) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG), EQUALS q0.aRef]) AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS t3) }ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -519,7 +517,7 @@ j
 }í"
 ¨
 joins-with-order-by-testséEXPLAIN select t3.* from t3, (select max(t1.a2) as maxA2 from t1 where t1.a1 = 1) as m where t3.c1 = 1 and t3.c2 = m.maxA2 order by t3.c3 desc‡ 
-ºÆâñLÕ Û∏·(m0Éô√8l@ñISCAN(t1$a1 [EQUALS promote(@c24 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t3$c1_c2_c3 [EQUALS promote(@c24 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.c1 AS c1, q1.c2 AS c2, q1.c3 AS c3, q1.aRef AS aRef) }ßdigraph G {
+∂á≤Õ3Õ ≈•Ü(m0Öèò8l@ñISCAN(t1$a1 [EQUALS promote(@c24 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t3$c1_c2_c3 [EQUALS promote(@c24 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.c1 AS c1, q1.c2 AS c2, q1.c3 AS c3, q1.aRef AS aRef) }ßdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -547,8 +545,8 @@ j
 }æ!
 ¨
 joins-with-order-by-testséEXPLAIN select t1.* from t1, (select max(t1.a2) as maxA2 from t1 where t1.a1 = 1) as m where t1.a1 = 1 and t1.a2 = m.maxA2 order by t1.id descå 
-ﬁ
-™À©UÓ å≠¸(d0∂¯•8©@ÇISCAN(t1$a1 [EQUALS promote(@c24 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c24 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }Êdigraph G {
+ÿ
+ßŸﬂKÓ ˛ú‘(d0ﬂ˛·8©@ÇISCAN(t1$a1 [EQUALS promote(@c24 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c24 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }Êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -576,8 +574,8 @@ j
 }ﬁ!
 ó
 joins-with-order-by-testszEXPLAIN select * from t1, (select max(a2) as maxA2 from t1 where a1 = 1) as m where a1 = 1 and a2 = maxA2 order by id desc¡ 
-ﬁ
-ÎÙÔ[Ô ±†¡(d0‹‘Î8©@ïISCAN(t1$a1 [EQUALS promote(@c18 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c18 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3, q0._0._0 AS maxA2) }àdigraph G {
+ÿ
+óıûSÔ ∑∏˛(d0ó…ˆ8©@ïISCAN(t1$a1 [EQUALS promote(@c18 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c18 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3, q0._0._0 AS maxA2) }àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -605,8 +603,8 @@ j
 }¬!
 ∞
 joins-with-order-by-testsíEXPLAIN select a.* from t1 as a, (select max(b.a2) as maxA2 from t1 as b where b.a1 = 1) as m where a.a1 = 1 and a.a2 = m.maxA2 order by a.id descå 
-ﬁ
-≤ıÜZÓ Çß˛(d0•«©8©@ÇISCAN(t1$a1 [EQUALS promote(@c28 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c28 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }Êdigraph G {
+ÿ
+Ü¡ãVÓ ◊µó(d0·∂Ç8©@ÇISCAN(t1$a1 [EQUALS promote(@c28 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c28 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }Êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -634,8 +632,8 @@ j
 }º!
 ™
 joins-with-order-by-testsåEXPLAIN select a.* from t1 as a, (select max(a.a2) as maxA2 from a where a.a1 = 1) as m where a.a1 = 1 and a.a2 = m.maxA2 order by a.id descå 
-ﬁ
-≥ÛÌXÓ ®‚¶(d0üπ∆8©@ÇISCAN(t1$a1 [EQUALS promote(@c26 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c26 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }Êdigraph G {
+ÿ
+˝ﬂπNÓ ≥Õù(d0ö¸Ó8©@ÇISCAN(t1$a1 [EQUALS promote(@c26 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c26 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }Êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -663,8 +661,8 @@ j
 }È(
 ¨
 joins-with-order-by-testséEXPLAIN select t1.* from t1, (select max(t1.a2) as maxA2 from t1 where t1.a1 = 1) as m where t1.a1 = 1 and m.maxA2 = t1.a2 order by t1.id desc∑'
-≈
-ôÛƒJË ¯÷Ü(b0§˚ﬂ8¢@úISCAN(t1$a1 [EQUALS promote(@c24 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c24 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | ON EMPTY NULL | FILTER _._0._0 EQUALS q0.a2 AS q0 RETURN (q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) }˜$digraph G {
+ø
+ÃÇ“IË ›ñÛ(b0Åû›8¢@úISCAN(t1$a1 [EQUALS promote(@c24 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c24 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | ON EMPTY NULL | FILTER _._0._0 EQUALS q0.a2 AS q0 RETURN (q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) }˜$digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -696,7 +694,7 @@ j
 }ü,
 í
 joins-with-order-by-testsuEXPLAIN select t1.* from t1 where exists (select 1 from t2 where t2.b2 = t1.a2 + 9) and t1.a1 = 1 order by t1.a2 descá+
-àáÑ∏Ë ß∂¿(M0¡√?8N@ÖISCAN(t1$a1_a2 [EQUALS promote(@c10 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t2$b1 <,>) | FILTER _.b2 EQUALS q0.a2 + @c22 | MAP (@c10 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | MAP (1 AS _0) AS q1 RETURN (q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) }‡(digraph G {
+Ñıñˆ%Ë É’˙(M0íåi8N@ÖISCAN(t1$a1_a2 [EQUALS promote(@c10 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t2$b1 <,>) | FILTER _.b2 EQUALS q0.a2 + @c22 | MAP (@c10 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL | MAP (1 AS _0) AS q1 RETURN (q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) }‡(digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -730,10 +728,10 @@ j
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}ê
+}è
 â
-joins-with-order-by-testslEXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.id = 1003 and t2.b3 >= t1.a3 and t2.b1 = 1 order by t2.b3Å
-ıÖúâæú ππ˝T(d0ø™·8|@öSCAN([EQUALS promote(@c21 AS LONG)]) | TFILTER t1 | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c36 AS LONG), [GREATER_THAN_OR_EQUALS q0.a3]]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }√digraph G {
+joins-with-order-by-testslEXPLAIN select (t1.*), (t2.*) from t1, t2 where t1.id = 1003 and t2.b3 >= t1.a3 and t2.b1 = 1 order by t2.b3Ä
+Û¢å†Eú õÓ !(d0·≤ô8|@öSCAN([EQUALS promote(@c21 AS LONG)]) | TFILTER t1 | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c36 AS LONG), [GREATER_THAN_OR_EQUALS q0.a3]]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }√digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -759,8 +757,8 @@ j
 }¨
 ü
 joins-with-order-by-testsÅEXPLAIN select (t1.*), (t3.*) from t1, t3 where t3.c1 = 1 and t3.c2 = 12 and t1.a1 = t3.c1 and t1.a2 >= t3.c2 order by t1.a2 descá
-ÿ
-∂Í”/ﬂ «∂Á(Ç0ÜΩ§8û@æISCAN(t3$c1_c2 [EQUALS promote(@c21 AS LONG), EQUALS promote(@c27 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS q0.c1, [GREATER_THAN_OR_EQUALS q0.c2]] REVERSE) AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS t3) }§digraph G {
+÷
+∆ÖÿOﬂ ñÛÄ.(Ç0•¯≥8û@æISCAN(t3$c1_c2 [EQUALS promote(@c21 AS LONG), EQUALS promote(@c27 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS q0.c1, [GREATER_THAN_OR_EQUALS q0.c2]] REVERSE) AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS t3) }§digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -784,7 +782,7 @@ j
 }›
 è
 joins-with-order-by-testsrEXPLAIN select (t1.*), (t3.*) from t1, t3 where t3.c1 = 1 and t1.a1 = t3.c1 and t1.a2 >= t3.c2 order by t3.c2 desc»
-à·ãœ5Ñ Ï”µ(h0®Ÿ[8`@†ISCAN(t3$c1_c2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS q0.c1, [GREATER_THAN_OR_EQUALS q0.c2]]) AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS t3) }Üdigraph G {
+Üã≤˛>Ñ ÷ó”#(h0úÌc8`@†ISCAN(t3$c1_c2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS q0.c1, [GREATER_THAN_OR_EQUALS q0.c2]]) AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS t3) }Üdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -808,7 +806,7 @@ j
 }π1
 ƒ
 joins-with-order-by-tests¶EXPLAIN select (t1.*) as a, (t2.*) as b, (t3.*) as c from t1, t2, t3 where t1.a1 = 1 and t2.b1 = 1 and t3.c1 = 1 and t2.b3 = t1.a3 and t3.c2 = t1.a2 and t3.c3 = t2.b3Ô/
-ÉH‚≤Õ“˝ Ñ—ÑÍ(™0˝∫É8ì@RıISCAN(t1$a1 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c35 AS LONG), EQUALS q0.a3]) | FLATMAP q1 -> { ISCAN(t3$c1_c2 [EQUALS promote(@c35 AS LONG), EQUALS q0.a2]) | FILTER _.c3 EQUALS q1.b3 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q3._0.id AS id, q3._0.c1 AS c1, q3._0.c2 AS c2, q3._0.c3 AS c3, q3._0.aRef AS aRef) AS c) }”+digraph G {
+ÅH≈ﬁ„√˝ íÆÊè(™0¯Ø©8ì@RıISCAN(t1$a1 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c35 AS LONG), EQUALS q0.a3]) | FLATMAP q1 -> { ISCAN(t3$c1_c2 [EQUALS promote(@c35 AS LONG), EQUALS q0.a2]) | FILTER _.c3 EQUALS q1.b3 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q3._0.id AS id, q3._0.c1 AS c1, q3._0.c2 AS c2, q3._0.c3 AS c3, q3._0.aRef AS aRef) AS c) }”+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -851,7 +849,7 @@ j
 }Œ1
 ”
 joins-with-order-by-testsµEXPLAIN select (t1.*) as a, (t2.*) as b, (t3.*) as c from t1, t2, t3 where t1.a1 = 1 and t2.b1 = 1 and t3.c1 = 1 and t2.b3 = t1.a3 and t3.c2 = t1.a2 and t3.c3 = t2.b3 order by t1.a2ı/
-˛,—©÷Åµ ÊŸ« (ï0ÖÕƒ8∂@H¯ISCAN(t1$a1_a2 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c35 AS LONG), EQUALS q0.a3]) | FLATMAP q1 -> { ISCAN(t3$c1_c2 [EQUALS promote(@c35 AS LONG), EQUALS q0.a2]) | FILTER _.c3 EQUALS q1.b3 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q3._0.id AS id, q3._0.c1 AS c1, q3._0.c2 AS c2, q3._0.c3 AS c3, q3._0.aRef AS aRef) AS c) }÷+digraph G {
+¸,ŸÜ∞≤µ Ùˆ‘¶(ï0îª˚8∂@H¯ISCAN(t1$a1_a2 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c35 AS LONG), EQUALS q0.a3]) | FLATMAP q1 -> { ISCAN(t3$c1_c2 [EQUALS promote(@c35 AS LONG), EQUALS q0.a2]) | FILTER _.c3 EQUALS q1.b3 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q3._0.id AS id, q3._0.c1 AS c1, q3._0.c2 AS c2, q3._0.c3 AS c3, q3._0.aRef AS aRef) AS c) }÷+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -873,6 +871,14 @@ j
   9 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q654> label="q654" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
+    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
+  {
     5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -883,18 +889,10 @@ j
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-  {
-    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
 }¿7
 ”
 joins-with-order-by-testsµEXPLAIN select (t1.*) as a, (t2.*) as b, (t3.*) as c from t1, t2, t3 where t1.a1 = 1 and t2.b1 = 1 and t3.c1 = 1 and t2.b3 = t1.a3 and t3.c2 = t1.a2 and t3.c3 = t2.b3 order by t2.b3Á5
-π-—ëøﬁª ˇˆŸ“(ë0Äÿº78í@KÇISCAN(t2$b1_b3 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c35 AS LONG)]) | FILTER q0.b3 EQUALS _.a3 | FLATMAP q1 -> { ISCAN(t3$c1_c2 [EQUALS promote(@c35 AS LONG), EQUALS q1.a2]) | FILTER _.c3 EQUALS q0.b3 AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS b, (q3._1.id AS id, q3._1.c1 AS c1, q3._1.c2 AS c2, q3._1.c3 AS c3, q3._1.aRef AS aRef) AS c) }æ1digraph G {
+∑-¬∑™Áª  Ù…(ë0Œñ8í@KÇISCAN(t2$b1_b3 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c35 AS LONG)]) | FILTER q0.b3 EQUALS _.a3 | FLATMAP q1 -> { ISCAN(t3$c1_c2 [EQUALS promote(@c35 AS LONG), EQUALS q1.a2]) | FILTER _.c3 EQUALS q0.b3 AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS b, (q3._1.id AS id, q3._1.c1 AS c1, q3._1.c2 AS c2, q3._1.c3 AS c3, q3._1.aRef AS aRef) AS c) }æ1digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -918,6 +916,17 @@ j
   10 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q129> label="q129" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 4 [ color="red" style="invis" ];
+  }
+  {
     7 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -931,21 +940,10 @@ j
     rankDir=LR;
     6 -> 5 [ color="red" style="invis" ];
   }
-  {
-    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
-  }
-}Ü>
+}á>
 ”
-joins-with-order-by-testsµEXPLAIN select (t1.*) as a, (t2.*) as b, (t3.*) as c from t1, t2, t3 where t1.a1 = 1 and t2.b1 = 1 and t3.c1 = 1 and t2.b3 = t1.a3 and t3.c2 = t1.a2 and t3.c3 = t2.b3 order by t3.c2≠<
-©(∏¬˜Ôª ≤È∆Å(Ú0¯ˇ”$8û@DÓISCAN(t3$c1_c2 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { COVERING(t1$a1_a2 [EQUALS promote(@c35 AS LONG)] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) | FILTER q0.c2 EQUALS _.a2 | FETCH | FLATMAP q1 -> { COVERING(t2$b1_b3 [EQUALS promote(@c35 AS LONG), EQUALS q1.a3] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.c3 EQUALS _.b3 | FETCH AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS c) }ò7digraph G {
+joins-with-order-by-testsµEXPLAIN select (t1.*) as a, (t2.*) as b, (t3.*) as c from t1, t2, t3 where t1.a1 = 1 and t2.b1 = 1 and t3.c1 = 1 and t2.b3 = t1.a3 and t3.c2 = t1.a2 and t3.c3 = t2.b3 order by t3.c2Æ<
+ß(ß° ˜ª £Õ’à(Ú0ÁŸ‘8û@DÓISCAN(t3$c1_c2 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { COVERING(t1$a1_a2 [EQUALS promote(@c35 AS LONG)] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) | FILTER q0.c2 EQUALS _.a2 | FETCH | FLATMAP q1 -> { COVERING(t2$b1_b3 [EQUALS promote(@c35 AS LONG), EQUALS q1.a3] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.c3 EQUALS _.b3 | FETCH AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS c) }ô7digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -953,58 +951,9 @@ j
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c35 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS c1, LONG AS c2, STRING AS c3, LONG AS aRef, VERSION AS __ROW_VERSION)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t3$c1_c2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS c1, LONG AS c2, STRING AS c3, LONG AS aRef, VERSION AS __ROW_VERSION)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2 AS _0, q6 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION AS _0, LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION AS _1)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q10.c3 EQUALS q174.b3</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q10.c2 EQUALS q539.a2</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
-  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c35 AS LONG), EQUALS q2.a3]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
-  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c35 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
-  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t2$b1_b3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
-  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t1$a1_a2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ label=<&nbsp;q176> label="q176" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ label=<&nbsp;q541> label="q541" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 7 [ label=<&nbsp;q174> label="q174" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  10 -> 8 [ label=<&nbsp;q539> label="q539" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  11 -> 9 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  12 -> 10 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q119> label="q119" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    9 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    6 -> 5 [ color="red" style="invis" ];
-  }
-  {
-    7 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    8 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
-  }
-}î>
-⁄
-joins-with-order-by-testsºEXPLAIN select (t1.*) as a, (t2.*) as b, (t3.*) as c from t1, t2, t3 where t1.a1 = 1 and t2.b1 = 1 and t3.c1 = 1 and t2.b3 = t1.a3 and t3.c2 = t1.a2 and t3.c3 = t2.b3 order by t3.c2, t3.c3¥<
-¸&Ú√Ùä à„üÛ(Â0±¢¸8ÿ@DÒISCAN(t3$c1_c2_c3 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { COVERING(t1$a1_a2 [EQUALS promote(@c35 AS LONG)] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) | FILTER q0.c2 EQUALS _.a2 | FETCH | FLATMAP q1 -> { COVERING(t2$b1_b3 [EQUALS promote(@c35 AS LONG), EQUALS q1.a3] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.c3 EQUALS _.b3 | FETCH AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS c) }ú7digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP ((q119._0.id AS id, q119._0.a1 AS a1, q119._0.a2 AS a2, q119._0.a3 AS a3) AS a, (q119._1.id AS id, q119._1.b1 AS b1, q119._1.b2 AS b2, q119._1.b3 AS b3) AS b, (q10.id AS id, q10.c1 AS c1, q10.c2 AS c2, q10.c3 AS c3, q10.aRef AS aRef) AS c)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3 AS a, LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3 AS b, LONG AS id, LONG AS c1, LONG AS c2, STRING AS c3, LONG AS aRef AS c)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c35 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS c1, LONG AS c2, STRING AS c3, LONG AS aRef, VERSION AS __ROW_VERSION)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t3$c1_c2_c3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS c1, LONG AS c2, STRING AS c3, LONG AS aRef, VERSION AS __ROW_VERSION)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2 AS _0, q6 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION AS _0, LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION AS _1)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q10.c2 EQUALS q518.a2</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q10.c2 EQUALS q539.a2</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
   8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q10.c3 EQUALS q174.b3</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
   9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c35 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
   10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c35 AS LONG), EQUALS q2.a3]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
@@ -1014,10 +963,59 @@ j
   2 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ label=<&nbsp;q520> label="q520" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q541> label="q541" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   8 -> 6 [ label=<&nbsp;q176> label="q176" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 7 [ label=<&nbsp;q518> label="q518" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ label=<&nbsp;q539> label="q539" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   10 -> 8 [ label=<&nbsp;q174> label="q174" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  11 -> 9 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  12 -> 10 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q119> label="q119" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    10 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
+  {
+    7 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    8 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 4 [ color="red" style="invis" ];
+  }
+}ì>
+⁄
+joins-with-order-by-testsºEXPLAIN select (t1.*) as a, (t2.*) as b, (t3.*) as c from t1, t2, t3 where t1.a1 = 1 and t2.b1 = 1 and t3.c1 = 1 and t2.b3 = t1.a3 and t3.c2 = t1.a2 and t3.c3 = t2.b3 order by t3.c2, t3.c3≥<
+˙&ôÚ‹«ä äÂõÂ(Â0∞ç8ÿ@DÒISCAN(t3$c1_c2_c3 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { COVERING(t1$a1_a2 [EQUALS promote(@c35 AS LONG)] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) | FILTER q0.c2 EQUALS _.a2 | FETCH | FLATMAP q1 -> { COVERING(t2$b1_b3 [EQUALS promote(@c35 AS LONG), EQUALS q1.a3] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.c3 EQUALS _.b3 | FETCH AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS c) }õ7digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP ((q119._0.id AS id, q119._0.a1 AS a1, q119._0.a2 AS a2, q119._0.a3 AS a3) AS a, (q119._1.id AS id, q119._1.b1 AS b1, q119._1.b2 AS b2, q119._1.b3 AS b3) AS b, (q10.id AS id, q10.c1 AS c1, q10.c2 AS c2, q10.c3 AS c3, q10.aRef AS aRef) AS c)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3 AS a, LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3 AS b, LONG AS id, LONG AS c1, LONG AS c2, STRING AS c3, LONG AS aRef AS c)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c35 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS c1, LONG AS c2, STRING AS c3, LONG AS aRef, VERSION AS __ROW_VERSION)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t3$c1_c2_c3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS c1, LONG AS c2, STRING AS c3, LONG AS aRef, VERSION AS __ROW_VERSION)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2 AS _0, q6 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION AS _0, LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION AS _1)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q10.c3 EQUALS q174.b3</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q10.c2 EQUALS q518.a2</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c35 AS LONG), EQUALS q2.a3]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c35 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t2$b1_b3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS b1, LONG AS b2, STRING AS b3, VERSION AS __ROW_VERSION)" ];
+  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">t1$a1_a2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS id, LONG AS a1, LONG AS a2, STRING AS a3, VERSION AS __ROW_VERSION)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q176> label="q176" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ label=<&nbsp;q520> label="q520" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ label=<&nbsp;q174> label="q174" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 8 [ label=<&nbsp;q518> label="q518" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   11 -> 9 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   12 -> 10 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q119> label="q119" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -1033,17 +1031,17 @@ j
     2 -> 4 [ color="red" style="invis" ];
   }
   {
-    10 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    9 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
+    6 -> 5 [ color="red" style="invis" ];
   }
-}¨7
+}´7
 «
-joins-with-order-by-tests©EXPLAIN select (t1.*) as a, (t3.*) as b from t1, t3 where t1.a1 = 1 and t3.c1 = 1 and exists (select 1 from t2 where t2.b1 = t1.a1) and t3.c2 = t1.a2 order by t1.a2 descﬂ5
-∞ßõ‰ƒ‘ õÜõá(Í0‡¢µ8®@$≥ISCAN(t1$a1_a2 [EQUALS promote(@c25 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1 [EQUALS q0.a1] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c25 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { ISCAN(t3$c1_c2 [EQUALS promote(@c25 AS LONG), EQUALS q0.a2]) AS q3 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q3.id AS id, q3.c1 AS c1, q3.c2 AS c2, q3.c3 AS c3, q3.aRef AS aRef) AS b) }Ö2digraph G {
+joins-with-order-by-tests©EXPLAIN select (t1.*) as a, (t3.*) as b from t1, t3 where t1.a1 = 1 and t3.c1 = 1 and exists (select 1 from t2 where t2.b1 = t1.a1) and t3.c2 = t1.a2 order by t1.a2 descﬁ5
+¨Ëî¢Å‘ ˆ„Ûo(Í0“∞¨8®@$≥ISCAN(t1$a1_a2 [EQUALS promote(@c25 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1 [EQUALS q0.a1] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c25 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { ISCAN(t3$c1_c2 [EQUALS promote(@c25 AS LONG), EQUALS q0.a2]) AS q3 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q3.id AS id, q3.c1 AS c1, q3.c2 AS c2, q3.c3 AS c3, q3.aRef AS aRef) AS b) }Ö2digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1093,10 +1091,10 @@ j
     rankDir=LR;
     3 -> 4 [ color="red" style="invis" ];
   }
-}ã'
+}ä'
 
-joins-with-order-by-testsbEXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 IN (1, 2) and t3.aRef = t1.id order by t1.a2á&
-òÒ€¡ë	 ©ˇºî(Ô0›õ≈	8∑@-˚[IN arrayDistinct(promote(@c21 AS ARRAY(LONG)))] INUNION q0 -> { COVERING(t1$a1_a2 [EQUALS q0] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) } COMPARE BY (_.a2, _.id, _.a1) | FETCH | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }Â"digraph G {
+joins-with-order-by-testsbEXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 IN (1, 2) and t3.aRef = t1.id order by t1.a2Ü&
+ñå≤≥ïë	 Ï‹Ωx(Ô0µÃÌ8∑@-˚[IN arrayDistinct(promote(@c21 AS ARRAY(LONG)))] INUNION q0 -> { COVERING(t1$a1_a2 [EQUALS q0] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) } COMPARE BY (_.a2, _.id, _.a1) | FETCH | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }Â"digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1131,8 +1129,8 @@ j
 }¨"
 Ü
 joins-with-order-by-testsiEXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 IN (1, 2) and t3.aRef = t1.id order by t1.a1, t1.a2†!
-¬!ÊÊê“‚
- ⁄¬≥‡(•0¶˚©8É@/Ø[IN arrayDistinct(promote(@c21 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0]) } | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) } digraph G {
+¿!È€Íπ‚
+ °å˘“(•0Œºÿ	8É@/Ø[IN arrayDistinct(promote(@c21 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0]) } | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) } digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1150,6 +1148,11 @@ j
   7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+  {
     6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -1157,15 +1160,10 @@ j
     rankDir=LR;
     2 -> 6 [ color="red" style="invis" ];
   }
-  {
-    rank=same;
-    rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
-  }
 }Ô"
 è
 joins-with-order-by-testsrEXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 IN (1, 2) and t3.aRef = t1.id order by t1.a1 asc, t1.a2 desc⁄!
-áÿ—´¶ﬂ ≥‚Å©(·0Ï¥⁄8Ó@+∑[IN arrayDistinct(promote(@c21 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0] REVERSE) } | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }¸digraph G {
+Ö’ÍÖÄﬂ îÂàì(·0˝´û8Ó@+∑[IN arrayDistinct(promote(@c21 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0] REVERSE) } | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }¸digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1183,6 +1181,11 @@ j
   7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+  {
     6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -1190,15 +1193,10 @@ j
     rankDir=LR;
     2 -> 6 [ color="red" style="invis" ];
   }
-  {
-    rank=same;
-    rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
-  }
-}π"
+}∫"
 è
-joins-with-order-by-testsrEXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 IN (1, 2) and t3.aRef = t1.id order by t1.a1 desc, t1.a2 asc§!
-á•ë„íﬂ †Û°M(·0âññ8Ó@+¥[IN arrayDistinct(promote(@c21 AS ARRAY(LONG))) SORTED DESC] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0]) } | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) } digraph G {
+joins-with-order-by-testsrEXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 IN (1, 2) and t3.aRef = t1.id order by t1.a1 desc, t1.a2 asc•!
+ÖîÏ‡˛ﬂ ≤Âäê(·0€óù	8Ó@+¥[IN arrayDistinct(promote(@c21 AS ARRAY(LONG))) SORTED DESC] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0]) } | FLATMAP q1 -> { ISCAN(t3$aRef [EQUALS q1.id]) AS q2 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) } digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1231,7 +1229,7 @@ j
 }˜?
 ‹
 joins-with-order-by-testsæEXPLAIN select (t1.*) as a, (t3.*) as b from t1, t3 where t1.a1 IN (1, 2) and t3.c1 = t1.a1 and exists (select 4 from t2 where t2.b1 = t1.a1) and t3.c2 = t1.a2 order by t1.a1 asc, t1.a2 descï>
-∆ ”Ó´›Ò ’∆â”(π0ê™ 8¿@U€[IN arrayDistinct(promote(@c25 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0] REVERSE) } | FLATMAP q1 -> { COVERING(t2$b1 [EQUALS q1.a1] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c42 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q2 RETURN q1 } | FLATMAP q1 -> { ISCAN(t3$c1_c2 [EQUALS q1.a1, EQUALS q1.a2]) AS q4 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS a, (q4.id AS id, q4.c1 AS c1, q4.c2 AS c2, q4.c3 AS c3, q4.aRef AS aRef) AS b) }ì:digraph G {
+¬ ﬂΩŒØÒ úüÓ±(π0È‘ﬂ8¿@U€[IN arrayDistinct(promote(@c25 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(t1$a1_a2 [EQUALS q0] REVERSE) } | FLATMAP q1 -> { COVERING(t2$b1 [EQUALS q1.a1] -> [b1: KEY:[0], id: KEY:[1]]) | MAP (@c42 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q2 RETURN q1 } | FLATMAP q1 -> { ISCAN(t3$c1_c2 [EQUALS q1.a1, EQUALS q1.a2]) AS q4 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS a, (q4.id AS id, q4.c1 AS c1, q4.c2 AS c2, q4.c3 AS c3, q4.aRef AS aRef) AS b) }ì:digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1261,20 +1259,6 @@ j
   13 -> 12 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   12 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    10 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    2 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    12 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 12 [ color="red" style="invis" ];
-  }
-  {
     10 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -1290,10 +1274,24 @@ j
     rankDir=LR;
     5 -> 6 [ color="red" style="invis" ];
   }
+  {
+    12 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    10 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    2 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 12 [ color="red" style="invis" ];
+  }
 }Å
 j
 joins-with-order-by-testsMEXPLAIN select (a.*), (b.*) from t1_f(1) as a, t2_f(1) as b where a.a3 = b.b3í
-≤“ÆñØ„ ∆É?(û0¢⁄8¥@–ISCAN(t2$b1 [EQUALS promote(@c15 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c15 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS a, (q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS b) }údigraph G {
+îØøπ£· °Œπ>(û0√”˝8¥@–ISCAN(t2$b1 [EQUALS promote(@c15 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c15 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS a, (q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS b) }údigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1319,8 +1317,7 @@ j
 }∑#
 x
 joins-with-order-by-tests[EXPLAIN select (a.*), (b.*) from t1_f(1) as a, t2_f(1) as b where a.a3 = b.b3 order by a.a2∫"
-ô
-“„πWÿ ¸∑’"(z0œ∏—8©@åISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)]) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c15 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS b) }ädigraph G {
+˚	¯ƒìM÷ Ù¥†"(z0µ¯∆8©@åISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)]) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c15 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS b) }ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1348,8 +1345,7 @@ x
 }ì
 x
 joins-with-order-by-tests[EXPLAIN select (a.*), (b.*) from t1_f(1) as a, t2_f(1) as b where a.a3 = b.b3 order by b.b3ñ
-ä
-¡®¸\⁄ ‚¨à((z0≤ÂÕ8¶@”ISCAN(t2$b1_b3 [EQUALS promote(@c15 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c15 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS a, (q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS b) }üdigraph G {
+Ï	ÇìµNÿ ´Ô⁄!(z0ñŸæ8¶@”ISCAN(t2$b1_b3 [EQUALS promote(@c15 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c15 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS a, (q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS b) }üdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

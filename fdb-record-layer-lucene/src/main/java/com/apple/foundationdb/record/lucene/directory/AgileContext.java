@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -40,6 +41,16 @@ import java.util.function.Function;
 
 /**
  * A floating window (agile) context - create sub contexts and commit them as they reach their time/size quota.
+ *
+ * There are two kinds of limits that are accounted for:
+ * <UL>
+ *     <LI>Time Quota: Will commit a transaction after it has existed longer than the given limit</LI>
+ *     <LI>Size Quota: will commit a transaction once the number of bytes is at least the given limit</LI>
+ * </UL>
+ * Accounting for bytes in the transaction is done by counting write size (keys+values) for {@link #set(byte[], byte[])}
+ * and key size for {@link #clear(byte[])} and {@link #clear(Range)}.
+ * Note that bytes read/written through {@link #accept(Consumer)} and {@link #apply(Function)} as well as keys/values read
+ * through {@link #get(byte[])} do not count for the size calculation.
  */
 @API(API.Status.INTERNAL)
 public class AgileContext implements AgilityContext {
@@ -267,6 +278,22 @@ public class AgileContext implements AgilityContext {
         accept(context -> {
             context.ensureActive().set(key, value);
             currentWriteSize += key.length + value.length;
+        });
+    }
+
+    @Override
+    public void clear(final byte[] key) {
+        accept(context -> {
+            context.ensureActive().clear(key);
+            currentWriteSize += key.length;
+        });
+    }
+
+    @Override
+    public void clear(final Range range) {
+        accept(context -> {
+            context.clear(range);
+            currentWriteSize += range.begin.length + range.end.length;
         });
     }
 

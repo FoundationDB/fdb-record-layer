@@ -35,6 +35,7 @@ import com.google.common.base.Ticker;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.time.Duration;
 import java.util.AbstractMap;
 import java.util.Map;
 import java.util.Set;
@@ -138,7 +139,7 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
         Assert.thatUnchecked(tertiaryTtl > 0, ErrorCode.INTERNAL_ERROR, "Invalid tertiary cache ttl '%d'", tertiaryTtl);
 
         final var mainCacheBuilder = Caffeine.newBuilder().recordStats().maximumSize(size);
-        mainCacheBuilder.expireAfterAccess(ttl, ttlTimeUnit);
+        mainCacheBuilder.expireAfterAccess(Duration.of(ttl, ttlTimeUnit.toChronoUnit()));
         mainCacheBuilder.removalListener((RemovalListener<K, Cache<S, Cache<T, V>>>) (k, v, cause) -> {
             if (cause == RemovalCause.SIZE) {
                 pendingPrimaryLruEvictions.incrementAndGet();
@@ -191,7 +192,7 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                         }
                     });
             if (secondaryTtl > 0) {
-                secondaryCacheBuilder.expireAfterWrite(secondaryTtl, secondaryTtlTimeUnit);
+                secondaryCacheBuilder.expireAfterWrite(Duration.of(secondaryTtl, secondaryTtlTimeUnit.toChronoUnit()));
             }
             if (secondaryExecutor != null) {
                 secondaryCacheBuilder.executor(secondaryExecutor);
@@ -217,7 +218,7 @@ public class MultiStageCache<K, S, T, V> extends AbstractCache<K, S, T, V> {
                         }
                     });
             if (tertiaryTtl > 0) {
-                tertiaryCacheBuilder.expireAfterWrite(tertiaryTtl, tertiaryTtlTimeUnit);
+                tertiaryCacheBuilder.expireAfterWrite(Duration.of(tertiaryTtl, tertiaryTtlTimeUnit.toChronoUnit()));
             }
             if (tertiaryExecutor != null) {
                 tertiaryCacheBuilder.executor(tertiaryExecutor);

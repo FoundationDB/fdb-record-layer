@@ -35,6 +35,11 @@ class DocumentationQueriesTests {
     }
 
     @TestTemplate
+    void arrayAggDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/array-agg-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
     void betweenOperatorQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/between-operator-queries.yamsql");
     }
@@ -47,6 +52,11 @@ class DocumentationQueriesTests {
     @TestTemplate
     void castDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/cast-documentation-queries.yamsql");
+    }
+
+    @TestTemplate
+    void commentsDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/comments-documentation-queries.yamsql");
     }
 
     @TestTemplate
@@ -67,6 +77,11 @@ class DocumentationQueriesTests {
     @TestTemplate
     void isDistinctFromOperatorQueriesTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/is-distinct-from-operator-queries.yamsql");
+    }
+
+    @TestTemplate
+    void isolationLevelSnapshotDocumentationQueriesTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/isolation-level-snapshot-documentation-queries.yamsql");
     }
 
     @TestTemplate

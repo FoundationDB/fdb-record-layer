@@ -27,6 +27,29 @@
 # A .yamsql file is a multi-document YAML file. Documents are separated by
 # `---` and the file ends with `...`.
 #
+# COMMENTS: YAML AND SQL
+# ----------------------------------------------------------------------------
+# A `#` outside a quoted string starts a YAML comment, like the ones you are
+# reading. These are stripped by the YAML parser and never reach SQL.
+#
+# SQL comments are a different thing: `-- ...` to the end of the line, and
+# `/* ... */` (which nest) are part of the query text and are handled by the
+# SQL lexer. To write one, use a block scalar so the raw text -- newlines and
+# all -- is preserved:
+#
+#   - query: |
+#       select val   -- this is a SQL comment, the lexer sees it
+#       from t       /* so is this */
+#       where id = 1
+#
+# Writing SQL on a plain (unquoted) scalar is fragile: `--` happens to survive,
+# but a `#` in the query would be eaten as a YAML comment, and quoting rules
+# vary with what else is on the line. Prefer `query: |` whenever a query
+# contains comments or spans multiple lines.
+#
+# Note that a SQL comment cannot carry meaning: comments never reach the query
+# engine, so there is no way to pass a planner hint through one.
+#
 # Each document is parsed into a "block". At the top level, there are these
 # block types:
 #

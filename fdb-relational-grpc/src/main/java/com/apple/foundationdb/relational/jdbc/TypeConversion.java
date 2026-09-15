@@ -734,6 +734,11 @@ public class TypeConversion {
                 case PLAN_RIGHT_DEEP:
                     builder.setPlanRightDeep((Boolean)entry.getValue());
                     break;
+                case ISOLATION_LEVEL_SNAPSHOT:
+                    builder.setIsolationLevel(((Boolean)entry.getValue())
+                            ? com.apple.foundationdb.relational.jdbc.grpc.v1.Options.IsolationLevel.SNAPSHOT
+                            : com.apple.foundationdb.relational.jdbc.grpc.v1.Options.IsolationLevel.SERIALIZABLE);
+                    break;
                 case VECTOR_INDEX_ENGINE_PREFERENCE:
                     switch ((Options.VectorIndexEnginePreference)entry.getValue()) {
                         case NO_PREFERENCE:
@@ -885,6 +890,20 @@ public class TypeConversion {
         }
         if (protoOptions.hasPlanRightDeep()) {
             builder.withOption(Options.Name.PLAN_RIGHT_DEEP, protoOptions.getPlanRightDeep());
+        }
+        if (protoOptions.hasIsolationLevel()) {
+            final boolean snapshot;
+            switch (protoOptions.getIsolationLevel()) {
+                case SERIALIZABLE:
+                    snapshot = false;
+                    break;
+                case SNAPSHOT:
+                    snapshot = true;
+                    break;
+                default:
+                    throw new SQLException("Unknown isolation level");
+            }
+            builder.withOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT, snapshot);
         }
         return builder.build();
     }

@@ -53,6 +53,9 @@ import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.ExtremumEverStorage;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.IndexGenerationOptions;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.IndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.MaterializedViewIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.OnSourceIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
@@ -265,9 +268,11 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
         final var useLegacyBasedExtremumEver = indexDefinitionContext.indexAttributes() != null && indexDefinitionContext.indexAttributes().indexAttribute().stream().anyMatch(attribute -> attribute.LEGACY_EXTREMUM_EVER() != null);
         final var isUnique = indexDefinitionContext.UNIQUE() != null;
-        final var generator = MaterializedViewIndexGenerator.from(viewPlan, useLegacyBasedExtremumEver);
+        final IndexGenerator generator = MaterializedViewIndexGenerator.newInstance(viewPlan, metadataBuilder,
+                indexId.getName(), new IndexGenerationOptions(isUnique, containsNullableArray, false,
+                        ExtremumEverStorage.ofLegacyAttribute(useLegacyBasedExtremumEver)));
         Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
-        return generator.generate(metadataBuilder, indexId.getName(), isUnique, containsNullableArray, false).build();
+        return generator.generate().build();
     }
 
     @Nonnull
@@ -289,10 +294,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .setIndexName(indexId)
                 .setIndexSource(getDelegate().getCurrentPlanFragment())
                 .setSemanticAnalyzer(getDelegate().getSemanticAnalyzer())
-                .setUseLegacyExtremum(useLegacyExtremum)
-                .setUseNullableArrays(containsNullableArray)
                 .setMetadataBuilder(metadataBuilder)
-                .setUnique(isUnique);
+                .setOptions(new IndexGenerationOptions(isUnique, containsNullableArray, false,
+                        ExtremumEverStorage.ofLegacyAttribute(useLegacyExtremum)));
 
         indexDefinitionContext.indexColumnList().indexColumnSpec().forEach(colSpec ->
                 indexGeneratorBuilder.addKeyColumn(OnSourceIndexGenerator.IndexedColumn
@@ -328,8 +332,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .setSemanticAnalyzer(getDelegate().getSemanticAnalyzer())
                 .addAllIndexOptions(indexOptions)
                 .setMetadataBuilder(metadataBuilder)
-                .setGenerateKeyValueExpressionWithEmptyKey(true)
-                .setUseNullableArrays(containsNullableArray);
+                // a vector index without PARTITION BY has no key columns, so its key is empty
+                .setOptions(new IndexGenerationOptions(false, containsNullableArray, true,
+                        ExtremumEverStorage.TUPLE));
 
         indexDefinitionContext.indexColumnList().indexColumnSpec().forEach(colSpec ->
                 indexGeneratorBuilder.addValueColumn(OnSourceIndexGenerator.IndexedColumn
@@ -339,7 +344,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var indexedColumns = indexGeneratorBuilder.getValueColumns();
         Assert.thatUnchecked(indexedColumns.size() == 1, ErrorCode.UNSUPPORTED_OPERATION,
                 () -> "invalid number of indexed columns, only one column is supported, found " + indexedColumns.size() + " columns");
-        final var indexedCol = Iterables.getOnlyElement(indexedColumns).getIdentifier();
+        final var indexedCol = Iterables.getOnlyElement(indexedColumns).identifier();
         final var type = getDelegate().getSemanticAnalyzer().resolveIdentifier(indexedCol, getDelegate().getCurrentPlanFragment())
                 .getDataType();
         Assert.thatUnchecked(type.getCode() == DataType.Code.VECTOR, ErrorCode.SYNTAX_ERROR,
@@ -479,7 +484,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         // (yhatem) we have control over the ENUM values' numbers.
         final List<DataType.EnumType.EnumValue> enumValues = new ArrayList<>(ctx.STRING_LITERAL().size());
         for (int i = 0; i < ctx.STRING_LITERAL().size(); i++) {
-            enumValues.add(DataType.EnumType.EnumValue.of(Assert.notNullUnchecked(getDelegate().normalizeString(ctx.STRING_LITERAL(i).getText())), i));
+            enumValues.add(DataType.EnumType.EnumValue.of(SemanticAnalyzer.normalizeStringLiteral(ctx.STRING_LITERAL(i).getText()), i));
         }
         return DataType.EnumType.from(enumId.getName(), enumValues, false);
     }

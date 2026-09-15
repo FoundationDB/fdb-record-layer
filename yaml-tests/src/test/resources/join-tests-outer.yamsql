@@ -88,10 +88,34 @@ test_block:
           {'Alice', 'Engineering'},
           {'Bob', 'Engineering'}]
     -
-      # LEFT JOIN with a “null-accepting” WHERE … IS NULL predicate to find unmatched rows (aka. the “anti-join pattern”).
+      # LEFT JOIN with a “null-accepting” WHERE … IS NULL predicate to find unmatched rows (aka. the “anti-join
+      # pattern”). Note that the plan scans `dept$name` in full and applies the join predicate as a residual FILTER
+      # in this example, which is not ideal.
       - query: SELECT "e"."fname", "e"."lname" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id" = "d"."id" WHERE "d"."id" IS NULL;
       - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { COVERING(dept$name <,> -> [id: KEY:[2], name: KEY:[0]]) | FILTER q0.dept_id EQUALS _.id | FETCH | ON EMPTY NULL | FILTER _.id IS_NULL AS q1 RETURN (q0.fname AS fname, q0.lname AS lname) }"
       - result: [{'Dave', 'Kim'}]
+    -
+      # The same anti-join expressed as a correlated NOT EXISTS subquery. Note that the planner produces a different
+      # but semantically equivalent plan, with a more efficient `DEFAULT NULL | FILTER NOT _ NOT_NULL` chain instead of
+      # `ON EMPTY NULL | FILTER … IS_NULL`. Also, the correlated equality is recognized against the `dept` primary key
+      # and becomes a point lookup `SCAN([IS dept, EQUALS q0.dept_id])`, which is superior to the COVERING+FILTER
+      # plan for the LEFT JOIN variant.
+      - query: SELECT "e"."fname", "e"."lname" FROM "emp" "e" WHERE NOT EXISTS (SELECT "d"."id" FROM "dept" "d" WHERE "e"."dept_id" = "d"."id");
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept, EQUALS q0.dept_id]) | MAP (_.id AS id) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN (q0.fname AS fname, q0.lname AS lname) }"
+      - result: [{'Dave', 'Kim'}]
+    -
+      # As above, but with the correlated subquery predicate flipped. Both spellings result in the same plan.
+      # (Which is in contrast to the ON clause of a join; see the "SELECT * with LEFT JOIN" cases below and the note on
+      # Issue #4169 there).
+      - query: SELECT "e"."fname", "e"."lname" FROM "emp" "e" WHERE NOT EXISTS (SELECT "d"."id" FROM "dept" "d" WHERE "d"."id" = "e"."dept_id");
+      - explain: "ISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept, EQUALS q0.dept_id]) | MAP (_.id AS id) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN (q0.fname AS fname, q0.lname AS lname) }"
+      - result: [{'Dave', 'Kim'}]
+    -
+      # The same anti-join expressed via NOT IN over a subquery, for completeness. However, a subquery IN list is not
+      # supported yet.
+      - query: SELECT "e"."fname", "e"."lname" FROM "emp" "e" WHERE "e"."dept_id" NOT IN (SELECT "d"."id" FROM "dept" "d");
+      - supported_version: !current_version
+      - error: UNSUPPORTED_QUERY
     -
       # WHERE with a different null-accepting predicate on the null-producing side, projecting that side too.
       # Only Dave is unmatched, so only Dave should appear with a null name.
@@ -458,6 +482,11 @@ test_block:
       # departments with no employee.
       - query: SELECT "d"."name" FROM "emp" "e" RIGHT JOIN "dept" "d" ON "e"."dept_id" = "d"."id" WHERE "e"."id" IS NULL;
       - explain: "ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER _.dept_id EQUALS q0.id | ON EMPTY NULL | FILTER _.id IS_NULL AS q1 RETURN (q0.name AS name) }"
+      - result: [{'Marketing'}]
+    -
+      # The same anti-join expressed as a correlated NOT EXISTS subquery, symmetric to the LEFT JOIN case above.
+      - query: SELECT "d"."name" FROM "dept" "d" WHERE NOT EXISTS (SELECT "e"."id" FROM "emp" "e" WHERE "e"."dept_id" = "d"."id");
+      - explain: "ISCAN(dept$name <,>) | FLATMAP q0 -> { ISCAN(emp$fname <,>) | FILTER _.dept_id EQUALS q0.id | MAP (_.id AS id) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN (q0.name AS name) }"
       - result: [{'Marketing'}]
     -
       # RIGHT JOIN where the null-producing (left) side has multiple matches per preserved row (1:N relationship).

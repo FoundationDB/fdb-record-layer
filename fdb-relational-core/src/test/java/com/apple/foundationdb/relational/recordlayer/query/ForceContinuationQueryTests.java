@@ -94,7 +94,6 @@ public class ForceContinuationQueryTests {
         statement.execute("delete from t3");
     }
 
-    // disabled until SerializationMode = TO_NEW
     @ParameterizedTest
     @MethodSource("failedQueries")
     void testNewSerialization(String sql, long result) throws Exception {

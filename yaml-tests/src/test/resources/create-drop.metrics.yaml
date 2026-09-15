@@ -4,10 +4,10 @@ unnamed-4:
     explain: SCAN([IS TEMPLATES, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0)
         | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         0l) AS _0)
-    task_count: 313
+    task_count: 307
     task_total_time_ms: 12
     transform_count: 83
-    transform_time_ms: 4
+    transform_time_ms: 2
     transform_yield_count: 21
     insert_time_ms: 0
     insert_new_count: 30
@@ -18,10 +18,10 @@ unnamed-10:
     explain: SCAN([IS DATABASES, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0)
         | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         0l) AS _0)
-    task_count: 325
+    task_count: 319
     task_total_time_ms: 7
     transform_count: 92
-    transform_time_ms: 4
+    transform_time_ms: 2
     transform_yield_count: 27
     insert_time_ms: 0
     insert_new_count: 30
@@ -32,8 +32,8 @@ unnamed-20:
     explain: SCAN([IS SCHEMAS, EQUALS promote(@c10 AS STRING)]) | MAP (_ AS _0) |
         AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         0l) AS _0)
-    task_count: 545
-    task_total_time_ms: 7
+    task_count: 539
+    task_total_time_ms: 11
     transform_count: 141
     transform_time_ms: 4
     transform_yield_count: 44
