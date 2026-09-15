@@ -174,7 +174,10 @@ class SplitMergeTask extends AbstractDeferredTask {
                         return AsyncUtil.DONE;
                     }
 
-                    if (clusterMetadata.getNumPrimaryVectors() >= config.primaryClusterMin() &&
+                    // The lower bound is the hysteresis merge threshold (relative to the cluster's max-ever
+                    // primary count); the upper bound stays the absolute split cap.
+                    final int mergeThreshold = clusterMetadata.mergeThreshold(config);
+                    if (clusterMetadata.getNumPrimaryVectors() >= mergeThreshold &&
                             clusterMetadata.getNumPrimaryVectors() <= config.primaryClusterMax()) {
                         // false alarm
                         final EnumSet<ClusterMetadata.State> newStates = EnumSet.copyOf(clusterMetadata.states());
@@ -186,7 +189,7 @@ class SplitMergeTask extends AbstractDeferredTask {
                     if (clusterMetadata.getNumPrimaryVectors() > config.primaryClusterMax()) {
                         return split(transaction, clusterMetadata, untransformedCentroid);
                     } else {
-                        Verify.verify(clusterMetadata.getNumPrimaryVectors() < config.primaryClusterMin());
+                        Verify.verify(clusterMetadata.getNumPrimaryVectors() < mergeThreshold);
                         return merge(transaction, clusterMetadata, untransformedCentroid);
                     }
                 }).thenAccept(ignored -> logSuccessful(logger));
@@ -369,14 +372,14 @@ class SplitMergeTask extends AbstractDeferredTask {
                             final RepartitioningCandidate split1to2Candidate =
                                     Objects.requireNonNull(assignmentCandidates.get(0));
                             final EvaluationResult evaluationResult1to2 =
-                                    scoreCandidate(estimator, ImmutableList.of(innerClusters.get(0)),
+                                    scoreCandidate(getConfig(), estimator, ImmutableList.of(innerClusters.get(0)),
                                             split1to2Candidate);
                             candidateToEvaluationResultMap.put(split1to2Candidate, evaluationResult1to2);
                             final RepartitioningCandidate split2to3Candidate = assignmentCandidates.get(1);
                             if (split2to3Candidate != null) {
                                 Verify.verify(innerClusters.size() > 1);
                                 final EvaluationResult evaluationResult2to3 =
-                                        scoreCandidate(estimator, innerClusters,
+                                        scoreCandidate(getConfig(), estimator, innerClusters,
                                                 split2to3Candidate);
                                 candidateToEvaluationResultMap.put(split2to3Candidate, evaluationResult2to3);
                             }
@@ -530,7 +533,7 @@ class SplitMergeTask extends AbstractDeferredTask {
                             final RepartitioningCandidate merge2to1Candidate =
                                     Objects.requireNonNull(mergeCandidates.get(0));
                             final EvaluationResult evaluationResult2to1 =
-                                    scoreCandidate(estimator,
+                                    scoreCandidate(getConfig(), estimator,
                                             innerClusters.subList(0, classification2To1.coreClusters().size()),
                                             merge2to1Candidate);
                             candidateToEvaluationResultMap.put(merge2to1Candidate, evaluationResult2to1);
@@ -538,7 +541,7 @@ class SplitMergeTask extends AbstractDeferredTask {
                             if (merge3to2Candidate != null) {
                                 Verify.verify(innerClusters.size() > 2);
                                 final EvaluationResult evaluationResult3to2 =
-                                        scoreCandidate(estimator, innerClusters,
+                                        scoreCandidate(getConfig(), estimator, innerClusters,
                                                 merge3to2Candidate);
                                 candidateToEvaluationResultMap.put(merge3to2Candidate, evaluationResult3to2);
                             }
@@ -588,7 +591,8 @@ class SplitMergeTask extends AbstractDeferredTask {
                             new ClusterMetadata(newClusterId,
                                     0, 0,
                                     RunningStats.identity(),
-                                    EnumSet.noneOf(ClusterMetadata.State.class)),
+                                    EnumSet.noneOf(ClusterMetadata.State.class),
+                                    0),
                             clusterCentroids.get(i), 0.0d));
         }
         final Set<UUID> newClusterIds = newClusterIdsBuilder.build();
@@ -1119,7 +1123,8 @@ class SplitMergeTask extends AbstractDeferredTask {
      */
     @Nonnull
     private static EvaluationResult
-            scoreCandidate(@Nonnull final DistanceEstimator estimator,
+            scoreCandidate(@Nonnull final Config config,
+                           @Nonnull final DistanceEstimator estimator,
                            @Nonnull final List<Cluster> currentClusters,
                            @Nonnull final RepartitioningCandidate repartitioningCandidate) {
         int vectorCount = 0;
@@ -1159,19 +1164,24 @@ class SplitMergeTask extends AbstractDeferredTask {
                 repartitioningCandidate.primaryVectorReferences(),
                 candidatePartition,
                 VectorReference.vectorLens(),
-                parametersFor(estimator, currentPartition.k(), candidatePartition.k()));
+                parametersFor(config, estimator, currentPartition.k(), candidatePartition.k()));
     }
 
     /**
-     * Returns the {@link PartitionEvaluator.Parameters} appropriate for the given transition. The
-     * generalized {@link PartitionEvaluator.Parameters} record has a single {@code minSmallestFrac}
-     * / {@code maxLargestFrac} pair, so the caller picks values per transition kind:
-     * <ul>
-     *   <li>{@code 1 → 2}: {@code minSmallestFrac=0.03}, no upper bound on the largest cluster.
-     *   <li>{@code 2 → 3}: {@code minSmallestFrac=0.015}, {@code maxLargestFrac=0.55}.
-     *   <li>{@code 2 → 1} / {@code 3 → 2} merges: permissive (no smallest/largest constraints).
-     * </ul>
+     * Returns the {@link PartitionEvaluator.Parameters} used to judge a repartitioning candidate.
+     * <p>
+     * The balance gates are the same for every transition. {@link Config#minChildFraction()} rejects a candidate
+     * that would produce a cluster too small to be worth having, and {@link Config#maxRelativeImbalance()} declines
+     * one whose clusters are too unevenly sized; because the latter is measured as a fraction of the worst
+     * imbalance achievable at that {@code k}, one value means the same thing for a 2-way and a 3-way partitioning,
+     * and a merge to a single cluster passes both by construction.
+     * <p>
+     * Only the imbalance weight varies by transition: splits are biased toward balance by
+     * {@link Config#splitImbalancePenalty()}, which docks the {@code scoreGain} of the more lopsided candidate so
+     * the more balanced one wins. Merges keep the evaluator's default weight — a merge's shape is dictated by the
+     * clusters it is given, so there is less to steer.
      *
+     * @param config the configuration supplying the balance gates and the split imbalance weight
      * @param estimator the distance estimator the evaluator uses to score partitions
      * @param currentK the current number of clusters in the nearest clusters
      * @param candidateK the proposed number of clusters after the transition
@@ -1179,38 +1189,33 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @return the evaluator parameters tuned for the {@code currentK → candidateK} transition
      */
     @Nonnull
-    private static PartitionEvaluator.Parameters parametersFor(@Nonnull final DistanceEstimator estimator,
+    private static PartitionEvaluator.Parameters parametersFor(@Nonnull final Config config,
+                                                               @Nonnull final DistanceEstimator estimator,
                                                                final int currentK,
                                                                final int candidateK) {
         final PartitionEvaluator.Parameters defaults = new PartitionEvaluator.Parameters(estimator);
-        final double minSmallestFrac;
-        final double maxLargestFrac;
-        if (currentK == 1 && candidateK == 2) {
-            minSmallestFrac = 0.03d;
-            maxLargestFrac = 1.0d;
-        } else if (currentK == 2 && candidateK == 3) {
-            minSmallestFrac = 0.015d;
-            maxLargestFrac = 0.55d;
-        } else {
-            // merges (2 → 1, 3 → 2): permissive
-            minSmallestFrac = 0.0d;
-            maxLargestFrac = 1.0d;
-        }
+        final boolean isSplit = candidateK > currentK;
         return new PartitionEvaluator.Parameters(estimator,
                 defaults.minRelativeSseGain(), defaults.minSeparation(), defaults.maxLowMarginRate(),
-                minSmallestFrac, maxLargestFrac, defaults.lowMarginThreshold(),
+                config.minChildFraction(), config.maxRelativeImbalance(), defaults.lowMarginThreshold(),
                 defaults.alphaSseGain(), defaults.betaSeparationGain(),
-                defaults.gammaImbalancePenalty(), defaults.deltaLowMarginPenalty(),
+                isSplit ? config.splitImbalancePenalty() : defaults.gammaImbalancePenalty(),
+                defaults.deltaLowMarginPenalty(),
                 defaults.minScoreGain());
     }
 
     /**
-     * Selects the best valid candidate from the evaluated candidates map. A candidate is valid if
-     * the evaluator did not mark it as {@link PartitionEvaluator.Decision#INVALID_CANDIDATE}.
-     * Among valid candidates, the one with the highest score gain is preferred.
+     * Selects the best valid candidate from the evaluated candidates map. A candidate is out of the running only if
+     * the evaluator marked it {@link PartitionEvaluator.Decision#INVALID_CANDIDATE}; anything else is usable.
+     * <p>
+     * Among the usable ones, {@link PartitionEvaluator.Decision#ACCEPT_CANDIDATE} outranks
+     * {@link PartitionEvaluator.Decision#KEEP_CURRENT}, and only within the same verdict does the higher
+     * {@code scoreGain} decide. That ordering is the point of the soft gates: a candidate that trips one of them is
+     * still available when nothing better is on offer, but it must not displace a candidate that cleared them all
+     * merely by scoring higher — {@code scoreGain} is computed before any gate runs and so knows nothing about them.
      *
      * @param candidateToEvaluationResultMap map of candidates to their evaluation results
-     * @return the best valid candidate, or empty if no valid candidate exists
+     * @return the best usable candidate, or empty if none is usable
      */
     @Nonnull
     private Optional<RepartitioningCandidate> selectBestCandidateMaybe(@Nonnull final Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap) {
@@ -1220,18 +1225,32 @@ class SplitMergeTask extends AbstractDeferredTask {
             final RepartitioningCandidate candidate = entry.getKey();
             final EvaluationResult evaluationResult = entry.getValue();
             if (evaluationResult.decision() != PartitionEvaluator.Decision.INVALID_CANDIDATE) {
-                if (bestEvaluationResult == null) {
+                if (bestEvaluationResult == null || isBetterCandidate(evaluationResult, bestEvaluationResult)) {
                     bestEvaluationResult = evaluationResult;
                     bestCandidate = candidate;
-                } else {
-                    if (evaluationResult.scoreGain() > bestEvaluationResult.scoreGain()) {
-                        bestEvaluationResult = evaluationResult;
-                        bestCandidate = candidate;
-                    }
                 }
             }
         }
         return Optional.ofNullable(bestCandidate);
+    }
+
+    /**
+     * Ranks one usable evaluation result against the incumbent: an accepted candidate beats one the evaluator would
+     * rather not take, and otherwise the higher {@code scoreGain} wins. Callers must have excluded
+     * {@link PartitionEvaluator.Decision#INVALID_CANDIDATE} already.
+     *
+     * @param evaluationResult the result under consideration
+     * @param incumbentResult the best result seen so far
+     * @return {@code true} if {@code evaluationResult} should displace {@code incumbent}
+     */
+    static boolean isBetterCandidate(@Nonnull final EvaluationResult evaluationResult,
+                                     @Nonnull final EvaluationResult incumbentResult) {
+        final boolean isAccepted = evaluationResult.decision() == PartitionEvaluator.Decision.ACCEPT_CANDIDATE;
+        final boolean isIncumbentAccepted = incumbentResult.decision() == PartitionEvaluator.Decision.ACCEPT_CANDIDATE;
+        if (isAccepted != isIncumbentAccepted) {
+            return isAccepted;
+        }
+        return evaluationResult.scoreGain() > incumbentResult.scoreGain();
     }
 
     /**
