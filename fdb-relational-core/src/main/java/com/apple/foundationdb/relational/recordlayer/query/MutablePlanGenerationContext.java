@@ -117,12 +117,8 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     }
 
     /**
-     * Creates a <em>value-free</em> {@link ConstantObjectValue} of the given declared type at this token's constant id:
-     * a constant reference that carries a type but no plan-time value (e.g. a typed stored-query parameter
-     * warmed with no value). A value-free {@link OrderedLiteral} is registered for it, which reserves the constant id
-     * and declares the type but — unlike a bound literal — contributes no binding, so the constant id stays unbound in
-     * the evaluation context. At runtime the byte-identical parameter token binds a value at the same constant id, and
-     * the warmed plan is reused.
+     * Creates a <em>value-free</em> {@link ConstantObjectValue} of the given declared type: it reserves the constant id
+     * and declares the type, but contributes no binding, so the id stays unbound in the evaluation context.
      *
      * @param type the declared type of the parameter
      * @param parameterName the name of the parameter
@@ -397,28 +393,17 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         final var evaluationContext = getEvaluationContext();
         constantObjectValues.forEach(cov -> {
             if (literals.isValueFree(cov.getConstantId())) {
-                // A value-free constant, e.g. a typed declared parameter planned with no value. Its declared type is
-                // all that is known about it, and OfTypeValue.eval already answers expectedType.isNullable() when the
-                // bound value is null, so the OfType constraint above alone would decide null correctly.
-                //
-                // IS_NOT_NULL is nonetheless stated for a non-nullable declaration, because a plan built later from a
-                // concrete non-null value states it too, and the constraint is the plan cache key. Saying it here makes
-                // the two constraints equal member for member, so a warmed plan and a runtime-built plan for the same
-                // parameter cannot end up as two competing cache entries. The nullability read here is the same
-                // cov.getResultType() that OfTypeValue.from(cov) uses above, so the two cannot drift apart.
-                //
-                // A nullable declaration says nothing extra: such a plan serves a null binding, and IS_NOT_NULL would
-                // contradict it.
+                // IS_NOT_NULL is stated even though the OfType constraint above already decides null, because a plan
+                // built later from a concrete value states it too. The constraint is the plan cache key, so the two
+                // must be equal member for member or the same parameter gets two competing entries.
                 if (!cov.getResultType().isNullable()) {
                     predicateBuilder.add(new ValuePredicate(EvaluatesToValue.isNotNull(cov),
                             new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)));
                 }
                 return;
             }
-            // Bound constant: fold to its concrete value (enables constant folding and, at cache lookup, matches the
-            // runtime value against the plan's constraint). A constant bound to null folds to IS_NULL. A constant
-            // that is neither value-free nor bound is a bug, and dereferencing it here fails loudly rather than
-            // silently weakening the constraint.
+            // Bound constant: folded to its value, and to IS_NULL when that value is null. One that is neither bound
+            // nor value-free fails here rather than silently weakening the constraint.
             predicateBuilder.add(new ValuePredicate(EvaluatesToValue.of(cov, evaluationContext),
                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)));
         });
@@ -501,18 +486,14 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     }
 
     /**
-     * Imports a function body's plan-generation side effects into this (enclosing) context. Every literal in
-     * {@code auxiliaryLiterals} is registered into {@code constantObjectValues} so {@link
-     * #getPlanConstraintsForLiteralReferences} emits its {@code OfType}/nullness constraint; the value-bearing ones
-     * additionally carry their value into the literal table, enabling constant folding and value-based dedup/equality.
-     * Value-free literals ride along in the same table, which is how a typed parameter warmed with no value survives
-     * the hop from the context that compiled the function body into this one.
+     * Imports a function body's literals into this context, so {@link #getPlanConstraintsForLiteralReferences} emits a
+     * constraint for each. Value-free ones ride in the same table, which is how a parameter warmed with no value
+     * survives the hop out of the context that compiled the body.
      */
     public void importAuxiliaryLiterals(@Nonnull final Literals auxiliaryLiterals) {
         final var newLiterals = literalsBuilder.importLiteralsRetrieveNewLiterals(auxiliaryLiterals);
         for (final var literal : newLiterals) {
             if (literal.isValueFree()) {
-                // No value, so the type comes from the declaration and there is nothing to fold or dedup against.
                 constantObjectValues.add(ConstantObjectValue.of(Quantifier.constant(), literal.getConstantId(),
                         literal.getType()));
                 continue;
@@ -529,17 +510,16 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
      *
      * @param param the parameter name, as the query text spells it
      * @param tokenIndex the lexical position of the parameter token
-     * @param declaredTypeResolver resolves a declaration's SQL text into the type a value-free constant carries. Passed
-     *        in rather than held, because resolving a declaration may need the schema template, which this context does
-     *        not have; it is only called for a parameter that carries no value, so an ordinary query never invokes it.
+     * @param declaredTypeResolver resolves a declaration's SQL text into a type. Passed in because resolving it needs
+     *        the schema template, which this context does not have.
      * @return the value the parameter contributes to the plan
      */
     @Nonnull
     public Value processNamedPreparedParam(@Nonnull String param, int tokenIndex,
                                            @Nonnull Function<String, Type> declaredTypeResolver) {
         if (!preparedParams.hasNamedParamValue(param)) {
-            // Value-free warm-up: a named parameter declared (in a stored query's parameter list) with a type but no value.
-            // Plan it as a value-free typed constant; the runtime re-issue binds a value at the same constant id.
+            // Declared but unbound: planned as a value-free typed constant, and the runtime re-issue binds a value at
+            // the same constant id.
             final var declaration = preparedParams.declarationMaybe(param);
             if (declaration.isPresent()) {
                 return valueFreeCovOf(declaredTypeResolver.apply(declaration.get()), param, tokenIndex);

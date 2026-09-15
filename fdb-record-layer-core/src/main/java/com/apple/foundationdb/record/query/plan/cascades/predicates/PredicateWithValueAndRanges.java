@@ -355,12 +355,9 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                         .allMatch(range -> candidateRanges.stream()
                                 .anyMatch(candidateRange -> candidateRange.encloses(range, evaluationContext)));
             } catch (final Bindings.MissingBindingException e) {
-                // Past the check above the candidate IS filtered, so matching it means proving its predicate covers the
-                // query range, which dereferences the query comparand. A value-free parameter (a stored query warmed
-                // from its declared types) has no value to dereference. Failing is deliberate: falling back to a scan
-                // would cache a plan that satisfies the parameter's IS_NOT_NULL constraint and so gets reused at
-                // runtime in place of the index plan, leaving the query worse off than if it were never warmed. Warm-up
-                // logs this and skips the stored query.
+                // Matching a filtered candidate means proving its predicate covers the query range, which dereferences
+                // the comparand — and a value-free parameter has none. Failing is deliberate: a scan plan would satisfy
+                // the same IS_NOT_NULL constraint and then be reused in place of the index plan.
                 throw new RecordCoreException("cannot match a filtered index against a value-free parameter", e)
                         .addLogInfo(LogMessageKeys.VALUE, compensatedQueryPredicate);
             }

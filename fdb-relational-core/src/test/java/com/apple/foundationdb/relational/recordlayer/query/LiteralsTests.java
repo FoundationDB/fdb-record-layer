@@ -45,8 +45,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Test suite for {@link Literals}: that no {@link OrderedLiteral}(s) are skipped when building one, and that a literal
  * bound to {@code NULL} stays distinct from a <em>value-free</em> literal. Both have a null literal object; only the
- * latter contributes no binding, which is what leaves its constant id unbound so that a plan built without a value can
- * be reused once a value is bound.
+ * latter contributes no binding.
  */
 public class LiteralsTests {
 
@@ -128,8 +127,7 @@ public class LiteralsTests {
         final var valueFree = builder.addValueFreeLiteral(LONG_TYPE, "param_b", 2);
         final var literals = builder.build();
 
-        // All three states are distinguishable from one lookup, which asBindings() cannot do: there, a null binding and
-        // a value-free literal both read as an absent value.
+        // All three are distinguishable from one lookup, which asBindings() cannot do.
         assertThat(literals.literalOf(boundToNull.getConstantId())).contains(boundToNull);
         assertThat(literals.literalOf(valueFree.getConstantId())).contains(valueFree);
         assertThat(literals.literalOf("c999")).isEmpty();
@@ -143,9 +141,7 @@ public class LiteralsTests {
         final var bound = builder.addLiteral(STRING_TYPE, "hello", null, "param_b", 2);
         final var literals = builder.build();
 
-        // Mirrors what QueryExecutionContext.getEvaluationContext does with these bindings. The case where *every*
-        // literal is value-free, and so no constant may be bound at all, is exercised through the real path in
-        // OfflineValueFreePlanGenerationTest.
+        // Mirrors what QueryExecutionContext.getEvaluationContext does with these bindings.
         final var evaluationContext = EvaluationContext.newBuilder()
                 .setConstant(Quantifier.constant(), literals.asBindings())
                 .build(ParseHelpers.EMPTY_TYPE_REPOSITORY);
@@ -175,8 +171,8 @@ public class LiteralsTests {
 
     @Test
     void importLiteralsWithConflictingValueFreenessThrows() {
-        // Same constant id, one with a value and one without. Both literal objects are null, so only the value-free flag
-        // distinguishes them; skipping the import silently would drop a real binding.
+        // Same constant id, one with a value and one without: only the flag distinguishes them, and skipping the import
+        // would drop a real binding.
         final var source = Literals.newBuilder();
         source.addLiteral(LONG_TYPE, null, null, "param_a", 1);
         final var sourceLiterals = source.build();
@@ -195,8 +191,7 @@ public class LiteralsTests {
         builder.addValueFreeLiteral(LONG_TYPE, "param_a", 1);
         final var boundToNull = builder.addLiteral(LONG_TYPE, null, null, "param_b", 2);
 
-        // A value-free literal is never registered for reverse lookup, so it cannot become the deduplication target for
-        // a literal genuinely bound to NULL.
+        // Never registered for reverse lookup, so it cannot become the dedup target for a literal bound to NULL.
         assertThat(builder.getFirstValueDuplicateMaybe(null)).contains(boundToNull);
     }
 
@@ -204,8 +199,7 @@ public class LiteralsTests {
     void toProtoOnValueFreeLiteralThrows() {
         final var valueFree = Literals.newBuilder().addValueFreeLiteral(LONG_TYPE, "param_a", 1);
 
-        // The wire format encodes an absent value as NULL, so serializing a value-free literal would silently turn it
-        // into one bound to NULL. Only value-free planning produces these, and it never continues a query.
+        // The wire format encodes an absent value as NULL, so serializing would silently turn it into one bound to NULL.
         assertThatThrownBy(() -> valueFree.toProto(PlanSerializationContext.newForCurrentMode(), 0))
                 .isInstanceOf(UncheckedRelationalException.class)
                 .hasMessageContaining("value-free");
@@ -216,8 +210,7 @@ public class LiteralsTests {
         final var builder = Literals.newBuilder();
         final var valueFree = builder.addValueFreeLiteral(LONG_TYPE, "param_a", 12);
 
-        // There is no value to render, so the declared type stands in for it, alongside the constant id the parameter
-        // reserved -- which is what a "Missing binding" message names when such a constant is dereferenced.
+        // The declared type stands in for the value, alongside the constant id a missing-binding message would name.
         assertThat(valueFree).hasToString("?param_a:{" + LONG_TYPE + "}@" + valueFree.getConstantId());
         assertThat(valueFree.getConstantId()).isEqualTo("c12");
     }
@@ -237,8 +230,7 @@ public class LiteralsTests {
     void toStringOnLiteralBoundToNullIsUnchanged() {
         final var boundToNull = Literals.newBuilder().addLiteral(LONG_TYPE, null, null, "param_a", 12);
 
-        // A bound named parameter renders as just its name, whether or not its value happens to be NULL. Only the
-        // value-free form carries the type, so the two are distinguishable in a log or a debugger.
+        // A bound parameter renders as just its name, so the two are distinguishable in a log.
         assertThat(boundToNull).hasToString("?param_a");
     }
 

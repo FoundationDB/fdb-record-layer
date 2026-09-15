@@ -58,13 +58,9 @@ public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
         try {
             return Boolean.TRUE.equals(predicate.compileTimeEval(context));
         } catch (final Bindings.MissingBindingException e) {
-            // Used for compile-time constraint matching (e.g. plan-cache lookup). A constraint that references a
-            // constant the context does not bind (for instance a value-free warm-up context) cannot be shown to hold,
-            // so it does not match. Dereferencing the absent constant throws MissingBindingException; treating that as
-            // unsatisfied is safe — a non-match merely (re)generates the plan and never yields wrong results. Catching
-            // only this subtype avoids swallowing other RecordCoreExceptions (e.g. a type-promotion SemanticException).
-            // Deliberately not logged: every lookup that considers a cached value-free plan reaches this, so it is
-            // ordinary control flow rather than a fault, and a log here could not distinguish the two.
+            // A constraint referencing a constant the context does not bind cannot be shown to hold, so it does not
+            // match. Only this subtype is caught, to avoid swallowing other RecordCoreExceptions. Not logged: every
+            // lookup against a cached value-free plan reaches this, so it is ordinary control flow.
             return false;
         }
     }

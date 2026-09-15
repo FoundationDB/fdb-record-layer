@@ -65,8 +65,8 @@ public class Literals {
         this.orderedLiterals = ImmutableList.copyOf(orderedLiterals);
         // Using unmodifiableMap because it allows null values, which are valid here
         // and represent either null constants or null prepared parameters in queries.
-        // Value-free literals are excluded: a present key with a null value means "bound to NULL", whereas an absent
-        // key means "no value at all", which is what leaves the constant id unbound in the evaluation context.
+        // Value-free literals are excluded: a present key with a null value means bound to NULL, an absent key means
+        // no value at all.
         this.bindingsSupplier = Suppliers.memoize(() ->
                 Collections.unmodifiableMap(
                         this.orderedLiterals
@@ -86,10 +86,10 @@ public class Literals {
     }
 
     /**
-     * Returns the values of these literals as constant bindings, keyed by constant id. A value-free literal declares a
-     * type but carries no value, so it contributes no entry — which is what leaves its constant id unbound in an
-     * {@link EvaluationContext}. Note that an entry may be present with a {@code null} value, meaning bound to
-     * {@code NULL}. For a point lookup prefer {@link #literalOf(String)}, which tells those two cases apart.
+     * Returns the values of these literals as constant bindings, keyed by constant id. A value-free literal
+     * contributes no entry, which is what leaves its constant id unbound in an {@link EvaluationContext}. An entry that
+     * is present with a {@code null} value is bound to {@code NULL}; for a point lookup prefer
+     * {@link #literalOf(String)}, which tells the two apart.
      *
      * @return the constant bindings these literals contribute
      */
@@ -109,8 +109,7 @@ public class Literals {
     }
 
     /**
-     * Returns whether the literal at the given constant id is value-free, i.e. declares a type but carries no value.
-     * Note that this is different from a literal bound to {@code NULL}, which does contribute a binding.
+     * Returns whether the literal at the given constant id is value-free, as opposed to bound to {@code NULL}.
      *
      * @param constantId the constant id to look up
      * @return {@code true} if a value-free literal is registered at {@code constantId}
@@ -200,10 +199,9 @@ public class Literals {
                     Assert.thatUnchecked(!currentLiterals.contains(orderedLiteral));
                 } else {
                     if (currentLiterals.contains(orderedLiteral)) {
-                        // The constant id is already taken. Importing is only a no-op if it is taken by the identical
-                        // literal; anything else means two different literals claim one constant id. Note that a
-                        // value-free literal and one bound to NULL both have a null object, so they are distinguished
-                        // here only by deepEquals also comparing the value-free flag.
+                        // The id is already taken; importing is a no-op only if the identical literal took it. A
+                        // value-free literal and one bound to NULL both have a null object, so deepEquals must compare
+                        // the flag as well.
                         final var duplicate = currentLiterals.elementSet().stream()
                                 .filter(element -> element.equals(orderedLiteral)).findFirst().orElseThrow();
                         Assert.thatUnchecked(orderedLiteral.deepEquals(duplicate), ErrorCode.INTERNAL_ERROR,
@@ -212,8 +210,8 @@ public class Literals {
                     }
                 }
                 if (!orderedLiteral.isValueFree()) {
-                    // A value-free literal must not be registered for reverse lookup: it would claim the null key and
-                    // become the dedup target for a subsequent literal genuinely bound to NULL.
+                    // Not registered for reverse lookup: it would claim the null key and become the dedup target for a
+                    // literal genuinely bound to NULL.
                     literalReverseLookup.putIfAbsent(orderedLiteral.getLiteralObject(), orderedLiteral);
                 }
                 currentLiterals.add(orderedLiteral);
@@ -231,8 +229,8 @@ public class Literals {
         }
 
         /**
-         * Adds a <em>value-free</em> literal for a named parameter, i.e. one that reserves its constant id and declares
-         * its type but carries no value, and therefore contributes no binding to the evaluation context.
+         * Adds a <em>value-free</em> literal: it reserves its constant id and declares its type, but contributes no
+         * binding.
          *
          * @param type the declared type of the parameter
          * @param parameterName the name of the parameter
@@ -265,8 +263,7 @@ public class Literals {
             if (current.size() > 1) {
                 return Optional.empty();
             }
-            // ofNullable rather than of: a value-free literal is not registered for reverse lookup, so there may be no
-            // entry for the value at all.
+            // ofNullable: a value-free literal is not in the reverse lookup, so there may be no entry at all.
             return Optional.ofNullable(literalReverseLookup.get(value));
         }
 

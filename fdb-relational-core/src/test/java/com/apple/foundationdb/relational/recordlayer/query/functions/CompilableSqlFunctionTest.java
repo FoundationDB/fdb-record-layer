@@ -50,8 +50,7 @@ class CompilableSqlFunctionTest {
 
     @Test
     void auxiliaryLiteralsCarryValueFreeLiterals() {
-        // A typed declared parameter warmed with no value rides in the function's literal table as a value-free
-        // literal: it reserves the constant id and declares the type, but contributes no binding.
+        // A declared parameter with no value rides in the function's literal table as a value-free literal.
         final var function = new CompiledSqlFunction("testFunction", ImmutableList.of(), ImmutableList.of(),
                 ImmutableList.of(), Optional.empty(), createDummyBody(), literalsWithValueFreeParameter());
 
@@ -63,8 +62,7 @@ class CompilableSqlFunctionTest {
         Assertions.assertEquals("param_b", valueFree.get(0).getParameterName());
         final var valueFreeConstantId = valueFree.get(0).getConstantId();
         Assertions.assertTrue(carried.isValueFree(valueFreeConstantId));
-        // The value-free literal contributes no binding, so it is absent from the constant map, while the
-        // value-bearing literal beside it does bind.
+        // The value-free literal is absent from the constant map, while the one beside it binds.
         Assertions.assertFalse(carried.asBindings().containsKey(valueFreeConstantId));
         Assertions.assertEquals(1, carried.asBindings().size());
     }

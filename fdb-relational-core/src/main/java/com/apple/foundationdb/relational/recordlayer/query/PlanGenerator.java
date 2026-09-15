@@ -604,8 +604,8 @@ public final class PlanGenerator {
 
     /**
      * As {@link #create(Optional, RecordLayerSchemaTemplate, RecordStoreState, MetricCollector, Options)}, but with
-     * caller-supplied prepared parameters — used by stored-query warm-up to carry the declared parameter types
-     * ({@link PreparedParams#withDeclarations}) so value-free named parameters are planned value-free.
+     * caller-supplied prepared parameters — used by warm-up to carry the declared types
+     * ({@link PreparedParams#withDeclarations}).
      */
     @Nonnull
     public static PlanGenerator create(@Nonnull final Optional<RelationalPlanCache> cache,
@@ -650,8 +650,7 @@ public final class PlanGenerator {
 
     /**
      * As {@link #create(RecordLayerSchemaTemplate, MetadataOperationsFactory, MetricCollector, Options)}, but with
-     * caller-supplied prepared parameters — used by stored-query warm-up so a temporary function planned here captures
-     * the parameter type declarations ({@link PreparedParams#withDeclarations}) for value-free planning.
+     * caller-supplied prepared parameters, so a temporary function planned here captures the declared types.
      */
     @Nonnull
     public static PlanGenerator create(@Nonnull final RecordLayerSchemaTemplate schemaTemplate,
