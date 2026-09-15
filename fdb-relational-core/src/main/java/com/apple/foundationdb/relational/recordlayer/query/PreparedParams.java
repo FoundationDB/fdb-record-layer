@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableMap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Warn: this class is stateful.
@@ -47,20 +48,28 @@ public final class PreparedParams {
     @Nonnull
     private final Map<String, Object> namedParams;
 
+    /**
+     * Declared types for named parameters that carry no value. A parameter with an entry here and none in
+     * {@link #namedParams} is planned value-free. Empty for ordinary execution.
+     */
+    @Nonnull
+    private final Map<String, String> declarations;
+
     private int nextParam = 1;
 
     private PreparedParams(@Nonnull Map<Integer, Object> unnamedParams,
                            @Nonnull Map<String, Object> namedParameters) {
-        this.unnamedParams = unnamedParams;
-        this.namedParams = namedParameters;
+        this(unnamedParams, namedParameters, 1, Map.of());
     }
 
     private PreparedParams(@Nonnull Map<Integer, Object> unnamedParams,
                            @Nonnull Map<String, Object> namedParameters,
-                           int nextParam) {
+                           int nextParam,
+                           @Nonnull Map<String, String> declarations) {
         this.unnamedParams = unnamedParams;
         this.namedParams = namedParameters;
         this.nextParam = nextParam;
+        this.declarations = declarations;
     }
 
     public int currentUnnamedParamIndex() {
@@ -81,6 +90,28 @@ public final class PreparedParams {
                 ErrorCode.UNDEFINED_PARAMETER, "No value found for parameter " + name
         );
         return namedParams.get(name);
+    }
+
+    public boolean hasNamedParamValue(@Nonnull String name) {
+        return namedParams.containsKey(name);
+    }
+
+    /**
+     * The SQL text of a named parameter's type declaration, or empty when it declares none. Only consulted for a
+     * parameter that carries no value, so a declaration may be supplied for every parameter and the bound ones never
+     * read it.
+     */
+    @Nonnull
+    public Optional<String> declarationMaybe(@Nonnull String name) {
+        return Optional.ofNullable(declarations.get(name));
+    }
+
+    /**
+     * Returns a copy of these parameters with type declarations attached. Existing value maps are preserved.
+     */
+    @Nonnull
+    public PreparedParams withDeclarations(@Nonnull Map<String, String> declarations) {
+        return new PreparedParams(unnamedParams, namedParams, nextParam, ImmutableMap.copyOf(declarations));
     }
 
     public boolean isEmpty() {
@@ -116,9 +147,9 @@ public final class PreparedParams {
     @Nonnull
     public static PreparedParams copyOf(@Nonnull PreparedParams other, boolean withCurrentUnnamedParamIndex) {
         if (withCurrentUnnamedParamIndex) {
-            return new PreparedParams(other.unnamedParams, other.namedParams, other.currentUnnamedParamIndex());
+            return new PreparedParams(other.unnamedParams, other.namedParams, other.currentUnnamedParamIndex(), other.declarations);
         } else {
-            return new PreparedParams(other.unnamedParams, other.namedParams);
+            return new PreparedParams(other.unnamedParams, other.namedParams, 1, other.declarations);
         }
     }
 }
