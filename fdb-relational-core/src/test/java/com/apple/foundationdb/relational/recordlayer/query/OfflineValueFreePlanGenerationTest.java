@@ -47,20 +47,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Tests the {@link PlanGenerator} entry points that stored-query warm-up uses, i.e. the ones taking caller-supplied
- * {@link PreparedParams}. Warm-up threads the declared types through them so a named parameter with no value
- * is planned <em>value-free</em>: it reserves a constant id and contributes a type constraint, but binds nothing.
- * <br>
- * These require no database, which is the point — the end-to-end warm-up coverage in {@code StoredQueriesTest} needs a
- * running FDB, so the value-free planning contract itself is pinned here.
+ * Tests the {@link PlanGenerator} entry points that take caller-supplied {@link PreparedParams}, where a named
+ * parameter with a declared type and no value is planned value-free. These need no database; the end-to-end warm-up
+ * coverage that does is in {@code StoredQueriesTest}.
  */
 class OfflineValueFreePlanGenerationTest {
 
 
     /**
-     * A declared type is enough to plan a named parameter that has no value, and the resulting constraint cannot be
-     * satisfied without a binding — which is precisely what makes a value-free plan-cache lookup a safe non-match
-     * rather than a false hit.
+     * The resulting constraint cannot be satisfied without a binding, which is what makes a value-free cache lookup a
+     * non-match rather than a false hit.
      */
     @Test
     void declaredTypePlansNamedParameterValueFreeWithoutAStore() throws Exception {
@@ -74,18 +70,13 @@ class OfflineValueFreePlanGenerationTest {
 
         final var constraint = plan.getConstraint();
 
-        // The parameter contributed a constraint (its declared type), so the plan is specialized.
         assertThat(constraint.isConstrained()).isTrue();
-        // With no value bound, the constraint cannot be shown to hold: dereferencing the value-free constant raises
-        // Bindings.MissingBindingException, which compileTimeEval treats as unsatisfied.
+        // Dereferencing the value-free constant raises MissingBindingException, which compileTimeEval treats as
+        // unsatisfied.
         assertThat(constraint.compileTimeEval(EvaluationContext.forTypeRepository(ParseHelpers.EMPTY_TYPE_REPOSITORY)))
                 .isFalse();
     }
 
-    /**
-     * The same for the cache-taking overload, which is what plans a stored query's body once its declared functions are
-     * in scope.
-     */
     @Test
     void declaredTypePlansNamedParameterValueFreeWithRecordStoreState() throws Exception {
         final var plan = PlanGenerator.create(
@@ -103,10 +94,6 @@ class OfflineValueFreePlanGenerationTest {
                 .isFalse();
     }
 
-    /**
-     * A value-free plan is warmed for the non-null case only, so a null binding does not match it and the query is
-     * planned again with the value in hand.
-     */
     @Test
     void declaredTypeRejectsANullBinding() throws Exception {
         final var constraint = valueFreePlanConstraint("BIGINT");
@@ -116,10 +103,8 @@ class OfflineValueFreePlanGenerationTest {
     }
 
     /**
-     * A declaration that says {@code NULL} is no different. A declaration is resolved to a non-nullable type whatever it
-     * says about nullability, because it is only ever resolved for a parameter left without a value — and no single plan
-     * is correct for both a null and a non-null binding. That makes the rule structural rather than something each
-     * caller has to remember.
+     * A declaration is resolved to a non-nullable type whatever it says about nullability, since it is only ever
+     * resolved for a parameter left without a value.
      */
     @Test
     void nullableDeclarationStillRejectsANullBinding() throws Exception {
@@ -131,9 +116,8 @@ class OfflineValueFreePlanGenerationTest {
     }
 
     /**
-     * A declaration produces the same constraint as planning the query with a concrete non-null value does. The
-     * constraint is the plan cache key, so equal constraints mean a warmed plan and a plan built later at runtime cannot
-     * become two competing entries for one binding.
+     * The constraint is the plan cache key, so a warmed plan and a plan built later from a value must not become two
+     * competing entries.
      */
     @Test
     void declaredTypeConstrainsAsABoundValueDoes() throws Exception {
@@ -144,8 +128,7 @@ class OfflineValueFreePlanGenerationTest {
     }
 
     /**
-     * A declaration naming a schema template type cannot be resolved from a declaration alone, and is reported rather
-     * than guessed: a wrong type would warm a plan no binding could match.
+     * Reported rather than guessed: a wrong type would warm a plan no binding could match.
      */
     @Test
     void schemaTemplateTypeCannotBeResolvedFromADeclaration() {
@@ -154,17 +137,13 @@ class OfflineValueFreePlanGenerationTest {
     }
 
     /**
-     * Plans {@code where id = ?param_a} with {@code param_a} declared as {@code declaration} and no value, and returns
-     * the plan's constraint.
+     * Plans {@code where id = ?param_a} with {@code param_a} declared and unbound, and returns the plan's constraint.
      */
     @Nonnull
     private QueryPlanConstraint valueFreePlanConstraint(@Nonnull final String declaration) throws Exception {
         return planConstraint(PreparedParams.empty().withDeclarations(Map.of("param_a", declaration)));
     }
 
-    /**
-     * Plans {@code where id = ?param_a} with the given parameters and returns the plan's constraint.
-     */
     @Nonnull
     private QueryPlanConstraint planConstraint(@Nonnull final PreparedParams preparedParams) throws Exception {
         return PlanGenerator.create(
@@ -178,8 +157,8 @@ class OfflineValueFreePlanGenerationTest {
     }
 
     /**
-     * An evaluation context binding every constant the constraint references to {@code value}, as a runtime lookup
-     * would. The constant ids are read out of the constraint rather than assumed, since they follow token positions.
+     * Binds every constant the constraint references to {@code value}. The ids are read out of the constraint rather
+     * than assumed, since they follow token positions.
      */
     @Nonnull
     private static EvaluationContext bindingConstantsOf(@Nonnull final QueryPlanConstraint constraint,
@@ -197,9 +176,8 @@ class OfflineValueFreePlanGenerationTest {
     }
 
     /**
-     * Without declared types the same query is a plain unbound named parameter, which is an error rather than a
-     * value-free plan. This is what keeps value-free planning reachable only from warm-up, and it exercises the
-     * delegating overload that supplies {@link PreparedParams#empty()}.
+     * Without a declaration the parameter is a plain unbound one, which is an error — this is what keeps value-free
+     * planning reachable only from warm-up.
      */
     @Test
     void namedParameterWithoutDeclaredTypeOrValueIsRejected() {

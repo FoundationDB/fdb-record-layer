@@ -589,14 +589,12 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     /**
-     * Resolves the SQL text of a parameter's type declaration into the type a value-free constant carries. Done here
-     * rather than by the caller because the schema template a declaration may name a type from is reachable from this
-     * visitor's semantic analyzer, and nowhere upstream.
+     * Resolves the SQL text of a parameter's type declaration into a type. Done here because the schema template it may
+     * name a type from is reachable from this visitor's semantic analyzer, and nowhere upstream.
      *
-     * <p>The result is forced non-nullable. A declaration only reaches this point for a parameter left without a value,
-     * and a parameter is only left without a value when it is known not to receive a null — so the plan must reject a
-     * null binding, which a non-nullable type is exactly what does. It also matches what a bound value produces:
-     * {@code Type.fromObject} gives a non-null value a non-nullable type, so the two agree at cache lookup.</p>
+     * <p>The result is forced non-nullable: a declaration is only resolved for a parameter left without a value, and
+     * that happens only when it is known not to receive a null. {@code Type.fromObject} does the same for a bound
+     * non-null value, so the two agree at cache lookup.</p>
      */
     @Nonnull
     private Type resolveDeclaredType(@Nonnull final String declaration) {
