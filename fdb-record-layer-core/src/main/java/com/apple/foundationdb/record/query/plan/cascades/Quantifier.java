@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -364,6 +364,47 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     }
 
     /**
+     * A quantifier that conceptually collapses many items into one. It flows exactly one item from the sub-graph it
+     * ranges over to the owning expression, or {@code NULL} if the result is empty. Accordingly, the flowed type is the
+     * nullable variant of the inner type.
+     */
+    @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
+    public abstract static sealed class AtMostOne extends Quantifier permits Existential {
+        @Nonnull
+        private final Reference rangesOver;
+
+        protected AtMostOne(@Nonnull final CorrelationIdentifier alias, @Nonnull final Reference rangesOver) {
+            super(alias);
+            this.rangesOver = rangesOver;
+        }
+
+        @Override
+        @Nonnull
+        public Reference getRangesOver() {
+            return rangesOver;
+        }
+
+        @Nonnull
+        @Override
+        public Type getFlowedObjectType() {
+            return super.getFlowedObjectType().nullable();
+        }
+
+        @Nonnull
+        @Override
+        public List<Column<? extends FieldValue>> computeFlowedColumns() {
+            throw new IllegalStateException("should not be called");
+        }
+
+        @Nonnull
+        @Override
+        public Optional<RegularTranslationMap> pullUpMaxMatchMapMaybe(@Nonnull final MaxMatchMap maxMatchMap,
+                                                                      @Nonnull final CorrelationIdentifier candidateAlias) {
+            return Optional.of(TranslationMap.ofAliases(getAlias(), candidateAlias));
+        }
+    }
+
+    /**
      * A quantifier that conceptually flows exactly one item containing a boolean to the owning
      * expression indicating whether the sub-graph that the quantifier ranges over, produced a non-empty or an empty
      * result. When the semantics of these quantifiers are realized in an execution strategy that strategy should
@@ -371,10 +412,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * the first item.
      */
     @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
-    public static final class Existential extends Quantifier {
-        @Nonnull
-        private final Reference rangesOver;
-
+    public static final class Existential extends AtMostOne {
         /**
          * Builder subclass for existential quantifiers.
          */
@@ -389,14 +427,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         private Existential(@Nonnull final CorrelationIdentifier alias,
                             @Nonnull final Reference rangesOver) {
-            super(alias);
-            this.rangesOver = rangesOver;
-        }
-
-        @Override
-        @Nonnull
-        public Reference getRangesOver() {
-            return rangesOver;
+            super(alias, rangesOver);
         }
 
         @Override
@@ -430,27 +461,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        public Type getFlowedObjectType() {
-            return super.getFlowedObjectType().nullable();
-        }
-
-        @Nonnull
-        @Override
         protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Supplier<Reference> referenceSupplier) {
             return Optional.of(RecordQueryFirstOrDefaultPlan.forExistential(this, referenceSupplier.get()));
-        }
-
-        @Nonnull
-        @Override
-        public List<Column<? extends FieldValue>> computeFlowedColumns() {
-            throw new IllegalStateException("should not be called");
-        }
-
-        @Nonnull
-        @Override
-        public Optional<RegularTranslationMap> pullUpMaxMatchMapMaybe(@Nonnull final MaxMatchMap maxMatchMap,
-                                                                      @Nonnull final CorrelationIdentifier candidateAlias) {
-            return Optional.of(TranslationMap.ofAliases(getAlias(), candidateAlias));
         }
     }
 
