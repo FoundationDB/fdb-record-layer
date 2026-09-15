@@ -25,11 +25,13 @@ import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
@@ -48,7 +50,10 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProp
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ParameterObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
@@ -145,6 +150,13 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions = PlanPartitions.rollUpTo(innerReference.toPlanPartitions(), OrderingProperty.ordering());
 
+        //
+        // An in-join binds the array element itself under the explode's alias, while the explode flows that element
+        // wrapped in a struct. Wrap what the alias stands for accordingly, so that an access of the element within the
+        // inner plans composes away to a plain reference to the binding.
+        //
+        final var elementTranslationMap = elementTranslationMap(quantifierToExplodeBiMap);
+
         for (final var planPartition  : planPartitions) {
             final var providedOrdering = planPartition.getPartitionPropertyValue(OrderingProperty.ordering());
 
@@ -154,17 +166,44 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
                                 quantifierToExplodeBiMap, providedOrdering, requestedOrdering);
                 sourcesStream.forEach(sources -> {
                     final var reverseSources = Lists.reverse(sources);
+                    Verify.verify(!reverseSources.isEmpty());
 
-                    var newInnerPlanReference = call.memoizeMemberPlansBuilder(innerReference, planPartition.getPlans());
+                    var innerPlanReference =
+                            call.memoizeMemberPlansBuilder(innerReference, planPartition.getPlans())
+                                    .reference()
+                                    .translateGraph(Memoizer.noMemoization(innerReference.getPlannerStage()),
+                                            elementTranslationMap, true);
+                    Memoizer.ReferenceOfPlansBuilder newInnerPlanReference = null;
                     for (final InSource inSource : reverseSources) {
-                        final var inJoinPlan = inSource.toInJoinPlan(Quantifier.physical(newInnerPlanReference.reference()));
+                        final var inJoinPlan = inSource.toInJoinPlan(Quantifier.physical(innerPlanReference));
                         newInnerPlanReference = call.memoizePlanBuilder(inJoinPlan);
+                        innerPlanReference = newInnerPlanReference.reference();
                     }
 
-                    call.yieldPlans(newInnerPlanReference.members());
+                    call.yieldPlans(Objects.requireNonNull(newInnerPlanReference).members());
                 });
             }
         }
+    }
+
+    /**
+     * Returns a {@link TranslationMap} that makes every given explode quantifier stand for the array element the
+     * in-join binds under its alias, rather than for the result struct the explode flows.
+     *
+     * @param quantifierToExplodeMap what each explode quantifier ranges over
+     *
+     * @return a translation map wrapping each explode alias in its result struct
+     */
+    @Nonnull
+    private static TranslationMap elementTranslationMap(@Nonnull final Map<Quantifier.ForEach, ExplodeExpression> quantifierToExplodeMap) {
+        final var translationMapBuilder = RegularTranslationMap.builder();
+        for (final var entry : quantifierToExplodeMap.entrySet()) {
+            final var alias = entry.getKey().getAlias();
+            final var elementValue = QuantifiedObjectValue.of(alias, entry.getValue().getElementType());
+            translationMapBuilder.when(alias).then((sourceAlias, leafValue) ->
+                    RecordConstructorValue.ofColumns(ImmutableList.of(Column.unnamedOf(elementValue)), true));
+        }
+        return translationMapBuilder.build();
     }
 
     @Nonnull

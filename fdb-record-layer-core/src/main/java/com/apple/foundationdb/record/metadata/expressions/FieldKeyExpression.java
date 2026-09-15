@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
@@ -274,19 +275,25 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return visitor.visitExpression(this);
     }
 
+    /**
+     * Creates a quantifier that unnests this field of {@code baseValue}.
+     *
+     * @param baseValue the value this field is a field of
+     * @param fieldNamePrefix the nesting chain of non-repeated fields leading to this field
+     *
+     * @return a quantifier ranging over an {@link ExplodeExpression} of this field
+     */
     @Nonnull
-    public Quantifier.ForEach explodeField(@Nonnull Quantifier.ForEach baseQuantifier, @Nonnull List<String> fieldNamePrefix) {
+    public Quantifier.ForEach explodeField(@Nonnull Value baseValue, @Nonnull List<String> fieldNamePrefix) {
         final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(ProtoUtils.toUserIdentifier(fieldName))
                 .build();
-        switch (fanType) {
-            case FanOut:
-                return Quantifier.forEach(Reference.initialOf(
-                        ExplodeExpression.explodeField(baseQuantifier, fieldNames)));
-            default:
-                throw new RecordCoreException("unrecognized fan type");
+        if (fanType == FanType.FanOut) {
+            return Quantifier.forEach(Reference.initialOf(
+                    ExplodeExpression.explodeField(baseValue, fieldNames)));
         }
+        throw new RecordCoreException("unrecognized fan type");
     }
 
     @Nonnull

@@ -48,6 +48,7 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -64,6 +65,16 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildren implements InternalPlannerGraphRewritable {
+    /**
+     * The ordinal of the array element in the result struct.
+     */
+    public static final int ELEMENT_ORDINAL = 0;
+
+    /**
+     * The ordinal of the ordinality in the result struct, for the {@code WITH ORDINALITY} variant.
+     */
+    public static final int ORDINALITY_ORDINAL = 1;
+
     @Nonnull
     private final Value collectionValue;
 
@@ -73,16 +84,10 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
     private final boolean withOrdinality;
 
     /**
-     * The element type of the collection value.
-     */
-    @Nonnull
-    private final Type elementType;
-
-    /**
      * The type of the explode result.
      */
     @Nonnull
-    private final Type explodeResultType;
+    private final Type.Record explodeResultType;
 
     /**
      * The result value of the explode.
@@ -94,7 +99,7 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
         this.collectionValue = collectionValue;
         this.withOrdinality = withOrdinality;
         Verify.verify(collectionValue.getResultType().isArray());
-        this.elementType = Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
+        final Type elementType = Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
         this.explodeResultType = explodeResultType(elementType, withOrdinality);
         this.resultValue = explodeResultValue(elementType, withOrdinality);
         Verify.verify(explodeResultType.equals(resultValue.getResultType()));
@@ -105,69 +110,35 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
     }
 
     /**
-     * Returns the element type of the collection value.
+     * Returns the type of the explode result: an anonymous-field struct holding the element, and the ordinal as well
+     * for the {@code WITH ORDINALITY} variant.
      */
     @Nonnull
-    public Type getElementType() {
-        return elementType;
-    }
-
-    /**
-     * Returns the type of the explode result. For the {@code WITH ORDINALITY} variant, builds an anonymous-field
-     * struct result type holding the element and the 0-based ordinal.
-     */
-    @Nonnull
-    public static Type explodeResultType(@Nonnull final Type elementType, boolean withOrdinality) {
+    public static Type.Record explodeResultType(@Nonnull final Type elementType, boolean withOrdinality) {
+        final ImmutableList.Builder<Type.Record.Field> fields = ImmutableList.builder();
+        fields.add(Type.Record.Field.of(elementType, Optional.empty()));
         if (withOrdinality) {
-            return Type.Record.fromFields(ImmutableList.of(
-                    Type.Record.Field.of(elementType, Optional.empty()),
-                    Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.empty())));
-        } else {
-            return elementType;
+            fields.add(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.empty()));
         }
+        return Type.Record.fromFields(fields.build());
     }
 
     /**
      * Returns the type of the explode result.
      */
     @Nonnull
-    public Type getExplodeResultType() {
+    public Type.Record getExplodeResultType() {
         return explodeResultType;
     }
 
-    /**
-     * Returns the value an explode of {@code elementType} flows. For the plain variant that is an opaque
-     * {@link QueriedValue} standing for the element. For the {@code WITH ORDINALITY} variant it is a
-     * {@link RecordConstructorValue} of two such values, the element and the ordinal, rather than a single opaque value
-     * of the struct type.
-     *
-     * <p>The distinction matters for matching, not for evaluation. {@link com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap}
-     * descends into record constructors but not into opaque values, so building the struct explicitly makes the element
-     * a <em>reachable</em> sub-value of the result: a plain explode on the query side can then be related to a
-     * {@code WITH ORDINALITY} explode on the candidate side, and the correspondence pulls up through the enclosing
-     * quantifiers as {@code q._0} rather than being lost. An opaque value of the struct type offers nothing to match
-     * against but itself.
-     *
-     * @param elementType the element type of the collection being exploded
-     * @param withOrdinality whether ordinals are produced alongside the elements
-     * @return the value flowed by such an explode
-     */
     @Nonnull
     public static Value explodeResultValue(@Nonnull final Type elementType, final boolean withOrdinality) {
-        final var elementValue = new QueriedValue(elementType);
-        if (!withOrdinality) {
-            return elementValue;
+        final List<Column<? extends Value>> columns = new ArrayList<>();
+        columns.add(Column.unnamedOf(new QueriedValue(elementType)));
+        if (withOrdinality) {
+            columns.add(Column.unnamedOf(new QueriedValue(Type.primitiveType(Type.TypeCode.INT, false))));
         }
-        // Note: the element must stay the first column. `MaxMatchMap` returns the first reachable candidate value that
-        // compares equal, and a `QueriedValue` compares equal to any other `QueriedValue`, so an element on the query
-        // side would just as happily match the ordinal if the ordinal came first.
-        //
-        // The record is built nullable so that its type is the one `explodeResultType` already declares -- that type
-        // backs the protobuf descriptor the plan builds at run time, so it is the type that must not move.
-        return RecordConstructorValue.ofColumns(
-                ImmutableList.of(Column.unnamedOf(elementValue),
-                        Column.unnamedOf(new QueriedValue(Type.primitiveType(Type.TypeCode.INT, false)))),
-                true);
+        return RecordConstructorValue.ofColumns(columns, true);
     }
 
     @Nonnull
@@ -255,24 +226,6 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
         return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, TranslationMap.empty());
     }
 
-    /**
-     * Establishes that an explode <em>without</em> ordinality is subsumed by an explode <em>with</em> ordinality over
-     * the same collection. The candidate emits one {@code (element, ordinal)} struct per element this expression
-     * emits just element. That satisfies subsumption: the candidate produces at least everything the query may produce.
-     * This case cannot be dealt with by {@link #exactlySubsumedBy}, whose {@code equalsWithoutChildren} compares
-     * {@link #isWithOrdinality()}.
-     *
-     * <p>No {@link com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence} is needed to relate the two
-     * result values: {@link #explodeResultValue} builds the candidate's as a record constructor, so this expression's
-     * element value is a reachable sub-value of it and the correspondence is found structurally. The resulting mapping
-     * points at the candidate's element column, which is what lets the enclosing select express a navigation into the
-     * element as {@code q._0.field}.
-     *
-     * @param candidateExpression the candidate explode, which must be {@code WITH ORDINALITY}
-     * @param bindingAliasMap a map of aliases defining the equivalence between quantifiers
-     * @param partialMatchMap a map from quantifier to the {@link PartialMatch} pulled up along that quantifier
-     * @return an iterable containing a {@link MatchInfo} if subsumption holds, empty otherwise
-     */
     @Nonnull
     private Iterable<MatchInfo> subsumedByWithOrdinality(@Nonnull final ExplodeExpression candidateExpression,
                                                          @Nonnull final AliasMap bindingAliasMap,
@@ -319,8 +272,25 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
                : collectionValue.toString();
     }
 
+    @Nonnull
+    public Type getElementType() {
+        return explodeResultType.getField(ELEMENT_ORDINAL).getFieldType();
+    }
+
+    @Nonnull
+    public static Value elementValueOf(@Nonnull final Quantifier explodeQuantifier) {
+        return FieldValue.ofOrdinalNumber(explodeQuantifier.getFlowedObjectValue(), ELEMENT_ORDINAL);
+    }
+
+    @Nonnull
     public static ExplodeExpression explodeField(@Nonnull final Quantifier.ForEach baseQuantifier,
                                                  @Nonnull final List<String> fieldNames) {
-        return new ExplodeExpression(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
+        return explodeField(baseQuantifier.getFlowedObjectValue(), fieldNames);
+    }
+
+    @Nonnull
+    public static ExplodeExpression explodeField(@Nonnull final Value baseValue,
+                                                 @Nonnull final List<String> fieldNames) {
+        return new ExplodeExpression(FieldValue.ofFieldNames(baseValue, fieldNames));
     }
 }
