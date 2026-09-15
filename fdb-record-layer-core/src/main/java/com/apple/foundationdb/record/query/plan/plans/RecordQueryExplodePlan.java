@@ -76,7 +76,7 @@ import java.util.stream.IntStream;
  *
  * <p>In the {@code WITH ORDINALITY} variant, {@code EXPLODE} also generates ordinals of the array elements. In this
  * case the plan produces a {@link DynamicMessage} struct with two anonymous fields (the element and the ordinal)
- * instead of the bare element. The ordinals are 1-based per the SQL standard (Foundation, Section 4.10.2).
+ * instead of the bare element. The ordinals are <em>0-based</em>.
  *
  * @see RecordQueryFlatMapPlan
  */
@@ -145,7 +145,7 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
                     .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
         }
 
-        // In the WITH ORDINALITY case, produce a struct (element, ordinal) per list element, with 1-based ordinals.
+        // In the WITH ORDINALITY case, produce a struct (element, ordinal) per list element, with 0-based ordinals.
         final Type elementType = getElementType();
         final var resultType = (Type.Record) getExplodeResultType();
         final TypeRepository typeRepository = context.getTypeRepository();
@@ -153,10 +153,10 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         final Descriptors.FieldDescriptor elementField = descriptor.getFields().get(0);
         final Descriptors.FieldDescriptor ordinalField = descriptor.getFields().get(1);
         final ImmutableList<Message> indexedList =
-                IntStream.rangeClosed(1, list.size())
+                IntStream.range(0, list.size())
                 .mapToObj(i -> {
                     final DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
-                    final Object element = Verify.verifyNotNull(list.get(i - 1), "array elements must be non-null");
+                    final Object element = Verify.verifyNotNull(list.get(i), "array elements must be non-null");
                     builder.setField(elementField,
                             RecordConstructorValue.deepCopyIfNeeded(typeRepository, elementType, element));
                     builder.setField(ordinalField, i);

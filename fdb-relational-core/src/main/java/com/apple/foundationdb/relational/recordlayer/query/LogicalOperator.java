@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableIn
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -322,8 +323,14 @@ public class LogicalOperator {
             final Type elementType = explode.getElementType();
             attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(elementType),
                     FieldValue.ofOrdinalNumber(flowedObjectValue, 0)));
-            attributesBuilder.add(new Expression(atAlias, DataType.Primitives.INTEGER.type(),
-                    FieldValue.ofOrdinalNumber(flowedObjectValue, 1)));
+            // The explode flows 0-based ordinals. SQL `AT` is 1-based per the standard.
+            // TODO: An `AT` ordinal is never null, but `ArithmeticValue` reports a nullable result type even when both
+            //       of its operands are not nullable, so the column is declared nullable to match the value it flows.
+            //       Once #4622 is fixed, this should go back to `DataType.Primitives.INTEGER`.
+            final Value oneBasedOrdinal = (Value)new ArithmeticValue.AddFn()
+                    .encapsulate(CallSiteArguments.ofPositional(FieldValue.ofOrdinalNumber(flowedObjectValue, 1),
+                            LiteralValue.ofScalar(1)));
+            attributesBuilder.add(new Expression(atAlias, DataType.Primitives.NULLABLE_INTEGER.type(), oneBasedOrdinal));
         } else if (flowedObjectType.isPrimitive()) {
             attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(explode.getExplodeResultType()),
                     flowedObjectValue));
