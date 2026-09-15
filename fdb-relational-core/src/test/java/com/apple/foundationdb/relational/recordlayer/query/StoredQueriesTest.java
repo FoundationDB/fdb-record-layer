@@ -152,8 +152,10 @@ public class StoredQueriesTest {
             embeddedConnection.setAutoCommit(true);
             final var storedQueries = schemaTemplate.getStoredQueries();
             Assertions.assertEquals(2, storedQueries.size());
-            Assertions.assertEquals("select * from t1 where col1 = 10", storedQueries.get("BY_COL1").getQuery());
-            Assertions.assertEquals("select * from t1 where id = 1", storedQueries.get("BY_ID").getQuery());
+            Assertions.assertEquals("select * from t1 where col1 = 10",
+                    schemaTemplate.findStoredQueryByName("BY_COL1").orElseThrow().getQuery());
+            Assertions.assertEquals("select * from t1 where id = 1",
+                    schemaTemplate.findStoredQueryByName("BY_ID").orElseThrow().getQuery());
             Assertions.assertEquals(0, countCachedPlans(connection, ddl.getSchemaTemplateName())); // we do not generate plans at ddl execution for now
         }
     }
@@ -437,8 +439,7 @@ public class StoredQueriesTest {
             final var storedQueries = schemaTemplate.getStoredQueries();
             Assertions.assertEquals(1, storedQueries.size());
 
-            final var sq = storedQueries.get("BY_X");
-            Assertions.assertNotNull(sq);
+            final var sq = schemaTemplate.findStoredQueryByName("BY_X").orElseThrow();
             Assertions.assertEquals("SELECT * FROM sq1(10)", sq.getQuery());
             Assertions.assertEquals(1, sq.getTempFunctions().size());
             final var tempFuncSource = sq.getTempFunctions().get(0);

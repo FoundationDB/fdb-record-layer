@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metadata.StoredQuery;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
@@ -39,10 +40,13 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerView;
 import com.apple.foundationdb.relational.recordlayer.metadata.SkeletonVisitor;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
+import java.util.Map;
 
 @API(API.Status.EXPERIMENTAL)
 public class RecordMetadataSerializer extends SkeletonVisitor {
@@ -107,14 +111,19 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
     @Override
     public void visit(@Nonnull SchemaTemplate schemaTemplate) {
         Assert.thatUnchecked(schemaTemplate instanceof RecordLayerSchemaTemplate);
-        final var recLayerSchemaTemplate = (RecordLayerSchemaTemplate) schemaTemplate;
         getBuilder().setSplitLongRecords(schemaTemplate.isEnableLongRows());
         getBuilder().setStoreRecordVersions(schemaTemplate.isStoreRowVersions());
         getBuilder().setVersion(schemaTemplate.getVersion());
-        for (final var entry : recLayerSchemaTemplate.getStoredQueries().entrySet()) {
-            final var storedQuery = entry.getValue();
-            getBuilder().addStoredQuery(entry.getKey(), storedQuery.getQuery(), storedQuery.getTempFunctions());
-        }
+    }
+
+    @Override
+    public void visit(@Nonnull final StoredQuery storedQuery) {
+        final var preparedCases = storedQuery.getPreparedCases().stream()
+                .map(preparedCase -> preparedCase.entrySet().stream()
+                        .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, state -> state.getValue().name())))
+                .collect(ImmutableList.<Map<String, String>>toImmutableList());
+        getBuilder().addStoredQuery(storedQuery.getName(), storedQuery.getQuery(), storedQuery.getTempFunctions(),
+                storedQuery.getParameters(), preparedCases);
     }
 
     @Nonnull
