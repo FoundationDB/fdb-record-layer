@@ -376,13 +376,9 @@ public abstract class ValueEquivalence {
                                                  @Nonnull final LiteralValue<?> literalValue) {
             if (!evaluationContext.containsConstantBinding(constantObjectValue.getAlias(),
                     constantObjectValue.getConstantId())) {
-                //
-                // The constant carries no value: it is planned from its declared type alone, which happens when
-                // generating a plan that is independent of particular constant values. There is nothing to compare it
-                // against, so it is not shown equal to anything. Dereferencing it instead would yield null, which the
-                // null case below would then declare equal to a NULL literal and constrain with IS_NULL — a constraint
-                // no non-null value could ever satisfy, leaving the plan unreachable.
-                //
+                // The constant carries no value, so there is nothing to compare. Dereferencing it would yield null,
+                // which the null case below would call equal to a NULL literal and constrain with IS_NULL — a
+                // constraint no non-null binding could satisfy, leaving the plan unreachable.
                 return falseValue();
             }
             final var constantObject = constantObjectValue.evalWithoutStore(evaluationContext);

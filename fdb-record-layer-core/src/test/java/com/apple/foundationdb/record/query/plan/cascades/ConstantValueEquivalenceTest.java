@@ -36,10 +36,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests for {@link ValueEquivalence.ConstantValueEquivalence}, which relates a {@link ConstantObjectValue} to a
- * {@link LiteralValue} by comparing the value bound to the constant.
- *
- * <p>The interesting case is a constant that carries no value at all, because it is planned from its declared type
- * alone. Its absence must not be mistaken for the value {@code NULL}.</p>
+ * {@link LiteralValue} by comparing the value bound to the constant. A constant carrying no value at all must not be
+ * mistaken for one bound to {@code NULL}.
  */
 class ConstantValueEquivalenceTest {
 
@@ -103,14 +101,12 @@ class ConstantValueEquivalenceTest {
     }
 
     /**
-     * A constant with no binding is not equal to a {@code NULL} literal. Its absence means "no value at all", not the
-     * value {@code NULL} — and mistaking one for the other would attach an {@code IS_NULL} constraint to the plan that
-     * no non-null value could satisfy, making the plan unreachable.
+     * Mistaking the two would attach an {@code IS_NULL} constraint that no non-null binding could satisfy, leaving the
+     * plan unreachable.
      */
     @Test
     void valueFreeConstantIsNotEqualToANullLiteral() {
-        // Another constant is bound, so the constant map exists and only this constant is missing from it — the shape a
-        // query mixing literals with a value-free parameter produces.
+        // Another constant is bound, so the map exists and only this one is missing from it.
         final var equivalence = equivalenceUnder(contextBinding(Map.of("c2", 7L)));
 
         assertThat(equivalence.isDefinedEqual(constant(), literal(null)).isTrue()).isFalse();
