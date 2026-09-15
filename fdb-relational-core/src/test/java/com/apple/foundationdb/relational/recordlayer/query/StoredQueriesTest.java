@@ -111,8 +111,7 @@ public class StoredQueriesTest {
                     " AS SELECT * FROM sq1(10)";
 
     /**
-     * One stored query with a declared parameter, warmed for both halves of its domain: a plan built with the null
-     * bound, and a plan built value-free with a non-nullable type.
+     * Both halves of the parameter's domain: a plan with the null bound, and a value-free one.
      */
     private static final String SCHEMA_TEMPLATE_TWO_CASES =
             "CREATE TABLE t1(id bigint, col1 bigint, col2 bigint, PRIMARY KEY(id))" +
@@ -130,11 +129,8 @@ public class StoredQueriesTest {
                     " AS select * from t1 where flag = b";
 
     /**
-     * The first stored query declares a parameter whose type warm-up cannot resolve, since the built schema template
-     * keeps no named types. The second is ordinary, and must still be warmed.
-     *
-     * <p>A template type in a parameter list is written {@code TYPE s1}: unlike a column definition, {@code
-     * functionColumnType} requires the keyword.</p>
+     * The first query's parameter type cannot be resolved at warm-up; the second must still be warmed. A template type
+     * in a parameter list is written {@code TYPE s1} — unlike a column definition, the keyword is required.
      */
     private static final String SCHEMA_TEMPLATE_UNRESOLVABLE_TYPE =
             "CREATE TYPE AS STRUCT s1(f1 bigint)" +
@@ -613,8 +609,7 @@ public class StoredQueriesTest {
     }
 
     /**
-     * One stored query, two prepared cases, two plans. This is what a parameter list buys: the same query text warmed once
-     * with the null bound and once value-free, so both halves of the parameter's domain arrive warm.
+     * One stored query, two prepared cases, two plans.
      */
     @Test
     void eachPreparedCaseWarmsItsOwnPlan() throws Exception {
@@ -637,9 +632,8 @@ public class StoredQueriesTest {
     }
 
     /**
-     * Both warmed plans are reachable from a client. The proof is that the cached plan count does not move: a miss
-     * would plan afresh and insert, so an unchanged count is a hit. That matters because the failure mode here is a
-     * silent miss — correct rows either way, only the warm-up wasted.
+     * Both warmed plans are reachable from a client. An unchanged cached-plan count is the proof of a hit: a miss would
+     * plan afresh and insert. The failure mode here is a silent miss, correct rows either way.
      */
     @Test
     void clientBindingHitsThePlanWarmedForItsCase() throws Exception {
@@ -676,8 +670,7 @@ public class StoredQueriesTest {
             });
             Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
 
-            // A null binding must match the other plan, the one built with the null already bound. No row can satisfy
-            // `col1 = NULL`, so the answer is empty — and it comes from a folded plan rather than a scan.
+            // A null binding must match the plan built with the null already bound: no row satisfies `col1 = NULL`.
             connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
                 try (var ps = c.prepareStatement("select * from t1 where col1 = ?P")) {
                     ps.setNull("P", Types.BIGINT);
@@ -733,9 +726,7 @@ public class StoredQueriesTest {
     }
 
     /**
-     * A parameter declared with a schema template type cannot be warmed, because the built template keeps no named
-     * types to resolve the declaration against. That stored query is skipped and the next one still warms — the same
-     * containment the temp-function failures already have.
+     * The built template keeps no named types, so that stored query is skipped and the next one still warms.
      */
     @Test
     void parameterTypeWarmUpCannotResolveSkipsOnlyThatQuery() throws Exception {
@@ -750,8 +741,7 @@ public class StoredQueriesTest {
 
             Assertions.assertEquals(Long.valueOf(1), new ConnectionUtils(engineDriver).getFromCatalog(
                     conn -> countCachedPlans(conn, templateName)));
-            // The plan counters are per case, the query counters per query: one case failed and one warmed, and each
-            // belongs to a different stored query, so both query counters read one as well.
+            // Plan counters are per case, query counters per query — and here the two cases belong to different queries.
             Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_FAILED));
             Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_PLANS_WARMED));
             Assertions.assertEquals(1, eventCounterCount(RelationalMetric.RelationalCount.OFFLINE_STORED_QUERIES_QUERIES_FAILED));

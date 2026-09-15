@@ -116,9 +116,9 @@ public final class OfflineStoredQueriesProcessor {
      *
      * <p>Failures are never propagated &mdash; a bad query must not abort startup. Each failure is
      * logged at {@code ERROR} level, and is also surfaced as a metric: per-query failures bump
-     * {@link RelationalMetric.RelationalCount#OFFLINE_STORED_QUERIES_QUERIES_FAILED}. How much the cache was actually
-     * filled is {@link RelationalMetric.RelationalCount#OFFLINE_STORED_QUERIES_PLANS_WARMED}, which counts plans rather
-     * than queries: a stored query with prepared cases warms one plan per case.</p>
+     * {@link RelationalMetric.RelationalCount#OFFLINE_STORED_QUERIES_QUERIES_FAILED}.
+     * {@link RelationalMetric.RelationalCount#OFFLINE_STORED_QUERIES_PLANS_WARMED} counts plans rather than queries: a
+     * stored query with prepared cases warms one plan per case.</p>
      */
     public static void planStoredQueriesForSchemaTemplates(@Nonnull final RelationalPlanCache cache,
                                                            @Nonnull final MetricRegistry metricRegistry,
@@ -214,8 +214,8 @@ public final class OfflineStoredQueriesProcessor {
                                         @Nonnull final Counts counts) {
         final var preparedCases = storedQuery.getPreparedCases();
         if (preparedCases.isEmpty()) {
-            // No declared parameters, so nothing to pin and one plan to build — the shape a stored query had
-            // before they existed. Parameters without cases cannot occur: CREATE requires them together.
+            // No declared parameters, so one plan to build. Parameters without cases cannot occur: CREATE requires
+            // them together.
             if (planOneCase(cache, metricCollector, template, templateKey, storedQueryName, storedQuery,
                     PreparedParams.empty(), counts)) {
                 counts.plansWarmed++;
@@ -226,18 +226,16 @@ public final class OfflineStoredQueriesProcessor {
             }
             return;
         }
-        // One plan per case. A case that fails does not stop the others: the plan for the null case failing is no
-        // reason to give up the plan for the non-null one.
+        // One plan per case, and a case that fails does not stop the others.
         boolean allCasesPlanned = true;
         for (final var preparedCase : preparedCases) {
             final PreparedParams preparedParams;
             try {
                 preparedParams = PreparedCaseParams.of(storedQuery.getParameters(), preparedCase);
             } catch (RuntimeException e) {
-                // Unchecked only: Assert.thatUnchecked raises UncheckedRelationalException, and QueryParser wraps a
-                // parse failure the same way.
-                // Logged here rather than in getPlan's finally, because no plan was attempted: this is a declaration
-                // warm-up cannot resolve, for instance one naming a schema template type.
+                // Unchecked only: Assert.thatUnchecked and a QueryParser parse failure both raise
+                // UncheckedRelationalException. Logged here rather than in getPlan's finally, because no plan was
+                // attempted — the declaration itself could not be resolved.
                 if (logger.isErrorEnabled()) {
                     logger.error(KeyValueLogMessage.of("OfflineStoredQueriesProcessor cannot prepare a stored query case",
                             "schemaTemplate", templateKey,
@@ -267,17 +265,10 @@ public final class OfflineStoredQueriesProcessor {
      * Plans one stored query once, with the given parameters: first each declared temporary function, folding the
      * captured routine back into the template, then the SELECT body with the cache wired up.
      *
-     * <p>
-     * The temporary functions are planned inside this method rather than once for the whole stored query, because a
-     * declared parameter captured by a function's body changes that function's plan too — so each case needs its own
-     * compile, starting from the original template with a fresh factory.
-     * </p>
-     *
-     * <p>
-     * Reports the outcome by its return value rather than by counting it: the caller counts both outcomes side by side,
-     * so that {@code plansWarmed + plansFailed} being the number of attempts is visible in one place. What this method
-     * does count is the temporary functions, which only it can see.
-     * </p>
+     * <p>The temporary functions are compiled inside this method rather than once for the whole stored query, because a
+     * declared parameter captured by a function's body changes that function's plan too, so each case needs its own
+     * compile from the original template. The outcome is returned rather than counted here, so that the caller can count
+     * both outcomes side by side.</p>
      *
      * @return {@code true} if the body was planned, {@code false} if this case failed
      */
