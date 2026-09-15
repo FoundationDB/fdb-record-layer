@@ -56,7 +56,7 @@ import java.util.Set;
  *
  * <p>In the {@code WITH ORDINALITY} variant, it also generates ordinals of the field values. In this case it
  * produces a struct with two anonymous fields—the element and the ordinal—instead of the bare element. The ordinals
- * are <em>0-based</em>; SQL {@code AT} is 1-based, so the SQL layer adds the one where it binds the {@code AT} alias.
+ * are <em>0-based</em>.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildren implements InternalPlannerGraphRewritable {

@@ -154,11 +154,6 @@ public class ExplodePlanTest {
         verifyCursor(actualCursorBuilder.build(), expectedResult, shouldReachLimit);
     }
 
-    /**
-     * The ordinals an explode flows are 0-based. SQL {@code AT} is 1-based, so the SQL layer adds the one when it binds
-     * the {@code AT} alias -- which means the yamsql tests only ever observe the adjusted ordinals. This asserts what
-     * the plan itself produces.
-     */
     @Test
     @SuppressWarnings("DataFlowIssue") // explode transposes a constant array Value, it does not need a record store.
     void explodeWithOrdinalityFlowsZeroBasedOrdinals() {
