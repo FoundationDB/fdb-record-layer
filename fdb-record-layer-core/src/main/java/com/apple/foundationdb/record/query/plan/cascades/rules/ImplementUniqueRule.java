@@ -43,7 +43,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPlanPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyForEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUniqueExpression;
 
 /**
@@ -63,7 +63,7 @@ public class ImplementUniqueRule extends AbstractCascadesRule<LogicalUniqueExpre
 
     // This rule establishes null-on-empty semantics if desired, so it can match _any_ for-each quantifier.
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = anyForEachQuantifierOverRef(innerReferenceMatcher);
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);
 
     @Nonnull
     private static final BindingMatcher<LogicalUniqueExpression> root = logicalUniqueExpression(only(innerQuantifierMatcher));

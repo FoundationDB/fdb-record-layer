@@ -34,7 +34,7 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutNullOnEmptyOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.recursiveUnionExpression;
 
@@ -51,13 +51,13 @@ public class PushRequestedOrderingThroughRecursiveUnionRule extends AbstractCasc
     private static final BindingMatcher<Reference> initialRefMatcher = anyRef();
 
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> initialQunMatcher = forEachQuantifierOverRef(initialRefMatcher);
+    private static final BindingMatcher<Quantifier.ForEach> initialQunMatcher = forEachQuantifierWithoutNullOnEmptyOverRef(initialRefMatcher);
 
     @Nonnull
     private static final BindingMatcher<Reference> recursiveRefMatcher = anyRef();
 
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> recursiveQunMatcher = forEachQuantifierOverRef(recursiveRefMatcher);
+    private static final BindingMatcher<Quantifier.ForEach> recursiveQunMatcher = forEachQuantifierWithoutNullOnEmptyOverRef(recursiveRefMatcher);
 
     @Nonnull
     private static final BindingMatcher<RecursiveUnionExpression> root = recursiveUnionExpression(initialQunMatcher, recursiveQunMatcher);

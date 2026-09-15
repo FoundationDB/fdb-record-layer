@@ -42,7 +42,7 @@ import javax.annotation.Nonnull;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutNullOnEmptyOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.groupByExpression;
 
 /**
@@ -53,7 +53,7 @@ public class PushRequestedOrderingThroughGroupByRule extends AbstractCascadesRul
 
     private static final BindingMatcher<Reference> lowerRefMatcher = ReferenceMatchers.anyRef();
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierWithoutNullOnEmptyOverRef(lowerRefMatcher);
     @Nonnull
     private static final BindingMatcher<GroupByExpression> root =
             groupByExpression(innerQuantifierMatcher);

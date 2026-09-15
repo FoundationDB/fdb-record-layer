@@ -66,8 +66,8 @@ import java.util.stream.Stream;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MatchPartitionMatchers.ofExpressionAndMatches;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PartialMatchMatchers.anyPartialMatch;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyPlainQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithPredicate.typedMatcherWithPredicate;
 
 /**
  * Transform a {@link SelectExpression} with a set of {@link QueryPredicate}s into a union operation.
@@ -129,7 +129,8 @@ public class PredicateToLogicalUnionRule extends AbstractCascadesRule<MatchParti
     // could contribute its own null row over an empty input, so we might end up with multiple such nulls instead of
     // one, with no way to properly collapse them.)
     @Nonnull
-    private static final BindingMatcher<Quantifier> qunMatcher = anyPlainQuantifier();
+    private static final BindingMatcher<Quantifier> qunMatcher =
+            typedMatcherWithPredicate(Quantifier.class, qun -> !Quantifiers.isForEachWithNullOnEmpty(qun));
     @Nonnull
     private static final CollectionMatcher<QueryPredicate> combinationPredicateMatcher = all(anyPredicate());
     @Nonnull

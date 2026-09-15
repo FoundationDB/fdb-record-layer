@@ -38,7 +38,7 @@ import javax.annotation.Nonnull;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyForEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalDistinctExpression;
 
 /**
@@ -49,7 +49,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class PushReferencedFieldsThroughDistinctRule extends AbstractCascadesRule<LogicalDistinctExpression> implements PreOrderRule {
     private static final BindingMatcher<Reference> lowerRefMatcher = ReferenceMatchers.anyRef();
     // This rule passes the quantifier on unchanged, so it can match _any_ for-each quantifier.
-    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = anyForEachQuantifierOverRef(lowerRefMatcher);
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
     private static final BindingMatcher<LogicalDistinctExpression> root =
             logicalDistinctExpression(exactly(innerQuantifierMatcher));
 
