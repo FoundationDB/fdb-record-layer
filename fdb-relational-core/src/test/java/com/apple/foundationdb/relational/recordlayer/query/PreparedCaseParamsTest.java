@@ -29,11 +29,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Turning one prepared case into the {@link PreparedParams} warm-up plans it with.
- *
- * <p>A state either binds a value or leaves the parameter without one, and that choice is the whole of what this class
- * decides. Resolving a declaration into a type happens later, on the planning path, and is covered by
- * {@code OfflineValueFreePlanGenerationTest}.</p>
+ * Turning one prepared case into the {@link PreparedParams} warm-up plans it with: which parameters get a value and
+ * which are left without one. Resolving a declaration into a type happens later, on the planning path.
  */
 class PreparedCaseParamsTest {
 
@@ -41,8 +38,7 @@ class PreparedCaseParamsTest {
     void isNullBindsARealNull() {
         final var params = PreparedCaseParams.of(Map.of("P", "BIGINT"), Map.of("P", ParameterState.IS_NULL));
 
-        // containsKey, not a non-null value: this is what makes the parameter value-bound rather than value-free, so the
-        // planner folds the predicate instead of leaving a typed constant behind.
+        // containsKey, not a non-null value: this is what makes the parameter value-bound rather than value-free.
         assertThat(params.hasNamedParamValue("P")).isTrue();
         assertThat(params.namedParamValue("P")).isNull();
     }
@@ -65,8 +61,7 @@ class PreparedCaseParamsTest {
     }
 
     /**
-     * Declarations are passed on for every parameter, including the ones a case binds a value to. Harmless because a
-     * declaration is only read for a parameter with no value, and it means nothing has to be filtered per case.
+     * Harmless because a declaration is only read for a parameter with no value, so nothing is filtered per case.
      */
     @Test
     void everyDeclarationIsPassedOnWhateverTheStateIs() {
@@ -93,8 +88,7 @@ class PreparedCaseParamsTest {
     }
 
     /**
-     * A state with no declaration behind it is caught here, so the failure names the missing declaration rather than
-     * surfacing later as an ordinary unbound parameter with a missing value.
+     * Caught here, so the failure names the missing declaration rather than a missing value later.
      */
     @Test
     void valueFreeStateWithoutADeclarationIsRejected() {

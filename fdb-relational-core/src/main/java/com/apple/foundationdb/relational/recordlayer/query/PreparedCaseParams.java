@@ -30,25 +30,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Turns one prepared case of a stored query into the {@link PreparedParams} that warm-up plans it with, so that a
- * warmed plan is built through the very path a client's prepared statement takes.
+ * Turns one prepared case of a stored query into the {@link PreparedParams} that warm-up plans it with, so a warmed plan
+ * is built through the path a client's prepared statement takes. {@code IS_NULL}, {@code IS_TRUE} and {@code IS_FALSE}
+ * bind a real value; {@code IS_NOT_NULL} binds nothing and is planned from its declaration instead.
  *
- * <p>
- * A state either binds a value or leaves the parameter without one:
- * </p>
- * <ul>
- *     <li>{@code IS_NULL}, {@code IS_TRUE} and {@code IS_FALSE} bind a real value, so the planner sees it and can fold
- *     predicates away exactly as it would at run time.</li>
- *     <li>{@code IS_NOT_NULL} binds nothing. The parameter is planned from its declaration instead, which the planning
- *     path resolves into a non-nullable type — that is what keeps a null binding from matching the resulting plan.</li>
- * </ul>
- *
- * <p>
- * Every declaration is passed on unchanged, not just the ones a case leaves value-free, because a declaration is only
- * ever read for a parameter that carries no value: one that is also bound never consults it. So there is nothing to
- * filter per case, and this stays a pure function of a parameter list and a case — no database, no schema template, no
- * planner.
- * </p>
+ * <p>Every declaration is passed on, not just the ones a case leaves value-free, because a declaration is only read for
+ * a parameter that carries no value — so there is nothing to filter per case.</p>
  */
 @API(API.Status.EXPERIMENTAL)
 final class PreparedCaseParams {
@@ -66,9 +53,8 @@ final class PreparedCaseParams {
     @Nonnull
     static PreparedParams of(@Nonnull final Map<String, String> declarations,
                              @Nonnull final Map<String, StoredQuery.ParameterState> preparedCase) {
-        // A HashMap rather than Map.of or ImmutableMap: IS_NULL binds a real null, which neither of those accepts. The
-        // distinction matters — PreparedParams.hasNamedParamValue asks containsKey, so a parameter bound to null is
-        // value-bound and reaches constant folding, while one merely absent would be planned value-free instead.
+        // A HashMap, since IS_NULL binds a real null and neither Map.of nor ImmutableMap accepts one. The distinction
+        // matters: hasNamedParamValue asks containsKey, so bound-to-null is value-bound while absent is value-free.
         final var values = new HashMap<String, Object>();
         for (final var entry : preparedCase.entrySet()) {
             final var parameterName = entry.getKey();
@@ -83,9 +69,8 @@ final class PreparedCaseParams {
                     values.put(parameterName, Boolean.FALSE);
                     break;
                 case IS_NOT_NULL:
-                    // Deliberately left without a value: planning resolves the declaration instead. Checked here all
-                    // the same, because a state with no declaration behind it would otherwise be planned as an ordinary
-                    // unbound parameter and fail with a message about a missing value rather than a missing declaration.
+                    // Left without a value on purpose. Checked all the same, so that a state with no declaration
+                    // behind it fails about the missing declaration rather than about a missing value.
                     Assert.thatUnchecked(declarations.containsKey(parameterName), ErrorCode.INTERNAL_ERROR,
                             () -> "prepared case names '" + parameterName + "', which the parameter list does not declare");
                     break;
