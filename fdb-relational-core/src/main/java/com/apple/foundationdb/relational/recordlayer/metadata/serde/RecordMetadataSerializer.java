@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metadata.SyntheticTable;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
@@ -75,14 +76,14 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         recordType.setPrimaryKey(keyExpression);
     }
 
-    private void visit(@Nonnull final RecordLayerUnnestedSyntheticTable unnestedTable) {
-        final UnnestedRecordTypeBuilder typeBuilder =
-                getBuilder().addUnnestedRecordType(unnestedTable.getStorageName());
-        final RecordTypeBuilder recordTypeBuilder = getBuilder().getRecordType(unnestedTable.getParentTableStorageName());
-        typeBuilder.addParentConstituent(unnestedTable.getAlias(), recordTypeBuilder);
+    private void visit(@Nonnull final RecordLayerUnnestedSyntheticTable unnestedSyntheticTable) {
+        final UnnestedRecordTypeBuilder builder =
+                getBuilder().addUnnestedRecordType(unnestedSyntheticTable.getStorageName());
+        final RecordTypeBuilder recordTypeBuilder = getBuilder().getRecordType(unnestedSyntheticTable.getParentTableStorageName());
+        builder.addParentConstituent(unnestedSyntheticTable.getAlias(), recordTypeBuilder);
         final Map<String, Descriptors.Descriptor> descriptorsByAlias = new LinkedHashMap<>();
-        descriptorsByAlias.put(unnestedTable.getAlias(), recordTypeBuilder.getDescriptor());
-        for (final RecordLayerUnnestedSyntheticTable.NestedConstituent nested : unnestedTable.getConstituents()) {
+        descriptorsByAlias.put(unnestedSyntheticTable.getAlias(), recordTypeBuilder.getDescriptor());
+        for (final RecordLayerUnnestedSyntheticTable.NestedConstituent nested : unnestedSyntheticTable.getConstituents()) {
             final Descriptors.Descriptor owningProto = descriptorsByAlias.get(nested.getParentAlias());
             Assert.notNullUnchecked(owningProto, "unknown parent constituent '" + nested.getParentAlias()
                     + "' for constituent '" + nested.getAlias() + "'");
@@ -95,7 +96,7 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
                         "unnested index constituent must be a struct array, scalar arrays are not supported");
                 constituentDescriptor = arrayField.getMessageType();
             }
-            typeBuilder.addNestedConstituent(nested.getAlias(), constituentDescriptor,
+            builder.addNestedConstituent(nested.getAlias(), constituentDescriptor,
                     nested.getParentAlias(), nested.getNestingExpression());
             descriptorsByAlias.put(nested.getAlias(), constituentDescriptor);
         }
@@ -130,12 +131,16 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
 
     @Override
     public void visit(@Nonnull final View view) {
-        if (view instanceof RecordLayerUnnestedSyntheticTable unnestedSyntheticTable) {
+        final var recordLayerView = Assert.castUnchecked(view, RecordLayerView.class);
+        getBuilder().addView(recordLayerView.asRawView());
+    }
+
+    @Override
+    public void visit(@Nonnull final SyntheticTable syntheticTable) {
+        if (syntheticTable instanceof RecordLayerUnnestedSyntheticTable unnestedSyntheticTable) {
             visit(unnestedSyntheticTable);
-        } else if (view instanceof RecordLayerView recordLayerView) {
-            getBuilder().addView(recordLayerView.asRawView());
         } else {
-            Assert.failUnchecked("view not supported");
+            Assert.failUnchecked("synthetic table kind not supported");
         }
     }
 

@@ -22,10 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.api.metadata.View;
-import com.apple.foundationdb.relational.api.metadata.Visitor;
+import com.apple.foundationdb.relational.api.metadata.SyntheticTable;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -33,19 +30,17 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Base class for synthetic tables in the relational layer. A synthetic table is an indexed
- * view: it is defined by a SQL SELECT query (like a {@link View}) and additionally backed by a
- * record-layer synthetic record type ({@code UnnestedRecordType}) with one or more indexes
- * maintained on it.
+ * Base class for synthetic tables in the relational layer: a virtual table backed by a record-layer synthetic record
+ * type ({@code UnnestedRecordType} and, eventually, joined types) with one or more indexes maintained on it.
  *
- * <p>Implementing {@link View} reflects the semantic reality: a synthetic table is a virtual,
- * named, SQL-defined type. It is not temporary, and its description is synthesized from its
- * constituent definitions rather than stored as a raw string.
+ * <p>It is generated from an index definition the stored tables cannot express, rather than declared, so it carries no
+ * SQL text and is not reachable by name from a query -- which is why it is a {@link SyntheticTable} and not a
+ * {@link com.apple.foundationdb.relational.api.metadata.View}.
  *
  * @see RecordLayerUnnestedSyntheticTable
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract sealed class RecordLayerSyntheticTable implements View
+public abstract sealed class RecordLayerSyntheticTable implements SyntheticTable
         permits RecordLayerUnnestedSyntheticTable {
 
     @Nonnull
@@ -66,13 +61,6 @@ public abstract sealed class RecordLayerSyntheticTable implements View
         return name;
     }
 
-    @Nonnull
-    @Override
-    public String getDescription() {
-        throw new RelationalException("A synthetic table has no query description",
-                ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException();
-    }
-
     /**
      * The name the synthetic record type carries in the protobuf descriptor, derived from {@link #getName()} the same way
      * a column's storage name is derived from its declared name. The declared name comes from user identifiers -- the
@@ -85,41 +73,10 @@ public abstract sealed class RecordLayerSyntheticTable implements View
         return ProtoUtils.toProtoBufCompliantName(name);
     }
 
-    /** Synthetic tables are always permanent. */
-    @Override
-    public boolean isTemporary() {
-        return false;
-    }
-
     @Nonnull
+    @Override
     public Set<RecordLayerIndex> getIndexes() {
         return indexes;
-    }
-
-    /**
-     * Names of the stored tables this synthetic table is built from. Indexes on it are maintained from writes to
-     * those tables, so this is how they are attributed in a table-keyed view of the metadata. An unnested synthetic
-     * table has exactly one; a joined one would have several.
-     *
-     * @return the names of the underlying stored tables
-     */
-    @Nonnull
-    public abstract Set<String> getUnderlyingTableNames();
-
-    @Override
-    public void accept(@Nonnull final Visitor visitor) {
-        if (visitor instanceof SkeletonVisitor) {
-            acceptSkeleton((SkeletonVisitor) visitor);
-        } else {
-            visitor.visit(this);
-        }
-    }
-
-    protected void acceptSkeleton(@Nonnull SkeletonVisitor visitor) {
-        visitor.visit(this);
-        for (final var index : getIndexes()) {
-            index.accept(visitor);
-        }
     }
 
     @Override

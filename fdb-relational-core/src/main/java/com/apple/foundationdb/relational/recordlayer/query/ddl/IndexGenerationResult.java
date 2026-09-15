@@ -41,7 +41,7 @@ import java.util.Optional;
  * @param indexBuilder the index definition
  * @param syntheticTable the synthetic table to register, empty for an index on a stored table
  */
-@API(API.Status.EXPERIMENTAL)
+@API(API.Status.INTERNAL)
 public record IndexGenerationResult(@Nonnull RecordLayerIndex.Builder indexBuilder,
                                     @Nonnull Optional<RecordLayerSyntheticTable.Builder> syntheticTable) {
 

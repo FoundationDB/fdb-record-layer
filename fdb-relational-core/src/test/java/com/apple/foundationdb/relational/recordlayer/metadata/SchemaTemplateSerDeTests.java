@@ -1109,11 +1109,6 @@ public class SchemaTemplateSerDeTests {
                         arrayElementsExpression("scores", true)));
         Assertions.assertNotEquals(build.get(), differentName);
 
-        // A synthetic table is not declared by CREATE VIEW, so it has no query description to report, and it is never
-        // temporary. Both are part of the View contract it has to satisfy.
-        Assertions.assertThrows(UncheckedRelationalException.class, () -> build.get().getDescription());
-        Assertions.assertFalse(build.get().isTemporary());
-
         // Guards of equals() that no round-trip exercises: neither the table nor a constituent may equal null or an
         // object of another class, or a set of them could collapse entries that are not in fact equal. The subject has
         // to come first, since assertNotEquals compares via Objects.equals on its first argument.

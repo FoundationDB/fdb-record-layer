@@ -26,9 +26,11 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
 import com.google.protobuf.Descriptors;
 
+import java.util.List;
 import javax.annotation.Nonnull;
 
 /**
@@ -59,6 +61,26 @@ public final class NullableArrayUtils {
                ? Key.Expressions.field(arrayFieldName)
                        .nest(Key.Expressions.field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut))
                : Key.Expressions.field(arrayFieldName, KeyExpression.FanType.FanOut);
+    }
+
+    /**
+     * Navigates from a record to the elements of an array reached through a path of non-repeated fields. Each name but
+     * the last is a plain hop; the last is the array itself, wrapped or not as {@link #arrayElements(String, boolean)}
+     * decides.
+     *
+     * @param fieldPath the protobuf storage names of the fields to navigate, the array field last
+     * @param nullableArray whether the array is stored wrapped
+     * @return an expression reaching the array's elements from the record the path starts at
+     */
+    @Nonnull
+    public static KeyExpression arrayElements(@Nonnull final List<String> fieldPath, final boolean nullableArray) {
+        Assert.thatUnchecked(!fieldPath.isEmpty(), ErrorCode.INTERNAL_ERROR, "empty path to an array field");
+        final var last = fieldPath.size() - 1;
+        var expression = arrayElements(fieldPath.get(last), nullableArray);
+        for (int i = last - 1; i >= 0; i--) {
+            expression = Key.Expressions.field(fieldPath.get(i)).nest(expression);
+        }
+        return expression;
     }
 
     public static String getRepeatedFieldName() {

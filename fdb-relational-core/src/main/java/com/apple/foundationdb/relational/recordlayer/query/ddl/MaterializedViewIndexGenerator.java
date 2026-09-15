@@ -92,16 +92,16 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
     @Override
     public IndexGenerationResult generate() {
         final var quantifierValues = QuantifierValues.collect(relationalExpression);
-        var spec = IndexSpec.collect(relationalExpression, quantifierValues);
+        var spec = IndexSpec.collect(relationalExpression, quantifierValues, schemaTemplateBuilder);
         final var unnestedTableGeneratorMaybe = RecordLayerUnnestedSyntheticTableGenerator.initIfNeeded(
-                schemaTemplateBuilder, spec, indexName, quantifierValues);
+                spec, indexName, quantifierValues);
         spec.checkValidity(unnestedTableGeneratorMaybe.orElse(null));
         final Type.Record tableType;
         if (unnestedTableGeneratorMaybe.isPresent()) {
             spec = unnestedTableGeneratorMaybe.get().rewrite(spec);
             tableType = unnestedTableGeneratorMaybe.get().getSyntheticType();
         } else {
-            tableType = schemaTemplateBuilder.findTableByStorageName(spec.recordTypeName()).getType();
+            tableType = spec.table().getType();
         }
         final var translation = translateToKeyExpression(spec, unnestedTableGeneratorMaybe.isEmpty());
         final var indexType = translation.indexType();
@@ -139,7 +139,7 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
      */
     @Nonnull
     private ValueToKeyExpressionVisitor.Result translateToKeyExpression(@Nonnull IndexSpec spec, boolean allowCollapsing) {
-        final var projectionValue = RecordConstructorValue.ofUnnamed(spec.keyValues());
+        final var projectionValue = RecordConstructorValue.ofUnnamed(spec.rootValues());
         final var orderingFunctions = spec.projection().aggregate() != null ?
                                       Map.<Value, String>of() :
                                       spec.getOrderingFunctions();

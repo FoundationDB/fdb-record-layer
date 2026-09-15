@@ -366,6 +366,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
      * @return the synthetic tables
      */
     @Nonnull
+    @Override
     public Set<RecordLayerSyntheticTable> getSyntheticTables() {
         return syntheticTables;
     }

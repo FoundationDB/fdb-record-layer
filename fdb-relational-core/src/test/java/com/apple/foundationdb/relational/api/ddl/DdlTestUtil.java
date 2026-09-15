@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.RecordContextTransaction;
@@ -49,12 +50,44 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 public class DdlTestUtil {
+
+    /**
+     * Asserts that planning the given DDL is rejected, with the given error code and a message containing
+     * {@code errorMessage}.
+     *
+     * @param connection the connection to plan against
+     * @param schemaTemplateName the name of the schema template in the catalog
+     * @param databaseUri the database URI to plan against
+     * @param query the DDL statement expected to be rejected
+     * @param errorCode the expected error code
+     * @param errorMessage a substring the rejection message has to contain
+     * @throws Exception if anything other than planning fails
+     */
+    static void shouldFailWith(@Nonnull final RelationalConnectionRule connection,
+                               @Nonnull final String schemaTemplateName,
+                               @Nonnull final String databaseUri,
+                               @Nonnull final String query,
+                               @Nonnull final ErrorCode errorCode,
+                               @Nonnull final String errorMessage) throws Exception {
+        connection.setAutoCommit(false);
+        connection.getUnderlyingEmbeddedConnection().createNewTransaction();
+        final RelationalException ve = org.junit.jupiter.api.Assertions.assertThrows(RelationalException.class, () ->
+                getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), schemaTemplateName, databaseUri)
+                        .getPlan(query));
+        org.junit.jupiter.api.Assertions.assertEquals(errorCode, ve.getErrorCode());
+        org.junit.jupiter.api.Assertions.assertTrue(ve.getMessage().contains(errorMessage),
+                String.format(Locale.ROOT, "expected error message '%s' to contain '%s' but it didn't",
+                        ve.getMessage(), errorMessage));
+        connection.rollback();
+        connection.setAutoCommit(true);
+    }
 
     /**
      * Plans and executes the given DDL with an injected metadata factory, so that any assertions the

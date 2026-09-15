@@ -77,6 +77,16 @@ public interface SchemaTemplate extends Metadata {
     Set<? extends View> getViews() throws RelationalException;
 
     /**
+     * Returns the {@link SyntheticTable}s inside the schema template. These are generated from index definitions the
+     * stored tables cannot express, so unlike the {@link Table}s and {@link View}s they are not declared by the user.
+     *
+     * @return The {@link SyntheticTable}s inside the schema template.
+     * @throws RelationalException if it is a NoOpSchemaTemplate
+     */
+    @Nonnull
+    Set<? extends SyntheticTable> getSyntheticTables() throws RelationalException;
+
+    /**
      * Retrieves a {@link Table} by looking up its name.
      *
      * @param tableName The name of the {@link Table}.

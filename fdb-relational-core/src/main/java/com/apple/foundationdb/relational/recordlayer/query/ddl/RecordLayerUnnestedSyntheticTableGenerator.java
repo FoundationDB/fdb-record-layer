@@ -30,10 +30,10 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSyntheticTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnnestedSyntheticTable;
-import com.google.common.base.Supplier;
+import java.util.function.Supplier;
 import com.google.common.base.Suppliers;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
@@ -94,11 +94,11 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
     @Nonnull
     private final String parentAlias;
 
+    /**
+     * The stored table the synthetic table's parent constituent stands for.
+     */
     @Nonnull
-    private final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder;
-
-    @Nonnull
-    private final String recordTypeName;
+    private final RecordLayerTable parentTable;
 
     @Nonnull
     private final String syntheticTableName;
@@ -112,13 +112,11 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
 
     private RecordLayerUnnestedSyntheticTableGenerator(@Nonnull final Map<Integer, UnnestingInfo> unnestings,
                                      @Nonnull final String parentAlias,
-                                     @Nonnull final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
-                                     @Nonnull final String recordTypeName,
+                                     @Nonnull final RecordLayerTable parentTable,
                                      @Nonnull final String syntheticTableName) {
         this.unnestings = unnestings;
         this.parentAlias = parentAlias;
-        this.schemaTemplateBuilder = schemaTemplateBuilder;
-        this.recordTypeName = recordTypeName;
+        this.parentTable = parentTable;
         this.syntheticTableName = syntheticTableName;
         this.syntheticType = Suppliers.memoize(this::computeSyntheticType);
     }
@@ -130,7 +128,6 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      * synthetic table even when no innermost unnesting is itself split. Only struct arrays are considered, since a
      * scalar array cannot be a constituent.
      *
-     * @param schemaTemplateBuilder the metadata the stored record type is looked up in
      * @param spec what the index is made of
      * @param indexName the name the definition gives the index
      * @param quantifierValues what the plan's quantifiers stand for, and the unnestings it performs
@@ -138,20 +135,20 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      * @return a generator for the synthetic table, empty when the index is maintained from the stored table
      */
     @Nonnull
-    static Optional<RecordLayerUnnestedSyntheticTableGenerator> initIfNeeded(@Nonnull final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
-                                                           @Nonnull final IndexSpec spec,
+    static Optional<RecordLayerUnnestedSyntheticTableGenerator> initIfNeeded(@Nonnull final IndexSpec spec,
                                                            @Nonnull final String indexName,
                                                            @Nonnull final QuantifierValues quantifierValues) {
         final var unnestings = composeUnnestings(quantifierValues);
         if (!isNeededFor(spec, unnestings)) {
             return Optional.empty();
         }
-        final var recordTypeName = spec.recordTypeName();
+        final var parentTable = spec.table();
+        final var recordTypeName = parentTable.getType().getName();
         // Currently, the synthetic table name is derived from the record type. This may or may not be true in the
         // future.
         final var syntheticTableName = UNNESTED_TABLE_NAME_PREFIX + recordTypeName + "_" + indexName;
         return Optional.of(new RecordLayerUnnestedSyntheticTableGenerator(unnestings, PARENT_CONSTITUENT_ALIAS,
-                schemaTemplateBuilder, recordTypeName, syntheticTableName));
+                parentTable, syntheticTableName));
     }
 
     /**
@@ -191,9 +188,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
     }
 
     /**
-     * Composes what {@link QuantifierValues} recorded at each explode into what the unnesting means. Everything an
-     * unnesting is made of is derivable from the array it ranges over and the correlation it is bound to, both of which
-     * {@link QuantifierValues#getExplodes()} already holds.
+     * Composes what {@link QuantifierValues} recorded at each explode into what the unnesting means.
      *
      * @param quantifierValues what the plan's quantifiers stand for, and what it explodes
      *
@@ -201,25 +196,23 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      */
     @Nonnull
     private static Map<Integer, UnnestingInfo> composeUnnestings(@Nonnull final QuantifierValues quantifierValues) {
-        // Only a struct array becomes a constituent, so only those are named. Markers count scalar unnestings too, so
-        // numbering by marker would leave gaps; the aliases are numbered by their order among the constituents instead.
+        // Only a struct array becomes a constituent, so only those are named, and they are numbered by their order among
+        // the constituents rather than by marker: markers count scalar unnestings too, which would leave gaps.
+        final var explodes = quantifierValues.getExplodes();
         final Map<Integer, String> aliasByMarker = new LinkedHashMap<>();
-        quantifierValues.getExplodes().forEach((marker, explode) -> {
-            if (arrayTypeOf(explode.getRight()).getElementType() instanceof Type.Record) {
+        for (int marker = 0; marker < explodes.size(); marker++) {
+            if (arrayTypeOf(explodes.get(marker)).getElementType() instanceof Type.Record) {
                 aliasByMarker.put(marker, NESTED_CONSTITUENT_ALIAS_PREFIX + aliasByMarker.size());
             }
-        });
+        }
         final var result = ImmutableMap.<Integer, UnnestingInfo>builder();
-        quantifierValues.getExplodes().forEach((marker, explode) -> {
-            final var collectionValue = explode.getRight();
-            final var arrayType = arrayTypeOf(collectionValue);
+        // a marker is an explode's position, so the index is the key
+        for (int marker = 0; marker < explodes.size(); marker++) {
+            final var collectionValue = explodes.get(marker);
             result.put(marker, new UnnestingInfo(aliasByMarker.get(marker),
                     owningAlias(marker, collectionValue, quantifierValues, aliasByMarker),
-                    Assert.notNullUnchecked(collectionValue.getFieldPath().getLastFieldAccessor()
-                            .getField().getFieldStorageName()),
-                    arrayType.isNullable(), DataTypeUtils.toRelationalType(
-                            Objects.requireNonNull(arrayType.getElementType()))));
-        });
+                    collectionValue.getFieldPath()));
+        }
         return result.build();
     }
 
@@ -257,29 +250,42 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      *
      * @param alias the constituent's alias, or {@code null} for a scalar array, which is not a constituent
      * @param owningAlias the constituent the unnested array lives on
-     * @param arrayFieldStorageName the array field, by its protobuf storage name, which is what the nesting expression
-     * navigates and so the only place a storage name is wanted
-     * @param nullableArray whether the array is stored wrapped, as {@code { repeated T values; }}
-     * @param elementType what one element of the array stands for, taken from the array being unnested. Carrying
-     * the type avoids looking the array field up by name on its owner, where the declared and the
-     * storage name of a column that is not already protobuf-compliant would disagree.
+     * @param arrayPath the path to the array being unnested, relative to the record that owns it -- the owning
+     * constituent, which is not necessarily the stored record. An array reached through non-repeated fields makes this
+     * more than one hop.
      */
     private record UnnestingInfo(@Nullable String alias, @Nonnull String owningAlias,
-                                @Nonnull String arrayFieldStorageName, boolean nullableArray,
-                                @Nonnull DataType elementType) {
+                                @Nonnull FieldValue.FieldPath arrayPath) {
 
+        /**
+         * The declared type of the array, which is the last hop of the path and what the element type follows from.
+         * Deliberately the declared type rather than the enclosing expression's, whose nullability propagates from the
+         * path it was reached through.
+         */
+        @Nonnull
+        private Type.Array arrayType() {
+            return (Type.Array)arrayPath.getLastFieldType();
+        }
+
+        /**
+         * Navigates from the owning constituent to this array's elements, through every hop of the path by storage name.
+         */
         @Nonnull
         public KeyExpression arrayElements() {
-            return NullableArrayUtils.arrayElements(arrayFieldStorageName, nullableArray);
+            return NullableArrayUtils.arrayElements(arrayPath.getFieldAccessors().stream()
+                            .map(accessor -> accessor.getField().getFieldStorageName())
+                            .collect(ImmutableList.toImmutableList()),
+                    arrayType().isNullable());
         }
 
         public boolean structArray() {
-            return elementType.getCode() == DataType.Code.STRUCT;
+            return arrayType().getElementType() instanceof Type.Record;
         }
 
         @Nonnull
         public DataType.StructType structElementType() {
-            return (DataType.StructType) elementType;
+            return (DataType.StructType)DataTypeUtils.toRelationalType(
+                    Objects.requireNonNull(arrayType().getElementType()));
         }
     }
 
@@ -297,7 +303,9 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
                 "predicate on an index over an unnested synthetic table");
         Assert.isNullUnchecked(spec.groupBy(), ErrorCode.UNSUPPORTED_OPERATION,
                 "group by on an index over an unnested synthetic table");
-        return new IndexSpec(spec.scanCount(), syntheticTableName, null, null,
+        // The slot names the stored table the index reads from, which the synthetic table is built over, so it carries
+        // through unchanged; what the index is defined on is the synthetic type, which the caller takes from here.
+        return new IndexSpec(spec.scanCount(), spec.table(), null, null,
                 spec.orderBy() == null ? null : rewrite(spec.orderBy()),
                 new IndexSpec.Projection(rewrite(spec.projection().values())));
     }
@@ -410,7 +418,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
 
     @Nonnull
     private Type.Record computeSyntheticType() {
-        final var parentType = schemaTemplateBuilder.findTableByStorageName(recordTypeName).getDatatype();
+        final var parentType = parentTable.getDatatype();
         final var fields = ImmutableList.<DataType.StructType.Field>builder();
         // Field numbers reach protobuf, where they have to be positive.
         int fieldNumber = 1;
@@ -436,7 +444,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
         final var builder = RecordLayerUnnestedSyntheticTable.newBuilder()
                 .setName(syntheticTableName)
                 .setAlias(parentAlias)
-                .setParentTableType(schemaTemplateBuilder.findTableByStorageName(recordTypeName).getType());
+                .setParentTableType(parentTable.getType());
         unnestings.values().stream()
                 .filter(UnnestingInfo::structArray)
                 .forEach(info -> builder.addConstituent(new RecordLayerUnnestedSyntheticTable.NestedConstituent(
@@ -477,7 +485,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
         final Map<Integer, Integer> firstPositions = new LinkedHashMap<>();
         final Map<Integer, Integer> lastPositions = new LinkedHashMap<>();
         final Map<Integer, Integer> counts = new LinkedHashMap<>();
-        final List<Value> keyValues = spec.keyValues();
+        final List<Value> keyValues = spec.rootValues();
         for (int i = 0; i < keyValues.size(); i++) {
             // Distinct markers per position: the counts below must be a number of key positions, and one value can
             // read through the same unnesting more than once (e.g. `M.x + M.y`).
