@@ -91,7 +91,7 @@ class QuantifierTest {
      */
     @Test
     void testApplyGlue3() {
-        final Quantifier.Existential quantifier = Quantifier.existential(scanReference);
+        final Quantifier.Scalar quantifier = Quantifier.existential(scanReference);
         final Reference glued = quantifier.applyGlue(memoizer, scanReference);
 
         final RelationalExpression wrapper = Iterables.getOnlyElement(glued.getFinalExpressions());
@@ -170,5 +170,67 @@ class QuantifierTest {
                 Quantifier.existential(reverseReference).applyGlue(memoizer, reverseReference).getFinalExpressions());
         assertThat(firstOrDefaultPlan).isInstanceOf(RecordQueryFirstOrDefaultPlan.class);
         assertThat(firstOrDefaultPlan.isReverse()).isTrue();
+    }
+
+    /**
+     * Tests that rebuilding a scalar quantifier via {@code toBuilder()} preserves its kind, and its alias unless a new
+     * one is given.
+     */
+    @Test
+    void testScalar1() {
+        final Quantifier.Scalar quantifier = Quantifier.existential(scanReference);
+
+        assertThat(quantifier.toBuilder().build(scanReference))
+                .isInstanceOfSatisfying(Quantifier.Scalar.class, rebuilt -> {
+                    assertThat(rebuilt.getKind()).isEqualTo(Quantifier.Scalar.Kind.EXISTENTIAL);
+                    assertThat(rebuilt.getAlias()).isEqualTo(quantifier.getAlias());
+                });
+
+        final CorrelationIdentifier newAlias = CorrelationIdentifier.of("q");
+        assertThat(quantifier.toBuilder().withAlias(newAlias).build(scanReference))
+                .isInstanceOfSatisfying(Quantifier.Scalar.class, rebuilt -> {
+                    assertThat(rebuilt.getKind()).isEqualTo(Quantifier.Scalar.Kind.EXISTENTIAL);
+                    assertThat(rebuilt.getAlias()).isEqualTo(newAlias);
+                });
+    }
+
+    /**
+     * Tests that {@code overNewReference()} on a scalar quantifier preserves its kind, and its alias unless a new one
+     * is given.
+     */
+    @Test
+    void testScalar2() {
+        final Quantifier.Scalar quantifier = Quantifier.existential(scanReference);
+        final Reference otherReference = Reference.plannedOf(new RecordQueryScanPlan(ScanComparisons.EMPTY, true));
+
+        final Quantifier.Scalar moved = quantifier.overNewReference(otherReference);
+        assertThat(moved.getKind()).isEqualTo(Quantifier.Scalar.Kind.EXISTENTIAL);
+        assertThat(moved.getAlias()).isEqualTo(quantifier.getAlias());
+        assertThat(moved.getRangesOver()).isSameAs(otherReference);
+
+        final CorrelationIdentifier newAlias = CorrelationIdentifier.of("q");
+        final Quantifier.Scalar renamed = quantifier.overNewReference(otherReference, newAlias);
+        assertThat(renamed.getKind()).isEqualTo(Quantifier.Scalar.Kind.EXISTENTIAL);
+        assertThat(renamed.getAlias()).isEqualTo(newAlias);
+        assertThat(renamed.getRangesOver()).isSameAs(otherReference);
+    }
+
+    /**
+     * Tests that scalar quantifiers of the same kind over the same reference are semantically equal, but not equal to
+     * a for-each quantifier over the same reference or to a scalar quantifier over a different reference.
+     */
+    @Test
+    void testScalar3() {
+        final Quantifier.Scalar quantifier = Quantifier.existential(scanReference);
+        final Quantifier.Scalar sameQuantifier = Quantifier.existential(scanReference);
+        assertThat(quantifier).isEqualTo(sameQuantifier);
+        assertThat(quantifier.semanticHashCode()).isEqualTo(sameQuantifier.semanticHashCode());
+
+        final Quantifier.ForEach forEachQuantifier = Quantifier.forEach(scanReference);
+        assertThat(quantifier).isNotEqualTo(forEachQuantifier);
+        assertThat(forEachQuantifier).isNotEqualTo(quantifier);
+
+        final Reference otherReference = Reference.plannedOf(new RecordQueryScanPlan(ScanComparisons.EMPTY, true));
+        assertThat(quantifier).isNotEqualTo(Quantifier.existential(otherReference));
     }
 }

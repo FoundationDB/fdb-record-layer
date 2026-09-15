@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -245,9 +245,9 @@ public class PredicateToLogicalUnionRule extends AbstractCascadesRule<MatchParti
 
             //
             // Subset the quantifiers to only those that are actually needed by this or term. Needed quantifiers are
-            // quantifiers that contribute (in positive or negative ways) to the cardinality, i.e. all for-each quantifiers
-            // and existential quantifiers that are predicated by means of an exists() predicate. As existential
-            // quantifier by itself just creates a true or false but never removes a record or contributes in a meaningful
+            // quantifiers that contribute (in positive or negative ways) to the cardinality, i.e., all for-each
+            // quantifiers and the scalar quantifiers that this or term or the fixed predicates refer to. A scalar
+            // quantifier by itself flows exactly 1 item and thus never removes a record or contributes in a meaningful
             // way to the result set.
             // TODO This optimization can be done for all quantifiers that are not referred to by the term that also have a
             //      cardinality of one.
@@ -255,10 +255,10 @@ public class PredicateToLogicalUnionRule extends AbstractCascadesRule<MatchParti
             final var neededAdditionalQuantifiers =
                     quantifiers
                             .stream()
-                            .filter(quantifier -> quantifier instanceof Quantifier.Existential &&
+                            .filter(quantifier -> quantifier instanceof Quantifier.Scalar &&
                                                   (orTermCorrelatedTo.contains(quantifier.getAlias()) ||
                                                    fixedPredicatesCorrelatedTo.contains(quantifier.getAlias())))
-                            .map(quantifier -> Quantifier.existentialBuilder().withAlias(quantifier.getAlias()).build(aliasToQuantifierMap.get(quantifier.getAlias()).getRangesOver()))
+                            .map(quantifier -> quantifier.overNewReference(quantifier.getRangesOver()))
                             .collect(ImmutableList.toImmutableList());
 
             final var neededForEachQuantifiers =

@@ -61,7 +61,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * <pre>{@code
  *   «inner plan»
  *   | ON EMPTY NULL          (if the inner quantifier is a null-on-empty for-each)
- *   | FIRST_OR_DEFAULT NULL  (if the inner quantifier is Existential)
+ *   | FIRST_OR_DEFAULT NULL  (if the inner quantifier is scalar)
  *   | FILTER <predicates>    (if there are non-tautology predicates)
  *   | MAP <resultValue>      (if the result value is not a passthrough of the inner quantifier)
  * }</pre>

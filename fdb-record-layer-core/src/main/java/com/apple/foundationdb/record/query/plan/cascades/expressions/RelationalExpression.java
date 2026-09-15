@@ -746,7 +746,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                 return Optional.empty();
             }
             final var candidateQuantifier = candidateAliasesToQuantifierMap.get(candidateAlias);
-            if (!(candidateQuantifier instanceof Quantifier.Existential)) {
+            if (!(candidateQuantifier instanceof Quantifier.Scalar)) {
                 translationMapBuilder = translationMapBuilder.compose(quantifierTranslationMapOptional.get());
             }
         }

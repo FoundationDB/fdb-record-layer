@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -338,9 +338,15 @@ public class GraphExpansion {
     }
 
     @Nonnull
-    public static GraphExpansion ofExists(@Nonnull final Quantifier.Existential existentialQuantifier) {
-        final var existsPredicate = new ExistentialValuePredicate(QuantifiedObjectValue.of(existentialQuantifier), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
-        return of(ImmutableList.of(), ImmutableList.of(existsPredicate), ImmutableList.of(existentialQuantifier), ImmutableList.of());
+    public static GraphExpansion ofExists(@Nonnull final Quantifier.Scalar scalarQuantifier) {
+        final var existsPredicate = new ExistentialValuePredicate(
+                QuantifiedObjectValue.of(scalarQuantifier),
+                new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
+        return of(
+                ImmutableList.of(),
+                ImmutableList.of(existsPredicate),
+                ImmutableList.of(scalarQuantifier),
+                ImmutableList.of());
     }
 
     @Nonnull
