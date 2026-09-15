@@ -172,10 +172,8 @@ public class Bindings {
     }
 
     /**
-     * Thrown by {@link #get(String)} when no binding exists for the requested name. This is a distinct
-     * {@link RecordCoreException} subtype so callers that can tolerate an absent binding (for example compile-time
-     * constraint matching against a value-free context, where a plan references a constant that the lookup context
-     * does not bind) can catch precisely this case without also swallowing other {@link RecordCoreException}s.
+     * Thrown by {@link #get(String)} when no binding exists for the requested name. A distinct
+     * {@link RecordCoreException} subtype so a caller that can tolerate an absent binding catches this case alone.
      */
     @SuppressWarnings("serial")
     public static class MissingBindingException extends RecordCoreException {

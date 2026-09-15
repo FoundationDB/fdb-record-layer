@@ -49,11 +49,8 @@ public final class PreparedParams {
     private final Map<String, Object> namedParams;
 
     /**
-     * Declared types for named parameters that carry a type but <em>no</em> value. Populated during value-free
-     * stored-query warm-up from the query's parameter list: when a named parameter {@code ?name} has an entry here but no
-     * value in {@link #namedParams}, it is planned as a value-free typed {@link
-     * com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue}. Empty for ordinary
-     * (value-bound) execution.
+     * Declared types for named parameters that carry no value. A parameter with an entry here and none in
+     * {@link #namedParams} is planned value-free. Empty for ordinary execution.
      */
     @Nonnull
     private final Map<String, String> declarations;
@@ -100,12 +97,9 @@ public final class PreparedParams {
     }
 
     /**
-     * The SQL text of a named parameter's type declaration, or empty when the parameter declares none. Text rather than
-     * a resolved type because a declaration may name a schema template type, which is resolved against the template the
-     * query is planned with; that happens on the planning path, where the schema template is in hand.
-     *
-     * <p>Only consulted for a parameter that carries no value: a value-bound parameter takes its type from the value.
-     * So a declaration may be supplied for every parameter, and the ones that are also bound simply never read it.</p>
+     * The SQL text of a named parameter's type declaration, or empty when it declares none. Only consulted for a
+     * parameter that carries no value, so a declaration may be supplied for every parameter and the bound ones never
+     * read it.
      */
     @Nonnull
     public Optional<String> declarationMaybe(@Nonnull String name) {
