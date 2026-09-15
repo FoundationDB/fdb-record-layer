@@ -54,6 +54,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class PushReferencedFieldsThroughSelectRule extends AbstractCascadesRule<SelectExpression> implements PreOrderRule {
     private static final BindingMatcher<Reference> lowerRefMatcher = ReferenceMatchers.anyRef();
+    // This rule passes the quantifier on unchanged, so it can match _any_ for-each quantifier.
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
     private static final BindingMatcher<QueryPredicate> predicateMatcher = anyPredicate();
     private static final BindingMatcher<SelectExpression> root =

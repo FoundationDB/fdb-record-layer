@@ -33,7 +33,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutNullOnEmpty;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalProjectionExpression;
 
@@ -46,7 +46,7 @@ public class RemoveProjectionRule extends AbstractCascadesRule<LogicalProjection
     @Nonnull
     private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifier(innerPlanMatcher);
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierWithoutNullOnEmpty(innerPlanMatcher);
     @Nonnull
     private static final BindingMatcher<LogicalProjectionExpression> root = logicalProjectionExpression(exactly(innerQuantifierMatcher));
 

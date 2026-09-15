@@ -36,7 +36,7 @@ import javax.annotation.Nonnull;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutNullOnEmptyOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tempTableInsertExpression;
 
 /**
@@ -53,7 +53,7 @@ public class ImplementTempTableInsertRule extends AbstractCascadesRule<TempTable
             planPartitions(any(innerPlanPartitionMatcher));
 
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher =
-            forEachQuantifierOverRef(innerReferenceMatcher);
+            forEachQuantifierWithoutNullOnEmptyOverRef(innerReferenceMatcher);
 
     @Nonnull
     private static final BindingMatcher<TempTableInsertExpression> root =

@@ -211,12 +211,12 @@ public class ExpressionMatcherTest {
         BindingMatcher<? extends Reference> filterLeafMatcher = ReferenceMatchers.anyRef();
         BindingMatcher<QueryPredicate> predicateMatcher = QueryPredicateMatchers.anyPredicate();
         final BindingMatcher<LogicalFilterExpression> filterPlanMatcher =
-                RelationalExpressionMatchers.logicalFilterExpression(MultiMatcher.AllMatcher.all(predicateMatcher), AnyMatcher.any(QuantifierMatchers.forEachQuantifierOverRef(filterLeafMatcher)));
+                RelationalExpressionMatchers.logicalFilterExpression(MultiMatcher.AllMatcher.all(predicateMatcher), AnyMatcher.any(QuantifierMatchers.forEachQuantifierWithoutNullOnEmptyOverRef(filterLeafMatcher)));
 
         BindingMatcher<RecordQueryScanPlan> scanMatcher = RecordQueryPlanMatchers.scanPlan();
         BindingMatcher<LogicalUnionExpression> matcher = RelationalExpressionMatchers.logicalUnionExpression(
-                ListMatcher.exactly(QuantifierMatchers.forEachQuantifier(filterPlanMatcher),
-                        QuantifierMatchers.forEachQuantifier(scanMatcher)));
+                ListMatcher.exactly(QuantifierMatchers.forEachQuantifierWithoutNullOnEmpty(filterPlanMatcher),
+                        QuantifierMatchers.forEachQuantifierWithoutNullOnEmpty(scanMatcher)));
 
         // build a relatively complicated expression
         QueryComponent andBranch1 = Query.field("field1").greaterThan(6);
