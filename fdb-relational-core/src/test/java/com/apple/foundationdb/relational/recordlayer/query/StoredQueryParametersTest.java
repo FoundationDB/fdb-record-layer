@@ -80,13 +80,18 @@ public class StoredQueryParametersTest {
     }
 
     private void expectFailure(final String dbName, final String template, final String messageFragment) {
+        expectFailure(dbName, template, ErrorCode.UNSUPPORTED_QUERY, messageFragment);
+    }
+
+    private void expectFailure(final String dbName, final String template, final ErrorCode errorCode,
+                               final String messageFragment) {
         RelationalAssertions.assertThrowsSqlException(() ->
                         Ddl.builder()
                                 .database(URI.create(dbName))
                                 .relationalExtension(relationalExtension)
                                 .schemaTemplate(template)
                                 .build())
-                .hasErrorCode(ErrorCode.UNSUPPORTED_QUERY)
+                .hasErrorCode(errorCode)
                 .hasMessageContaining(messageFragment);
     }
 
@@ -200,6 +205,33 @@ public class StoredQueryParametersTest {
     /**
      * Two ways it goes wrong: a space does not parse, a dash parses as something else.
      */
+    /**
+     * The declared type is resolved while the DDL is parsed, which is possible because the template's own types are
+     * registered by then.
+     */
+    @Test
+    void parameterTypeThatTheTemplateDoesNotDefineIsRejected() {
+        expectFailure("/TEST/SQS_BADTYPE", TABLE
+                        + " CREATE STORED QUERY q(p TYPE no_such_struct)"
+                        + " PREPARE FOR (p IS NOT NULL)"
+                        + " AS SELECT id FROM t1 WHERE col1 = 10",
+                ErrorCode.UNKNOWN_TYPE,
+                "unknown type for stored query parameter 'P'");
+    }
+
+    /**
+     * A type the template does define resolves, even when it is declared after the query that uses it.
+     */
+    @Test
+    void parameterTypeDeclaredAfterTheQueryStillResolves() throws Exception {
+        final var storedQuery = storedQueryOf("/TEST/SQS_LATETYPE", TABLE
+                + " CREATE STORED QUERY q(p TYPE s1)"
+                + " PREPARE FOR (p IS NOT NULL)"
+                + " AS SELECT id FROM t1 WHERE col1 = 10"
+                + " CREATE TYPE AS STRUCT s1(f1 bigint)");
+        Assertions.assertThat(storedQuery.getParameters()).containsEntry("P", "TYPE s1");
+    }
+
     @Test
     void parameterNameThatCannotBeBoundIsRejected() {
         expectFailure("/TEST/SQS_BADNAME", TABLE
