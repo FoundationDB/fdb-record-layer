@@ -862,7 +862,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
 
         @Nonnull
         private Cardinalities fromQuantifier(@Nonnull final Quantifier quantifier) {
-            if (quantifier instanceof Quantifier.Existential) {
+            if (quantifier instanceof Quantifier.Scalar) {
                 return Cardinalities.exactlyOne();
             }
             Cardinalities childCardinalities = visit(quantifier.getRangesOver().get());

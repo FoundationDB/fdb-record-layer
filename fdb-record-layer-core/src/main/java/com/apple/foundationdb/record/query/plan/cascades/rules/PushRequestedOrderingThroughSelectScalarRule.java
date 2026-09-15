@@ -1,5 +1,5 @@
 /*
- * PushRequestedOrderingThroughSelectExistentialRule.java
+ * PushRequestedOrderingThroughSelectScalarRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -37,24 +36,26 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.existentialQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.scalarQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
- * A rule that pushes a {@link ReferencedFieldsConstraint} through a {@link SelectExpression}.
+ * A rule that pushes a {@link RequestedOrderingConstraint} through a {@link SelectExpression} into the sub-graph a
+ * {@link Quantifier.Scalar} quantifier ranges over. As a scalar quantifier flows exactly one item, any ordering of the
+ * sub-graph is acceptable, so the rule requests {@link RequestedOrdering#preserve()}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PushRequestedOrderingThroughSelectExistentialRule extends AbstractCascadesRule<SelectExpression> implements PreOrderRule {
+public class PushRequestedOrderingThroughSelectScalarRule extends AbstractCascadesRule<SelectExpression> implements PreOrderRule {
     @Nonnull
     private static final BindingMatcher<Reference> lowerRefMatcher = ReferenceMatchers.anyRef();
     @Nonnull
-    private static final BindingMatcher<Quantifier.Existential> innerQuantifierMatcher = existentialQuantifierOverRef(lowerRefMatcher);
+    private static final BindingMatcher<Quantifier.Scalar> innerQuantifierMatcher = scalarQuantifierOverRef(lowerRefMatcher);
     @Nonnull
     private static final BindingMatcher<SelectExpression> root =
             selectExpression(any(innerQuantifierMatcher));
 
-    public PushRequestedOrderingThroughSelectExistentialRule() {
+    public PushRequestedOrderingThroughSelectScalarRule() {
         super(root, ImmutableSet.of(RequestedOrderingConstraint.REQUESTED_ORDERING));
     }
 

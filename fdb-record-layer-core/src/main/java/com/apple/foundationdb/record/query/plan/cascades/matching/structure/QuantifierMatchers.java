@@ -90,26 +90,65 @@ public final class QuantifierMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<Quantifier.Existential> existentialQuantifier(
+    public static BindingMatcher<Quantifier.Scalar> scalarQuantifier(
             @Nonnull final BindingMatcher<? extends RelationalExpression> downstream) {
-        return ofTypeRangingOver(Quantifier.Existential.class, AnyMatcher.any(downstream));
+        return ofTypeRangingOver(Quantifier.Scalar.class, AnyMatcher.any(downstream));
     }
 
     @Nonnull
-    public static BindingMatcher<Quantifier.Existential> existentialQuantifier(
+    public static BindingMatcher<Quantifier.Scalar> scalarQuantifier(
             @Nonnull final CollectionMatcher<? extends RelationalExpression> downstream) {
-        return ofTypeRangingOver(Quantifier.Existential.class, downstream);
+        return ofTypeRangingOver(Quantifier.Scalar.class, downstream);
     }
 
     @Nonnull
-    public static BindingMatcher<Quantifier.Existential> existentialQuantifier() {
-        return ofTypeRangingOverRef(Quantifier.Existential.class, ReferenceMatchers.anyRef());
+    public static BindingMatcher<Quantifier.Scalar> scalarQuantifier() {
+        return ofTypeRangingOverRef(Quantifier.Scalar.class, ReferenceMatchers.anyRef());
     }
 
     @Nonnull
-    public static BindingMatcher<Quantifier.Existential> existentialQuantifierOverRef(
+    public static BindingMatcher<Quantifier.Scalar> scalarQuantifierOverRef(
             @Nonnull final BindingMatcher<? extends Reference> downstream) {
-        return ofTypeRangingOverRef(Quantifier.Existential.class, downstream);
+        return ofTypeRangingOverRef(Quantifier.Scalar.class, downstream);
+    }
+
+    /**
+     * Matches a scalar quantifier of kind {@link Quantifier.Scalar.Kind#EXISTENTIAL}.
+     */
+    @Nonnull
+    public static BindingMatcher<Quantifier.Scalar> existentialQuantifier(
+            @Nonnull final BindingMatcher<? extends RelationalExpression> downstream) {
+        return withKind(Quantifier.Scalar.Kind.EXISTENTIAL, scalarQuantifier(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<Quantifier.Scalar> existentialQuantifier(
+            @Nonnull final CollectionMatcher<? extends RelationalExpression> downstream) {
+        return withKind(Quantifier.Scalar.Kind.EXISTENTIAL, scalarQuantifier(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<Quantifier.Scalar> existentialQuantifier() {
+        return withKind(Quantifier.Scalar.Kind.EXISTENTIAL, scalarQuantifier());
+    }
+
+    @Nonnull
+    public static BindingMatcher<Quantifier.Scalar> existentialQuantifierOverRef(
+            @Nonnull final BindingMatcher<? extends Reference> downstream) {
+        return withKind(Quantifier.Scalar.Kind.EXISTENTIAL, scalarQuantifierOverRef(downstream));
+    }
+
+    /**
+     * Constrains the given scalar quantifier matcher to quantifiers whose {@link Quantifier.Scalar#getKind()} equals
+     * {@code kind}.
+     */
+    @Nonnull
+    public static BindingMatcher<Quantifier.Scalar> withKind(
+            @Nonnull final Quantifier.Scalar.Kind kind,
+            @Nonnull final BindingMatcher<Quantifier.Scalar> downstream) {
+        return typedWithDownstream(Quantifier.Scalar.class,
+                Extractor.of(Quantifier.Scalar::getKind, name -> "withKind(" + name + ")"),
+                PrimitiveMatchers.equalsObject(kind)).where(downstream);
     }
 
     /**

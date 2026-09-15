@@ -417,7 +417,7 @@ public class StoredRecordProperty implements ExpressionProperty<Boolean> {
             return expression.getQuantifiers()
                     .stream()
                     .map(quantifier -> {
-                        if (quantifier instanceof Quantifier.Existential) {
+                        if (quantifier instanceof Quantifier.Scalar) {
                             return true;
                         }
                         return evaluateForReference(quantifier.getRangesOver());
