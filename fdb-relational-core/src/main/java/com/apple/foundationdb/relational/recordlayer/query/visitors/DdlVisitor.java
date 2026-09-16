@@ -947,13 +947,13 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     /**
-     * Parses a stored query's parameter list into a map from normalized parameter name to the SQL text of its
-     * declaration. The type is resolved here only to check it; the declaration is kept as source text, because warm-up
-     * resolves it again against the template it warms with.
+     * Parses a stored query's parameter list, keyed by normalized parameter name. The declaration is kept as source
+     * text, because warm-up resolves it again against the template it warms with; the resolved type is kept beside it
+     * for the prepared cases to be checked against.
      *
      * @param ctx the parameter list, or {@code null} when the query declares none
      * @param sourceText the full DDL source, for slicing declaration text out of
-     * @return the declared parameters, keyed by normalized name, empty if there are none
+     * @return the declared parameters, both forms, empty if there are none
      */
     @Nonnull
     private DeclaredParameters parseParameterList(@Nullable final RelationalParser.StoredQueryParameterListContext ctx,
@@ -1002,8 +1002,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
      * each.
      *
      * @param ctx the block, or {@code null} when the query has none
-     * @param parameterListCtx the parameter list the block pins, or {@code null} when the query has none
-     * @param parameterNames the names the list declares, normalized
+     * @param parameterTypes the declared parameters and their resolved types, which each case is checked against
      * @return one map per case, from parameter name to its state, empty if the query declares no parameters
      */
     @Nonnull
