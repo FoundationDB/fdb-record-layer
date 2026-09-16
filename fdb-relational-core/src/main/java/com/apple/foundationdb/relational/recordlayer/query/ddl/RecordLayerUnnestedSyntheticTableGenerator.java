@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.ddl;
 
+import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -33,6 +34,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSyntheticTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnnestedSyntheticTable;
+
 import java.util.function.Supplier;
 import com.google.common.base.Suppliers;
 import com.apple.foundationdb.relational.util.Assert;
@@ -84,6 +86,12 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      * record layer reserves {@code "__"} for constituent names of its own, so this cannot carry that prefix.
      */
     private static final String NESTED_CONSTITUENT_ALIAS_PREFIX = "unnesting_";
+
+    /**
+     * Name of the struct that holds the constituent positions. The descriptor nests it inside the synthetic message, so
+     * the name only has to be unique within it; it matches what {@code UnnestedRecordTypeBuilder} calls it.
+     */
+    private static final String POSITIONS_TYPE_NAME = "Positions";
 
     /**
      * Every unnesting the plan performs, composed from what {@link QuantifierValues} recorded, keyed by marker.
@@ -411,18 +419,25 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
     private Type.Record computeSyntheticType() {
         final var parentType = parentTable.getDatatype();
         final var fields = ImmutableList.<DataType.StructType.Field>builder();
-        // Field numbers reach protobuf, where they have to be positive.
         int fieldNumber = 1;
         fields.add(DataType.StructType.Field.from(parentAlias, parentType, fieldNumber++));
+        final var positions = ImmutableList.<DataType.StructType.Field>builder();
+        int positionNumber = 1;
         for (final var info : unnestings.values()) {
             if (info.structArray()) {
-                fields.add(DataType.StructType.Field.from(info.alias(), info.structElementType(), fieldNumber++));
+                // Nullable, because the descriptor declares every constituent field optional. The composed type has to
+                // agree with it, or a reloaded template's synthetic table is unequal to the one the DDL built.
+                fields.add(DataType.StructType.Field.from(info.alias(),
+                        info.structElementType().withNullable(true), fieldNumber++));
+                positions.add(DataType.StructType.Field.from(info.alias(),
+                        DataType.Primitives.NULLABLE_LONG.type(), positionNumber++));
             }
         }
+        fields.add(DataType.StructType.Field.from(UnnestedRecordType.POSITIONS_FIELD,
+                DataType.StructType.from(POSITIONS_TYPE_NAME, positions.build(), true), fieldNumber));
         return (Type.Record)DataTypeUtils.toRecordLayerType(
                 DataType.StructType.from(syntheticTableName, fields.build(), false));
     }
-
 
     /**
      * Builds the synthetic table: the stored record as parent constituent, and one nested constituent per unnested

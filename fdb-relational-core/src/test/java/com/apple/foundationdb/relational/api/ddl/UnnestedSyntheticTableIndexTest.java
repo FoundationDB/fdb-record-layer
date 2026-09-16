@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.UnnestedRecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
@@ -36,6 +37,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnnestedSyntheticTable;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+import com.google.common.collect.Iterables;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Order;
@@ -749,6 +751,41 @@ public class UnnestedSyntheticTableIndexTest {
                 (syntheticTable, metaData) -> assertUnnestedTableIs(syntheticTable, indexName,
                         List.of(repeatedElementsUnderPath("FIZZ", "ALPHA", "X"),
                                 repeatedElementsUnderPath("FIZZ", "BETA", "X"))));
+    }
+
+    @Test
+    void unnestedTableType() throws Exception {
+        final String stmt = DEEP_NESTED_REPEATED_SCHEMA +
+                "CREATE INDEX mv1 AS SELECT u.a, v.a, T.buzz, u.b, v.b " +
+                "FROM T, (SELECT a, b FROM T.fizz.alpha.x) AS u, (SELECT a, b FROM T.fizz.beta.x) AS v " +
+                "ORDER BY u.a, v.a, T.buzz, u.b, v.b";
+        shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template,
+                                                                      @Nonnull final Options templateProperties) {
+                final var original = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class);
+                final var reloaded = RecordLayerSchemaTemplate.fromRecordMetadata(
+                        original.toRecordMetadata(), original.getName(), original.getVersion());
+                final var composed = Iterables.getOnlyElement(original.getUnnestedSyntheticTables());
+                final var derived = Iterables.getOnlyElement(reloaded.getUnnestedSyntheticTables());
+                Assertions.assertEquals(
+                        List.of("parent", "unnesting_0", "unnesting_1", UnnestedRecordType.POSITIONS_FIELD),
+                        fieldNamesOf(composed.getRecord()));
+                Assertions.assertEquals(fieldNamesOf(composed.getRecord()), fieldNamesOf(derived.getRecord()));
+                Assertions.assertEquals(composed.getRecord(), derived.getRecord(),
+                        "the synthetic type composed from the index definition should equal the one derived from its descriptor");
+                return txn -> {
+                };
+            }
+        });
+    }
+
+    @Nonnull
+    private static List<String> fieldNamesOf(@Nonnull final Type.Record record) {
+        return record.getFields().stream()
+                .map(Type.Record.Field::getFieldName)
+                .collect(Collectors.toList());
     }
 
     @Nonnull
