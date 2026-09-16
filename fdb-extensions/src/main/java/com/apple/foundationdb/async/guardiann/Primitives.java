@@ -1124,9 +1124,9 @@ class Primitives {
      * <p>
      * This method <em>never</em> enqueues a merge. A merge is triggered only by deleting a primary vector and
      * is handled separately by {@link #updateClusterMetadataAndEnqueueMergeOrReassignTaskMaybe}, because deciding whether a
-     * merge is even possible requires an asynchronous read of the centroid HNSW. Callers that remove vectors
-     * (a replicated delete, or the non-merge fallback of the primary-delete path) may still call this method —
-     * it will reassign or plain-write the decrement — but it will not split or merge them.
+     * merge is even possible requires an asynchronous read of the centroid HNSW. Callers that push vectors out of a
+     * cluster during a reassign or a split may still call this method — it will reassign or plain-write the
+     * decrement — but it will not split or merge them.
      *
      * @param transaction the transaction to write the updated metadata and any enqueued task into
      * @param random source of randomness for the id of any enqueued task
@@ -1202,16 +1202,16 @@ class Primitives {
      * @return the id of an enqueued reassign task, or {@link Optional#empty()} if none was enqueued
      */
     @Nonnull
-    private Optional<UUID> updateClusterMetadataAndEnqueueReassignTaskMaybe(@Nonnull final Transaction transaction,
-                                                                            @Nonnull final SplittableRandom random,
-                                                                            @Nonnull final ClusterMetadata clusterMetadata,
-                                                                            @Nonnull final Transformed<RealVector> clusterCentroid,
-                                                                            @Nonnull final AccessInfo accessInfo,
-                                                                            final int numPrimaryVectorsAdded,
-                                                                            final int numPrimaryUnderreplicatedVectorsAdded,
-                                                                            final int numReplicatedVectorsAdded,
-                                                                            @Nonnull final RunningStats updatedStandardDeviation,
-                                                                            @Nonnull final Set<UUID> causeClusterIds) {
+    Optional<UUID> updateClusterMetadataAndEnqueueReassignTaskMaybe(@Nonnull final Transaction transaction,
+                                                                    @Nonnull final SplittableRandom random,
+                                                                    @Nonnull final ClusterMetadata clusterMetadata,
+                                                                    @Nonnull final Transformed<RealVector> clusterCentroid,
+                                                                    @Nonnull final AccessInfo accessInfo,
+                                                                    final int numPrimaryVectorsAdded,
+                                                                    final int numPrimaryUnderreplicatedVectorsAdded,
+                                                                    final int numReplicatedVectorsAdded,
+                                                                    @Nonnull final RunningStats updatedStandardDeviation,
+                                                                    @Nonnull final Set<UUID> causeClusterIds) {
         final Config config = getConfig();
         final UUID clusterId = clusterMetadata.id();
 

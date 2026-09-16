@@ -206,7 +206,7 @@ class Delete {
                                                     clusterMetadataWithDistance.centroid(), accessInfo,
                                                     updatedStandardDeviation));
                                 } else {
-                                    primitives.updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(transaction,
+                                    primitives.updateClusterMetadataAndEnqueueReassignTaskMaybe(transaction,
                                             random.split(), clusterMetadata,
                                             clusterMetadataWithDistance.centroid(), accessInfo,
                                             0, 0, -1,
