@@ -39,7 +39,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * Re-attach the proto2 extensions that {@link JsonFormat} discards while parsing metadata from JSON.
@@ -184,7 +183,14 @@ final class JsonExtensionMerger {
                                   @Nullable Message defaultInstance,
                                   @Nonnull JsonElement value) {
         return switch (extension.getJavaType()) {
-            case MESSAGE -> messageValue(extension, defaultInstance, value);
+            case MESSAGE -> {
+                // ExtensionInfo carries a default instance for exactly the message-valued extensions
+                if (defaultInstance == null) {
+                    throw new IllegalStateException("message extension registered without a default instance: "
+                            + extension.getFullName());
+                }
+                yield messageValue(extension, defaultInstance, value);
+            }
             case INT -> (int) integerValue(extension, value, Integer.SIZE);
             case LONG -> integerValue(extension, value, Long.SIZE);
             case FLOAT -> value.getAsFloat();
@@ -224,9 +230,9 @@ final class JsonExtensionMerger {
 
     @Nonnull
     private Message messageValue(@Nonnull Descriptors.FieldDescriptor extension,
-                                 @Nullable Message defaultInstance,
+                                 @Nonnull Message defaultInstance,
                                  @Nonnull JsonElement value) {
-        final Message.Builder valueBuilder = Objects.requireNonNull(defaultInstance).newBuilderForType();
+        final Message.Builder valueBuilder = defaultInstance.newBuilderForType();
         try {
             // Unknown fields are tolerated because an extension of this extension is, by definition, a field
             // JsonFormat knows nothing about; the walk below is what picks those up.
