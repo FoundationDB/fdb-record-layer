@@ -4,6 +4,61 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
+{#release-4-14}
+
+## 4.14
+
+{#release-4-14-1-0}
+
+### 4.14.1.0
+
+<h4> Breaking Changes </h4>
+
+* Only support SERIALIZABLE transaction isolation level - [PR #4603](https://github.com/FoundationDB/fdb-record-layer/pull/4603)
+<h4> New Features </h4>
+
+* Introduce new query option to execute the query using FDB's snapshot isolation - [PR #4364](https://github.com/FoundationDB/fdb-record-layer/pull/4364)
+* Read index entries by evaluating a value rather than by running copiers - [PR #4593](https://github.com/FoundationDB/fdb-record-layer/pull/4593)
+* Support an in-call `LIMIT` clause for `ARRAY_AGG()` - [PR #4600](https://github.com/FoundationDB/fdb-record-layer/pull/4600)
+* Report the rank of each entry when scanning a rank index - [PR #4563](https://github.com/FoundationDB/fdb-record-layer/pull/4563)
+<h4> Bug Fixes </h4>
+
+* Fix NullPointerException when comparing an enum column against a literal in DDL - [PR #4624](https://github.com/FoundationDB/fdb-record-layer/pull/4624)
+* Make agility context account for clear() size in quota - [PR #4574](https://github.com/FoundationDB/fdb-record-layer/pull/4574)
+* Fix double counting in the sliding window index when writes happen while the index is `WRITE_ONLY` - [PR #4405](https://github.com/FoundationDB/fdb-record-layer/pull/4405)
+* Fix Cascades planner treating IS NOT DISTINCT FROM as unusable for index scans - [PR #4598](https://github.com/FoundationDB/fdb-record-layer/pull/4598)
+* Reject `IN (SELECT …)` subqueries properly as `UNSUPPORTED_QUERY` - [PR #4595](https://github.com/FoundationDB/fdb-record-layer/pull/4595)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Change OperationsTest to not use `join` - [PR #4609](https://github.com/FoundationDB/fdb-record-layer/pull/4609)
+* Bump org.jline:jline from 4.3.1 to 4.4.0 - [PR #4611](https://github.com/FoundationDB/fdb-record-layer/pull/4611)
+* Bump com.palantir.git-version from 5.0.0 to 5.1.0 - [PR #4610](https://github.com/FoundationDB/fdb-record-layer/pull/4610)
+* Bump actions/setup-java from 5.7.0 to 6.0.0 in /actions/setup-base-env - [PR #4613](https://github.com/FoundationDB/fdb-record-layer/pull/4613)
+* Bump imagesize from 2.0.0 to 2.0.1 in /docs/sphinx - [PR #4612](https://github.com/FoundationDB/fdb-record-layer/pull/4612)
+* Cover DELETE against a GuardiANN index - [PR #4614](https://github.com/FoundationDB/fdb-record-layer/pull/4614)
+* Documentation and test coverage for the size of the `ARRAY_AGG()` partial state - [PR #4597](https://github.com/FoundationDB/fdb-record-layer/pull/4597)
+
+</details>
+
+
+**[Full Changelog (4.13.5.0...4.14.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.13.5.0...4.14.1.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.12.12.0`, ✅`4.12.13.0`, ✅`4.12.15.0`, ✅`4.12.16.0`, ✅`4.12.18.0`, ✅`4.13.1.0`, ✅`4.13.2.0`, ✅`4.13.3.0`, ✅`4.13.4.0`, ✅`4.13.5.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/35113697391)
+
+
+
 {#release-4-13}
 
 ## 4.13
