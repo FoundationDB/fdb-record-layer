@@ -337,26 +337,20 @@ class StorageAdapter {
     }
 
     @Nonnull
-    static ClusterMetadata clusterMetadataFromTuple(@Nonnull final Tuple valueTuple) {
-        final RunningStats runningStandardDeviation =
-                runningStandardDeviationFromTuple(valueTuple.getNestedTuple(3));
-        // Values written before the high-water mark existed have no element 5. Such a cluster cannot report a peak,
-        // so it re-derives one from where it stands now: the mark is a lower bound on the largest the cluster has
-        // been, and the current count is the best lower bound available. Raising it here rather than passing 0 is
-        // required, since ClusterMetadata rejects a mark below the current primary count.
-        final int storedMaxEver = valueTuple.size() > 5 ? Math.toIntExact(valueTuple.getLong(5)) : 0;
-        return new ClusterMetadata(valueTuple.getUUID(0),
+    static ClusterMetadata clusterMetadataFromTuple(@Nonnull final UUID clusterId,
+                                                    @Nonnull final Tuple valueTuple) {
+        return new ClusterMetadata(clusterId,
+                Math.toIntExact(valueTuple.getLong(0)),
                 Math.toIntExact(valueTuple.getLong(1)),
-                Math.toIntExact(valueTuple.getLong(2)),
-                runningStandardDeviation,
-                Math.toIntExact(valueTuple.getLong(4)),
-                Math.max(storedMaxEver, Math.toIntExact(runningStandardDeviation.numElements())));
+                runningStandardDeviationFromTuple(valueTuple.getNestedTuple(2)),
+                Math.toIntExact(valueTuple.getLong(3)),
+                Math.toIntExact(valueTuple.getLong(4)));
     }
 
     @Nonnull
     static Tuple valueTupleFromClusterMetadata(@Nonnull final ClusterMetadata clusterMetadata) {
-        return Tuple.from(clusterMetadata.id(),
-                clusterMetadata.numPrimaryUnderreplicatedVectors(), clusterMetadata.numReplicatedVectors(),
+        return Tuple.from(clusterMetadata.numPrimaryUnderreplicatedVectors(),
+                clusterMetadata.numReplicatedVectors(),
                 valueTupleFromRunningStats(clusterMetadata.runningStandardDeviation()),
                 clusterMetadata.getStatesCode(),
                 clusterMetadata.maxEverNumPrimaryVectors());

@@ -608,14 +608,14 @@ class Primitives {
     @Nonnull
     CompletableFuture<ClusterMetadata> fetchClusterMetadata(@Nonnull final ReadTransaction readTransaction,
                                                             @Nonnull final UUID clusterId) {
-        final byte[] key = getClusterMetadataSubspace().pack(Tuple.from(clusterId));
+        final byte[] key = clusterMetadataKey(clusterId);
         return getOnReadListener().onAsyncRead(readTransaction.get(key))
                 .thenApply(valueBytes -> {
                     getOnReadListener().onKeyValueRead(key, valueBytes);
                     if (valueBytes == null) {
                         return null;
                     }
-                    return StorageAdapter.clusterMetadataFromTuple(Tuple.fromBytes(valueBytes));
+                    return StorageAdapter.clusterMetadataFromTuple(clusterId, Tuple.fromBytes(valueBytes));
                 });
     }
 
@@ -628,8 +628,7 @@ class Primitives {
      */
     void writeClusterMetadata(@Nonnull final Transaction transaction,
                               @Nonnull final ClusterMetadata clusterMetadata) {
-        final Subspace clusterMetadataSubspace = getClusterMetadataSubspace();
-        final byte[] key = clusterMetadataSubspace.pack(Tuple.from(clusterMetadata.id()));
+        final byte[] key = clusterMetadataKey(clusterMetadata.id());
         final byte[] value = StorageAdapter.valueTupleFromClusterMetadata(clusterMetadata).pack();
 
         getOnWriteListener().onKeyValueWritten(key, value);
@@ -646,11 +645,22 @@ class Primitives {
      */
     void deleteClusterMetadata(@Nonnull final Transaction transaction,
                                @Nonnull final UUID clusterId) {
-        final Subspace clusterMetadataSubspace = getClusterMetadataSubspace();
-        final byte[] key = clusterMetadataSubspace.pack(Tuple.from(clusterId));
+        final byte[] key = clusterMetadataKey(clusterId);
 
         getOnWriteListener().onKeyDeleted(key);
         transaction.clear(key);
+    }
+
+    /**
+     * Returns the key a cluster's {@link ClusterMetadata} is stored under. The id is not repeated in the value, so
+     * this key is the only place it lives.
+     *
+     * @param clusterId the id of the cluster
+     * @return the packed key
+     */
+    @Nonnull
+    private byte[] clusterMetadataKey(@Nonnull final UUID clusterId) {
+        return getClusterMetadataSubspace().pack(Tuple.from(clusterId));
     }
 
     /**
