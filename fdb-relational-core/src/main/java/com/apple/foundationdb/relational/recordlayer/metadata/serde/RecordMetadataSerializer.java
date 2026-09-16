@@ -78,7 +78,7 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
 
     private void visit(@Nonnull final RecordLayerUnnestedSyntheticTable unnestedSyntheticTable) {
         final UnnestedRecordTypeBuilder builder =
-                getBuilder().addUnnestedRecordType(unnestedSyntheticTable.getStorageName());
+                getBuilder().addUnnestedRecordType(unnestedSyntheticTable.getRecord().getStorageName());
         final RecordTypeBuilder recordTypeBuilder = getBuilder().getRecordType(unnestedSyntheticTable.getParentTableStorageName());
         builder.addParentConstituent(unnestedSyntheticTable.getAlias(), recordTypeBuilder);
         final Map<String, Descriptors.Descriptor> descriptorsByAlias = new LinkedHashMap<>();
@@ -89,12 +89,14 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
                     + "' for constituent '" + nested.getAlias() + "'");
             Descriptors.Descriptor constituentDescriptor = owningProto;
             for (final String fieldName : nested.getFieldPath()) {
-                final Descriptors.FieldDescriptor arrayField = constituentDescriptor.findFieldByName(fieldName);
-                Assert.notNullUnchecked(arrayField, "array field '" + fieldName + "' not found on '"
-                        + constituentDescriptor.getName() + "'");
-                Assert.thatUnchecked(arrayField.getType() == Descriptors.FieldDescriptor.Type.MESSAGE,
-                        "unnested index constituent must be a struct array, scalar arrays are not supported");
-                constituentDescriptor = arrayField.getMessageType();
+                final Descriptors.FieldDescriptor pathField = constituentDescriptor.findFieldByName(fieldName);
+                Assert.notNullUnchecked(pathField, "field '" + fieldName + "' on the path to constituent '"
+                        + nested.getAlias() + "' not found on '" + constituentDescriptor.getName() + "'");
+                Assert.thatUnchecked(pathField.getType() == Descriptors.FieldDescriptor.Type.MESSAGE,
+                        "field '" + fieldName + "' on the path to constituent '" + nested.getAlias()
+                                + "' is not a nested type, so it cannot be navigated through; a constituent has to "
+                                + "unnest a struct array, and scalar arrays are not supported");
+                constituentDescriptor = pathField.getMessageType();
             }
             builder.addNestedConstituent(nested.getAlias(), constituentDescriptor,
                     nested.getParentAlias(), nested.getNestingExpression());

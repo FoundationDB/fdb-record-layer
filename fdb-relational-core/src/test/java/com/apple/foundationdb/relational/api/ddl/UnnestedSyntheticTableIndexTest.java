@@ -185,8 +185,8 @@ public class UnnestedSyntheticTableIndexTest {
                         KeyExpression.fromProto(index.getKeyExpression().toKeyExpression()));
                 final var metaData = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class).toRecordMetadata();
                 // the descriptor is keyed by the storage name, which is the protobuf-compliant form of the declared one
-                Assertions.assertTrue(metaData.getSyntheticRecordTypes().containsKey(syntheticTable.getStorageName()),
-                        () -> "synthetic type '" + syntheticTable.getStorageName() + "' missing from serialized metadata, got "
+                Assertions.assertTrue(metaData.getSyntheticRecordTypes().containsKey(syntheticTable.getRecord().getStorageName()),
+                        () -> "synthetic type '" + syntheticTable.getRecord().getStorageName() + "' missing from serialized metadata, got "
                                 + metaData.getSyntheticRecordTypes().keySet());
                 validator.accept(syntheticTable, metaData);
                 return txn -> {
@@ -270,9 +270,7 @@ public class UnnestedSyntheticTableIndexTest {
                         field(parent).nest("COL5"),
                         field(constituents.get(0)).nest("COL3")),
                 (syntheticTable, metaData) -> {
-                    // the table keeps the declared name, exactly as a stored table does
                     Assertions.assertEquals("__unnested_T1_mv.1", syntheticTable.getName());
-                    // and the descriptor carries the escaped storage name derived from it
                     Assertions.assertTrue(metaData.getSyntheticRecordTypes().containsKey("__unnested_T1_mv__21"));
                 });
     }

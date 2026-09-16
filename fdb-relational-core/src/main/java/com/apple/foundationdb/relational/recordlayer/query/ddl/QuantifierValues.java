@@ -165,10 +165,8 @@ final class QuantifierValues {
         private Value unnestedCollectionValue(@Nonnull final ExplodeExpression explode) {
             final var collectionValue = explode.getCollectionValue();
             if (!(collectionValue instanceof final FieldValue field)) {
-                // nothing to tag, and nothing to record: only a field path can be an unnesting of a column
                 return collectionValue;
             }
-            // taken before the value is appended, so that the marker is the position this explode lands at
             final var marker = explodes.size();
             final var fieldAccessors = new ArrayList<>(field.getFieldPath().getFieldAccessors());
             fieldAccessors.set(fieldAccessors.size() - 1,

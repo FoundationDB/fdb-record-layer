@@ -143,10 +143,9 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
             return Optional.empty();
         }
         final var parentTable = spec.table();
-        final var recordTypeName = parentTable.getType().getName();
         // Currently, the synthetic table name is derived from the record type. This may or may not be true in the
         // future.
-        final var syntheticTableName = UNNESTED_TABLE_NAME_PREFIX + recordTypeName + "_" + indexName;
+        final var syntheticTableName = UNNESTED_TABLE_NAME_PREFIX + parentTable.getType().getName() + "_" + indexName;
         return Optional.of(new RecordLayerUnnestedSyntheticTableGenerator(unnestings, PARENT_CONSTITUENT_ALIAS,
                 parentTable, syntheticTableName));
     }
@@ -257,19 +256,11 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
     private record UnnestingInfo(@Nullable String alias, @Nonnull String owningAlias,
                                 @Nonnull FieldValue.FieldPath arrayPath) {
 
-        /**
-         * The declared type of the array, which is the last hop of the path and what the element type follows from.
-         * Deliberately the declared type rather than the enclosing expression's, whose nullability propagates from the
-         * path it was reached through.
-         */
         @Nonnull
         private Type.Array arrayType() {
             return (Type.Array)arrayPath.getLastFieldType();
         }
 
-        /**
-         * Navigates from the owning constituent to this array's elements, through every hop of the path by storage name.
-         */
         @Nonnull
         public KeyExpression arrayElements() {
             return NullableArrayUtils.arrayElements(arrayPath.getFieldAccessors().stream()
@@ -441,8 +432,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      */
     @Nonnull
     public RecordLayerSyntheticTable.Builder generate() {
-        final var builder = RecordLayerUnnestedSyntheticTable.newBuilder()
-                .setName(syntheticTableName)
+        final var builder = RecordLayerUnnestedSyntheticTable.newBuilder(syntheticType.get())
                 .setAlias(parentAlias)
                 .setParentTableType(parentTable.getType());
         unnestings.values().stream()

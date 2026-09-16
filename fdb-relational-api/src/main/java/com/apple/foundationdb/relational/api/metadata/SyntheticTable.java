@@ -40,8 +40,7 @@ public interface SyntheticTable extends Metadata {
 
     /**
      * Names of the stored tables this synthetic table is derived from. Its indexes are maintained from writes to those
-     * tables, so this is how they are attributed in a table-keyed view of the metadata. An unnested synthetic table has
-     * exactly one; a joined one would have several.
+     * tables.
      *
      * @return the names of the underlying stored tables
      */

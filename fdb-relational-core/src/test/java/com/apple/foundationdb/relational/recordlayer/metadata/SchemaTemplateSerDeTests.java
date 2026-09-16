@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactoryRegistryImpl;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
@@ -855,8 +856,7 @@ public class SchemaTemplateSerDeTests {
             final String syntheticName, final RecordLayerTable parentTable, final String indexName,
             final KeyExpression keyExpression,
             final RecordLayerUnnestedSyntheticTable.NestedConstituent... constituents) {
-        final var builder = RecordLayerUnnestedSyntheticTable.newBuilder()
-                .setName(syntheticName)
+        final var builder = RecordLayerUnnestedSyntheticTable.newBuilder(syntheticRecord(syntheticName, parentTable.getDatatype()))
                 .setAlias("row")
                 .setParentTableType(parentTable.getType());
         for (final var constituent : constituents) {
@@ -870,6 +870,20 @@ public class SchemaTemplateSerDeTests {
                         .setKeyExpression(keyExpression)
                         .build())
                 .build();
+    }
+
+    /**
+     * The record type of the synthetic table itself, whose first field is the parent constituent carrying the stored
+     * table's type, as {@code RecordLayerUnnestedSyntheticTableGenerator} builds it. The fields for the nested
+     * constituents are left off: a {@link RecordLayerUnnestedSyntheticTable.NestedConstituent} carries only an alias and
+     * a nesting expression, not the element type the field would need, and nothing in this file reads the synthetic
+     * type. Once it is read -- by an accessor, by {@code equals}, or by serialization -- these tests need the real
+     * element types instead.
+     */
+    @Nonnull
+    private static Type.Record syntheticRecord(final String syntheticName, final DataType.StructType parentType) {
+        return (Type.Record)DataTypeUtils.toRecordLayerType(
+                struct(syntheticName, structField("row", parentType, 1)));
     }
 
     @Nonnull
@@ -1126,8 +1140,9 @@ public class SchemaTemplateSerDeTests {
      */
     @Test
     void unnestedSyntheticTableBuilderDefaultsParentStorageName() {
-        final var table = RecordLayerUnnestedSyntheticTable.newBuilder()
-                .setName("__unnested_employees_score_idx")
+        final var parentType = struct("employee.records", structField("id", DataType.Primitives.LONG.type(), 1));
+        final var table = RecordLayerUnnestedSyntheticTable.newBuilder(
+                        syntheticRecord("__unnested_employees_score_idx", parentType))
                 .setAlias("row")
                 .setParentTableName("employee.records")
                 .addConstituent(new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",

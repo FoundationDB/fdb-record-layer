@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
-import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.metadata.SyntheticTable;
 import com.google.common.collect.ImmutableSet;
 
@@ -33,10 +33,6 @@ import java.util.Set;
  * Base class for synthetic tables in the relational layer: a virtual table backed by a record-layer synthetic record
  * type ({@code UnnestedRecordType} and, eventually, joined types) with one or more indexes maintained on it.
  *
- * <p>It is generated from an index definition the stored tables cannot express, rather than declared, so it carries no
- * SQL text and is not reachable by name from a query -- which is why it is a {@link SyntheticTable} and not a
- * {@link com.apple.foundationdb.relational.api.metadata.View}.
- *
  * @see RecordLayerUnnestedSyntheticTable
  */
 @API(API.Status.EXPERIMENTAL)
@@ -44,33 +40,26 @@ public abstract sealed class RecordLayerSyntheticTable implements SyntheticTable
         permits RecordLayerUnnestedSyntheticTable {
 
     @Nonnull
-    private final String name;
+    final Type.Record record;
 
     @Nonnull
     private final Set<RecordLayerIndex> indexes;
 
-    protected RecordLayerSyntheticTable(@Nonnull final String name,
-                                       @Nonnull final Set<RecordLayerIndex> indexes) {
-        this.name = name;
+    protected RecordLayerSyntheticTable(@Nonnull final Set<RecordLayerIndex> indexes,
+                                        @Nonnull final Type.Record record) {
         this.indexes = ImmutableSet.copyOf(indexes);
+        this.record = record;
     }
 
     @Nonnull
     @Override
     public String getName() {
-        return name;
+        return Objects.requireNonNull(record.getName());
     }
 
-    /**
-     * The name the synthetic record type carries in the protobuf descriptor, derived from {@link #getName()} the same way
-     * a column's storage name is derived from its declared name. The declared name comes from user identifiers -- the
-     * index name, for an unnested table -- and so need not be a legal protobuf identifier on its own.
-     *
-     * @return the protobuf-compliant form of this table's name
-     */
     @Nonnull
-    public String getStorageName() {
-        return ProtoUtils.toProtoBufCompliantName(name);
+    public Type.Record getRecord() {
+        return Objects.requireNonNull(record);
     }
 
     @Nonnull
@@ -88,12 +77,12 @@ public abstract sealed class RecordLayerSyntheticTable implements SyntheticTable
             return false;
         }
         final RecordLayerSyntheticTable that = (RecordLayerSyntheticTable) o;
-        return Objects.equals(name, that.name) && Objects.equals(indexes, that.indexes);
+        return Objects.equals(record, that.record) && Objects.equals(indexes, that.indexes);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(name, indexes);
+        return Objects.hash(record, indexes);
     }
 
     public interface Builder {
