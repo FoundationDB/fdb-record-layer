@@ -579,45 +579,44 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return concurrencyManager.doWithRecordWriteLock(primaryKey, () -> {
             // Chain the read off of the preload so that we can use the value loaded into the cache (if it hasn't been
             // invalidated). Ignore any errors during the initial read, favoring instead to surface errors from loadRecordForUpdate
-            final CompletableFuture<FDBStoredRecord<M>> oldRecordFuture = AsyncUtil.composeHandle(preload,
-                    (vignore, eignore) -> loadRecordForUpdate(typedSerializer, primaryKey));
-            final CompletableFuture<FDBStoredRecord<M>> result = oldRecordFuture.thenCompose(oldRecord -> {
-                if (oldRecord == null) {
-                    if (existenceCheck.errorIfNotExists()) {
-                        throw new RecordDoesNotExistException("record does not exist",
-                                LogMessageKeys.PRIMARY_KEY, primaryKey);
-                    }
-                } else {
-                    if (existenceCheck.errorIfExists()) {
-                        throw new RecordAlreadyExistsException("record already exists",
-                                LogMessageKeys.PRIMARY_KEY, primaryKey);
-                    }
-                    if (existenceCheck.errorIfTypeChanged() && oldRecord.getRecordType() != recordType) {
-                        throw new RecordTypeChangedException("record type changed",
-                                LogMessageKeys.PRIMARY_KEY, primaryKey,
-                                LogMessageKeys.ACTUAL_TYPE, oldRecord.getRecordType().getName(),
-                                LogMessageKeys.EXPECTED_TYPE, recordType.getName());
-                    }
-                }
-                if (isDryRun) {
-                    final FDBStoredRecord<M> newRecord = dryRunSetSizeInfo(typedSerializer, recordBuilder, metaData);
-                    return CompletableFuture.completedFuture(newRecord);
-                }
-                return getRecordStoreStateAsync().thenCompose(recordStoreState -> {
-                    if (!overrideLock) {
-                        validateRecordUpdateAllowed(recordStoreState);
-                    }
-                    final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
-                    if (oldRecord == null) {
-                        addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
-                    } else {
-                        if (getTimer() != null) {
-                            getTimer().increment(FDBStoreTimer.Counts.REPLACE_RECORD_VALUE_BYTES, oldRecord.getValueSize());
+            final CompletableFuture<FDBStoredRecord<M>> result = AsyncUtil.composeHandle(preload, (vignore, eignore) -> loadRecordForUpdate(typedSerializer, primaryKey))
+                    .thenCompose(oldRecord -> {
+                        if (oldRecord == null) {
+                            if (existenceCheck.errorIfNotExists()) {
+                                throw new RecordDoesNotExistException("record does not exist",
+                                        LogMessageKeys.PRIMARY_KEY, primaryKey);
+                            }
+                        } else {
+                            if (existenceCheck.errorIfExists()) {
+                                throw new RecordAlreadyExistsException("record already exists",
+                                        LogMessageKeys.PRIMARY_KEY, primaryKey);
+                            }
+                            if (existenceCheck.errorIfTypeChanged() && oldRecord.getRecordType() != recordType) {
+                                throw new RecordTypeChangedException("record type changed",
+                                        LogMessageKeys.PRIMARY_KEY, primaryKey,
+                                        LogMessageKeys.ACTUAL_TYPE, oldRecord.getRecordType().getName(),
+                                        LogMessageKeys.EXPECTED_TYPE, recordType.getName());
+                            }
                         }
-                    }
-                    return updateSecondaryIndexes(oldRecord, newRecord).thenApply(v -> newRecord);
-                });
-            });
+                        if (isDryRun) {
+                            final FDBStoredRecord<M> newRecord = dryRunSetSizeInfo(typedSerializer, recordBuilder, metaData);
+                            return CompletableFuture.completedFuture(newRecord);
+                        }
+                        return getRecordStoreStateAsync().thenCompose(recordStoreState -> {
+                            if (!overrideLock) {
+                                validateRecordUpdateAllowed(recordStoreState);
+                            }
+                            final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
+                            if (oldRecord == null) {
+                                addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
+                            } else {
+                                if (getTimer() != null) {
+                                    getTimer().increment(FDBStoreTimer.Counts.REPLACE_RECORD_VALUE_BYTES, oldRecord.getValueSize());
+                                }
+                            }
+                            return updateSecondaryIndexes(oldRecord, newRecord).thenApply(v -> newRecord);
+                        });
+                    });
             return context.instrument(FDBStoreTimer.Events.SAVE_RECORD, result);
         });
     }
@@ -1808,6 +1807,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return concurrencyManager.doWithRecordWriteLock(primaryKey,
                 () -> AsyncUtil.composeHandle(preload, (vignore, eignore) -> deleteTypedRecordImpl(typedSerializer, primaryKey, isDryRun)));
     }
+
     @Nonnull
     private <M extends Message> CompletableFuture<Boolean> deleteTypedRecordImpl(@Nonnull RecordSerializer<M> typedSerializer,
                                                                                  @Nonnull Tuple primaryKey, boolean isDryRun) {
