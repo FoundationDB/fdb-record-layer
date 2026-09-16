@@ -1289,8 +1289,8 @@ class Primitives {
         final int numTotalPrimaryVectors = clusterMetadata.getNumPrimaryVectors() - 1;
         return enqueueMergeTaskIfUndersizedMaybe(transaction, random, clusterMetadata, clusterCentroid, accessInfo,
                         updatedStandardDeviation, numTotalPrimaryVectors)
-                .thenAccept(merged -> {
-                    if (!merged) {
+                .thenAccept(enqueuedMerge -> {
+                    if (!enqueuedMerge) {
                         // Not undersized, already pending a task, or a lone cluster with nothing to merge with:
                         // persist the decrement (this may reassign or plain-write, but cannot merge).
                         updateClusterMetadataAndEnqueueReassignTaskMaybe(transaction, random, clusterMetadata,
@@ -1301,7 +1301,7 @@ class Primitives {
 
     /**
      * Shared merge-decision core for the delete path ({@link #updateClusterMetadataAndEnqueueMergeOrReassignTaskMaybe})
-     * and the reassign follow-up ({@link #enqueueMergeTaskMaybeAfterReassign}). Enqueues a merge {@link SplitMergeTask}
+     * and the reassign follow-up ({@link #enqueueMergeTaskAfterReassignIfUndersized}). Enqueues a merge {@link SplitMergeTask}
      * iff the cluster is undersized (fewer primaries than its
      * {@link ClusterMetadata#mergeThreshold(Config) merge threshold}), is not already
      * {@code SPLIT_MERGE}/{@code COLLAPSE}, and has a mergeable neighbor (centroid cardinality
@@ -1360,11 +1360,11 @@ class Primitives {
      * discriminator is needed — but note it is the child-size floor that provides that, not the max-ever peak.
      */
     @Nonnull
-    CompletableFuture<Void> enqueueMergeTaskMaybeAfterReassign(@Nonnull final Transaction transaction,
-                                                               @Nonnull final SplittableRandom random,
-                                                               @Nonnull final ClusterMetadata targetClusterMetadata,
-                                                               @Nonnull final Transformed<RealVector> clusterCentroid,
-                                                               @Nonnull final AccessInfo accessInfo) {
+    CompletableFuture<Void> enqueueMergeTaskAfterReassignIfUndersized(@Nonnull final Transaction transaction,
+                                                                      @Nonnull final SplittableRandom random,
+                                                                      @Nonnull final ClusterMetadata targetClusterMetadata,
+                                                                      @Nonnull final Transformed<RealVector> clusterCentroid,
+                                                                      @Nonnull final AccessInfo accessInfo) {
         return enqueueMergeTaskIfUndersizedMaybe(transaction, random, targetClusterMetadata, clusterCentroid,
                 accessInfo, targetClusterMetadata.runningStandardDeviation(),
                 targetClusterMetadata.getNumPrimaryVectors())
