@@ -1883,6 +1883,10 @@ message PRecordQueryDeletePlan {
 message PRecordQueryExplodePlan {
   optional PValue collection_value = 1;
   optional bool with_ordinality = 2;
+  // Whether the ordinals flowed by the WITH ORDINALITY variant are 0-based. Unset or false means they are 1-based,
+  // which is what every plan serialized before this field existed flows, so such a plan keeps its meaning when a
+  // newer version reads it.
+  optional bool zero_based_ordinality = 3;
 }
 
 //

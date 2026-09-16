@@ -288,7 +288,11 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         addKeyword("EXPLODE").addWhitespace()
                 .addNested(explodePlan.getCollectionValue().explain().getExplainTokens());
         if (explodePlan.isWithOrdinality()) {
-            addWhitespace().addKeyword("WITH").addWhitespace().addKeyword("ORDINALITY");
+            addWhitespace().addKeyword("WITH").addWhitespace();
+            if (explodePlan.isZeroBasedOrdinality()) {
+                addKeyword("ZERO").addWhitespace().addKeyword("BASED").addWhitespace();
+            }
+            addKeyword("ORDINALITY");
         }
         return this;
     }
