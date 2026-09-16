@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
+import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -36,6 +37,7 @@ import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerJoinedSyntheticTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerUnnestedSyntheticTable;
@@ -104,6 +106,20 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         }
     }
 
+    public void visit(@Nonnull final RecordLayerJoinedSyntheticTable joinedType) {
+        final JoinedRecordTypeBuilder typeBuilder =
+                getBuilder().addJoinedRecordType(joinedType.getName());
+        for (final RecordLayerJoinedSyntheticTable.JoinedConstituent constituent : joinedType.getConstituents()) {
+            // Every constituent is inner-joined; the DDL layer does not produce outer joins.
+            typeBuilder.addConstituent(constituent.getAlias(),
+                    getBuilder().getRecordType(constituent.getTableStorageName()), false);
+        }
+        for (final RecordLayerJoinedSyntheticTable.JoinCondition joinCondition : joinedType.getJoinConditions()) {
+            typeBuilder.addJoin(joinCondition.getLeftAlias(), joinCondition.getLeftExpression(),
+                    joinCondition.getRightAlias(), joinCondition.getRightExpression());
+        }
+    }
+
     @Override
     public void visit(@Nonnull com.apple.foundationdb.relational.api.metadata.Index index) {
         // Note: this does not preserve the index added and lest modified version, necessary
@@ -141,6 +157,8 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
     public void visit(@Nonnull final SyntheticTable syntheticTable) {
         if (syntheticTable instanceof RecordLayerUnnestedSyntheticTable unnestedSyntheticTable) {
             visit(unnestedSyntheticTable);
+        } else if (syntheticTable instanceof RecordLayerJoinedSyntheticTable joinedSyntheticTable) {
+            visit(joinedSyntheticTable);
         } else {
             Assert.failUnchecked("synthetic table kind not supported");
         }

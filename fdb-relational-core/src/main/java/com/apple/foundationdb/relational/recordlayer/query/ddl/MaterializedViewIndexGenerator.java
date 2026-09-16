@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.util.NullableArrayUtils;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
 
@@ -93,11 +94,22 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
     public IndexGenerationResult generate() {
         final var quantifierValues = QuantifierValues.collect(relationalExpression);
         var spec = IndexSpec.collect(relationalExpression, quantifierValues, schemaTemplateBuilder);
-        spec.checkValidity();
-        final var unnestedTableGeneratorMaybe = RecordLayerUnnestedSyntheticTableGenerator.initIfNeeded(
-                spec, indexName, quantifierValues);
+        spec.checkValidity(quantifierValues.isJoin());
+        // The two kinds of synthetic table are exclusive: a join is recognised from the plan's stored tables, and only
+        // a single-table definition can go on to need an unnested one.
+        final var joinedTableGeneratorMaybe = RecordLayerJoinedSyntheticTableGenerator.initIfNeeded(
+                schemaTemplateBuilder, spec, indexName, quantifierValues);
+        final var unnestedTableGeneratorMaybe = joinedTableGeneratorMaybe.isPresent()
+                                               ? Optional.<RecordLayerUnnestedSyntheticTableGenerator>empty()
+                                               : RecordLayerUnnestedSyntheticTableGenerator.initIfNeeded(
+                                                       spec, indexName, quantifierValues);
         final Type.Record tableType;
-        if (unnestedTableGeneratorMaybe.isPresent()) {
+        if (joinedTableGeneratorMaybe.isPresent()) {
+            final var joinedTableGenerator = joinedTableGeneratorMaybe.get();
+            joinedTableGenerator.checkSupported(spec);
+            spec = joinedTableGenerator.rewrite(spec);
+            tableType = joinedTableGenerator.getSyntheticType();
+        } else if (unnestedTableGeneratorMaybe.isPresent()) {
             final var unnestedTableGenerator = unnestedTableGeneratorMaybe.get();
             unnestedTableGenerator.checkSupported(spec);
             spec = unnestedTableGenerator.rewrite(spec);
@@ -105,7 +117,10 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
         } else {
             tableType = spec.table().getType();
         }
-        final var translation = translateToKeyExpression(spec, unnestedTableGeneratorMaybe.isEmpty());
+        // A column of a synthetic table names its constituent, which must be navigated on its own rather than merged
+        // into a run with its neighbour.
+        final var onSyntheticTable = joinedTableGeneratorMaybe.isPresent() || unnestedTableGeneratorMaybe.isPresent();
+        final var translation = translateToKeyExpression(spec, !onSyntheticTable);
         final var indexType = translation.indexType();
         final var indexBuilder = RecordLayerIndex.newBuilder()
                 .setName(indexName)
@@ -125,8 +140,9 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
         }
         indexBuilder.setKeyExpression(KeyExpression.fromProto(
                 NullableArrayUtils.wrapArray(keyExpression.toKeyExpression(), tableType, options.containsNullableArray())));
-        return new IndexGenerationResult(indexBuilder,
-                unnestedTableGeneratorMaybe.map(RecordLayerUnnestedSyntheticTableGenerator::generate).orElse(null));
+        return new IndexGenerationResult(indexBuilder, joinedTableGeneratorMaybe.isPresent()
+                ? joinedTableGeneratorMaybe.map(RecordLayerJoinedSyntheticTableGenerator::generate).orElse(null)
+                : unnestedTableGeneratorMaybe.map(RecordLayerUnnestedSyntheticTableGenerator::generate).orElse(null));
     }
 
     /**

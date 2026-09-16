@@ -195,9 +195,10 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
      * an unnested synthetic table cannot is a separate question, answered by
      * {@code RecordLayerUnnestedSyntheticTableGenerator#checkSupported} once it is known that one is needed.
      */
-    public void checkValidity() {
-        // the traversal rejects a second scan as a join, leaving none to reject here
-        Assert.thatUnchecked(scanCount == 1, ErrorCode.UNSUPPORTED_OPERATION,
+    public void checkValidity(final boolean isJoin) {
+        // One iteration generator per stored table: exactly one unless the plan is a join, which has one per joined
+        // table -- except that joining a table to itself shares a single scan, so the count can be lower.
+        Assert.thatUnchecked(isJoin ? scanCount >= 1 : scanCount == 1, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, no iteration generator found");
         // throws unless exactly one type filter was found
         Assert.notNullUnchecked(table, ErrorCode.UNSUPPORTED_OPERATION,
@@ -287,12 +288,12 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
      * group by or a scan; a second scan is a join.
      */
     @Nonnull
-    private static IndexSpec merge(@Nonnull final List<IndexSpec> childSpecs) {
+    private static IndexSpec merge(@Nonnull final List<IndexSpec> childSpecs, final boolean isJoin) {
         var merged = new IndexSpec(0, null, null, null, null, null);
         for (final var childSpec : childSpecs) {
             // the record type comes first: a join trips this before the scan below, which is the message callers see
-            final var table = pickOneTable(merged.table, childSpec.table);
-            Assert.thatUnchecked(merged.scanCount == 0 || childSpec.scanCount == 0,
+            final var table = pickOneTable(merged.table, childSpec.table, isJoin);
+            Assert.thatUnchecked(isJoin || merged.scanCount == 0 || childSpec.scanCount == 0,
                     ErrorCode.UNSUPPORTED_OPERATION,
                     "Unsupported index definition, join indexes are not supported");
             merged = new IndexSpec(merged.scanCount + childSpec.scanCount,
@@ -306,8 +307,11 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
 
     @Nullable
     private static RecordLayerTable pickOneTable(@Nullable final RecordLayerTable left,
-                                                 @Nullable final RecordLayerTable right) {
-        Assert.thatUnchecked(left == null || right == null, ErrorCode.UNSUPPORTED_OPERATION,
+                                                 @Nullable final RecordLayerTable right,
+                                                 final boolean isJoin) {
+        // A join has several stored tables and names its synthetic one instead, so the first stands in;
+        // the joined generator supplies the record the index is actually on.
+        Assert.thatUnchecked(isJoin || left == null || right == null, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported query, expected to find exactly one type filter operator");
         return left == null ? right : left;
     }
@@ -380,13 +384,13 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
         public IndexSpec evaluateAtExpression(@Nonnull final RelationalExpression expression,
                                               @Nonnull final List<IndexSpec> childResults) {
             checkResultValue(expression);
-            return IndexSpec.merge(childResults);
+            return IndexSpec.merge(childResults, quantifierValues.isJoin());
         }
 
         @Nonnull
         @Override
         public IndexSpec evaluateAtRef(@Nonnull final Reference ref, @Nonnull final List<IndexSpec> memberResults) {
-            return IndexSpec.merge(memberResults);
+            return IndexSpec.merge(memberResults, quantifierValues.isJoin());
         }
 
         @Nonnull
@@ -436,7 +440,9 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
             if (predicates.isEmpty()) {
                 return spec;
             }
-            return spec.withPredicate(IndexPredicates.normalize(predicates));
+            return spec.withPredicate(quantifierValues.isJoin()
+                                      ? IndexPredicates.conjoin(predicates)
+                                      : IndexPredicates.normalize(predicates));
         }
 
         @Nonnull
@@ -451,7 +457,7 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
         @Nonnull
         @Override
         public IndexSpec visitExplodeExpression(@Nonnull final ExplodeExpression expression) {
-            return IndexSpec.merge(visitQuantifiers(expression));
+            return IndexSpec.merge(visitQuantifiers(expression), quantifierValues.isJoin());
         }
 
         private static void checkResultValue(@Nonnull final RelationalExpression expression) {
