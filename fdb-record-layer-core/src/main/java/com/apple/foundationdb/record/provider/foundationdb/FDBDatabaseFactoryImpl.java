@@ -25,6 +25,7 @@ import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.NetworkOptions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -34,7 +35,11 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -89,6 +94,9 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
 
     private boolean runLoopProfilingEnabled = false;
 
+    @Nonnull
+    private final Map<String, String> knobs = new LinkedHashMap<>();
+
     /**
      * The default is a log-based predicate, which can also be used to enable tracing on a more granular level
      * (such as by request) using {@link #setTransactionIsTracedSupplier(Supplier)}.
@@ -123,6 +131,7 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
                         .addKeyAndValue(LogMessageKeys.TRACE_LOG_GROUP, traceLogGroup)
                         .addKeyAndValue(LogMessageKeys.RUN_LOOP_PROFILING, runLoopProfilingEnabled)
                         .addKeyAndValue(LogMessageKeys.THREADS_PER_CLIENT_VERSION, threadsPerClientVersion)
+                        .addKeyAndValue(LogMessageKeys.CLIENT_KNOBS, knobs.keySet())
                         .getMessageWithKeys());
             }
             fdb = FDB.selectAPIVersion(apiVersion.getVersionNumber());
@@ -140,6 +149,11 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
             }
             if (runLoopProfilingEnabled) {
                 options.setEnableRunLoopProfiling();
+            }
+            for (Map.Entry<String, String> knob : knobs.entrySet()) {
+                // Knob name and value validation is done during setKnob below, so
+                // no validation is done here
+                options.setKnob(formatKnob(knob.getKey(), knob.getValue()));
             }
             if (shutdownHookDisabled) {
                 fdb.disableShutdownHook();
@@ -240,6 +254,124 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     @Override
     public boolean isShutdownHookDisabled() {
         return shutdownHookDisabled;
+    }
+
+    @Override
+    public void setKnob(@Nonnull FDBClientKnob knob, @Nonnull String value) {
+        validateKnobValue(knob, value);
+        setKnobInternal(knob.getKnobName(), value);
+    }
+
+    @Override
+    public void setKnob(@Nonnull String knobName, @Nonnull String value) {
+        // If the name happens to match one of our known knobs, validate the value against its expected type,
+        // call setKnob(FDBClientKnob, String) so that the knob value is validated
+        final FDBClientKnob knownKnob = FDBClientKnob.fromKnobName(knobName);
+        if (knownKnob != null) {
+            setKnob(knownKnob, value);
+            return;
+        }
+        // Otherwise, all we can do is validate that the name is reasonable
+        if (knobName.isBlank() || knobName.indexOf('=') != -1) {
+            throw new RecordCoreArgumentException("invalid client knob name")
+                    .addLogInfo(LogMessageKeys.CLIENT_KNOB_NAME, knobName);
+        }
+        setKnobInternal(knobName, value);
+    }
+
+    private synchronized void setKnobInternal(@Nonnull String knobName, @Nonnull String value) {
+        knobs.put(knobName, value);
+        if (inited) {
+            Objects.requireNonNull(fdb).options().setKnob(formatKnob(knobName, value));
+        }
+    }
+
+    @Nonnull
+    @Override
+    public synchronized Map<String, String> getKnobs() {
+        return Collections.unmodifiableMap(knobs);
+    }
+
+    @Override
+    public synchronized void clearKnobs() {
+        if (inited) {
+            throw new RecordCoreException("client knobs cannot be cleared as the client has already started");
+        }
+        knobs.clear();
+    }
+
+    @Nonnull
+    private static String formatKnob(@Nonnull String knobName, @Nonnull String value) {
+        return knobName + "=" + value;
+    }
+
+    /**
+     * Validate that {@code value} can be parsed as the type of value that {@code knob} expects. This is only a
+     * sanity check performed before handing the value off to the native client; it does not guarantee that the
+     * native client will actually accept the value (for example, it does not know the valid range for a given
+     * knob).
+     *
+     * @param knob the knob being set
+     * @param value the value that the knob is being set to
+     */
+    private static void validateKnobValue(@Nonnull FDBClientKnob knob, @Nonnull String value) {
+        final boolean valid = switch (knob.getValueType()) {
+            case INT -> isValidInteger(value, Integer::decode);
+            case LONG -> isValidInteger(value, Long::decode);
+            case DOUBLE -> tryParse(() -> Double.parseDouble(value));
+            case BOOLEAN -> isValidBoolean(value);
+            case STRING -> true;
+        };
+        if (!valid) {
+            throw new RecordCoreArgumentException("client knob value does not match the knob's expected type")
+                    .addLogInfo(LogMessageKeys.CLIENT_KNOB_NAME, knob.getKnobName())
+                    .addLogInfo(LogMessageKeys.CLIENT_KNOB_VALUE, value)
+                    .addLogInfo(LogMessageKeys.EXPECTED, knob.getValueType());
+        }
+    }
+
+    private static boolean tryParse(@Nonnull Runnable parse) {
+        try {
+            parse.run();
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Determine whether {@code value} is a valid integer knob value, matching the FDB native client's own
+     * parsing logic ({@code strtol}-style base-0 parsing): ordinary base-10 values are accepted, as are
+     * hex values with a {@code 0x}/{@code 0X} prefix and octal values with a leading {@code 0}. This rejects
+     * the {@code #}-prefixed hex notation that {@code decode} otherwise accepts, since that notation is
+     * specific to {@link Integer#decode(String)}/{@link Long#decode(String)} and is not recognized by the
+     * native client, which would otherwise silently ignore a value that this validation had let through.
+     *
+     * @param value the value to validate
+     * @param decode {@link Integer#decode(String)} or {@link Long#decode(String)}, depending on the knob's type
+     * @return whether {@code value} is a valid integer knob value
+     */
+    private static boolean isValidInteger(@Nonnull String value, @Nonnull Function<String, ? extends Number> decode) {
+        if (value.indexOf('#') != -1) {
+            return false;
+        }
+        return tryParse(() -> decode.apply(value));
+    }
+
+    /**
+     * Determine whether {@code value} is a valid boolean knob value, matching the FDB native client's own
+     * parsing logic: {@code "true"} and {@code "false"} are accepted case-insensitively, and otherwise the
+     * value is accepted so long as it can be parsed as an integer (a non-zero integer is interpreted as
+     * {@code true}, and zero as {@code false}).
+     *
+     * @param value the value to validate
+     * @return whether {@code value} is a valid boolean knob value
+     */
+    private static boolean isValidBoolean(@Nonnull String value) {
+        if ("true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value)) {
+            return true;
+        }
+        return isValidInteger(value, Integer::decode);
     }
 
     // TODO: Demote these to UNSTABLE and deprecate at some point.
