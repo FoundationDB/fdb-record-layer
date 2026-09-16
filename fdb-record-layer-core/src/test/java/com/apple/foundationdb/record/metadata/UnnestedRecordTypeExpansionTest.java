@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorder
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -255,6 +256,56 @@ class UnnestedRecordTypeExpansionTest {
         final UnsupportedOperationException exception =
                 assertThrows(UnsupportedOperationException.class, () -> type.expand(ACCESS_HINT));
         assertEquals("cannot expand an index defined on a JoinedRecordType", exception.getMessage());
+    }
+
+    @Test
+    void getPlannerTypeForRecordTypeDescribesASyntheticType() {
+        final RecordMetaData metaData = mapMetaData(addTwoMapsType());
+        final UnnestedRecordType type = unnestedType(metaData, TWO_UNNESTED_MAPS);
+
+        // A synthetic type's name cannot be resolved against the stored types, so only the type-taking overload can
+        // describe it.
+        assertThrows(MetaDataException.class, () -> metaData.getPlannerType(TWO_UNNESTED_MAPS));
+        final Type.Record plannerType = metaData.getPlannerTypeForRecordType(type);
+        assertEquals(Type.Record.fromDescriptor(type.getDescriptor()), plannerType);
+        assertThat(plannerType.getFields().stream().map(Type.Record.Field::getFieldName).collect(Collectors.toList()),
+                contains(PARENT, "entry_one", "entry_two", UnnestedRecordType.POSITIONS_FIELD));
+    }
+
+    @Test
+    void getPlannerTypeForRecordTypeMatchesTheNameTakingOverloads() {
+        final RecordMetaData metaData = mapMetaData(metaDataBuilder -> metaDataBuilder.setStoreRecordVersions(true));
+
+        assertEquals(metaData.getPlannerType(OUTER),
+                metaData.getPlannerTypeForRecordType(metaData.getRecordType(OUTER)));
+        assertEquals(metaData.getPlannerType(List.of(OUTER)),
+                metaData.getPlannerTypeForRecordTypes(List.of(metaData.getRecordType(OUTER))));
+        assertEquals(metaData.getPlannerType(List.of(OUTER, OTHER)),
+                metaData.getPlannerTypeForRecordTypes(
+                        List.of(metaData.getRecordType(OUTER), metaData.getRecordType(OTHER))));
+
+        // Storing record versions adds the pseudo field to every stored type, including the union of several of them.
+        final String versionField = PseudoField.ROW_VERSION.getFieldName();
+        assertTrue(metaData.getPlannerTypeForRecordType(metaData.getRecordType(OUTER))
+                .getFieldNameFieldMap().containsKey(versionField));
+        assertTrue(metaData.getPlannerTypeForRecordTypes(
+                        List.of(metaData.getRecordType(OUTER), metaData.getRecordType(OTHER)))
+                .getFieldNameFieldMap().containsKey(versionField));
+    }
+
+    @Test
+    void getPlannerTypeForRecordTypesUnionsTheirFields() {
+        final RecordMetaData metaData = mapMetaData(metaDataBuilder -> { });
+        final Type.Record unionType = metaData.getPlannerTypeForRecordTypes(
+                List.of(metaData.getRecordType(OUTER), metaData.getRecordType(OTHER)));
+
+        // `rec_id` and `other_id` are shared, so the union has them once; the remaining fields come from one type each.
+        assertThat(unionType.getFields().stream().map(Type.Record.Field::getFieldName).collect(Collectors.toList()),
+                contains("rec_id", "other_id", "map", "other_value"));
+
+        // A single type is described exactly as the type-taking overload would describe it on its own.
+        assertEquals(metaData.getPlannerTypeForRecordType(metaData.getRecordType(OUTER)),
+                metaData.getPlannerTypeForRecordTypes(List.of(metaData.getRecordType(OUTER))));
     }
 
     @Nonnull
