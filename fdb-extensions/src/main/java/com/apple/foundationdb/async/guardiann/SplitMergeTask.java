@@ -1116,6 +1116,8 @@ class SplitMergeTask extends AbstractDeferredTask {
      * assignment quality (intra-cluster distances) to the existing partition to determine whether the
      * proposed split actually improves the index structure.
      *
+     * @param config the configuration whose balance gates and imbalance weight shape the evaluation, by way of
+     *        {@link #parametersFor}
      * @param estimator distance estimator for score computation
      * @param currentClusters the clusters as they exist before the split (used as baseline)
      * @param repartitioningCandidate the proposed new partition from k-means

@@ -1264,8 +1264,7 @@ class Primitives {
     /**
      * Updates a cluster's metadata after a single primary vector has been deleted from it and, when that drops
      * the cluster below its {@link ClusterMetadata#mergeThreshold(Config) merge threshold}, enqueues a merge
-     * {@link SplitMergeTask} — but only when a
-     * merge is actually possible.
+     * {@link SplitMergeTask} — but only when a merge is actually possible.
      * <p>
      * A merge needs at least one other cluster to merge with. The clusters are exactly the nodes of the centroid
      * HNSW, so this consults {@link HNSW#cardinality(com.apple.foundationdb.ReadTransaction)} and enqueues a
