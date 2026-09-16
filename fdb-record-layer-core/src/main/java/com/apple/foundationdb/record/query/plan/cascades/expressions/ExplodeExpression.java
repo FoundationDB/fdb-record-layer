@@ -184,6 +184,8 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
 
     @Override
     public int computeHashCodeWithoutChildren() {
+        // Note: This is written in a way that preserves pre-existing hashes for `withOrdinality=false` and for
+        // (`withOrdinality=true` and `zeroBasedOrdinality=false`)
         if (!withOrdinality) {
             return Objects.hash(collectionValue);
         }

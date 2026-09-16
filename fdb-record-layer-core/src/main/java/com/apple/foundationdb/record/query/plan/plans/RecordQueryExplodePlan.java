@@ -76,7 +76,7 @@ import java.util.stream.IntStream;
  *
  * <p>In the {@code WITH ORDINALITY} variant, {@code EXPLODE} also generates ordinals of the array elements. In this
  * case the plan produces a {@link DynamicMessage} struct with two anonymous fields (the element and the ordinal)
- * instead of the bare element. If the ordinals are 1-based or 0-based, depends {@linkplain #isZeroBasedOrdinality()}.
+ * instead of the bare element. The ordinals are 1-based or 0-based depending on {@linkplain #isZeroBasedOrdinality()}.
  *
  * @see RecordQueryFlatMapPlan
  */
