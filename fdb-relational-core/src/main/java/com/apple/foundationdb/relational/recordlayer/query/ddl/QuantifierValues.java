@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * What every quantifier of an index-defining plan stands for, and with it the ability to resolve a value written in terms
@@ -52,8 +51,27 @@ final class QuantifierValues {
     @Nonnull
     private final Map<CorrelationIdentifier, Value> valuesByQuantifier;
 
-    private QuantifierValues(@Nonnull final Map<CorrelationIdentifier, Value> valuesByQuantifier) {
+    /**
+     * The array each explode of the plan ranges over, in the order they were found. An explode's {@link AnnotatedAccessor}
+     * marker <em>is</em> its position here.
+     */
+    @Nonnull
+    private final List<FieldValue> explodes;
+
+    private QuantifierValues(@Nonnull final Map<CorrelationIdentifier, Value> valuesByQuantifier,
+                             @Nonnull final List<FieldValue> explodes) {
         this.valuesByQuantifier = valuesByQuantifier;
+        this.explodes = explodes;
+    }
+
+    /**
+     * The array each explode ranges over, tagged at its last accessor with that explode's marker, indexed by the marker.
+     *
+     * @return what the traversal saw at each explode
+     */
+    @Nonnull
+    public List<FieldValue> getExplodes() {
+        return explodes;
     }
 
     /**
@@ -65,7 +83,9 @@ final class QuantifierValues {
      */
     @Nonnull
     public static QuantifierValues collect(@Nonnull final RelationalExpression expression) {
-        return new QuantifierValues(Assert.notNullUnchecked(new Collector().visit(expression)));
+        final var collector = new Collector();
+        final var valuesByQuantifier = Assert.notNullUnchecked(collector.visit(expression));
+        return new QuantifierValues(valuesByQuantifier, collector.explodes);
     }
 
     /**
@@ -112,11 +132,12 @@ final class QuantifierValues {
     private static final class Collector implements SimpleExpressionVisitor<Map<CorrelationIdentifier, Value>> {
 
         /**
-         * Numbers the unnestings, so that two unnestings of the same array field compare unequal. Only distinctness
-         * matters; the number never reaches the key expression.
+         * The array each explode ranges over, in the order they were found. A position doubles as the explode's marker,
+         * which only has to be distinct -- it numbers the unnestings so two unnestings of one array field compare
+         * unequal, and never reaches the key expression.
          */
         @Nonnull
-        private final AtomicInteger explodeCounter = new AtomicInteger(0);
+        private final List<FieldValue> explodes = new ArrayList<>();
 
         @Nonnull
         @Override
@@ -142,16 +163,17 @@ final class QuantifierValues {
 
         @Nonnull
         private Value unnestedCollectionValue(@Nonnull final ExplodeExpression explode) {
-            final var marker = explodeCounter.incrementAndGet();
             final var collectionValue = explode.getCollectionValue();
-            if (!(collectionValue instanceof FieldValue)) {
+            if (!(collectionValue instanceof final FieldValue field)) {
                 return collectionValue;
             }
-            final var field = (FieldValue)collectionValue;
+            final var marker = explodes.size();
             final var fieldAccessors = new ArrayList<>(field.getFieldPath().getFieldAccessors());
             fieldAccessors.set(fieldAccessors.size() - 1,
                     AnnotatedAccessor.of(fieldAccessors.get(fieldAccessors.size() - 1), marker));
-            return FieldValue.ofFields(field.getChild(), new FieldValue.FieldPath(fieldAccessors));
+            final var annotated = FieldValue.ofFields(field.getChild(), new FieldValue.FieldPath(fieldAccessors));
+            explodes.add(annotated);
+            return annotated;
         }
 
         @Nonnull
@@ -173,6 +195,10 @@ final class QuantifierValues {
         private AnnotatedAccessor(@Nonnull final Type.Record.Field field, final int ordinal, final int marker) {
             super(field, ordinal);
             this.marker = marker;
+        }
+
+        int getMarker() {
+            return marker;
         }
 
         @Nonnull

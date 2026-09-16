@@ -95,14 +95,15 @@ class ValueToKeyExpressionVisitorTest {
 
     @Nonnull
     private static KeyExpression translate(@Nonnull final Value value) {
-        return ValueToKeyExpressionVisitor.translate(value, Map.of(), ExtremumEverStorage.TUPLE).keyExpression();
+        // these translate a key on a stored table, where adjacent field paths do collapse
+        return ValueToKeyExpressionVisitor.translate(value, Map.of(), ExtremumEverStorage.TUPLE, true).keyExpression();
     }
 
     @Nonnull
     private static String indexType(@Nonnull final ExtremumEverStorage extremumEverStorage,
                                     @Nonnull final Value... projectedValues) {
         return ValueToKeyExpressionVisitor
-                .translate(RecordConstructorValue.ofUnnamed(List.of(projectedValues)), Map.of(), extremumEverStorage)
+                .translate(RecordConstructorValue.ofUnnamed(List.of(projectedValues)), Map.of(), extremumEverStorage, true)
                 .indexType();
     }
 
