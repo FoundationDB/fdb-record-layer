@@ -284,11 +284,11 @@ class ReassignTask extends AbstractDeferredTask {
                                         final Cluster targetCluster = Iterables.getOnlyElement(innerClusters);
                                         return foldCollapsedReplicas(transaction, partialReassignment,
                                                         targetClusterMetadata.id(), config.replicatedClusterTarget())
-                                                .thenAccept(reassignment -> {
+                                                .thenCompose(reassignment -> {
                                                     final TargetClusterDelta delta =
                                                             computeTargetClusterDelta(targetCluster, reassignment,
                                                                     targetClusterMetadata.id());
-                                                    persistReassignment(transaction, random, targetClusterMetadata,
+                                                    return persistReassignment(transaction, random, targetClusterMetadata,
                                                             reassignment, delta, quantizer, enqueueFollowUpTasks);
                                                 });
                                     }));
@@ -616,17 +616,17 @@ class ReassignTask extends AbstractDeferredTask {
         return AbstractDeferredTask.computeTargetClusterDelta(targetCluster, targetClusterAssignedVectors);
     }
 
-    private void persistReassignment(@Nonnull final Transaction transaction,
-                                     @Nonnull final SplittableRandom random,
-                                     @Nonnull final ClusterMetadata targetClusterMetadata,
-                                     @Nonnull final Reassignment reassignment,
-                                     @Nonnull final TargetClusterDelta delta,
-                                     @Nonnull final Quantizer quantizer,
-                                     final boolean enqueueFollowUpTasks) {
+    private CompletableFuture<Void> persistReassignment(@Nonnull final Transaction transaction,
+                                                        @Nonnull final SplittableRandom random,
+                                                        @Nonnull final ClusterMetadata targetClusterMetadata,
+                                                        @Nonnull final Reassignment reassignment,
+                                                        @Nonnull final TargetClusterDelta delta,
+                                                        @Nonnull final Quantizer quantizer,
+                                                        final boolean enqueueFollowUpTasks) {
         final WriteCounters counters = countAssignments(targetClusterMetadata, reassignment);
         writeOuterClusterVectors(transaction, quantizer, targetClusterMetadata, reassignment);
         persistTargetClusterDelta(transaction, quantizer, targetClusterMetadata.id(), delta);
-        writeClusterMetadata(transaction, random, targetClusterMetadata, reassignment, counters, delta,
+        return writeClusterMetadata(transaction, random, targetClusterMetadata, reassignment, counters, delta,
                 enqueueFollowUpTasks);
     }
 
@@ -702,13 +702,13 @@ class ReassignTask extends AbstractDeferredTask {
         }
     }
 
-    private void writeClusterMetadata(@Nonnull final Transaction transaction,
-                                      @Nonnull final SplittableRandom random,
-                                      @Nonnull final ClusterMetadata targetClusterMetadata,
-                                      @Nonnull final Reassignment reassignment,
-                                      @Nonnull final WriteCounters counters,
-                                      @Nonnull final TargetClusterDelta delta,
-                                      final boolean enqueueFollowUpTasks) {
+    private CompletableFuture<Void> writeClusterMetadata(@Nonnull final Transaction transaction,
+                                                         @Nonnull final SplittableRandom random,
+                                                         @Nonnull final ClusterMetadata targetClusterMetadata,
+                                                         @Nonnull final Reassignment reassignment,
+                                                         @Nonnull final WriteCounters counters,
+                                                         @Nonnull final TargetClusterDelta delta,
+                                                         final boolean enqueueFollowUpTasks) {
         final Primitives primitives = getLocator().primitives();
         final Map<UUID, ClusterMetadataWithDistance> clusterIdMetadataMap =
                 reassignment.clusterIdMetadataMap();
@@ -766,11 +766,19 @@ class ReassignTask extends AbstractDeferredTask {
                     newTargetClusterMetadata.numReplicatedVectors(), delta.toDelete().size(), delta.toWrite().size(),
                     counters.numPrimaryPushedOut(), counters.numReplicatedPushedOut());
         }
+
+        // Production reassign path only: if the reassigned target has shrunk below its (max-ever relative) merge
+        // threshold, enqueue a merge. The direct-drive test path (enqueueFollowUpTasks=false) enqueues nothing.
+        if (enqueueFollowUpTasks && newTargetClusterMetadata != null) {
+            return primitives.enqueueMergeTaskAfterReassignIfUndersized(transaction, random, newTargetClusterMetadata,
+                    getCentroid(), getAccessInfo());
+        }
+        return AsyncUtil.DONE;
     }
 
     @Nonnull
     private ReassignTask withHighPriorityAndNearestClusters(@Nonnull final SplittableRandom random,
-                                                         @Nonnull final List<ClusterReference> nearestClusters) {
+                                                            @Nonnull final List<ClusterReference> nearestClusters) {
         return ReassignTask.of(getLocator(), getAccessInfo(),
                 randomHighPriorityTaskId(random, getConfig().deterministicRandomness()), getTargetClusterId(),
                 getCentroid(), getCauseClusterIds(), nearestClusters);
