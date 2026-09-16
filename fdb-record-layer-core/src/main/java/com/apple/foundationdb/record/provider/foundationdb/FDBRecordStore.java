@@ -566,8 +566,22 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final Tuple primaryKey = primaryKeyExpression.evaluateSingleton(recordBuilder).toTuple();
         recordBuilder.setPrimaryKey(primaryKey);
 
+        // Fire off a speculative record read before attempting to acquire the record write lock. The
+        // default concurrency manager currently serializes all mutations, even if they are to separate records.
+        // Starting the prefetch now allows us to parallelize record reads across different saves. However, to
+        // protect against concurrent modifications to this record, we need to re-read the record inside the critical
+        // section
+        //
+        // We could remove this if we update the concurrency manager to allow concurrent record mutations in
+        // the same store. See: FDBConcurrencyManager::doWithRecordWriteLock for why that is not yet possible
+        final CompletableFuture<Void> preload = preloadRecordAsync(primaryKey);
+
         return concurrencyManager.doWithRecordWriteLock(primaryKey, () -> {
-            final CompletableFuture<FDBStoredRecord<M>> result = loadRecordForUpdate(typedSerializer, primaryKey).thenCompose(oldRecord -> {
+            // Chain the read off of the preload so that we can use the value loaded into the cache (if it hasn't been
+            // invalidated). Ignore any errors during the initial read, favoring instead to surface errors from loadRecordForUpdate
+            final CompletableFuture<FDBStoredRecord<M>> oldRecordFuture = AsyncUtil.composeHandle(preload,
+                    (vignore, eignore) -> loadRecordForUpdate(typedSerializer, primaryKey));
+            final CompletableFuture<FDBStoredRecord<M>> result = oldRecordFuture.thenCompose(oldRecord -> {
                 if (oldRecord == null) {
                     if (existenceCheck.errorIfNotExists()) {
                         throw new RecordDoesNotExistException("record does not exist",
@@ -1260,17 +1274,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Override
     @Nonnull
     public CompletableFuture<Void> preloadRecordAsync(@Nonnull final Tuple primaryKey) {
-        FDBPreloadRecordCache.Future futureRecord = preloadCache.beginPrefetch(primaryKey);
-        return concurrencyManager.doWithRecordReadLock(primaryKey, () ->
-                loadRawRecordAsync(primaryKey, null, false)
-                        .whenComplete((rawRecord, ex) -> {
-                            if (ex != null) {
-                                futureRecord.cancel();
-                            } else {
-                                futureRecord.complete(rawRecord);
-                            }
-                        })
-        ).thenApply(ignore -> null);
+        return concurrencyManager.doWithRecordReadLock(primaryKey, () -> {
+            FDBPreloadRecordCache.Future futureRecord = preloadCache.beginPrefetch(primaryKey);
+            return loadRawRecordAsync(primaryKey, null, false)
+                    .whenComplete((rawRecord, ex) -> {
+                        if (ex != null) {
+                            futureRecord.cancel();
+                        } else {
+                            futureRecord.complete(rawRecord);
+                        }
+                    });
+        }).thenApply(ignore -> null);
     }
 
     @Override
@@ -1782,10 +1796,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     protected <M extends Message> CompletableFuture<Boolean> deleteTypedRecord(@Nonnull RecordSerializer<M> typedSerializer,
                                                                                @Nonnull Tuple primaryKey, boolean isDryRun) {
-        return concurrencyManager.doWithRecordWriteLock(primaryKey,
-                () -> deleteTypedRecordImpl(typedSerializer, primaryKey, isDryRun));
-    }
+        // Preload the record before deleting the record. This is done to allow the record reads
+        // to be parallelized across different operations. See: saveTypedRecord for more details.
+        // Like in that method, we still need to re-load the record within the critical section to
+        // ensure we get the right value.
+        //
+        // This preload can be removed if the concurrency manager's doWithRecordWriteLock method is
+        // modified to not serialize all record mutations on a given store.
+        final CompletableFuture<Void> preload = preloadRecordAsync(primaryKey);
 
+        return concurrencyManager.doWithRecordWriteLock(primaryKey,
+                () -> AsyncUtil.composeHandle(preload, (vignore, eignore) -> deleteTypedRecordImpl(typedSerializer, primaryKey, isDryRun)));
+    }
     @Nonnull
     private <M extends Message> CompletableFuture<Boolean> deleteTypedRecordImpl(@Nonnull RecordSerializer<M> typedSerializer,
                                                                                  @Nonnull Tuple primaryKey, boolean isDryRun) {
@@ -1793,7 +1815,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return loadRecordForUpdate(typedSerializer, primaryKey)
                     .thenCompose(oldRecord -> oldRecord == null ? AsyncUtil.READY_FALSE : AsyncUtil.READY_TRUE);
         }
-        preloadCache.invalidate(primaryKey);
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         CompletableFuture<Boolean> result = loadRecordForUpdate(typedSerializer, primaryKey).thenCompose(oldRecord -> {
             if (oldRecord == null) {
@@ -1802,6 +1823,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             return getRecordStoreStateAsync().thenCompose(recordStoreState -> {
                 validateRecordUpdateAllowed(recordStoreState);
                 deleteRecordSplits(primaryKey, true, oldRecord, metaData);
+                preloadCache.invalidate(primaryKey); // remove any cached value for this record
                 countKeysAndValues(FDBStoreTimer.Counts.DELETE_RECORD_KEY, FDBStoreTimer.Counts.DELETE_RECORD_KEY_BYTES, FDBStoreTimer.Counts.DELETE_RECORD_VALUE_BYTES,
                         oldRecord);
                 addRecordCount(metaData, oldRecord, LITTLE_ENDIAN_INT64_MINUS_ONE);
