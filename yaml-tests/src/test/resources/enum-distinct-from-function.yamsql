@@ -1,0 +1,114 @@
+#
+# enum-distinct-from-function.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# ---------------------------------------------------------------------------------------------------
+# Comparing an ENUM-typed column against a string literal anywhere in DDL used to fail while compiling
+# the statement with:
+#
+#   java.lang.NullPointerException: Type not found in repository: ENUM<...>
+#
+# It was originally reported for an `IS DISTINCT FROM` predicate added to the WHERE clause of a
+# generated CREATE FUNCTION, but it reproduces equally with a plain `=` and inside a
+# CREATE INDEX ... WHERE, so neither the operator nor index predicates specifically are at fault.
+#
+# Prior to !current_version, this file cannot even be set up: the schema_template below throws an NPE while
+# compiling the CREATE FUNCTION statements. What is interesting once the DDL compiles is whether the
+# enum comparison survives as a ValueComparison over promote(... AS ENUM<...>) rather than being
+# constant-folded into a SimpleComparison carrying a Descriptors$EnumValueDescriptor, and whether the
+# planner can match it against T_M_IDX.
+#
+# T holds one row with an unset enum (ID 5), because IS DISTINCT FROM and IS NOT DISTINCT FROM differ
+# from <> and = precisely on NULL: ID 5 must appear in NOT_HAPPY() and must not appear in HAPPY().
+#
+# The functions come in four groups: the two IS [NOT] DISTINCT FROM forms over the enum; the plain
+# = and <> forms for contrast; the enum predicate under a disjunction, closer to the reported WHERE
+# clause; and the enum predicate against a parameter rather than a literal, which is the one shape
+# that never reached the constant folder to begin with.
+# ---------------------------------------------------------------------------------------------------
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    CREATE TYPE AS ENUM MOOD ('JOYFUL', 'HAPPY', 'SAD')
+    CREATE TABLE T (ID BIGINT, M MOOD, PRIMARY KEY(ID))
+    CREATE INDEX T_M_IDX AS SELECT M, ID FROM T ORDER BY M, ID
+    CREATE FUNCTION NOT_HAPPY() AS SELECT ID, M FROM T WHERE M IS DISTINCT FROM 'HAPPY'
+    CREATE FUNCTION HAPPY() AS SELECT ID, M FROM T WHERE M IS NOT DISTINCT FROM 'HAPPY'
+    CREATE FUNCTION EQ_HAPPY() AS SELECT ID, M FROM T WHERE M = 'HAPPY'
+    CREATE FUNCTION NEQ_HAPPY() AS SELECT ID, M FROM T WHERE M <> 'HAPPY'
+    CREATE FUNCTION NOT_HAPPY_OR_LOW_ID() AS SELECT ID, M FROM T WHERE ID < 2 OR M IS DISTINCT FROM 'HAPPY'
+    CREATE FUNCTION NOT_MOOD(IN WANTED STRING) AS SELECT ID, M FROM T WHERE M IS DISTINCT FROM WANTED
+---
+setup:
+  steps:
+    - query: INSERT INTO T VALUES (1, 'JOYFUL'), (2, 'HAPPY'), (3, 'SAD'), (4, 'HAPPY')
+    - query: INSERT INTO T(ID) VALUES (5)
+---
+test_block:
+  name: enum-distinct-from-function-tests
+  tests:
+    # IS DISTINCT FROM keeps the unset enum (ID 5), IS NOT DISTINCT FROM drops it.
+    -
+      - query: SELECT * FROM NOT_HAPPY()
+      - explain: "COVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.M IS_DISTINCT_FROM promote('HAPPY' AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>) | FETCH"
+      - unorderedResult: [{1, 'JOYFUL'}, {3, 'SAD'}, {5, !null }]
+    -
+      - query: SELECT * FROM HAPPY()
+      - explain: "ISCAN(T_M_IDX [NOT_DISTINCT_FROM promote('HAPPY' AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>)])"
+      - unorderedResult: [{2, 'HAPPY'}, {4, 'HAPPY'}]
+    # <> and = drop the unset enum in both directions, which is the difference being tested above.
+    -
+      - query: SELECT * FROM NEQ_HAPPY()
+      - explain: "COVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.M NOT_EQUALS promote('HAPPY' AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>) | FETCH"
+      - unorderedResult: [{1, 'JOYFUL'}, {3, 'SAD'}]
+    -
+      - query: SELECT * FROM EQ_HAPPY()
+      - explain: "ISCAN(T_M_IDX [EQUALS promote('HAPPY' AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>)])"
+      - unorderedResult: [{2, 'HAPPY'}, {4, 'HAPPY'}]
+    # the enum predicate under a disjunction
+    -
+      - query: SELECT * FROM NOT_HAPPY_OR_LOW_ID()
+      - explain: "COVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.ID LESS_THAN 2 OR _.M IS_DISTINCT_FROM promote('HAPPY' AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>) | FETCH"
+      - unorderedResult: [{1, 'JOYFUL'}, {3, 'SAD'}, {5, !null }]
+    # the enum predicate against a parameter rather than a literal
+    -
+      - query: SELECT * FROM NOT_MOOD('HAPPY')
+      - explain: "COVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.M IS_DISTINCT_FROM promote(@c5 AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>) | FETCH"
+      - unorderedResult: [{1, 'JOYFUL'}, {3, 'SAD'}, {5, !null }]
+    -
+      - query: SELECT * FROM NOT_MOOD('SAD')
+      - explain: "COVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.M IS_DISTINCT_FROM promote(@c5 AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>) | FETCH"
+      - unorderedResult: [{1, 'JOYFUL'}, {2, 'HAPPY'}, {4, 'HAPPY'}, {5, !null }]
+    # a predicate applied at the call site rather than inside the function body, to see whether it
+    # merges with the body's enum predicate
+    -
+      - query: SELECT * FROM NOT_HAPPY() WHERE ID > 2
+      - explain: "SCAN([IS T, [GREATER_THAN promote(@c9 AS LONG)]]) | FILTER _.M IS_DISTINCT_FROM promote('HAPPY' AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>)"
+      - unorderedResult: [{3, 'SAD'}, {5, !null }]
+    # the same enum comparisons written directly against the table, bypassing the function
+    -
+      - query: SELECT * FROM T WHERE M IS DISTINCT FROM 'HAPPY'
+      - explain: "COVERING(T_M_IDX <,> -> [ID: KEY:[1], M: KEY:[0]]) | FILTER _.M IS_DISTINCT_FROM promote(@c9 AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>) | FETCH"
+      - unorderedResult: [{1, 'JOYFUL'}, {3, 'SAD'}, {5, !null }]
+    -
+      - query: SELECT * FROM T WHERE M IS NOT DISTINCT FROM 'HAPPY'
+      - explain: "ISCAN(T_M_IDX [NOT_DISTINCT_FROM promote(@c10 AS ENUM<JOYFUL(0), HAPPY(1), SAD(2)>)])"
+      - unorderedResult: [{2, 'HAPPY'}, {4, 'HAPPY'}]
+...
