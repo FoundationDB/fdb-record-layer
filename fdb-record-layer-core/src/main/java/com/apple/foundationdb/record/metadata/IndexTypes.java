@@ -169,6 +169,11 @@ public class IndexTypes {
      */
     public static final String VECTOR = "vector";
 
+    /**
+     * An index with record change history.
+     */
+    public static final String RECORD_CHANGES = "record_changes";
+
     private IndexTypes() {
     }
 }
