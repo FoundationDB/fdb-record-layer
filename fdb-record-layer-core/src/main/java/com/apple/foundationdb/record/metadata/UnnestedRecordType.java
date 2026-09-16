@@ -407,11 +407,6 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
                 builder.addQuantifier(constituentQuantifier);
                 final Value flowedValue = constituentQuantifier.getFlowedObjectValue();
                 elementValue = FieldValue.ofOrdinalNumber(flowedValue, 0);
-                // The explode is asked for 0-based ordinals, which is how positions are stored; all that is left is
-                // to widen the INT the explode flows to the LONG the `Positions` message declares. The types have to
-                // agree, or the record `expand` flows is not of this type's planner type. It matters only for
-                // matching, not for the stored bytes: the tuple layer encodes integers by value, so 3 and 3L are
-                // identical on disk.
                 final Value positionValue = PromoteValue.inject(FieldValue.ofOrdinalNumber(flowedValue, 1),
                         Type.primitiveType(Type.TypeCode.LONG, false));
                 positionColumns.add(Column.of(Optional.of(constituent.getName()), positionValue));
@@ -425,17 +420,13 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
     }
 
     /**
-     * Builds the quantifier standing for one constituent: a select over an explode of the constituent's array. The
-     * select returns the exploded struct itself rather than a list of its columns, so any field of the element can be
-     * navigated from the quantifier, at as many index key positions as needed.
+     * Builds the quantifier standing for one constituent: a select over an explode of the constituent's array.
      *
      * <p>The explode is created {@code WITH ORDINALITY}, so it flows an anonymous {@code (element, ordinal)} struct.
-     * The ordinal is what lets the caller reconstruct the {@code __positions} field of a synthetic record, without
-     * which the synthetic primary key cannot be expressed. It is asked for 0-based, so that it <em>is</em> the
-     * position, rather than one more than it.
+     * The ordinal is needed to reconstruct the {@code __positions} field of a synthetic record, without which the
+     * synthetic primary key cannot be expressed. It is asked for 0-based.
      *
-     * @param ownerElementValue the record the array hangs off -- the stored record for a constituent of the parent, or
-     *        the owning constituent's element for a chained one
+     * @param ownerElementValue the record the array hangs off
      * @param nestingExpression the constituent's nesting expression
      * @return a quantifier flowing {@code (element, ordinal)} structs for the constituent's array
      */
