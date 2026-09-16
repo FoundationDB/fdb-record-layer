@@ -27,7 +27,7 @@
 # generated CREATE FUNCTION, but it reproduces equally with a plain `=` and inside a
 # CREATE INDEX ... WHERE, so neither the operator nor index predicates specifically are at fault.
 #
-# Prior to !current_version, this file cannot even be set up: the schema_template below throws an NPE while
+# Prior to 4.14.1.0, this file cannot even be set up: the schema_template below throws an NPE while
 # compiling the CREATE FUNCTION statements. What is interesting once the DDL compiles is whether the
 # enum comparison survives as a ValueComparison over promote(... AS ENUM<...>) rather than being
 # constant-folded into a SimpleComparison carrying a Descriptors$EnumValueDescriptor, and whether the
@@ -43,7 +43,7 @@
 # ---------------------------------------------------------------------------------------------------
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.14.1.0
 ---
 schema_template:
     CREATE TYPE AS ENUM MOOD ('JOYFUL', 'HAPPY', 'SAD')

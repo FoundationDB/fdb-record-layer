@@ -25,7 +25,7 @@
 # this test either
 ---
 options:
-    supported_version: !current_version
+    supported_version: 4.14.1.0
 ---
 schema_template:
     CREATE TABLE t1(id BIGINT, col1 BIGINT, col2 BIGINT, PRIMARY KEY(id))

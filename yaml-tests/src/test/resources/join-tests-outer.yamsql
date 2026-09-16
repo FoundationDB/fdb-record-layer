@@ -114,7 +114,7 @@ test_block:
       # The same anti-join expressed via NOT IN over a subquery, for completeness. However, a subquery IN list is not
       # supported yet.
       - query: SELECT "e"."fname", "e"."lname" FROM "emp" "e" WHERE "e"."dept_id" NOT IN (SELECT "d"."id" FROM "dept" "d");
-      - supported_version: !current_version
+      - supported_version: 4.14.1.0
       - error: UNSUPPORTED_QUERY
     -
       # WHERE with a different null-accepting predicate on the null-producing side, projecting that side too.
