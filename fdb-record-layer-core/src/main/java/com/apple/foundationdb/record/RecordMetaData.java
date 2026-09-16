@@ -775,10 +775,27 @@ public class RecordMetaData implements RecordMetaDataProvider {
         }
     }
 
-
+    /**
+     * Get the planner's view of a stored record type. This resolves the name against the stored record types only.
+     *
+     * @param recordTypeName the name of a stored record type
+     * @return the type the planner uses to represent records of that type
+     */
     @Nonnull
     public Type.Record getPlannerType(@Nonnull String recordTypeName) {
-        final RecordType recordType = getRecordType(recordTypeName);
+        return getPlannerTypeForRecordType(getRecordType(recordTypeName));
+    }
+
+    /**
+     * Get the planner's view of an already-resolved record type. Unlike {@link #getPlannerType(String)} this does not
+     * resolve a name, so it works for a {@link SyntheticRecordType} as well: an index defined on a synthetic record
+     * type names that type, and {@link #recordTypesForIndex(Index)} hands back the type itself, so expanding such an
+     * index does not need to look the name up again.
+     * @param recordType a record type, possibly synthetic
+     * @return the type the planner uses to represent records of that type
+     */
+    @Nonnull
+    public Type.Record getPlannerTypeForRecordType(@Nonnull RecordType recordType) {
         Type.Record plannerType = Type.Record.fromDescriptor(recordType.getDescriptor());
         if (storeRecordVersions) {
             plannerType = plannerType.addPseudoFields();
@@ -788,13 +805,25 @@ public class RecordMetaData implements RecordMetaDataProvider {
 
     @Nonnull
     public Type.Record getPlannerType(@Nonnull Collection<String> recordTypeNames) {
-        if (recordTypeNames.size() == 1) {
-            final String recordTypeName = Iterables.getOnlyElement(recordTypeNames);
-            return getPlannerType(recordTypeName);
+        return getPlannerTypeForRecordTypes(recordTypeNames.stream()
+                .map(this::getRecordType)
+                .collect(Collectors.toList()));
+    }
+
+    /**
+     * As {@link #getPlannerType(Collection)}, but for already-resolved record types, so it also accepts
+     * {@link SyntheticRecordType}s.
+     * @param recordTypes the record types the planner type should cover
+     * @return the type the planner uses to represent records of those types
+     */
+    @Nonnull
+    public Type.Record getPlannerTypeForRecordTypes(@Nonnull Collection<RecordType> recordTypes) {
+        if (recordTypes.size() == 1) {
+            return getPlannerTypeForRecordType(Iterables.getOnlyElement(recordTypes));
         }
         // todo: should be removed https://github.com/FoundationDB/fdb-record-layer/issues/1884
-        LinkedHashMap<String, Type.Record.Field> fieldsByName = recordTypeNames.stream()
-                .map(this::getPlannerType)
+        LinkedHashMap<String, Type.Record.Field> fieldsByName = recordTypes.stream()
+                .map(this::getPlannerTypeForRecordType)
                 .flatMap(type -> type.getFields().stream())
                 .collect(Collectors.groupingBy(Type.Record.Field::getFieldName,
                         LinkedHashMap::new,
