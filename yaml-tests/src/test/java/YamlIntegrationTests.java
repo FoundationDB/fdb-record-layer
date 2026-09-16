@@ -183,6 +183,12 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPECTATIONS)
+    public void enumDistinctFromFunction(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("enum-distinct-from-function.yamsql");
+    }
+
+    @TestTemplate
     public void enumTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("enum.yamsql");
     }
