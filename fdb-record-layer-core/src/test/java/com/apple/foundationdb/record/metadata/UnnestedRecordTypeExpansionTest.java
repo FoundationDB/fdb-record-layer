@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -79,7 +80,12 @@ class UnnestedRecordTypeExpansionTest {
     @Nonnull
     private static final String UNNESTED_REVIEWS = "UnnestedReviews";
     @Nonnull
+    private static final String ESCAPED_NAMES = "EscapedNames";
+    @Nonnull
     private static final String OUTER_OTHER_JOINED = "OuterOtherJoined";
+    @Nonnull
+    private static final Descriptors.Descriptor INNER_DESCRIPTOR =
+            TestRecordsNestedChainProto.OuterRecord.MiddleRecord.InnerRecord.getDescriptor();
     @Nonnull
     private static final KeyExpression ENTRIES_FAN_OUT = field("map").nest(field("entry", FanType.FanOut));
     @Nonnull
@@ -210,6 +216,30 @@ class UnnestedRecordTypeExpansionTest {
                 List.of("reviews")), collectionValue);
         assertEquals(Type.Record.fromDescriptor(type.getDescriptor()).getFieldNameFieldMap().get("review").getFieldType(),
                 columnValue(expansion, "review").getResultType());
+    }
+
+    @Test
+    void expandUnnestsThroughEscapedFieldNames() {
+        final RecordMetaData metaData = nestedChainMetaData(metaDataBuilder -> {
+            final UnnestedRecordTypeBuilder typeBuilder = metaDataBuilder.addUnnestedRecordType(ESCAPED_NAMES);
+            typeBuilder.addParentConstituent(PARENT, metaDataBuilder.getRecordType(OUTER));
+            typeBuilder.addNestedConstituent("direct", INNER_DESCRIPTOR, PARENT,
+                    field("escaped__2inner", FanType.FanOut));
+            typeBuilder.addNestedConstituent("nested", INNER_DESCRIPTOR, PARENT,
+                    field("nested__2holder").nest(field("inner", FanType.FanOut)));
+        });
+        final UnnestedRecordType type = unnestedType(metaData, ESCAPED_NAMES);
+
+        final GraphExpansion expansion = type.expand(ACCESS_HINT);
+        // A key expression addresses protobuf fields, so it carries the names the descriptor uses; a `FieldValue`
+        // resolves against the planner's type, whose field names those have been decoded into. The exploded path is
+        // therefore expressed in the decoded names, and a field whose descriptor name carries an escape sequence
+        // cannot be found under the name the key expression holds.
+        final Value parentValue = expansion.getQuantifiers().get(0).getFlowedObjectValue();
+        assertEquals(FieldValue.ofFieldNames(parentValue, List.of("escaped.inner")),
+                assertSelectOverExplode(expansion.getQuantifiers().get(1)).getCollectionValue());
+        assertEquals(FieldValue.ofFieldNames(parentValue, List.of("nested.holder", "inner")),
+                assertSelectOverExplode(expansion.getQuantifiers().get(2)).getCollectionValue());
     }
 
     @Test
