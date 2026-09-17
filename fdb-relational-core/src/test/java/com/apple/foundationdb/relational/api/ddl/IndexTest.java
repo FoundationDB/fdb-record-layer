@@ -775,6 +775,12 @@ public class IndexTest {
         indexIs(stmt, keyWithValue(concat(field("A").nest(field("values", KeyExpression.FanType.FanOut).nest("COL2")), field("COL5"), field("A").nest(field("values", KeyExpression.FanType.FanOut).nest(concatenateFields("COL3", "COL4")))), 3), IndexTypes.VALUE);
     }
 
+    /**
+     * The same columns and the same predicate as
+     * {@link UnnestedSyntheticTableIndexTest#createIndexWithPredicateOverUnnestedSyntheticTableIsNotSupported()}, but
+     * with the two columns of {@code X} made adjacent. That is expressible as a fan-out, so no synthetic type is needed
+     * and the predicate is accepted -- reordering the key alone decides whether the predicate is allowed.
+     */
     @Test
     void createIndexWithPredicateIsSupportedWhenUnnestingNeedsNoSyntheticTable() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
@@ -783,9 +789,14 @@ public class IndexTest {
                 "CREATE INDEX mv1 AS SELECT X.col2, X.col3, T1.col5 FROM T1, (SELECT col2, col3 FROM T1.A) X " +
                 "WHERE T1.col5 > 10 ORDER BY X.col2, X.col3, T1.col5";
         indexIs(stmt, concat(field("A").nest(field("values", KeyExpression.FanType.FanOut)
-                .nest(concatenateFields("COL2", "COL3"))), field("COL5")), IndexTypes.VALUE);
+                        .nest(concatenateFields("COL2", "COL3"))), field("COL5")), IndexTypes.VALUE,
+                index -> assertThat(index.getPredicate()).isEqualTo(greaterThanTen("COL5")));
     }
 
+    /**
+     * The same predicate is fine when the shape does not need a synthetic type: one column per unnesting
+     * keeps the index on the stored table with a fan-out.
+     */
     @Test
     void createIndexWithPredicateOverUnnestingIsSupported() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
@@ -794,7 +805,30 @@ public class IndexTest {
                 "CREATE INDEX mv1 AS SELECT X.col3, T1.col5 FROM T1, (SELECT col3 FROM T1.A) X " +
                 "WHERE T1.col5 > 10 ORDER BY X.col3, T1.col5";
         indexIs(stmt, concat(field("A").nest(field("values", KeyExpression.FanType.FanOut).nest("COL3")),
-                field("COL5")), IndexTypes.VALUE);
+                        field("COL5")), IndexTypes.VALUE,
+                index -> assertThat(index.getPredicate()).isEqualTo(greaterThanTen("COL5")));
+    }
+
+    /**
+     * The serialized form of {@code <column> > 10}, which is the predicate every {@code WHERE} clause in the unnesting
+     * tests uses.
+     *
+     * @param column the storage name of the column the predicate compares
+     *
+     * @return the expected predicate
+     */
+    @Nonnull
+    private static Predicate greaterThanTen(@Nonnull final String column) {
+        return Predicate.newBuilder()
+                .setValuePredicate(ValuePredicate.newBuilder().addValue(column)
+                        .setComparison(Comparison.newBuilder()
+                                .setSimpleComparison(SimpleComparison.newBuilder()
+                                        .setType(ComparisonType.GREATER_THAN)
+                                        .setOperand(Value.newBuilder().setLongValue(10L).build())
+                                        .build())
+                                .build())
+                        .build())
+                .build();
     }
 
     @Test

@@ -56,6 +56,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 public class DdlTestUtil {
 
     /**
@@ -78,11 +82,11 @@ public class DdlTestUtil {
                                @Nonnull final String errorMessage) throws Exception {
         connection.setAutoCommit(false);
         connection.getUnderlyingEmbeddedConnection().createNewTransaction();
-        final RelationalException ve = org.junit.jupiter.api.Assertions.assertThrows(RelationalException.class, () ->
+        final RelationalException ve = assertThrows(RelationalException.class, () ->
                 getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), schemaTemplateName, databaseUri)
                         .getPlan(query));
-        org.junit.jupiter.api.Assertions.assertEquals(errorCode, ve.getErrorCode());
-        org.junit.jupiter.api.Assertions.assertTrue(ve.getMessage().contains(errorMessage),
+        assertEquals(errorCode, ve.getErrorCode());
+        assertTrue(ve.getMessage().contains(errorMessage),
                 String.format(Locale.ROOT, "expected error message '%s' to contain '%s' but it didn't",
                         ve.getMessage(), errorMessage));
         connection.rollback();

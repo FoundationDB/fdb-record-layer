@@ -93,15 +93,17 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
     public IndexGenerationResult generate() {
         final var quantifierValues = QuantifierValues.collect(relationalExpression);
         var spec = IndexSpec.collect(relationalExpression, quantifierValues, schemaTemplateBuilder);
+        spec.checkValidity();
         final var unnestedTableGeneratorMaybe = RecordLayerUnnestedSyntheticTableGenerator.initIfNeeded(
                 spec, indexName, quantifierValues);
-        spec.checkValidity(unnestedTableGeneratorMaybe.orElse(null));
         final Type.Record tableType;
         if (unnestedTableGeneratorMaybe.isPresent()) {
-            spec = unnestedTableGeneratorMaybe.get().rewrite(spec);
-            tableType = unnestedTableGeneratorMaybe.get().getSyntheticType();
+            final var unnestedTableGenerator = unnestedTableGeneratorMaybe.get();
+            unnestedTableGenerator.checkSupported(spec);
+            spec = unnestedTableGenerator.rewrite(spec);
+            tableType = unnestedTableGenerator.getSyntheticType();
         } else {
-            tableType = spec.table().getType();
+            tableType = spec.getTable().getType();
         }
         final var translation = translateToKeyExpression(spec, unnestedTableGeneratorMaybe.isEmpty());
         final var indexType = translation.indexType();

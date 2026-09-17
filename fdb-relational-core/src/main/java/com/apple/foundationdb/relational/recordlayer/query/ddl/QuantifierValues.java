@@ -65,7 +65,7 @@ final class QuantifierValues {
     }
 
     /**
-     * The array each explode ranges over, tagged at its last accessor with that explode's marker, indexed by the marker.
+     * The array each explode of the plan ranges over, in the order they were found.
      *
      * @return what the traversal saw at each explode
      */

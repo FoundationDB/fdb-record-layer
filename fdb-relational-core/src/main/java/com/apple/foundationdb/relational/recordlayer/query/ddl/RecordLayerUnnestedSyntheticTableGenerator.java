@@ -65,7 +65,8 @@ import java.util.Optional;
  * <p>
  * {@link #initIfNeeded} answers whether an index needs one at all, and yields a generator only when it does. Nothing is
  * built until {@link #generate} is called, so an index on a stored table costs no more than the decision. What cannot be
- * defined on a synthetic table is rejected by {@link IndexSpec#checkValidity}, with every other rejection.
+ * defined on a synthetic table is rejected by {@link #checkSupported}, separately from the definitions
+ * {@link IndexSpec#checkValidity} rejects for any index.
  */
 final class RecordLayerUnnestedSyntheticTableGenerator {
 
@@ -150,7 +151,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
         if (!isNeededFor(spec, unnestings)) {
             return Optional.empty();
         }
-        final var parentTable = spec.table();
+        final var parentTable = spec.getTable();
         // Currently, the synthetic table name is derived from the record type. This may or may not be true in the
         // future.
         final var syntheticTableName = UNNESTED_TABLE_NAME_PREFIX + parentTable.getType().getName() + "_" + indexName;
@@ -304,7 +305,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
                 "group by on an index over an unnested synthetic table");
         // The slot names the stored table the index reads from, which the synthetic table is built over, so it carries
         // through unchanged; what the index is defined on is the synthetic type, which the caller takes from here.
-        return new IndexSpec(spec.scanCount(), spec.table(), null, null,
+        return new IndexSpec(spec.scanCount(), spec.getTable(), null, null,
                 spec.orderBy() == null ? null : rewrite(spec.orderBy()),
                 new IndexSpec.Projection(rewrite(spec.projection().values())));
     }
@@ -458,6 +459,33 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
     }
 
     /**
+     * Rejects what a stored table can express but an unnested synthetic table cannot. Separate from
+     * {@link IndexSpec#checkValidity}, which rejects what cannot become an index at all: everything here is a definition
+     * that would be accepted on index over stored table, so it is only asked once the shape is known to need a
+     * synthetic table.
+     *
+     * @param spec what the index is made of
+     */
+    void checkSupported(@Nonnull final IndexSpec spec) {
+        final var projection = spec.projection();
+        Assert.thatUnchecked(projection.aggregate() == null,
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, an aggregate cannot be defined on an unnested synthetic table");
+        // The row version can technically refer to that of the parent here. However, disallowing for now.
+        Assert.thatUnchecked(projection.versionValues().isEmpty(),
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, a version column cannot be part of an index over an unnested synthetic table");
+        Assert.thatUnchecked(scalarUnnestingsReferencedOnce(spec.rootValues()),
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, a scalar array cannot be referenced at more than one index key position");
+        // A predicate would have to be evaluated against the synthetic record rather than the stored one, which is
+        // not worked out yet. Rejected rather than falling back to a fan-out, which cannot express these shapes and
+        // so would fail later with a less clear error.
+        Assert.thatUnchecked(spec.predicate() == null, ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, a predicate is not supported on an index over an unnested synthetic table");
+    }
+
+    /**
      * Whether every scalar unnesting the key reads through is referenced at no more than one key position. A scalar
      * array cannot be a constituent, so each reference is emitted as its own fan-out over the array; two of them would
      * range over it independently and yield a cross-product of one view column against itself, which nothing else on
@@ -468,7 +496,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      *
      * @return whether no scalar unnesting is referenced twice
      */
-    public boolean scalarUnnestingsReferencedOnce(@Nonnull final List<Value> values) {
+    private boolean scalarUnnestingsReferencedOnce(@Nonnull final List<Value> values) {
         // Distinct per position, since one value can read through the same unnesting more than once (e.g. `M.x + M.y`);
         // what is counted has to be a number of key positions.
         final var scalarMarkers = values.stream()
@@ -483,7 +511,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
 
     /**
      * Whether the index key reads two or more columns through one unnesting at non-adjacent positions, and so has to be
-     * defined on a synthetic table. Visible to {@link IndexSpec}, which rejects what cannot be defined on one.
+     * defined on a synthetic table.
      */
     private static boolean isNeededFor(@Nonnull final IndexSpec spec,
                                @Nonnull final Map<Integer, UnnestingInfo> unnestings) {

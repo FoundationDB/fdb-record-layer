@@ -58,6 +58,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -92,16 +93,9 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
                 .resolve(expression.getResultValue(), indexSpec.groupBy()));
     }
 
-    /**
-     * The stored table the index is defined on, resolved from the plan's type filter as the spec was collected.
-     *
-     * @return the table the index reads from
-     */
-    @Override
     @Nonnull
-    public RecordLayerTable table() {
-        return Assert.notNullUnchecked(table, ErrorCode.UNSUPPORTED_OPERATION,
-                "Unsupported query, expected to find exactly one type filter operator");
+    public RecordLayerTable getTable() {
+        return Objects.requireNonNull(table);
     }
 
     /**
@@ -130,12 +124,13 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
     @Nonnull
     public List<Value> rootValues() {
         if (projection().aggregate() != null) {
-            // An aggregate index keeps the projection's own order, and its ordering may name the aggregate, which is not
-            // one of the field values -- so the reordering below does not apply to it.
             return projection().values();
         }
-        final var allValues = projection().fieldValues();
-        final var keyValues = getOrderByValues();
+        return reorderValues(projection().fieldValues(), getOrderByValues());
+    }
+
+    @Nonnull
+    private static List<Value> reorderValues(@Nonnull final List<Value> allValues, @Nonnull final List<Value> keyValues) {
         Assert.thatUnchecked(allValues.size() >= keyValues.size());
         if (keyValues.isEmpty()) {
             return allValues;
@@ -192,15 +187,18 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
     }
 
     /**
-     * Rejects every definition the generator cannot turn into an index, apart from two: the predicate, checked as it is
-     * collected, and ordering by the aggregate, checked once the index type is known.
+     * Rejects every definition that cannot become an index at all, apart from two: the predicate, checked as it is
+     * collected, and ordering by the aggregate, checked once the index type is known. What a stored table can express but
+     * an unnested synthetic table cannot is a separate question, answered by
+     * {@code RecordLayerUnnestedSyntheticTableGenerator#checkSupported} once it is known that one is needed.
      */
-    public void checkValidity(@Nullable final RecordLayerUnnestedSyntheticTableGenerator unnestedTableGenerator) {
+    public void checkValidity() {
         // the traversal rejects a second scan as a join, leaving none to reject here
         Assert.thatUnchecked(scanCount == 1, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, no iteration generator found");
         // throws unless exactly one type filter was found
-        table();
+        Assert.notNullUnchecked(table, ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported query, expected to find exactly one type filter operator");
 
         final var projection = projection();
         reject(projection.values().stream()
@@ -226,23 +224,6 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
         } else {
             // rejects a covering aggregate index
             aggregateOrderIndex();
-        }
-        if (unnestedTableGenerator != null) {
-            Assert.thatUnchecked(projection.aggregate() == null,
-                    ErrorCode.UNSUPPORTED_OPERATION,
-                    "Unsupported index definition, an aggregate cannot be defined on an unnested synthetic table");
-            // The row version can technically refer to that of the parent here. However, disallowing for now.
-            Assert.thatUnchecked(projection.versionValues().isEmpty(),
-                    ErrorCode.UNSUPPORTED_OPERATION,
-                    "Unsupported index definition, a version column cannot be part of an index over an unnested synthetic table");
-            Assert.thatUnchecked(unnestedTableGenerator.scalarUnnestingsReferencedOnce(rootValues()),
-                    ErrorCode.UNSUPPORTED_OPERATION,
-                    "Unsupported index definition, a scalar array cannot be referenced at more than one index key position");
-            // A predicate would have to be evaluated against the synthetic record rather than the stored one, which is
-            // not worked out yet. Rejected rather than falling back to a fan-out, which cannot express these shapes and
-            // so would fail later with a less clear error.
-            Assert.thatUnchecked(predicate == null, ErrorCode.UNSUPPORTED_OPERATION,
-                    "Unsupported index definition, a predicate is not supported on an index over an unnested synthetic table");
         }
     }
 
@@ -375,7 +356,7 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
         }
 
         @Nonnull
-        private List<Value> versionValues() {
+        List<Value> versionValues() {
             return values.stream()
                     .filter(value -> value instanceof FieldValue
                             && value.getResultType().equals(PseudoField.ROW_VERSION.getType()))
