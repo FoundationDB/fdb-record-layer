@@ -27,9 +27,7 @@ option java_outer_classname = "TestRecordsNestedChainProto";
 import "record_metadata_options.proto";
 
 // A record type with two levels of repeated, nested structure. This is the same shape as
-// `test_records_double_nested.proto`, except that none of the types here refers back to a type that contains it. The
-// planner cannot build a type for a recursive descriptor, so a type that unnests a chain of constituents needs a
-// non-recursive record type to unnest.
+// `test_records_double_nested.proto`, except that none of the types here refers back to a type that contains it.
 message OuterRecord {
     message MiddleRecord {
         message InnerRecord {
@@ -42,6 +40,11 @@ message OuterRecord {
     optional int64 rec_no = 1 [(field).primary_key = true];
     repeated MiddleRecord many_middle = 2;
     repeated MiddleRecord.InnerRecord inner = 3;
+
+    // Fields whose descriptor names carry escape sequences. `__2` decodes to `.`, so the planner knows these fields as
+    // `nested.holder` and `escaped.inner`, while a key expression addressing them carries the names below.
+    optional MiddleRecord nested__2holder = 4;
+    repeated MiddleRecord.InnerRecord escaped__2inner = 5;
 }
 
 message RecordTypeUnion {
