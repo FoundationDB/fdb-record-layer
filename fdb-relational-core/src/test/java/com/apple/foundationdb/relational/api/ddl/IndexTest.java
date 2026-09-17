@@ -809,14 +809,6 @@ public class IndexTest {
                 index -> assertThat(index.getPredicate()).isEqualTo(greaterThanTen("COL5")));
     }
 
-    /**
-     * The serialized form of {@code <column> > 10}, which is the predicate every {@code WHERE} clause in the unnesting
-     * tests uses.
-     *
-     * @param column the storage name of the column the predicate compares
-     *
-     * @return the expected predicate
-     */
     @Nonnull
     private static Predicate greaterThanTen(@Nonnull final String column) {
         return Predicate.newBuilder()
