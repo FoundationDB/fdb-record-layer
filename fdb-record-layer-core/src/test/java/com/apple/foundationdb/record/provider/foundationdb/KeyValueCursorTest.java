@@ -138,7 +138,7 @@ public class KeyValueCursorTest {
     }
 
     @Test
-    public void allInARange() throws InvalidProtocolBufferException {
+    void allInARange() throws InvalidProtocolBufferException {
         // pick 2 examples that can be serialized as RecordCursorProto.KeyValueCursorContinuation, but was correctly rejected by the magic number check
         byte[] lowBytes = new byte[]{ 0x11, (byte) 0xac,  (byte) 0xcd, (byte) 0x73, 0x01, (byte) 0xdd, 0x42, (byte) 0x98, 0x5e, 0x0A, 0x04, 0x0f, (byte) 0xdb, 0x00, 0x14 };
         byte[] highBytes = new byte[]{ 0x18, 0x01, 0x0A, 0x02, 0x01, 0x14 };
@@ -211,7 +211,7 @@ public class KeyValueCursorTest {
     }
 
     @Test
-    public void beginsWith() {
+    void beginsWith() {
         fdb.run(context -> {
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
@@ -246,7 +246,7 @@ public class KeyValueCursorTest {
     }
 
     @Test
-    public void inclusiveRange() {
+    void inclusiveRange() {
         fdb.run(context -> {
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
@@ -303,7 +303,7 @@ public class KeyValueCursorTest {
     }
 
     @Test
-    public void prefixString() {
+    void prefixString() {
         // Populate data
         fdb.database().run(tr -> {
             for (int i = 0; i < 5; i++) {
@@ -351,7 +351,7 @@ public class KeyValueCursorTest {
     }
 
     @Test
-    public void exclusiveRange() {
+    void exclusiveRange() {
         fdb.run(context -> {
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
@@ -387,7 +387,7 @@ public class KeyValueCursorTest {
     }
 
     @Test
-    public void inclusiveNull() {
+    void inclusiveNull() {
         fdb.run(context -> {
             RecordCursorIterator<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
@@ -409,7 +409,7 @@ public class KeyValueCursorTest {
     }
 
     @Test
-    public void exclusiveNull() {
+    void exclusiveNull() {
         fdb.run(context -> {
             RecordCursorIterator<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
@@ -426,7 +426,7 @@ public class KeyValueCursorTest {
     }
 
     @Test
-    public void noNextReasons() {
+    void noNextReasons() {
         fdb.run(context -> {
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
@@ -459,7 +459,7 @@ public class KeyValueCursorTest {
     }
 
     @Test
-    public void simpleScanLimit() {
+    void simpleScanLimit() {
         fdb.run(context -> {
             RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(2);
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
@@ -477,7 +477,7 @@ public class KeyValueCursorTest {
     }
 
     @Test
-    public void limitNotReached() {
+    void limitNotReached() {
         fdb.run(context -> {
             RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(4);
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
@@ -500,7 +500,7 @@ public class KeyValueCursorTest {
     }
 
     @Test
-    public void sharedLimiter() {
+    void sharedLimiter() {
         fdb.run(context -> {
             RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(4);
             KeyValueCursor.Builder builder =  KeyValueCursor.Builder.withSubspace(subspace)
@@ -527,7 +527,7 @@ public class KeyValueCursorTest {
     }
 
     @Test
-    public void limiterWithLookahead() {
+    void limiterWithLookahead() {
         fdb.run(context -> {
             RecordScanLimiter limiter = RecordScanLimiterFactory.enforce(1);
             KeyValueCursor kvCursor =  KeyValueCursor.Builder.withSubspace(subspace)
@@ -546,7 +546,7 @@ public class KeyValueCursorTest {
     }
 
     @Test
-    public void emptyScan() {
+    void emptyScan() {
         fdb.run(context -> {
             RecordCursor<KeyValue> cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
@@ -564,7 +564,7 @@ public class KeyValueCursorTest {
     }
 
     @Test
-    public void emptyScanSplit() {
+    void emptyScanSplit() {
         fdb.run(context -> {
             RecordCursor<KeyValue> kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
@@ -584,13 +584,13 @@ public class KeyValueCursorTest {
     }
 
     @Test
-    public void buildWithoutRequiredProperties() {
+    void buildWithoutRequiredProperties() {
         assertThrows(RecordCoreException.class, () -> KeyValueCursor.Builder.withSubspace(subspace)
                                                         .build());
     }
 
     @Test
-    public void buildWithoutScanProperties() {
+    void buildWithoutScanProperties() {
         fdb.run(context -> {
             assertThrows(RecordCoreException.class, () -> KeyValueCursor.Builder.withSubspace(subspace)
                                                             .setContext(context)
@@ -601,7 +601,7 @@ public class KeyValueCursorTest {
     }
 
     @Test
-    public void buildWithRequiredProperties() {
+    void buildWithRequiredProperties() {
         fdb.run(context -> {
             try {
                 RecordCursor<KeyValue> kvCursor = KeyValueCursor.Builder.withSubspace(subspace)
