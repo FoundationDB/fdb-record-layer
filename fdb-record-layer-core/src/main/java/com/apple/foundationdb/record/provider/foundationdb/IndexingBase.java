@@ -425,7 +425,7 @@ public abstract class IndexingBase {
     @Nonnull
     private CompletableFuture<Void> drainPendingQueueIfNeeded(Index index) {
         return common.getQueuedIndexes().contains(index) ?
-               getIndexingDrainer(index).drainPendingQueue() :
+               getIndexingDrainer(index).drainPendingQueue(store -> updateHeartbeat(store, index)) :
                AsyncUtil.DONE;
     }
 
@@ -967,7 +967,7 @@ public abstract class IndexingBase {
     }
 
     private CompletableFuture<Void> updateHeartbeat(FDBRecordStore store, Index index) {
-        return heartbeat == null ?
+        return heartbeat == null || !store.getIndexState(index).isWriteOnly() ?
                AsyncUtil.DONE :
                heartbeat.checkAndUpdateHeartbeat(store, index);
     }
@@ -1091,7 +1091,7 @@ public abstract class IndexingBase {
             return AsyncUtil.DONE;
         }
         return AsyncUtil.whenAll(indexesToMerge.stream()
-                .map(index -> getIndexingMerger(index).mergeIndex()
+                .map(index -> getIndexingMerger(index).mergeIndex(store -> updateHeartbeat(store, index))
         ).toList());
     }
 
@@ -1100,7 +1100,7 @@ public abstract class IndexingBase {
             return AsyncUtil.DONE;
         }
         return AsyncUtil.whenAll(indexesToDrain.stream()
-                .map(index -> getIndexingDrainer(index).drainPendingQueue()
+                .map(index -> getIndexingDrainer(index).drainPendingQueue(store -> updateHeartbeat(store, index))
                 ).toList());
     }
 

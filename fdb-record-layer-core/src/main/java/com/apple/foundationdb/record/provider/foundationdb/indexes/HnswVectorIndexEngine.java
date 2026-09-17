@@ -30,6 +30,7 @@ import com.apple.foundationdb.async.hnsw.OnReadListener;
 import com.apple.foundationdb.async.hnsw.OnWriteListener;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.linear.RealVector;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -96,9 +97,13 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
     public CompletableFuture<Void> insert(@Nonnull final FDBRecordContext context,
                                           @Nonnull final Subspace subspace,
                                           @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector) {
+                                          @Nonnull final RealVector vector,
+                                          @Nonnull final TaskEventRegister register,
+                                          final boolean maintainInTransaction) {
         // Insert traverses the graph greedily from the entry point, so it reads many nodes; wire a real read listener
-        // in addition to the write listener so that read work is instrumented too.
+        // in addition to the write listener so that read work is instrumented too. HNSW does all its work inline, so it
+        // enqueues no deferred tasks and ignores the task-event register (it is always TaskEventRegister.NOOP) and the
+        // in-transaction-maintenance flag (there is never any deferred work to defer).
         final FDBStoreTimer timer = context.getTimer();
         final HNSW hnsw = new HNSW(subspace, context.getExecutor(), config, OnWrite.fromTimer(timer),
                 OnRead.fromTimer(timer));
@@ -110,13 +115,43 @@ final class HnswVectorIndexEngine implements VectorIndexEngine {
     public CompletableFuture<Void> delete(@Nonnull final FDBRecordContext context,
                                           @Nonnull final Subspace subspace,
                                           @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector) {
+                                          @Nonnull final RealVector vector,
+                                          @Nonnull final TaskEventRegister register,
+                                          final boolean maintainInTransaction) {
         // HNSW keys nodes on the primary key alone, so the vector is not needed to locate the node to delete. Delete
-        // reads heavily to repair the graph around the removed node, so it also gets a real read listener.
+        // reads heavily to repair the graph around the removed node, so it also gets a real read listener. HNSW enqueues
+        // no deferred tasks and ignores the task-event register (always TaskEventRegister.NOOP) and the
+        // in-transaction-maintenance flag.
         final FDBStoreTimer timer = context.getTimer();
         final HNSW hnsw = new HNSW(subspace, context.getExecutor(), config, OnWrite.fromTimer(timer),
                 OnRead.fromTimer(timer));
         return hnsw.delete(context.ensureActive(), primaryKey);
+    }
+
+    @Nullable
+    @Override
+    public VectorIndexTaskCounts getTaskCounts() {
+        // HNSW does everything inline, so there is no deferred-maintenance backlog to track.
+        return null;
+    }
+
+    @Override
+    public boolean signalsMergeRequiredToCaller(final boolean maintainInTransaction) {
+        // HNSW enqueues no deferred tasks, so it never asks the caller to merge.
+        return false;
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Integer> executeDeferredTasks(@Nonnull final FDBRecordContext context,
+                                                           @Nonnull final Subspace subspace,
+                                                           final int numTasks,
+                                                           @Nonnull final TaskEventRegister register,
+                                                           final long deadlineMillis) {
+        // HNSW does all its work inline during insert/delete, so it never enqueues deferred tasks. It tracks no task
+        // counts (getTaskCounts() is null), so the maintainer never routes a merge here; being asked to is a
+        // programming error.
+        throw new RecordCoreException("the HNSW vector engine has no deferred tasks to execute");
     }
 
     private int efSearch(@Nonnull final VectorIndexScanBounds scanBounds) {

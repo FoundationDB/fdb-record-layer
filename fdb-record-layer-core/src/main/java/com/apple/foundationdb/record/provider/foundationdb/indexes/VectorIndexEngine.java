@@ -33,6 +33,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -52,7 +53,7 @@ import java.util.concurrent.CompletableFuture;
  * and builds its own read/write listeners so it can attribute the right work to the shared {@link FDBStoreTimer}.
  * <p>
  * The interface is {@code sealed}: the set of engines is closed and known at compile time, which lets
- * {@link #fromIndex(Index)} exhaustively dispatch on the {@link IndexOptions#VECTOR_ENGINE} option.
+ * {@link #fromIndex(Index, Subspace)} exhaustively dispatch on the {@link IndexOptions#VECTOR_ENGINE} option.
  */
 public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, GuardiannVectorIndexEngine {
     /**
@@ -82,13 +83,22 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
      * @param subspace the partition subspace holding this engine's structure
      * @param primaryKey the (prefix-trimmed) primary key of the record
      * @param vector the vector to insert
+     * @param register notified as deferred maintenance tasks are enqueued/executed during this insert (via its
+     *        {@code onTaskEnqueued}/{@code onTaskExecuted} callbacks); {@link TaskEventRegister#NOOP} if there is
+     *        nothing to react to
+     * @param maintainInTransaction when {@code true}, the engine drains a deferred maintenance task inside this
+     *        writing transaction (Guardiann); when {@code false} it lets work accumulate for a background merge.
+     *        Engines that do everything inline (HNSW) ignore it. Sourced from the store's
+     *        {@link com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl#shouldAutoMergeDuringCommit()}
      * @return a future that completes when the insert is done
      */
     @Nonnull
     CompletableFuture<Void> insert(@Nonnull FDBRecordContext context,
                                    @Nonnull Subspace subspace,
                                    @Nonnull Tuple primaryKey,
-                                   @Nonnull RealVector vector);
+                                   @Nonnull RealVector vector,
+                                   @Nonnull TaskEventRegister register,
+                                   boolean maintainInTransaction);
 
     /**
      * Deletes a single vector from a partition. The vector is always supplied because some engines (notably Guardiann)
@@ -99,13 +109,72 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
      * @param subspace the partition subspace holding this engine's structure
      * @param primaryKey the (prefix-trimmed) primary key of the record
      * @param vector the vector being deleted
+     * @param register notified as deferred maintenance tasks are enqueued/executed during this delete (via its
+     *        {@code onTaskEnqueued}/{@code onTaskExecuted} callbacks); {@link TaskEventRegister#NOOP} if there is
+     *        nothing to react to
+     * @param maintainInTransaction when {@code true}, the engine drains a deferred maintenance task inside this
+     *        writing transaction (Guardiann); when {@code false} it lets work accumulate for a background merge.
+     *        Engines that do everything inline (HNSW) ignore it
      * @return a future that completes when the delete is done
      */
     @Nonnull
     CompletableFuture<Void> delete(@Nonnull FDBRecordContext context,
                                    @Nonnull Subspace subspace,
                                    @Nonnull Tuple primaryKey,
-                                   @Nonnull RealVector vector);
+                                   @Nonnull RealVector vector,
+                                   @Nonnull TaskEventRegister register,
+                                   boolean maintainInTransaction);
+
+    /**
+     * The register that tracks this engine's outstanding deferred-maintenance work, or {@code null} for an engine that
+     * does everything inline (HNSW) and therefore has nothing to track. The engine owns it (built from the index's
+     * secondary subspace at construction), so the maintainer can ask for it without a per-engine branch of its own.
+     * @return this engine's task-count register, or {@code null} if the engine defers no work
+     */
+    @Nullable
+    VectorIndexTaskCounts getTaskCounts();
+
+    /**
+     * Whether an insert/delete that enqueues deferred maintenance work should tell the caller — through the record
+     * store's {@link com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl} — that a
+     * background merge is needed. True only for an engine that defers work <em>and</em> is not draining it inside the
+     * writing transaction for this write; {@code false} for an engine that does everything inline (HNSW) or when this
+     * write self-drains in-transaction. The maintainer uses this to decide whether to compose a
+     * {@link MaintenanceControlRegister} into the register it hands the engine, keeping the engine itself decoupled
+     * from the store.
+     * @param maintainInTransaction whether this write drains a deferred task in its own transaction (see
+     *        {@link #insert}); an engine that defers work signals the caller only when this is {@code false}
+     * @return whether the caller should be signalled to merge when this engine enqueues deferred work
+     */
+    boolean signalsMergeRequiredToCaller(boolean maintainInTransaction);
+
+    /**
+     * Drains up to {@code numTasks} of a partition's deferred maintenance tasks, running them inline in
+     * {@code context}'s transaction. This is how a merge pays down the backlog that inserts and deletes only nibble at:
+     * the maintainer calls it once per partition that has outstanding work. The Guardiann engine runs its queued
+     * split/merge/reassign/collapse tasks; an engine that does everything inline (HNSW) never enqueues tasks and is
+     * never routed here — being asked to drain is a programming error, so it throws.
+     * <p>
+     * As each task executes, the write listener notifies {@code register}'s {@code onTaskExecuted} callback in the same
+     * transaction — e.g. so a task-count register stays in step with the queue as the merge drains it.
+     *
+     * @param context the record context to drain under; supplies the transaction, executor and timer
+     * @param subspace the partition subspace holding this engine's structure
+     * @param numTasks the maximum number of queued tasks to run in this transaction
+     * @param register notified as tasks are executed during the drain (via its {@code onTaskExecuted} callback);
+     *        {@link TaskEventRegister#NOOP} if there is nothing to react to
+     * @param deadlineMillis an absolute wall-clock deadline (epoch millis); the engine stops before starting a task
+     *        once it is reached, so a merge can bound a drain by time as well as by {@code numTasks} (at least one task
+     *        still runs). Pass {@link Long#MAX_VALUE} for no time bound
+     * @return a future of the number of tasks actually run — fewer than {@code numTasks} when the queue held fewer or
+     *         the deadline was reached, which is how a merge learns how much of a partition it drained
+     */
+    @Nonnull
+    CompletableFuture<Integer> executeDeferredTasks(@Nonnull FDBRecordContext context,
+                                                    @Nonnull Subspace subspace,
+                                                    int numTasks,
+                                                    @Nonnull TaskEventRegister register,
+                                                    long deadlineMillis);
 
     /**
      * Determines the engine kind an index is configured to use.
@@ -119,18 +188,34 @@ public sealed interface VectorIndexEngine permits HnswVectorIndexEngine, Guardia
     }
 
     /**
-     * Builds the engine an index is configured to use, parsing its engine-specific configuration from the index
-     * options. Parsing eagerly validates the options, so this doubles as the config-validation entry point used by the
-     * index validator.
+     * Eagerly parses the engine-specific configuration for an index, purely to validate it: an invalid option throws.
+     * This is the config-validation entry point used by the index validator and by option tests, neither of which has a
+     * store — so it parses the config without building an engine (which would need the index's secondary subspace).
+     *
+     * @param index the index definition to validate
+     */
+    @SuppressWarnings("checkstyle:MissingSwitchDefault")
+    static void validate(@Nonnull final Index index) {
+        switch (kindFromIndex(index)) {
+            case HNSW -> HnswVectorIndexEngine.parseConfig(index);
+            case GUARDIANN -> GuardiannVectorIndexEngine.parseConfig(index);
+        }
+    }
+
+    /**
+     * Builds the engine an index is configured to use, giving it the index's secondary subspace so a deferring engine
+     * (Guardiann) can own its {@link VectorIndexTaskCounts}. Parsing the engine's configuration eagerly validates the
+     * index options (an invalid option throws).
      *
      * @param index the index definition
+     * @param indexSecondarySubspace the index's secondary subspace
      * @return the engine backing this index
      */
     @Nonnull
-    static VectorIndexEngine fromIndex(@Nonnull final Index index) {
+    static VectorIndexEngine fromIndex(@Nonnull final Index index, @Nonnull final Subspace indexSecondarySubspace) {
         return switch (kindFromIndex(index)) {
             case HNSW -> HnswVectorIndexEngine.fromIndex(index);
-            case GUARDIANN -> GuardiannVectorIndexEngine.fromIndex(index);
+            case GUARDIANN -> GuardiannVectorIndexEngine.fromIndex(index, indexSecondarySubspace);
         };
     }
 

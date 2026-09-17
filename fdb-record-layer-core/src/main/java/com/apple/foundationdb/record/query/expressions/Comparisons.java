@@ -288,10 +288,10 @@ public class Comparisons {
         if (!(value instanceof String)) {
             throw new RecordCoreException("Illegal comparand value type: " + value);
         }
-        if (!(pattern instanceof String)) {
+        if (!(pattern instanceof Message)) {
             throw new RecordCoreException("Illegal pattern value type: " + pattern);
         }
-        return LikeOperatorValue.likeOperation((String)value, (String)pattern);
+        return LikeOperatorValue.likeOperation((String)value, (Message)pattern);
     }
 
     public static Boolean compareListEquals(@Nullable Object value, @Nonnull List<?> comparand) {

@@ -130,6 +130,7 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)
                 .setPrimaryClusterMax(CLUSTER_MAX)
+                .setCollapseMinDuplicates(CLUSTER_MAX / 2)
                 .setPrimaryClusterMin(PRIMARY_CLUSTER_MIN)
                 .setDeterministicRandomness(true)
                 .setReplicationPriorityMin(0.65d)
@@ -147,17 +148,17 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
         onWriteListener.pushFrame();
         for (final PrimaryKeyAndVector op : inserts) {
             db.run(transaction -> {
-                guardiann.insert(transaction, op.primaryKey(), op.vector(), null).join();
+                guardiann.insert(transaction, op.primaryKey(), op.vector(), null, true).join();
                 return null;
             });
         }
-        TestHelpers.runToQuiescence(db, guardiann);
+        GuardiannStructureAsserts.runToQuiescence(db, guardiann);
         logger.info("seed={} insert-phase tasks executed by kind={}",
                 String.format("%#x", seed), Map.copyOf(onWriteListener.getNumTasksExecutedByKind()));
         onWriteListener.popFrame();
 
         final StructureSnapshot afterInsert =
-                Objects.requireNonNull(TestHelpers.snapshotStructure(db, guardiann), "structure after inserts");
+                Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann), "structure after inserts");
         logger.info("seed={} after-insert: clusters={}, primaries={}, replicas={}",
                 String.format("%#x", seed), afterInsert.numClusters(), afterInsert.totalPrimaries(),
                 afterInsert.totalReplicas());
@@ -175,18 +176,18 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
         onWriteListener.pushFrame();
         for (final PrimaryKeyAndVector op : deletes) {
             db.run(transaction -> {
-                guardiann.delete(transaction, op.primaryKey(), op.vector()).join();
+                guardiann.delete(transaction, op.primaryKey(), op.vector(), true).join();
                 return null;
             });
         }
-        TestHelpers.runToQuiescence(db, guardiann);
+        GuardiannStructureAsserts.runToQuiescence(db, guardiann);
         final Map<TaskKind, Integer> deleteTasks =
                 Map.copyOf(onWriteListener.getNumTasksExecutedByKind());
         logger.info("seed={} delete-phase tasks executed by kind={}", String.format("%#x", seed), deleteTasks);
         onWriteListener.popFrame();
 
         final StructureSnapshot afterDelete =
-                Objects.requireNonNull(TestHelpers.snapshotStructure(db, guardiann), "structure after deletes");
+                Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann), "structure after deletes");
         logger.info("seed={} after-delete: clusters={}, primaries={}, replicas={}",
                 String.format("%#x", seed), afterDelete.numClusters(), afterDelete.totalPrimaries(),
                 afterDelete.totalReplicas());
@@ -204,13 +205,13 @@ public class DeleteReplicationPersistenceTest implements BaseTest {
                 .isGreaterThan(0);
 
         // The surviving replicas must be valid: every replica references a live primary, every primary is unique.
-        TestHelpers.assertGuardiannInvariantsAfterDeletes(db, guardiann);
+        GuardiannStructureAsserts.assertGuardiannInvariantsAfterDeletes(db, guardiann);
     }
 
     @Nonnull
     private List<PrimaryKeyAndVector> buildInserts(final long seed) throws Exception {
         final List<PrimaryKeyAndVector> baseLoaded =
-                TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1);
+                VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1);
         Verify.verify(!baseLoaded.isEmpty(), "SIFT-small must contain at least one vector");
         final DoubleRealVector base = (DoubleRealVector) baseLoaded.get(0).vector();
 

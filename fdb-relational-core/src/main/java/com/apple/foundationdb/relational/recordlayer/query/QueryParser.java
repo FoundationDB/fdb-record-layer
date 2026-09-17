@@ -88,7 +88,13 @@ public class QueryParser {
                                 Object offendingSymbol,
                                 int line, int charPositionInLine,
                                 String msg, RecognitionException e) {
-            syntaxErrors.add(ParseHelpers.underlineParsingError(recognizer, (Token)offendingSymbol, line, charPositionInLine));
+            // The lexer reports errors too (an unterminated block comment, for one), and it has no offending token
+            // to point at and no token stream to render the source line from, so those are reported by message.
+            if (offendingSymbol instanceof Token) {
+                syntaxErrors.add(ParseHelpers.underlineParsingError(recognizer, (Token)offendingSymbol, line, charPositionInLine));
+            } else {
+                syntaxErrors.add(String.format(Locale.ROOT, "line %d:%d %s", line, charPositionInLine, msg));
+            }
         }
 
         @Override
@@ -128,6 +134,8 @@ public class QueryParser {
         final var parser = getParserInstance(new CommonTokenStream(tokenSource));
 
         final var rootContext = ErrorStringifier.withParseErrorHandling(listener -> {
+            tokenSource.removeErrorListeners();
+            tokenSource.addErrorListener(listener);
             parser.removeErrorListeners();
             parser.addErrorListener(listener);
             return parser.root();

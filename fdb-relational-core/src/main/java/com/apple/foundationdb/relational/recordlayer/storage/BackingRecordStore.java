@@ -225,7 +225,7 @@ public final class BackingRecordStore implements BackingStore {
     public static BackingRecordStore load(@Nonnull Transaction txn, @Nonnull StoreConfig config, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
         //TODO(bfines) error handling if this store doesn't exist
         try {
-            FDBRecordStoreBase<Message> recordStore = FDBRecordStore.newBuilder()
+            FDBRecordStore recordStore = FDBRecordStore.newBuilder()
                     .setKeySpacePath(config.getStorePath())
                     .setSerializer(config.getSerializer())
                     //TODO(bfines) replace this schema template with an actual mapping structure based on the storePath
@@ -234,6 +234,10 @@ public final class BackingRecordStore implements BackingStore {
                     .setFormatVersion(config.getFormatVersion())
                     .setContext(txn.unwrap(FDBRecordContext.class))
                     .createOrOpen(existenceCheck);
+            // Embedded relational has no background index-merge process, so deferred-maintenance index engines
+            // (Guardiann vector indexes) must pay down their maintenance inside the writing transaction. Enable the
+            // engine-neutral in-transaction maintenance switch for this store.
+            recordStore.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(true);
             return new BackingRecordStore(txn, recordStore);
         } catch (RecordCoreException rce) {
             Throwable cause = Throwables.getRootCause(rce);

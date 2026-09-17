@@ -240,6 +240,44 @@ class ConditionalCascadesRuleTest {
                 .contains(StubRule.class.getSimpleName());
     }
 
+    /**
+     * When all inner rules are normal (non-on-pruned-input) rules, the conditional rule inherits
+     * {@code onlyOnPrunedInputs() == false}.
+     */
+    @Test
+    void constructorWithAllNormalRulesInheritsOnlyOnPrunedInputsFalse() {
+        final StubRule first = stubRule(SelectExpression.class);
+        final StubRule second = stubRule(SelectExpression.class);
+        final ConditionalCascadesRule<RelationalExpression, StubRule> rule = conditionalRuleOf(first, second);
+        assertThat(rule.onlyOnPrunedInputs()).isFalse();
+    }
+
+    /**
+     * When all inner rules implement {@link CascadesRule.OnPrunedInputsRule}, the conditional rule inherits
+     * {@code onlyOnPrunedInputs() == true}.
+     */
+    @Test
+    void constructorWithAllOnPrunedInputRulesInheritsOnlyOnPrunedInputsTrue() {
+        final StubOnPrunedInputsRule first = stubOnPrunedInputRule(SelectExpression.class);
+        final StubOnPrunedInputsRule second = stubOnPrunedInputRule(SelectExpression.class);
+        final ConditionalCascadesRule<RelationalExpression, StubOnPrunedInputsRule> rule =
+                new ConditionalCascadesRule<>(ImmutableList.of(first, second));
+        assertThat(rule.onlyOnPrunedInputs()).isTrue();
+    }
+
+    /**
+     * Mixing an on-pruned-input rule with a normal rule must be rejected at construction time, because the planner
+     * schedules the two kinds in separate passes and a mixed conditional chain would be silently broken.
+     */
+    @Test
+    void constructorWithMismatchedOnlyOnPrunedInputsThrows() {
+        final StubRule normal = stubRule(SelectExpression.class);
+        final StubOnPrunedInputsRule onPrunedInput = stubOnPrunedInputRule(SelectExpression.class);
+        assertThatThrownBy(() -> new ConditionalCascadesRule<>(ImmutableList.of(normal, onPrunedInput)))
+                .isInstanceOf(VerifyException.class)
+                .hasMessageContaining("onlyOnPrunedInputs");
+    }
+
     @Nonnull
     private static ConditionalCascadesRule<RelationalExpression, StubRule> conditionalRuleOf(@Nonnull final StubRule... rules) {
         return new ConditionalCascadesRule<>(ImmutableList.copyOf(rules));
@@ -273,6 +311,11 @@ class ConditionalCascadesRuleTest {
     }
 
     @Nonnull
+    private static StubOnPrunedInputsRule stubOnPrunedInputRule(@Nonnull final Class<? extends RelationalExpression> rootClass) {
+        return new StubOnPrunedInputsRule(matcherFor(rootClass), rootClass);
+    }
+
+    @Nonnull
     @SuppressWarnings("unchecked")
     private static BindingMatcher<RelationalExpression> matcherFor(@Nonnull final Class<? extends RelationalExpression> rootClass) {
         return (BindingMatcher<RelationalExpression>) (BindingMatcher<?>) RelationalExpressionMatchers.ofType(rootClass);
@@ -282,7 +325,7 @@ class ConditionalCascadesRuleTest {
      * A minimal {@link CascadesRule} whose matcher root class and advertised root operator can be set independently,
      * so the construction-time invariants of {@link ConditionalCascadesRule} can be exercised in isolation.
      */
-    private static final class StubRule extends AbstractCascadesRule<RelationalExpression> {
+    private static class StubRule extends AbstractCascadesRule<RelationalExpression> {
         @Nonnull
         private final Optional<Class<?>> rootOperator;
 
@@ -339,6 +382,19 @@ class ConditionalCascadesRuleTest {
         @Override
         public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
             throw new UnsupportedOperationException("stub rule should not be executed");
+        }
+    }
+
+    /**
+     * A minimal rule that implements {@link OnPrunedInputsRule}, used to verify that a conditional rule
+     * whose constituents are all on-pruned-input inherits {@code onlyOnPrunedInputs() == true}, and that mixing
+     * on-pruned-input and normal rules is rejected.
+     */
+    private static final class StubOnPrunedInputsRule extends StubRule
+            implements CascadesRule.OnPrunedInputsRule<RelationalExpression> {
+        private StubOnPrunedInputsRule(@Nonnull final BindingMatcher<RelationalExpression> matcher,
+                                       @Nonnull final Class<? extends RelationalExpression> rootOperator) {
+            super(matcher, Optional.of(rootOperator));
         }
     }
 }

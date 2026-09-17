@@ -67,6 +67,9 @@ public class SQLLineTest {
                 final String output = out.toString(Charsets.UTF_8);
                 assertThat(output).contains("DATABASE_ID")
                         .contains("/__SYS");
+                // Customize sets the default isolation to SERIALIZABLE, without that, SqlLine warns
+                // that we don't support REPEATABLE_READ, assert that is hooked up correctly
+                assertThat(err.toString(Charsets.UTF_8)).doesNotContain("REPEATABLE_READ");
             } catch (AssertionError e) {
                 System.out.println(err.toString(StandardCharsets.UTF_8));
                 System.out.println(out.toString(StandardCharsets.UTF_8));

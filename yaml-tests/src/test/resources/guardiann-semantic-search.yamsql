@@ -21,16 +21,18 @@
 # ('USING GUARDIANN' with the guardiann-only 'primary_cluster_*' options plus the shared 'metric' option). The dataset
 # is small and well-separated so it forms a single cluster per partition, making the k-nearest-neighbor results exact.
 #
-# supported_version is 4.12.18.0 because the Guardiann engine is new: no released server understands
-# 'USING GUARDIANN', so this file only runs against the current build (and is skipped in mixed-version mode).
+# supported_version is 4.14.2.0 because the persisted cluster-metadata layout changed in this version, and
+# Guardiann carries no on-disk format version with which two builds could negotiate one. A mixed-version run alternates
+# which server serves each connection, so an older server would both write values this build reads and read values this
+# build wrote.
 ---
 options:
-  supported_version: 4.12.18.0
+  supported_version: 4.14.2.0
 ---
 schema_template:
     create table documents(zone string, docId string, bookshelf string, title string, embedding vector(3, half), primary key (zone, docId))
     create view documentsView as select embedding, zone, bookshelf, docId, title from documents
-    create vector index documentsGuardiannIndex using guardiann on documentsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric, primary_cluster_min = 1, primary_cluster_max = 100)
+    create vector index documentsGuardiannIndex using guardiann on documentsView(embedding) partition by(zone, bookshelf) options (metric = euclidean_metric, primary_cluster_min = 1, primary_cluster_max = 100, collapse_min_duplicates = 50)
 ---
 test_block:
   name: guardiann-semantic-search-tests
@@ -84,4 +86,60 @@ test_block:
                     order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc
                 ) <= 2
       - explain: "ISCAN(DOCUMENTSGUARDIANNINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c29: @c35}:[] BY_DISTANCE) | MAP (_.DOCID AS DOCID)"
+      - result: [{docId: 'd6'}, {docId: 'd7'}]
+
+    # A DELETE has to maintain the vector index, not only the record: removing the exact match takes it out of the
+    # ranking rather than leaving a stale entry, or a pointer to a record that is gone.
+    -
+      - query: delete from documents where zone = 'zone1' and docId = 'd1'
+      - count: 1
+    -
+      - query: select docId, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) as distance
+              from documents
+              where zone = 'zone1' and bookshelf = 'fiction'
+              qualify row_number() over (
+                    partition by zone, bookshelf
+                    order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 3
+      - result: [{docId: 'd2', distance: 0.14147317261689443},
+                 {docId: 'd3', distance: 0.28294634523378887}]
+
+    # Re-inserting what was deleted brings it back, so the delete left nothing behind that shadows or duplicates it.
+    -
+      - query: insert into documents values
+              ('zone1', 'd1', 'fiction', 'The Great Gatsby', !! !v16 [1.0, 0.0, 0.0] !!)
+      - count: 1
+    -
+      - query: select docId, euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) as distance
+              from documents
+              where zone = 'zone1' and bookshelf = 'fiction'
+              qualify row_number() over (
+                    partition by zone, bookshelf
+                    order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 1
+      - result: [{docId: 'd1', distance: 0.0}]
+
+    # Emptying a partition in one statement, on a predicate over the partitioning column rather than the primary key.
+    -
+      - query: delete from documents where zone = 'zone1' and bookshelf = 'fiction'
+      - count: 3
+    -
+      - query: select docId
+              from documents
+              where zone = 'zone1' and bookshelf = 'fiction'
+              qualify row_number() over (
+                    partition by zone, bookshelf
+                    order by euclidean_distance(embedding, !! !v16 [1.0, 0.0, 0.0] !!) asc
+                ) <= 3
+      - result: []
+
+    # The other partition is untouched by all of it.
+    -
+      - query: select docId
+              from documents
+              where zone = 'zone1' and bookshelf = 'science'
+              qualify row_number() over (
+                    partition by zone, bookshelf
+                    order by euclidean_distance(embedding, !! !v16 [0.0, 1.0, 0.0] !!) asc
+                ) <= 2
       - result: [{docId: 'd6'}, {docId: 'd7'}]

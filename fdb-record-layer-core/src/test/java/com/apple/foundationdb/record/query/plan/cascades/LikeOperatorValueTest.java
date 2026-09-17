@@ -1,5 +1,5 @@
 /*
- * ArithmeticValueTest.java
+ * LikeOperatorValueTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -30,13 +30,15 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PatternForLikeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.LikeOperatorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
+import com.apple.test.ParameterizedTestUtils;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -47,7 +49,9 @@ import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.support.ParameterDeclarations;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -63,15 +67,31 @@ class LikeOperatorValueTest {
     private static final LiteralValue<Boolean> BOOLEAN_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.BOOLEAN), false);
     private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
     private static final LiteralValue<String> STRING_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), null);
+    private static final NullValue NULL_VALUE = new NullValue(Type.Null.NULL);
 
-    private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c");
     @SuppressWarnings({"ConstantConditions"})
-    private static final EvaluationContext evaluationContext = EvaluationContext.forBinding(Bindings.Internal.CORRELATION.bindingName("ident"), QueryResult.ofComputed(TestRecords7Proto.MyRecord1.newBuilder().setRecNo(4L).build()));
+    private static final Bindings bindings = Bindings.newBuilder()
+            .set(Bindings.Internal.CORRELATION.bindingName("ident"), QueryResult.ofComputed(TestRecords7Proto.MyRecord1.newBuilder().setRecNo(4L).build()))
+            .build();
 
-    static class InvalidInputArgumentsProvider implements ArgumentsProvider {
+    static class ValidInputTypesArgumentsProvider implements ArgumentsProvider {
+        @Nonnull
         @Override
-        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
-                                                            final ExtensionContext context) {
+        public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
+                                                            @Nonnull final ExtensionContext context) {
+            return ParameterizedTestUtils.cartesianProduct(
+                    Stream.of(STRING_1, STRING_NULL, NULL_VALUE),
+                    Stream.of(STRING_1, STRING_NULL, NULL_VALUE),
+                    Stream.of(STRING_1, STRING_NULL, NULL_VALUE)
+            );
+        }
+    }
+
+    static class InvalidInputTypesArgumentsProvider implements ArgumentsProvider {
+        @Nonnull
+        @Override
+        public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
+                                                            @Nonnull final ExtensionContext context) {
             return Stream.of(
                     Arguments.of(INT_1, INT_1, STRING_NULL),
                     Arguments.of(LONG_1, LONG_1, STRING_NULL),
@@ -89,15 +109,83 @@ class LikeOperatorValueTest {
                     Arguments.of(LONG_1, STRING_1, STRING_NULL),
                     Arguments.of(FLOAT_1, STRING_1, STRING_NULL),
                     Arguments.of(DOUBLE_1, STRING_1, STRING_NULL),
-                    Arguments.of(BOOLEAN_1, STRING_1, STRING_NULL)
+                    Arguments.of(BOOLEAN_1, STRING_1, STRING_NULL),
+
+                    Arguments.of(STRING_1, STRING_1, INT_1),
+                    Arguments.of(STRING_1, STRING_1, LONG_1),
+                    Arguments.of(STRING_1, STRING_1, FLOAT_1),
+                    Arguments.of(STRING_1, STRING_1, DOUBLE_1),
+                    Arguments.of(STRING_1, STRING_1, BOOLEAN_1)
             );
         }
     }
 
-    static class ValidInputArgumentsProvider implements ArgumentsProvider {
+    /**
+     * Invalid input into the {@code LIKE} operator that throws an exception. These test cases are designed so that if we
+     * relaxed the rules and allowed some of this as input, we'd want to consider what these cases would mean. For
+     * example, if we allowed a wildcard character to be an escape, we'd want to consider how patterns with that wildcard
+     * would behave.
+     */
+    static class InvalidInputValuesArgumentsProvider implements ArgumentsProvider {
+        @Nonnull
         @Override
-        public Stream<? extends Arguments> provideArguments(final ParameterDeclarations parameterDeclarations,
-                                                            final ExtensionContext context) {
+        public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
+                                                            @Nonnull final ExtensionContext context) {
+            return Stream.of(
+                    // Invalid escape characters
+                    Arguments.of("blah", "blah%", "", SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR),
+                    Arguments.of("foo", "bar", "ba", SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR),
+                    Arguments.of("foo", "bar", "👍", SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR), // Stored as two UTF-16 chars
+                    Arguments.of("foo", "bar", "\uD83D", SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR), // First half of thumbs up
+                    Arguments.of("foo", "bar", "\uDC4D", SemanticException.ErrorCode.ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR), // Second half of thumbs up
+
+                    // Invalid sequences (ends with an escape char)
+                    Arguments.of("abc", "abc\\", "\\", SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE),
+                    Arguments.of("abcd", "abc\\", "\\", SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE),
+                    Arguments.of("abc", "abc", "c", SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE),
+                    Arguments.of("abc", "ab%", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+
+                    // Do not allow escaping non-special characters
+                    Arguments.of("abcdef", "abc", "c", SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE),
+                    Arguments.of("abcdef", "abcdef", "b", SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE),
+                    Arguments.of("acdef", "abcdef", "b", SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE),
+                    Arguments.of("🥲", "!🥲", "!", SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE),
+                    Arguments.of("x🥲x", "x!🥲x", "!", SemanticException.ErrorCode.INVALID_ESCAPE_SEQUENCE),
+
+                    // Do not allow '%' as an escape character
+                    Arguments.of("abc", "%%", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("%", "%%", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("%", "%%%", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("abcdef", "abcdef%%", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("abcdef%", "abcdef%%", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("abcdef%%", "abcdef%%", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("abcdef%%", "abcdef%%%%", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("abfg", "ab%%fg", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("abcefg", "ab%%fg", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("abcdefg", "ab%%fg", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("ab%fg", "ab%%fg", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("ab%%fg", "ab%%fg", "%", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+
+                    // Do not allow '_' as an escape character
+                    Arguments.of("_", "__", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("xy", "__", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("", "%_%%", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("_", "%_%%", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("%", "%_%%", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("ab_cdef", "%_%%", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("ab%cdef", "%_%%", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("abcdef", "%_%%", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("aa", "_aa%", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT),
+                    Arguments.of("baah", "_aa%", "_", SemanticException.ErrorCode.ESCAPE_CHARACTER_CONFLICT)
+                );
+        }
+    }
+
+    static class ValidInputArgumentsProvider implements ArgumentsProvider {
+        @Nonnull
+        @Override
+        public Stream<? extends Arguments> provideArguments(@Nonnull final ParameterDeclarations parameterDeclarations,
+                                                            @Nonnull final ExtensionContext context) {
             return Stream.of(
                     Arguments.of(null, null, null, null),
                     Arguments.of("a", null, null, null),
@@ -143,6 +231,16 @@ class LikeOperatorValueTest {
                     Arguments.of("[abc]", "[___]", null, true),
                     Arguments.of("{abc}", "{abc}", null, true),
                     Arguments.of("{abc}", "{%}", null, true),
+                    Arguments.of("🫪", "🫪", null, true), // This emoji is split into two Java chars. It should still match a single character
+                    Arguments.of("🫪", "_", null, true),
+                    Arguments.of("🫪", "__", null, false),
+                    Arguments.of("a🫪z", "a%z", null, true),
+                    Arguments.of("🫪", "🤔", null, false), // Pattern and text emojis share the same high surrogate, so during matching, their first char matches, but the second fails
+                    Arguments.of("🏳️‍🌈", "_", null, false), // The text's emoji is split into four Unicode codepoints. It should thus match four characters
+                    Arguments.of("🏳️‍🌈", "____", null, true),
+                    Arguments.of("🏳️‍🌈", "___🌈", null, true),
+                    Arguments.of("🏳️‍🌈", "%🌈", null, true),
+                    Arguments.of("🏳️‍🌈", "🏳️__", null, true),
                     Arguments.of("a", ".", null, false),
                     Arguments.of(".", ".", null, true),
                     Arguments.of(".a", ".%", null, true),
@@ -173,55 +271,139 @@ class LikeOperatorValueTest {
                     Arguments.of("abtext", "|_|_%", "|", false),
                     Arguments.of("__text", "|_|_%", "|", true),
                     Arguments.of("__", "|_|_%", "|", true),
-                    Arguments.of("\\\\|||", "_____", null, true)
+                    Arguments.of("\\\\|||", "_____", null, true),
+                    // Text containing '%' — wildcard in pattern must not just match '%' in text as a literal
+                    Arguments.of("%%abcdef", "%abc%", null, true),
+                    Arguments.of("%hello%", "%hello%", null, true),
+                    Arguments.of("100%", "100%", null, true),
+                    Arguments.of("100%", "100\\%", "\\", true),
+                    Arguments.of("100%off", "100\\%", "\\", false),
+                    Arguments.of("50%", "100%", null, false),
+                    // Escape always does a literal match against the next character
+                    Arguments.of("\\abc", "\\%", null, true),
+                    Arguments.of("%", "\\%", null, false),
+                    Arguments.of("\\abc", "\\%", "\\", false),
+                    Arguments.of("\\abc", "\\\\%", "\\", true),
+                    Arguments.of("\\abc", "\\_bc", "\\", false),
+                    Arguments.of("\\abc", "\\\\_bc", "\\", true),
+                    Arguments.of("a\\bc", "a!!bc", "!", false),
+                    Arguments.of("a!bc", "a!!bc", "!", true),
+                    Arguments.of("a!!bc", "a!!bc", "!", false),
+                    Arguments.of("%", "\\%", "\\", true),
+                    Arguments.of("blah", "\\%", "\\", false),
+                    Arguments.of("%", "%%%", "\\", true),
+                    Arguments.of("blah", "%%%", "\\", true),
+                    Arguments.of("%", "%%%", "\\", true),
+                    Arguments.of("blah", "%%%", "\\", true),
+
+                    Arguments.of("abc", "ab%%", null, true),
+                    Arguments.of("abcdefgh", "ab%%", null, true),
+                    Arguments.of("ab%", "ab%%", null, true),
+                    Arguments.of("a%", "ab%%", null, false),
+                    Arguments.of("ab%cdef", "ab%%", null, true),
+                    Arguments.of("a%cdef", "ab%%", null, false),
+                    Arguments.of("abc", "ab%%", "b", false),
+                    Arguments.of("abcdefgh", "ab%%", "b", false),
+                    Arguments.of("ab%", "ab%%", "b", false),
+                    Arguments.of("a%", "ab%%", "b", true),
+                    Arguments.of("ab%cdef", "ab%%", "b", false),
+                    Arguments.of("a%cdef", "ab%%", "b", true),
+                    Arguments.of("abcdef", "abcdef", null, true),
+                    Arguments.of("acdef", "abcdef", null, false),
+
+                    // Counter-parts to the invalid-input cases above that would behave oddly if '%' were the escape character
+                    Arguments.of("abc", "%%", null, true),
+                    Arguments.of("%", "%%", null, true),
+                    Arguments.of("%", "%%%", null, true),
+                    Arguments.of("abcdef", "abcdef%%", null, true),
+                    Arguments.of("abcdef%", "abcdef%%", null, true),
+                    Arguments.of("abcdef%%", "abcdef%%", null, true),
+                    Arguments.of("abcdef%%", "abcdef%%%%", null, true),
+                    Arguments.of("abfg", "ab%%fg", null, true),
+                    Arguments.of("abcefg", "ab%%fg", null, true),
+                    Arguments.of("abcdefg", "ab%%fg", null, true),
+                    Arguments.of("ab%fg", "ab%%fg", null, true),
+                    Arguments.of("ab%%fg", "ab%%fg", null, true),
+
+                    // Counter-parts to the invalid-input cases above that would behave oddly if '_' were the escape character
+                    Arguments.of("_", "__", null, false),
+                    Arguments.of("xy", "__", null, true),
+                    Arguments.of("", "%_%%", null, false),
+                    Arguments.of("_", "%_%%", null, true),
+                    Arguments.of("%", "%_%%", null, true),
+                    Arguments.of("ab_cdef", "%_%%", null, true),
+                    Arguments.of("ab%cdef", "%_%%", null, true),
+                    Arguments.of("abcdef", "%_%%", null, true),
+                    Arguments.of("aa", "_aa%", null, false),
+                    Arguments.of("baah", "_aa%", null, true)
             );
         }
     }
 
     @ParameterizedTest
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    @ArgumentsSource(InvalidInputArgumentsProvider.class)
-    void testSemanticException(Value lhs, Value rhs, Value escapeChar) {
-        BuiltInFunction like = new LikeOperatorValue.LikeFn();
-        BuiltInFunction pattern = new PatternForLikeValue.PatternForLikeFn();
-        try {
-            like.encapsulate(CallSiteArguments.ofPositional(Arrays.asList(
-                    lhs,
-                    (Value) pattern.encapsulate(CallSiteArguments.ofPositional(Arrays.asList(rhs, escapeChar))))));
-            Assertions.fail("expected an exception to be thrown");
-        } catch (Exception e) {
-            Assertions.assertTrue(e instanceof SemanticException);
-            Assertions.assertEquals(((SemanticException)e).getErrorCode(), SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING);
-        }
+    @ArgumentsSource(ValidInputTypesArgumentsProvider.class)
+    void testValidArgumentsTypes(Value lhs, Value rhs, Value escapeChar) {
+        BuiltInFunction<?> like = new LikeOperatorValue.LikeFn();
+        BuiltInFunction<?> pattern = new PatternForLikeValue.PatternForLikeFn();
+        Assertions.assertDoesNotThrow(() ->
+                like.encapsulate(CallSiteArguments.ofPositional(List.of(
+                        lhs,
+                        (Value) pattern.encapsulate(CallSiteArguments.ofPositional(List.of(rhs, escapeChar)))))));
     }
 
     @ParameterizedTest
-    @SuppressWarnings({"ConstantConditions"})
-    @ArgumentsSource(ValidInputArgumentsProvider.class)
-    void testLike(String lhs, String rhs, final String escapeChar, Boolean result) {
+    @ArgumentsSource(InvalidInputTypesArgumentsProvider.class)
+    void testSemanticException(@Nonnull Value lhs, @Nonnull Value rhs, @Nonnull Value escapeChar) {
+        BuiltInFunction<?> like = new LikeOperatorValue.LikeFn();
+        BuiltInFunction<?> pattern = new PatternForLikeValue.PatternForLikeFn();
+        SemanticException err = Assertions.assertThrows(SemanticException.class, () ->
+                like.encapsulate(CallSiteArguments.ofPositional(List.of(
+                        lhs,
+                        (Value) pattern.encapsulate(CallSiteArguments.ofPositional(List.of(rhs, escapeChar)))))));
+        Assertions.assertEquals(SemanticException.ErrorCode.OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING, err.getErrorCode());
+    }
+
+    @Nullable
+    private Object evalLikeOperator(@Nonnull LikeOperatorValue value) {
+        final TypeRepository typeRepository = TypeRepository.newBuilder().addAllTypes(value.getDynamicTypes()).build();
+        return value.eval(null, EvaluationContext.forBindingsAndTypeRepository(bindings, typeRepository));
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(InvalidInputValuesArgumentsProvider.class)
+    void testInvalidInputValues(@Nullable String lhs, @Nullable String rhs, @Nullable String escapeChar, @Nonnull SemanticException.ErrorCode expectedErrorCode) {
         final LikeOperatorValue value = createLikeOperatorValue(lhs, rhs, escapeChar);
-        Assertions.assertEquals(result, value.eval(null, evaluationContext));
+        final SemanticException err = Assertions.assertThrows(SemanticException.class, () -> evalLikeOperator(value));
+        Assertions.assertEquals(expectedErrorCode, err.getErrorCode());
     }
 
     @ParameterizedTest
     @SuppressWarnings({"ConstantConditions"})
     @ArgumentsSource(ValidInputArgumentsProvider.class)
-    void testLikeSerialization(String lhs, String rhs, final String escapeChar, Boolean result) {
+    void testLike(@Nullable String lhs, @Nullable String rhs, @Nullable String escapeChar, @Nullable Boolean result) {
+        final LikeOperatorValue value = createLikeOperatorValue(lhs, rhs, escapeChar);
+        Assertions.assertEquals(result, evalLikeOperator(value));
+    }
+
+    @ParameterizedTest
+    @SuppressWarnings({"ConstantConditions"})
+    @ArgumentsSource(ValidInputArgumentsProvider.class)
+    void testLikeSerialization(@Nullable String lhs, @Nullable String rhs, @Nullable String escapeChar, @Nullable Boolean result) {
         final LikeOperatorValue value = createLikeOperatorValue(lhs, rhs, escapeChar);
         final PLikeOperatorValue proto = value.toProto(
                 new PlanSerializationContext(new DefaultPlanSerializationRegistry(),
                         PlanHashable.CURRENT_FOR_CONTINUATION));
         final LikeOperatorValue deserialized = LikeOperatorValue.fromProto(new PlanSerializationContext(new DefaultPlanSerializationRegistry(),
                 PlanHashable.CURRENT_FOR_CONTINUATION), proto);
-        Assertions.assertEquals(result, deserialized.eval(null, evaluationContext));
+        Assertions.assertEquals(result, evalLikeOperator(deserialized));
     }
 
 
-    @SuppressWarnings({"rawtypes", "unchecked", "ConstantConditions"})
+    @SuppressWarnings({"ConstantConditions"})
     @Nonnull
-    private static LikeOperatorValue createLikeOperatorValue(final String lhs, final String rhs, final String escapeChar) {
-        BuiltInFunction like = new LikeOperatorValue.LikeFn();
-        BuiltInFunction pattern = new PatternForLikeValue.PatternForLikeFn();
+    private static LikeOperatorValue createLikeOperatorValue(@Nullable final String lhs, @Nullable final String rhs, @Nullable final String escapeChar) {
+        BuiltInFunction<?> like = new LikeOperatorValue.LikeFn();
+        BuiltInFunction<?> pattern = new PatternForLikeValue.PatternForLikeFn();
         Typed value = like.encapsulate(CallSiteArguments.ofPositional(Arrays.asList(
                 new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), lhs),
                 (Value) pattern.encapsulate(CallSiteArguments.ofPositional(Arrays.asList(

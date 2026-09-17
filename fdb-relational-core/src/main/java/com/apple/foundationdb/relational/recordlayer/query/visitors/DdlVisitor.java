@@ -53,6 +53,9 @@ import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.ExtremumEverStorage;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.IndexGenerationOptions;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.IndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.MaterializedViewIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.OnSourceIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
@@ -115,6 +118,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                             DdlVisitor::parseOptionInt))
                     // Guardiann-only (curated subset)
                     .put("primary_cluster_min", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MIN,
+                            GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
+                    .put("primary_cluster_hard_max", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_HARD_MAX,
                             GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
                     .put("primary_cluster_max", new VectorSqlOption<>(VectorIndexOptionKeys.GUARDIANN_PRIMARY_CLUSTER_MAX,
                             GUARDIANN_ONLY, DdlVisitor::parseOptionInt))
@@ -179,26 +184,46 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     /**
-     * Visits the column definition and creates a corresponding metadata object. The column is assumed by to {@code Nullable}
-     * by default. I.e., if the user mentions no nullability constraint, the type of the column becomes nullable, which
-     * has implications on the internal representation of repeated types, see {@link com.apple.foundationdb.relational.util.NullableArrayUtils}
-     * for more details.
+     * Visits the given column definition and creates a corresponding metadata object.
+     *
+     * <p>All column definitions carry a {@code {NULL|NOT NULL}} nullability constraint, where {@code NULL} is the
+     * implicit default. Support for {@code NOT NULL} is currently limited to {@code ARRAY} types; all other columns
+     * must be declared nullable ({@code NULL}). This method will raise {@code UNSUPPORTED_OPERATION} otherwise.
+     *
+     * <p>The reason why non-array columns cannot be {@code NOT NULL} is that, currently, at the protobuf level the
+     * corresponding fields are always declared as {@code optional} (regardless of the nullability of the field type),
+     * and vice versa, {@code optional} is interpreted as “nullable”; there is no separate mechanism to represent
+     * nullability at the {@code RecordMetaData} level (Issue #3068). For {@code ARRAY} on the other hand, the protobuf
+     * representation is a {@code repeated} field and nullable arrays do in fact have a dedicated representation, in the
+     * form of a wrapper message that is generated around the {@code repeated} field; see {@link com.apple.foundationdb.relational.util.NullableArrayUtils NullableArrayUtils}
+     * for details. Note also that, for array columns, the nullability constraint pertains to the <i>array</i> type;
+     * there is no way to control the nullability of the <i>element type</i>. The element type is unconditionally
+     * non-nullable (as enforced by {@link SemanticAnalyzer#lookupType}), since {@code NULL} values in arrays are not
+     * supported (Issue #3646).
+     *
      * @param ctx the parse tree.
-     * @return a {@link RecordLayerTable} object that captures all the properties of the column as defined by the user.
+     * @return a {@link RecordLayerColumn} object that captures all the properties of the column as defined by the user.
      */
     @Nonnull
     @Override
     public RecordLayerColumn visitColumnDefinition(@Nonnull RelationalParser.ColumnDefinitionContext ctx) {
-        final var columnId = visitUid(ctx.colName);
-        final var isRepeated = ctx.ARRAY() != null;
-        final var isNullable = ctx.columnConstraint() != null ? (Boolean) ctx.columnConstraint().accept(this) : true;
-        // TODO: We currently do not support NOT NULL for any type other than ARRAY. This is because there is no way to
-        //       specify not "nullability" at the RecordMetaData level. For ARRAY, specifying that is actually possible
-        //       by means of NullableArrayWrapper. In essence, we don't actually need a wrapper per se for non-array types,
-        //       but a way to represent it in RecordMetadata.
-        Assert.thatUnchecked(isRepeated || isNullable, ErrorCode.UNSUPPORTED_OPERATION, "NOT NULL is only allowed for ARRAY column type");
-        containsNullableArray = containsNullableArray || (isRepeated && isNullable);
-        final var columnType = lookupType(ctx.columnType().customType, ctx.columnType().primitiveType(), isNullable, isRepeated);
+        final Identifier columnId = visitUid(ctx.colName);
+        final boolean isArray = ctx.ARRAY() != null;
+        final boolean isNullable
+                = ctx.columnConstraint() != null ? (Boolean)ctx.columnConstraint().accept(this) : true;
+        final RelationalParser.ColumnTypeContext colType = ctx.columnType();
+
+        // ARRAY supports {NULL|NOT NULL} as the nullability constraint; other types support only NULL.
+        Assert.thatUnchecked(
+                isArray || isNullable,
+                ErrorCode.UNSUPPORTED_OPERATION,
+                "NOT NULL is only allowed for ARRAY column type");
+        containsNullableArray = containsNullableArray || (isArray && isNullable);
+
+        // Note: For an ARRAY column, `isNullable` pertains to the array type; the element type yielded by
+        // `lookupType()` is always *not nullable*.
+        final DataType columnType = lookupType(colType.customType, colType.primitiveType(), isNullable, isArray);
+
         return RecordLayerColumn.newBuilder().setName(columnId.getName()).setDataType(columnType).build();
     }
 
@@ -243,9 +268,11 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
         final var useLegacyBasedExtremumEver = indexDefinitionContext.indexAttributes() != null && indexDefinitionContext.indexAttributes().indexAttribute().stream().anyMatch(attribute -> attribute.LEGACY_EXTREMUM_EVER() != null);
         final var isUnique = indexDefinitionContext.UNIQUE() != null;
-        final var generator = MaterializedViewIndexGenerator.from(viewPlan, useLegacyBasedExtremumEver);
+        final IndexGenerator generator = MaterializedViewIndexGenerator.newInstance(viewPlan, metadataBuilder,
+                indexId.getName(), new IndexGenerationOptions(isUnique, containsNullableArray, false,
+                        ExtremumEverStorage.ofLegacyAttribute(useLegacyBasedExtremumEver)));
         Assert.thatUnchecked(viewPlan instanceof LogicalSortExpression, ErrorCode.INVALID_COLUMN_REFERENCE, "Cannot create index and order by an expression that is not present in the projection list");
-        return generator.generate(metadataBuilder, indexId.getName(), isUnique, containsNullableArray, false).build();
+        return generator.generate().build();
     }
 
     @Nonnull
@@ -267,10 +294,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .setIndexName(indexId)
                 .setIndexSource(getDelegate().getCurrentPlanFragment())
                 .setSemanticAnalyzer(getDelegate().getSemanticAnalyzer())
-                .setUseLegacyExtremum(useLegacyExtremum)
-                .setUseNullableArrays(containsNullableArray)
                 .setMetadataBuilder(metadataBuilder)
-                .setUnique(isUnique);
+                .setOptions(new IndexGenerationOptions(isUnique, containsNullableArray, false,
+                        ExtremumEverStorage.ofLegacyAttribute(useLegacyExtremum)));
 
         indexDefinitionContext.indexColumnList().indexColumnSpec().forEach(colSpec ->
                 indexGeneratorBuilder.addKeyColumn(OnSourceIndexGenerator.IndexedColumn
@@ -306,8 +332,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .setSemanticAnalyzer(getDelegate().getSemanticAnalyzer())
                 .addAllIndexOptions(indexOptions)
                 .setMetadataBuilder(metadataBuilder)
-                .setGenerateKeyValueExpressionWithEmptyKey(true)
-                .setUseNullableArrays(containsNullableArray);
+                // a vector index without PARTITION BY has no key columns, so its key is empty
+                .setOptions(new IndexGenerationOptions(false, containsNullableArray, true,
+                        ExtremumEverStorage.TUPLE));
 
         indexDefinitionContext.indexColumnList().indexColumnSpec().forEach(colSpec ->
                 indexGeneratorBuilder.addValueColumn(OnSourceIndexGenerator.IndexedColumn
@@ -317,7 +344,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var indexedColumns = indexGeneratorBuilder.getValueColumns();
         Assert.thatUnchecked(indexedColumns.size() == 1, ErrorCode.UNSUPPORTED_OPERATION,
                 () -> "invalid number of indexed columns, only one column is supported, found " + indexedColumns.size() + " columns");
-        final var indexedCol = Iterables.getOnlyElement(indexedColumns).getIdentifier();
+        final var indexedCol = Iterables.getOnlyElement(indexedColumns).identifier();
         final var type = getDelegate().getSemanticAnalyzer().resolveIdentifier(indexedCol, getDelegate().getCurrentPlanFragment())
                 .getDataType();
         Assert.thatUnchecked(type.getCode() == DataType.Code.VECTOR, ErrorCode.SYNTAX_ERROR,
@@ -457,7 +484,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         // (yhatem) we have control over the ENUM values' numbers.
         final List<DataType.EnumType.EnumValue> enumValues = new ArrayList<>(ctx.STRING_LITERAL().size());
         for (int i = 0; i < ctx.STRING_LITERAL().size(); i++) {
-            enumValues.add(DataType.EnumType.EnumValue.of(Assert.notNullUnchecked(getDelegate().normalizeString(ctx.STRING_LITERAL(i).getText())), i));
+            enumValues.add(DataType.EnumType.EnumValue.of(SemanticAnalyzer.normalizeStringLiteral(ctx.STRING_LITERAL(i).getText()), i));
         }
         return DataType.EnumType.from(enumId.getName(), enumValues, false);
     }

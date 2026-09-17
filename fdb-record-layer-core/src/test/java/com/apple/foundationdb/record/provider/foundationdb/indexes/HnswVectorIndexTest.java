@@ -21,15 +21,20 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.linear.Metric;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.subspace.Subspace;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Vector index tests against the HNSW engine. The behavioral scenarios are inherited from
@@ -44,6 +49,29 @@ class HnswVectorIndexTest extends VectorIndexEngineTestSuite {
         return ImmutableMap.of(IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.HNSW.name(),
                 IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name(),
                 IndexOptions.VECTOR_NUM_DIMENSIONS, "128");
+    }
+
+    /**
+     * The HNSW engine does everything inline and enqueues no deferred tasks, so it tracks no task counts
+     * ({@code getTaskCounts()} is null) and the maintainer never routes a merge to it — being asked to drain is a
+     * programming error, which {@code executeDeferredTasks} rejects.
+     */
+    @Test
+    void executeDeferredTasksIsAnIllegalCall() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addUngroupedVectorIndex);
+            final Index index = recordStore.getRecordMetaData().getIndex("UngroupedVectorIndex");
+            final HnswVectorIndexEngine engine = HnswVectorIndexEngine.fromIndex(index);
+            final Subspace subspace = recordStore.indexSubspace(index);
+
+            assertThat(engine.getTaskCounts())
+                    .as("HNSW tracks no deferred work, so the maintainer never routes a merge to it").isNull();
+            assertThatThrownBy(() ->
+                    engine.executeDeferredTasks(context, subspace, 1, TaskEventRegister.NOOP, Long.MAX_VALUE))
+                    .as("draining the inline HNSW engine is an illegal call")
+                    .isInstanceOf(RecordCoreException.class)
+                    .hasMessageContaining("no deferred tasks");
+        }
     }
 
     @Test

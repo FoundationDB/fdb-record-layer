@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.TestRecordsIdenticalTypesProto;
 import com.apple.foundationdb.record.TestRecordsMultidimensionalProto;
+import com.apple.foundationdb.record.TestRecordsSwapProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.evolution.TestHeaderAsGroupProto;
 import com.apple.foundationdb.record.evolution.TestMergedNestedTypesProto;
@@ -1121,6 +1122,124 @@ class MetaDataEvolutionValidatorTest {
                 })
         );
         fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData3);
+    }
+
+    @ParameterizedTest
+    @MethodSource("deprecatedArgs")
+    void renameFieldOnReplacedTypeWithIndexes(boolean deprecated) {
+        final RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+
+        // Mutate the original file change the following:
+        //  1. The MySimpleRecord type is renamed MySimpleRecord__Old
+        //  2. Two fields, num_value_3_indexed and num_value_2, are renamed on MySimpleRecord__Old
+        //  3. A new type, also named MySimpleRecord, is added with all the fields from the original MySimpleRecord
+        //  4. Update the RecordTypeUnion to account for the type name and new record type
+        final FileDescriptor mutatedFile = mutateFile(fileBuilder -> {
+            DescriptorProtos.DescriptorProto.Builder newType = DescriptorProtos.DescriptorProto.newBuilder()
+                    .setName("MySimpleRecord");
+
+            for (DescriptorProtos.DescriptorProto.Builder descriptorProto : fileBuilder.getMessageTypeBuilderList()) {
+                if (descriptorProto.getName().equals("MySimpleRecord")) {
+                    descriptorProto.setName("MySimpleRecord__Old");
+                    descriptorProto.getFieldList().forEach(newType::addField);
+                    for (DescriptorProtos.FieldDescriptorProto.Builder field : descriptorProto.getFieldBuilderList()) {
+                        if (field.getName().equals("num_value_3_indexed") || field.getName().equals("num_value_2")) {
+                            field.setName(field.getName() + "__old");
+                            if (deprecated) {
+                                field.getOptionsBuilder().setDeprecated(true);
+                            }
+                        }
+                    }
+                } else if (descriptorProto.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                    for (DescriptorProtos.FieldDescriptorProto.Builder fieldProto : descriptorProto.getFieldBuilderList()) {
+                        if (fieldProto.getTypeName().endsWith("MySimpleRecord")) {
+                            fieldProto.setTypeName("MySimpleRecord__Old");
+                            fieldProto.setName(fieldProto.getName() + "__Old");
+                        }
+                    }
+                    addField(descriptorProto)
+                            .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                            .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
+                            .setTypeName("MySimpleRecord")
+                            .setName("_MySimpleRecord");
+                }
+            }
+
+            fileBuilder.addMessageType(newType);
+        });
+        // Construct a meta-data object to match the new type
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, mutatedFile, metaData -> {
+            for (RecordMetaDataProto.RecordType.Builder recordType : metaData.getRecordTypesBuilderList()) {
+                if (recordType.getName().equals("MySimpleRecord")) {
+                    recordType.setName("MySimpleRecord__Old");
+                }
+            }
+            metaData.addRecordTypesBuilder()
+                    .setName("MySimpleRecord")
+                    .setPrimaryKey(Key.Expressions.field("rec_no").toKeyExpression())
+                    .setSinceVersion(metaData.getVersion());
+        });
+
+        // Should be invalid. The indexes that were previously on the old record type have been moved over to the new
+        // type
+        fieldRenameChecker.assertInvalidRenaming("new index removes record type", deprecated, metaData1, metaData2);
+
+        // Rename the record type in the references held by each index on the original MySimpleRecord.
+        // Note that the MySimpleRecord$num_value_3_indexed index also needs to update its field. While doing that,
+        // change the field name incorrectly, and validate that we catch that.
+        RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", index ->
+                index.toBuilder().clearRecordType().addRecordType("MySimpleRecord__Old").build());
+        metaData3 = replaceIndex(metaData3, "MySimpleRecord$num_value_unique", index ->
+                index.toBuilder().clearRecordType().addRecordType("MySimpleRecord__Old").build());
+        metaData3 = replaceIndex(metaData3, "MySimpleRecord$num_value_3_indexed", index ->
+                index.toBuilder().clearRecordType().addRecordType("MySimpleRecord__Old").setRootExpression(Key.Expressions.field("num_value_2__old").toKeyExpression()).build());
+
+        fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", deprecated, metaData1, metaData3);
+
+        // Correct the field renaming on that final index
+        final RecordMetaData metaData4 = replaceIndex(metaData3, "MySimpleRecord$num_value_3_indexed", index ->
+                index.toBuilder().setRootExpression(Key.Expressions.field("num_value_3_indexed__old").toKeyExpression()).build());
+        fieldRenameChecker.assertValidRenaming(deprecated, metaData1, metaData4);
+    }
+
+    @Test
+    void swapTypesWithIndexesRequiresRenamingFields() {
+        final RecordMetaData metaData1 = RecordMetaData.build(TestRecordsSwapProto.getDescriptor());
+
+        // The two types, TypeAlpha and TypeBeta, have the same field names, but in different orders.
+        // Swapping the types should therefore be okay, but it will require renaming the referenced
+        // fields within the indexes.
+
+        final FileDescriptor mutatedDescriptor = mutateMessageType("Union", TestRecordsSwapProto.getDescriptor(), unionTypeBuilder -> {
+            for (DescriptorProtos.FieldDescriptorProto.Builder field : unionTypeBuilder.getFieldBuilderList()) {
+                // Swap the union descriptor fields for TypeAlpha and TypeBeta
+                if (field.getNumber() == TestRecordsSwapProto.Union._TYPEALPHA_FIELD_NUMBER) {
+                    field.setNumber(TestRecordsSwapProto.Union._TYPEBETA_FIELD_NUMBER);
+                } else if (field.getNumber() == TestRecordsSwapProto.Union._TYPEBETA_FIELD_NUMBER) {
+                    field.setNumber(TestRecordsSwapProto.Union._TYPEALPHA_FIELD_NUMBER);
+                }
+            }
+        });
+
+        // Initial evolution validation fails because the indexes all swap types (because their
+        // referenced type names still point to the old types)
+        final RecordMetaData metaData2 = replaceRecordsDescriptor(metaData1, mutatedDescriptor);
+        fieldRenameChecker.assertInvalidRenaming("new index removes record type", false, metaData1, metaData2);
+
+        // Fix the types on each index. This still fails to validate as the index root expressions will
+        // still use the incorrect names
+        RecordMetaData metaData3 = replaceIndex(metaData2, "TypeAlpha$bar", index ->
+                index.toBuilder().clearRecordType().addRecordType("TypeBeta").build());
+        metaData3 = replaceIndex(metaData3, "TypeBeta$bar", index ->
+                index.toBuilder().clearRecordType().addRecordType("TypeAlpha").build());
+        fieldRenameChecker.assertInvalidRenaming("index key expression does not match required", false, metaData1, metaData3);
+
+        // Rename the fields referenced in the index. After that, the evolution should be allowed
+        RecordMetaData metaData4 = replaceIndex(metaData3, "TypeAlpha$bar", index ->
+                index.toBuilder().setRootExpression(Key.Expressions.field("baz").toKeyExpression()).build());
+        metaData4 = replaceIndex(metaData4, "TypeBeta$bar", index ->
+                index.toBuilder().setRootExpression(Key.Expressions.field("foo").toKeyExpression()).build());
+        fieldRenameChecker.assertValidRenaming(false, metaData1, metaData4);
     }
 
     @Test

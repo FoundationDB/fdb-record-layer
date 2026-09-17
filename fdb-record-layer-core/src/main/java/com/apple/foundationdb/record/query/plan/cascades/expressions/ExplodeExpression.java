@@ -54,8 +54,9 @@ import java.util.Set;
 /**
  * A table function expression that “explodes” a repeated field into a stream of its values.
  *
- * <p>In the {@code WITH ORDINALITY} variant, it also generates 1-based ordinals of the field values. In this case it
- * produces a struct with two anonymous fields—the element and the ordinal—instead of the bare element.
+ * <p>In the {@code WITH ORDINALITY} variant, it also generates ordinals of the field values. In this case it
+ * produces a struct with two anonymous fields—the element and the ordinal—instead of the bare element. The ordinals
+ * are 1-based per the SQL standard, unless the expression is created {@linkplain #isZeroBasedOrdinality() 0-based}.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildren implements InternalPlannerGraphRewritable {
@@ -66,6 +67,11 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
      * Whether ordinals should be produced alongside the array elements.
      */
     private final boolean withOrdinality;
+
+    /**
+     * Whether the ordinals produced are 0-based rather than 1-based.
+     */
+    private final boolean zeroBasedOrdinality;
 
     /**
      * The element type of the collection value.
@@ -79,16 +85,23 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
     @Nonnull
     private final Type explodeResultType;
 
-    public ExplodeExpression(@Nonnull final Value collectionValue, final boolean withOrdinality) {
+    public ExplodeExpression(@Nonnull final Value collectionValue, final boolean withOrdinality,
+                             final boolean zeroBasedOrdinality) {
+        Verify.verify(withOrdinality || !zeroBasedOrdinality, "cannot base ordinals that are not produced");
         this.collectionValue = collectionValue;
         this.withOrdinality = withOrdinality;
+        this.zeroBasedOrdinality = zeroBasedOrdinality;
         Verify.verify(collectionValue.getResultType().isArray());
         this.elementType = Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
         this.explodeResultType = explodeResultType(elementType, withOrdinality);
     }
 
+    public ExplodeExpression(@Nonnull final Value collectionValue, final boolean withOrdinality) {
+        this(collectionValue, withOrdinality, false);
+    }
+
     public ExplodeExpression(@Nonnull final Value collectionValue) {
-        this(collectionValue, false);
+        this(collectionValue, false, false);
     }
 
     /**
@@ -101,7 +114,7 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
 
     /**
      * Returns the type of the explode result. For the {@code WITH ORDINALITY} variant, builds an anonymous-field
-     * struct result type holding the element and the 1-based ordinal.
+     * struct result type holding the element and the ordinal.
      */
     @Nonnull
     public static Type explodeResultType(@Nonnull final Type elementType, boolean withOrdinality) {
@@ -137,6 +150,10 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
         return withOrdinality;
     }
 
+    public boolean isZeroBasedOrdinality() {
+        return zeroBasedOrdinality;
+    }
+
     @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
@@ -159,6 +176,7 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
         if (otherExpression instanceof final ExplodeExpression other) {
             return collectionValue.semanticEquals(other.getCollectionValue(), equivalencesMap) &&
                     isWithOrdinality() == other.isWithOrdinality() &&
+                    isZeroBasedOrdinality() == other.isZeroBasedOrdinality() &&
                     semanticEqualsForResults(otherExpression, equivalencesMap);
         }
         return false;
@@ -166,10 +184,14 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
 
     @Override
     public int computeHashCodeWithoutChildren() {
-        // Note: This is written in a way that preserves pre-existing hashes for `withOrdinality=false`.
-        return withOrdinality
-               ? Objects.hash(collectionValue, true)
-               : Objects.hash(collectionValue);
+        // Note: This is written in a way that preserves pre-existing hashes for `withOrdinality=false` and for
+        // (`withOrdinality=true` and `zeroBasedOrdinality=false`)
+        if (!withOrdinality) {
+            return Objects.hash(collectionValue);
+        }
+        return zeroBasedOrdinality
+               ? Objects.hash(collectionValue, true, true)
+               : Objects.hash(collectionValue, true);
     }
 
     @Nonnull
@@ -183,7 +205,7 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
                 collectionValue.translateCorrelations(translationMap, shouldSimplifyValues);
         // this is ok since there are no new quantifiers
         if (translatedCollectionValue != collectionValue) {
-            return new ExplodeExpression(translatedCollectionValue, withOrdinality);
+            return new ExplodeExpression(translatedCollectionValue, withOrdinality, zeroBasedOrdinality);
         }
         return this;
     }

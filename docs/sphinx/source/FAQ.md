@@ -32,10 +32,10 @@ ability to define indexes across these sorts of relationships.
 
 ### Why are queries so restrictive?
 
-If you peruse the questions in [Queries](#queries) section of this FAQ, you'll
-note that many of the things you might be accustomed to from other
-databases are not available in the Record Layer, such as arbitrary 
-aggregation, sorting, and complex joins.
+The SQL interface supports joins, aggregation, grouping, sorting, and
+correlated subqueries, but those operations are still index-backed.
+The Record Layer does not perform unbounded in-memory sorts or aggregations
+(see [Getting started with the SQL layer](SQL_Getting_Started.md)).
 
 Among the driving design principles of the Record Layer are support for
 potentially millions of record stores (possibly sharing a common schema), 
@@ -45,9 +45,6 @@ not be predictably consumed or may even be unbounded are avoided,
 excepting the cases in which the functionality can be supported in a resource 
 constrained fashion by the natural ordering of the primary key or 
 available indexes.
-
-The Record Layer is, however, certainly intended as a foundation upon which
-such features can be built!
 
 ## Data modeling
 
@@ -129,18 +126,26 @@ could generate a UUID.
 
 ### Is SQL supported?
 
-No. Currently the Record Layer has no query language, however it does expose a query API 
-and a query planner. In the future it is possible that the Record Layer may develop a
-formal query language, but it is unlikely that such a language would closely resemble 
-the SQL standard.
+Yes. Applications can use a SQL interface over JDBC, provided by the Relational
+Layer, in addition to the lower-level record-oriented Java API. The SQL
+language closely follows standard SQL, with schema templates and nested
+struct, array, and vector types for the Record Layer data model.
+
+See [Getting started with the SQL layer](SQL_Getting_Started.md) and the
+[SQL reference](SQL_Reference.md). The SQL engine is under active development.
+
+The record-oriented query API and planner remain available for applications
+that work with records directly.
 
 ### Are joins supported?
 
-Query and planning suport for joins is not supported.  However, 
-it is possible to programatically implement a join by scanning the outer record type and
-using `flatMapPipelined` to retrieve inner records. Alternatively, you could define an
-index that spans multiple record types, logically co-locating the records on the join
-field(s), and then perform a scan of the index to implement the join. 
+Yes. The SQL query planner handles joins and correlated subqueries, using
+indexes and stream-based processing rather than large in-memory buffers.
+
+The record-oriented Java API does not plan joins itself. There you can
+implement a join by scanning the outer record type and using
+`flatMapPipelined` to retrieve inner records, or by defining an index that
+spans multiple record types and scanning that index.
 
 ### Are sorts supported?
 

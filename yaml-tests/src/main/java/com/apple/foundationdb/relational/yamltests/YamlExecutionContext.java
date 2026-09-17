@@ -26,69 +26,42 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.block.IncludeBlock;
-import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckResultMetadataConfig;
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Streams;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 import org.opentest4j.TestAbortedException;
-import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.BufferedInputStream;
-import java.io.BufferedReader;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.Serial;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @SuppressWarnings({"PMD.GuardLogStatement"}) // It already is, but PMD is confused and reporting error in unrelated locations.
 public final class YamlExecutionContext {
-    private static final Logger logger = LogManager.getLogger(YamlRunner.class);
-
-    /**
-     * List of metrics field names that are tracked for planner comparison.
-     * These are the core metrics that should be consistent between runs, excluding timing
-     * information which can vary.
-     */
-    public static final List<String> TRACKED_METRIC_FIELDS = List.of(
-            "task_count",
-            "transform_count",
-            "transform_yield_count",
-            "insert_new_count",
-            "insert_reused_count"
-    );
+    private static final Logger logger = LogManager.getLogger(YamlExecutionContext.class);
 
     public static final ContextOption<Boolean> OPTION_FORCE_CONTINUATIONS = new ContextOption<>("optionForceContinuation");
     public static final ContextOption<Boolean> OPTION_CORRECT_EXPLAIN = new ContextOption<>("optionCorrectExplain");
@@ -103,26 +76,17 @@ public final class YamlExecutionContext {
     @Nonnull final YamlReference.YamlResource topLevelResource;
     @Nonnull
     private final Set<YamlReference.YamlResource> registeredResources = new HashSet<>();
+
     @Nonnull
-    private final Map<YamlReference.YamlResource, List<String>> editedFileStream = new HashMap<>();
+    private final YamlMetricsMaintainer metricsMaintainer;
     @Nonnull
-    private final Map<YamlReference.YamlResource, Boolean> isDirty = new HashMap<>();
-    /**
-     * Pending corrections (explain and result-metadata), buffered so they can be applied in descending
-     * line-number order to avoid stale-offset corruption when multiple corrections target the same file.
-     */
-    @Nonnull
-    private final Map<YamlReference.YamlResource, List<YamlCorrection>> pendingCorrections = new HashMap<>();
-    @Nullable
-    private ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> expectedMetricsMap;
-    @Nonnull
-    private Map<QueryAndLocation, PlannerMetricsProto.Info> actualMetricsMap = new HashMap<>();
-    private volatile boolean isDirtyMetrics = false;
+    private final YamlFilesMaintainer filesMaintainer;
     @Nonnull
     private final YamlConnectionFactory connectionFactory;
     @SuppressWarnings("AbbreviationAsWordInName")
     private final Map<YamlReference.YamlResource, List<String>> connectionURIs = new HashMap<>();
     // Additional options that can be set by the runners to impact test execution
+    @Nonnull
     private final ContextOptions additionalOptions;
     private final Map<String, String> transactionSetups = new HashMap<>();
     @Nonnull
@@ -130,6 +94,7 @@ public final class YamlExecutionContext {
 
     public static class YamlExecutionError extends RuntimeException {
 
+        @Serial
         private static final long serialVersionUID = 10L;
 
         YamlExecutionError(String msg, Throwable throwable) {
@@ -137,7 +102,7 @@ public final class YamlExecutionContext {
         }
     }
 
-    YamlExecutionContext(@Nonnull YamlReference.YamlResource topLevelResource, @Nonnull YamlConnectionFactory factory, @Nonnull final ContextOptions additionalOptions) {
+    YamlExecutionContext(@Nonnull YamlReference.YamlResource topLevelResource, @Nonnull YamlConnectionFactory factory, @Nonnull final ContextOptions additionalOptions) throws RelationalException {
         this.connectionFactory = factory;
         this.topLevelResource = topLevelResource;
         this.additionalOptions = additionalOptions;
@@ -151,22 +116,28 @@ public final class YamlExecutionContext {
             logger.info("ℹ️ Number of threads to be used for parallel execution " + getNumThreads());
             getNightlyRepetition().ifPresent(rep -> logger.info("ℹ️ Running with high repetition value set to " + rep));
         }
+        this.metricsMaintainer = new YamlMetricsMaintainer(topLevelResource);
+        this.filesMaintainer = new YamlFilesMaintainer();
+        loadResourceForEditIfNeeded(topLevelResource);
+        registeredResources.add(topLevelResource);
     }
 
     public void registerResource(@Nonnull final YamlReference.YamlResource resource) throws RelationalException {
+        // topLevelResource is already registered in the constructor
+        if (topLevelResource.equals(resource)) {
+            return;
+        }
         if (registeredResources.contains(resource)) {
             throw new RuntimeException("The resource " + resource + " is already registered.");
         }
-        if (shouldCorrectExplains() || shouldCorrectResultMetadata() || shouldAddResultMetadata() || shouldAddExplains()) {
-            this.editedFileStream.put(resource, loadYamlResource(resource));
-        }
-        if (this.expectedMetricsMap == null) {
-            this.expectedMetricsMap = loadMetricsResource(resource);
-            this.actualMetricsMap = new TreeMap<>(Comparator.comparing(QueryAndLocation::getReference)
-                    .thenComparing(QueryAndLocation::getBlockName)
-                    .thenComparing(QueryAndLocation::getQuery));
-        }
+        loadResourceForEditIfNeeded(resource);
         registeredResources.add(resource);
+    }
+
+    private void loadResourceForEditIfNeeded(@Nonnull YamlReference.YamlResource resource) throws RelationalException {
+        if (shouldCorrectExplains() || shouldCorrectResultMetadata() || shouldAddResultMetadata() || shouldAddExplains()) {
+            filesMaintainer.loadFile(resource);
+        }
     }
 
     public void setConnectionOptions(@Nonnull final Options connectionOptions) {
@@ -202,355 +173,14 @@ public final class YamlExecutionContext {
         return additionalOptions.getOrDefault(OPTION_ADD_EXPLAIN, false);
     }
 
-    public boolean correctResultMetadata(@Nonnull final YamlReference reference,
-                                         @Nonnull final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
-        if (!shouldCorrectResultMetadata()) {
-            return false;
-        }
-        if (editedFileStream.get(reference.getResource()) == null) {
-            return false;
-        }
-        synchronized (this) {
-            pendingCorrections
-                    .computeIfAbsent(reference.getResource(), k -> new ArrayList<>())
-                    .add(new MetadataCorrection(reference, new ArrayList<>(actualColumns)));
-            isDirty.put(reference.getResource(), true);
-        }
-        return true;
+    @Nonnull
+    public YamlMetricsMaintainer getMetricsMaintainer() {
+        return metricsMaintainer;
     }
 
-    public boolean addResultMetadata(@Nonnull final YamlReference queryReference,
-                                     @Nonnull final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
-        if (!shouldAddResultMetadata()) {
-            return false;
-        }
-        if (editedFileStream.get(queryReference.getResource()) == null) {
-            return false;
-        }
-        synchronized (this) {
-            final List<YamlCorrection> corrections = pendingCorrections
-                    .computeIfAbsent(queryReference.getResource(), k -> new ArrayList<>());
-            // Deduplicate: if a correction for this query line is already pending, skip.
-            // The query could run multiple times depending on repetition, and each of the run calls addResultMetadata independently.
-            // Since the YAML file is parsed only once at the start, all runs see the same parsed config with no resultMetadata yet,
-            // and all queue a correction. The deduplication check prevents all but the first correct from being added.
-            final int lineNumber = queryReference.getLineNumber();
-            final boolean alreadyPending = corrections.stream()
-                    .anyMatch(c -> c instanceof AddMetadataCorrection && c.getLineNumber() == lineNumber);
-            if (!alreadyPending) {
-                corrections.add(new AddMetadataCorrection(queryReference, new ArrayList<>(actualColumns)));
-                isDirty.put(queryReference.getResource(), true);
-            }
-        }
-        return true;
-    }
-
-    public boolean correctExplain(@Nonnull final YamlReference reference, @Nonnull String actual) {
-        if (!shouldCorrectExplains() && !shouldAddExplains()) {
-            return false;
-        }
-        if (editedFileStream.get(reference.getResource()) == null) {
-            return false;
-        }
-        synchronized (this) {
-            pendingCorrections
-                    .computeIfAbsent(reference.getResource(), k -> new ArrayList<>())
-                    .add(new ExplainCorrection(reference, actual));
-            isDirty.put(reference.getResource(), true);
-        }
-        return true;
-    }
-
-    private void applyPendingCorrections(@Nonnull final YamlReference.YamlResource resource) {
-        final List<YamlCorrection> corrections = pendingCorrections.get(resource);
-        if (corrections == null || corrections.isEmpty()) {
-            return;
-        }
-        final List<String> lines = editedFileStream.get(resource);
-        if (lines == null) {
-            return;
-        }
-        // Sort descending by line number so each edit only shifts lines that have already been processed.
-        corrections.sort(Comparator.comparingInt(c -> -c.getLineNumber()));
-        for (final YamlCorrection correction : corrections) {
-            correction.apply(lines);
-        }
-    }
-
-    /**
-     * Replaces a single {@code explain:} line in the YAMSQL source file.
-     */
-    public static final class ExplainCorrection implements YamlCorrection {
-        @Nonnull
-        private final YamlReference reference;
-        @Nonnull
-        private final String actual;
-
-        ExplainCorrection(@Nonnull final YamlReference reference, @Nonnull final String actual) {
-            this.reference = reference;
-            this.actual = actual;
-        }
-
-        @Override
-        public int getLineNumber() {
-            return reference.getLineNumber();
-        }
-
-        @Override
-        public void apply(@Nonnull final List<String> lines) {
-            final int idx = reference.getLineNumber() - 1;
-            if (idx >= 0 && idx < lines.size()) {
-                final String itemPrefix = " ".repeat(indentOf(lines.get(idx)));
-                lines.set(idx, itemPrefix + "- explain: \"" + actual + "\"");
-            }
-        }
-    }
-
-    /**
-     * Replaces a {@code resultMetadata:} block in the YAMSQL source file with the actual column descriptors.
-     */
-    public static final class MetadataCorrection implements YamlCorrection {
-        @Nonnull
-        private final YamlReference reference;
-        @Nonnull
-        private final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns;
-
-        MetadataCorrection(@Nonnull final YamlReference reference,
-                           @Nonnull final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
-            this.reference = reference;
-            this.actualColumns = actualColumns;
-        }
-
-        @Override
-        public int getLineNumber() {
-            return reference.getLineNumber();
-        }
-
-        @Override
-        public void apply(@Nonnull final List<String> lines) {
-            final int startIdx = reference.getLineNumber() - 1; // 1-based → 0-based
-            if (startIdx < 0 || startIdx >= lines.size()) {
-                return;
-            }
-            final String startLine = lines.get(startIdx);
-            final int indent = indentOf(startLine);
-
-            // Build replacement lines
-            final List<String> newLines = new ArrayList<>();
-            final String itemPrefix = " ".repeat(indent);
-            final String cols = actualColumns.stream().map(YamlExecutionContext::buildInlineDescriptor)
-                    .collect(Collectors.joining(", "));
-            newLines.add(itemPrefix + "- resultMetadata: [" + cols + "]");
-
-            // Find the end of the existing resultMetadata block
-            int endIdx = startIdx + 1;
-            while (endIdx < lines.size()) {
-                final String line = lines.get(endIdx);
-                if (line.isBlank()) {
-                    endIdx++;
-                    continue;
-                }
-                if (indentOf(line) > indent) {
-                    endIdx++;
-                } else {
-                    break;
-                }
-            }
-
-            lines.subList(startIdx, endIdx).clear();
-            lines.addAll(startIdx, newLines);
-        }
-    }
-
-    /**
-     * Builds a single-line inline YAML representation for a {@link CheckResultMetadataConfig.ColumnDescriptor}.
-     * <ul>
-     *   <li>Scalar column: {@code {NAME: TYPE}}</li>
-     *   <li>Struct column (no type name): {@code {NAME: [{FIELD: TYPE}, ...]}}</li>
-     *   <li>Struct column (with type name): {@code {NAME: [structTypeName, {FIELD: TYPE}, ...]}}</li>
-     *   <li>Array-of-scalar column: {@code {NAME: {array: TYPE}}}</li>
-     *   <li>Array-of-array column: {@code {NAME: {array: {array: TYPE}}}}</li>
-     *   <li>Array-of-struct column (no type name): {@code {NAME: {array: [{FIELD: TYPE}, ...]}}}</li>
-     *   <li>Array-of-struct column (with type name): {@code {NAME: {array: [structTypeName, {FIELD: TYPE}, ...]}}}</li>
-     * </ul>
-     */
-    static String buildInlineDescriptor(@Nonnull final CheckResultMetadataConfig.ColumnDescriptor col) {
-        if (col.isArray && col.fields != null) {
-            final String typePrefix = col.structTypeName != null ? col.structTypeName + ", " : "";
-            final String fields = col.fields.stream().map(YamlExecutionContext::buildInlineDescriptor)
-                    .collect(Collectors.joining(", "));
-            return "{" + col.name + ": {array: [" + typePrefix + fields + "]}}";
-        } else if (col.fields != null) {
-            final String typePrefix = col.structTypeName != null ? col.structTypeName + ", " : "";
-            final String fields = col.fields.stream().map(YamlExecutionContext::buildInlineDescriptor)
-                    .collect(Collectors.joining(", "));
-            return "{" + col.name + ": [" + typePrefix + fields + "]}";
-        } else {
-            return "{" + col.name + ": " + typeNameToInlineValue(col.typeName) + "}";
-        }
-    }
-
-    /**
-     * Converts an SQL array type name (e.g., {@code "ARRAY(INTEGER)"}) to its {@code {array: ...}} inline YAML
-     * representation. Non-array type names are returned unchanged.
-     * <ul>
-     *   <li>{@code "ARRAY(INTEGER)"} → {@code "{array: INTEGER}"}</li>
-     *   <li>{@code "ARRAY(ARRAY(INTEGER))"} → {@code "{array: {array: INTEGER}}"}</li>
-     *   <li>{@code "BIGINT"} → {@code "BIGINT"}</li>
-     * </ul>
-     */
-    static String typeNameToInlineValue(@Nonnull final String typeName) {
-        if (typeName.startsWith("ARRAY(") && typeName.endsWith(")")) {
-            final String inner = typeName.substring(6, typeName.length() - 1);
-            return "{array: " + typeNameToInlineValue(inner) + "}";
-        }
-        return typeName;
-    }
-
-    static int indentOf(@Nonnull final String line) {
-        int indent = 0;
-        while (indent < line.length() && line.charAt(indent) == ' ') {
-            indent++;
-        }
-        return indent;
-    }
-
-    static int findInsertionPoint(@Nonnull final List<String> lines, final int startIdx,
-                                  @Nonnull final String itemPrefix,
-                                  @Nonnull final Predicate<String> stopAt) {
-        for (int i = startIdx; i < lines.size(); i++) {
-            final String line = lines.get(i);
-            if (stopAt.test(line)) {
-                return i;
-            }
-            if (!itemPrefix.isEmpty() && line.length() >= itemPrefix.length() && !line.startsWith(itemPrefix)) {
-                break;
-            }
-        }
-        return startIdx;
-    }
-
-    /**
-     * Inserts a new {@code resultMetadata:} block into the YAMSQL source file immediately after the {@code query:} line.
-     * Used when {@link #OPTION_ADD_RESULT_METADATA} is set and the query had no {@code resultMetadata:} block.
-     */
-    public static final class AddMetadataCorrection implements YamlCorrection {
-        @Nonnull
-        private final YamlReference queryReference;
-        @Nonnull
-        private final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns;
-
-        AddMetadataCorrection(@Nonnull final YamlReference queryReference,
-                              @Nonnull final List<CheckResultMetadataConfig.ColumnDescriptor> actualColumns) {
-            this.queryReference = queryReference;
-            this.actualColumns = actualColumns;
-        }
-
-        @Override
-        public int getLineNumber() {
-            return queryReference.getLineNumber();
-        }
-
-        @Override
-        public void apply(@Nonnull final List<String> lines) {
-            final int queryLineIdx = queryReference.getLineNumber() - 1; // 1-based → 0-based
-            if (queryLineIdx < 0 || queryLineIdx >= lines.size()) {
-                return;
-            }
-            final String itemPrefix = " ".repeat(indentOf(lines.get(queryLineIdx)));
-            final String cols = actualColumns.stream().map(YamlExecutionContext::buildInlineDescriptor)
-                    .collect(Collectors.joining(", "));
-            // Insert just before the first result:/unorderedResult: config, so that explain:/planHash: lines
-            // that follow the query line are not displaced. Falls back to right after the query line.
-            final int insertIdx = findInsertionPoint(lines, queryLineIdx + 1, itemPrefix,
-                    line -> line.startsWith(itemPrefix + "- result:") || line.startsWith(itemPrefix + "- unorderedResult:"));
-            lines.add(insertIdx, itemPrefix + "- resultMetadata: [" + cols + "]");
-        }
-    }
-
-    public boolean addExplain(@Nonnull final YamlReference queryReference, @Nonnull String actual) {
-        if (!shouldAddExplains()) {
-            return false;
-        }
-        if (editedFileStream.get(queryReference.getResource()) == null) {
-            return false;
-        }
-        synchronized (this) {
-            final List<YamlCorrection> corrections = pendingCorrections
-                    .computeIfAbsent(queryReference.getResource(), k -> new ArrayList<>());
-            final int lineNumber = queryReference.getLineNumber();
-            final boolean alreadyPending = corrections.stream()
-                    .anyMatch(c -> c instanceof AddExplainCorrection && c.getLineNumber() == lineNumber);
-            if (!alreadyPending) {
-                corrections.add(new AddExplainCorrection(queryReference, actual));
-                isDirty.put(queryReference.getResource(), true);
-            }
-        }
-        return true;
-    }
-
-    int pendingAddExplainCorrectionCount(@Nonnull final YamlReference.YamlResource resource) {
-        final List<YamlCorrection> corrections = pendingCorrections.get(resource);
-        if (corrections == null) {
-            return 0;
-        }
-        return (int) corrections.stream().filter(c -> c instanceof AddExplainCorrection).count();
-    }
-
-    /**
-     * Inserts a new {@code explain:} line into the YAMSQL source file immediately before the first config entry
-     * that follows the {@code query:} line. Used when {@link #OPTION_ADD_EXPLAIN} is set and the query had no
-     * {@code explain:} block.
-     */
-    public static final class AddExplainCorrection implements YamlCorrection {
-        @Nonnull
-        private final YamlReference queryReference;
-        @Nonnull
-        private final String actual;
-
-        public AddExplainCorrection(@Nonnull final YamlReference queryReference, @Nonnull final String actual) {
-            this.queryReference = queryReference;
-            this.actual = actual;
-        }
-
-        @Override
-        public int getLineNumber() {
-            return queryReference.getLineNumber();
-        }
-
-        @Override
-        public void apply(@Nonnull final List<String> lines) {
-            final int queryLineIdx = queryReference.getLineNumber() - 1; // 1-based → 0-based
-            if (queryLineIdx < 0 || queryLineIdx >= lines.size()) {
-                return;
-            }
-            final String itemPrefix = " ".repeat(indentOf(lines.get(queryLineIdx)));
-            // Scan forward past any query-string continuation lines to find the first config entry
-            // at the same indentation level, and insert the explain line before it.
-            final int insertIdx = findInsertionPoint(lines, queryLineIdx + 1, itemPrefix,
-                    line -> line.startsWith(itemPrefix + "- "));
-            lines.add(insertIdx, itemPrefix + "- explain: \"" + actual + "\"");
-        }
-    }
-
-    @Nullable
-    public ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> getMetricsMap() {
-        return expectedMetricsMap;
-    }
-
-    @Nullable
-    @SuppressWarnings("UnusedReturnValue")
-    public synchronized PlannerMetricsProto.Info putMetrics(@Nonnull final String blockName,
-                                                            @Nonnull final String query,
-                                                            @Nonnull final YamlReference reference,
-                                                            @Nonnull final PlannerMetricsProto.Info info,
-                                                            @Nonnull final List<String> setups) {
-        return actualMetricsMap.put(new QueryAndLocation(blockName, query, reference, setups), info);
-    }
-
-    @SuppressWarnings("UnusedReturnValue")
-    public synchronized void markDirty() {
-        this.isDirtyMetrics = true;
+    @Nonnull
+    public YamlFilesMaintainer getFilesMaintainer() {
+        return filesMaintainer;
     }
 
     public static boolean isInCI() {
@@ -582,45 +212,8 @@ public final class YamlExecutionContext {
     }
 
     public void replaceFilesIfRequired() {
-        final var filePathsWithResourceCount = registeredResources.stream()
-                .map(YamlReference.YamlResource::getPath)
-                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
-        for (final var resource: registeredResources) {
-            if (!isDirty.getOrDefault(resource, false)) {
-                continue;
-            }
-            // There could arise a common scenario where a YAMSQL file is "opened" as 2 separate resource, coming from
-            // different call stacks. If this file has an EXPLAIN, and warrants correction, that will be a problem if,
-            // for the 2 resources pointing to same file, there is some disagreement on the values. Ideally this should
-            // not happen however, I believe it's still a possibility, mainly with metrics, to be highly sensitive to
-            // the environment in which the query is running. Because of this reason, just fail if we found resources
-            // that are marked as dirty and pointing to the same file as any other (dirty or non-dirty) resource.
-            if (filePathsWithResourceCount.getOrDefault(resource.getPath(), 0L) > 1) {
-                Assertions.fail("Found duplicate entries for writing to file: " + resource.getPath());
-            }
-            // Apply buffered corrections (explain + result-metadata) in descending line-number order before saving.
-            applyPendingCorrections(resource);
-            saveYamlFile(resource);
-        }
-        if (!isDirtyMetrics) {
-            return;
-        }
-        saveMetricsAsBinaryProto();
-        saveMetricsAsYaml();
-    }
-
-    private void saveYamlFile(@Nonnull final YamlReference.YamlResource resource) {
-        try {
-            try (var writer = new PrintWriter(new FileWriter(Path.of(System.getProperty("user.dir")).resolve(Path.of("src", "test", "resources", resource.getPath())).toAbsolutePath().toString(), StandardCharsets.UTF_8))) {
-                for (var line : editedFileStream.get(resource)) {
-                    writer.println(line);
-                }
-            }
-            logger.info("🟢 Source file {} replaced.", resource.getPath());
-        } catch (IOException e) {
-            logger.error("⚠️ Source file {} could not be replaced with corrected file.", resource.getPath());
-            Assertions.fail(e);
-        }
+        metricsMaintainer.saveIfNeeded();
+        filesMaintainer.saveIfNeeded();
     }
 
     public void registerConnectionURI(@Nonnull YamlReference.YamlResource resource, @Nonnull String stringURI) {
@@ -791,129 +384,6 @@ public final class YamlExecutionContext {
         return additionalOptions.getOrDefault(option, defaultValue);
     }
 
-    private void saveMetricsAsBinaryProto() {
-        //
-        // It is possible that some queries are repeated within the same block. These explain queries, if served from
-        // the cache contain their original planner metrics when they were planned, thus they are identical and we
-        // pick one of them. If not served from the cache (for instance by explicitly switching it off) we should
-        // still see the same counters which is all we test for at this moment. If someone adds a testcase that
-        // switches off the cache, executes an explain, changes something about the schema and then runs the same
-        // query in the same block a second time, there will be pain. Don't do that! We log a warning for this case
-        // but continue.
-        //
-        final var condensedMetricsMap = new LinkedHashMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>();
-        for (final var entry : actualMetricsMap.entrySet()) {
-            final var queryAndLocation = entry.getKey();
-            final var identifier = queryAndLocation.getIdentifier();
-            if (condensedMetricsMap.containsKey(identifier)) {
-                logger.warn("⚠️ Repeated query in block {} at {}", queryAndLocation.getBlockName(),
-                        queryAndLocation.getReference());
-            } else {
-                condensedMetricsMap.put(identifier,
-                        entry.getValue());
-            }
-        }
-
-        final var fileName = Path.of(System.getProperty("user.dir"))
-                .resolve(Path.of("src", "test", "resources", metricsBinaryProtoFileName(topLevelResource.getPath())))
-                .toAbsolutePath().toString();
-        try (var fos = new FileOutputStream(fileName)) {
-            for (final var entry : condensedMetricsMap.entrySet()) {
-                PlannerMetricsProto.Entry.newBuilder()
-                        .setIdentifier(entry.getKey())
-                        .setInfo(entry.getValue())
-                        .build()
-                        .writeDelimitedTo(fos);
-            }
-            logger.info("🟢 Planner metrics file {} replaced.", fileName);
-        } catch (final IOException iOE) {
-            logger.error("⚠️ Source file {} could not be replaced with corrected file.", fileName);
-            Assertions.fail(iOE);
-        }
-    }
-
-    private void saveMetricsAsYaml() {
-        final var mmap = LinkedListMultimap.<String, Map<String, Object>>create();
-        for (final var entry : actualMetricsMap.entrySet()) {
-            final var identifier = entry.getKey().getIdentifier();
-            final var info = entry.getValue();
-            final var countersAndTimers = info.getCountersAndTimers();
-            final var infoMap = new LinkedHashMap<String, Object>();
-            infoMap.put("query", identifier.getQuery());
-            // only include setup if it is non-empty, in part so that the PR that adds setup doesn't change every
-            // metric in the yaml files
-            if (identifier.getSetupsCount() > 0) {
-                infoMap.put("setup", identifier.getSetupsList());
-            }
-            infoMap.put("ref", entry.getKey().getReference().toString());
-            infoMap.put("explain", info.getExplain());
-            infoMap.put("task_count", countersAndTimers.getTaskCount());
-            infoMap.put("task_total_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getTaskTotalTimeNs()));
-            infoMap.put("transform_count", countersAndTimers.getTransformCount());
-            infoMap.put("transform_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getTransformTimeNs()));
-            infoMap.put("transform_yield_count", countersAndTimers.getTransformYieldCount());
-            infoMap.put("insert_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getInsertTimeNs()));
-            infoMap.put("insert_new_count", countersAndTimers.getInsertNewCount());
-            infoMap.put("insert_reused_count", countersAndTimers.getInsertReusedCount());
-            mmap.put(identifier.getBlockName(), infoMap);
-        }
-
-        final var fileName = Path.of(System.getProperty("user.dir"))
-                .resolve(Path.of("src", "test", "resources", metricsYamlFileName(topLevelResource.getPath())))
-                .toAbsolutePath().toString();
-        try (var fos = new FileOutputStream(fileName)) {
-            DumperOptions options = new DumperOptions();
-            options.setIndent(4);
-            options.setPrettyFlow(true);
-            options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-            Yaml yaml = new Yaml(options);
-            yaml.dump(mmap.asMap(), new PrintWriter(fos, false, StandardCharsets.UTF_8));
-            logger.info("🟢 Planner metrics file {} replaced.", fileName);
-        } catch (final IOException iOE) {
-            logger.error("⚠️ Source file {} could not be replaced with corrected file.", fileName);
-            Assertions.fail(iOE);
-        }
-    }
-
-    @Nonnull
-    private static List<String> loadYamlResource(@Nonnull final YamlReference.YamlResource resource) throws RelationalException {
-        final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        final List<String> inMemoryFile = new ArrayList<>();
-        try (BufferedReader bufferedReader =
-                     new BufferedReader(
-                             new InputStreamReader(Objects.requireNonNull(classLoader.getResourceAsStream(resource.getPath())),
-                                     StandardCharsets.UTF_8))) {
-            for (String line = bufferedReader.readLine(); line != null; line = bufferedReader.readLine()) {
-                inMemoryFile.add(line);
-            }
-        } catch (IOException e) {
-            throw new RelationalException(ErrorCode.INTERNAL_ERROR, e);
-        }
-        return inMemoryFile;
-    }
-
-    @Nonnull
-    private static ImmutableMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info> loadMetricsResource(@Nonnull final YamlReference.YamlResource resource) throws RelationalException {
-        final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        final var fis = classLoader.getResourceAsStream(metricsBinaryProtoFileName(resource.getPath()));
-        final var resultMapBuilder =
-                ImmutableMap.<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>builder();
-        if (fis == null) {
-            return resultMapBuilder.build();
-        }
-        try {
-            while (true) {
-                final var entry = PlannerMetricsProto.Entry.parseDelimitedFrom(fis);
-                if (entry == null) {
-                    return resultMapBuilder.build();
-                }
-                resultMapBuilder.put(entry.getIdentifier(), entry.getInfo());
-            }
-        } catch (final IOException e) {
-            throw new RelationalException(ErrorCode.INTERNAL_ERROR, e);
-        }
-    }
-
     /**
      * Loads metrics from a YAML file on disk.
      * This method provides YAML parsing capability for metrics diff analysis.
@@ -1051,75 +521,6 @@ public final class YamlExecutionContext {
             return ((Number) value).longValue();
         }
         throw new IllegalArgumentException("Expected numeric value for key: " + key + ", got: " + value);
-    }
-
-    @Nonnull
-    private static String metricsBinaryProtoFileName(@Nonnull final String resourcePath) {
-        return baseName(resourcePath) + ".metrics.binpb";
-    }
-
-    @Nonnull
-    private static String metricsYamlFileName(@Nonnull final String resourcePath) {
-        return baseName(resourcePath) + ".metrics.yaml";
-    }
-
-    @Nonnull
-    private static String baseName(@Nonnull final String resourcePath) {
-        final var tokens = resourcePath.split("\\.(?=[^\\.]+$)");
-        Verify.verify(tokens.length == 2);
-        Verify.verify("yamsql".equals(tokens[1]));
-        return tokens[0];
-    }
-
-    private static class QueryAndLocation {
-        @Nonnull
-        private final PlannerMetricsProto.Identifier identifier;
-        @Nonnull
-        private final YamlReference reference;
-
-        public QueryAndLocation(@Nonnull final String blockName, final String query, @Nonnull final YamlReference reference,
-                                @Nonnull List<String> setups) {
-            identifier = PlannerMetricsProto.Identifier.newBuilder()
-                    .setBlockName(blockName)
-                    .setQuery(query)
-                    .addAllSetups(setups)
-                    .build();
-            this.reference = reference;
-        }
-
-        @Nonnull
-        public PlannerMetricsProto.Identifier getIdentifier() {
-            return identifier;
-        }
-
-        @Nonnull
-        public String getBlockName() {
-            return identifier.getBlockName();
-        }
-
-        @Nonnull
-        public String getQuery() {
-            return identifier.getQuery();
-        }
-
-        @Nonnull
-        public YamlReference getReference() {
-            return reference;
-        }
-
-        @Override
-        public boolean equals(final Object o) {
-            if (!(o instanceof QueryAndLocation)) {
-                return false;
-            }
-            final QueryAndLocation that = (QueryAndLocation)o;
-            return reference.equals(that.reference) && Objects.equals(identifier, that.identifier);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(identifier, reference);
-        }
     }
 
     public static class ContextOptions {

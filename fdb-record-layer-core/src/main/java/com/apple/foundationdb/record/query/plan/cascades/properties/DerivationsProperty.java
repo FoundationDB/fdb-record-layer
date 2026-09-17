@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexValuePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -271,6 +272,12 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
         @Nonnull
         @Override
         public Derivations visitCoveringIndexPlan(@Nonnull final RecordQueryCoveringIndexPlan coveringIndexPlan) {
+            return visit(coveringIndexPlan.getIndexPlan());
+        }
+
+        @Nonnull
+        @Override
+        public Derivations visitCoveringIndexValuePlan(@Nonnull final RecordQueryCoveringIndexValuePlan coveringIndexPlan) {
             return visit(coveringIndexPlan.getIndexPlan());
         }
 

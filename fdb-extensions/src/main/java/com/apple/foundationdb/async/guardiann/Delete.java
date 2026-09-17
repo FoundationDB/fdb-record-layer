@@ -88,19 +88,22 @@ class Delete {
      * <p>
      * Locates the vector's references in nearby clusters by querying the HNSW centroid index,
      * removes them, adjusts cluster metadata, and enqueues a merge task via
-     * {@link Primitives#updateClusterMetadataAndEnqueueMergeTaskMaybe} if the primary cluster's size drops below the
+     * {@link Primitives#updateClusterMetadataAndEnqueueMergeOrReassignTaskMaybe} if the primary cluster's size drops below the
      * configured minimum (and a mergeable neighbor exists). Finally, removes the vector's metadata entry.
      *
      * @param transaction the {@link Transaction} context for all database operations
      * @param primaryKey the unique {@link Tuple} primary key of the vector to delete
      * @param vector the {@link RealVector} data of the vector being deleted (needed to locate its clusters)
+     * @param maintainInTransaction when {@code true}, drain one deferred maintenance task inside this writing
+     *        transaction; when {@code false} tasks accumulate for a background merge
      * @return a {@link CompletableFuture} that completes when the deletion is finished, or completes
      *         immediately if the vector does not exist
      */
     @Nonnull
     public CompletableFuture<Void> delete(@Nonnull final Transaction transaction,
                                           @Nonnull final Tuple primaryKey,
-                                          @Nonnull final RealVector vector) {
+                                          @Nonnull final RealVector vector,
+                                          final boolean maintainInTransaction) {
         final SplittableRandom random = RandomHelpers.random(primaryKey);
         final Primitives primitives = primitives();
 
@@ -119,8 +122,12 @@ class Delete {
                                     return AsyncUtil.DONE;
                                 }
 
-                                // do some deferred tasks
-                                return primitives.executeSomeDeferredTasks(transaction, accessInfo, 1)
+                                // Optionally drain a deferred task in this transaction; when disabled (the default)
+                                // tasks accumulate and are left for the background merge process.
+                                if (!maintainInTransaction) {
+                                    return deleteFromClusters(transaction, random, accessInfo, primaryKey, vector);
+                                }
+                                return primitives.executeDeferredTasks(transaction, accessInfo, 1)
                                         .thenCompose(ignored ->
                                                 deleteFromClusters(transaction, random, accessInfo, primaryKey,
                                                         vector));
@@ -194,12 +201,12 @@ class Delete {
                                                     clusterMetadataWithDistance.distance());
 
                                     primaryUpdateFuture = primaryUpdateFuture.thenCompose(ignored ->
-                                            primitives.updateClusterMetadataAndEnqueueMergeTaskMaybe(transaction,
+                                            primitives.updateClusterMetadataAndEnqueueMergeOrReassignTaskMaybe(transaction,
                                                     random.split(), clusterMetadata,
                                                     clusterMetadataWithDistance.centroid(), accessInfo,
                                                     updatedStandardDeviation));
                                 } else {
-                                    primitives.updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe(transaction,
+                                    primitives.updateClusterMetadataAndEnqueueReassignTaskMaybe(transaction,
                                             random.split(), clusterMetadata,
                                             clusterMetadataWithDistance.centroid(), accessInfo,
                                             0, 0, -1,

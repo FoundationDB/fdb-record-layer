@@ -22,7 +22,7 @@ runs:
   steps:
   - name: Cache Downloaded Build Assets
     id: cache-donwloaded-build-assets
-    uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+    uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
     with:
       path: .downloaded-build-assets
       key: downloaded-build-assets-for-'${{ inputs.gradle_command }}'-${{ hashFiles('**/*.gradle') }}
@@ -65,7 +65,7 @@ runs:
       echo "SUCCESS" >> test-reports/overall.txt
   - name: Publish Test Reports
     if: ${{ !cancelled() }}
-    uses: actions/upload-artifact@v7.0.1
+    uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
     with:
       name: ${{ inputs.report_name }}
       if-no-files-found: ignore

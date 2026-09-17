@@ -37,6 +37,7 @@ class ConfigTest {
         final Metric metric = Metric.COSINE_METRIC;
         final int primaryClusterMin = Config.DEFAULT_PRIMARY_CLUSTER_MIN + 1;
         final int primaryClusterMax = Config.DEFAULT_PRIMARY_CLUSTER_MAX + 1;
+        final int primaryClusterHardMax = Config.DEFAULT_PRIMARY_CLUSTER_HARD_MAX + 1;
         final int underreplicatedPrimaryClusterMax = Config.DEFAULT_UNDERREPLICATED_PRIMARY_CLUSTER_MAX + 1;
         final int replicatedClusterMaxWrites = Config.DEFAULT_REPLICATED_CLUSTER_MAX_WRITES + 1;
         final int replicatedClusterTarget = Config.DEFAULT_REPLICATED_CLUSTER_TARGET + 1;
@@ -67,10 +68,15 @@ class ConfigTest {
         final SearchConfig constructionSearchConfig = new SearchConfig.SearchConfigBuilder()
                 .setCentroidEfRingSearch(SearchConfig.DEFAULT_CENTROID_EF_RING_SEARCH + 1)
                 .build();
+        final double mergeMaxEverFraction = 0.42d;
+        final double minChildFraction = 0.07d;
+        final double maxRelativeImbalance = 0.44d;
+        final double splitImbalancePenalty = 2.5d;
 
         Assertions.assertThat(defaultConfig.metric()).isNotSameAs(metric);
         Assertions.assertThat(defaultConfig.primaryClusterMin()).isNotEqualTo(primaryClusterMin);
         Assertions.assertThat(defaultConfig.primaryClusterMax()).isNotEqualTo(primaryClusterMax);
+        Assertions.assertThat(defaultConfig.primaryClusterHardMax()).isNotEqualTo(primaryClusterHardMax);
         Assertions.assertThat(defaultConfig.underreplicatedPrimaryClusterMax()).isNotEqualTo(underreplicatedPrimaryClusterMax);
         Assertions.assertThat(defaultConfig.replicatedClusterMaxWrites()).isNotEqualTo(replicatedClusterMaxWrites);
         Assertions.assertThat(defaultConfig.replicatedClusterTarget()).isNotEqualTo(replicatedClusterTarget);
@@ -99,12 +105,17 @@ class ConfigTest {
         Assertions.assertThat(defaultConfig.collapseConcurrency()).isNotEqualTo(collapseConcurrency);
         Assertions.assertThat(defaultConfig.bounceConcurrency()).isNotEqualTo(bounceConcurrency);
         Assertions.assertThat(defaultConfig.constructionSearchConfig()).isNotEqualTo(constructionSearchConfig);
+        Assertions.assertThat(defaultConfig.mergeMaxEverFraction()).isNotEqualTo(mergeMaxEverFraction);
+        Assertions.assertThat(defaultConfig.minChildFraction()).isNotEqualTo(minChildFraction);
+        Assertions.assertThat(defaultConfig.maxRelativeImbalance()).isNotEqualTo(maxRelativeImbalance);
+        Assertions.assertThat(defaultConfig.splitImbalancePenalty()).isNotEqualTo(splitImbalancePenalty);
 
         final Config newConfig =
                 defaultConfig.toBuilder()
                         .setMetric(metric)
                         .setPrimaryClusterMin(primaryClusterMin)
                         .setPrimaryClusterMax(primaryClusterMax)
+                        .setPrimaryClusterHardMax(primaryClusterHardMax)
                         .setUnderreplicatedPrimaryClusterMax(underreplicatedPrimaryClusterMax)
                         .setReplicatedClusterMaxWrites(replicatedClusterMaxWrites)
                         .setReplicatedClusterTarget(replicatedClusterTarget)
@@ -133,11 +144,16 @@ class ConfigTest {
                         .setCollapseConcurrency(collapseConcurrency)
                         .setBounceConcurrency(bounceConcurrency)
                         .setConstructionSearchConfig(constructionSearchConfig)
+                        .setMergeMaxEverFraction(mergeMaxEverFraction)
+                        .setMinChildFraction(minChildFraction)
+                        .setMaxRelativeImbalance(maxRelativeImbalance)
+                        .setSplitImbalancePenalty(splitImbalancePenalty)
                         .build(NUM_DIMENSIONS);
 
         Assertions.assertThat(newConfig.metric()).isSameAs(metric);
         Assertions.assertThat(newConfig.primaryClusterMin()).isEqualTo(primaryClusterMin);
         Assertions.assertThat(newConfig.primaryClusterMax()).isEqualTo(primaryClusterMax);
+        Assertions.assertThat(newConfig.primaryClusterHardMax()).isEqualTo(primaryClusterHardMax);
         Assertions.assertThat(newConfig.underreplicatedPrimaryClusterMax()).isEqualTo(underreplicatedPrimaryClusterMax);
         Assertions.assertThat(newConfig.replicatedClusterMaxWrites()).isEqualTo(replicatedClusterMaxWrites);
         Assertions.assertThat(newConfig.replicatedClusterTarget()).isEqualTo(replicatedClusterTarget);
@@ -166,13 +182,24 @@ class ConfigTest {
         Assertions.assertThat(newConfig.collapseConcurrency()).isEqualTo(collapseConcurrency);
         Assertions.assertThat(newConfig.bounceConcurrency()).isEqualTo(bounceConcurrency);
         Assertions.assertThat(newConfig.constructionSearchConfig()).isEqualTo(constructionSearchConfig);
+        Assertions.assertThat(newConfig.mergeMaxEverFraction()).isEqualTo(mergeMaxEverFraction);
+        Assertions.assertThat(newConfig.minChildFraction()).isEqualTo(minChildFraction);
+        Assertions.assertThat(newConfig.maxRelativeImbalance()).isEqualTo(maxRelativeImbalance);
+        Assertions.assertThat(newConfig.splitImbalancePenalty()).isEqualTo(splitImbalancePenalty);
+
+        // Round-tripping a config whose every component differs from the default is what actually pins toBuilder():
+        // doing it on the default config above cannot detect a component that toBuilder() drops or transposes,
+        // since the rebuilt builder would fall back to exactly the value that was lost.
+        Assertions.assertThat(newConfig.toBuilder().build(NUM_DIMENSIONS)).isEqualTo(newConfig);
     }
 
     @Test
     void testEqualsHashCodeAndToString() {
         final Config config1 = Guardiann.newConfigBuilder().build(NUM_DIMENSIONS);
         final Config config2 = Guardiann.newConfigBuilder().build(NUM_DIMENSIONS);
-        final Config config3 = Guardiann.newConfigBuilder().setPrimaryClusterMax(4).build(NUM_DIMENSIONS);
+        // collapseMinDuplicates must stay below primaryClusterMax (Config invariant), so lower it alongside the cap.
+        final Config config3 = Guardiann.newConfigBuilder().setPrimaryClusterMax(4).setCollapseMinDuplicates(3)
+                .build(NUM_DIMENSIONS);
 
         Assertions.assertThat(config1.hashCode()).isEqualTo(config2.hashCode());
         Assertions.assertThat(config1).isEqualTo(config2);
@@ -191,5 +218,90 @@ class ConfigTest {
                 .isInstanceOf(IllegalArgumentException.class);
         Assertions.assertThatThrownBy(() -> Guardiann.defaultConfig(-1))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void testPrimaryClusterHardMaxMustExceedMax() {
+        // The hard cap must sit strictly above the split threshold; equal is not enough (it would back-pressure before
+        // the normal split ever triggers). collapseMinDuplicates is kept below primaryClusterMax so that the collapse
+        // invariant passes and the hard-cap invariant is the one exercised here.
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setPrimaryClusterMax(100).setCollapseMinDuplicates(50).setPrimaryClusterHardMax(100)
+                        .build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setPrimaryClusterMax(100).setCollapseMinDuplicates(50).setPrimaryClusterHardMax(99)
+                        .build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setPrimaryClusterMax(100).setCollapseMinDuplicates(50).setPrimaryClusterHardMax(101)
+                        .build(NUM_DIMENSIONS)
+                        .primaryClusterHardMax())
+                .isEqualTo(101);
+    }
+
+    @Test
+    void testMinChildFractionMustBeInLowerHalfOfUnitInterval() {
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setMinChildFraction(-0.01d).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setMinChildFraction(0.5d).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setMinChildFraction(0.0d).build(NUM_DIMENSIONS).minChildFraction())
+                .isZero();
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setMinChildFraction(0.499d).build(NUM_DIMENSIONS).minChildFraction())
+                .isEqualTo(0.499d);
+    }
+
+    @Test
+    void testMaxRelativeImbalanceMustBeInClosedUnitInterval() {
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setMaxRelativeImbalance(-0.01d).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setMaxRelativeImbalance(1.01d).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        // Both bounds are attainable: 0 admits only perfectly even partitionings, 1 disables the gate.
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setMaxRelativeImbalance(0.0d).build(NUM_DIMENSIONS).maxRelativeImbalance())
+                .isZero();
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setMaxRelativeImbalance(1.0d).build(NUM_DIMENSIONS).maxRelativeImbalance())
+                .isEqualTo(1.0d);
+    }
+
+    @Test
+    void testSplitImbalancePenaltyMustBeNonNegative() {
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setSplitImbalancePenalty(-0.1d).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        // Zero is legal and means imbalance does not influence the score at all.
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setSplitImbalancePenalty(0.0d).build(NUM_DIMENSIONS).splitImbalancePenalty())
+                .isZero();
+    }
+
+    @Test
+    void testMergeMaxEverFractionMustBeNonNegativeAndBelowOne() {
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setMergeMaxEverFraction(-0.1d).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setMergeMaxEverFraction(1.5d).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        Assertions.assertThatThrownBy(() -> Guardiann.newConfigBuilder()
+                        .setMergeMaxEverFraction(1.0d).build(NUM_DIMENSIONS))
+                .isInstanceOf(IllegalArgumentException.class);
+        // Zero is legal and disables the peak-relative term, leaving primaryClusterMin as the whole trigger.
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setMergeMaxEverFraction(0.0d).build(NUM_DIMENSIONS).mergeMaxEverFraction())
+                .isZero();
+        Assertions.assertThat(Guardiann.newConfigBuilder()
+                        .setMergeMaxEverFraction(0.999d).build(NUM_DIMENSIONS).mergeMaxEverFraction())
+                .isEqualTo(0.999d);
     }
 }

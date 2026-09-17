@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -131,7 +132,7 @@ public class DeleteExpression extends AbstractRelationalExpressionWithChildren i
 
     @Override
     public String toString() {
-        return "Delete(" + targetRecordType + ")";
+        return "Delete(" + ProtoUtils.toUserIdentifier(targetRecordType) + ")";
     }
 
     /**
@@ -148,7 +149,7 @@ public class DeleteExpression extends AbstractRelationalExpressionWithChildren i
                 PlannerGraph.fromNodeAndChildGraphs(
                         new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
                                 getResultType(),
-                                ImmutableList.of(targetRecordType)),
+                                ImmutableList.of(ProtoUtils.toUserIdentifier(targetRecordType))),
                         ImmutableList.of());
 
         return PlannerGraph.fromNodeInnerAndTargetForModifications(

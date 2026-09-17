@@ -125,6 +125,21 @@ test_block:
       - unorderedResult: [{ID: 1, T2_ID: 100},
                           {ID: 3, T2_ID: 300}]
     -
+      # not exists in the where clause, i.e. the anti-join counterpart of the semi-join above
+      - query: select t1.id, t2.id as t2_id
+               from t1 join t2 on t1.id = t2.t1_id
+               where not exists (select 1 from t3 where t3.t2_id = t2.id)
+      - explain: "SCAN([IS T2]) | FLATMAP q0 -> { COVERING(T3_T2_ID [EQUALS q0.ID] -> [ID: KEY:[2], T2_ID: KEY:[0]]) | MAP (@c27 AS _0) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { SCAN([IS T1, EQUALS q0.T1_ID]) AS q3 RETURN (q3.ID AS ID, q0.ID AS T2_ID) }"
+      - unorderedResult: [{ID: 1, T2_ID: 200}]
+    -
+      # not exists in the where clause combined with exists in the projection
+      - query: select t1.id,
+               exists (select 1 from t3, t2 where t3.t2_id = t2.id and t2.t1_id = t1.id) as has_t3
+               from t1
+               where not exists (select 1 from t2 where t2.t1_id = t1.id)
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | MAP (@c39 AS _0) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { SCAN([IS T2]) | FILTER _.T1_ID EQUALS q0.ID | FLATMAP q3 -> { ISCAN(T3_T2_ID [EQUALS q3.ID]) AS q4 RETURN (@c39 AS _0) } | DEFAULT NULL AS q5 RETURN (q0.ID AS ID, exists(q5) AS HAS_T3) }"
+      - result: [{ID: 2, HAS_T3: false}]
+    -
       # exists in projection where outer query uses the t3_t2_id index
       - query: select t3.id, t3.label,
                exists (select 1 from t2 where t2.id = t3.t2_id) as has_t2
