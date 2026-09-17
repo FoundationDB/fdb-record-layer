@@ -154,6 +154,7 @@ public class ReassignScenarioTest implements BaseTest {
                 .setPrimaryClusterMax(PRIMARY_CLUSTER_MAX)
                 .setCollapseMinDuplicates(PRIMARY_CLUSTER_MAX / 2)
                 .setPrimaryClusterMin(1)
+                .setMergeMaxEverFraction(0.0d)
                 .setDeterministicRandomness(true)
                 .setUnderreplicatedPrimaryClusterMax(UNDERREPLICATED_MAX)
                 // Keep the OTHER reassign trigger out of the way so the REASSIGN we observe is

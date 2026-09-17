@@ -21,7 +21,7 @@
 # genuinely unbound "IS NOT DISTINCT FROM" parameter on the index's LEADING key column.
 ---
 options:
-    supported_version: !current_version
+    supported_version: 4.14.1.0
 ---
 schema_template:
     create type as struct scope(scope_id bigint, deleted boolean)

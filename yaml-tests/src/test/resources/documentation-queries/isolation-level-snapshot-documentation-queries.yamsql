@@ -25,7 +25,7 @@
 # sequenceLikeIdsWithMaxEverIndex.
 ---
 options:
-    supported_version: !current_version
+    supported_version: 4.14.1.0
 ---
 schema_template:
     create table document(id bigint, data string, primary key(id))
