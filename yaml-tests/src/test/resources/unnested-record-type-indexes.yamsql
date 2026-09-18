@@ -1,0 +1,126 @@
+#
+# unnested-record-type-indexes.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+options:
+  supported_version: !current_version
+---
+# End-to-end tests for an index over a single unnesting, and for predicates on top of it.
+#
+# An index over an unnesting only needs a synthetic record type when two or more columns reached through the same
+# unnesting are not adjacent in the index key. `mv_split` is such an index: `reviewer` and `rating` both come from one
+# review, but `region` (a column of the parent row) sits between them. Evaluating that key as a plain fan-out would
+# produce the cross product of the reviews with themselves, so the index is instead defined over a synthetic type
+# whose records pair the parent row with a single review.
+schema_template:
+  CREATE TYPE AS STRUCT "review" ("reviewer" STRING, "rating" BIGINT)
+
+  CREATE TABLE "restaurant" ("rest_no" BIGINT, "region" STRING, "reviews" "review" ARRAY, PRIMARY KEY ("rest_no"))
+  CREATE INDEX "mv_split" AS
+    SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+      FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+     ORDER BY SQ."reviewer", "restaurant"."region", SQ."rating"
+---
+setup:
+  steps:
+    - query: INSERT INTO "restaurant"
+             VALUES (1, 'north', [('Alice', 5), ('Bob', 3)]),
+                    (2, 'south', [('Carol', 4)]),
+                    (3, 'north', [('Dave', 2), ('Alice', 4)])
+---
+test_block:
+  tests:
+    -
+      # The query the index was defined for. The index supplies the requested ordering, so no sort is needed, and
+      # every selected column is in the index key, so the scan is covering.
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                ORDER BY SQ."reviewer", "restaurant"."region", SQ."rating"
+      - explain: "COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Alice', region: 'north', rating: 4},
+          {reviewer: 'Alice', region: 'north', rating: 5},
+          {reviewer: 'Bob', region: 'north', rating: 3},
+          {reviewer: 'Carol', region: 'south', rating: 4},
+          {reviewer: 'Dave', region: 'north', rating: 2}]
+    -
+      # The same unnesting without an ORDER BY. The index still answers it; the result order is not guaranteed.
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+      - explain: "COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - unorderedResult: [
+          {reviewer: 'Alice', region: 'north', rating: 5},
+          {reviewer: 'Bob', region: 'north', rating: 3},
+          {reviewer: 'Carol', region: 'south', rating: 4},
+          {reviewer: 'Dave', region: 'north', rating: 2},
+          {reviewer: 'Alice', region: 'north', rating: 4}]
+    -
+      # Selecting a prefix of the key rather than all of it.
+      - query: SELECT SQ."reviewer"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                ORDER BY SQ."reviewer"
+      - explain: "COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer)"
+      - result: [
+          {reviewer: 'Alice'},
+          {reviewer: 'Alice'},
+          {reviewer: 'Bob'},
+          {reviewer: 'Carol'},
+          {reviewer: 'Dave'}]
+    -
+      # PartiQL-style unnesting binds the array element directly rather than packing it into a subquery tuple. The
+      # index is defined with the subquery spelling, but both describe the same unnesting.
+      - query: SELECT "r"."reviewer", "restaurant"."region", "r"."rating"
+                 FROM "restaurant", "restaurant"."reviews" AS "r"
+                ORDER BY "r"."reviewer", "restaurant"."region", "r"."rating"
+      - explain: "COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Alice', region: 'north', rating: 4},
+          {reviewer: 'Alice', region: 'north', rating: 5},
+          {reviewer: 'Bob', region: 'north', rating: 3},
+          {reviewer: 'Carol', region: 'south', rating: 4},
+          {reviewer: 'Dave', region: 'north', rating: 2}]
+    -
+      # An equality on the leading key column. The index's placeholders live on the same select as the constituents'
+      # quantifiers, so a predicate over the unnesting can be matched against them and bind the scan.
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" = 'Alice'
+      - explain: "COVERING(mv_split [EQUALS promote(@c32 AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Alice', region: 'north', rating: 4},
+          {reviewer: 'Alice', region: 'north', rating: 5}]
+    -
+      # A full key prefix, spanning the unnesting and the parent row, binds both key columns.
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" = 'Alice' AND "restaurant"."region" = 'north'
+      - explain: "COVERING(mv_split [EQUALS promote(@c32 AS STRING), EQUALS promote(@c38 AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Alice', region: 'north', rating: 4},
+          {reviewer: 'Alice', region: 'north', rating: 5}]
+    -
+      # An equality on the unnesting reached through the PartiQL spelling of the same unnesting.
+      - query: SELECT "r"."reviewer", "restaurant"."region", "r"."rating"
+                 FROM "restaurant", "restaurant"."reviews" AS "r"
+                WHERE "r"."reviewer" = 'Alice'
+      - explain: "COVERING(mv_split [EQUALS promote(@c25 AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Alice', region: 'north', rating: 4},
+          {reviewer: 'Alice', region: 'north', rating: 5}]
+...
