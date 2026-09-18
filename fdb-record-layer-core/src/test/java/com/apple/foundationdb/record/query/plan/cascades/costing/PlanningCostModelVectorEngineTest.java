@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades;
+package com.apple.foundationdb.record.query.plan.cascades.costing;
 
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.IndexScanType;
@@ -27,14 +27,21 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.VectorIndexEnginePreference;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.Traversal;
+import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.VectorIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -45,10 +52,11 @@ import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -142,10 +150,26 @@ class PlanningCostModelVectorEngineTest {
     }
 
     @Nonnull
-    private static PlanningCostModel costModel(@Nonnull final VectorIndexEnginePreference preference) {
-        return new PlanningCostModel(RecordQueryPlannerConfiguration.builder()
+    private static RecordQueryPlan betterPlan(@Nonnull final VectorIndexEnginePreference preference,
+                                              @Nonnull final RecordQueryPlan planA,
+                                              @Nonnull final RecordQueryPlan planB) {
+        final RecordQueryPlannerConfiguration configuration = RecordQueryPlannerConfiguration.builder()
                 .setVectorIndexEnginePreference(preference)
-                .build());
+                .build();
+        final PlanningCostModel costModel = new PlanningCostModel(configuration);
+        final Optional<RecordQueryPlan> bestPlan = costModel.getBestExpression(ImmutableSet.of(planA, planB), ignore -> { /* no op */ });
+        assertTrue(bestPlan.isPresent());
+        return bestPlan.get();
+    }
+
+    @Nonnull
+    private static OptionalInt compareOpsMaps(@Nonnull VectorIndexEnginePreference preference,
+                                              @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
+                                              @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB) {
+        final RecordQueryPlannerConfiguration configuration = RecordQueryPlannerConfiguration.builder()
+                .setVectorIndexEnginePreference(preference)
+                .build();
+        return PlanningCostModel.vectorIndexEnginePreferenceTiebreaker().compareVectorIndexEnginePreference(configuration, opsMapA, opsMapB);
     }
 
     /**
@@ -157,31 +181,29 @@ class PlanningCostModelVectorEngineTest {
     void noPreferenceFallsThroughToPlanHash() {
         final RecordQueryIndexPlan hnswPlan = vectorIndexPlan(HNSW_INDEX_NAME, false);
         final RecordQueryIndexPlan guardiannPlan = vectorIndexPlan(GUARDIANN_INDEX_NAME, true);
-        final PlanningCostModel costModel = costModel(VectorIndexEnginePreference.NO_PREFERENCE);
 
-        final int expected = Integer.compare(hnswPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
+        final int hashComparison = Integer.compare(hnswPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
                 guardiannPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
-        assertEquals(expected, costModel.compare(hnswPlan, guardiannPlan));
+        final RecordQueryPlan expected = hashComparison < 0 ? hnswPlan : guardiannPlan;
+        assertSame(expected, betterPlan(VectorIndexEnginePreference.NO_PREFERENCE, hnswPlan, guardiannPlan));
     }
 
     @Test
     void preferHnswPicksTheHnswPlan() {
         final RecordQueryIndexPlan hnswPlan = vectorIndexPlan(HNSW_INDEX_NAME, false);
         final RecordQueryIndexPlan guardiannPlan = vectorIndexPlan(GUARDIANN_INDEX_NAME, true);
-        final PlanningCostModel costModel = costModel(VectorIndexEnginePreference.PREFER_HNSW);
 
-        assertTrue(costModel.compare(hnswPlan, guardiannPlan) < 0, "HNSW plan should sort first");
-        assertTrue(costModel.compare(guardiannPlan, hnswPlan) > 0, "comparison should be antisymmetric");
+        assertSame(hnswPlan, betterPlan(VectorIndexEnginePreference.PREFER_HNSW, hnswPlan, guardiannPlan), "HNSW plan should sort first");
+        assertSame(hnswPlan, betterPlan(VectorIndexEnginePreference.PREFER_HNSW, guardiannPlan, hnswPlan), "comparison should be antisymmetric");
     }
 
     @Test
     void preferGuardiannPicksTheGuardiannPlan() {
         final RecordQueryIndexPlan hnswPlan = vectorIndexPlan(HNSW_INDEX_NAME, false);
         final RecordQueryIndexPlan guardiannPlan = vectorIndexPlan(GUARDIANN_INDEX_NAME, true);
-        final PlanningCostModel costModel = costModel(VectorIndexEnginePreference.PREFER_GUARDIANN);
 
-        assertTrue(costModel.compare(guardiannPlan, hnswPlan) < 0, "Guardiann plan should sort first");
-        assertTrue(costModel.compare(hnswPlan, guardiannPlan) > 0, "comparison should be antisymmetric");
+        assertSame(guardiannPlan, betterPlan(VectorIndexEnginePreference.PREFER_GUARDIANN, guardiannPlan, hnswPlan), "Guardiann plan should sort first");
+        assertSame(guardiannPlan, betterPlan(VectorIndexEnginePreference.PREFER_GUARDIANN, hnswPlan, guardiannPlan), "comparison should be antisymmetric");
     }
 
     /**
@@ -234,9 +256,8 @@ class PlanningCostModelVectorEngineTest {
                 planOpsMapOf(vectorIndexPlan("guardiannIndexOne", true), vectorIndexPlan("guardiannIndexTwo", true));
         final var oneHnswAccess = planOpsMapOf(vectorIndexPlan(HNSW_INDEX_NAME, false));
 
-        final PlanningCostModel costModel = costModel(VectorIndexEnginePreference.PREFER_GUARDIANN);
-        assertTrue(costModel.compareVectorIndexEnginePreference(twoGuardiannAccesses, oneHnswAccess).isEmpty());
-        assertTrue(costModel.compareVectorIndexEnginePreference(oneHnswAccess, twoGuardiannAccesses).isEmpty());
+        assertTrue(compareOpsMaps(VectorIndexEnginePreference.PREFER_GUARDIANN, twoGuardiannAccesses, oneHnswAccess).isEmpty());
+        assertTrue(compareOpsMaps(VectorIndexEnginePreference.PREFER_GUARDIANN, oneHnswAccess, twoGuardiannAccesses).isEmpty());
     }
 
     /**
@@ -251,12 +272,11 @@ class PlanningCostModelVectorEngineTest {
         final var nonVectorPlan = planOpsMapOf(nonVectorIndexPlan("valueIndex"));
 
         for (final VectorIndexEnginePreference preference : VectorIndexEnginePreference.values()) {
-            final PlanningCostModel costModel = costModel(preference);
-            assertTrue(costModel.compareVectorIndexEnginePreference(hnswPlan, nonVectorPlan).isEmpty(),
+            assertTrue(compareOpsMaps(preference, hnswPlan, nonVectorPlan).isEmpty(),
                     () -> "preference " + preference + " should abstain against a plan with no vector access");
-            assertTrue(costModel.compareVectorIndexEnginePreference(nonVectorPlan, hnswPlan).isEmpty(),
+            assertTrue(compareOpsMaps(preference, nonVectorPlan, hnswPlan).isEmpty(),
                     () -> "preference " + preference + " should abstain against a plan with no vector access");
-            assertTrue(costModel.compareVectorIndexEnginePreference(guardiannPlan, nonVectorPlan).isEmpty(),
+            assertTrue(compareOpsMaps(preference, guardiannPlan, nonVectorPlan).isEmpty(),
                     () -> "preference " + preference + " should abstain against a plan with no vector access");
         }
     }
@@ -271,9 +291,8 @@ class PlanningCostModelVectorEngineTest {
                 planOpsMapOf(vectorIndexPlan("guardiannIndexOne", true), vectorIndexPlan("guardiannIndexTwo", true));
         final var oneGuardiannAccess = planOpsMapOf(vectorIndexPlan("guardiannIndexThree", true));
 
-        final PlanningCostModel costModel = costModel(VectorIndexEnginePreference.PREFER_GUARDIANN);
-        assertTrue(costModel.compareVectorIndexEnginePreference(twoGuardiannAccesses, oneGuardiannAccess).isEmpty());
-        assertTrue(costModel.compareVectorIndexEnginePreference(oneGuardiannAccess, twoGuardiannAccesses).isEmpty());
+        assertTrue(compareOpsMaps(VectorIndexEnginePreference.PREFER_GUARDIANN, twoGuardiannAccesses, oneGuardiannAccess).isEmpty());
+        assertTrue(compareOpsMaps(VectorIndexEnginePreference.PREFER_GUARDIANN, oneGuardiannAccess, twoGuardiannAccesses).isEmpty());
     }
 
     /**
@@ -288,8 +307,8 @@ class PlanningCostModelVectorEngineTest {
     private static void assertSameAsWithoutPreference(@Nonnull final RecordQueryIndexPlan a,
                                                       @Nonnull final RecordQueryIndexPlan b,
                                                       @Nonnull final VectorIndexEnginePreference preference) {
-        final int withoutPreference = costModel(VectorIndexEnginePreference.NO_PREFERENCE).compare(a, b);
-        assertEquals(withoutPreference, costModel(preference).compare(a, b),
+        final RecordQueryPlan withoutPreference = betterPlan(VectorIndexEnginePreference.NO_PREFERENCE, a, b);
+        assertSame(withoutPreference, betterPlan(preference, a, b),
                 () -> "preference " + preference + " should not have changed the comparison");
     }
 
