@@ -1,0 +1,109 @@
+unnamed-3:
+-   query: EXPLAIN SELECT SQ."reviewer", "restaurant"."region", SQ."rating" FROM "restaurant",
+        (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ ORDER BY SQ."reviewer",
+        "restaurant"."region", SQ."rating"
+    ref: unnested-record-type-indexes.yamsql:55
+    explain: 'COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent:
+        [region: KEY:[1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP
+        (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating
+        AS rating)'
+    task_count: 261
+    task_total_time_ms: 181
+    transform_count: 78
+    transform_time_ms: 111
+    transform_yield_count: 24
+    insert_time_ms: 13
+    insert_new_count: 26
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT SQ."reviewer", "restaurant"."region", SQ."rating" FROM "restaurant",
+        (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+    ref: unnested-record-type-indexes.yamsql:66
+    explain: 'COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent:
+        [region: KEY:[1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP
+        (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating
+        AS rating)'
+    task_count: 290
+    task_total_time_ms: 190
+    transform_count: 85
+    transform_time_ms: 115
+    transform_yield_count: 27
+    insert_time_ms: 13
+    insert_new_count: 31
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT SQ."reviewer" FROM "restaurant", (SELECT "reviewer", "rating"
+        FROM "restaurant"."reviews") AS SQ ORDER BY SQ."reviewer"
+    ref: unnested-record-type-indexes.yamsql:78
+    explain: 'COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent:
+        [region: KEY:[1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP
+        (_.unnesting_0.reviewer AS reviewer)'
+    task_count: 268
+    task_total_time_ms: 177
+    transform_count: 82
+    transform_time_ms: 113
+    transform_yield_count: 25
+    insert_time_ms: 13
+    insert_new_count: 27
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "r"."reviewer", "restaurant"."region", "r"."rating" FROM
+        "restaurant", "restaurant"."reviews" AS "r" ORDER BY "r"."reviewer", "restaurant"."region",
+        "r"."rating"
+    ref: unnested-record-type-indexes.yamsql:91
+    explain: 'COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent:
+        [region: KEY:[1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP
+        (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating
+        AS rating)'
+    task_count: 236
+    task_total_time_ms: 43
+    transform_count: 73
+    transform_time_ms: 22
+    transform_yield_count: 22
+    insert_time_ms: 0
+    insert_new_count: 21
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT SQ."reviewer", "restaurant"."region", SQ."rating" FROM "restaurant",
+        (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ WHERE SQ."reviewer"
+        = 'Alice'
+    ref: unnested-record-type-indexes.yamsql:104
+    explain: 'COVERING(mv_split [EQUALS promote(@c32 AS STRING)] -> [__positions:
+        [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1]], unnesting_0: [rating:
+        KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region
+        AS region, _.unnesting_0.rating AS rating)'
+    task_count: 397
+    task_total_time_ms: 189
+    transform_count: 129
+    transform_time_ms: 110
+    transform_yield_count: 35
+    insert_time_ms: 7
+    insert_new_count: 47
+    insert_reused_count: 1
+-   query: EXPLAIN SELECT SQ."reviewer", "restaurant"."region", SQ."rating" FROM "restaurant",
+        (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ WHERE SQ."reviewer"
+        = 'Alice' AND "restaurant"."region" = 'north'
+    ref: unnested-record-type-indexes.yamsql:113
+    explain: 'COVERING(mv_split [EQUALS promote(@c32 AS STRING), EQUALS promote(@c38
+        AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1]],
+        unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer
+        AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)'
+    task_count: 467
+    task_total_time_ms: 193
+    transform_count: 149
+    transform_time_ms: 112
+    transform_yield_count: 37
+    insert_time_ms: 8
+    insert_new_count: 53
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT "r"."reviewer", "restaurant"."region", "r"."rating" FROM
+        "restaurant", "restaurant"."reviews" AS "r" WHERE "r"."reviewer" = 'Alice'
+    ref: unnested-record-type-indexes.yamsql:122
+    explain: 'COVERING(mv_split [EQUALS promote(@c25 AS STRING)] -> [__positions:
+        [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1]], unnesting_0: [rating:
+        KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region
+        AS region, _.unnesting_0.rating AS rating)'
+    task_count: 362
+    task_total_time_ms: 190
+    transform_count: 123
+    transform_time_ms: 115
+    transform_yield_count: 32
+    insert_time_ms: 5
+    insert_new_count: 39
+    insert_reused_count: 1
