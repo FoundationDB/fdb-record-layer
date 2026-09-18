@@ -4,70 +4,70 @@ table-functions:
     ref: table-functions.yamsql:42
     explain: EXPLODE array((@c5 AS B, @c7 AS C, (@c10 AS X, promote(@c12 AS DOUBLE)
         AS Y, @c14 AS Z) AS W), (@c19 AS B, @c21 AS C, (@c24 AS X, @c26 AS Y, @c28
-        AS Z) AS W))
-    task_count: 108
-    task_total_time_ms: 0
-    transform_count: 29
+        AS Z) AS W)) | MAP (_._0.B AS B, _._0.C AS C, _._0.W AS W)
+    task_count: 137
+    task_total_time_ms: 2
+    transform_count: 32
     transform_time_ms: 0
-    transform_yield_count: 6
+    transform_yield_count: 8
     insert_time_ms: 0
-    insert_new_count: 8
+    insert_new_count: 13
     insert_reused_count: 0
 -   query: EXPLAIN select B, C, W from values (1, 2.0, (3, 4, 'foo')), (10, 90.2,
         (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
     ref: table-functions.yamsql:47
     explain: EXPLODE array((@c9 AS B, @c11 AS C, (@c14 AS X, promote(@c16 AS DOUBLE)
         AS Y, @c18 AS Z) AS W), (@c23 AS B, @c25 AS C, (@c28 AS X, @c30 AS Y, @c32
-        AS Z) AS W)) | MAP (_.B AS B, _.C AS C, _.W AS W)
-    task_count: 114
-    task_total_time_ms: 1
-    transform_count: 27
+        AS Z) AS W)) | MAP (_._0.B AS B, _._0.C AS C, _._0.W AS W)
+    task_count: 137
+    task_total_time_ms: 3
+    transform_count: 32
     transform_time_ms: 0
-    transform_yield_count: 6
+    transform_yield_count: 8
     insert_time_ms: 0
-    insert_new_count: 9
+    insert_new_count: 13
     insert_reused_count: 0
 -   query: EXPLAIN select A.B, C, W from values (1, 2.0, (3, 4, 'foo')), (10, 90.2,
         (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
     ref: table-functions.yamsql:60
     explain: EXPLODE array((@c11 AS B, @c13 AS C, (@c16 AS X, promote(@c18 AS DOUBLE)
         AS Y, @c20 AS Z) AS W), (@c25 AS B, @c27 AS C, (@c30 AS X, @c32 AS Y, @c34
-        AS Z) AS W)) | MAP (_.B AS B, _.C AS C, _.W AS W)
-    task_count: 114
-    task_total_time_ms: 1
-    transform_count: 27
+        AS Z) AS W)) | MAP (_._0.B AS B, _._0.C AS C, _._0.W AS W)
+    task_count: 137
+    task_total_time_ms: 4
+    transform_count: 32
     transform_time_ms: 0
-    transform_yield_count: 6
+    transform_yield_count: 8
     insert_time_ms: 0
-    insert_new_count: 9
+    insert_new_count: 13
     insert_reused_count: 0
 -   query: EXPLAIN select A.B, C as Q, W.X from values (1, 2.0, (3, 4, 'foo')), (10,
         90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))
     ref: table-functions.yamsql:65
     explain: EXPLODE array((@c15 AS B, @c17 AS C, (@c20 AS X, promote(@c22 AS DOUBLE)
         AS Y, @c24 AS Z) AS W), (@c29 AS B, @c31 AS C, (@c34 AS X, @c36 AS Y, @c38
-        AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X)
-    task_count: 114
-    task_total_time_ms: 1
-    transform_count: 27
-    transform_time_ms: 0
-    transform_yield_count: 6
+        AS Z) AS W)) | MAP (_._0.B AS B, _._0.C AS Q, _._0.W.X AS X)
+    task_count: 137
+    task_total_time_ms: 4
+    transform_count: 32
+    transform_time_ms: 1
+    transform_yield_count: 8
     insert_time_ms: 0
-    insert_new_count: 9
+    insert_new_count: 13
     insert_reused_count: 0
 -   query: EXPLAIN select * from (select A.B, C as Q, W.X from values (1, 2.0, (3,
         4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))) as u
     ref: table-functions.yamsql:70
     explain: EXPLODE array((@c19 AS B, @c21 AS C, (@c24 AS X, promote(@c26 AS DOUBLE)
         AS Y, @c28 AS Z) AS W), (@c33 AS B, @c35 AS C, (@c38 AS X, @c40 AS Y, @c42
-        AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X)
-    task_count: 137
-    task_total_time_ms: 1
-    transform_count: 32
-    transform_time_ms: 0
-    transform_yield_count: 8
+        AS Z) AS W)) | MAP (_._0.B AS B, _._0.C AS Q, _._0.W.X AS X)
+    task_count: 160
+    task_total_time_ms: 6
+    transform_count: 37
+    transform_time_ms: 1
+    transform_yield_count: 10
     insert_time_ms: 0
-    insert_new_count: 13
+    insert_new_count: 17
     insert_reused_count: 0
 -   query: EXPLAIN select * from (select A.B, C as Q, W.X from values (1, 2.0, (3,
         4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))) as u where
@@ -75,15 +75,15 @@ table-functions:
     ref: table-functions.yamsql:75
     explain: EXPLODE array((@c19 AS B, @c21 AS C, (@c24 AS X, promote(@c26 AS DOUBLE)
         AS Y, @c28 AS Z) AS W), (@c33 AS B, @c35 AS C, (@c38 AS X, @c40 AS Y, @c42
-        AS Z) AS W)) | FILTER _.B LESS_THAN @c67 | MAP (_.B AS B, _.C AS Q, _.W.X
-        AS X)
-    task_count: 148
-    task_total_time_ms: 3
-    transform_count: 34
-    transform_time_ms: 1
-    transform_yield_count: 8
-    insert_time_ms: 0
-    insert_new_count: 14
+        AS Z) AS W)) | FILTER _._0.B LESS_THAN promote(@c67 AS INT) | MAP (_._0.B
+        AS B, _._0.C AS Q, _._0.W.X AS X)
+    task_count: 193
+    task_total_time_ms: 12
+    transform_count: 45
+    transform_time_ms: 4
+    transform_yield_count: 13
+    insert_time_ms: 1
+    insert_new_count: 25
     insert_reused_count: 0
 -   query: EXPLAIN select * from range(0, 11, 5)
     ref: table-functions.yamsql:97

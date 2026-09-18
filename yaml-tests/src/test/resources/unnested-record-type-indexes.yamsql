@@ -88,7 +88,7 @@ test_block:
       - query: SELECT "r"."reviewer", "restaurant"."region", "r"."rating"
                  FROM "restaurant", "restaurant"."reviews" AS "r"
                 ORDER BY "r"."reviewer", "restaurant"."region", "r"."rating"
-      - explain: "COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
+      - explain: "COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS _0, _.parent.region AS region, _.unnesting_0.rating AS _2, _.unnesting_0.reviewer AS _3, _.unnesting_0.rating AS _4) | MAP (_._0 AS reviewer, _.region AS region, _._2 AS rating)"
       - result: [
           {reviewer: 'Alice', region: 'north', rating: 4},
           {reviewer: 'Alice', region: 'north', rating: 5},

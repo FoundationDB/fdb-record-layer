@@ -32,11 +32,14 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.SimpleValueVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -58,10 +61,19 @@ final class QuantifierValues {
     @Nonnull
     private final List<FieldValue> explodes;
 
+    /**
+     * The quantifiers that range over an {@link ExplodeExpression}. Their values are reached through the explode's
+     * result struct, which has to be seen through when dereferencing.
+     */
+    @Nonnull
+    private final Set<CorrelationIdentifier> explodedQuantifiers;
+
     private QuantifierValues(@Nonnull final Map<CorrelationIdentifier, Value> valuesByQuantifier,
-                             @Nonnull final List<FieldValue> explodes) {
+                             @Nonnull final List<FieldValue> explodes,
+                             @Nonnull final Set<CorrelationIdentifier> explodedQuantifiers) {
         this.valuesByQuantifier = valuesByQuantifier;
         this.explodes = explodes;
+        this.explodedQuantifiers = explodedQuantifiers;
     }
 
     /**
@@ -85,7 +97,7 @@ final class QuantifierValues {
     public static QuantifierValues collect(@Nonnull final RelationalExpression expression) {
         final var collector = new Collector();
         final var valuesByQuantifier = Assert.notNullUnchecked(collector.visit(expression));
-        return new QuantifierValues(valuesByQuantifier, collector.explodes);
+        return new QuantifierValues(valuesByQuantifier, collector.explodes, collector.getExplodedQuantifiers());
     }
 
     /**
@@ -114,7 +126,13 @@ final class QuantifierValues {
         @Override
         public Value evaluateAtValue(@Nonnull final Value value, @Nonnull final List<Value> childResults) {
             // a leaf stands for itself
-            return childResults.isEmpty() ? value : value.withChildren(childResults);
+            if (childResults.isEmpty()) {
+                return value;
+            }
+            if (value instanceof FieldValue && rangesOverExplode(((FieldValue)value).getChild())) {
+                return unwrapElement((FieldValue)value, Iterables.getOnlyElement(childResults));
+            }
+            return value.withChildren(childResults);
         }
 
         @Nonnull
@@ -122,6 +140,28 @@ final class QuantifierValues {
         public Value visitQuantifiedObjectValue(@Nonnull final QuantifiedObjectValue element) {
             // what a quantifier stands for may reference another
             return visit(Assert.notNullUnchecked(valuesByQuantifier.get(element.getAlias())));
+        }
+
+        private boolean rangesOverExplode(@Nonnull final Value value) {
+            return value instanceof QuantifiedObjectValue
+                    && explodedQuantifiers.contains(((QuantifiedObjectValue)value).getAlias());
+        }
+
+        /**
+         * Sees through the result struct of an explode. Since the quantifier stands for the collection being unnested
+         * rather than for the explode's result, {@code q._0} is an element of that collection and {@code q._0.F} is
+         * {@code «collection».F}: the accessor of the element is dropped, and the rest of the path stays as it is.
+         */
+        @Nonnull
+        private Value unwrapElement(@Nonnull final FieldValue fieldValue, @Nonnull final Value collectionValue) {
+            final var accessors = fieldValue.getFieldPath().getFieldAccessors();
+            Assert.thatUnchecked(accessors.get(0).getOrdinal() == ExplodeExpression.ELEMENT_ORDINAL,
+                    ErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported index definition, cannot index the ordinal of an unnesting");
+            final var elementPath = accessors.subList(1, accessors.size());
+            return elementPath.isEmpty()
+                   ? collectionValue
+                   : FieldValue.ofFields(collectionValue, new FieldValue.FieldPath(elementPath));
         }
     }
 
@@ -140,6 +180,14 @@ final class QuantifierValues {
         private final List<FieldValue> explodes = new ArrayList<>();
 
         @Nonnull
+        private final Set<CorrelationIdentifier> explodedQuantifiers = new LinkedHashSet<>();
+
+        @Nonnull
+        public Set<CorrelationIdentifier> getExplodedQuantifiers() {
+            return explodedQuantifiers;
+        }
+
+        @Nonnull
         @Override
         public Map<CorrelationIdentifier, Value> evaluateAtExpression(@Nonnull final RelationalExpression expression,
                                                                       @Nonnull final List<Map<CorrelationIdentifier, Value>> childResults) {
@@ -147,9 +195,12 @@ final class QuantifierValues {
             for (final var quantifier : expression.getQuantifiers()) {
                 final var rangesOver = quantifier.getRangesOver().get();
                 // a quantifier over an explode stands for the collection being unnested, not for the explode's result
-                merged.put(quantifier.getAlias(), rangesOver instanceof ExplodeExpression
-                                                  ? unnestedCollectionValue((ExplodeExpression)rangesOver)
-                                                  : rangesOver.getResultValue());
+                if (rangesOver instanceof ExplodeExpression) {
+                    explodedQuantifiers.add(quantifier.getAlias());
+                    merged.put(quantifier.getAlias(), unnestedCollectionValue((ExplodeExpression)rangesOver));
+                } else {
+                    merged.put(quantifier.getAlias(), rangesOver.getResultValue());
+                }
             }
             return merged;
         }

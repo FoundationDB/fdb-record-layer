@@ -573,12 +573,12 @@ joins-with-order-by-tests:
         RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q2.id
         AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef) AS t3) }'
     task_count: 3222
-    task_total_time_ms: 581
+    task_total_time_ms: 957
     transform_count: 1169
-    transform_time_ms: 252
+    transform_time_ms: 481
     transform_yield_count: 239
-    insert_time_ms: 16
-    insert_new_count: 439
+    insert_time_ms: 40
+    insert_new_count: 459
     insert_reused_count: 45
 -   query: EXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 IN (1, 2) and t3.aRef
         = t1.id order by t1.a1, t1.a2
@@ -589,12 +589,12 @@ joins-with-order-by-tests:
         AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef)
         AS t3) }'
     task_count: 4288
-    task_total_time_ms: 926
+    task_total_time_ms: 1147
     transform_count: 1378
-    transform_time_ms: 442
+    transform_time_ms: 580
     transform_yield_count: 293
-    insert_time_ms: 20
-    insert_new_count: 643
+    insert_time_ms: 42
+    insert_new_count: 666
     insert_reused_count: 47
 -   query: EXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 IN (1, 2) and t3.aRef
         = t1.id order by t1.a1 asc, t1.a2 desc
@@ -605,12 +605,12 @@ joins-with-order-by-tests:
         AS a3) AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef
         AS aRef) AS t3) }'
     task_count: 2949
-    task_total_time_ms: 536
+    task_total_time_ms: 984
     transform_count: 1119
-    transform_time_ms: 308
+    transform_time_ms: 572
     transform_yield_count: 225
-    insert_time_ms: 15
-    insert_new_count: 366
+    insert_time_ms: 49
+    insert_new_count: 379
     insert_reused_count: 43
 -   query: EXPLAIN select (t1.*), (t3.*) from t1, t3 where t1.a1 IN (1, 2) and t3.aRef
         = t1.id order by t1.a1 desc, t1.a2 asc
@@ -621,12 +621,12 @@ joins-with-order-by-tests:
         AS t1, (q2.id AS id, q2.c1 AS c1, q2.c2 AS c2, q2.c3 AS c3, q2.aRef AS aRef)
         AS t3) }'
     task_count: 2949
-    task_total_time_ms: 534
+    task_total_time_ms: 771
     transform_count: 1119
-    transform_time_ms: 302
+    transform_time_ms: 432
     transform_yield_count: 225
-    insert_time_ms: 19
-    insert_new_count: 366
+    insert_time_ms: 38
+    insert_new_count: 379
     insert_reused_count: 43
 -   query: EXPLAIN select (t1.*) as a, (t3.*) as b from t1, t3 where t1.a1 IN (1,
         2) and t3.c1 = t1.a1 and exists (select 4 from t2 where t2.b1 = t1.a1) and
@@ -640,12 +640,12 @@ joins-with-order-by-tests:
         AS a2, q1.a3 AS a3) AS a, (q4.id AS id, q4.c1 AS c1, q4.c2 AS c2, q4.c3 AS
         c3, q4.aRef AS aRef) AS b) }'
     task_count: 4162
-    task_total_time_ms: 905
+    task_total_time_ms: 1156
     transform_count: 1777
-    transform_time_ms: 373
+    transform_time_ms: 495
     transform_yield_count: 313
-    insert_time_ms: 49
-    insert_new_count: 576
+    insert_time_ms: 78
+    insert_new_count: 582
     insert_reused_count: 85
 -   query: EXPLAIN select (a.*), (b.*) from t1_f(1) as a, t2_f(1) as b where a.a3
         = b.b3

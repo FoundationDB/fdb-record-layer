@@ -139,10 +139,10 @@ public final class Star extends Expression {
 
     @Nonnull
     public static Star overQuantifiers(@Nonnull Optional<Identifier> qualifier,
-                                       @Nonnull List<QuantifiedObjectValue> quantifiers,
+                                       @Nonnull List<? extends Value> values,
                                        @Nonnull String typeName,
                                        @Nonnull Expressions expansion) {
-        final var underlyingStarType = quantifiers.size() == 1 ? quantifiers.get(0) : RecordConstructorValue.ofUnnamed(quantifiers);
+        final var underlyingStarType = values.size() == 1 ? values.get(0) : RecordConstructorValue.ofUnnamed(values);
         final var starType = createStarType(typeName, expansion);
         return new Star(qualifier, starType, ensureValueConsistentWithExpansion(underlyingStarType, expansion), expansion);
     }

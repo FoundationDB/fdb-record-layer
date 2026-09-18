@@ -89,13 +89,13 @@ subquery-tests:
         f from sq.nr where f > 10) sq2 where sq.z = 10 AND sq2.f is not null
     ref: subquery-tests.yamsql:88
     explain: ISCAN(IR [EQUALS promote(@c17 AS INT), EQUALS promote(@c31 AS INT)])
-        | FLATMAP q0 -> { EXPLODE q0.NR | FILTER _.F GREATER_THAN promote(@c31 AS
-        INT) AND _.F NOT_NULL AS q1 RETURN (q0.IDR AS IDR, q0.Z AS Z) }
-    task_count: 598
-    task_total_time_ms: 138
-    transform_count: 173
-    transform_time_ms: 60
-    transform_yield_count: 53
-    insert_time_ms: 5
-    insert_new_count: 83
+        | FLATMAP q0 -> { EXPLODE q0.NR | FILTER _._0.F GREATER_THAN promote(@c31
+        AS INT) AND _._0.F NOT_NULL AS q1 RETURN (q0.IDR AS IDR, q0.Z AS Z) }
+    task_count: 594
+    task_total_time_ms: 225
+    transform_count: 170
+    transform_time_ms: 141
+    transform_yield_count: 51
+    insert_time_ms: 14
+    insert_new_count: 82
     insert_reused_count: 2

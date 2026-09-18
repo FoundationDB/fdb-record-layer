@@ -71,7 +71,8 @@ import java.util.stream.IntStream;
  * <p>{@code EXPLODE} is the plan node that implements <em>array unnesting</em>, also known as the “explode”
  * operation. It is a leaf plan node. The array data comes from its {@link #collectionValue} member, which is a
  * correlated {@link Value} referencing the field of an outer quantifier. The plan node first evaluates the collection
- * value to Java type {@code List<?>}, and then produces one {@link QueryResult} datum per array element.
+ * value to Java type {@code List<?>}, and then produces one {@link QueryResult} datum per array element: a
+ * {@link DynamicMessage} struct with an anonymous field holding the element.
  *
  * <p>In the {@code WITH ORDINALITY} variant, {@code EXPLODE} also generates ordinals of the array elements. In this
  * case the plan produces a {@link DynamicMessage} struct with two anonymous fields (the element and the ordinal)
@@ -153,20 +154,14 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         final Object result = collectionValue.eval(store, context);
         final List<?> list = (result == null) ? List.of() : (List<?>)result;
 
-        // Without ordinality, produce the bare elements.
-        if (!withOrdinality) {
-            return RecordCursor.fromList(list, continuation)
-                    .map(QueryResult::ofComputed)
-                    .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
-        }
-
-        // In the WITH ORDINALITY case, produce a struct (element, ordinal) per list element.
+        // Produce a struct per list element: the element, and its ordinal in the WITH ORDINALITY case.
         final Type elementType = getElementType();
         final var resultType = (Type.Record) getExplodeResultType();
         final TypeRepository typeRepository = context.getTypeRepository();
         final Descriptors.Descriptor descriptor = Objects.requireNonNull(typeRepository.getMessageDescriptor(resultType));
-        final Descriptors.FieldDescriptor elementField = descriptor.getFields().get(0);
-        final Descriptors.FieldDescriptor ordinalField = descriptor.getFields().get(1);
+        final Descriptors.FieldDescriptor elementField = descriptor.getFields().get(ExplodeExpression.ELEMENT_ORDINAL);
+        final Descriptors.FieldDescriptor ordinalField =
+                withOrdinality ? descriptor.getFields().get(ExplodeExpression.ORDINALITY_ORDINAL) : null;
         final int firstOrdinal = zeroBasedOrdinality ? 0 : 1;
         final ImmutableList<Message> indexedList =
                 IntStream.range(0, list.size())
@@ -175,7 +170,9 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
                     final Object element = Verify.verifyNotNull(list.get(i), "array elements must be non-null");
                     builder.setField(elementField,
                             RecordConstructorValue.deepCopyIfNeeded(typeRepository, elementType, element));
-                    builder.setField(ordinalField, firstOrdinal + i);
+                    if (ordinalField != null) {
+                        builder.setField(ordinalField, firstOrdinal + i);
+                    }
                     return (Message)builder.build();
                 })
                 .collect(ImmutableList.toImmutableList());

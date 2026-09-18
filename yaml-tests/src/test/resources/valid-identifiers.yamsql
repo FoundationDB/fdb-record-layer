@@ -163,7 +163,7 @@ test_block:
     -
       # select from deeply nested repeated table
       - query: select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as b, b."level1$field.1" where "level2$array.field.1" = 10)
-      - explain: "COVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c26 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
+      - explain: "SCAN([IS foo.table$nested.repeated]) | FLATMAP q0 -> { EXPLODE q0.level0.field1 | FLATMAP q1 -> { EXPLODE (q1._0).level1$field.1 | FILTER _._0.level2$array.field.1 EQUALS promote(@c26 AS LONG) AS q2 RETURN ((q1._0).level1$field.1 AS level1$field.1, (q1._0).level1$field.2 AS level1$field.2, (q1._0).level1$field.3 AS level1$field.3, (q2._0).level2$array.field.1 AS level2$array.field.1, (q2._0).level2$field.2 AS level2$field.2) } | DEFAULT NULL | FILTER _ NOT_NULL AS q3 RETURN (q0.ID AS ID) }"
       - result: [{1}]
     -
       # select from nested table
@@ -175,19 +175,19 @@ test_block:
       - query: select "foo.table$repeated".id from "foo.table$repeated" where 'foo' IN "foo.table$repeated"."field.1$array"
       # Ideally, this would use the index "foo.table$repeated.2". It appears to be a matching problem unrelated to the identifier choices
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3777
-      - explain: "SCAN([IS foo.table$repeated]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.field.1$array) | FILTER @c7 EQUALS _ AS q1 RETURN (q0.ID AS ID) }"
+      - explain: "SCAN([IS foo.table$repeated]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.field.1$array) | FILTER @c7 EQUALS _._0 AS q1 RETURN (q0.ID AS ID) }"
       - result: [{1}, {2}]
     -
       # select with predicates on repeated scalar fields
       - query: select "foo.table$repeated".id from "foo.table$repeated" where exists (select 1 from "foo.table$repeated"."field.1$array" r where r = 'foo')
-      - explain: "COVERING(foo.table$repeated.2 [EQUALS @c19] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
+      - explain: "COVERING(foo.table$repeated.2 [EQUALS promote(@c19 AS STRING)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)"
       - result: [{1}, {2}]
     -
       # select repeated scalar fields
       - query: select t."field.1$array" from "foo.table$repeated" as t where 3 IN t."field.0$array"
       # Ideally, this would use the index "foo.table$repeated.1". It appears to be a matching problem unrelated to the identifier choices
       # See: https://github.com/FoundationDB/fdb-record-layer/issues/3777
-      - explain: "SCAN([IS foo.table$repeated]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.field.0$array) | FILTER promote(@c9 AS LONG) EQUALS _ AS q1 RETURN (q0.field.1$array AS field.1$array) }"
+      - explain: "SCAN([IS foo.table$repeated]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.field.0$array) | FILTER promote(@c9 AS LONG) EQUALS _._0 AS q1 RETURN (q0.field.1$array AS field.1$array) }"
       - result: [{["foo", "bar", "baz"]}]
     -
       # select repeated scalar fields
@@ -384,7 +384,7 @@ test_block:
     -
       # inline table definition
       - query: select * from values (1, 2, 3), (4, 5, 6) as "_$$$$"("_$$$", "_$$", "_$")
-      - explain: "EXPLODE array((@c5 AS _$$$, @c7 AS _$$, @c9 AS _$), (@c13 AS _$$$, @c15 AS _$$, @c17 AS _$))"
+      - explain: "EXPLODE array((@c5 AS _$$$, @c7 AS _$$, @c9 AS _$), (@c13 AS _$$$, @c15 AS _$$, @c17 AS _$)) | MAP (_._0._$$$ AS _$$$, _._0._$$ AS _$$, _._0._$ AS _$)"
       - result: [{"_$$$": 1, "_$$": 2, "_$": 3}, { "_$$$": 4, "_$$": 5, "_$": 6}]
     -
       # named record construction

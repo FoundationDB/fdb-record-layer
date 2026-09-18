@@ -50,15 +50,16 @@ unnamed-3:
     ref: unnested-record-type-indexes.yamsql:91
     explain: 'COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent:
         [region: KEY:[1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP
-        (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating
-        AS rating)'
-    task_count: 236
-    task_total_time_ms: 43
-    transform_count: 73
+        (_.unnesting_0.reviewer AS _0, _.parent.region AS region, _.unnesting_0.rating
+        AS _2, _.unnesting_0.reviewer AS _3, _.unnesting_0.rating AS _4) | MAP (_._0
+        AS reviewer, _.region AS region, _._2 AS rating)'
+    task_count: 302
+    task_total_time_ms: 55
+    transform_count: 89
     transform_time_ms: 22
-    transform_yield_count: 22
+    transform_yield_count: 24
     insert_time_ms: 0
-    insert_new_count: 21
+    insert_new_count: 26
     insert_reused_count: 0
 -   query: EXPLAIN SELECT SQ."reviewer", "restaurant"."region", SQ."rating" FROM "restaurant",
         (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ WHERE SQ."reviewer"

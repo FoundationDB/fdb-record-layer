@@ -348,18 +348,17 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
         public Derivations visitExplodePlan(@Nonnull final RecordQueryExplodePlan explodePlan) {
             final Value collectionValue = explodePlan.getCollectionValue();
             final Type elementType = explodePlan.getElementType();
-            // Use `FirstOrDefaultValue` as a representative for “some” element of the array.
+            // Use `FirstOrDefaultValue` as a representative for “some” element of the array. The explode flows that
+            // element wrapped in a struct, so the representative has to be wrapped the same way -- accesses of the
+            // element are written against the wrapper, and simplification composes the two away again.
             final Value first = new FirstOrDefaultValue(collectionValue, new ThrowsValue(elementType));
-            final Value representative;
+            final ImmutableList.Builder<Column<? extends Value>> columns = ImmutableList.builder();
+            columns.add(Column.of(Type.Record.Field.of(elementType, Optional.empty()), first));
             if (explodePlan.isWithOrdinality()) {
                 final Type ordinalType = Type.primitiveType(Type.TypeCode.INT, false);
-                representative = RecordConstructorValue.ofColumns(List.of(
-                        Column.of(Type.Record.Field.of(elementType, Optional.empty()), first),
-                        Column.of(Type.Record.Field.of(ordinalType, Optional.empty()), new ThrowsValue(ordinalType))));
-            } else {
-                representative = first;
+                columns.add(Column.of(Type.Record.Field.of(ordinalType, Optional.empty()), new ThrowsValue(ordinalType)));
             }
-            final List<Value> values = List.of(representative);
+            final List<Value> values = List.of(RecordConstructorValue.ofColumns(columns.build(), true));
             return new Derivations(values, values);
         }
 
