@@ -92,10 +92,10 @@ subquery-tests:
         | FLATMAP q0 -> { EXPLODE q0.NR | FILTER _.F GREATER_THAN promote(@c31 AS
         INT) AND _.F NOT_NULL AS q1 RETURN (q0.IDR AS IDR, q0.Z AS Z) }
     task_count: 598
-    task_total_time_ms: 86
+    task_total_time_ms: 138
     transform_count: 173
-    transform_time_ms: 33
+    transform_time_ms: 60
     transform_yield_count: 53
-    insert_time_ms: 3
-    insert_new_count: 82
+    insert_time_ms: 5
+    insert_new_count: 83
     insert_reused_count: 2
