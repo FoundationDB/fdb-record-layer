@@ -183,22 +183,30 @@ public interface Correlated<S extends Correlated<S>> {
     }
 
     /**
-     * Return a semantic hash code for this object. The hash code must obey the convention that for any two objects
-     * {@code o1} and {@code o2} and for every {@link AliasMap} {@code aliasMap}:
+     * Returns a semantic hash code for this object.
      *
-     * <pre>
-     * {@code o1.semanticEquals(o1, aliasMap)} follows {@code o1.semanticHash() == o2.semanticHash()}
-     * </pre>
+     * <p>The hash code must be consistent with <strong>semantic equality</strong>:
+     * <blockquote>
+     * For any two objects {@code o1} and {@code o2} and for every {@link AliasMap} {@code aliasMap},
+     * {@code o1.semanticEquals(o2, aliasMap)} implies {@code o1.semanticHashCode() == o2.semanticHashCode()}.
+     * </blockquote>
      *
-     * If the semantic hash code of two implementing objects is equal and {@link #semanticEquals} returns {@code true}
-     * for these two objects the plan fragments are considered to produce the same result under the given
-     * correlations bindings.
+     * <p>When {@code o1.semanticEquals(o2, aliasMap)} returns {@code true}, {@code o1} and {@code o2} are considered to
+     * produce the same result under the given correlation bindings. The contract above ensures that hash-based
+     * collections respect the equivalence.
      *
-     * The left side {@code o1.semanticEquals(o1, aliasMap)} depends on an {@link AliasMap} while
-     * {@code o1.semanticHash() == o2.semanticHash()} does not. Hence, the hash that is computed is identical regardless
-     * of possible bindings.
+     * <p>Note that the computed hash code is independent of bindings. Only {@code o1.semanticEquals(o2, aliasMap)}
+     * depends on an alias map.
      *
-     * @return the semantic hash code
+     * <p><strong>Hash stability across JVMs.</strong> Implementations must ensure that the hash code for semantically
+     * equal inputs is the same across separate JVM runs, not just within one process. Note that this is stronger than
+     * the standard {@link Object#hashCode()} contract. Implementations must not rely on identity-based hashing. In
+     * particular, do not use {@code hashCode()} for {@link Enum} constants and {@code byte[]}; instead, use
+     * {@link Enum#name()}, {@link java.util.Arrays#hashCode(byte[])}, or {@code PlanHashable#objectPlanHash}.
+     * Stability across JVMs matters because semantic hash codes feed into planner decisions. A hash that varies between
+     * runs can result in different (but cost-equivalent) plans getting chosen for the same query.
+     *
+     * @see #semanticEquals
      */
     int semanticHashCode();
 

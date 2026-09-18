@@ -20,6 +20,11 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
+import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
+
 import javax.annotation.Nonnull;
 
 /**
@@ -92,5 +97,21 @@ public final class WindowSpecExpression {
     @Nonnull
     public Expressions getWindowOptions() {
         return windowOptions;
+    }
+
+    /**
+     * Builds the {@link CallSiteArguments.WindowSpecification} for this {@code OVER} clause: the {@code PARTITION BY}
+     * columns and the {@code ORDER BY} columns (each paired with its sort direction as a {@link WindowOrderingPart}).
+     *
+     * @return the window specification to attach to a windowed call site
+     */
+    @Nonnull
+    public CallSiteArguments.WindowSpecification toWindowSpecification() {
+        final var partitioningValues = Streams.stream(partitions.underlying())
+                .collect(ImmutableList.toImmutableList());
+        final var orderingParts = Streams.stream(orderByExpressions)
+                .map(orderBy -> new WindowOrderingPart(orderBy.getExpression().getUnderlying(), orderBy.toSortOrder()))
+                .collect(ImmutableList.toImmutableList());
+        return new CallSiteArguments.WindowSpecification(partitioningValues, orderingParts);
     }
 }

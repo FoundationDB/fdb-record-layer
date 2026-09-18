@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexFetchMethod;
@@ -1248,7 +1247,6 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    @SpotBugsSuppressWarnings("NP_LOAD_OF_KNOWN_NULL_VALUE")
     private ScoredMatch planNestedField(@Nonnull CandidateScan candidateScan,
                                         @Nonnull KeyExpression indexExpr,
                                         @Nonnull NestedField filter,
@@ -1388,7 +1386,6 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
     }
 
-    @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
     private ScoredMatch planAndWithThen(@Nonnull CandidateScan candidateScan,
                                        @Nonnull ThenKeyExpression indexExpr,
                                        @Nonnull List<QueryComponent> filters,
@@ -2557,7 +2554,6 @@ public class RecordQueryPlanner implements QueryPlanner {
          */
         protected boolean foundCompleteComparison;
 
-        @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
         protected AbstractAndWithThenPlanner(@Nonnull CandidateScan candidateScan,
                                              @Nullable ThenKeyExpression indexExpr,
                                              @Nonnull List<KeyExpression> indexChildren,
@@ -2761,7 +2757,6 @@ public class RecordQueryPlanner implements QueryPlanner {
         @Nonnull
         private final ScanComparisons.Builder comparisons;
 
-        @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
         public AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
                                   @Nonnull ThenKeyExpression indexExpr,
                                   @Nonnull AndComponent filter,
@@ -2769,7 +2764,6 @@ public class RecordQueryPlanner implements QueryPlanner {
             this(candidateScan, indexExpr, filter.getChildren(), sort);
         }
 
-        @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
         public AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
                                   @Nonnull ThenKeyExpression indexExpr,
                                   @Nonnull List<QueryComponent> filters,
@@ -2777,7 +2771,6 @@ public class RecordQueryPlanner implements QueryPlanner {
             this(candidateScan, indexExpr, indexExpr.getChildren(), filters, sort);
         }
 
-        @SpotBugsSuppressWarnings(value = {"NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", "NP_NONNULL_PARAM_VIOLATION"}, justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
         public AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
                                   @Nonnull List<KeyExpression> indexChildren,
                                   @Nonnull AndComponent filter,
@@ -2785,7 +2778,6 @@ public class RecordQueryPlanner implements QueryPlanner {
             this(candidateScan, null, indexChildren, filter.getChildren(), sort);
         }
 
-        @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
         private AndWithThenPlanner(@Nonnull CandidateScan candidateScan,
                                    @Nullable ThenKeyExpression indexExpr,
                                    @Nonnull List<KeyExpression> indexChildren,
@@ -2980,7 +2972,6 @@ public class RecordQueryPlanner implements QueryPlanner {
         @Nonnull
         private final ComparisonRanges comparisons;
 
-        @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
         private MultidimensionalAndWithThenPlanner(@Nonnull CandidateScan candidateScan,
                                                    @Nullable ThenKeyExpression indexExpr,
                                                    @Nonnull List<KeyExpression> indexChildren,

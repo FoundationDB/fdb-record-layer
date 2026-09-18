@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.memory;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
+import com.apple.foundationdb.relational.api.catalog.SchemaExistsBehavior;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
@@ -182,7 +183,7 @@ public class InMemoryRelationalConnection implements RelationalConnection {
                     Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
 
                     //insert the schema into the catalog
-                    catalog.saveSchema(txn, schema, false);
+                    catalog.saveSchema(txn, schema, false, SchemaExistsBehavior.ERROR);
                 };
             }
 

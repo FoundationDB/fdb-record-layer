@@ -60,7 +60,7 @@ test_block:
       - initialVersionLessThan: 4.10.1.0
       - unorderedResult: [{BITMAP: xStartsWith_1250'060000c', 'OFFSET':0}, {BITMAP: xStartsWith_1250'02', 'OFFSET':10000}]
       - initialVersionAtLeast: 4.10.1.0
-      - error: "42702"
+      - error: AMBIGUOUS_COLUMN
     -
       - query: SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, category, bitmap_bucket_offset(id) as offset FROM T1 GROUP BY bitmap_bucket_offset(id), category, bitmap_bucket_offset(id)
       - initialVersionLessThan: 4.10.1.0
@@ -68,7 +68,7 @@ test_block:
                           {BITMAP: xStartsWith_1250'02', 'CATEGORY': 'hello', 'OFFSET':10000},
                           {BITMAP: xStartsWith_1250'0400008', 'CATEGORY': 'world', 'OFFSET':0}]
       - initialVersionAtLeast: 4.10.1.0
-      - error: "42702"
+      - error: AMBIGUOUS_COLUMN
     -
       - query: SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, bitmap_bucket_offset(id) as offset FROM T2 GROUP BY bitmap_bucket_offset(id)
       - explain: "ISCAN(AGG_INDEX_1 <,>) | MAP (_ AS _0) | AGG (bitmap_construct_agg_l((_._0.ID) bitmap_bit_position 10000) AS _0) GROUP BY ((_._0.ID) bitmap_bucket_offset 10000 AS _0) | MAP (_._1._0 AS BITMAP, _._0._0 AS OFFSET)"

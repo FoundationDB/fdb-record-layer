@@ -8,7 +8,14 @@ Diagram(
                 NonTerminal('source'),
                 Optional(
                     Sequence(
-                        Terminal('INNER JOIN'),
+                        Choice(0,
+                            Terminal('INNER JOIN'),
+                            Sequence(
+                                Choice(0, Terminal('LEFT'), Terminal('RIGHT')),
+                                Optional(Terminal('OUTER'), 'skip'),
+                                Terminal('JOIN')
+                            )
+                        ),
                         NonTerminal('source'),
                         Choice(0,
                             Sequence(

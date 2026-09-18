@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexValuePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -161,6 +162,12 @@ public class StoredRecordProperty implements ExpressionProperty<Boolean> {
         @Nonnull
         @Override
         public Boolean visitCoveringIndexPlan(@Nonnull final RecordQueryCoveringIndexPlan element) {
+            return true;
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitCoveringIndexValuePlan(@Nonnull final RecordQueryCoveringIndexValuePlan element) {
             return true;
         }
 

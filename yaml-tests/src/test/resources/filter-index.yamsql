@@ -32,7 +32,12 @@ setup:
     - query: INSERT INTO table_a
           VALUES
                  (1, 'bar'),
-                 (2, 'tux')
+                 (2, 'tux'),
+                 (3, 'bar'),
+                 (4, 'foo'),
+                 (5, 'bar'),
+                 (6, 'bar'),
+                 (7, 'bar')
 ---
 test_block:
   name: enum-tests
@@ -40,4 +45,4 @@ test_block:
     -
       - query: SELECT * From table_a where "name" = 'bar'
       - explain: "ISCAN(I1 [EQUALS promote(@c7 AS STRING)])"
-      - unorderedResult: [{1, 'bar'}]
+      - unorderedResult: [{1, 'bar'}, {3, 'bar'}, {5, 'bar'}, {6, 'bar'}, {7, 'bar'}]

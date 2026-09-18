@@ -127,7 +127,7 @@ test_block:
                           {8, !null _}]
     -
       - query: select * from ta where b is not null order by b
-      - error: '0AF00'
+      - error: UNSUPPORTED_QUERY
 ---
 test_block:
   name: uuid-as-a-primary-key

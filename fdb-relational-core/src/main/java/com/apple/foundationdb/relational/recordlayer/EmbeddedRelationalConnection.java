@@ -45,7 +45,7 @@ import com.apple.foundationdb.relational.api.fluentsql.statement.StatementBuilde
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
-import com.apple.foundationdb.relational.recordlayer.metric.RecordLayerMetricCollector;
+import com.apple.foundationdb.relational.recordlayer.metric.StoreTimerMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.structuredsql.expression.ExpressionFactoryImpl;
 import com.apple.foundationdb.relational.recordlayer.structuredsql.statement.StatementBuilderFactoryImpl;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
@@ -59,6 +59,7 @@ import java.net.URI;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Struct;
 import java.util.Arrays;
@@ -82,11 +83,11 @@ import java.util.stream.Collectors;
 public class EmbeddedRelationalConnection implements RelationalConnection {
 
     /**
-     * Chose a transaction level that we *pretend* to support (Rather than throw an exception that stops
-     * all processing).
-     * TODO: Implement.
+     * We only currently support {@link Connection#TRANSACTION_SERIALIZABLE}.
+     * We support snapshot isolation via options, but that is most appropiate at the statement level, so it is
+     * exposed via {@link Options.Name#ISOLATION_LEVEL_SNAPSHOT}.
      */
-    private static final int DEFAULT_TRANSACTION_LEVEL = Connection.TRANSACTION_SERIALIZABLE;
+    private static final int ONLY_SUPPORTED_TRANSACTION_ISOLATION_LEVEL = Connection.TRANSACTION_SERIALIZABLE;
 
     private boolean isClosed;
     @Nonnull
@@ -106,7 +107,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     @Nonnull
     private Options options;
 
-    private int transactionIsolation;
+    private final int transactionIsolation;
 
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "May be refactored as embedded takes over transaction lifetime")
     public EmbeddedRelationalConnection(@Nonnull AbstractDatabase frl,
@@ -118,7 +119,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         this.transaction = transaction;
         this.usingAnExternalTransaction = transaction != null;
         if (usingAnExternalTransaction) {
-            this.metricCollector = new RecordLayerMetricCollector(transaction.unwrap(RecordContextTransaction.class).getContext());
+            this.metricCollector = StoreTimerMetricCollector.fromFDBRecordContext(transaction.unwrap(RecordContextTransaction.class).getContext());
         }
         this.backingCatalog = backingCatalog;
         this.options = options;
@@ -327,12 +328,12 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
 
             @Override
             public int getDefaultTransactionIsolation() {
-                return DEFAULT_TRANSACTION_LEVEL;
+                return ONLY_SUPPORTED_TRANSACTION_ISOLATION_LEVEL;
             }
 
             @Override
             public boolean supportsTransactionIsolationLevel(int level) {
-                return getDefaultTransactionIsolation() == level;
+                return ONLY_SUPPORTED_TRANSACTION_ISOLATION_LEVEL == level;
             }
 
             @Override
@@ -344,7 +345,10 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
 
     @Override
     public void setTransactionIsolation(int level) throws SQLException {
-        transactionIsolation = level;
+        if (level != TRANSACTION_SERIALIZABLE) {
+            throw new SQLFeatureNotSupportedException("Only SERIALIZABLE isolation level is supported",
+                    ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        }
     }
 
     @Override
@@ -392,7 +396,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
             if (!inActiveTransaction()) {
                 transaction = txnManager.createTransaction(options);
                 executeProperties = newExecuteProperties();
-                metricCollector = new RecordLayerMetricCollector(transaction.unwrap(RecordContextTransaction.class).getContext());
+                metricCollector = StoreTimerMetricCollector.fromFDBRecordContext(transaction.unwrap(RecordContextTransaction.class).getContext());
                 addCloseListener(() -> {
                     if (metricCollector != null) {
                         metricCollector.flush();
@@ -507,18 +511,10 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         return executeProperties;
     }
 
-    private static IsolationLevel toExecutePropertiesIsolationLevel(int jdbcTransactionIsolation) {
-        if (jdbcTransactionIsolation == Connection.TRANSACTION_SERIALIZABLE) {
-            return IsolationLevel.SERIALIZABLE;
-        } else {
-            return IsolationLevel.SNAPSHOT;
-        }
-    }
-
-    // todo: remove this.
+    // todo: remove this; we should create the ExecuteProperties closer to their usage
     private ExecuteProperties newExecuteProperties() {
         return ExecuteProperties.newBuilder()
-                .setIsolationLevel(toExecutePropertiesIsolationLevel(transactionIsolation))
+                .setIsolationLevel(IsolationLevel.SERIALIZABLE)
                 .setTimeLimit(options.getOption(Options.Name.EXECUTION_TIME_LIMIT))
                 .setScannedBytesLimit(options.getOption(Options.Name.EXECUTION_SCANNED_BYTES_LIMIT))
                 .setScannedRecordsLimit(options.getOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT))

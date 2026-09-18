@@ -69,13 +69,17 @@ public class FDBLuceneFunctionalityTest extends FDBDirectoryBaseTest {
 
     @Test
     public void givenTermQueryWhenFetchedDocumentThenCorrect() throws Exception {
-        LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
-        luceneIndex.indexDocument("activity", "running in track");
-        luceneIndex.indexDocument("activity", "Cars are running on road");
-        Term term = new Term("body", "running");
-        Query query = new TermQuery(term);
-        List<Document> documents = luceneIndex.searchIndex(query);
-        assertEquals(2, documents.size());
+        try {
+            LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
+            luceneIndex.indexDocument("activity", "running in track");
+            luceneIndex.indexDocument("activity", "Cars are running on road");
+            Term term = new Term("body", "running");
+            Query query = new TermQuery(term);
+            List<Document> documents = luceneIndex.searchIndex(query);
+            assertEquals(2, documents.size());
+        } finally {
+            LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(true);
+        }
     }
 
     @Test
@@ -90,17 +94,21 @@ public class FDBLuceneFunctionalityTest extends FDBDirectoryBaseTest {
 
     @Test
     public void givenBooleanQueryWhenFetchedDocumentThenCorrect() throws Exception {
-        luceneIndex.indexDocument("Destination", "Las Vegas singapore car");
-        LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
-        luceneIndex.indexDocument("Commutes in singapore", "Bus Car Bikes");
-        Term term1 = new Term("body", "singapore");
-        Term term2 = new Term("body", "car");
-        TermQuery query1 = new TermQuery(term1);
-        TermQuery query2 = new TermQuery(term2);
-        BooleanQuery booleanQuery = new BooleanQuery.Builder().add(query1, BooleanClause.Occur.MUST)
-                .add(query2, BooleanClause.Occur.MUST).build();
-        List<Document> documents = luceneIndex.searchIndex(booleanQuery);
-        assertEquals(1, documents.size());
+        try {
+            luceneIndex.indexDocument("Destination", "Las Vegas singapore car");
+            LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
+            luceneIndex.indexDocument("Commutes in singapore", "Bus Car Bikes");
+            Term term1 = new Term("body", "singapore");
+            Term term2 = new Term("body", "car");
+            TermQuery query1 = new TermQuery(term1);
+            TermQuery query2 = new TermQuery(term2);
+            BooleanQuery booleanQuery = new BooleanQuery.Builder().add(query1, BooleanClause.Occur.MUST)
+                    .add(query2, BooleanClause.Occur.MUST).build();
+            List<Document> documents = luceneIndex.searchIndex(booleanQuery);
+            assertEquals(1, documents.size());
+        } finally {
+            LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(true);
+        }
     }
 
     @Test
@@ -113,13 +121,17 @@ public class FDBLuceneFunctionalityTest extends FDBDirectoryBaseTest {
 
     @Test
     public void givenFuzzyQueryWhenFetchedDocumentThenCorrect() throws Exception {
-        LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
-        luceneIndex.indexDocument("article", "Halloween Festival");
-        luceneIndex.indexDocument("decoration", "Decorations for Halloween");
-        Term term = new Term("body", "hallowen");
-        Query query = new FuzzyQuery(term);
-        List<Document> documents = luceneIndex.searchIndex(query);
-        assertEquals(2, documents.size());
+        try {
+            LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
+            luceneIndex.indexDocument("article", "Halloween Festival");
+            luceneIndex.indexDocument("decoration", "Decorations for Halloween");
+            Term term = new Term("body", "hallowen");
+            Query query = new FuzzyQuery(term);
+            List<Document> documents = luceneIndex.searchIndex(query);
+            assertEquals(2, documents.size());
+        } finally {
+            LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(true);
+        }
     }
 
     @Test
@@ -134,36 +146,44 @@ public class FDBLuceneFunctionalityTest extends FDBDirectoryBaseTest {
 
     @Test
     public void givenSortFieldWhenSortedThenCorrect() throws Exception {
-        luceneIndex.indexDocument("Ganges", "River in India");
-        luceneIndex.indexDocument("Mekong", "This river flows in south Asia");
-        LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
-        luceneIndex.indexDocument("Amazon", "Rain forest river");
-        luceneIndex.indexDocument("Rhine", "Belongs to Europe");
-        luceneIndex.indexDocument("Nile", "Longest River");
+        try {
+            LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
+            luceneIndex.indexDocument("Ganges", "River in India");
+            luceneIndex.indexDocument("Mekong", "This river flows in south Asia");
+            luceneIndex.indexDocument("Amazon", "Rain forest river");
+            luceneIndex.indexDocument("Rhine", "Belongs to Europe");
+            luceneIndex.indexDocument("Nile", "Longest River");
 
-        Term term = new Term("body", "river");
-        Query query = new WildcardQuery(term);
+            Term term = new Term("body", "river");
+            Query query = new WildcardQuery(term);
 
-        SortField sortField = new SortField("title", SortField.Type.STRING_VAL, false);
-        Sort sortByTitle = new Sort(sortField);
+            SortField sortField = new SortField("title", SortField.Type.STRING_VAL, false);
+            Sort sortByTitle = new Sort(sortField);
 
-        List<Document> documents = luceneIndex.searchIndex(query, sortByTitle);
-        assertEquals(4, documents.size());
-        assertEquals("Amazon", documents.get(0).getField("title").stringValue());
+            List<Document> documents = luceneIndex.searchIndex(query, sortByTitle);
+            assertEquals(4, documents.size());
+            assertEquals("Amazon", documents.get(0).getField("title").stringValue());
+        } finally {
+            LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(true);
+        }
     }
 
     @Test
     public void whenDocumentDeletedThenCorrect() throws IOException {
-        LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
-        luceneIndex.indexDocument("Ganges", "River in India");
-        luceneIndex.indexDocument("Mekong", "This river flows in south Asia");
-        Term term = new Term("title", "ganges");
-        luceneIndex.deleteDocument(term);
-        Query query = new TermQuery(term);
-        assertEquals(0, luceneIndex.searchIndex(query).size());
-        term = new Term("title", "mekong");
-        query = new TermQuery(term);
-        assertEquals(1, luceneIndex.searchIndex(query).size());
+        try {
+            LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(false);
+            luceneIndex.indexDocument("Ganges", "River in India");
+            luceneIndex.indexDocument("Mekong", "This river flows in south Asia");
+            Term term = new Term("title", "ganges");
+            luceneIndex.deleteDocument(term);
+            Query query = new TermQuery(term);
+            assertEquals(0, luceneIndex.searchIndex(query).size());
+            term = new Term("title", "mekong");
+            query = new TermQuery(term);
+            assertEquals(1, luceneIndex.searchIndex(query).size());
+        } finally {
+            LuceneOptimizedPostingsFormat.setAllowCheckDataIntegrity(true);
+        }
     }
 
 }

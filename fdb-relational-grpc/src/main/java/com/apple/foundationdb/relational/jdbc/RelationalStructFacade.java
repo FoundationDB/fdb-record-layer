@@ -31,8 +31,8 @@ import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumn;
-import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.StructMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Type;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Uuid;
 import com.apple.foundationdb.relational.util.Assert;
@@ -76,7 +76,7 @@ class RelationalStructFacade implements RelationalStruct {
      * Column metadata for this Struct.
      * Package-private so protobuf is available to serializer (in same package).
      */
-    private final ListColumnMetadata delegateMetadata;
+    private final StructMetadata delegateMetadata;
 
     /**
      * Struct data as protobuf.
@@ -86,8 +86,8 @@ class RelationalStructFacade implements RelationalStruct {
 
     private boolean wasNull;
 
-    RelationalStructFacade(ListColumnMetadata delegateMetadata, Struct delegate) {
-        type = Suppliers.memoize(() -> getStructDataType(delegateMetadata.getColumnMetadataList(), false));
+    RelationalStructFacade(StructMetadata delegateMetadata, Struct delegate) {
+        type = Suppliers.memoize(() -> getStructDataType(delegateMetadata, false));
         this.delegate = delegate;
         this.delegateMetadata = delegateMetadata;
         this.wasNull = false;
@@ -105,7 +105,7 @@ class RelationalStructFacade implements RelationalStruct {
      * Package-private so protobuf is available to serializer (in same package).
      * @return The backing protobuf used to keep Struct metadata.
      */
-    ListColumnMetadata getDelegateMetadata() {
+    StructMetadata getDelegateMetadata() {
         return delegateMetadata;
     }
 
@@ -302,7 +302,8 @@ class RelationalStructFacade implements RelationalStruct {
             throw new SQLException("Struct", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
 
-        return new RelationalStructFacade(this.delegateMetadata.getColumnMetadata(PositionalIndex.toProtobuf(oneBasedColumn)).getStructMetadata(), c.getStruct());
+        final var structMetadata = this.delegateMetadata.getColumnMetadata(PositionalIndex.toProtobuf(oneBasedColumn)).getStructMetadata();
+        return new RelationalStructFacade(structMetadata, c.getStruct());
     }
 
     @Override
@@ -556,10 +557,10 @@ class RelationalStructFacade implements RelationalStruct {
 
         @Override
         public RelationalStruct build() {
-            var columnListMetadataBuilder = ListColumnMetadata.newBuilder();
-            this.fieldOrder.forEach(s -> columnListMetadataBuilder.addColumnMetadata(this.metadata.get(s)));
+            var structMetadata = StructMetadata.newBuilder();
+            this.fieldOrder.forEach(s -> structMetadata.addColumnMetadata(this.metadata.get(s)));
             var struct = Struct.newBuilder().setColumns(this.listColumnBuilder.build()).build();
-            return new RelationalStructFacade(columnListMetadataBuilder.build(), struct);
+            return new RelationalStructFacade(structMetadata.build(), struct);
         }
     }
 }

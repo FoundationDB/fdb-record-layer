@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -51,7 +51,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PushRequestedOrderingThroughInLikeSelectRule extends CascadesRule<SelectExpression> implements PreOrderRule {
+public class PushRequestedOrderingThroughInLikeSelectRule extends AbstractCascadesRule<SelectExpression> implements PreOrderRule {
     private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
     private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(forEachQuantifier(explodeExpressionMatcher));
 

@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -50,6 +49,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.net.URI;
+import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -69,8 +69,8 @@ import java.util.stream.IntStream;
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @API(API.Status.EXPERIMENTAL)
 public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
-    final String schema = "schema";
-    final int dbSize = 1000;
+    static final String SCHEMA = "schema";
+    static final int DB_SIZE = 1000;
 
     @Param({"1", "10", "100", "1000", "10000"})
     int dbCount;
@@ -84,12 +84,11 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
         System.out.printf("Creating %s databases...%n", dbCount);
         long startTime = System.nanoTime();
         databases.createMultipleDatabases(
-                DatabaseTemplate.newBuilder()
-                        .withSchema(schema, schemaTemplateName)
-                        .build(),
+                schemaTemplateName,
                 dbCount,
                 this::dbName,
-                this::populateDatabase);
+                this::populateDatabase,
+                SCHEMA);
         long endTime = System.nanoTime();
         System.out.printf("Done in %s %n.", Duration.ofNanos(endTime - startTime));
     }
@@ -104,8 +103,8 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
     public void singleRead(Blackhole bh) throws SQLException {
         long dbId = ThreadLocalRandom.current().nextInt(0, dbCount);
         try (final var dbConn = DriverManager.getConnection(getUri(dbName(dbId), true).toString())) {
-            dbConn.setSchema(schema);
-            long restId = ThreadLocalRandom.current().nextInt(1, dbSize + 1);
+            dbConn.setSchema(SCHEMA);
+            long restId = ThreadLocalRandom.current().nextInt(1, DB_SIZE + 1);
             try (final var stmt = dbConn.createStatement();
                     ResultSet resultSet = stmt.executeQuery("SELECT * from \"RestaurantRecord\" where \"rest_no\" = " + restId)) {
                 resultSet.next();
@@ -116,8 +115,9 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
     }
 
     private void populateDatabase(URI uri) {
-        try (RelationalConnection dbConn = DriverManager.getConnection(uri.toString()).unwrap(RelationalConnection.class)) {
-            dbConn.setSchema(schema);
+        try (Connection rawConn = DriverManager.getConnection(uri.toString());
+                RelationalConnection dbConn = rawConn.unwrap(RelationalConnection.class)) {
+            dbConn.setSchema(SCHEMA);
             try (RelationalStatement stmt = dbConn.createStatement()) {
                 stmt.executeInsert(restaurantRecordTable, createRecords());
             }
@@ -138,7 +138,7 @@ public class ManyDatabasesBenchmark extends EmbeddedRelationalBenchmark {
     }
 
     private List<RelationalStruct> createRecords() {
-        return IntStream.range(1, dbSize + 1).mapToObj(this::newRestaurantRecord).collect(Collectors.toList());
+        return IntStream.range(1, DB_SIZE + 1).mapToObj(this::newRestaurantRecord).collect(Collectors.toList());
     }
 
     private String dbName(long dbId) {

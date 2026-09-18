@@ -1,5 +1,5 @@
 /*
- * MultidimensionalIndexScanBounds.java
+ * VectorIndexScanBounds.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -31,7 +31,20 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * TODO.
+ * The scan bounds of a {@link IndexScanType#BY_DISTANCE by-distance} scan of a
+ * {@link com.apple.foundationdb.record.metadata.IndexTypes#VECTOR vector} index — the vector-index analogue of a
+ * {@link TupleRange} for ordinary indexes. It bundles everything a {@code VectorIndexMaintainer} needs to run a nearest-
+ * neighbor scan of one index:
+ * <ul>
+ *     <li>a {@link #getPrefixRange() prefix range} selecting which partition(s) to search (for a partitioned/grouped
+ *         vector index; the full range when the index is not partitioned),</li>
+ *     <li>the {@link #getQueryVector() query vector} to find neighbors of,</li>
+ *     <li>a {@link #getComparisonType() comparison type} and {@link #getLimit() limit} that together express the
+ *         top-{@code k} predicate (see {@link #getAdjustedLimit()}), and</li>
+ *     <li>per-query {@link #getVectorIndexScanOptions() scan options} that tune the search without changing which
+ *         results are correct.</li>
+ * </ul>
+ * Instances are produced by the query planner (from a distance-rank comparison) and consumed by the maintainer's scan.
  */
 @API(API.Status.EXPERIMENTAL)
 public class VectorIndexScanBounds implements IndexScanBounds {
@@ -87,6 +100,15 @@ public class VectorIndexScanBounds implements IndexScanBounds {
         return vectorIndexScanOptions;
     }
 
+    /**
+     * The number of nearest neighbors ({@code k}) the scan should actually return, derived from the raw
+     * {@link #getLimit() limit} and the comparison type. A {@code DISTANCE_RANK_LESS_THAN_OR_EQUAL} predicate keeps the
+     * neighbor at rank {@code limit}, so the count is {@code limit}; a strict {@code DISTANCE_RANK_LESS_THAN} excludes
+     * it, so the count is {@code limit - 1}.
+     *
+     * @return the effective top-{@code k} count for the scan
+     * @throws RecordCoreException if the comparison type is not a distance-rank comparison
+     */
     public int getAdjustedLimit() {
         switch (getComparisonType()) {
             case DISTANCE_RANK_LESS_THAN:

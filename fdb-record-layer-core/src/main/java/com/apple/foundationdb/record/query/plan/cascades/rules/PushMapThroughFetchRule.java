@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
@@ -113,7 +114,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *
  */
 @API(API.Status.EXPERIMENTAL)
-public class PushMapThroughFetchRule extends ImplementationCascadesRule<RecordQueryMapPlan> {
+public class PushMapThroughFetchRule extends AbstractCascadesRule<RecordQueryMapPlan> implements ImplementationCascadesRule<RecordQueryMapPlan> {
     @Nonnull
     private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
     @Nonnull

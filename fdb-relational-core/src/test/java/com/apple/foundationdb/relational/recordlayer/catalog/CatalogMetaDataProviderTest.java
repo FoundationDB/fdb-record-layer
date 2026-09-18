@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.catalog.SchemaExistsBehavior;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -72,7 +73,7 @@ class CatalogMetaDataProviderTest {
             //write schema info to the store
             Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
             storeCatalog.createDatabase(txn, dbUri);
-            storeCatalog.saveSchema(txn, schema, false);
+            storeCatalog.saveSchema(txn, schema, false, SchemaExistsBehavior.ERROR);
 
             CatalogMetaDataProvider metaDataProvider = new CatalogMetaDataProvider(storeCatalog, dbUri, schemaName, txn);
             final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();

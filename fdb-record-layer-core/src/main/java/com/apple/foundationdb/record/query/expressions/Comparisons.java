@@ -238,7 +238,6 @@ public class Comparisons {
         return toComparable(fieldValue).compareTo(toComparable(comparand));
     }
 
-    @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
     private static boolean compareEquals(@Nonnull Object value, @Nonnull Object comparand) {
         if (value instanceof Message) {
             return MessageHelpers.compareMessageEquals(value, comparand);
@@ -247,7 +246,6 @@ public class Comparisons {
         }
     }
 
-    @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
     private static boolean compareNotDistinctFrom(@Nullable Object value, @Nullable Object comparand) {
         if (value == null && comparand == null) {
             return true;
@@ -263,7 +261,6 @@ public class Comparisons {
     }
 
     @Nullable
-    @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
     private static Boolean compareStartsWith(@Nullable Object value, @Nullable Object comparand) {
         if (value == null || comparand == null) {
             return null;
@@ -284,7 +281,6 @@ public class Comparisons {
     }
 
     @Nullable
-    @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
     private static Boolean compareLike(@Nullable Object value, @Nullable Object pattern) {
         if (value == null) {
             return null;
@@ -292,10 +288,10 @@ public class Comparisons {
         if (!(value instanceof String)) {
             throw new RecordCoreException("Illegal comparand value type: " + value);
         }
-        if (!(pattern instanceof String)) {
+        if (!(pattern instanceof Message)) {
             throw new RecordCoreException("Illegal pattern value type: " + pattern);
         }
-        return LikeOperatorValue.likeOperation((String)value, (String)pattern);
+        return LikeOperatorValue.likeOperation((String)value, (Message)pattern);
     }
 
     public static Boolean compareListEquals(@Nullable Object value, @Nonnull List<?> comparand) {
@@ -333,7 +329,6 @@ public class Comparisons {
     }
 
     @Nullable
-    @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
     private static Boolean compareIn(@Nullable Object value, @Nullable Object comparand) {
         if (value == null || comparand == null) {
             return null;
@@ -723,7 +718,6 @@ public class Comparisons {
     }
 
     @Nullable
-    @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
     public static Boolean evalComparison(@Nonnull Type type, @Nullable Object value, @Nullable Object comparand) {
         switch (type) {
             case STARTS_WITH:
@@ -773,7 +767,6 @@ public class Comparisons {
 
     @Nullable
     @SuppressWarnings("rawtypes")
-    @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
     public static Boolean evalListComparison(@Nonnull Type type, @Nullable Object value, @Nullable List comparand) {
         if (value == null) {
             return null;
@@ -1390,7 +1383,8 @@ public class Comparisons {
         }
 
         public int computeHashCode() {
-            return Objects.hash(type, relatedByEquality());
+            // Note: This hash must be stable across JVMs, as it is used in `Comparison.semanticHashCode()`.
+            return Objects.hash(type.name(), relatedByEquality());
         }
 
         private Set<String> relatedByEquality() {
@@ -2195,7 +2189,9 @@ public class Comparisons {
 
         @Override
         public int hashCode() {
-            return Objects.hash(type, getComparandWithRealEquals(), javaType);
+            // Note: This hash must be stable across JVMs, as it is used in `Comparison.semanticHashCode()`.
+            final Object javaTypeName = javaType == null ? null : javaType.name();
+            return Objects.hash(type.name(), getComparandWithRealEquals(), javaTypeName);
         }
 
         @Override

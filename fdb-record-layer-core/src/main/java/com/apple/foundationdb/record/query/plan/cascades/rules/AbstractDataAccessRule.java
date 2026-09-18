@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.ChooseK;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
@@ -110,7 +110,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Cardi
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings({"java:S3776", "java:S4738", "OptionalUsedAsFieldOrParameterType"})
-public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition> {
+public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchPartition> {
     private static final Logger logger = LoggerFactory.getLogger(AbstractDataAccessRule.class);
 
     private final BindingMatcher<PartialMatch> completeMatchMatcher;

@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
@@ -120,7 +122,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class InComparisonToExplodeRule extends ExplorationCascadesRule<SelectExpression> {
+public class InComparisonToExplodeRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
     private static final BindingMatcher<ValuePredicate> inPredicateMatcher =
             valuePredicate(ValueMatchers.anyValue(), anyComparisonOfType(Comparisons.Type.IN));
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifier();
@@ -194,7 +196,6 @@ public class InComparisonToExplodeRule extends ExplorationCascadesRule<SelectExp
         }
 
         transformedQuantifiers.addAll(bindings.getAll(innerQuantifierMatcher));
-
         call.yieldExploratoryExpression(new SelectExpression(selectExpression.getResultValue(),
                 transformedQuantifiers.build(),
                 transformedPredicates.build()));
@@ -214,7 +215,7 @@ public class InComparisonToExplodeRule extends ExplorationCascadesRule<SelectExp
         final var resultsBuilder = ImmutableList.<QueryPredicate>builder();
         for (int i = 0; i < fieldValues.size(); i++) {
             final Value fieldValue = fieldValues.get(i);
-            BooleanValue currentVal = (BooleanValue) new RelOpValue.EqualsFn().encapsulate(List.of(fieldValue, comparandValueChildren.get(i).getValue()));
+            BooleanValue currentVal = (BooleanValue) new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(fieldValue, comparandValueChildren.get(i).getValue()));
             Optional<QueryPredicate> currentQueryPredicate = currentVal.toQueryPredicate(null, Quantifier.current());
             Verify.verify(currentQueryPredicate.isPresent());
             resultsBuilder.add(currentQueryPredicate.get());

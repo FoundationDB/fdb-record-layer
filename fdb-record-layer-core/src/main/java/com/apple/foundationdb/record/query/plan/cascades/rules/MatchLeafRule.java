@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Traversal;
@@ -50,7 +50,7 @@ import java.util.Set;
  * further rules such as {@link MatchIntermediateRule} and {@link AdjustMatchRule}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class MatchLeafRule extends CascadesRule<RelationalExpression> {
+public class MatchLeafRule extends AbstractCascadesRule<RelationalExpression> {
     // match any relational expression that is a leaf, that is, any expression that does not have any children
     private static final BindingMatcher<RelationalExpression> root =
             RelationalExpressionMatchers.ofTypeOwning(RelationalExpression.class, CollectionMatcher.empty());

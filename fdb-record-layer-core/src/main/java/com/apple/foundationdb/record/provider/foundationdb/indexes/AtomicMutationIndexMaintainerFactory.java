@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.IndexGeneralAttributes;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -72,6 +73,7 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
             IndexTypes.MAX_EVER_VERSION,
             IndexTypes.MIN_EVER, IndexTypes.MAX_EVER
     };
+    private static final IndexGeneralAttributes GENERAL_ATTRIBUTES = new IndexGeneralAttributes(true);
 
     @Override
     @Nonnull
@@ -164,5 +166,11 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
         } else {
             return ImmutableList.of();
         }
+    }
+
+    @Nonnull
+    @Override
+    public IndexGeneralAttributes getIndexGeneralAttributes(@Nonnull final Index index) {
+        return GENERAL_ATTRIBUTES;
     }
 }

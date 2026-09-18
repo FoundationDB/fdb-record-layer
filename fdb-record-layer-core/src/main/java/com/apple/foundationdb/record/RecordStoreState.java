@@ -130,7 +130,7 @@ public class RecordStoreState {
      * @return <code>true</code> if the given name is the name of a write-only index and <code>false</code> otherwise
      */
     public boolean isWriteOnly(@Nonnull String indexName) {
-        return getState(indexName).equals(IndexState.WRITE_ONLY);
+        return getState(indexName).isWriteOnly();
     }
 
     /**
@@ -150,7 +150,7 @@ public class RecordStoreState {
      * @return <code>true</code> if the given index is disabled and <code>false</code> otherwise
      */
     public boolean isDisabled(@Nonnull String indexName) {
-        return getState(indexName).equals(IndexState.DISABLED);
+        return getState(indexName).isDisabled();
     }
 
     /**
@@ -170,7 +170,7 @@ public class RecordStoreState {
      * @return <code>true</code> if the given index is readable and <code>false</code> otherwise
      */
     public boolean isReadable(@Nonnull String indexName) {
-        return getState(indexName).equals(IndexState.READABLE);
+        return getState(indexName).isReadable();
     }
 
 
@@ -182,7 +182,7 @@ public class RecordStoreState {
      * @return <code>true</code> if the given index is readable-unique-pending and <code>false</code> otherwise
      */
     public boolean isReadableUniquePending(@Nonnull String indexName) {
-        return getState(indexName).equals(IndexState.READABLE_UNIQUE_PENDING);
+        return getState(indexName).isReadableUniquePending();
     }
 
 
@@ -226,7 +226,7 @@ public class RecordStoreState {
      * @return <code>true</code> if all of the indexes are readable and <code>false</code> otherwise
      */
     public boolean allIndexesReadable() {
-        return indexStateMap.get().isEmpty() || indexStateMap.get().values().stream().allMatch(state -> state.equals(IndexState.READABLE));
+        return indexStateMap.get().isEmpty() || indexStateMap.get().values().stream().allMatch(IndexState::isReadable);
     }
 
     /**
@@ -241,8 +241,8 @@ public class RecordStoreState {
      */
     public boolean compatibleWith(@Nonnull RecordStoreState other) {
         return indexStateMap.get().entrySet().stream().allMatch(entry -> {
-            boolean readableInOther = other.getState(entry.getKey()).equals(IndexState.READABLE);
-            return entry.getValue().equals(IndexState.READABLE) == readableInOther;
+            boolean readableInOther = other.getState(entry.getKey()).isReadable();
+            return entry.getValue().isReadable() == readableInOther;
         });
     }
 
@@ -252,7 +252,7 @@ public class RecordStoreState {
      */
     public Set<String> getWriteOnlyIndexNames() {
         return indexStateMap.get().entrySet().stream()
-                .filter(entry -> entry.getValue() == IndexState.WRITE_ONLY)
+                .filter(entry -> entry.getValue().isWriteOnly())
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
     }
@@ -263,7 +263,7 @@ public class RecordStoreState {
      */
     public Set<String> getDisabledIndexNames() {
         return indexStateMap.get().entrySet().stream()
-                .filter(entry -> entry.getValue() == IndexState.DISABLED)
+                .filter(entry -> entry.getValue().isDisabled())
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
     }
@@ -279,7 +279,7 @@ public class RecordStoreState {
     public RecordStoreState withIndexesInState(@Nonnull final List<String> indexNames,
                                                @Nonnull IndexState state) {
         HashMap<String, IndexState> indexStateMapBuilder = new HashMap<>(getIndexStates());
-        if (state == IndexState.READABLE) {
+        if (state.isReadable()) {
             indexNames.forEach(indexStateMapBuilder::remove);
         } else {
             indexNames.forEach(indexName -> indexStateMapBuilder.put(indexName, state));

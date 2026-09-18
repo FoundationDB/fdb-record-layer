@@ -20,13 +20,13 @@
 
 package com.apple.foundationdb.record.icu;
 
-import com.apple.foundationdb.record.metadata.expressions.CollateFunctionKeyExpressionTest;
+import com.apple.foundationdb.record.metadata.expressions.CollateFunctionKeyExpressionTestBase;
 
 /**
  * Tests for {@link CollateFunctionKeyExpressionFactoryICU}.
  */
 @SuppressWarnings("checkstyle:abbreviationaswordinname") // Allow ICU here.
-public class CollateFunctionKeyExpressionICUTest extends CollateFunctionKeyExpressionTest {
+public class CollateFunctionKeyExpressionICUTest extends CollateFunctionKeyExpressionTestBase {
 
     public CollateFunctionKeyExpressionICUTest() {
         super(CollateFunctionKeyExpressionFactoryICU.FUNCTION_NAME);

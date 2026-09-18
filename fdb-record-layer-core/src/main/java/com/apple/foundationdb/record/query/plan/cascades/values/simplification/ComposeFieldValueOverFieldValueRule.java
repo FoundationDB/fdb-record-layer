@@ -22,52 +22,33 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.anyObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValue;
 
 /**
  * A rule that composes a field access and an underlying field access to a concatenated field access.
- * <br>
- * {@code (_.a).b} or more precisely {@code FieldValue(FieldValue(_, "a"), "b")} is transformed to {@code _.a.b} or
+ *
+ * <p>{@code (_.a).b} or more precisely {@code FieldValue(FieldValue(_, "a"), "b")} is transformed to {@code _.a.b} or
  * {@code FieldValue(_, ["a", "b"])}.
- * <br>
- * Note that this rule is the conceptual opposite of {@link ExpandFusedFieldValueRule}. These rules should not be placed
+ *
+ * <p>Note that this rule is the conceptual opposite of {@link ExpandFusedFieldValueRule}. These rules should not be placed
  * into the same rule set as the effect of it is undefined and may cause a stack overflow.
  */
 @API(API.Status.EXPERIMENTAL)
-@SuppressWarnings("PMD.TooManyStaticImports")
 public class ComposeFieldValueOverFieldValueRule extends ValueSimplificationRule<FieldValue> {
     @Nonnull
     private static final BindingMatcher<Value> innerChildMatcher = anyValue();
     @Nonnull
-    private static final CollectionMatcher<Integer> innerFieldPathOrdinalsMatcher = all(anyObject());
-
+    private static final BindingMatcher<FieldValue> innerFieldValueMatcher = fieldValue(innerChildMatcher);
     @Nonnull
-    private static final CollectionMatcher<Type> innerFieldPathTypesMatcher = all(anyObject());
-
-    @Nonnull
-    private static final BindingMatcher<FieldValue> innerFieldValueMatcher =
-            ValueMatchers.fieldValueWithFieldPath(innerChildMatcher, innerFieldPathOrdinalsMatcher, innerFieldPathTypesMatcher);
-
-    @Nonnull
-    private static final CollectionMatcher<Integer> outerFieldPathOrdinalsMatcher = all(anyObject());
-
-    @Nonnull
-    private static final CollectionMatcher<Type> outerFieldPathTypesMatcher = all(anyObject());
-
-    @Nonnull
-    private static final BindingMatcher<FieldValue> rootMatcher =
-            ValueMatchers.fieldValueWithFieldPath(innerFieldValueMatcher, outerFieldPathOrdinalsMatcher, outerFieldPathTypesMatcher);
+    private static final BindingMatcher<FieldValue> rootMatcher = fieldValue(innerFieldValueMatcher);
 
     public ComposeFieldValueOverFieldValueRule() {
         super(rootMatcher);
@@ -75,23 +56,15 @@ public class ComposeFieldValueOverFieldValueRule extends ValueSimplificationRule
 
     @Override
     public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
-        final var bindings = call.getBindings();
-
-        final var grandChild = bindings.get(innerChildMatcher);
-        final var innerFieldPathOrdinals = bindings.get(innerFieldPathOrdinalsMatcher);
-        final var innerFieldPathTypes = bindings.get(innerFieldPathTypesMatcher);
-        Verify.verify(!innerFieldPathOrdinals.isEmpty());
-        Verify.verify(!innerFieldPathTypes.isEmpty());
-        final var outer = bindings.get(rootMatcher);
-        final var child = outer.getChild();
-        final var outerFieldPathOrdinals = bindings.get(outerFieldPathOrdinalsMatcher);
-        final var outerFieldPathTypes = bindings.get(outerFieldPathTypesMatcher);
-        Verify.verify(child instanceof FieldValue);
-        Verify.verify(!outerFieldPathOrdinals.isEmpty());
-        Verify.verify(!outerFieldPathTypes.isEmpty());
+        final PlannerBindings bindings = call.getBindings();
+        final FieldValue outer = bindings.get(rootMatcher);
+        final FieldValue inner = bindings.get(innerFieldValueMatcher);
+        final Value innerChild = bindings.get(innerChildMatcher);
+        Verify.verify(!outer.getFieldPath().isEmpty());
+        Verify.verify(!inner.getFieldPath().isEmpty());
         call.yieldResultBuilder()
-                .addConstraintsFrom(outer, child)
-                .yieldResult(FieldValue.ofFields(grandChild,
-                        ((FieldValue)(child)).getFieldPath().withSuffix(outer.getFieldPath())));
+                .addConstraintsFrom(outer, inner)
+                .yieldResult(FieldValue.ofFields(innerChild,
+                        inner.getFieldPath().withSuffix(outer.getFieldPath())));
     }
 }

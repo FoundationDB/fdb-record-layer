@@ -159,6 +159,23 @@ public final class Options {
         DISABLE_PLANNER_REWRITING,
 
         /**
+         * Which vector index engine the query planner should favor when a query could be answered by more than one
+         * vector index and the candidates are otherwise indistinguishable, for instance when the same field carries both
+         * an HNSW-backed and a GuardiANN-backed index with the same metric. Possible values are:
+         * <UL>
+         * <LI>{@link VectorIndexEnginePreference#NO_PREFERENCE} leave the choice to the planner's cost model. This is
+         * the default, so that creating an index of one engine alongside an index of the other does not by itself move
+         * existing queries onto it</LI>
+         * <LI>{@link VectorIndexEnginePreference#PREFER_HNSW} favor scanning an HNSW-backed index</LI>
+         * <LI>{@link VectorIndexEnginePreference#PREFER_GUARDIANN} favor scanning a GuardiANN-backed index</LI>
+         * </UL>
+         * This is a preference and not a requirement: a query whose only vector index is of the other engine still
+         * plans, unchanged.
+         * Scope: Connection
+         */
+        VECTOR_INDEX_ENGINE_PREFERENCE,
+
+        /**
          * A boolean indicating if a query should be logged or not.
          * Scope: Connection, Query
          */
@@ -203,6 +220,16 @@ public final class Options {
          * Scope: Query
          */
         PLAN_RIGHT_DEEP,
+
+        /**
+         * A boolean indicating that a {@code SELECT} query should be executed using FDB's snapshot isolation,
+         * so that its reads do not add conflict ranges to the enclosing transaction.
+         * This only affects the scans of the query it is set on; other reads and writes in the same transaction
+         * continue to use their configured (typically serializable) isolation. Only supported on read-only
+         * ({@code SELECT}) queries.
+         * Scope: Connection, Query
+         */
+        ISOLATION_LEVEL_SNAPSHOT,
 
         /**
          * Treat identifiers as-is in terms of case without upper-casing non-quoted ones.
@@ -265,6 +292,17 @@ public final class Options {
         USE_REMOTE_FETCH_WITH_FALLBACK
     }
 
+    /**
+     * Which vector index engine the planner should favor, for the {@link Name#VECTOR_INDEX_ENGINE_PREFERENCE} option.
+     * Mirrors {@code com.apple.foundationdb.record.query.plan.VectorIndexEnginePreference}, which this module cannot
+     * reference directly.
+     */
+    public enum VectorIndexEnginePreference {
+        NO_PREFERENCE,
+        PREFER_HNSW,
+        PREFER_GUARDIANN
+    }
+
     private static final char[] HEX_CHARS = "0123456789ABCDEF".toCharArray();
 
     @SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
@@ -280,6 +318,7 @@ public final class Options {
         builder.put(Name.MAX_ROWS, Integer.MAX_VALUE);
         builder.put(Name.INDEX_FETCH_METHOD, IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
         builder.put(Name.DISABLE_PLANNER_REWRITING, false);
+        builder.put(Name.VECTOR_INDEX_ENGINE_PREFERENCE, VectorIndexEnginePreference.NO_PREFERENCE);
         builder.put(Name.DISABLED_PLANNER_RULES, ImmutableSet.of());
         builder.put(Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, 1024);
         builder.put(Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, 10_000L);
@@ -295,6 +334,7 @@ public final class Options {
         builder.put(Name.EXECUTION_SCANNED_ROWS_LIMIT, Integer.MAX_VALUE);
         builder.put(Name.DRY_RUN, false);
         builder.put(Name.PLAN_RIGHT_DEEP, false);
+        builder.put(Name.ISOLATION_LEVEL_SNAPSHOT, false);
         builder.put(Name.CASE_SENSITIVE_IDENTIFIERS, false);
         builder.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 10_000L);
         builder.put(Name.ENCRYPT_WHEN_SERIALIZING, false);
@@ -532,6 +572,7 @@ public final class Options {
         data.put(Name.MAX_ROWS, List.of(TypeContract.intType(), RangeContract.of(0, Integer.MAX_VALUE)));
         data.put(Name.INDEX_FETCH_METHOD, List.of(TypeContract.of(IndexFetchMethod.class, IndexFetchMethod::valueOf)));
         data.put(Name.DISABLE_PLANNER_REWRITING, List.of(TypeContract.booleanType()));
+        data.put(Name.VECTOR_INDEX_ENGINE_PREFERENCE, List.of(TypeContract.of(VectorIndexEnginePreference.class, VectorIndexEnginePreference::valueOf)));
         data.put(Name.DISABLED_PLANNER_RULES, List.of(new CollectionContract<>(TypeContract.stringType())));
         data.put(Name.INDEX_HINT, List.of(TypeContract.stringType()));
         data.put(Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, List.of(TypeContract.intType(), RangeContract.of(0, Integer.MAX_VALUE)));
@@ -550,6 +591,7 @@ public final class Options {
         data.put(Name.EXECUTION_SCANNED_BYTES_LIMIT, List.of(TypeContract.longType(), RangeContract.of(0L, Long.MAX_VALUE)));
         data.put(Name.DRY_RUN, List.of(TypeContract.booleanType()));
         data.put(Name.PLAN_RIGHT_DEEP, List.of(TypeContract.booleanType()));
+        data.put(Name.ISOLATION_LEVEL_SNAPSHOT, List.of(TypeContract.booleanType()));
         data.put(Name.CASE_SENSITIVE_IDENTIFIERS, List.of(TypeContract.booleanType()));
         data.put(Name.CURRENT_PLAN_HASH_MODE, List.of(TypeContract.stringType()));
         data.put(Name.VALID_PLAN_HASH_MODES, List.of(TypeContract.stringType()));

@@ -99,15 +99,15 @@ test_block:
     -
       - query: select * from t1 WHERE col1 BETWEEN 10 AND 'a'
       - initialVersionLessThan: 4.11.1.0
-      - error: "XX000"
+      - error: INTERNAL_ERROR
       - initialVersionAtLeast: 4.11.1.0
-      - error: "42804"
+      - error: DATATYPE_MISMATCH
     -
       - query: select * from t1 WHERE 'a' BETWEEN 10 AND 20
       - initialVersionLessThan: 4.11.1.0
-      - error: "XX000"
+      - error: INTERNAL_ERROR
       - initialVersionAtLeast: 4.11.1.0
-      - error: "42804"
+      - error: DATATYPE_MISMATCH
 ---
 test_block:
   name: between-compatible-types

@@ -50,7 +50,7 @@ class VectorIndexScanComparisonsTest {
         final VectorIndexScanOptions originalScanOptions =
                 VectorIndexScanOptions.builder()
                         .putOption(VectorIndexScanOptions.HNSW_EF_SEARCH, 101)
-                        .putOption(VectorIndexScanOptions.HNSW_RETURN_VECTORS, false)
+                        .putOption(VectorIndexScanOptions.VECTOR_RETURN_VECTORS, false)
                         .build();
         final VectorIndexScanComparisons original =
                 VectorIndexScanComparisons.byDistance(originalPrefixScanComparisons,
@@ -86,7 +86,7 @@ class VectorIndexScanComparisonsTest {
         final VectorIndexScanOptions originalScanOptions =
                 VectorIndexScanOptions.builder()
                         .putOption(VectorIndexScanOptions.HNSW_EF_SEARCH, 101)
-                        .putOption(VectorIndexScanOptions.HNSW_RETURN_VECTORS, false)
+                        .putOption(VectorIndexScanOptions.VECTOR_RETURN_VECTORS, false)
                         .build();
         final AliasMap aliasMap =
                 AliasMap.builder()
@@ -142,7 +142,7 @@ class VectorIndexScanComparisonsTest {
         final VectorIndexScanOptions originalScanOptions =
                 VectorIndexScanOptions.builder()
                         .putOption(VectorIndexScanOptions.HNSW_EF_SEARCH, 101)
-                        .putOption(VectorIndexScanOptions.HNSW_RETURN_VECTORS, false)
+                        .putOption(VectorIndexScanOptions.VECTOR_RETURN_VECTORS, false)
                         .build();
 
         final ScanComparisons originalPrefixScanComparisons = correlatedPrefixScanComparisons();
@@ -167,7 +167,7 @@ class VectorIndexScanComparisonsTest {
         final VectorIndexScanOptions newScanOptions =
                 VectorIndexScanOptions.builder()
                         .putOption(VectorIndexScanOptions.HNSW_EF_SEARCH, 100)
-                        .putOption(VectorIndexScanOptions.HNSW_RETURN_VECTORS, true)
+                        .putOption(VectorIndexScanOptions.VECTOR_RETURN_VECTORS, true)
                         .build();
 
         final var newVectorIndexComparisons =

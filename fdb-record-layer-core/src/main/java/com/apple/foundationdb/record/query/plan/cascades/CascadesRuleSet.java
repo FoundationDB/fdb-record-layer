@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractRuleSet;
 import com.google.common.annotations.VisibleForTesting;
@@ -39,7 +38,6 @@ import java.util.stream.Stream;
 @SuppressWarnings("java:S1452")
 public class CascadesRuleSet extends AbstractRuleSet<CascadesRuleCall, RelationalExpression> {
     @VisibleForTesting
-    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     CascadesRuleSet(@Nonnull Set<CascadesRule<? extends RelationalExpression>> rules) {
         super(rules, ImmutableSetMultimap.of());
     }
@@ -59,23 +57,23 @@ public class CascadesRuleSet extends AbstractRuleSet<CascadesRuleCall, Relationa
     }
 
     @Nonnull
-    public Stream<CascadesRule<? extends PartialMatch>> getPartialMatchRules() {
+    public Stream<AbstractCascadesRule<? extends PartialMatch>> getPartialMatchRules() {
         return getPartialMatchRules(ignored -> true);
     }
 
     @Nonnull
-    public Stream<CascadesRule<? extends PartialMatch>> getPartialMatchRules(@Nonnull final Predicate<CascadesRule<? extends PartialMatch>> rulePredicate) {
+    public Stream<AbstractCascadesRule<? extends PartialMatch>> getPartialMatchRules(@Nonnull final Predicate<AbstractCascadesRule<? extends PartialMatch>> rulePredicate) {
         return Stream.empty();
     }
 
 
     @Nonnull
-    public Stream<CascadesRule<? extends MatchPartition>> getMatchPartitionRules() {
+    public Stream<AbstractCascadesRule<? extends MatchPartition>> getMatchPartitionRules() {
         return getMatchPartitionRules(ignored -> true);
     }
 
     @Nonnull
-    public Stream<CascadesRule<? extends MatchPartition>> getMatchPartitionRules(@Nonnull final Predicate<CascadesRule<? extends MatchPartition>> rulePredicate) {
+    public Stream<AbstractCascadesRule<? extends MatchPartition>> getMatchPartitionRules(@Nonnull final Predicate<AbstractCascadesRule<? extends MatchPartition>> rulePredicate) {
         return Stream.empty();
     }
 }

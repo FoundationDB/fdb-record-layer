@@ -41,9 +41,11 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.catalog.SchemaExistsBehavior;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -66,10 +68,14 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.transactionbound.catalog.HollowStoreCatalog;
 import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
+import com.google.protobuf.ByteString;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.sql.Array;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -432,43 +438,20 @@ public final class CopyPlan extends QueryPlan {
                 storeCatalog.createDatabase(transaction, databaseUri);
             }
 
-            if (storeCatalog.doesSchemaExist(transaction, databaseUri, schemaName)) {
-                // Schema exists, verify the template matches
-                final Schema existingSchema = storeCatalog.loadSchema(transaction, databaseUri, schemaName);
-                final SchemaTemplate existingTemplate = existingSchema.getSchemaTemplate();
-
-                if (!existingTemplate.getName().equals(templateName)) {
-                    throw new RelationalException(
-                            "Schema " + databaseUri.getPath() + "/" + schemaName +
-                                    " exists but uses different template: expected " + templateName +
-                                    ", found " + existingTemplate.getName(),
-                            ErrorCode.INVALID_SCHEMA_TEMPLATE);
-                }
-
-                if (existingTemplate.getVersion() != templateVersion) {
-                    throw new RelationalException(
-                            "Schema " + databaseUri.getPath() + "/" + schemaName +
-                                    " exists but uses different template version: expected " + templateVersion +
-                                    ", found " + existingTemplate.getVersion(),
-                            ErrorCode.INVALID_SCHEMA_TEMPLATE);
-                }
-            } else {
-                // Schema doesn't exist, create it from the template
-                final SchemaTemplateCatalog templateCatalog = storeCatalog.getSchemaTemplateCatalog();
-                if (!templateCatalog.doesSchemaTemplateExist(transaction, templateName, templateVersion)) {
-                    final RecordMetaData recordMetaData = RecordMetaData.newBuilder()
-                            .setRecords(MetaData.parseFrom(catalogInfo.getTemplateMetadata()))
-                            .getRecordMetaData();
-                    final SchemaTemplate newTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(
-                            recordMetaData, templateName, templateVersion);
-                    templateCatalog.createTemplate(transaction, newTemplate);
-                }
-
-                // Load the template and create a schema from it
-                final SchemaTemplate template = templateCatalog.loadSchemaTemplate(transaction, templateName, templateVersion);
-                final Schema newSchema = template.generateSchema(databaseUri.getPath(), schemaName);
-                storeCatalog.saveSchema(transaction, newSchema, false);
+            final SchemaTemplateCatalog templateCatalog = storeCatalog.getSchemaTemplateCatalog();
+            if (!templateCatalog.doesSchemaTemplateExist(transaction, templateName, templateVersion)) {
+                final RecordMetaData recordMetaData = RecordMetaData.newBuilder()
+                        .setRecords(MetaData.parseFrom(catalogInfo.getTemplateMetadata()))
+                        .getRecordMetaData();
+                final SchemaTemplate newTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(
+                        recordMetaData, templateName, templateVersion);
+                templateCatalog.createTemplate(transaction, newTemplate);
             }
+
+            // Load the template and create a schema from it
+            final SchemaTemplate template = templateCatalog.loadSchemaTemplate(transaction, templateName, templateVersion);
+            final Schema newSchema = template.generateSchema(databaseUri.getPath(), schemaName);
+            storeCatalog.saveSchema(transaction, newSchema, false, SchemaExistsBehavior.ERROR_IF_DIFFERENT);
         } catch (RelationalException e) {
             throw e;
         } catch (Exception e) {
@@ -493,27 +476,45 @@ public final class CopyPlan extends QueryPlan {
                     ErrorCode.INVALID_PARAMETER);
         }
 
-        // Validate it's an array
-        if (!(parameterValue instanceof List)) {
-            throw new RelationalException(
-                    "Parameter must be an ARRAY, got: " + parameterValue.getClass().getName(),
-                    ErrorCode.INVALID_PARAMETER);
+        if (parameterValue instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<Object> dataArray = (List<Object>) parameterValue;
+            return dataArray;
         }
 
-        @SuppressWarnings("unchecked")
-        List<Object> dataArray = (List<Object>) parameterValue;
-        return dataArray;
+        if (parameterValue instanceof Array) {
+            try {
+                final Array sqlArray = (Array) parameterValue;
+                final List<Object> elements = new ArrayList<>();
+                try (RelationalResultSet rs = ((RelationalArray) sqlArray).getResultSet(1, Integer.MAX_VALUE)) {
+                    while (rs.next()) {
+                        elements.add(rs.getBytes("VALUE"));
+                    }
+                }
+                return elements;
+            } catch (SQLException e) {
+                throw new RelationalException(
+                        "Failed to extract elements from ARRAY parameter: " + e.getMessage(),
+                        ErrorCode.INVALID_PARAMETER, e);
+            }
+        }
+
+        throw new RelationalException(
+                "Parameter must be an ARRAY, got: " + parameterValue.getClass().getName(),
+                ErrorCode.INVALID_PARAMETER);
     }
 
     @Nonnull
     private static byte[] convertToBytes(@Nullable final Object element) throws RelationalException {
-        if (!(element instanceof byte[])) {
-            throw new RelationalException(
-                    "Array elements must be BYTES, got: " + (element == null ? null : element.getClass().getName()),
-                    ErrorCode.INVALID_PARAMETER);
+        if (element instanceof byte[]) {
+            return (byte[]) element;
         }
-
-        return (byte[])element;
+        if (element instanceof ByteString) {
+            return ((ByteString) element).toByteArray();
+        }
+        throw new RelationalException(
+                "Array elements must be BYTES, got: " + (element == null ? null : element.getClass().getName()),
+                ErrorCode.INVALID_PARAMETER);
     }
 
     @Nonnull

@@ -50,8 +50,10 @@ class CompactNode extends AbstractNode<NodeReference> {
         @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
         public AbstractNode<NodeReference> create(@Nonnull final Tuple primaryKey,
                                                   @Nullable final Transformed<RealVector> vector,
+                                                  @Nullable final Tuple additionalValues,
                                                   @Nonnull final List<? extends NodeReference> neighbors) {
-            return new CompactNode(primaryKey, Objects.requireNonNull(vector), (List<NodeReference>)neighbors);
+            return new CompactNode(primaryKey, (List<NodeReference>)neighbors, Objects.requireNonNull(vector),
+                    additionalValues);
         }
 
         @Nonnull
@@ -64,6 +66,9 @@ class CompactNode extends AbstractNode<NodeReference> {
     @Nonnull
     private final Transformed<RealVector> vector;
 
+    @Nullable
+    private final Tuple additionalValues;
+
     /**
      * Constructs a new {@code CompactNode} instance.
      * <p>
@@ -72,14 +77,18 @@ class CompactNode extends AbstractNode<NodeReference> {
      * {@code primaryKey} and {@code neighbors} to the superclass constructor.
      *
      * @param primaryKey the primary key that uniquely identifies this node; must not be {@code null}.
-     * @param vector the data vector of type {@code RealVector} associated with this node; must not be {@code null}.
      * @param neighbors a list of {@link NodeReference} objects representing the neighbors of this node; must not be
      *                  {@code null}.
+     * @param vector the data vector of type {@code RealVector} associated with this node; must not be {@code null}.
+     * @param additionalValues additional values to be stored with the node
      */
-    public CompactNode(@Nonnull final Tuple primaryKey, @Nonnull final Transformed<RealVector> vector,
-                       @Nonnull final List<NodeReference> neighbors) {
+    public CompactNode(@Nonnull final Tuple primaryKey,
+                       @Nonnull final List<NodeReference> neighbors,
+                       @Nonnull final Transformed<RealVector> vector,
+                       @Nullable final Tuple additionalValues) {
         super(primaryKey, neighbors);
         this.vector = vector;
+        this.additionalValues = additionalValues;
     }
 
     /**
@@ -119,6 +128,16 @@ class CompactNode extends AbstractNode<NodeReference> {
         return vector;
     }
 
+    @Nullable
+    public Tuple getAdditionalValues() {
+        return additionalValues;
+    }
+
+    @Override
+    public boolean isCompactNode() {
+        return true;
+    }
+
     /**
      * Returns this node as a {@code CompactNode}. As this class is already a {@code CompactNode}, this method provides
      * {@code this}.
@@ -128,6 +147,11 @@ class CompactNode extends AbstractNode<NodeReference> {
     @Override
     public CompactNode asCompactNode() {
         return this;
+    }
+
+    @Override
+    public boolean isInliningNode() {
+        return false;
     }
 
     /**
@@ -161,6 +185,7 @@ class CompactNode extends AbstractNode<NodeReference> {
     public String toString() {
         return "C[primaryKey=" + getPrimaryKey() +
                 ";vector=" + vector +
+                ";additionalValues=" + additionalValues +
                 ";neighbors=" + getNeighbors() + "]";
     }
 }

@@ -816,10 +816,13 @@ public class PendingWriteQueueIntegrationTest extends FDBRecordStoreTestBase {
                 snooze(10); // increase the chances of concurrency
                 commit(context);
             }
-            if (threadId == 2 && withMerge) {
-                mergeIndexNow(schemaSetup, index);
-            }
         });
+
+        // Merge the index outside the loop, as the merge will clear the pending writes flag and may cause conflicts
+        // on the index
+        if (withMerge) {
+            mergeIndexNow(schemaSetup, index);
+        }
 
         // Verify operation counts
         assertEquals(10, insertCount.get());  // 5 threads * 2 inserts

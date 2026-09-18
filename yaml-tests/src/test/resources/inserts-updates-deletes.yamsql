@@ -110,13 +110,13 @@ test_block:
       - query: insert into A(A1, A2, A3) values (4);
       - initialVersionLessThan: 4.1.5.0
       # Used to get an internal error prior to: https://github.com/FoundationDB/fdb-record-layer/pull/3070
-      - error: "XXXXX"
+      - error: UNKNOWN
       - initialVersionAtLeast: 4.1.5.0
-      - error: "42601"
+      - error: SYNTAX_ERROR
     -
       # Case where not all values are provided of A. Fails as not all columns (from the schema template) can be matched
       - query: insert into A values (4);
-      - error: "22000"
+      - error: CANNOT_CONVERT_TYPE
     -
       # Case when the number of values is more than the number of columns specified.
       - query: insert into A(A1, A2, A3) values (5, 6, 7, 8, 9);
@@ -124,7 +124,7 @@ test_block:
       # Used to ignore extra column prior to: https://github.com/FoundationDB/fdb-record-layer/pull/3070
       - count: 1
       - initialVersionAtLeast: 4.1.5.0
-      - error: "42601"
+      - error: SYNTAX_ERROR
     -
       # Case when a nullable column's value is not provided
       - query: insert into A(A1, A3) values (6, 7);

@@ -23,92 +23,92 @@ schema_template:
 ---
 setup:
   steps:
-    - query: insert into lb values (1, true), (2, false), (3, null);
+    - query: insert into lb values (1, true), (2, false), (3, null), (4, true), (5, false);
 ---
 test_block:
   name: boolean-tests
   tests:
     -
       - query: select lb.* from lb where B = true
-      - result: [ { 1,true } ]
+      - unorderedResult: [ { 1,true }, { 4,true } ]
     -
       - query: select lb.* from lb where B = false
-      - result: [ { 2, false } ]
+      - unorderedResult: [ { 2, false }, { 5, false } ]
     -
       - query: select lb.* from lb where B <> TRUE
-      - result: [ { 2, false } ]
+      - unorderedResult: [ { 2, false }, { 5, false } ]
     -
       - query: select lb.* from lb where B <> FALSE
-      - result: [ { 1, true } ]
+      - unorderedResult: [ { 1, true }, { 4, true } ]
     -
       - query: select lb.* from lb where B is true
-      - result: [ { 1,true } ]
+      - unorderedResult: [ { 1,true }, { 4,true } ]
     -
       - query: select lb.* from lb where B is false
-      - result: [ { 2,false } ]
+      - unorderedResult: [ { 2,false }, { 5,false } ]
     -
       - query: select lb.* from lb where B is null
       - result: [ { 3, !null } ]
     -
       - query: select lb.* from lb where B is not true
-      - result: [ { A: 2, B: false }, { A: 3, B: !null } ]
+      - unorderedResult: [ { A: 2, B: false }, { A: 3, B: !null }, { A: 5, B: false } ]
     -
       - query: select lb.* from lb where B is not false
-      - result: [ { 1,true }, { 3, !null } ]
+      - unorderedResult: [ { 1,true }, { 3, !null }, { 4,true } ]
     -
       - query: select lb.* from lb where B is not null
-      - result: [ { 1,true }, { 2, false } ]
+      - unorderedResult: [ { 1,true }, { 2, false }, { 4,true }, { 5,false } ]
     -
       - query: select B = true from lb
-      - result: [ { true }, { false }, { !null } ]
+      - result: [ { true }, { false }, { !null }, { true }, { false } ]
     -
       - query: select B = false from lb
-      - result: [ { false }, { true }, { !null } ]
+      - result: [ { false }, { true }, { !null }, { false }, { true } ]
     -
       - query: select B <> TRUE from lb
-      - result: [ { false }, { true }, { !null } ]
+      - result: [ { false }, { true }, { !null }, { false }, { true } ]
     -
       - query: select B <> FALSE from lb
-      - result: [ { true }, { false }, { !null } ]
+      - result: [ { true }, { false }, { !null }, { true }, { false } ]
     -
       - query: select B IS TRUE from lb
-      - result: [ { true }, { false }, { false } ]
+      - result: [ { true }, { false }, { false }, { true }, { false } ]
     -
       - query: select B IS FALSE from lb
-      - result: [ { false }, { true }, { false} ]
+      - result: [ { false }, { true }, { false}, { false }, { true } ]
     -
       - query: select B IS NULL FROM lb
-      - result: [ { false }, { false }, { true } ]
+      - result: [ { false }, { false }, { true }, { false }, { false } ]
     -
       - query: select B IS NOT TRUE from lb
-      - result: [ { false }, { true }, { true } ]
+      - result: [ { false }, { true }, { true }, { false }, { true } ]
     -
       - query: select B IS NOT FALSE from lb
-      - result: [ { true }, { false }, { true } ]
+      - result: [ { true }, { false }, { true }, { true }, { false } ]
     -
       - query: select B IS NOT NULL from lb
-      - result: [ { true }, { true }, { false } ]
+      - result: [ { true }, { true }, { false }, { true }, { true } ]
     -
       - query: select B AND TRUE from lb
-      - result: [ { true }, { false }, { !null } ]
+      - result: [ { true }, { false }, { !null }, { true }, { false } ]
     -
       - query: select B AND FALSE from lb
-      - result: [ { false }, { false }, { false } ]
+      - result: [ { false }, { false }, { false }, { false }, { false } ]
     -
       - query: select B AND NULL from lb
-      - result: [ { !null }, { false }, { !null } ]
+      - result: [ { !null }, { false }, { !null }, { !null }, { false } ]
     -
       - query: select B OR TRUE from lb
-      - result: [ { true }, { true }, { true } ]
+      - result: [ { true }, { true }, { true }, { true }, { true } ]
     -
       - query: select B OR FALSE from lb
-      - result: [ { true }, { false }, { !null } ]
+      - result: [ { true }, { false }, { !null }, { true }, { false } ]
     -
       - query: select B OR NULL from lb
-      - result: [ { true }, { !null }, { !null } ]
+      - result: [ { true }, { !null }, { !null }, { true }, { !null } ]
     -
       - query: select NOT B from lb
-      - result: [ { false }, { true }, { !null } ]
+      - result: [ { false }, { true }, { !null }, { false }, { true } ]
 ...
 
 

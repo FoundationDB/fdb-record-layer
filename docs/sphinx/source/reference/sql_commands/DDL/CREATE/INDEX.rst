@@ -279,6 +279,8 @@ ORDER BY clause:
 - Expressions in GROUP BY are supported
 - WHERE clauses can be used with aggregate indexes for filtered aggregates
 
+.. _index-on-syntax:
+
 INDEX ON Syntax
 ===============
 
@@ -360,6 +362,21 @@ First define a view with the filter:
         WHERE price > 100
 
     CREATE INDEX idx_expensive_products ON v_expensive_products(price)
+
+**Index on View (Array Unnesting)**
+
+A common pattern is to create a view that unnests an array column, then index the result. This creates a self-contained schema template with the table, view, and index together:
+
+.. code-block:: sql
+
+    CREATE SCHEMA TEMPLATE my_template
+        CREATE TABLE products (
+            id      BIGINT,
+            tags    STRING ARRAY,
+            PRIMARY KEY(id))
+        CREATE VIEW product_tags AS
+            SELECT SQ.tag FROM products AS p, (SELECT tag FROM p.tags AS tag) AS SQ
+        CREATE INDEX idx_tags ON product_tags (tag)
 
 **Custom Ordering**
 

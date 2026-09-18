@@ -1,0 +1,6 @@
+Diagram(
+    Terminal('AVG'),
+    Terminal('('),
+    NonTerminal('expression'),
+    Terminal(')'),
+)

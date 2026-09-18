@@ -44,9 +44,9 @@ import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.CatalogValidator;
+import com.apple.foundationdb.relational.api.catalog.SchemaExistsBehavior;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
-import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -66,6 +66,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.relational.util.catalog.KeySpaceProvider;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.ExtensionRegistry;
@@ -180,8 +181,12 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
                 schemaTemplateCatalog.createTemplate(createTxn, this.catalogSchemaTemplate);
             }
             this.schemaTemplateCatalog = schemaTemplateCatalog;
-            // Persist our hard-coded catalog schema.
-            saveSchema(createTxn, this.catalogSchema, true);
+            // Persist our hard-coded catalog schema. Many places call this to ensure the catalog is initialized
+            // so we want to validate that the existing schema is the same, but we don't want to introduce conflicts
+            // if other transactions are also lazily initializing the catalog schema after it already exists.
+            // In theory this could use UPGRADE, but that would probably be better to be done intentionally, rather than
+            // part of lazy initialization.
+            saveSchema(createTxn, this.catalogSchema, true, SchemaExistsBehavior.ERROR_IF_DIFFERENT);
         } catch (RecordCoreStorageException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
@@ -199,11 +204,22 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         Assert.notNull(recordStore);
+        final RecordLayerSchema recordLayerSchema = loadSchemaIfExists(txn, databaseId, schemaName, recordStore);
+        if (recordLayerSchema == null) {
+            throw new RelationalException("Schema <" + databaseId.getPath() + "/" + schemaName + "> does not exist in the catalog!", ErrorCode.UNDEFINED_SCHEMA);
+        }
+        return recordLayerSchema;
+    }
+
+    @Nullable
+    private RecordLayerSchema loadSchemaIfExists(@Nonnull final Transaction txn, @Nonnull final URI databaseId,
+                                                 @Nonnull final String schemaName,
+                                                 @Nonnull final FDBRecordStoreBase<Message> recordStore) throws RelationalException {
         final Tuple primaryKey = Tuple.from(SystemTableRegistry.SCHEMA_RECORD_TYPE_KEY, databaseId.getPath(), schemaName);
         try {
             final FDBStoredRecord<Message> record = recordStore.loadRecord(primaryKey);
             if (record == null) {
-                throw new RelationalException("Schema <" + databaseId.getPath() + "/" + schemaName + "> does not exist in the catalog!", ErrorCode.UNDEFINED_SCHEMA);
+                return null;
             }
             Message m = record.getRecord();
             return parseSchemaTable(m, txn);
@@ -214,13 +230,15 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
 
     @Override
     public void saveSchema(@Nonnull final Transaction txn, @Nonnull final Schema schema,
-                           boolean createDatabaseIfNecessary) throws RelationalException {
+                           boolean createDatabaseIfNecessary,
+                           @Nonnull SchemaExistsBehavior existsBehavior) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         CatalogValidator.validateSchema(schema);
-        if (!doesDatabaseExist(recordStore, URI.create(schema.getDatabaseName()))) {
+        final URI databaseUri = URI.create(schema.getDatabaseName());
+        if (!doesDatabaseExist(recordStore, databaseUri)) {
             if (createDatabaseIfNecessary) {
-                createDatabase(recordStore, URI.create(schema.getDatabaseName()));
+                createDatabase(recordStore, databaseUri);
             } else {
                 throw new RelationalException(String.format(Locale.ROOT, "Cannot create schema %s because database %s does not exist.", schema.getName(), schema.getDatabaseName()),
                         ErrorCode.UNDEFINED_DATABASE);
@@ -233,6 +251,16 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
                 () -> String.format(Locale.ROOT, "Cannot create schema %s because schema template %s version %d does not exist.",
                         schema.getName(), schema.getSchemaTemplate().getName(),
                         schema.getSchemaTemplate().getVersion()));
+        // Decide, based on existsBehavior, whether to fall through and write. Variants that do
+        // NOT write on the exists-branch leave the transaction read-only w.r.t. the schema row
+        // so concurrent no-op saves can commit without conflict.
+        final RecordLayerSchema existingSchema = loadSchemaIfExists(txn, databaseUri, schema.getName(), recordStore);
+        if (existingSchema != null) {
+            if (!existsBehavior.shouldWrite(schema, existingSchema)) {
+                return;
+            }
+            // shouldWrite returned true → fall through and overwrite the row.
+        }
         try {
             putSchema((RecordLayerSchema) schema, recordStore);
         } catch (RecordCoreException ex) {
@@ -247,7 +275,7 @@ class RecordLayerStoreCatalog implements StoreCatalog, KeySpaceProvider {
         // load latest schema template
         final SchemaTemplate template = schemaTemplateCatalog.loadSchemaTemplate(txn, schema.getSchemaTemplate().getName());
         final Schema newSchema = template.generateSchema(databaseId, schemaName);
-        saveSchema(txn, newSchema, false);
+        saveSchema(txn, newSchema, false, SchemaExistsBehavior.UPGRADE);
     }
 
     @Override

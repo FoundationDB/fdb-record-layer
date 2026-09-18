@@ -81,7 +81,7 @@ public class RelationalScanBenchmark extends EmbeddedRelationalBenchmark {
 
     static final URI dbUri = URI.create("/BENCHMARKS/putAndScan");
 
-    @Param({"1", "10", "100","1000"})
+    @Param({"1", "10", "100", "1000"})
     int rowCount;
 
     Driver driver = new Driver(templateName, templateDefinition);
@@ -98,7 +98,8 @@ public class RelationalScanBenchmark extends EmbeddedRelationalBenchmark {
 
     @Benchmark
     public void scan(Blackhole bh, RelationalConnHolder connHolder) throws RelationalException, SQLException {
-        try (final var stmt = connHolder.connection.createStatement().unwrap(RelationalStatement.class)) {
+        try (final var rawStmt = connHolder.connection.createStatement();
+                final var stmt = rawStmt.unwrap(RelationalStatement.class)) {
 
             final Options scanOpts = Options.NONE; //Options.builder().withOption(Options.Name.REQUIRED_METADATA_TABLE_VERSION, -1).build();
             List<Map.Entry<String, byte[]>> data = new ArrayList<>();
@@ -153,7 +154,8 @@ public class RelationalScanBenchmark extends EmbeddedRelationalBenchmark {
 
     public void insertData(@Nonnull DataSet dataSet) throws SQLException {
         //insert about 10 records
-        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:" + dbUri).unwrap(RelationalConnection.class)) {
+        try (Connection rawConn = DriverManager.getConnection("jdbc:embed:" + dbUri);
+                RelationalConnection conn = rawConn.unwrap(RelationalConnection.class)) {
             conn.setSchema(schema);
             try (RelationalStatement vs = conn.createStatement()) {
                 final RelationalStructBuilder builder = EmbeddedRelationalStruct.newBuilder();

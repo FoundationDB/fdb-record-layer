@@ -187,9 +187,31 @@ public class IndexScrubbing extends IndexingBase {
                 });
     }
 
-    private static CompletableFuture<Boolean> updateRangeAndCheckIfExhausted(final IndexingRangeSet rangeSet, final Tuple rangeStart, final Tuple rangeEnd, final Tuple continuation) {
+    /**
+     * Record the progress of a single scrubbing iteration in the range set and report whether more work remains.
+     * <p>
+     * After a chunk of records has been scanned, this marks the sub-range {@code [rangeStart, continuation)} as
+     * covered by inserting it into {@code rangeSet}. If the cursor reached the end of the overall scrubbed range
+     * (see {@link #allRangesAreExhausted(Tuple, Tuple)}), the entire range set is cleared so that the next
+     * scrubbing session starts fresh rather than resuming from a stale checkpoint.
+     * </p>
+     *
+     * @param rangeSet the persistent range set tracking which sub-ranges have already been scrubbed
+     * @param rangeStart the inclusive start of the sub-range that was just scanned, or {@code null} for the first key
+     * @param rangeEnd the exclusive end of the overall range being scrubbed, or {@code null} if it extends to the final key
+     * @param continuation the key at which this iteration stopped; equal to {@code rangeEnd} (or {@code null}) when the cursor was exhausted
+     * @return a future yielding {@code true} when more ranges remain to be scrubbed, or {@code false} when the
+     *         entire range has been covered and the range set has been cleared
+     */
+    private CompletableFuture<Boolean> updateRangeAndCheckIfExhausted(final IndexingRangeSet rangeSet, final Tuple rangeStart, final Tuple rangeEnd, final Tuple continuation) {
+        if (allRangesAreExhausted(continuation, rangeEnd)) {
+            // Last missing range just got covered. Clear so the next scrubbing session starts fresh.
+            logScrubberRangeReset("range exhausted at iteration end");
+            rangeSet.clear();
+            return AsyncUtil.READY_FALSE;
+        }
         return rangeSet.insertRangeAsync(packOrNull(rangeStart), packOrNull(continuation), true)
-                .thenApply(ignore -> notAllRangesExhausted(continuation, rangeEnd));
+                .thenApply(ignore -> true);
     }
 
     private Boolean checkScanLimit(final Boolean ret, final @Nonnull AtomicLong recordsScanned, final long scanLimit) {

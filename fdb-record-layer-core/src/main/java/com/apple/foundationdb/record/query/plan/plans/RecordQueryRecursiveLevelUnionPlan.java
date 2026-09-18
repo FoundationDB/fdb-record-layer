@@ -284,6 +284,9 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
         if (!(otherExpression instanceof RecordQueryRecursiveLevelUnionPlan)) {
             return false;
         }
+        if (!semanticEqualsForResults(otherExpression, equivalences)) {
+            return false;
+        }
 
         final var otherRecursiveUnionQueryPlan = (RecordQueryRecursiveLevelUnionPlan)otherExpression;
 
@@ -293,7 +296,7 @@ public class RecordQueryRecursiveLevelUnionPlan extends AbstractRelationalExpres
 
     @Override
     public int computeHashCodeWithoutChildren() {
-        return Objects.hash(tempTableInsertAlias, tempTableInsertAlias);
+        return Objects.hash(tempTableScanAlias, tempTableInsertAlias);
     }
 
     @Override

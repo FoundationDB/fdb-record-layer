@@ -222,7 +222,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     public int deleteDocumentBypassQueue(Tuple groupingKey, @Nullable Integer partitionId, Tuple primaryKey) throws IOException {
         return LuceneIndexMaintainerHelper.deleteDocument(state.context, directoryManager, state.index, groupingKey, partitionId, primaryKey,
-                state.store.isIndexWriteOnly(state.index));
+                state.store.getIndexState(state.index).isWriteOnly());
     }
 
     @Override
@@ -407,7 +407,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
      */
     private <M extends Message> CompletableFuture<Integer> tryDeleteInWriteOnlyMode(@Nonnull FDBIndexableRecord<M> record,
                                                                                     @Nonnull Tuple groupingKey) {
-        if (!state.store.isIndexWriteOnly(state.index)) {
+        if (!state.store.getIndexState(state.index).isWriteOnly()) {
             // no op
             return CompletableFuture.completedFuture(0);
         }
@@ -583,13 +583,21 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         try {
             try (IndexReader indexReader = directoryManager.getIndexReader(groupingKey, partitionId)) {
                 final FDBDirectory directory = getDirectory(groupingKey, partitionId);
-                final CompletableFuture<Integer> fieldInfosFuture = directory.getFieldInfosCount();
-                return directory.getAllAsync()
-                        .thenCombine(fieldInfosFuture, (fileList, fieldInfosCount) ->
-                                new LuceneMetadataInfo.LuceneInfo(
-                                        indexReader.numDocs(),
-                                        fieldInfosCount,
-                                        toLuceneFileInfo(fileList)));
+                final CompletableFuture<Map<String, FDBLuceneFileReference>> filesFuture =
+                        directory.getAllAsync();
+                final CompletableFuture<Integer> fieldInfosFuture =
+                        directory.getFieldInfosCount();
+                final CompletableFuture<Long> queueSizeFuture =
+                        directoryManager.getPendingWriteQueue(groupingKey, partitionId)
+                                        .getQueueSize(state.context);
+                return filesFuture.thenCompose(fileList ->
+                        fieldInfosFuture.thenCompose(fieldInfosCount ->
+                                queueSizeFuture.thenApply(queueSize ->
+                                        new LuceneMetadataInfo.LuceneInfo(
+                                                indexReader.numDocs(),
+                                                fieldInfosCount,
+                                                toLuceneFileInfo(fileList),
+                                                queueSize != null ? queueSize : 0L))));
             }
         } catch (IOException e) {
             return CompletableFuture.failedFuture(e);

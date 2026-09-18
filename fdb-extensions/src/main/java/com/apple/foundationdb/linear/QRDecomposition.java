@@ -23,6 +23,7 @@ package com.apple.foundationdb.linear;
 import com.google.common.base.Preconditions;
 
 import javax.annotation.Nonnull;
+import java.util.Arrays;
 import java.util.function.Supplier;
 
 /**
@@ -93,6 +94,7 @@ public class QRDecomposition {
                                                      final double[] rDiagonal) {
 
         final double[] qrtMinor = qrt[minor];
+        final int len = qrtMinor.length - minor;
 
         /*
          * Let x be the first column of the minor, and a^2 = |x|^2.
@@ -101,11 +103,7 @@ public class QRDecomposition {
          * The sign of "a" is chosen to be opposite to the sign of the first
          * component of x. Let's find "a":
          */
-        double xNormSqr = 0;
-        for (int row = minor; row < qrtMinor.length; row++) {
-            final double c = qrtMinor[row];
-            xNormSqr += c * c;
-        }
+        final double xNormSqr = RealVectorPrimitives.l2SquaredNorm(qrtMinor, minor, len);
         final double a = (qrtMinor[minor] > 0) ? -Math.sqrt(xNormSqr) : Math.sqrt(xNormSqr);
         rDiagonal[minor] = a;
 
@@ -119,6 +117,7 @@ public class QRDecomposition {
              * v = x-ae is stored in the column at qr:
              */
             qrtMinor[minor] -= a; // now |v|^2 = -2a*(qr[minor][minor])
+            final double divisor = a * qrtMinor[minor];
 
             /*
              * Transform the rest of the columns of the minor:
@@ -134,16 +133,9 @@ public class QRDecomposition {
              */
             for (int col = minor + 1; col < qrt.length; col++) {
                 final double[] qrtCol = qrt[col];
-                double alpha = 0;
-                for (int row = minor; row < qrtCol.length; row++) {
-                    alpha -= qrtCol[row] * qrtMinor[row];
-                }
-                alpha /= a * qrtMinor[minor];
-
-                // Subtract the column vector alpha*v from x.
-                for (int row = minor; row < qrtCol.length; row++) {
-                    qrtCol[row] -= alpha * qrtMinor[row];
-                }
+                final double alpha = -RealVectorPrimitives.dot(qrtCol, qrtMinor, minor, len) / divisor;
+                // qrtCol[row] -= alpha * qrtMinor[row]   →   qrtCol[row] += (-alpha) * qrtMinor[row]
+                RealVectorPrimitives.multiplyAddInto(-alpha, qrtMinor, qrtCol, minor, len);
             }
         }
     }
@@ -155,22 +147,31 @@ public class QRDecomposition {
     @Nonnull
     private static RealMatrix getQ(final double[][] qrt, final double[] rDiagonal) {
         final int m = qrt.length;
-        double[][] q = new double[m][m];
+        final double[][] q = new double[m][m];
+        // The Householder back-substitution is a rank-1 update of the form
+        //   q[row][col] += (qrtMinor[row] / divisor) * Σ_k qrtMinor[k] * q[k][col]
+        // The naive (col-then-row) form walks q's columns, which is strided in row-major storage.
+        // Splitting into two phases — accumulate the column-wise dot products into a contiguous
+        // scratch buffer, then apply the rank-1 update — turns both inner loops into row-wise
+        // AXPYs along q[row], which the SIMD multiplyAddInto handles natively.
+        final double[] scratch = new double[m];
 
         for (int minor = m - 1; minor >= 0; minor--) {
             final double[] qrtMinor = qrt[minor];
             q[minor][minor] = 1.0d;
             if (qrtMinor[minor] != 0.0) {
-                for (int col = minor; col < m; col++) {
-                    double alpha = 0;
-                    for (int row = minor; row < m; row++) {
-                        alpha -= q[row][col] * qrtMinor[row];
-                    }
-                    alpha /= rDiagonal[minor] * qrtMinor[minor];
+                final int len = m - minor;
 
-                    for (int row = minor; row < m; row++) {
-                        q[row][col] += -alpha * qrtMinor[row];
-                    }
+                // Phase 1: scratch[col] = Σ_{row ∈ [minor, m)} qrtMinor[row] * q[row][col]
+                Arrays.fill(scratch, minor, m, 0.0d);
+                for (int row = minor; row < m; row++) {
+                    RealVectorPrimitives.multiplyAddInto(qrtMinor[row], q[row], scratch, minor, len);
+                }
+
+                // Phase 2: q[row][col] += (qrtMinor[row] / divisor) * scratch[col]
+                final double invDivisor = 1.0d / (rDiagonal[minor] * qrtMinor[minor]);
+                for (int row = minor; row < m; row++) {
+                    RealVectorPrimitives.multiplyAddInto(qrtMinor[row] * invDivisor, scratch, q[row], minor, len);
                 }
             }
         }

@@ -34,15 +34,73 @@ import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.function.Supplier;
 
+/**
+ * Wire/storage representation of a RaBitQ-quantized vector.
+ *
+ * <p>Each component is encoded into {@code numExBits + 1} bits (one sign bit plus
+ * {@code numExBits} magnitude "extra bits", following the RaBitQ paper's terminology), tightly
+ * bit-packed for storage. Three per-vector calibration constants — {@link #fAddEx},
+ * {@link #fRescaleEx}, {@link #fErrorEx} — accompany the integer codes; they are produced by
+ * {@link RaBitQuantizer} during encoding and consumed by {@link RaBitDistanceEstimator} during
+ * distance evaluation. The encoded form is dramatically smaller than the equivalent
+ * {@link DoubleRealVector} (roughly {@code (numExBits + 1) / 64} of the bytes) while still
+ * supporting fast distance estimation against other RaBitQ-encoded queries.
+ *
+ * <p>This class implements {@link RealVector} so it composes with the rest of the linear-algebra
+ * surface, but it is fundamentally an opaque encoded blob, not a dense numeric vector. Two
+ * consequences of that worth knowing:
+ * <ul>
+ *   <li>{@link #getData()} lazily <em>reconstructs</em> an approximate dense
+ *       {@code double[]} from the codes plus calibration constants (see {@link #computeData()}).
+ *       This is a best-effort dequantization, not the original vector — round-tripping through
+ *       encoded form is lossy by design.</li>
+ *   <li>{@link #withData(double[])} returns a fresh {@link DoubleRealVector}, not another
+ *       {@code EncodedRealVector}, because re-encoding requires the quantizer's full per-call
+ *       state (rotation seed, calibration sweep). As a result, the arithmetic methods inherited
+ *       from {@link RealVector} ({@code add}, {@code subtract}, {@code multiply},
+ *       {@code normalize}) produce ordinary double vectors and discard the encoding.</li>
+ * </ul>
+ *
+ * <p>The wire format produced by {@link #getRawData()} is a leading {@link VectorType#RABITQ}
+ * type byte, the three calibration doubles in big-endian order, then the bit-packed integer
+ * codes. {@link #fromBytes} parses the format back, given the dimensionality and
+ * {@code numExBits} (which are not stored in the byte array — the caller is expected to know
+ * them from surrounding context, typically the quantizer's configuration).
+ */
 @SuppressWarnings("checkstyle:MemberName")
 public class EncodedRealVector implements RealVector {
-    private static final double EPS0 = 1.9d;
-
+    /**
+     * Number of magnitude bits per dimension, in addition to the implicit sign bit. The total
+     * bit budget per component is {@code numExBits + 1}.
+     */
     private final int numExBits;
+
+    /**
+     * Per-dimension integer codes. Each entry is the signed code for one component, occupying
+     * {@code numExBits + 1} bits when packed into the wire format. Length equals
+     * {@link #getNumDimensions()}.
+     */
     @Nonnull
     private final int[] encoded;
+
+    /**
+     * Additive term used during distance estimation against this vector. For Euclidean and the
+     * inner-product metrics this is {@code ||residual||²}.
+     */
     private final double fAddEx;
+
+    /**
+     * Multiplicative rescale used during distance estimation against this vector. For Euclidean
+     * and the inner-product metrics this is {@code (1/ip) * (-2 * ||residual||)} where
+     * {@code ip} is the inner product the quantizer chose to normalize against.
+     */
     private final double fRescaleEx;
+
+    /**
+     * Estimated upper bound on the per-vector encoding error, in the metric's native scale.
+     * Consumed during distance estimation (see the RaBitQ distance estimator); it is not used by
+     * {@link #computeData()}.
+     */
     private final double fErrorEx;
 
     @Nonnull
@@ -60,7 +118,21 @@ public class EncodedRealVector implements RealVector {
     @Nonnull
     @SuppressWarnings("this-escape")
     private final Supplier<FloatRealVector> toFloatRealVectorSupplier = Suppliers.memoize(this::computeFloatRealVector);
+    @Nonnull
+    @SuppressWarnings("this-escape")
+    private final Supplier<Double> l2SquaredNormSupplier = Suppliers.memoize(this::computeL2SquaredNorm);
 
+    /**
+     * Constructs an encoded vector from the raw outputs of {@link RaBitQuantizer}. The
+     * {@code encoded} array is stored by reference (no defensive copy); callers must not mutate
+     * it after handing it over.
+     *
+     * @param numExBits number of magnitude bits per component (not counting the sign bit)
+     * @param encoded per-dimension integer codes; ownership transfers to this vector
+     * @param fAddEx the additive term ({@link #getAddEx()})
+     * @param fRescaleEx the multiplicative rescale ({@link #getRescaleEx()})
+     * @param fErrorEx the per-vector error bound ({@link #getErrorEx()})
+     */
     public EncodedRealVector(final int numExBits, @Nonnull final int[] encoded, final double fAddEx, final double fRescaleEx,
                              final double fErrorEx) {
         this.numExBits = numExBits;
@@ -70,23 +142,46 @@ public class EncodedRealVector implements RealVector {
         this.fErrorEx = fErrorEx;
     }
 
+    /**
+     * Returns the underlying integer-code array (no copy). Each entry is the signed code for
+     * one component, packed into {@code numExBits + 1} bits when serialized. Callers must not
+     * mutate the returned array.
+     *
+     * @return the per-dimension code array
+     */
     @Nonnull
     public int[] getEncodedData() {
         return encoded;
     }
 
+    /**
+     * Returns the per-vector additive term used during distance estimation. See {@link #fAddEx}.
+     */
     public double getAddEx() {
         return fAddEx;
     }
 
+    /**
+     * Returns the per-vector multiplicative rescale used during distance estimation.
+     * See {@link #fRescaleEx}.
+     */
     public double getRescaleEx() {
         return fRescaleEx;
     }
 
+    /**
+     * Returns the per-vector error bound used during distance estimation. See {@link #fErrorEx}.
+     */
     public double getErrorEx() {
         return fErrorEx;
     }
 
+    /**
+     * Two encoded vectors compare equal iff they have identical code arrays and identical
+     * calibration constants ({@link #fAddEx}, {@link #fRescaleEx}, {@link #fErrorEx}). The
+     * dequantized representation is intentionally not consulted — equality is on the encoding,
+     * not on the (lossy) reconstruction.
+     */
     @Override
     public final boolean equals(final Object o) {
         if (!(o instanceof EncodedRealVector)) {
@@ -100,11 +195,20 @@ public class EncodedRealVector implements RealVector {
                 Arrays.equals(encoded, that.encoded);
     }
 
+    /**
+     * Returns the memoized hash code, computed from the code array and the three calibration
+     * doubles — consistent with {@link #equals(Object)}.
+     */
     @Override
     public int hashCode() {
         return hashCodeSupplier.get();
     }
 
+    /**
+     * Computes the hash from scratch, backing the memoizing {@link #hashCodeSupplier}.
+     *
+     * @return the hash code
+     */
     public int computeHashCode() {
         int result = Arrays.hashCode(encoded);
         result = 31 * result + Double.hashCode(fAddEx);
@@ -118,22 +222,52 @@ public class EncodedRealVector implements RealVector {
         return encoded.length;
     }
 
+    /**
+     * Returns the raw integer code for the component at the given dimension. Unlike
+     * {@link #getComponent(int)} this does not trigger dequantization — useful for distance
+     * estimators that operate directly on the encoded representation.
+     *
+     * @param dimension the zero-based dimension index
+     * @return the integer code for that dimension
+     * @throws IndexOutOfBoundsException if {@code dimension} is out of range
+     */
     public int getEncodedComponent(final int dimension) {
         return encoded[dimension];
     }
 
-
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Reads from the lazily reconstructed dense form (see {@link #getData()}); the first
+     * call materializes the full {@code double[]} via {@link #computeData()}. If you only need
+     * the raw integer code, prefer {@link #getEncodedComponent(int)} which skips the
+     * reconstruction.
+     */
     @Override
     public double getComponent(final int dimension) {
         return getData()[dimension];
     }
 
+    /**
+     * Returns the lazily reconstructed dense form of this encoded vector. The reconstruction
+     * is approximate (see {@link #computeData()} for details) and memoized so repeated calls
+     * are cheap.
+     */
     @Nonnull
     @Override
     public double[] getData() {
         return dataSupplier.get();
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Returns a fresh {@link DoubleRealVector} carrying {@code data} — <em>not</em> a
+     * re-encoded {@code EncodedRealVector}, because re-encoding requires the quantizer's
+     * per-call state (rotation seed, calibration sweep). This means the inherited arithmetic
+     * methods ({@code add}, {@code subtract}, {@code multiply}, {@code normalize}) all drop
+     * back to ordinary double-precision results.
+     */
     @Nonnull
     @Override
     public RealVector withData(@Nonnull final double[] data) {
@@ -141,33 +275,97 @@ public class EncodedRealVector implements RealVector {
         return new DoubleRealVector(data);
     }
 
+    /**
+     * Reconstructs an approximate dense {@code double[]} from the encoded codes plus
+     * {@link #fAddEx}. Backs the memoizing supplier behind {@link #getData()}; callers should
+     * normally go through that path.
+     *
+     * <p>The reconstruction is a <em>norm-matched</em> dequantization. The codes carry the
+     * sign-and-magnitude pattern of the original residual {@code r} but at the integer scale of
+     * the encoder; this method centers them by subtracting {@code cb = 2^numExBits - 0.5} and
+     * rescales the result so its L2 norm equals {@code ||r||}, which is recoverable as
+     * {@code √fAddEx}. Concretely, with {@code z = encoded - cb}:
+     * <pre>{@code
+     *   output[i] = z[i] · (||r|| / ||z||)
+     * }</pre>
+     * The returned vector therefore has direction equal to {@code z}'s direction (an
+     * approximation of {@code r}'s direction, modulo quantization error) and magnitude equal to the
+     * original residual's norm {@code ||r||} — its own norm, not unit norm, and the same for every
+     * metric (cosine included). Matching the <em>magnitude</em>, not just the direction, is the
+     * point: {@link #getData()} lets an encoded vector stand in for an ordinary {@link RealVector},
+     * so the reconstructed norm must be a faithful {@code ||r||} for the inherited norm-sensitive
+     * operations to behave correctly — {@link #normalize()} and hence cosine similarity (both divide
+     * by the operand norms), the round-trip identity {@code normalize().multiply(l2Norm())}, mixing
+     * encoded and non-encoded vectors as k-means input, and exact distances against dense vectors —
+     * all of which then come out at the original scale.
+     *
+     * <p>Note that the per-vector estimator constants {@link #fRescaleEx} and {@link #fErrorEx}
+     * are intentionally <em>not</em> used here. Those drive the
+     * {@link RaBitDistanceEstimator}'s internal distance formula, where the scaling and
+     * confidence shrinkage live; pulling them into the dequantization would produce a
+     * confidence-weighted "view" suitable for reversing the estimator's math but not for
+     * treating the result as a stand-in for the original residual.
+     *
+     * <p>Degenerate inputs: if {@link #fAddEx} is non-positive (the original residual was
+     * effectively zero) or if every {@code encoded[i] = cb} (the centered codes have zero
+     * norm), there's no meaningful direction to recover and a zero vector is returned. No
+     * exception is thrown for these cases.
+     *
+     * @return a freshly allocated {@code double[]} with the reconstructed components; never
+     *         {@code null}
+     */
     @Nonnull
-    public double[] computeData() {
+    double[] computeData() {
         final int numDimensions = getNumDimensions();
-        final double cB = (1 << numExBits) - 0.5;
-        final RealVector z = new DoubleRealVector(encoded).subtract(cB);
-        final double normZ = z.l2Norm();
+        final double cb = (1 << numExBits) - 0.5;
+        final double[] xucData = new double[numDimensions];
+        double xucNormSqr = 0.0;
+        for (int i = 0; i < xucData.length; i++) {
+            final double component = encoded[i] - cb;
+            xucData[i] = component;
+            xucNormSqr += component * component;
+        }
 
-        // Solve for rho and Δx from fErrorEx and fRescaleEx
-        final double a = (2.0 * EPS0) / Math.sqrt(numDimensions - 1.0);
-        final double denom = a * Math.abs(fRescaleEx) * normZ;
-        Verify.verify(denom != 0.0, "degenerate parameters: denom == 0");
+        // Degenerate case: the original vector had zero norm, so the best reconstruction is the zero vector.
+        if (!(fAddEx > 0.0) || xucNormSqr == 0.0) {
+            return new double[numDimensions];
+        }
 
-        final double r = Math.min(1.0, (2.0 * Math.abs(fErrorEx)) / denom); // clamp for safety
-        final double rho = Math.sqrt(Math.max(0.0, 1.0 - r * r));
-
-        final double deltaX = -0.5 * fRescaleEx * rho;
-
-        // ô = c + Δx * r
-        return z.multiply(deltaX).getData();
+        // Reconstruct the signed quantized direction and scale it back to the stored vector norm.
+        // fAddEx stores ||v||^2, while encoded - cb stores the signed code direction used by the estimator.
+        final double scale = Math.sqrt(fAddEx / xucNormSqr);
+        for (int i = 0; i < xucData.length; i++) {
+            xucData[i] *= scale;
+        }
+        return xucData;
     }
 
+    /**
+     * Returns the memoized wire-format serialization of this vector (see
+     * {@link #computeRawData()} for the format).
+     */
     @Nonnull
     @Override
     public byte[] getRawData() {
         return rawDataSupplier.get();
     }
 
+    /**
+     * Serializes this encoded vector into a byte array in the RaBitQ wire format. Layout (all
+     * multi-byte values big-endian):
+     * <ol>
+     *   <li>1 byte — {@link VectorType#RABITQ} ordinal as a type tag.</li>
+     *   <li>8 bytes — {@link #fAddEx}.</li>
+     *   <li>8 bytes — {@link #fRescaleEx}.</li>
+     *   <li>8 bytes — {@link #fErrorEx}.</li>
+     *   <li>{@code ceil(numDimensions * (numExBits + 1) / 8)} bytes — the per-dimension
+     *       integer codes, tightly bit-packed by {@link #packEncodedComponents(int, ByteBuffer)}.</li>
+     * </ol>
+     * Note that the dimensionality and {@code numExBits} are not stored in the byte stream;
+     * {@link #fromBytes(byte[], int, int)} requires both as explicit arguments.
+     *
+     * @return the serialized form; never {@code null}
+     */
     @Nonnull
     protected byte[] computeRawData() {
         int numBits = getNumDimensions() * (numExBits + 1); // congruency with paper
@@ -183,6 +381,15 @@ public class EncodedRealVector implements RealVector {
         return vectorBytes;
     }
 
+    /**
+     * Bit-packs the integer codes into {@code buffer}, writing {@code numExBits + 1} bits per
+     * component in big-endian (MSB-first) order. Components that span byte boundaries are split
+     * so high-order bits go into the current byte and low-order bits flow into the next. After
+     * the last component, any partially filled trailing byte is flushed.
+     *
+     * @param numExBits number of magnitude bits per component (sign bit added implicitly)
+     * @param buffer the destination, positioned where packed bits should start being written
+     */
     private void packEncodedComponents(final int numExBits, @Nonnull final ByteBuffer buffer) {
         // big-endian
         final int bitsPerComponent = numExBits + 1; // congruency with paper
@@ -221,34 +428,107 @@ public class EncodedRealVector implements RealVector {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Computed from the lazily reconstructed dense form (see {@link #getData()}); the
+     * resulting {@link HalfRealVector} is memoized.
+     */
     @Nonnull
     @Override
     public HalfRealVector toHalfRealVector() {
         return toHalfRealVectorSupplier.get();
     }
 
+    /**
+     * Builds a fresh half-precision dense vector from the reconstructed components. Used as
+     * the supplier behind {@link #toHalfRealVector()}.
+     */
     @Nonnull
     private HalfRealVector computeHalfRealVector() {
         return new HalfRealVector(getData());
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Computed from the lazily reconstructed dense form (see {@link #getData()}); the
+     * resulting {@link FloatRealVector} is memoized.
+     */
     @Nonnull
     @Override
     public FloatRealVector toFloatRealVector() {
         return toFloatRealVectorSupplier.get();
     }
 
+    /**
+     * Builds a fresh single-precision dense vector from the reconstructed components. Used as
+     * the supplier behind {@link #toFloatRealVector()}.
+     */
     @Nonnull
     private FloatRealVector computeFloatRealVector() {
         return new FloatRealVector(getData());
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Returns a fresh {@link DoubleRealVector} carrying the reconstructed dense components.
+     * Unlike the half/float conversions, this one is not memoized — the underlying
+     * {@code double[]} reconstruction is already memoized by {@link #getData()}, so wrapping
+     * it again is cheap.
+     */
     @Nonnull
     @Override
     public DoubleRealVector toDoubleRealVector() {
         return new DoubleRealVector(getData());
     }
 
+    /**
+     * Returns {@code this} — instances of this class are already immutable.
+     */
+    @Nonnull
+    @Override
+    public EncodedRealVector toImmutable() {
+        return this;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Computed from the reconstructed dense form (via the {@link RealVector} interface default)
+     * and memoized.
+     */
+    @Override
+    public double l2SquaredNorm() {
+        return l2SquaredNormSupplier.get();
+    }
+
+    /**
+     * Computes the squared L2 norm from scratch by delegating to the {@link RealVector} interface
+     * default ({@code RealVector.super.l2SquaredNorm()}), which reduces over the reconstructed
+     * dense form. Backs the memoizing supplier behind {@link #l2SquaredNorm()}; this override is
+     * purely the memoization layer.
+     *
+     * @return the squared L2 norm of the reconstructed dense form
+     */
+    private double computeL2SquaredNorm() {
+        return RealVector.super.l2SquaredNorm();
+    }
+
+    /**
+     * Deserializes an encoded vector from the wire format produced by {@link #computeRawData()}.
+     * The dimensionality and {@code numExBits} are not stored in the byte stream and must be
+     * supplied by the caller (typically from the encoder's configuration).
+     *
+     * @param vectorBytes the serialized form; must start with the {@link VectorType#RABITQ}
+     *        type tag
+     * @param numDimensions number of components in the encoded vector
+     * @param numExBits number of magnitude bits per component (sign bit implicit)
+     * @return a freshly allocated encoded vector
+     * @throws com.google.common.base.VerifyException if the leading type tag is not
+     *         {@link VectorType#RABITQ}
+     */
     @Nonnull
     public static EncodedRealVector fromBytes(@Nonnull final byte[] vectorBytes,
                                               final int numDimensions,
@@ -263,6 +543,16 @@ public class EncodedRealVector implements RealVector {
         return new EncodedRealVector(numExBits, components, fAddEx, fRescaleEx, fErrorEx);
     }
 
+    /**
+     * Inverse of {@link #packEncodedComponents(int, ByteBuffer)}: reads {@code numExBits + 1}
+     * bits per component out of {@code buffer} in big-endian (MSB-first) order and returns the
+     * decoded integer codes.
+     *
+     * @param buffer the source, positioned at the start of the packed bits
+     * @param numDimensions number of components to decode
+     * @param numExBits number of magnitude bits per component (sign bit implicit)
+     * @return a freshly allocated array of decoded codes
+     */
     @Nonnull
     private static int[] unpackComponents(@Nonnull final ByteBuffer buffer,
                                           final int numDimensions,

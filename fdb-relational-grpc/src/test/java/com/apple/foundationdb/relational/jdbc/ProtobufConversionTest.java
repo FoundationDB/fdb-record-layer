@@ -29,9 +29,11 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuationReason;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
 import com.apple.foundationdb.relational.utils.OptionsTestHelper;
+import com.apple.test.BooleanSource;
 import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.List;
 import java.util.function.BiFunction;
@@ -79,6 +81,27 @@ public class ProtobufConversionTest {
         final com.apple.foundationdb.relational.jdbc.grpc.v1.Options asProto = TypeConversion.toProtobuf(nonDefault).build();
         final Options fromProto = TypeConversion.fromProtobuf(asProto);
         Assertions.assertEquals(nonDefault, fromProto);
+    }
+
+    /**
+     * The isolation level travels over the wire as an enum so that further levels can be added, while the
+     * client-side option stays a boolean. Pin both enum values and both directions of that mapping — getting
+     * {@code SERIALIZABLE} wrong would silently enable snapshot isolation.
+     */
+    @ParameterizedTest
+    @BooleanSource("snapshot")
+    void testIsolationLevelOptionRoundTrip(boolean snapshot) throws Exception {
+        final Options options = Options.builder()
+                .withOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT, snapshot).build();
+        final com.apple.foundationdb.relational.jdbc.grpc.v1.Options asProto =
+                TypeConversion.toProtobuf(options).build();
+        Assertions.assertEquals(
+                snapshot
+                        ? com.apple.foundationdb.relational.jdbc.grpc.v1.Options.IsolationLevel.SNAPSHOT
+                        : com.apple.foundationdb.relational.jdbc.grpc.v1.Options.IsolationLevel.SERIALIZABLE,
+                asProto.getIsolationLevel());
+        Assertions.assertEquals(snapshot,
+                TypeConversion.fromProtobuf(asProto).getOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT));
     }
 
     @Test

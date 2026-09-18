@@ -96,6 +96,14 @@ public class RangeSet {
         return Arrays.equals(key, FINAL_KEY);
     }
 
+    public static byte[] nullIfFirst(@Nonnull byte[] key) {
+        return isFirstKey(key) ? null : key;
+    }
+
+    public static byte[] nullIfFinal(@Nonnull byte[] key) {
+        return isFinalKey(key) ? null : key;
+    }
+
     // This returns the next possible key after another key (i.e., a key that is greater than current key but
     // every key greater than this key will be greater than or equal to the returned key).
     @Nonnull

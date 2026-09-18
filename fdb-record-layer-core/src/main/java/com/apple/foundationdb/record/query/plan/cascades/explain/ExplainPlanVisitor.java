@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexValuePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -87,6 +88,7 @@ import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryDamPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
@@ -256,6 +258,24 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
 
     @Nonnull
     @Override
+    public ExplainTokens visitCoveringIndexValuePlan(@Nonnull final RecordQueryCoveringIndexValuePlan coveringIndexPlan) {
+        addKeyword("COVERING").addOptionalWhitespace().addOpeningParen().addOptionalWhitespace();
+        final var underlyingWithIndex = coveringIndexPlan.getIndexPlan();
+        if (underlyingWithIndex instanceof RecordQueryIndexPlan) {
+            addNested(indexDetails((RecordQueryIndexPlan)underlyingWithIndex));
+        } else if (underlyingWithIndex instanceof RecordQueryTextIndexPlan) {
+            textIndexDetails((RecordQueryTextIndexPlan)underlyingWithIndex);
+        } else {
+            addIdentifier(underlyingWithIndex.getIndexName());
+        }
+        return addNested(ExplainLevel.ALL_DETAILS, new ExplainTokens().addWhitespace().addToString("->")
+                .addWhitespace().addToString(coveringIndexPlan.getIndexEntryToRecordValue()))
+                .addOptionalWhitespace()
+                .addClosingParen();
+    }
+
+    @Nonnull
+    @Override
     public ExplainTokens visitDeletePlan(@Nonnull final RecordQueryDeletePlan deletePlan) {
         // TODO provide proper explain
         visit(deletePlan.getChild());
@@ -265,8 +285,12 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     @Nonnull
     @Override
     public ExplainTokens visitExplodePlan(@Nonnull final RecordQueryExplodePlan explodePlan) {
-        return addKeyword("EXPLODE").addWhitespace()
+        addKeyword("EXPLODE").addWhitespace()
                 .addNested(explodePlan.getCollectionValue().explain().getExplainTokens());
+        if (explodePlan.isWithOrdinality()) {
+            addWhitespace().addKeyword("WITH").addWhitespace().addKeyword("ORDINALITY");
+        }
+        return this;
     }
 
     @Nonnull
@@ -449,7 +473,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         // TODO maybe explain the coercion tree on ALL_DETAILS
         visit(insertPlan.getChild());
         return pipe().addKeyword("INSERT").addWhitespace().addKeyword("INTO").addWhitespace()
-                .addIdentifier(insertPlan.getTargetRecordType());
+                .addIdentifier(ProtoUtils.toUserIdentifier(insertPlan.getTargetRecordType()));
     }
 
     @Nonnull
@@ -605,7 +629,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                 .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
                         () -> typeFilterPlan.getRecordTypes()
                                 .stream()
-                                .map(recordType -> new ExplainTokens().addIdentifier(recordType))
+                                .map(recordType -> new ExplainTokens().addIdentifier(ProtoUtils.toUserIdentifier(recordType)))
                                 .iterator());
     }
 
@@ -675,7 +699,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     public ExplainTokens visitUpdatePlan(@Nonnull final RecordQueryUpdatePlan updatePlan) {
         // TODO explain with coercion and update tries in ALL_DETAILS
         visit(updatePlan.getChild());
-        return pipe().addKeyword("UPDATE").addWhitespace().addIdentifier(updatePlan.getTargetRecordType());
+        return pipe().addKeyword("UPDATE").addWhitespace().addIdentifier(ProtoUtils.toUserIdentifier(updatePlan.getTargetRecordType()));
     }
 
     @Nonnull

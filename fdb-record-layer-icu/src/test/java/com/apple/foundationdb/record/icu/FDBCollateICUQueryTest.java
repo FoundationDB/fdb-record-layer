@@ -20,22 +20,24 @@
 
 package com.apple.foundationdb.record.icu;
 
-import com.apple.foundationdb.record.provider.foundationdb.query.FDBCollateQueryTest;
+import com.apple.foundationdb.record.provider.foundationdb.query.FDBCollateQueryTestBase;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 /**
  * Tests for query execution using {@link CollateFunctionKeyExpressionFactoryICU}.
  */
 @SuppressWarnings("checkstyle:abbreviationaswordinname") // Allow ICU here.
-public class FDBCollateICUQueryTest extends FDBCollateQueryTest {
+public class FDBCollateICUQueryTest extends FDBCollateQueryTestBase {
 
     public FDBCollateICUQueryTest() {
         super(CollateFunctionKeyExpressionFactoryICU.FUNCTION_NAME);
     }
 
-    protected static final String[] NUMBERS = {
-        "1.2.3", "12.0.0", "1.10.0"
-    };
+    protected static final List<String> NUMBERS = List.of(
+            "1.2.3", "12.0.0", "1.10.0"
+    );
 
     @Test
     public void sortNumbersDefault() throws Exception {

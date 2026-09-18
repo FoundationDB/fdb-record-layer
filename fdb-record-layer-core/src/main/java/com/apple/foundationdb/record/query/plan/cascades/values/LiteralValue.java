@@ -47,7 +47,6 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -127,7 +126,7 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(value);
+        return PlanHashable.objectPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, value);
     }
 
     @Override

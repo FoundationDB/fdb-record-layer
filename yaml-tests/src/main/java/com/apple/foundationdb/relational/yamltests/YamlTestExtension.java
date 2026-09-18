@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.relational.yamltests.configs.AddExplains;
 import com.apple.foundationdb.relational.yamltests.configs.AddResultMetadata;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.yamltests.configs.CorrectExplains;
@@ -114,6 +115,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                 new CorrectExpectations(new EmbeddedConfig(clusterFiles)),
                 new CorrectResultMetadata(new EmbeddedConfig(clusterFiles)),
                 new AddResultMetadata(new EmbeddedConfig(clusterFiles)),
+                new AddExplains(new EmbeddedConfig(clusterFiles)),
                 new ShowPlanOnDiff(new EmbeddedConfig(clusterFiles))
         );
         if (Boolean.parseBoolean(System.getProperty("tests.runQuick", "false"))) {

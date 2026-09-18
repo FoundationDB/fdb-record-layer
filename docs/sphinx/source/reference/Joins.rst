@@ -4,22 +4,19 @@ Joins
 
 .. _joins:
 
-Joins combine rows from two or more tables based on related column. FDB Record Layer supports INNER JOIN and joins using comma-separated table references in the FROM clause with join conditions specified in the WHERE clause.
+Joins combine rows from two or more tables based on a related column. The FDB Record Layer supports the standard SQL join keywords ``INNER JOIN`` (or just ``JOIN``), ``LEFT OUTER JOIN`` (or ``LEFT JOIN``), and ``RIGHT OUTER JOIN`` (or ``RIGHT JOIN``). As an alternative to the ``INNER JOIN`` syntax, inner joins can also be expressed using comma-separated table references in the ``FROM`` clause with join conditions specified in the ``WHERE`` clause.
 
 .. important::
 
-   FDB Record Layer **supports** only one standard SQL JOIN keyword ``INNER JOIN`` (or just ``JOIN``).
+   The FDB Record Layer **does not support** the ``FULL OUTER JOIN`` and ``CROSS JOIN`` variants.
 
-   FDB Record Layer **does not support** other standard SQL JOIN keywords (``LEFT JOIN``, ``RIGHT JOIN``, ``OUTER JOIN``, etc.). Use the comma-separated FROM clause instead.
-
-Basic Join Syntax
+Basic join syntax
 =================
 
-Cross Join (Cartesian Product)
--------------------------------
+Cross join (Cartesian product)
+------------------------------
 
-FDB Record Layer **does not support** ``CROSS JOIN`` keyword.
-List multiple tables separated by commas instead:
+The FDB Record Layer **does not support** the ``CROSS JOIN`` keyword. List multiple tables separated by commas instead:
 
 .. code-block:: sql
 
@@ -27,10 +24,10 @@ List multiple tables separated by commas instead:
 
 This produces a Cartesian product of all rows from both tables.
 
-Inner Join On Condition
----------------------------
+Inner join with ``ON``
+----------------------
 
-Use ON clause to specify join conditions:
+Use the ``ON`` clause to specify join conditions:
 
 .. code-block:: sql
 
@@ -38,7 +35,7 @@ Use ON clause to specify join conditions:
     FROM table1 INNER JOIN table2
     ON table1.column = table2.column
 
-This is equivalent to SELECT FROM comma-separated sources with WHERE Clause:
+This is equivalent to a ``SELECT`` from comma-separated sources with a ``WHERE`` clause:
 
 .. code-block:: sql
 
@@ -46,11 +43,10 @@ This is equivalent to SELECT FROM comma-separated sources with WHERE Clause:
     FROM table1, table2
     WHERE table1.column = table2.column
 
-Inner Join Using(Column)
----------------------------
+Inner join with ``USING``
+-------------------------
 
-The special case is used when joining tables have the same name column(s).
-The column(s) are specified in the USING() clause:
+The ``USING`` clause is a shorthand for when the joined tables share identically named columns. The columns are specified in the ``USING`` clause:
 
 .. code-block:: sql
 
@@ -60,7 +56,7 @@ The column(s) are specified in the USING() clause:
     SELECT columns
     FROM a INNER JOIN b USING(c1)
 
-It is equivalent to:
+This is equivalent to:
 
 .. code-block:: sql
 
@@ -74,7 +70,7 @@ And also equivalent to:
     SELECT columns
     FROM a, b WHERE a.c1 = b.c1
 
-An important feature of ``INNER JOIN USING`` is that it hides duplicated columns from the output:
+An important feature of ``INNER JOIN … USING`` is that it hides duplicate columns from the output:
 
 .. code-block:: sql
 
@@ -84,7 +80,7 @@ An important feature of ``INNER JOIN USING`` is that it hides duplicated columns
     SELECT *
     FROM a INNER JOIN b USING(c1)
 
-In this case ``SELECT *`` returns only three columns:
+In this case, ``SELECT *`` returns only three columns:
 
 .. list-table::
     :header-rows: 0
@@ -93,7 +89,7 @@ In this case ``SELECT *`` returns only three columns:
       - `c2`
       - `c3`
 
-However, the joining columns can be accessed directly using qualified names:
+However, the joining columns can still be accessed using qualified names:
 
 .. code-block:: sql
 
@@ -108,7 +104,7 @@ This returns two identical columns:
     * - `a.c1`
       - `b.c1`
 
-``INNER JOIN USING`` maintains the standard order of the output from left to right excluding duplicates:
+``INNER JOIN USING`` maintains the standard column order from left to right, excluding duplicates:
 
 .. code-block:: sql
 
@@ -118,7 +114,7 @@ This returns two identical columns:
     SELECT *
     FROM a INNER JOIN b USING(c1, c5)
 
-Returns 6 columns: all columns from ``a`` (c1, c2, c5, c6) and all columns from ``b`` excluding duplicates (c3, c7):
+This returns six columns: all columns from ``a`` (c1, c2, c5, c6) followed by the non-duplicate columns from ``b`` (c3, c7).
 
 .. list-table::
     :header-rows: 0
@@ -136,7 +132,7 @@ Examples
 Setup
 -----
 
-For these examples, assume we have the following tables:
+For these examples, assume the following tables:
 
 .. code-block:: sql
 
@@ -179,8 +175,8 @@ For these examples, assume we have the following tables:
         (2, 'SEO', 'Increase visibility on search engines', 8),
         (3, 'Feedback', 'Turn customer feedback into items', 5)
 
-Simple Two-Table Join
-----------------------
+Simple two-table join
+---------------------
 
 Join employees with their departments:
 
@@ -203,8 +199,8 @@ Join employees with their departments:
     * - :json:`"Emily"`
       - :json:`"Martinez"`
 
-Consecutive Join
---------------
+Consecutive joins
+-----------------
 
 Join across three tables to find departments and their projects:
 
@@ -226,9 +222,9 @@ Join across three tables to find departments and their projects:
     * - :json:`"Marketing"`
       - :json:`"SEO"`
 
-Joining the result of first join (employees and departments) to projects;
+The result of the first join (employees and departments) is joined to projects.
 
-Join with Subquery
+Join with subquery
 ------------------
 
 Use a derived table (subquery) in a join:
@@ -254,7 +250,7 @@ Use a derived table (subquery) in a join:
 
 This finds employees who are assigned to projects and work in the Sales department.
 
-Nested Joins
+Nested joins
 ------------
 
 Join subqueries that themselves contain joins:
@@ -281,7 +277,7 @@ Join subqueries that themselves contain joins:
     * - :json:`"Marketing"`
       - :json:`"SEO"`
 
-The subquery first joins employees with departments, then the result is joined with projects.
+The subquery first joins employees with departments; the result is then joined with projects.
 
 Join with CTEs
 --------------
@@ -296,7 +292,7 @@ Use Common Table Expressions in joins:
 
 This creates two CTEs and joins them using a cross join.
 
-Self-Join
+Self-join
 ---------
 
 Join a table to itself:
@@ -305,7 +301,7 @@ Join a table to itself:
 
     SELECT * FROM Table1, Table1 WHERE col1 = 10
 
-This self-join can be used to find relationships within the same table. Use aliases to distinguish between the two references:
+A self-join can be used to find relationships within the same table. Use aliases to distinguish between the two references:
 
 .. code-block:: sql
 
@@ -314,10 +310,10 @@ This self-join can be used to find relationships within the same table. Use alia
     WHERE t1.dept_id = t2.dept_id
       AND t1.id < t2.id
 
-Semi-Join with EXISTS
-----------------------
+Semi-join with ``EXISTS``
+-------------------------
 
-Use EXISTS to implement a semi-join (find rows that have matching rows in another table):
+Use ``EXISTS`` to implement a semi-join (find rows that have matching rows in another table):
 
 .. code-block:: sql
 
@@ -341,10 +337,10 @@ Use EXISTS to implement a semi-join (find rows that have matching rows in anothe
 
 This finds all employees who have at least one project assigned, without returning duplicate employee rows.
 
-Join with User-Defined Functions
----------------------------------
+Join with user-defined functions
+--------------------------------
 
-Join results from user-defined functions:
+User-defined functions can be used like tables in the ``FROM`` clause and joined with conditions in the ``WHERE`` clause:
 
 .. code-block:: sql
 
@@ -352,19 +348,17 @@ Join results from user-defined functions:
     FROM f1(103, 'b') A, f1(103, 'b') B
     WHERE A.col1 = B.col1
 
-User-defined functions can be used like tables in the FROM clause and joined with join conditions in the WHERE clause.
-
-Important Notes
+Important notes
 ===============
 
-Table Aliases
+Table aliases
 -------------
 
 Use aliases to:
 
-- Distinguish between multiple references to the same table
-- Shorten long table names
-- Reference columns from specific tables in multi-table joins
+- Distinguish between multiple references to the same table.
+- Shorten long table names.
+- Reference columns from specific tables in multi-table joins.
 
 .. code-block:: sql
 
@@ -372,17 +366,17 @@ Use aliases to:
     FROM emp e, dept d
     WHERE e.dept_id = d.id
 
-Join Conditions
+Join conditions
 ---------------
 
-- Join conditions should be specified in the WHERE clause (for comma-separated tables) or the ON clause (for INNER JOIN)
-- Use ``AND`` to combine multiple join conditions and filters
-- Missing join conditions result in a Cartesian product (all combinations)
+- Join conditions should be specified in the ``WHERE`` clause (for comma-separated tables) or the ``ON`` clause (for ``INNER JOIN``, ``LEFT OUTER JOIN``, and ``RIGHT OUTER JOIN``).
+- Use ``AND`` to combine multiple join conditions and filters.
+- Omitting join conditions produces a Cartesian product (all combinations of rows).
 
-See Also
+See also
 ========
 
-* :doc:`sql_commands/DQL/INNER_JOIN` - INNER JOIN syntax
+* :doc:`sql_commands/DQL/JOIN` - JOIN syntax
 * :doc:`sql_commands/DQL/SELECT` - SELECT statement syntax
 * :doc:`sql_commands/DQL/WHERE` - WHERE clause filtering
 * :doc:`Subqueries` - Subqueries and correlated subqueries

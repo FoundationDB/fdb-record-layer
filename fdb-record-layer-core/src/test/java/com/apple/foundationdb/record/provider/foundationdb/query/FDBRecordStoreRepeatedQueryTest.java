@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -131,7 +132,7 @@ class FDBRecordStoreRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         var baseReference = FieldValue.ofOrdinalNumber(selectWhere.getFlowedObjectValue(), 0);
         final FieldValue groupedValue = FieldValue.ofFieldName(baseReference, "num_value_2");
         var aggregatedFieldRef = FieldValue.ofFields(selectWhere.getFlowedObjectValue(), baseReference.getFieldPath().withSuffix(groupedValue.getFieldPath()));
-        final Value sumValue = (Value) new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(aggregatedFieldRef));
+        final Value sumValue = (Value) new NumericAggregationValue.SumFn().encapsulate(CallSiteArguments.ofPositional(aggregatedFieldRef));
         final FieldValue groupingCol1 = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumberAndFuseIfPossible(selectWhere.getFlowedObjectValue(), 1), 0);
         final FieldValue groupingCol2 = FieldValue.ofFieldNameAndFuseIfPossible(FieldValue.ofOrdinalNumberAndFuseIfPossible(selectWhere.getFlowedObjectValue(), 0), "num_value_3_indexed");
         final RecordConstructorValue groupingValue = RecordConstructorValue.ofUnnamed(ImmutableList.of(groupingCol1, groupingCol2));

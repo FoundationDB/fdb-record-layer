@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,22 +22,21 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.Collection;
 
 /**
- * Abstract class to be extended for all exploration rules. The main purpose of this class is to constrain the
- * parameter of the {@link #onMatch(CascadesRuleCall)} method to {@link #onMatch(ExplorationCascadesRuleCall)} which
- * provides a restricted API for the specific rule implementation.
- * <br>
- * The main difference of an exploration rule as compared to an implementation rule (apart from how the planner
+ * Marker interface for exploration rules.
+ *
+ * <p>The main purpose of this interface is to constrain the parameter of the {@link #onMatch(CascadesRuleCall)} method
+ * to {@link #onMatch(ExplorationCascadesRuleCall)} which provides a restricted API for the specific rule
+ * implementation.
+ *
+ * <p>The main difference of an exploration rule as compared to an implementation rule (apart from how the planner
  * distinguishes between exploratory and final expressions) lies in the mechanics of how the expression DAG is modified
  * by the rule as a consequence of how the rule reasons about its subject and the subjects' inputs.
- * <br>
- * An exploration rule always matches some expression called the subject together with some sub DAG that is reachable
+ *
+ * <p>An exploration rule always matches some expression called the subject together with some sub DAG that is reachable
  * from the subject that always terminates at a set of references. Those references can be leaf references of the DAG
  * itself or just intermediate references of the DAG that just happened to be the furthest we matched with the
  * precondition matchers starting at the subject. Let's call those references base references. When the exploration
@@ -46,33 +45,26 @@ import java.util.Collection;
  * shared between different variations. That sharing is important for performance reasons (memory and computation) but
  * it requires extra care as those shared references must not be destructively modified which can be statically
  * guaranteed only during the exploration of the DAG.
+ *
  * @param <T> a parent planner expression type of all possible root planner expressions that this rule could match
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class ExplorationCascadesRule<T extends RelationalExpression> extends CascadesRule<T> {
-    public ExplorationCascadesRule(@Nonnull BindingMatcher<T> matcher) {
-        this(matcher, ImmutableSet.of());
-    }
-
-    public ExplorationCascadesRule(@Nonnull final BindingMatcher<T> matcher,
-                                   @Nonnull final Collection<PlannerConstraint<?>> requirementDependencies) {
-        super(matcher, requirementDependencies);
-    }
-
+public interface ExplorationCascadesRule<T extends RelationalExpression> extends CascadesRule<T> {
     /**
-     * Note that this method is intentionally {@code final} to prevent reimplementation by subclasses. Subclassed should
-     * instead override the more constrained {@link #onMatch(ExplorationCascadesRuleCall)}.
-     * @param call the regular {@link CascadesRuleCall}
+     * {@inheritDoc}
+     *
+     * <p>Note that this method is not intended to be reimplemented by implementing classes. Implementing classes
+     * should instead override the more constrained {@link #onMatch(ExplorationCascadesRuleCall)}.
      */
     @Override
-    public final void onMatch(@Nonnull final CascadesRuleCall call) {
-        // needs to be cast up to select the right overloaded method
-        onMatch((ExplorationCascadesRuleCall)call);
+    default void onMatch(@Nonnull final CascadesRuleCall call) {
+        onMatch((ExplorationCascadesRuleCall) call);
     }
 
     /**
-     * Abstract method to be implemented by the specific rule.
+     * The specific rule’s implementation of {@link #onMatch(CascadesRuleCall)}.
+     *
      * @param call the constrained rule call
      */
-    public abstract void onMatch(@Nonnull ExplorationCascadesRuleCall call);
+    void onMatch(@Nonnull ExplorationCascadesRuleCall call);
 }

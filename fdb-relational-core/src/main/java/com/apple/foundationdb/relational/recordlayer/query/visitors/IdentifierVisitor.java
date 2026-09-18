@@ -119,7 +119,7 @@ public final class IdentifierVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public Identifier visitTableFunctionName(final RelationalParser.TableFunctionNameContext ctx) {
+    public Identifier visitTableFunctionName(@Nonnull final RelationalParser.TableFunctionNameContext ctx) {
         return visitFullId(ctx.fullId());
     }
 }

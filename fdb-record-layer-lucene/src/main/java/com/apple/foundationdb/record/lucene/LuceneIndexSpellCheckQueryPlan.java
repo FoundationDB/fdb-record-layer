@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
@@ -37,7 +36,7 @@ import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.plans.QueryPlanUtils;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndexEntryToQueriedRecord;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.google.common.base.Verify;
@@ -46,14 +45,13 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
 import java.util.List;
 import java.util.function.Function;
 
 /**
  * Lucene query plan that allows to make spell-check suggestions.
  */
-public class LuceneIndexSpellCheckQueryPlan extends LuceneIndexQueryPlan {
+public class LuceneIndexSpellCheckQueryPlan extends LuceneIndexQueryPlan implements RecordQueryPlanWithIndexEntryToQueriedRecord {
     protected LuceneIndexSpellCheckQueryPlan(@Nonnull final String indexName, @Nonnull final LuceneScanParameters scanParameters,
                                              @Nonnull final FetchIndexRecords fetchIndexRecords, final boolean reverse,
                                              @Nullable final PlanOrderingKey planOrderingKey, @Nullable final List<KeyExpression> storedFields) {
@@ -68,15 +66,29 @@ public class LuceneIndexSpellCheckQueryPlan extends LuceneIndexQueryPlan {
                                                                                    @Nonnull final Function<byte[], RecordCursor<IndexEntry>> entryCursorFunction,
                                                                                    @Nullable final byte[] continuation,
                                                                                    @Nonnull final ExecuteProperties executeProperties) {
-        final RecordMetaData metaData = store.getRecordMetaData();
-        final Index index = metaData.getIndex(indexName);
-        final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
-        final IndexScanType scanType = getScanType();
-
-        final RecordType recordType = Iterables.getOnlyElement(recordTypes);
         return entryCursorFunction.apply(continuation)
-                .map(QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordType.getName(), indexName,
-                        LuceneIndexKeyValueToPartialRecordUtils.getToPartialRecord(index, recordType, scanType), false));
+                .map(indexEntry -> indexEntryToQueriedRecord(store, evaluationContext, indexEntry));
+    }
+
+    /**
+     * A spell-check entry is decoded into a partial copy of the indexed record type, which is derived from the index
+     * rather than named: this plan holds only an index name. The converter has to be built from that record type and the
+     * scan type, and the result carries no primary key -- a suggestion does not come from one record.
+     */
+    @Nonnull
+    @Override
+    public <M extends Message> FDBQueriedRecord<M> indexEntryToQueriedRecord(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                            @Nonnull final EvaluationContext context,
+                                                                            @Nonnull final IndexEntry indexEntry) {
+        final RecordMetaData metaData = store.getRecordMetaData();
+        final Index index = metaData.getIndex(getIndexName());
+        final RecordType recordType = Iterables.getOnlyElement(metaData.recordTypesForIndex(index));
+        return RecordQueryPlanWithIndexEntryToQueriedRecord.intoStoredRecordShape(store,
+                index,
+                recordType,
+                LuceneIndexKeyValueToPartialRecordUtils.getToPartialRecord(index, recordType, getScanType()),
+                false,
+                indexEntry);
     }
 
     /**

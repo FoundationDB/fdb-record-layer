@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Environment;
+import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckExplainConfig;
 import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckResultMetadataConfig;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
@@ -98,7 +99,7 @@ public final class QueryCommand extends Command {
                     QueryConfig.parseConfigs(blockName, reference, queryConfigsWithValueList, executionContext);
 
             final List<QueryConfig> skipConfigs = configs.stream().filter(config -> config instanceof QueryConfig.SkipConfig)
-                    .collect(Collectors.toList());
+                    .toList();
             Assert.thatUnchecked(skipConfigs.size() < 2, "Query should not have more than one skip");
             if (!skipConfigs.isEmpty()) {
                 return new SkippedCommand(reference, executionContext,
@@ -130,12 +131,31 @@ public final class QueryCommand extends Command {
                 configs = mutableConfigs;
             }
 
+            // When OPTION_ADD_EXPLAIN is set, inject a synthetic explain config for queries that have a
+            // result/unorderedResult config but no explain block yet, so the actual plan is captured and
+            // written into the YAMSQL source file.
+            if (executionContext.shouldAddExplains()
+                    && QueryConfig.shouldExecuteExplain(executionContext)
+                    && configs.stream().noneMatch(c -> QueryConfig.QUERY_CONFIG_EXPLAIN.equals(c.getConfigName())
+                            || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(c.getConfigName()))
+                    && configs.stream().anyMatch(c -> QueryConfig.QUERY_CONFIG_RESULT.equals(c.getConfigName())
+                            || QueryConfig.QUERY_CONFIG_UNORDERED_RESULT.equals(c.getConfigName()))) {
+                final List<QueryConfig> mutableConfigs = new ArrayList<>(configs);
+                // Insert after supported_version if it is the first config, otherwise at the front.
+                int insertIdx = (!mutableConfigs.isEmpty()
+                        && QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(mutableConfigs.get(0).getConfigName()))
+                        ? 1 : 0;
+                mutableConfigs.add(insertIdx, new CheckExplainConfig(
+                        QueryConfig.QUERY_CONFIG_EXPLAIN, null, reference, executionContext, true, blockName));
+                configs = mutableConfigs;
+            }
+
             final boolean hasDebuggerConfig =
                     configs.stream()
                             .anyMatch(config -> Objects.equals(config.getConfigName(), QueryConfig.QUERY_CONFIG_DEBUGGER));
             return new QueryCommand(reference, queryInterpreter, configs, executionContext, hasDebuggerConfig);
         } catch (Exception e) {
-            throw executionContext.wrapContext(e,
+            throw YamlExecutionContext.wrapContext(e,
                     () -> "‼️ Error parsing query command at " + reference, "query", reference);
         }
     }
@@ -173,7 +193,7 @@ public final class QueryCommand extends Command {
             throw tAE;
         } catch (Throwable e) {
             if (maybeExecutionThrowable.get() == null) {
-                maybeExecutionThrowable.set(executionContext.wrapContext(e,
+                maybeExecutionThrowable.set(YamlExecutionContext.wrapContext(e,
                         () -> "‼️ Error executing query command at " + getReference() + " against connection for versions " + connection.getVersions(),
                         String.format(Locale.ROOT, "query [%s] ", executor), getReference()));
             }

@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
@@ -49,7 +49,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * Rule that passes sorting requirements from {@code GROUP BY} expression downstream. This limits the search space of available
  * access paths to the ones having a compatible sort order allowing physical grouping operator later on to generate the correct results.
  */
-public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupByExpression> implements CascadesRule.PreOrderRule  {
+public class PushRequestedOrderingThroughGroupByRule extends AbstractCascadesRule<GroupByExpression> implements AbstractCascadesRule.PreOrderRule  {
 
     private static final BindingMatcher<Reference> lowerRefMatcher = ReferenceMatchers.anyRef();
     @Nonnull

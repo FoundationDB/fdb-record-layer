@@ -37,6 +37,7 @@ import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.NotMatcher.not;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyNotNullableValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 
@@ -51,15 +52,19 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * }
  * </pre>
  * <br>
- * Note that this rule is the conceptual opposite of {@link CollapseRecordConstructorOverFieldsToStarRule}. These rules
- * should not be placed into the same rule set as the effect of it is undefined and may cause a stack overflow.
+ * <p>The rule is restricted to non-nullable values. A value whose result type is nullable can evaluate to
+ * {@code null} at runtime, in which case the expansion is unsound: The original yields {@code null}, while the expanded
+ * {@link RecordConstructorValue} would always yield a non-null record whose fields each happen to be {@code null}.
+ *
+ * <p>Note that this rule is the conceptual opposite of {@link CollapseRecordConstructorOverFieldsToStarRule}. These
+ * rules should not be placed into the same rule set as the effect of it is undefined and may cause a stack overflow.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ExpandRecordRule extends ValueSimplificationRule<Value> {
     @Nonnull
     private static final BindingMatcher<Value> rootMatcher =
-            anyValue().where(not(recordConstructorValue(all(anyValue()))));
+            anyNotNullableValue().where(not(recordConstructorValue(all(anyValue()))));
 
     public ExpandRecordRule() {
         super(rootMatcher);
@@ -77,7 +82,7 @@ public class ExpandRecordRule extends ValueSimplificationRule<Value> {
 
         final var bindings = call.getBindings();
         final var value = bindings.get(rootMatcher);
-        if (value instanceof FieldValue && ((FieldValue)value).getFieldPath().size() > 1) {
+        if (value instanceof FieldValue fieldValue && fieldValue.getFieldPath().size() > 1) {
             return;
         }
         final var originalResultType = value.getResultType();

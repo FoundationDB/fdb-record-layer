@@ -96,7 +96,7 @@ public abstract class Command {
                     return null;
             }
         } catch (Exception e) {
-            throw executionContext.wrapContext(e, () -> "‼️ Error parsing command at " + reference, "command", reference);
+            throw YamlExecutionContext.wrapContext(e, () -> "‼️ Error parsing command at " + reference, "command", reference);
         }
     }
 
@@ -104,7 +104,7 @@ public abstract class Command {
         try {
             executeInternal(connection);
         } catch (Throwable e) {
-            throw executionContext.wrapContext(e,
+            throw YamlExecutionContext.wrapContext(e,
                     () -> "‼️ Error executing command at " + getReference() + " against connection for versions " + connection.getVersions(),
                     "command", getReference());
         }

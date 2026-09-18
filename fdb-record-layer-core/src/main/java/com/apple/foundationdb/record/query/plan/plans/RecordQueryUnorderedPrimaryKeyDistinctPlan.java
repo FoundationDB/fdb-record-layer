@@ -165,7 +165,10 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan extends AbstractRelation
         if (this == otherExpression) {
             return true;
         }
-        return (getClass() == otherExpression.getClass());
+        if (getClass() != otherExpression.getClass()) {
+            return false;
+        }
+        return semanticEqualsForResults(otherExpression, equivalencesMap);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

@@ -40,6 +40,10 @@ html_theme = 'furo'
 html_theme_options = {
 }
 
+# Override Sphinx's default of "<project> documentation" so the sidebar/title
+# reads just the project name.
+html_title = project
+
 html_static_path = ['_static']
 html_show_sphinx = False
 
@@ -66,5 +70,5 @@ rst_prolog = """
 """
 
 myst_heading_anchors = 4
-myst_enable_extensions = ["colon_fence"]
+myst_enable_extensions = ["colon_fence", "deflist", "attrs_block"]
 

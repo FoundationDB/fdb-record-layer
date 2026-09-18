@@ -307,6 +307,9 @@ public final class MetricsDiffAnalyzer {
      * Results of metrics analysis containing all detected changes.
      */
     public static class MetricsAnalysisResult {
+        private static final double BIN_WIDTH = 2.0;
+        private static final int BAR_WIDTH = 30;
+
         private final List<QueryChange> newQueries;
         private final List<QueryChange> droppedQueries;
         private final List<QueryChange> planAndMetricsChanged;
@@ -513,7 +516,7 @@ public final class MetricsDiffAnalyzer {
         }
 
         private void appendStatisticalSummary(@Nonnull final StringBuilder report, @Nonnull final MetricsStatistics stats) {
-            for (final var fieldName : YamlExecutionContext.TRACKED_METRIC_FIELDS) {
+            for (final var fieldName : YamlMetricsMaintainer.TRACKED_METRIC_FIELDS) {
                 final var fieldStats = stats.getFieldStatistics(fieldName);
                 final var regressionFieldStats = stats.getRegressionStatistics(fieldName);
                 if (fieldStats.hasChanges() || regressionFieldStats.hasChanges()) {
@@ -541,8 +544,60 @@ public final class MetricsDiffAnalyzer {
                         report.append("  - No regressions! 🎉\n");
                     }
                     report.append("\n"); // End with blank line
+                    appendHistogram(report, fieldName, fieldStats.sortedPercentDiffs);
                 }
             }
+        }
+
+        private void appendHistogram(@Nonnull final StringBuilder report,
+                                     @Nonnull final String fieldName,
+                                     @Nonnull final List<Double> sortedPercentDiffs) {
+            if (sortedPercentDiffs.size() < 3) {
+                return;
+            }
+            final Map<Double, Integer> bins = computeHistogramBins(sortedPercentDiffs);
+            report.append(formatHistogram(fieldName, sortedPercentDiffs.size(), bins));
+        }
+
+        @Nonnull
+        private static Map<Double, Integer> computeHistogramBins(@Nonnull final List<Double> sortedPercentDiffs) {
+            final double lo = Math.floor(sortedPercentDiffs.get(0) / BIN_WIDTH) * BIN_WIDTH;
+            final double hi = (Math.floor(sortedPercentDiffs.get(sortedPercentDiffs.size() - 1) / BIN_WIDTH) + 1) * BIN_WIDTH;
+
+            final Map<Double, Integer> bins = new TreeMap<>();
+            for (double b = lo; b < hi; b += BIN_WIDTH) {
+                bins.put(b, 0);
+            }
+            for (final double p : sortedPercentDiffs) {
+                final double b = Math.floor(p / BIN_WIDTH) * BIN_WIDTH;
+                bins.merge(b, 1, Integer::sum);
+            }
+            return bins;
+        }
+
+        @Nonnull
+        private static String formatHistogram(@Nonnull final String fieldName, final int totalCount, @Nonnull final Map<Double, Integer> bins) {
+            final int labelWidth = bins.keySet().stream().mapToInt(b -> binLabel(b).length()).max().orElse(0);
+            final int maxCount = bins.values().stream().mapToInt(Integer::intValue).max().orElse(1);
+
+            final StringBuilder histogram = new StringBuilder();
+            histogram.append(String.format(Locale.ROOT, "`%s` %% change distribution (%d queries, bin = %.0f%%):%n%n", fieldName, totalCount, BIN_WIDTH));
+            histogram.append("```\n");
+            histogram.append(String.format(Locale.ROOT, "%" + labelWidth + "s  %-" + BAR_WIDTH + "s  n%n", "Range", ""));
+            histogram.append(String.format(Locale.ROOT, "%" + labelWidth + "s  %-" + BAR_WIDTH + "s  ---%n", "-".repeat(labelWidth), "-".repeat(BAR_WIDTH)));
+            for (final Map.Entry<Double, Integer> entry : bins.entrySet()) {
+                final double b = entry.getKey();
+                final int count = entry.getValue();
+                final String bar = "█".repeat((int)Math.round((double)count / maxCount * BAR_WIDTH));
+                histogram.append(String.format(Locale.ROOT, "%" + labelWidth + "s  %-" + BAR_WIDTH + "s  %d%n", binLabel(b), bar, count));
+            }
+            histogram.append("```\n\n");
+            return histogram.toString();
+        }
+
+        @Nonnull
+        private static String binLabel(final double b) {
+            return String.format(Locale.ROOT, "[%+.0f%%, %+.0f%%)", b, b + BIN_WIDTH);
         }
 
         private void appendChangesList(@Nonnull final StringBuilder report, @Nonnull List<QueryChange> changes, @Nonnull String title, @Nonnull String explanation) {
@@ -608,7 +663,7 @@ public final class MetricsDiffAnalyzer {
                     final var newMetrics = change.newInfo.getCountersAndTimers();
                     final var descriptor = oldMetrics.getDescriptorForType();
 
-                    for (final var fieldName : YamlExecutionContext.TRACKED_METRIC_FIELDS) {
+                    for (final var fieldName : YamlMetricsMaintainer.TRACKED_METRIC_FIELDS) {
                         final var field = descriptor.findFieldByName(fieldName);
                         final var oldValue = (long)oldMetrics.getField(field);
                         final var newValue = (long)newMetrics.getField(field);
@@ -663,7 +718,7 @@ public final class MetricsDiffAnalyzer {
             final var newMetrics = change.newInfo.getCountersAndTimers();
             final var descriptor = oldMetrics.getDescriptorForType();
 
-            for (final var fieldName : YamlExecutionContext.TRACKED_METRIC_FIELDS) {
+            for (final var fieldName : YamlMetricsMaintainer.TRACKED_METRIC_FIELDS) {
                 final var field = descriptor.findFieldByName(fieldName);
                 final var oldValue = (long)oldMetrics.getField(field);
                 final var newValue = (long)newMetrics.getField(field);
@@ -698,7 +753,7 @@ public final class MetricsDiffAnalyzer {
 
             final var descriptor = oldMetrics.getDescriptorForType();
 
-            for (final var fieldName : YamlExecutionContext.TRACKED_METRIC_FIELDS) {
+            for (final var fieldName : YamlMetricsMaintainer.TRACKED_METRIC_FIELDS) {
                 final Descriptors.FieldDescriptor field = descriptor.findFieldByName(fieldName);
                 final long oldValue = (long)oldMetrics.getField(field);
                 final long newValue = (long)newMetrics.getField(field);

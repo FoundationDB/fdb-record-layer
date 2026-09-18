@@ -28,5 +28,5 @@ test_block:
     -
       - query: insert into T1 values
           (1,  !! !randomStr seed 123234 length 1000000 !!)
-      - error: "XXXXX"
+      - error: UNKNOWN
 ...

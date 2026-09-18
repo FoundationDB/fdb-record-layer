@@ -382,7 +382,7 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(castToType, physicalOperator);
+        return Objects.hash(castToType, physicalOperator.name());
     }
 
     @Override
@@ -430,35 +430,36 @@ public class CastValue extends AbstractValue implements ValueWithChild, Value.Ra
     }
 
     /**
-     * Creates a CastValue that casts the input value to the target type.
+     * Wraps a {@link CastValue} instance around {@code inValue} if necessary.
      *
      * @param inValue the value to cast
      * @param castToType the target type to cast to
-     * @return a CastValue that performs the cast, or the original value if no cast is needed
-     * @throws SemanticException if the cast is not supported
+     * @return a value with result type {@code castToType}
+     * @throws SemanticException if no cast from the type of {@code inValue} to {@code castToType} is defined
      */
     @Nonnull
     public static Value inject(@Nonnull final Value inValue, @Nonnull final Type castToType) {
         final Type inType = inValue.getResultType();
 
-        // If types are the same, no cast needed
+        // If the types are the same, no cast is needed.
         if (inType.equals(castToType)) {
             return inValue;
         }
 
+        // The NONE type can only cast to an array type; raise a specific error message otherwise.
+        if (inType.getTypeCode() == Type.TypeCode.NONE && !castToType.isArray()) {
+            SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST,
+                    "Cannot cast empty array to non-array type");
+        }
+
+        // No cast is needed if the input can directly produce the target type. For example, if the input is an untyped
+        // `NullValue`, this will emit a typed `NullValue` instead of an unnecessary `CastValue(NullValue)`.
+        if (inValue.canResultInType(castToType)) {
+            return inValue.with(castToType);
+        }
+
         final Type.TypeCode fromTypeCode = inType.getTypeCode();
         final Type.TypeCode toTypeCode = castToType.getTypeCode();
-
-        // Special handling of Collections' bottom type.
-        if (fromTypeCode == Type.TypeCode.NONE) {
-            if (!castToType.isArray()) {
-                SemanticException.fail(SemanticException.ErrorCode.INVALID_CAST,
-                        "Cannot cast empty array to non-array type");
-            }
-            // immediately return an empty array with the designated target type.
-            final var elementType = Verify.verifyNotNull(((Type.Array)castToType).getElementType());
-            return AbstractArrayConstructorValue.LightArrayConstructorValue.emptyArray(elementType);
-        }
 
         // Special handling for array to array casts
         if (fromTypeCode == Type.TypeCode.ARRAY && toTypeCode == Type.TypeCode.ARRAY) {

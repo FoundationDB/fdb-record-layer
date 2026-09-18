@@ -77,7 +77,6 @@ public class RecordLayerScanBenchmark extends RelationalScanBenchmark {
                     .setMetaDataProvider(accessor.getProvider(new RecordContextTransaction(ctx)))
                     .setSerializer(DynamicMessageRecordSerializer.instance())
                     .setUserVersionChecker((oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldMetaDataVersion))
-                    .setFormatVersion(1)
                     .setContext(ctx)
                     .open();
 

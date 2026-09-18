@@ -207,6 +207,12 @@ public final class Assert {
     }
 
     @Nonnull
+    public static UncheckedRelationalException failUnchecked(@Nonnull final ErrorCode failErrorCode, @Nonnull final String failMessage,
+                                                             @Nonnull final Throwable cause) {
+        throw new RelationalException(failMessage, failErrorCode, cause).toUncheckedWrappedException();
+    }
+
+    @Nonnull
     public static <S, T> S castUnchecked(T object, Class<S> clazz) {
         return castUnchecked(object, clazz, ErrorCode.INTERNAL_ERROR, () -> "expected " + clazz.getSimpleName() +
                 " but got " + (object == null ? "null" : object.getClass().getSimpleName()));

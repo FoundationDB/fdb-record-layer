@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.TypeCode;
@@ -202,7 +203,8 @@ public class DistanceValue extends AbstractValue {
 
     @Nonnull
     private static Value encapsulateInternal(@Nonnull BuiltInFunction<Value> builtInFunction,
-                                             @Nonnull final List<? extends Typed> arguments) {
+                                             @Nonnull final CallSiteArguments callSiteArguments) {
+        final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
         return encapsulate(builtInFunction.getFunctionName(), arguments);
     }
 

@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.query.plan.VectorIndexEnginePreference;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -70,6 +71,26 @@ public final class OptionsUtils {
                 return IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK;
             default:
                 throw new RelationalException("Can not convert index fetch method '" + indexFetchMethod.name() + "' to planner configuration",
+                        ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
+        }
+    }
+
+    @Nonnull
+    public static VectorIndexEnginePreference getVectorIndexEnginePreference(@Nonnull final Options options) {
+        final Options.VectorIndexEnginePreference preference =
+                options.getOption(Options.Name.VECTOR_INDEX_ENGINE_PREFERENCE);
+        if (preference == null) {
+            return VectorIndexEnginePreference.NO_PREFERENCE;
+        }
+        switch (preference) {
+            case NO_PREFERENCE:
+                return VectorIndexEnginePreference.NO_PREFERENCE;
+            case PREFER_HNSW:
+                return VectorIndexEnginePreference.PREFER_HNSW;
+            case PREFER_GUARDIANN:
+                return VectorIndexEnginePreference.PREFER_GUARDIANN;
+            default:
+                throw new RelationalException("Can not convert vector index engine preference '" + preference.name() + "' to planner configuration",
                         ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
         }
     }

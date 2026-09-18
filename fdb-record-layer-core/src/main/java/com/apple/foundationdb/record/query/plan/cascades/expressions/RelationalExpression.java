@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -222,26 +222,26 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
 
     /**
      * Returns if this expression can be the anchor of a correlation.
-     * <br>
-     * A correlation is always formed between three entities:
+     *
+     * <p>A correlation is always formed between three entities:
      * <ol>
-     * <li>the {@link Quantifier} that flows data</li>
-     * <li>2. the anchor (which is a {@link RelationalExpression}) that ranges directly over the source</li>
-     * <li>3. the consumers (or dependents) of the correlation which must be a descendant of the anchor.</li>
+     * <li>The {@link Quantifier} that flows data.</li>
+     * <li>The anchor (which is a {@link RelationalExpression}) that ranges directly over the source.</li>
+     * <li>The consumers (or dependents) of the correlation which must be a descendant of the anchor.</li>
      * </ol>
      * In order for a correlation to be meaningful, the anchor must define how data is bound and used by all
      * dependents. For most expressions it is not meaningful or even possible to define correlation in such a way.
-     * <br>
+     * <p>
      * For instance, a {@link LogicalUnionExpression}
      * cannot correlate (this method returns {@code false}) because it is not meaningful to bind a record from one child
      * of the union while providing bound values to another.
-     * <br>
+     * <p>
      * In another example, a logical select expression can correlate which means that one child of the SELECT expression
      * can be evaluated and the resulting records can bound individually one after another. For each bound record
      * flowing along that quantifier the other children of the SELECT expression can be evaluated, potentially causing
      * more correlation values to be bound, etc. These concepts follow closely to the mechanics of what SQL calls a query
      * block.
-     * <br>
+     * <p>
      * The existence of a correlation between source, anchor, and dependents may adversely affect planning because
      * a correlation always imposes order between the evaluated of children of an expression. This may or may
      * not tie the hands of the planner to produce an optimal plan. In certain cases, queries written in a correlated

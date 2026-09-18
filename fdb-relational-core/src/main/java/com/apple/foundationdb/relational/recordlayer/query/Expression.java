@@ -22,10 +22,15 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
@@ -33,9 +38,11 @@ import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
@@ -43,6 +50,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
@@ -224,24 +232,68 @@ public class Expression {
         return false;
     }
 
+    /**
+     * Returns this expression rewritten in terms of the given value, simplifying both sides on the way. See
+     * {@link #pullUp(Value, Value, AliasMap, CorrelationIdentifier, Set)} for details.
+     */
     @Nonnull
     public Expression pullUp(@Nonnull Value value, @Nonnull CorrelationIdentifier correlationIdentifier,
                              @Nonnull Set<CorrelationIdentifier> constantAliases) {
-        final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
-        final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
-        final var underlying = getUnderlying();
-        final var pulledUpUnderlying = Assert.notNullUnchecked(underlying.replace(
+        final AliasMap aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
+        final Value simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
+        final Value simplifiedUnderlying =
+                getUnderlying().simplify(EvaluationContext.empty(), aliasMap, constantAliases);
+        return withUnderlying(pullUp(simplifiedUnderlying, simplifiedValue, aliasMap, correlationIdentifier,
+                constantAliases));
+    }
+
+    /**
+     * Rewrites the given {@code value} in terms of a reference value {@code other}, by replacing every sub-value that
+     * can be expressed as a reference into {@code other} with such a reference.
+     *
+     * <p>The matching is structural. Both {@code value} and {@code other} should therefore be passed in their canonical
+     * form, simplified under the same {@code aliasMap} and {@code constantAliases} that are passed here.
+     *
+     * <p>As an example, in a group-by query {@code SELECT g, COUNT(a) + 1 FROM T GROUP BY g}, the group-by operator
+     * computes {@code (g, COUNT(a))}, and the projection then has to be expressed over that result rather than over
+     * {@code T}. “Pulling up” the {@code COUNT(a) + 1} against it yields {@code _._1._0 + 1}. The {@code COUNT(a)}
+     * sub-value is matched and replaced by a reference to the column that holds it, while the {@code + 1} has no
+     * counterpart on the other side and is left alone.
+     *
+     * @param value the value to rewrite
+     * @param other the value in terms of which to express {@code value}
+     * @param aliasMap the alias map of equalities to match under
+     * @param correlationIdentifier the alias the resulting references are expressed over
+     * @param constantAliases the aliases that are considered constant
+     * @return {@code value}, rewritten in terms of {@code other}
+     */
+    @Nonnull
+    static Value pullUp(@Nonnull Value value, @Nonnull Value other, @Nonnull AliasMap aliasMap,
+                        @Nonnull CorrelationIdentifier correlationIdentifier,
+                        @Nonnull Set<CorrelationIdentifier> constantAliases) {
+        // Walk the value, “offering” every sub-value for replacement in terms of the reference value.
+        return Assert.notNullUnchecked(value.replace(
                 subExpression -> {
-                    final var pulledUpExpressionMap =
-                            simplifiedValue.pullUp(List.of(subExpression), EvaluationContext.empty(), aliasMap,
+                    // Match this sub-value against the reference value.
+                    final Multimap<Value, Value> pulledUpExpressionMap =
+                            other.pullUp(List.of(subExpression), EvaluationContext.empty(), aliasMap,
                                     constantAliases, correlationIdentifier);
-                    if (pulledUpExpressionMap.containsKey(subExpression)) {
-                        return Iterables.getOnlyElement(pulledUpExpressionMap.get(subExpression));
+                    final Collection<Value> references = pulledUpExpressionMap.get(subExpression);
+
+                    // If the reference value cannot express the sub-value, keep it.
+                    if (references.isEmpty()) {
+                        return subExpression;
                     }
-                    return subExpression;
+
+                    // Reject an ambiguous match. If the reference value exposes the same value twice (e.g., `GROUP BY
+                    // a, a`), the query left the column ambiguous, and we can’t just take a guess here.
+                    Assert.thatUnchecked(references.size() == 1,
+                            ErrorCode.AMBIGUOUS_COLUMN, "Ambiguous columns for %s", subExpression);
+
+                    // Replace the sub-value with the reference that came back.
+                    return Iterables.getOnlyElement(references);
                 }
         ));
-        return this.withUnderlying(pulledUpUnderlying);
     }
 
     public boolean canBeDerivedFrom(@Nonnull final Expression expression,
@@ -351,18 +403,49 @@ public class Expression {
                     .collect(ImmutableList.toImmutableList());
         }
 
+        /**
+         * Converts a boolean-typed {@link Expression} into a {@link QueryPredicate} suitable for use as a
+         * {@code WHERE} or {@code ON} predicate. If the underlying value already implements {@link BooleanValue}
+         * (for example, an {@code AND}, {@code OR}, comparison, or {@code NOT} expression), it converts itself.
+         * Otherwise, the value may be a SQL {@code NULL} ({@link NullValue}), a {@code BOOLEAN}-typed literal,
+         * constant reference, parameter, or column. A {@code NullValue} folds to {@link ConstantPredicate#NULL}.
+         * A literal ({@link LiteralValue}) folds to the corresponding {@link ConstantPredicate}. Everything
+         * else is wrapped as a {@code ValuePredicate} performing a {@code «value» = TRUE} comparison.
+         */
         @Nonnull
         public static QueryPredicate toUnderlyingPredicate(@Nonnull final Expression expression,
                                                            @Nonnull final Set<CorrelationIdentifier> localAliases,
                                                            boolean forDdl) {
-            final var value = Assert.castUnchecked(expression.getUnderlying(), BooleanValue.class);
-            final Optional<QueryPredicate> result;
-            if (forDdl) {
-                result = value.toQueryPredicate(ParseHelpers.EMPTY_TYPE_REPOSITORY, localAliases);
-            } else {
-                result = value.toQueryPredicate(null, localAliases);
+            final Value value = expression.getUnderlying();
+
+            // A `BooleanValue` can convert itself into a `QueryPredicate`.
+            if (value instanceof final BooleanValue booleanValue) {
+                final TypeRepository typeRepository = forDdl ? ParseHelpers.EMPTY_TYPE_REPOSITORY : null;
+                final Optional<QueryPredicate> result = booleanValue.toQueryPredicate(typeRepository, localAliases);
+                return Assert.optionalUnchecked(result);
             }
-            return Assert.optionalUnchecked(result);
+
+            // A NULL predicate matches nothing, so map it to `ConstantPredicate.NULL`.
+            // Check the class and the type, because one SQL NULL arrives in two shapes:
+            //   - `NULL` in the query text becomes a `NullValue` (`ExpressionVisitor.visitNullLiteral`)
+            //   - a parameter bound with `setNull` becomes a `ConstantObjectValue` of NULL type
+            //     (`MutablePlanGenerationContext.processNamedPreparedParam`, via `Type.fromObject(null)`)
+            if (value instanceof NullValue || value.getResultType().isNull()) {
+                return ConstantPredicate.NULL;
+            }
+
+            // At this point the `value` is some other boolean expression that does not implement `BooleanValue`.
+            Assert.thatUnchecked(value.getResultType().getTypeCode() == Type.TypeCode.BOOLEAN,
+                    ErrorCode.DATATYPE_MISMATCH,
+                    () -> "expected boolean expression but got " + value.getResultType());
+
+            // Convert a plain boolean `LiteralValue` to `ConstantPredicate`.
+            if (value instanceof final LiteralValue<?> literalValue) {
+                return ConstantPredicate.of((Boolean) literalValue.getLiteralValue());
+            }
+
+            // For other cases, lift the expression into a `ValuePredicate` performing a `«value» = TRUE` comparison.
+            return new ValuePredicate(value, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true));
         }
     }
 

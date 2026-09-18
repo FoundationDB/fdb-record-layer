@@ -66,4 +66,4 @@ test_block:
       - initialVersionLessThan: 3.0.17.0
       - result: []
       - initialVersionAtLeast: 3.0.17.0
-      - error: '42601'
+      - error: SYNTAX_ERROR

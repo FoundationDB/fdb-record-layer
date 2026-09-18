@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -75,7 +74,6 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
 
     @Nonnull
     @Override
-    @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
     public MatchCandidate expand(@Nonnull final Set<String> availableRecordTypeNames,
                                  @Nonnull final Set<String> queriedRecordTypeNames,
                                  @Nonnull final Type.Record baseType,

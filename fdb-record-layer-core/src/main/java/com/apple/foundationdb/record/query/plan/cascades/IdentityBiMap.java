@@ -46,7 +46,6 @@ import java.util.stream.Collector;
  * @param <K> key type
  * @param <V> value type
  */
-@SpotBugsSuppressWarnings("NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION")
 public class IdentityBiMap<K, V> implements BiMap<Wrapper<K>, Wrapper<V>> {
 
     private static final Equivalence<Object> identity = Equivalence.identity();
@@ -80,7 +79,6 @@ public class IdentityBiMap<K, V> implements BiMap<Wrapper<K>, Wrapper<V>> {
     @Override
     @CanIgnoreReturnValue
     @Nullable
-    @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE") // false positive due to Equivalence#wrap using a non-standard Nonnull in guava
     public Wrapper<V> forcePut(@Nullable final Wrapper<K> key,
                                @Nullable final Wrapper<V> value) {
         return getDelegate().forcePut(key, value);
@@ -269,7 +267,6 @@ public class IdentityBiMap<K, V> implements BiMap<Wrapper<K>, Wrapper<V>> {
         return new IdentityBiMap<>(delegate);
     }
 
-    @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE") // false positive due to Equivalence#wrap using a non-standard Nonnull in guava
     @Nonnull
     public static <T> Wrapper<T> wrap(@Nullable final T reference) {
         return identity.wrap(reference);

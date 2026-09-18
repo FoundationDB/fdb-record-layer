@@ -28,22 +28,34 @@ schema_template:
 setup:
   steps:
     - query: INSERT INTO T1
-              VALUES (1, 2, ((3, 4), (5, 6))),
-              (10, 20, ((30, 40), (50, 60)))
+              VALUES (1,  2,  ((3,   4),   (5,   6))),
+                     (2,  3,  ((7,   8),   (9,  10))),
+                     (3,  4,  ((11, 12),   (13, 14))),
+                     (4,  5,  ((15, 16),   (17, 18))),
+                     (10, 20, ((30, 40),   (50, 60)))
     - query: INSERT INTO T2
-              VALUES (1, 2, ((3, 4), null)),
-              (10, 20, ((null, null), null))
+              VALUES (1,  2,  ((3,  4),   null)),
+                     (2,  3,  ((5,  6),   null)),
+                     (3,  4,  ((null, 7), null)),
+                     (4,  5,  ((8,   null), null)),
+                     (10, 20, ((null, null), null))
 ---
 test_block:
   name: nested-tests
   tests:
     -
       - query: select * from t1;
-      - result: [{ID: 1, G: 2, H: {E: {A: 3, B: 4}, F: {C: 5, D: 6}}},
-           {ID: 10, G: 20, H: {E: {A: 30, B: 40}, F: {C: 50, D: 60}}}]
+      - result: [{ID: 1,  G: 2,  H: {E: {A: 3,    B: 4},   F: {C: 5,   D: 6}}},
+                 {ID: 2,  G: 3,  H: {E: {A: 7,    B: 8},   F: {C: 9,   D: 10}}},
+                 {ID: 3,  G: 4,  H: {E: {A: 11,   B: 12},  F: {C: 13,  D: 14}}},
+                 {ID: 4,  G: 5,  H: {E: {A: 15,   B: 16},  F: {C: 17,  D: 18}}},
+                 {ID: 10, G: 20, H: {E: {A: 30,   B: 40},  F: {C: 50,  D: 60}}}]
     -
       # multiple !null placeholders in the same level should be named.
       - query: select * from t2;
-      - result: [{ID: 1, G: 2, H: {E: {A: 3, B: 4}, !null }},
-                 {ID: 10, G: 20, H: {E: {A: !null , B: !null }, !null }}]
+      - result: [{ID: 1,  G: 2,  H: {E: {A: 3,    B: 4},    !null }},
+                 {ID: 2,  G: 3,  H: {E: {A: 5,    B: 6},    !null }},
+                 {ID: 3,  G: 4,  H: {E: {A: !null _, B: 7},   !null }},
+                 {ID: 4,  G: 5,  H: {E: {A: 8,    B: !null _}, !null }},
+                 {ID: 10, G: 20, H: {E: {A: !null _, B: !null _}, !null }}]
 ...

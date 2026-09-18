@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
@@ -37,7 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnio
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
@@ -49,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
@@ -144,7 +146,7 @@ class DecorrelateValuesRuleTest {
     void multipleValuesDecorrelation() {
         final Quantifier baseQun = baseT();
         final Quantifier otherQun = baseTau();
-        final Value alphaPlus10 = (Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(fieldValue(otherQun, "alpha"), LiteralValue.ofScalar(10L)));
+        final Value alphaPlus10 = (Value) new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(otherQun, "alpha"), LiteralValue.ofScalar(10L)));
 
         final Quantifier values1 = valuesQun(LiteralValue.ofScalar(42L));
         final Quantifier values2 = valuesQun(ImmutableMap.of("x", alphaPlus10, "y", LiteralValue.ofScalar("hello")));
@@ -375,7 +377,7 @@ class DecorrelateValuesRuleTest {
 
         final SelectExpression selectExpression = join(valuesBox, base, existsQun)
                 .addResultColumn(projectColumn(base, "a"))
-                .addPredicate(new ExistsPredicate(existsQun.getAlias()))
+                .addPredicate(new ExistentialValuePredicate(QuantifiedObjectValue.of(existsQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .build().buildSelect();
 
         final Quantifier newExistsQun = exists(new SelectExpression(explodeQun.getFlowedObjectValue(),
@@ -383,7 +385,7 @@ class DecorrelateValuesRuleTest {
                 ImmutableList.of(fieldPredicate(explodeQun, "three", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, valuesBox.getFlowedObjectValue())))));
         final SelectExpression expected = join(base, newExistsQun)
                 .addResultColumn(projectColumn(base, "a"))
-                .addPredicate(new ExistsPredicate(newExistsQun.getAlias()))
+                .addPredicate(new ExistentialValuePredicate(QuantifiedObjectValue.of(newExistsQun), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .build().buildSelect();
 
         testHelper.assertYields(selectExpression, expected);
@@ -679,7 +681,7 @@ class DecorrelateValuesRuleTest {
      */
     @Test
     void multipleValueChildrenVariants() {
-        final Quantifier valuesBox = valuesQun((Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(LiteralValue.ofScalar(1L), LiteralValue.ofScalar(2L))));
+        final Quantifier valuesBox = valuesQun((Value) new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(LiteralValue.ofScalar(1L), LiteralValue.ofScalar(2L))));
         SelectExpression valueExpr = (SelectExpression) valuesBox.getRangesOver().get();
         valuesBox.getRangesOver().insertFinalExpression(new SelectExpression(new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG, true), 3L), valueExpr.getQuantifiers(), ImmutableList.of()));
 
@@ -700,7 +702,7 @@ class DecorrelateValuesRuleTest {
                 .addPredicate(fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, valuesBox.getFlowedObjectValue())))
                 .build().buildSelect());
         final SelectExpression expected1 = join(newLowerSelect)
-                .addResultColumn(Column.of(Optional.of("minA"), (Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(LiteralValue.ofScalar(1L), LiteralValue.ofScalar(2L)))))
+                .addResultColumn(Column.of(Optional.of("minA"), (Value) new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(LiteralValue.ofScalar(1L), LiteralValue.ofScalar(2L)))))
                 .addResultColumn(projectColumn(newLowerSelect, "a"))
                 .addResultColumn(projectColumn(newLowerSelect, "b"))
                 .build().buildSelect();
@@ -724,12 +726,12 @@ class DecorrelateValuesRuleTest {
     @Test
     void multipleVariantsFromTwoValuesChildren() {
         final ConstantObjectValue cov0 = ConstantObjectValue.of(Quantifier.constant(), "0", Type.primitiveType(Type.TypeCode.LONG, true));
-        final Value cov0PlusZero = (Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(cov0, LiteralValue.ofScalar(0L)));
+        final Value cov0PlusZero = (Value) new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(cov0, LiteralValue.ofScalar(0L)));
         final Quantifier valuesBox0 = valuesQun(cov0PlusZero);
         valuesBox0.getRangesOver().insertFinalExpression(new SelectExpression(cov0, valuesBox0.getRangesOver().get().getQuantifiers(), ImmutableList.of()));
 
         final ConstantObjectValue cov1 = ConstantObjectValue.of(Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.BOOLEAN, true));
-        final Value cov1AndTrue = (Value) new AndOrValue.AndFn().encapsulate(ImmutableList.of(cov1, LiteralValue.ofScalar(true)));
+        final Value cov1AndTrue = (Value) new AndOrValue.AndFn().encapsulate(CallSiteArguments.ofPositional(cov1, LiteralValue.ofScalar(true)));
         final Quantifier valuesBox1 = valuesQun(cov1AndTrue);
         valuesBox1.getRangesOver().insertFinalExpression(new SelectExpression(cov1, valuesBox1.getRangesOver().get().getQuantifiers(), ImmutableList.of()));
 
@@ -829,7 +831,7 @@ class DecorrelateValuesRuleTest {
 
         final Quantifier groupBy = forEach(new GroupByExpression(
                 RecordConstructorValue.ofUnnamed(ImmutableList.of(fieldValue(selectWhere, "b"), fieldValue(selectWhere, "c"))),
-                (AggregateValue) new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(fieldValue(selectWhere, "a"))),
+                (AggregateValue) new NumericAggregationValue.SumFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(selectWhere, "a"))),
                 GroupByExpression::nestedResults,
                 selectWhere
         ));
@@ -850,7 +852,7 @@ class DecorrelateValuesRuleTest {
                 ImmutableList.of()));
         final Quantifier newGroupBy = forEach(new GroupByExpression(
                 RecordConstructorValue.ofUnnamed(ImmutableList.of(fieldValue(newOverSelectWhere, "b"), fieldValue(newOverSelectWhere, "c"))),
-                (AggregateValue) new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(fieldValue(newOverSelectWhere, "a"))),
+                (AggregateValue) new NumericAggregationValue.SumFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(newOverSelectWhere, "a"))),
                 GroupByExpression::nestedResults,
                 newOverSelectWhere
         ));
@@ -900,7 +902,7 @@ class DecorrelateValuesRuleTest {
 
         final Quantifier groupBy = forEach(new GroupByExpression(
                 RecordConstructorValue.ofUnnamed(ImmutableList.of(valuesBox.getFlowedObjectValue())),
-                (AggregateValue) new NumericAggregationValue.MinFn().encapsulate(ImmutableList.of(fieldValue(selectWhere, "a"))),
+                (AggregateValue) new NumericAggregationValue.MinFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(selectWhere, "a"))),
                 GroupByExpression::nestedResults,
                 selectWhere
         ));
@@ -912,7 +914,7 @@ class DecorrelateValuesRuleTest {
 
         final Quantifier newGroupBy = forEach(new GroupByExpression(
                 RecordConstructorValue.ofUnnamed(ImmutableList.of(cov)),
-                (AggregateValue) new NumericAggregationValue.MinFn().encapsulate(ImmutableList.of(fieldValue(selectWhere, "a"))),
+                (AggregateValue) new NumericAggregationValue.MinFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(selectWhere, "a"))),
                 GroupByExpression::nestedResults,
                 selectWhere
         ));
@@ -957,7 +959,7 @@ class DecorrelateValuesRuleTest {
         final Quantifier selectWhere = forEach(new SelectExpression(base.getFlowedObjectValue(), ImmutableList.of(base), ImmutableList.of()));
         final Quantifier groupBy = forEach(new GroupByExpression(
                 null,
-                (AggregateValue) new CountValue.CountFn().encapsulate(ImmutableList.of(RecordConstructorValue.ofColumns(ImmutableList.of()))),
+                (AggregateValue) new CountValue.CountFn().encapsulate(CallSiteArguments.ofPositional(RecordConstructorValue.ofColumns(ImmutableList.of()))),
                 GroupByExpression::nestedResults,
                 selectWhere));
 
@@ -1023,7 +1025,7 @@ class DecorrelateValuesRuleTest {
     @Test
     void doNotTreatRangeTwoAsValues() {
         final Quantifier rangeTwoQun = forEach(new TableFunctionExpression(
-                (StreamingValue) new RangeValue.RangeFn().encapsulate(ImmutableList.of(LiteralValue.ofScalar(2L)))));
+                (StreamingValue) new RangeValue.RangeFn().encapsulate(CallSiteArguments.ofPositional(LiteralValue.ofScalar(2L)))));
         final Quantifier valuesBox = forEach(new SelectExpression(LiteralValue.ofScalar(42L), ImmutableList.of(rangeTwoQun), ImmutableList.of()));
         doNotTreatQuantifierAsValuesBox(valuesBox);
     }
@@ -1038,7 +1040,7 @@ class DecorrelateValuesRuleTest {
     void doNotTreatRangeWithConstantObjectValueAsValueBox() {
         final ConstantObjectValue endCov = ConstantObjectValue.of(Quantifier.constant(), "0", Type.primitiveType(Type.TypeCode.LONG, false));
         final Quantifier rangeQun = forEach(new TableFunctionExpression(
-                (StreamingValue) new RangeValue.RangeFn().encapsulate(ImmutableList.of(endCov))));
+                (StreamingValue) new RangeValue.RangeFn().encapsulate(CallSiteArguments.ofPositional(endCov))));
         final Quantifier valuesBox = forEach(new SelectExpression(LiteralValue.ofScalar(42L), ImmutableList.of(rangeQun), ImmutableList.of()));
         doNotTreatQuantifierAsValuesBox(valuesBox);
     }
@@ -1120,7 +1122,7 @@ class DecorrelateValuesRuleTest {
         final Quantifier range2 = rangeOneQun();
         final Quantifier valuesBox2 = forEach(GraphExpansion.builder()
                 .addQuantifier(range2)
-                .addResultColumn(Column.of(Optional.of("z"), (Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(fieldValue(valuesBox1, "y"), LiteralValue.ofScalar(1L)))))
+                .addResultColumn(Column.of(Optional.of("z"), (Value) new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(valuesBox1, "y"), LiteralValue.ofScalar(1L)))))
                 .build().buildSelect());
 
         // Original select
@@ -1134,7 +1136,7 @@ class DecorrelateValuesRuleTest {
 
         // Push down values box 1
         final SelectExpression newValuesBox2Expr = join(valuesBox1, range2)
-                .addResultColumn(Column.of(Optional.of("z"), (Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(fieldValue(valuesBox1, "y"), LiteralValue.ofScalar(1L)))))
+                .addResultColumn(Column.of(Optional.of("z"), (Value) new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(fieldValue(valuesBox1, "y"), LiteralValue.ofScalar(1L)))))
                 .build().buildSelect();
         final Quantifier newValuesBox2 = forEach(newValuesBox2Expr);
 
@@ -1150,7 +1152,7 @@ class DecorrelateValuesRuleTest {
         // Push values box1 into values box 2
         final SelectExpression finalValuesBox2 = GraphExpansion.builder()
                 .addQuantifier(range2)
-                .addResultColumn(Column.of(Optional.of("z"), (Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(cov2, LiteralValue.ofScalar(1L)))))
+                .addResultColumn(Column.of(Optional.of("z"), (Value) new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(cov2, LiteralValue.ofScalar(1L)))))
                 .build().buildSelect();
         testHelper.assertYields(newValuesBox2Expr, finalValuesBox2);
 
@@ -1160,7 +1162,7 @@ class DecorrelateValuesRuleTest {
         final SelectExpression expected2 = selectWithPredicates(base,
                 ImmutableList.of("a", "b", "c"),
                 fieldPredicate(base, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov1)),
-                fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, (Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(cov2, LiteralValue.ofScalar(1L)))))
+                fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, (Value) new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(cov2, LiteralValue.ofScalar(1L)))))
         );
         testHelper.assertYields(expected1, expected2);
     }
@@ -1260,7 +1262,7 @@ class DecorrelateValuesRuleTest {
         final Quantifier base = baseT();
         final SelectExpression selectExpression = join(base, existsValues)
                 .addResultColumn(projectColumn(base, "a"))
-                .addPredicate(new ExistsPredicate(existsValues.getAlias()))
+                .addPredicate(new ExistentialValuePredicate(QuantifiedObjectValue.of(existsValues), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .build().buildSelect();
 
         testHelper.assertYieldsNothing(selectExpression, true);
@@ -1280,8 +1282,8 @@ class DecorrelateValuesRuleTest {
                 fieldPredicate(base, "a", EQUALS_42)));
         final SelectExpression selectExpression = join(existsValues, existsT)
                 .addResultColumn(Column.of(Optional.of("x"), LiteralValue.ofScalar("y")))
-                .addPredicate(new ExistsPredicate(existsValues.getAlias()))
-                .addPredicate(new ExistsPredicate(existsT.getAlias()))
+                .addPredicate(new ExistentialValuePredicate(QuantifiedObjectValue.of(existsValues), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
+                .addPredicate(new ExistentialValuePredicate(QuantifiedObjectValue.of(existsT), new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)))
                 .build().buildSelect();
 
         // Note: it seems like we should _not_ match the rule here (rather than matching but

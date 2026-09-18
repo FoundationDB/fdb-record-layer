@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.async.common.AggregatedVector;
+import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.linear.AffineOperator;
 import com.apple.foundationdb.linear.RealVector;
 import com.apple.foundationdb.linear.RealVectorTest;
@@ -189,45 +191,46 @@ class DataRecordsTest {
 
     @Nonnull
     private static ResultEntry resultEntry(@Nonnull final Random random) {
-        return new ResultEntry(primaryKey(random), rawVector(random), random.nextDouble(), random.nextInt(100));
+        return new ResultEntry(primaryKey(random), rawVector(random), null, random.nextDouble(),
+                random.nextInt(100));
     }
 
     @Nonnull
     private static ResultEntry resultEntry(@Nonnull final Random random, @Nonnull final ResultEntry original) {
-        return new ResultEntry(primaryKey(random, original.getPrimaryKey()),
-                rawVector(random, Objects.requireNonNull(original.getVector())),
-                differentDouble(random, original.getDistance()),
-                differentInteger(random, original.getRankOrRowNumber(), 100));
+        return new ResultEntry(primaryKey(random, original.primaryKey()),
+                rawVector(random, Objects.requireNonNull(original.vector())), null,
+                differentDouble(random, original.distance()),
+                differentInteger(random, original.rankOrRowNumber(), 100));
     }
 
     @Nonnull
     private static CompactNode compactNode(@Nonnull final Random random) {
         return CompactNode.factory()
-                .create(primaryKey(random), vector(random), nodeReferences(random))
+                .create(primaryKey(random), vector(random), null, nodeReferences(random))
                 .asCompactNode();
     }
 
     @Nonnull
     private static CompactNode compactNode(@Nonnull final Random random, @Nonnull CompactNode original) {
         return CompactNode.factory()
-                .create(primaryKey(random, original.getPrimaryKey()),
-                        vector(random, original.getVector()),
-                        nodeReferences(random, original.getNeighbors()))
+                .create(primaryKey(random, original.getPrimaryKey()), vector(random, original.getVector()),
+                        null, nodeReferences(random, original.getNeighbors())
+                )
                 .asCompactNode();
     }
 
     @Nonnull
     private static InliningNode inliningNode(@Nonnull final Random random) {
         return InliningNode.factory()
-                .create(primaryKey(random), null, nodeReferenceWithVectors(random))
+                .create(primaryKey(random), null, null, nodeReferenceWithVectors(random))
                 .asInliningNode();
     }
 
     private static InliningNode inliningNode(@Nonnull final Random random, @Nonnull final InliningNode original) {
         return InliningNode.factory()
                 .create(primaryKey(random, original.getPrimaryKey()),
-                        null,
-                        nodeReferenceWithVectors(random, original.getNeighbors()))
+                        null, null, nodeReferenceWithVectors(random, original.getNeighbors())
+                )
                 .asInliningNode();
     }
 
@@ -311,8 +314,8 @@ class DataRecordsTest {
     @Nonnull
     private static AggregatedVector aggregatedVector(@Nonnull final Random random,
                                                      @Nonnull final AggregatedVector original) {
-        return new AggregatedVector(differentInteger(random, original.getPartialCount(), 100),
-                vector(random, original.getPartialVector()));
+        return new AggregatedVector(differentInteger(random, original.partialCount(), 100),
+                vector(random, original.partialVector()));
     }
 
     @Nonnull

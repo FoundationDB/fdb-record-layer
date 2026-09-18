@@ -71,7 +71,7 @@ import java.util.stream.Stream;
  * </ul>
  */
 @API(API.Status.EXPERIMENTAL)
-public class OrPredicate extends AndOrPredicate {
+public final class OrPredicate extends AndOrPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Or-Predicate");
 
     private OrPredicate(@Nonnull final PlanSerializationContext serializationContext,

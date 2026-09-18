@@ -108,6 +108,15 @@ public enum YamlTestConfigFilters {
         boolean filter(final YamlTestConfig config) {
             return config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_ADD_RESULT_METADATA, false);
         }
+    },
+    /**
+     * Used to add {@code explain} blocks to queries that don't yet have one, and to correct existing ones.
+     */
+    ADD_EXPLAINS {
+        @Override
+        boolean filter(final YamlTestConfig config) {
+            return config.getRunnerOptions().getOrDefault(YamlExecutionContext.OPTION_ADD_EXPLAIN, false);
+        }
     };
 
     /**

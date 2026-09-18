@@ -72,6 +72,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -485,6 +486,7 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
         // 3. For each candidate grouping value in the set of (yet) unmatched candidate group values, try to find a
         //    predicate that binds that groupingValue.
         //
+        final var explicitlyMatchedCandidateGroupingValues = new LinkedHashSet<Value>();
         var booleanWithConstraint = ConstrainedBoolean.alwaysTrue();
         for (final var translatedGroupingValue : translatedGroupingValuesSet) {
             var found = false;
@@ -496,6 +498,7 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
                 if (semanticEquals.isTrue()) {
                     found = true;
                     booleanWithConstraint = booleanWithConstraint.composeWithOther(semanticEquals);
+                    explicitlyMatchedCandidateGroupingValues.add(candidateGroupingPartValue);
                     iterator.remove();
 
                     if (unmatchedCandidateValues.isEmpty()) {
@@ -545,6 +548,7 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
                     return false;
                 });
 
+        final var implicitlyMatchedCandidateGroupingValues = new LinkedHashSet<Value>();
         for (final var predicateMapping : equalityPredicates.values()) {
             final var translatedPredicate = predicateMapping.getTranslatedQueryPredicate();
             if (translatedPredicate instanceof PredicateWithValue) {
@@ -556,6 +560,7 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
                             comparedValue.semanticEquals(candidateGroupingPartValue, valueEquivalence);
                     if (semanticEquals.isTrue()) {
                         booleanWithConstraint = booleanWithConstraint.composeWithOther(semanticEquals);
+                        implicitlyMatchedCandidateGroupingValues.add(candidateGroupingPartValue);
                         iterator.remove();
 
                         if (unmatchedCandidateValues.isEmpty()) {
@@ -570,23 +575,98 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
             }
         }
 
+        final var subsumedGroups = booleanWithConstraint;
         if (!unmatchedCandidateValues.isEmpty()) {
             Verify.verify(candidateGroupingValues.size() > translatedGroupingValuesSet.size());
-
-            //
-            // This is a potential roll-up case, but only if the query side's groupings are completely subsumed
-            // by the prefix of the candidate side. Iterate up to the smaller query side's grouping values to
-            // find out.
-            //
-            for (final var translatedGroupingValue : translatedGroupingValuesSet) {
-                if (unmatchedCandidateValues.contains(translatedGroupingValue)) {
-                    return SubsumedGroupingsResult.noSubsumption();
-                }
-            }
-            return SubsumedGroupingsResult.of(booleanWithConstraint, matchedGroupingsMap, translatedGroupingValues);
+            return computeRollUpToValuesMaybe(candidateGroupingValues, explicitlyMatchedCandidateGroupingValues, implicitlyMatchedCandidateGroupingValues)
+                    .map(rollUpToValues -> SubsumedGroupingsResult.of(subsumedGroups, matchedGroupingsMap, rollUpToValues))
+                    .orElse(SubsumedGroupingsResult.noSubsumption());
         }
 
-        return SubsumedGroupingsResult.withoutRollUp(booleanWithConstraint, matchedGroupingsMap);
+        return SubsumedGroupingsResult.withoutRollUp(subsumedGroups, matchedGroupingsMap);
+    }
+
+    /**
+     * Compute the list of values the match candidate should be rolled-up to based on the matched grouping values.
+     * <p>
+     * For a match candidate roll-up to be possible, the values that the match candidate is to be rolled-up to should
+     * be contained within a prefix of the match candidate's list of grouping values. Given the set of match candidate
+     * grouping values which matched the query's explicit grouping values (i.e. the grouping values listed after the
+     * query's GROUP BY clause) and the set of values which matched the query's implicit grouping values (i.e. the
+     * grouping values extracted from equality predicates in the query), this method returns the longest prefix of the
+     * candidate grouping values <strong>without any unmatched grouping values</strong> which fully subsumes the query's
+     * explicit grouping values and potentially also subsume the query's implicit grouping values.
+     * </p>
+     * <p>
+     * If no such prefix exists, this method returns an empty {@link Optional} instead.
+     * </p>
+     * <p>
+     * Examples of queries and aggregate index match candidates that can be rolled up to the queries:
+     *
+     * <li>
+     *      <strong>(Query: <code>GROUP BY b</code>, candidate: <code>GROUP BY a, b</code>)</strong>: there is no valid
+     *      roll up as there is no prefix that contains at least {b} without any unmatched grouping values.
+     * </li>
+     *
+     * <li>
+     *      <strong>(Query: <code>GROUP BY b, a</code>, candidate: <code>GROUP BY a, b, c</code>)</strong>: the
+     *      roll up to values here should be <strong>[a, b]</strong> as that is the longest prefix without any unmatched
+     *      grouping values which contains at least {a, b}.
+     * </li>
+     *
+     *  <li>
+     *      <strong>(Query: <code>WHERE a = 5 GROUP BY b</code>, candidate: <code>GROUP BY a, b</code>)</strong>: the
+     *      roll up to values here should be <strong>[a, b]</strong> as that is the longest prefix without any unmatched
+     *      grouping values which contains at least {b}.
+     *  </li>
+     *
+     *  <li>
+     *      <strong>(Query: <code>WHERE c = 5 GROUP BY a</code>, candidate: <code>GROUP BY a, b, c</code>)</strong>: the
+     *      roll up to values here should be <strong>[a]</strong> as that is the longest prefix without any unmatched
+     *      grouping values.
+     *  </li>
+     * </p>
+     *
+     * @param candidateGroupingValues the list of the match candidate's grouping values.
+     * @param explicitlyMatchedCandidateGroupingValuesSet the set of match candidate's grouping values which matched the
+     *                                                    query's explicit grouping values.
+     * @param implicitlyMatchedCandidateGroupingValuesSet the set of match candidate's grouping values which matched the
+*      *                                                  query's implicit grouping values.
+     * @return An {@link Optional} with a list of {@link Value}s which constitute the longest prefix in the candidate
+     *         grouping values that subsumes the query's explicit grouping values and potentially the query's implicit
+     *         grouping values, or an empty {@link Optional} if no such prefix exists.
+     */
+    private Optional<List<Value>> computeRollUpToValuesMaybe(@Nonnull final List<Value> candidateGroupingValues,
+                                                             @Nonnull final Set<Value> explicitlyMatchedCandidateGroupingValuesSet,
+                                                             @Nonnull final Set<Value> implicitlyMatchedCandidateGroupingValuesSet) {
+        // This is a potential roll-up case, but only if at least the explicit query side's grouping values
+        // are fully subsumed by a prefix of the candidate grouping values list. This can be confirmed by checking
+        // if the set of matched candidate grouping values forms a prefix of the candidate grouping values list.
+        //
+        final var allMatchedCandidateGroupingValues = Sets.union(
+                explicitlyMatchedCandidateGroupingValuesSet, implicitlyMatchedCandidateGroupingValuesSet);
+        final var candidateGroupingValuesMatchedPrefixBuilder = ImmutableList.<Value>builder();
+        for (var candidateGroupingValueFromPrefix : candidateGroupingValues) {
+            if (!allMatchedCandidateGroupingValues.contains(candidateGroupingValueFromPrefix)) {
+                break;
+            }
+            candidateGroupingValuesMatchedPrefixBuilder.add(candidateGroupingValueFromPrefix);
+        }
+
+        // The prefix must at least contain the explicitly matched candidate grouping values, since the implicitly
+        // matched values can be applied as predicate compensations.
+        // TODO: Improving the planner to support applying predicate compensations when there is a roll up is going
+        //       to be tackled https://github.com/FoundationDB/fdb-record-layer/issues/4115.
+        final var candidateGroupingValuesMatchedPrefix = candidateGroupingValuesMatchedPrefixBuilder.build();
+        final var candidateGroupingValuesMatchedPrefixSet =
+                ImmutableSet.copyOf(candidateGroupingValuesMatchedPrefix);
+        if (!candidateGroupingValuesMatchedPrefixSet.containsAll(explicitlyMatchedCandidateGroupingValuesSet)) {
+            return Optional.empty();
+        }
+
+        // The match candidate needs to be rolled up to the resolved prefix of its grouping values, which subsumes the
+        // query's explicit grouping values and may also subsume the query's implicit grouping values.
+        return Optional.of(candidateGroupingValuesMatchedPrefix);
     }
 
     @Nonnull

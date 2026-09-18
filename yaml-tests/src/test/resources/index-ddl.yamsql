@@ -221,10 +221,10 @@ test_block:
     # Test UNIQUE constraint violations on profession column - should fail when attempting to insert duplicate professions
     -
       - query: INSERT INTO customers_materialized_view VALUES (5, 'David', 'david@example.com', 28, 'Boston', 'USA', 'Engineer')
-      - error: "23505"
+      - error: UNIQUE_CONSTRAINT_VIOLATION
     -
       - query: INSERT INTO customers_index_on_table VALUES (5, 'David', 'david@example.com', 28, 'Boston', 'USA', 'Engineer')
-      - error: "23505"
+      - error: UNIQUE_CONSTRAINT_VIOLATION
     # Test that different professions still work
     -
       - query: INSERT INTO customers_materialized_view VALUES (5, 'David', 'david@example.com', 28, 'Boston', 'USA', 'Architect')

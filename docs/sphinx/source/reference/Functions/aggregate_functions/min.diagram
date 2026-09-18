@@ -1,0 +1,6 @@
+Diagram(
+    Terminal('MIN'),
+    Terminal('('),
+    NonTerminal('expression'),
+    Terminal(')'),
+)

@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
+import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -226,6 +227,16 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                         final var bytes = struct.getBytes(i + 1);
                         if (bytes != null) {
                             builder.setField(fd, ByteString.copyFrom(bytes));
+                        }
+                        break;
+                    case UUID:
+                        final var uuid = struct.getUUID(i + 1);
+                        if (uuid != null) {
+                            builder.setField(fd,
+                                    TupleFieldsProto.UUID.newBuilder()
+                                            .setMostSignificantBits(uuid.getMostSignificantBits())
+                                            .setLeastSignificantBits(uuid.getLeastSignificantBits())
+                                            .build());
                         }
                         break;
                     case STRUCT:

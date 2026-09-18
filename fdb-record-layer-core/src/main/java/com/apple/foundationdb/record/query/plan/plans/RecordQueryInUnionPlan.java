@@ -283,6 +283,9 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
+        if (!semanticEqualsForResults(otherExpression, equivalencesMap)) {
+            return false;
+        }
         final RecordQueryInUnionPlan other = (RecordQueryInUnionPlan)otherExpression;
         return inSources.equals(other.inSources) && comparisonKeyFunction.equals(other.comparisonKeyFunction);
     }

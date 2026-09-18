@@ -1279,7 +1279,8 @@ public class Ordering {
 
         @Override
         public int hashCode() {
-            return Objects.hash(sortOrder, comparison);
+            // Note: This hash must be stable across JVMs, as `Binding` is stored in hash-based sets during planning.
+            return Objects.hash(sortOrder.name(), comparison);
         }
 
         @Override

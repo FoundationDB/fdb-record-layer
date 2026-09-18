@@ -435,6 +435,55 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @ParameterizedTest
+    @BooleanSource("quotes")
+    void testQueryWithSpecialCharacters(boolean quotes) {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            TestRecordsTextProto.SimpleDocument document1 = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(1L)
+                    .setGroup(1)
+                    .setText("Never, never give up")
+                    .build();
+            recordStore.saveRecord(document1);
+            TestRecordsTextProto.SimpleDocument document2 = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(2L)
+                    .setGroup(1)
+                    .setText("Never, nev*er give up")
+                    .build();
+            recordStore.saveRecord(document2);
+            TestRecordsTextProto.SimpleDocument document3 = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(3L)
+                    .setGroup(1)
+                    .setText("Never, nev:er give up")
+                    .build();
+            recordStore.saveRecord(document3);
+            TestRecordsTextProto.SimpleDocument document4 = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(4L)
+                    .setGroup(1)
+                    .setText("Never, nev\"er give up")
+                    .build();
+            recordStore.saveRecord(document4);
+            TestRecordsTextProto.SimpleDocument document5 = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(5L)
+                    .setGroup(1)
+                    .setText("Never, nev'er give up")
+                    .build();
+            recordStore.saveRecord(document5);
+
+            assertPrimaryKeys(quote(quotes, "never"), false, Set.of(1L, 2L, 3L, 4L, 5L));
+            assertPrimaryKeys(quote(quotes, "nev\\*er"), false, Set.of(2L, 4L));
+            assertPrimaryKeys(quote(quotes, "nev\\:er"), false, Set.of(3L));
+            assertPrimaryKeys(quote(quotes, "nev\\\"er"), false, Set.of(2L, 4L));
+            assertPrimaryKeys(quote(quotes, "nev'er"), false, Set.of(5L));
+        }
+    }
+
+    @Nonnull
+    private static String quote(final boolean quotes, final String term) {
+        return "text:" + (quotes ? "\"" + term + "\"" : term);
+    }
+
     /**
      * Test that lucene doesn't break whene there's unicode in the text.
      * <p>

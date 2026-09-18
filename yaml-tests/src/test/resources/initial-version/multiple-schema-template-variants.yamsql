@@ -1,0 +1,45 @@
+#
+# multiple-schema-template-variants.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+# Exercises a `schema_template` list with three variants. The middle variant uses both `initialVersionAtLeast` and
+# `initialVersionLessThan` to bound a closed-open range; the low and high variants use a single bound each. All three
+# variants define T1 identically, so this test passes regardless of which variant is selected. The goal is to verify
+# that the parser, validator, and runtime selector all handle more than two variants.
+schema_template:
+    - initialVersionLessThan: "1.0.0.0"
+      definition: |
+          CREATE TABLE T1 (id BIGINT, PRIMARY KEY (id))
+    - initialVersionAtLeast: "1.0.0.0"
+      initialVersionLessThan: "100.0.0.0"
+      definition: |
+          CREATE TABLE T1 (id BIGINT, PRIMARY KEY (id))
+    - initialVersionAtLeast: "100.0.0.0"
+      definition: |
+          CREATE TABLE T1 (id BIGINT, PRIMARY KEY (id))
+---
+test_block:
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: INSERT INTO T1 VALUES (1)
+      - count: 1
+    -
+      - query: SELECT id FROM T1
+      - result: [{id: !l 1}]

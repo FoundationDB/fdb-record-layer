@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
@@ -126,7 +127,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> extends ImplementationCascadesRule<P> {
+public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> extends AbstractCascadesRule<P> implements ImplementationCascadesRule<P> {
     @Nonnull
     private static final BindingMatcher<RecordQueryFetchFromPartialRecordPlan> fetchPlanMatcher =
             fetchFromPartialRecordPlan(anyPlan());

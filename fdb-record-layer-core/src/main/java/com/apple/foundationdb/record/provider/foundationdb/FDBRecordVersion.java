@@ -503,7 +503,6 @@ public class FDBRecordVersion implements Comparable<FDBRecordVersion> {
      * @throws IncompleteRecordVersionException if the global version is unset
      */
     @Nonnull
-    @SpotBugsSuppressWarnings(value = "EI", justification = "not mutated later")
     public byte[] getGlobalVersion() {
         if (isComplete()) {
             return Arrays.copyOfRange(versionBytes, 0, GLOBAL_VERSION_LENGTH);

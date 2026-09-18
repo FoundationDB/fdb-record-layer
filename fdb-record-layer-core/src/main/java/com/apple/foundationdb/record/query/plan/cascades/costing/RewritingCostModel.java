@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.outerJoinCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.selectCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.tableFunctionCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.NormalizedResidualPredicateProperty.countNormalizedConjuncts;
@@ -52,6 +53,7 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
     @Nonnull
     private static final Tiebreaker<RelationalExpression> tiebreaker =
             Tiebreaker.combineTiebreakers(ImmutableList.of(
+                    lowestNumOuterJoinsTiebreaker(),
                     lowestNumSelectExpressionsTiebreaker(),
                     lowestNumTableFunctionsTiebreaker(),
                     fewestNormalizedConjunctsTiebreaker(),
@@ -87,6 +89,11 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
     }
 
     @Nonnull
+    static LowestNumOuterJoinsTiebreaker lowestNumOuterJoinsTiebreaker() {
+        return LowestNumOuterJoinsTiebreaker.INSTANCE;
+    }
+
+    @Nonnull
     static LowestNumSelectExpressionsTiebreaker lowestNumSelectExpressionsTiebreaker() {
         return LowestNumSelectExpressionsTiebreaker.INSTANCE;
     }
@@ -109,6 +116,22 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
     @Nonnull
     static SemanticHashTiebreaker semanticHashTiebreaker() {
         return SemanticHashTiebreaker.INSTANCE;
+    }
+
+    static class LowestNumOuterJoinsTiebreaker implements Tiebreaker<RelationalExpression> {
+        private static final LowestNumOuterJoinsTiebreaker INSTANCE = new LowestNumOuterJoinsTiebreaker();
+
+        @Override
+        public int compare(@Nonnull final RecordQueryPlannerConfiguration configuration, @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA, @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB, @Nonnull final RelationalExpression a, @Nonnull final RelationalExpression b) {
+            //
+            // Penalize any surviving `OuterJoinExpression` first. The rewriting phase is expected to eliminate outer joins
+            // by rewriting them into nested `SelectExpression` boxes. Without this, the later `lowestNumSelectExpressions()`
+            // tie-breaker would actually prefer an un-rewritten `OuterJoinExpression` (0 selects) over the canonical form (2 selects).
+            //
+            int aOuterJoins = outerJoinCount().evaluate(a);
+            int bOuterJoins = outerJoinCount().evaluate(b);
+            return Integer.compare(aOuterJoins, bOuterJoins);
+        }
     }
 
     static class LowestNumSelectExpressionsTiebreaker implements Tiebreaker<RelationalExpression> {

@@ -338,16 +338,15 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
     @Nonnull
     public static PromoteValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                          @Nonnull final PPromoteValue promoteValueProto) {
+        final var inValue = Value.fromValueProto(serializationContext, Objects.requireNonNull(promoteValueProto.getInValue()));
+        final var promoteToType = Type.fromTypeProto(serializationContext, Objects.requireNonNull(promoteValueProto.getPromoteToType()));
         final CoercionTrieNode promotionTrie;
         if (promoteValueProto.hasPromotionTrie()) {
             promotionTrie = CoercionTrieNode.fromProto(serializationContext, Objects.requireNonNull(promoteValueProto.getPromotionTrie()));
         } else {
             promotionTrie = null;
         }
-
-        return new PromoteValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(promoteValueProto.getInValue())),
-                Type.fromTypeProto(serializationContext, Objects.requireNonNull(promoteValueProto.getPromoteToType())),
-                promotionTrie);
+        return new PromoteValue(inValue, promoteToType, promotionTrie);
     }
 
     @Nullable
@@ -430,13 +429,17 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
     }
 
     /**
-     * Wrap a {@link PromoteValue} instance around {@code value} if necessary.
+     * Wraps a {@link PromoteValue} instance around {@code inValue} if necessary.
      *
      * <p>{@code inject()} is idempotent and does not modify the value if its result is already the desired type.
+     *
+     * @param inValue the value to promote
+     * @param promoteToType the target type to promote to
+     * @return a value with result type {@code promoteToType}
      */
     @Nonnull
     public static Value inject(@Nonnull final Value inValue, @Nonnull final Type promoteToType) {
-        final var inType = inValue.getResultType();
+        final Type inType = inValue.getResultType();
         if (inType.equals(promoteToType)) {
             return inValue;
         }
@@ -448,7 +451,7 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
     }
 
     public static boolean isPromotable(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
-        return resolvePhysicalOperator(inType, promoteToType) != null;
+        return resolvePhysicalOperator(inType, promoteToType) != null || inType.isRecord() && promoteToType.isRecord();
     }
 
     @Nullable
@@ -473,12 +476,18 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             return isPromotionNeeded(Verify.verifyNotNull(inArray.getElementType()), Verify.verifyNotNull(promoteToArray.getElementType()));
         }
         if (inType.isRecord() && promoteToType.isRecord()) {
-            final List<Type> inTypeElements = Objects.requireNonNull(((Type.Record) inType).getElementTypes());
-            final List<Type> promoteToTypeElements = Objects.requireNonNull(((Type.Record) promoteToType).getElementTypes());
-            SemanticException.check(inTypeElements.size() == promoteToTypeElements.size(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             var promotionNeeded = false;
-            for (int i = 0; i < inTypeElements.size(); i++) {
-                if (isPromotionNeeded(inTypeElements.get(i), promoteToTypeElements.get(i))) {
+            final List<Type.Record.Field> inTypeFields = Objects.requireNonNull(((Type.Record) inType).getFields());
+            final List<Type.Record.Field> promoteToTypeFields = Objects.requireNonNull(((Type.Record) promoteToType).getFields());
+            SemanticException.check(inTypeFields.size() == promoteToTypeFields.size(),
+                    SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            for (int i = 0; i < inTypeFields.size(); i++) {
+                final var inTypeField = inTypeFields.get(i);
+                final var promoteToTypeField = promoteToTypeFields.get(i);
+                // If the field type, name or index are different a promotion is needed.
+                if (isPromotionNeeded(inTypeField.getFieldType(), promoteToTypeField.getFieldType())
+                        || !inTypeField.getFieldNameOptional().equals(promoteToTypeField.getFieldNameOptional())
+                        || !inTypeField.getFieldIndexOptional().equals(promoteToTypeField.getFieldIndexOptional())) {
                     promotionNeeded = true;
                 }
             }

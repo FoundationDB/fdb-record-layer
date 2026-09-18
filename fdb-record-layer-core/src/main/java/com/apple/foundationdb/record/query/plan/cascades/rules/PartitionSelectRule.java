@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
@@ -59,7 +60,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PartitionSelectRule extends ExplorationCascadesRule<SelectExpression> {
+public class PartitionSelectRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
     private static final CollectionMatcher<Quantifier> combinationQuantifierMatcher = all(anyQuantifier());
 
     private static final BindingMatcher<SelectExpression> root =

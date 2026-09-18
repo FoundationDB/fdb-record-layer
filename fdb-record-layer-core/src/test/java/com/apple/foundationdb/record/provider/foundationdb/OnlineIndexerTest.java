@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -49,10 +48,11 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.LongStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -83,11 +83,7 @@ public abstract class OnlineIndexerTest {
 
     @Nonnull
     public IndexMaintenanceFilter getIndexMaintenanceFilter() {
-        if (indexMaintenanceFilter == null) {
-            return IndexMaintenanceFilter.NORMAL;
-        } else {
-            return indexMaintenanceFilter;
-        }
+        return Objects.requireNonNullElse(indexMaintenanceFilter, IndexMaintenanceFilter.NORMAL);
     }
 
     @BeforeEach
@@ -100,16 +96,6 @@ public abstract class OnlineIndexerTest {
         fdb = dbExtension.getDatabase();
         fdb.setAsyncToSyncTimeout(5, TimeUnit.MINUTES);
         path = pathManager.createPath(TestKeySpace.RECORD_STORE);
-    }
-
-    void clearIndexData(@Nonnull Index index) {
-        fdb.database().run(tr -> {
-            tr.clear(Range.startsWith(recordStore.indexSubspace(index).pack()));
-            tr.clear(recordStore.indexSecondarySubspace(index).range());
-            tr.clear(recordStore.indexRangeSubspace(index).range());
-            tr.clear(recordStore.indexBuildSubspace(index).range());
-            return null;
-        });
     }
 
     void openMetaData(@Nonnull Descriptors.FileDescriptor descriptor, @Nonnull RecordMetaDataHook hook) {
@@ -146,7 +132,7 @@ public abstract class OnlineIndexerTest {
     }
 
     @Nonnull
-    private FDBRecordStore.Builder createStoreBuilder() {
+    FDBRecordStore.Builder createStoreBuilder() {
         return FDBRecordStore.newBuilder()
                 .setMetaDataProvider(metaData)
                 .setFormatVersion(formatVersion)
@@ -240,7 +226,7 @@ public abstract class OnlineIndexerTest {
                         .setNumValue3Indexed((int) val * 77)
                         .setNumValueUnique((int)val * 1139)
                         .build()
-        ).collect(Collectors.toList());
+        ).toList();
 
         try (FDBRecordContext context = openContext())  {
             records.forEach(recordStore::saveRecord);
@@ -323,7 +309,7 @@ public abstract class OnlineIndexerTest {
         openSimpleMetaData(allIndexesHook(indexes));
         try (FDBRecordContext context = openContext()) {
             for (Index index : indexes) {
-                assertTrue(recordStore.isIndexReadable(index));
+                assertTrue(recordStore.getIndexState(index).isReadable());
             }
             context.commit();
         }
@@ -392,6 +378,17 @@ public abstract class OnlineIndexerTest {
             pauseSemaphore.release();
         } else {
             passed.set(true);
+        }
+        return oldConfig;
+    }
+
+    protected static OnlineIndexOperationConfig pauseAfterNthPass(final OnlineIndexOperationConfig oldConfig, final int passesCount, final AtomicInteger passCounter, final Semaphore inPauseSemaphore, final Semaphore pauseSemaphore) {
+        if (passCounter.get() >= passesCount) {
+            inPauseSemaphore.release();
+            Assertions.assertDoesNotThrow(() -> pauseSemaphore.acquire());
+            pauseSemaphore.release();
+        } else {
+            passCounter.incrementAndGet();
         }
         return oldConfig;
     }

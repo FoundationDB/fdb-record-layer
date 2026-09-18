@@ -26,6 +26,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
 import javax.annotation.Nonnull;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -56,7 +57,7 @@ public class MetaDataVersionStampStoreStateCacheFactory implements FDBRecordStor
             cacheBuilder.maximumSize(maxSize);
         }
         if (expireAfterAccessMillis != UNLIMITED) {
-            cacheBuilder.expireAfterAccess(expireAfterAccessMillis, TimeUnit.MILLISECONDS);
+            cacheBuilder.expireAfterAccess(Duration.ofMillis(expireAfterAccessMillis));
         }
         Cache<SubspaceProvider, FDBRecordStoreStateCacheEntry> cache = cacheBuilder.build();
         return new MetaDataVersionStampStoreStateCache(database, cache);

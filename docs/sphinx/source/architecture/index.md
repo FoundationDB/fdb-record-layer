@@ -1,6 +1,4 @@
-# Architecture
-
-## Documentation
+# Design notes
 
 ```{toctree}
 :maxdepth: 1

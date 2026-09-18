@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -38,7 +39,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * A rule that merges a fetch into a covering index scan.
  */
 @API(API.Status.EXPERIMENTAL)
-public class MergeFetchIntoCoveringIndexRule extends ImplementationCascadesRule<RecordQueryFetchFromPartialRecordPlan> {
+public class MergeFetchIntoCoveringIndexRule extends AbstractCascadesRule<RecordQueryFetchFromPartialRecordPlan> implements ImplementationCascadesRule<RecordQueryFetchFromPartialRecordPlan> {
     @Nonnull
     private static final BindingMatcher<RecordQueryIndexPlan> innerPlanMatcher = indexPlan();
     @Nonnull
