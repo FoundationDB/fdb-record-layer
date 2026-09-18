@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.costing;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -45,7 +44,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Predi
  * Cost model for {@link PlannerPhase#REWRITING}. TODO To be fleshed out whe we have actual rules.
  */
 @API(API.Status.EXPERIMENTAL)
-@SpotBugsSuppressWarnings("SE_COMPARATOR_SHOULD_BE_SERIALIZABLE")
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class RewritingCostModel implements CascadesCostModel<RelationalExpression> {
     @Nonnull
     private static final Set<Class<? extends RelationalExpression>> interestingExpressionClasses =

@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.costing;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexEngineKind;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -81,7 +80,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Unmat
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-@SpotBugsSuppressWarnings("SE_COMPARATOR_SHOULD_BE_SERIALIZABLE")
 public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
     @Nonnull
     private static final Set<Class<? extends RelationalExpression>> interestingPlanClasses =
