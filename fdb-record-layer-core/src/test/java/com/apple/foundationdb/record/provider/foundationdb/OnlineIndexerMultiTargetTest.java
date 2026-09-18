@@ -590,11 +590,9 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
     }
 
     @ParameterizedTest
-    @BooleanSource
-    void testMultiTargetPartlyBuiltContinueByIndex(boolean allowTakeover) {
-        // After a multi target crash, continue a single target by a source index. The by-index attempt and the
-        // by-records fallback are each attempted once, and the fallback may take over the multi target stamp only if
-        // the takeover is allowed.
+    @BooleanSource({"byIndex", "allowTakeover"})
+    void testMultiTargetPartlyBuiltContinueSingle(boolean byIndex, boolean allowTakeover) {
+        // After a multi target crash, continue a single target - either by a source index or by a records scan
 
         final int numRecords = 40;
         final int chunkSize  = 7;
@@ -622,27 +620,31 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
             indexBuilder.buildIndex();
         }
 
-        // 3. continue "indexA" by a source index
+        // 3. continue "indexA", either by "indexB" as a source index or by a records scan
+        // A by-index attempt always falls back to a by-records scan, hence the extra attempt
+        final int expectedAttempts = byIndex ? 2 : allowTakeover ? 1 : 2;
         try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes.get(1))
                 .setLimit(chunkSize)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                        .setSourceIndex(indexes.get(0).getName())
+                        .setSourceIndex(byIndex ? indexes.get(0).getName() : null)
                         .allowTakeoverContinue(allowTakeover))
                 .build()) {
             if (allowTakeover) {
                 indexBuilder.buildIndex();
             } else {
-                // Without a takeover, neither attempt may continue the multi target build. The reported mismatch is
-                // the requested by-index one, not the internal by-records fallback.
+                // Without a takeover, no attempt may continue the multi target build. The reported mismatch is the
+                // requested one, not the internal by-records fallback.
                 final RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
                 final IndexingBase.PartlyBuiltException partlyBuilt = IndexingBase.getAPartlyBuiltExceptionIfApplicable(e);
                 assertNotNull(partlyBuilt, () -> "expected a PartlyBuiltException, got " + e);
                 assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS, partlyBuilt.getSavedStamp().getMethod());
                 assertTrue(partlyBuilt.getSavedStamp().getTargetIndexList().containsAll(List.of("indexA", "indexB", "indexC")));
-                assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX, partlyBuilt.getExpectedStamp().getMethod());
+                assertEquals(byIndex ?
+                             IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX :
+                             IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS,
+                        partlyBuilt.getExpectedStamp().getMethod());
             }
-            // by index, then a single fallback to by records - never up to the attempts recursion limit
-            assertEquals(2, indexBuilder.getLastAttemptCount());
+            assertEquals(expectedAttempts, indexBuilder.getLastAttemptCount());
         }
 
         if (allowTakeover) {
