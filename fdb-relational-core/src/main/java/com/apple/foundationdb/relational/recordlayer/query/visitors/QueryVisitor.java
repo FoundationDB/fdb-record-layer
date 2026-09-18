@@ -253,6 +253,19 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return Optional.ofNullable(seed);
     }
 
+    /**
+     * Builds a quantifier ranging over the elements of {@code collectionValue}. An {@link ExplodeExpression} flows each
+     * element wrapped in an anonymous struct, so a select is layered on top of it to project the element itself.
+     */
+    @Nonnull
+    private static Quantifier.ForEach explodeElements(@Nonnull final Value collectionValue) {
+        final var explodeQuantifier = Quantifier.forEach(Reference.initialOf(new ExplodeExpression(collectionValue)));
+        return Quantifier.forEach(Reference.initialOf(GraphExpansion.ofQuantifier(explodeQuantifier)
+                .seal()
+                .buildSelectWithResultValue(FieldValue.ofOrdinalNumber(explodeQuantifier.getFlowedObjectValue(),
+                        ExplodeExpression.ELEMENT_ORDINAL))));
+    }
+
     @Nonnull
     @Override
     public LogicalOperator visitSimpleTable(@Nonnull RelationalParser.SimpleTableContext simpleTableContext) {
@@ -264,8 +277,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             // can be projected over exactly one output row (standard SQL semantics).
             final var dummyElement = Expression.fromUnderlying(LiteralValue.ofScalar(true));
             final var arrayOfOne = getDelegate().resolveFunction("__internal_array", false, dummyElement);
-            final var explodeExpr = new ExplodeExpression(arrayOfOne.getUnderlying());
-            final var syntheticQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpr));
+            final var syntheticQuantifier = explodeElements(arrayOfOne.getUnderlying());
             getDelegate().getCurrentPlanFragment().setOperator(LogicalOperator.newUnnamedOperator(Expressions.empty(), syntheticQuantifier));
         }
 
@@ -728,8 +740,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         final var arguments = Expressions.of(rowExpressionBuilder.build()).asList().toArray(new Expression[0]);
         final var arrayOfTuples = getDelegate().resolveFunction("__internal_array", false, arguments);
-        final var explodeExpression = new ExplodeExpression(arrayOfTuples.getUnderlying());
-        final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpression));
+        final var resultingQuantifier = explodeElements(arrayOfTuples.getUnderlying());
         var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
         return typeMaybe == null
                ? LogicalOperator.newUnnamedOperator(output, resultingQuantifier)
@@ -810,8 +821,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         final var arguments = Expressions.of(insertTuples.build()).asList().toArray(new Expression[0]);
         final var arrayOfTuples = getDelegate().resolveFunction("__internal_array", false, arguments);
-        final var explodeExpression = new ExplodeExpression(arrayOfTuples.getUnderlying());
-        final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpression));
+        final var resultingQuantifier = explodeElements(arrayOfTuples.getUnderlying());
         return LogicalOperator.newUnnamedOperator(Expressions.ofSingle(arrayOfTuples), resultingQuantifier);
     }
 

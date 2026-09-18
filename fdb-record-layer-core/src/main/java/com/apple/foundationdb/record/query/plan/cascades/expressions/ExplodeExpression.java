@@ -35,10 +35,12 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlanner
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -65,6 +67,16 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildren implements InternalPlannerGraphRewritable {
+    /**
+     * The ordinal of the array element in the value an explode flows.
+     */
+    public static final int ELEMENT_ORDINAL = 0;
+
+    /**
+     * The ordinal of the ordinality in the value an explode flows, for the {@code WITH ORDINALITY} variant.
+     */
+    public static final int ORDINALITY_ORDINAL = 1;
+
     @Nonnull
     private final Value collectionValue;
 
@@ -118,9 +130,8 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
 
     public ExplodeExpression(@Nonnull final Value collectionValue, final boolean withOrdinality,
                              final boolean zeroBasedOrdinality) {
-        // a `WITH ORDINALITY` explode flows the element and the ordinal as a record constructor; the plain variant
-        // has only the element
-        this(collectionValue, withOrdinality, zeroBasedOrdinality, withOrdinality);
+        // every explode flows a record constructor: of the element alone, or of the element and the ordinal
+        this(collectionValue, withOrdinality, zeroBasedOrdinality, true);
     }
 
     public ExplodeExpression(@Nonnull final Value collectionValue, final boolean withOrdinality) {
@@ -331,8 +342,56 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
                : collectionValue.toString();
     }
 
+    /**
+     * Returns a {@link TranslationMap} that makes each given explode quantifier stand for the array element alone,
+     * rather than for the record the explode flows.
+     *
+     * <p>A rule that turns explode quantifiers into <em>bindings</em> -- an in-join or an in-union, which bind an
+     * element of the collection under {@code __corr_«alias»} and re-execute the inner plan per element -- has to apply
+     * this to the plans it puts underneath, because those plans reference the alias as {@code «alias»._0}. Wrapping
+     * what the alias stands for lets that access compose away to a plain reference to the binding, which is what the
+     * runtime actually provides.
+     *
+     * @param quantifierToExplodeMap what each explode quantifier ranges over
+     *
+     * @return a translation map wrapping each explode alias in the record its explode flows
+     */
+    @Nonnull
+    public static TranslationMap elementBindingTranslationMap(@Nonnull final Map<? extends Quantifier, ExplodeExpression> quantifierToExplodeMap) {
+        final var translationMapBuilder = RegularTranslationMap.builder();
+        for (final var entry : quantifierToExplodeMap.entrySet()) {
+            final var explodeExpression = entry.getValue();
+            if (explodeExpression.isWithOrdinality()) {
+                // an ordinal cannot be carried by a binding, so such an explode is never turned into one; see the
+                // callers, which refuse to use it as a source
+                continue;
+            }
+            final var alias = entry.getKey().getAlias();
+            final var elementValue = QuantifiedObjectValue.of(alias, explodeExpression.getElementType());
+            translationMapBuilder.when(alias).then((sourceAlias, leafValue) ->
+                    RecordConstructorValue.ofColumns(ImmutableList.of(Column.unnamedOf(elementValue)), true));
+        }
+        return translationMapBuilder.build();
+    }
+
+    /**
+     * Returns the value standing for the array element an explode quantifier ranges over, reached through the record
+     * the explode flows.
+     */
+    @Nonnull
+    public static Value elementValueOf(@Nonnull final Quantifier explodeQuantifier) {
+        return FieldValue.ofOrdinalNumber(explodeQuantifier.getFlowedObjectValue(), ELEMENT_ORDINAL);
+    }
+
+    @Nonnull
     public static ExplodeExpression explodeField(@Nonnull final Quantifier.ForEach baseQuantifier,
                                                  @Nonnull final List<String> fieldNames) {
-        return new ExplodeExpression(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
+        return explodeField(baseQuantifier.getFlowedObjectValue(), fieldNames);
+    }
+
+    @Nonnull
+    public static ExplodeExpression explodeField(@Nonnull final Value baseValue,
+                                                 @Nonnull final List<String> fieldNames) {
+        return new ExplodeExpression(FieldValue.ofFieldNamesAndFuseIfPossible(baseValue, fieldNames));
     }
 }

@@ -447,10 +447,10 @@ x
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T4_COL4_VERSION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, LONG AS COL2, LONG AS COL3, ARRAY(LONG) AS COL4, VERSION AS __ROW_VERSION)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}–
+}™
 W
-versions-queriesCEXPLAIN select "__ROW_VERSION", id, col1 from t4 where 3 in t4.col4º
-†§ÐñÀ ¥êË(40û…R8M@»ISCAN(T4_COL2 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.COL4) | FILTER promote(@c9 AS LONG) EQUALS _ AS q1 RETURN (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1) }Ýdigraph G {
+versions-queriesCEXPLAIN select "__ROW_VERSION", id, col1 from t4 where 3 in t4.col4½
+†§ÐñÀ ¥êË(40û…R8M@¾ISCAN(T4_COL2 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.COL4) | FILTER promote(@c9 AS LONG) EQUALS _._0 AS q1 RETURN (q0.__ROW_VERSION AS __ROW_VERSION, q0.ID AS ID, q0.COL1 AS COL1) }Ýdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -687,17 +687,17 @@ y
     rankDir=LR;
     2 -> 6 [ color="red" style="invis" ];
   }
-}¢
+}®
 b
-versions-queriesNEXPLAIN select "__ROW_VERSION", id, col1, col3 from t4 where col3 in (1, 3, 5)»
+versions-queriesNEXPLAIN select "__ROW_VERSION", id, col1, col3 from t4 where col3 in (1, 3, 5)Ç
 õ
-ÜšÔGŠ £Ç‹(h0½âÊ8»@ÊEXPLODE arrayDistinct(promote(@c13 AS ARRAY(LONG))) | FLATMAP q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0]) AS q1 RETURN (q1.__ROW_VERSION AS __ROW_VERSION, q1.ID AS ID, q1.COL1 AS COL1, q1.COL3 AS COL3) }Ídigraph G {
+óÖþaŠ £±Ý(h0Ô›š8¾@ÍEXPLODE arrayDistinct(promote(@c13 AS ARRAY(LONG))) | FLATMAP q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0._0]) AS q1 RETURN (q1.__ROW_VERSION AS __ROW_VERSION, q1.ID AS ID, q1.COL1 AS COL1, q1.COL3 AS COL3) }Ödigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.__ROW_VERSION AS __ROW_VERSION, q2.ID AS ID, q2.COL1 AS COL1, q2.COL3 AS COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(VERSION AS __ROW_VERSION, LONG AS ID, STRING AS COL1, LONG AS COL3)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(@c13 AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q84]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, LONG AS COL2, LONG AS COL3, ARRAY(LONG) AS COL4, VERSION AS __ROW_VERSION)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(@c13 AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q84._0]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, LONG AS COL2, LONG AS COL3, ARRAY(LONG) AS COL4, VERSION AS __ROW_VERSION)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T4_COL3_VERSION</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS COL1, LONG AS COL2, LONG AS COL3, ARRAY(LONG) AS COL4, VERSION AS __ROW_VERSION)" ];
   2 -> 1 [ label=<&nbsp;q84> label="q84" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -710,10 +710,10 @@ b
     rankDir=LR;
     2 -> 3 [ color="red" style="invis" ];
   }
-}Œ
+}
 p
-versions-queries\EXPLAIN select "__ROW_VERSION", id, col1, col3 from t4 where col3 in (1, 3, 5) order by col3—
-«ÛÅé+ ‚­¼(F0°K8U@Â[IN arrayDistinct(promote(@c13 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL3 AS COL3) }³digraph G {
+versions-queries\EXPLAIN select "__ROW_VERSION", id, col1, col3 from t4 where col3 in (1, 3, 5) order by col3˜
+«‰íùm ÉÏÑ0(F0ÕðÖ8X@Â[IN arrayDistinct(promote(@c13 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0]) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL3 AS COL3) }³digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -731,10 +731,10 @@ p
     rankDir=LR;
     5 -> 2 [ color="red" style="invis" ];
   }
-}á
+}â
 Š
-versions-queriesvEXPLAIN select "__ROW_VERSION", id, col1, col3 from t4 where col3 in (1, 3, 5) order by col3 asc, "__ROW_VERSION" descÑ
-Ý±¿£ » ‡šŒ(50óÊ 8"@ Ê[IN arrayDistinct(promote(@c13 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0] REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL3 AS COL3) }ådigraph G {
+versions-queriesvEXPLAIN select "__ROW_VERSION", id, col1, col3 from t4 where col3 in (1, 3, 5) order by col3 asc, "__ROW_VERSION" descÒ
+Ýó¸¬?» ö¼Ü"(50Áåþ8$@ Ê[IN arrayDistinct(promote(@c13 AS ARRAY(LONG))) SORTED] | INJOIN q0 -> { ISCAN(T4_COL3_VERSION [EQUALS q0] REVERSE) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL3 AS COL3) }ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

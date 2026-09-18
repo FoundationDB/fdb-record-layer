@@ -43,7 +43,7 @@ test_block:
   tests:
     - # Normal unnesting (aka. array join) without AT on a nullable array.
       - query: SELECT "id", "val" FROM T1, T1."arr1" AS "val" ORDER BY "id"
-      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 AS q1 RETURN (q0.id AS id, q1 AS val) }"
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1 AS q1 RETURN (q0.id AS id, q1._0 AS val) }"
                                                 # ^ Notice the absence of WITH ORDINALITY here.
       - unorderedResult: [
           {id: 1, val: 101},
@@ -80,8 +80,21 @@ test_block:
           {id: 2, val: 202, at: 2},
           {id: 2, val: 203, at: 3}]
     -
-      # With `SELECT *`, the star expansion includes both the AS field and the AT field.
+      # `SELECT *` expands to the array elements only. The AT ordinal is a property of the unnesting rather than a
+      # column of the row, so it takes naming it to select it.
+      - query: SELECT * FROM T1, T1."arr1" AS "val" AT "at"
+      - resultMetadata: [{id: BIGINT}, {arr1: ARRAY(INTEGER)}, {arr1_nn: ARRAY(INTEGER)}, {val: INTEGER}]
+      - unorderedResult: [
+          {id: 1, arr1: [101], arr1_nn: [101], val: 101},
+          {id: 2, arr1: [201, 202, 203], arr1_nn: [201, 202, 203], val: 201},
+          {id: 2, arr1: [201, 202, 203], arr1_nn: [201, 202, 203], val: 202},
+          {id: 2, arr1: [201, 202, 203], arr1_nn: [201, 202, 203], val: 203}]
+    -
+      # ... so a star does not carry the ordinal out of a subquery, while naming it does.
       - query: SELECT "id", "val", "at" FROM (SELECT * FROM T1, T1."arr1" AS "val" AT "at") AS subquery
+      - error: UNDEFINED_COLUMN
+    -
+      - query: SELECT "id", "val", "at" FROM (SELECT "id", "val", "at" FROM T1, T1."arr1" AS "val" AT "at") AS subquery
       - unorderedResult: [
           {id: 1, val: 101, at: 1},
           {id: 2, val: 201, at: 1},
@@ -115,7 +128,7 @@ test_block:
       - query: SELECT "values"."id", "val", "at"
                  FROM VALUES (1, [101]), (2, [201, 202, 203]) AS "values" ("id", "arr"),
                       "values"."arr" AS "val" AT "at"
-      - explain: "EXPLODE array((@c11 AS id, array(@c14) AS arr), (@c19 AS id, array(@c22, @c24, @c26) AS arr)) | FLATMAP q0 -> { EXPLODE q0.arr WITH ORDINALITY AS q1 RETURN (q0.id AS id, q1._0 AS val, q1._1 + 1 AS at) }"
+      - explain: "EXPLODE array((@c11 AS id, array(@c14) AS arr), (@c19 AS id, array(@c22, @c24, @c26) AS arr)) | FLATMAP q0 -> { EXPLODE q0._0.arr WITH ORDINALITY AS q1 RETURN (q0._0.id AS id, q1._0 AS val, q1._1 + 1 AS at) }"
       - unorderedResult: [
           {id: 1, val: 101, at: 1},
           {id: 2, val: 201, at: 1},
@@ -264,7 +277,7 @@ test_block:
                  FROM T2,
                       T2."arr1" AS "val1" AT "at1",
                       T2."arr2" AS "val2"
-      - explain: "SCAN([IS T2]) | FLATMAP q0 -> { EXPLODE q0.arr2 | FLATMAP q1 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q0.id AS id, q3._0._0 AS val1, q3._0._1 + 1 AS at1, q3._1 AS val2) }"
+      - explain: "SCAN([IS T2]) | FLATMAP q0 -> { EXPLODE q0.arr2 | FLATMAP q1 -> { EXPLODE q0.arr1 WITH ORDINALITY AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q0.id AS id, q3._0._0 AS val1, q3._0._1 + 1 AS at1, q3._1._0 AS val2) }"
       - unorderedResult: [
           {id: 1, val1: 110, at1: 1, val2: 120},
           {id: 1, val1: 110, at1: 1, val2: 121},
@@ -317,7 +330,7 @@ test_block:
       - query: SELECT "id", "val", "at"
                  FROM T1, T1."arr1_nn" AS "val" AT "at"
                 WHERE "at" IN (1, 2)
-      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1_nn WITH ORDINALITY | FILTER _._1 + 1 IN @c19 AS q1 RETURN (q0.id AS id, q1._0 AS val, q1._1 + 1 AS at) }"
+      - explain: "EXPLODE arrayDistinct(@c19) | FLATMAP q0 -> { SCAN([IS T1]) | FLATMAP q1 -> { EXPLODE q1.arr1_nn WITH ORDINALITY | FILTER _._1 + 1 EQUALS q0._0 AS q2 RETURN (q1.id AS id, q2._0 AS val, q2._1 + 1 AS at) } AS q3 RETURN q3 }"
       - resultMetadata: [{id: BIGINT}, {val: INTEGER}, {at: INTEGER}]
       - unorderedResult: [
           {id: 1, val: 101, at: 1},

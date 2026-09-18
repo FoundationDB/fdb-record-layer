@@ -36,12 +36,12 @@ unnamed-3:
         "item"
     ref: arrays-unnesting.yamsql:114
     explain: SCAN([IS T1_indexed]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN
-        (q0.id AS id, q1 AS item) }
-    task_count: 168
-    task_total_time_ms: 5
-    transform_count: 55
-    transform_time_ms: 2
-    transform_yield_count: 18
+        (q0.id AS id, q1._0 AS item) }
+    task_count: 166
+    task_total_time_ms: 102
+    transform_count: 52
+    transform_time_ms: 80
+    transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 15
     insert_reused_count: 0
@@ -49,12 +49,12 @@ unnamed-3:
         FROM "row"."items" AS "item") AS SQ
     ref: arrays-unnesting.yamsql:130
     explain: SCAN([IS T1_indexed]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN
-        (q0.id AS id, q1 AS item) }
-    task_count: 193
-    task_total_time_ms: 7
-    transform_count: 60
-    transform_time_ms: 2
-    transform_yield_count: 20
-    insert_time_ms: 0
+        (q0.id AS id, q1._0 AS item) }
+    task_count: 191
+    task_total_time_ms: 30
+    transform_count: 57
+    transform_time_ms: 13
+    transform_yield_count: 19
+    insert_time_ms: 1
     insert_new_count: 20
     insert_reused_count: 0

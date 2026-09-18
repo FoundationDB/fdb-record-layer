@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesR
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
@@ -53,7 +54,7 @@ import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
 import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.SortedInComparandSource;
 import com.apple.foundationdb.record.query.plan.plans.SortedInParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.SortedInValuesSource;
@@ -84,7 +85,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.rules.PushRequestedOrderingThroughInLikeSelectRule.findInnerQuantifier;
 
 /**
- * A rule that implements a SELECT over a VALUES and a correlated subexpression as a {@link RecordQueryInUnionPlan}.
+ * A rule that implements a SELECT over a VALUES and a correlated subexpression as a {@link RecordQueryInJoinPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings({"PMD.TooManyStaticImports", "java:S4738", "java:S3776"})
@@ -145,6 +146,8 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions = PlanPartitions.rollUpTo(innerReference.toPlanPartitions(), OrderingProperty.ordering());
 
+        final var elementTranslationMap = ExplodeExpression.elementBindingTranslationMap(quantifierToExplodeBiMap);
+
         for (final var planPartition  : planPartitions) {
             final var providedOrdering = planPartition.getPartitionPropertyValue(OrderingProperty.ordering());
 
@@ -155,10 +158,16 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
                 sourcesStream.forEach(sources -> {
                     final var reverseSources = Lists.reverse(sources);
 
-                    var newInnerPlanReference = call.memoizeMemberPlansBuilder(innerReference, planPartition.getPlans());
+                    var innerPlanReference =
+                            call.memoizeMemberPlansBuilder(innerReference, planPartition.getPlans())
+                                    .reference()
+                                    .translateGraph(Memoizer.noMemoization(innerReference.getPlannerStage()),
+                                            elementTranslationMap, true);
+                    Memoizer.ReferenceOfPlansBuilder newInnerPlanReference = null;
                     for (final InSource inSource : reverseSources) {
-                        final var inJoinPlan = inSource.toInJoinPlan(Quantifier.physical(newInnerPlanReference.reference()));
+                        final var inJoinPlan = inSource.toInJoinPlan(Quantifier.physical(innerPlanReference));
                         newInnerPlanReference = call.memoizePlanBuilder(inJoinPlan);
+                        innerPlanReference = newInnerPlanReference.reference();
                     }
 
                     call.yieldPlans(newInnerPlanReference.members());
@@ -166,6 +175,7 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
             }
         }
     }
+
 
     @Nonnull
     private Stream<List<InSource>> enumerateInSourcesForRequestedOrdering(@Nonnull final Map<CorrelationIdentifier, Quantifier> explodeAliasToQuantifierMap,
@@ -255,7 +265,7 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
                     attemptedSortOrders.stream()
                             .flatMap(attemptedSortOrder -> {
                                 final InSource inSource =
-                                        computeInSource(explodeValue, explodeQuantifier, attemptedSortOrder);
+                                        computeInSource(explodeExpression, explodeQuantifier, attemptedSortOrder);
 
                                 return inSource == null ? Stream.empty() :
                                        Stream.of(ImmutableList.<OrderingPartWithSource>builder().addAll(prefix)
@@ -355,20 +365,18 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
                                         final var explodeExpression =
                                                 Objects.requireNonNull(quantifierToExplodeMap.get((Quantifier.ForEach)explodeQuantifier));
 
-                                        final var explodeValue = explodeExpression.getCollectionValue();
-
                                         final var orderingResultsBuilder = ImmutableList.<OrderingPartWithSource>builder();
                                         if (attemptedSortOrders == null) {
                                             Verify.verify(!requestedOrdering.isExhaustive());
                                             final InSource inSource =
-                                                    computeInSource(explodeValue, explodeQuantifier, null);
+                                                    computeInSource(explodeExpression, explodeQuantifier, null);
                                             if (inSource != null) {
                                                 orderingResultsBuilder.add(new OrderingPartWithSource(null, inSource));
                                             }
                                         } else {
                                             for (final var attemptedSortOrder : attemptedSortOrders) {
                                                 final InSource inSource =
-                                                        computeInSource(explodeValue, explodeQuantifier, attemptedSortOrder);
+                                                        computeInSource(explodeExpression, explodeQuantifier, attemptedSortOrder);
 
                                                 if (inSource != null) {
                                                     orderingResultsBuilder.add(new OrderingPartWithSource(null, inSource));
@@ -401,9 +409,14 @@ public class ImplementInJoinRule extends AbstractCascadesRule<SelectExpression> 
 
     @Nullable
     @SuppressWarnings("unchecked")
-    private static InSource computeInSource(@Nonnull final Value explodeValue,
+    private static InSource computeInSource(@Nonnull final ExplodeExpression explodeExpression,
                                             @Nonnull final Quantifier explodeQuantifier,
                                             @Nullable final ProvidedSortOrder attemptedSortOrder) {
+        if (explodeExpression.isWithOrdinality()) {
+            // an in-join binds an element of the collection, and there is nowhere to put the ordinal that goes with it
+            return null;
+        }
+        final var explodeValue = explodeExpression.getCollectionValue();
         final String bindingName = CORRELATION.bindingName(explodeQuantifier.getAlias().getId());
         if (explodeValue instanceof LiteralValue<?>) {
             final Object literalValue = ((LiteralValue<?>)explodeValue).getLiteralValue();
