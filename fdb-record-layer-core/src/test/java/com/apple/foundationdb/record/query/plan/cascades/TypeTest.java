@@ -1377,29 +1377,23 @@ class TypeTest {
         return Objects.requireNonNull((Type.Record)type).getFields()
                 .stream()
                 .map(Type.Record.Field::getFieldIndex)
-                .collect(ImmutableList.toImmutableList());
+                .toList();
     }
 
-    /**
-     * A record type read off a descriptor carries the descriptor's field numbers, which may skip. The maximum of two
-     * such types has to carry them as well: the numbers become the field numbers of the descriptor generated for the
-     * type, so losing them would make a message of the one type incompatible with a descriptor generated for the other.
-     */
     @Test
     void maximumTypeKeepsFieldIndexesThatBothSidesAgreeOn() {
-        final var skipping = recordWithFieldIndexes(ImmutableList.of(1, 3, 4));
-
-        Assertions.assertEquals(ImmutableList.of(1, 3, 4), fieldIndexesOf(Type.maximumType(skipping, skipping)));
+        final var skipping = recordWithFieldIndexes(List.of(1, 3, 4));
+        Assertions.assertEquals(List.of(1, 3, 4), fieldIndexesOf(Type.maximumType(skipping, skipping)));
     }
 
     @Test
     void maximumTypeRenumbersFieldIndexesThatDisagree() {
-        final var skipping = recordWithFieldIndexes(ImmutableList.of(1, 3, 4));
-        final var otherSkipping = recordWithFieldIndexes(ImmutableList.of(1, 3, 5));
+        final var skipping = recordWithFieldIndexes(List.of(1, 3, 4));
+        final var otherSkipping = recordWithFieldIndexes(List.of(1, 3, 5));
 
         // Nothing can be said about the numbering of the result, so it is numbered by position, as it always was.
-        Assertions.assertEquals(ImmutableList.of(1, 2, 3), fieldIndexesOf(Type.maximumType(skipping, otherSkipping)));
-        Assertions.assertEquals(ImmutableList.of(1, 2, 3),
-                fieldIndexesOf(Type.maximumType(skipping, recordWithFieldIndexes(ImmutableList.of(1, 2, 3)))));
+        Assertions.assertEquals(List.of(1, 2, 3), fieldIndexesOf(Type.maximumType(skipping, otherSkipping)));
+        Assertions.assertEquals(List.of(1, 2, 3),
+                fieldIndexesOf(Type.maximumType(skipping, recordWithFieldIndexes(List.of(1, 2, 3)))));
     }
 }
