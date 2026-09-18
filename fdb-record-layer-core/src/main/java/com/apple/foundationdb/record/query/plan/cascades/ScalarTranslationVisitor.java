@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.collect.ImmutableList;
@@ -203,7 +204,29 @@ public class ScalarTranslationVisitor implements KeyExpressionVisitor<ScalarTran
     @Nonnull
     @Override
     public Value visitExpression(@Nonnull final ListKeyExpression listKeyExpression) {
-        throw new UnsupportedOperationException("visitor method for this key expression is not implemented");
+        // A list places each child into its own nested tuple, so a list of more than one child spans more than one
+        // key position and cannot be scalar. `normalizeKeyForPositions()` splits a longer list into single-child
+        // lists, which is the shape that reaches here.
+        if (listKeyExpression.getColumnSize() > 1) {
+            throw new RecordCoreException("cannot expand ListKeyExpression in scalar expansion");
+        }
+
+        final ScalarVisitorState state = getCurrentState();
+        final KeyExpression child = Iterables.getOnlyElement(listKeyExpression.getChildren());
+
+        // The child occupies a single position whose value is the nested tuple of the child's own columns, so a
+        // multi-column child collapses into one record. This has to agree with what
+        // `KeyExpressionExpansionVisitor#visitExpression(ListKeyExpression)` registers for the same position, since
+        // the ordering parts computed from these values are matched to the candidate's parameters by ordinal.
+        final List<KeyExpression> positions = child.normalizeKeyForPositions();
+        if (positions.size() == 1) {
+            return pop(Iterables.getOnlyElement(positions).expand(push(state)));
+        }
+        final ImmutableList.Builder<Value> valuesBuilder = ImmutableList.builder();
+        for (final KeyExpression position : positions) {
+            valuesBuilder.add(pop(position.expand(push(state))));
+        }
+        return RecordConstructorValue.ofUnnamed(valuesBuilder.build());
     }
 
     @Nonnull

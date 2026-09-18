@@ -68,7 +68,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.slf4j.Logger;
@@ -157,7 +156,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
         final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(expression.getQuantifiers());
         final var aliases = aliasToQuantifierMap.keySet();
 
-        // group all successful matches by their sets of compensated aliases
+        // group all successful matches by the set of for-each quantifiers they compensate
         final var matchPartitionByMatchAliasMap =
                 completeMatches
                         .stream()
@@ -171,10 +170,14 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
                                             .filter(matchedAlias ->
                                                     Objects.requireNonNull(aliasToQuantifierMap.get(matchedAlias)) instanceof Quantifier.ForEach)
                                             .collect(ImmutableSet.toImmutableSet());
-                            if (matchedForEachAliases.size() == 1) {
-                                return Stream.of(NonnullPair.of(Iterables.getOnlyElement(matchedForEachAliases), match));
+                            if (matchedForEachAliases.isEmpty()) {
+                                //
+                                // The match covers only existential quantifiers, so it does not account for anything
+                                // this expression flows and cannot stand in for it.
+                                //
+                                return Stream.empty();
                             }
-                            return Stream.empty();
+                            return Stream.of(NonnullPair.of(matchedForEachAliases, match));
                         })
                         .collect(Collectors.groupingBy(
                                 Pair::getLeft,
@@ -203,11 +206,11 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
                                     ImmutableList.toImmutableList()));
 
             //
-            // Note that this works because there is only one for-each and potentially 0 - n existential quantifiers
-            // that are covered by the match partition. Even though that logically forms a join, the existential
-            // quantifiers do not mutate the result of the join, they only cause filtering, that is, the resulting
-            // record is exactly what the for each quantifier produced filtered by the predicates expressed on the
-            // existential quantifiers.
+            // Note that the matches in this partition all compensate the same set of for-each quantifiers, plus
+            // potentially 0 - n existential quantifiers. A match may therefore stand in for a join, which is the case
+            // for a candidate over a synthetic record type. That is sound because a match reaching here compensates
+            // every quantifier the expression owns, so the data access accounts for the whole expression rather than
+            // for one of its legs; existential quantifiers only cause filtering and do not contribute to the result.
             //
             for (final var matchPartitionEntry : matchPartitionsForAliasesByPredicates.entrySet()) {
                 final var matchPartition = matchPartitionEntry.getValue();

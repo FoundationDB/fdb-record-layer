@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.ListKeyExpression;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -138,7 +140,8 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
                                                                                                             @Nonnull final CorrelationIdentifier baseAlias,
                                                                                                             @Nonnull final Type baseType,
                                                                                                             @Nonnull final List<Value> indexKeyValues,
-                                                                                                            @Nonnull final List<Value> indexValueValues) {
+                                                                                                            @Nonnull final List<Value> indexValueValues,
+                                                                                                            @Nonnull final List<KeyExpression> normalizedKeyExpressions) {
         if (queriedRecordTypes.size() > 1) {
             return Optional.empty();
         }
@@ -152,7 +155,8 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
 
             final var extractFromIndexEntryPairOptional =
                     keyValue.extractFromIndexEntryMaybe(baseObjectValue, EvaluationContext.empty(), AliasMap.emptyMap(),
-                            ImmutableSet.of(), IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
+                            ImmutableSet.of(), IndexKeyValueToPartialRecord.TupleSource.KEY,
+                            keyOrdinalPath(normalizedKeyExpressions, i));
             if (extractFromIndexEntryPairOptional.isPresent()) {
                 final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
                 if (!addCoveringField(builder, extractFromIndexEntryPair.getKey(),
@@ -190,6 +194,28 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
                 new ScanWithFetchMatchCandidate.IndexEntryToLogicalRecord(queriedRecordType, builder.build(),
                         logicalKeyValuesBuilder.build(), logicalValueValuesBuilder.build(),
                         indexEntryToRecordValue(baseType, covered)));
+    }
+
+    /**
+     * Computes the path into the index entry's key tuple at which the data for key position {@code ordinal} is found.
+     *
+     * <p>For almost every {@link KeyExpression} that is a single element, {@code tuple.get(ordinal)}. A
+     * {@link ListKeyExpression} is the exception: it places each of its children into a nested tuple of its own rather
+     * than flattening them, so the datum sits one level deeper. {@code normalizeKeyForPositions()} yields single-child
+     * lists, so that level is entered at ordinal zero.
+     *
+     * @param normalizedKeyExpressions the positions of the full key, aligned with the candidate's key values
+     * @param ordinal the key position
+     * @return the ordinal path to extract that position with
+     */
+    @Nonnull
+    private static ImmutableIntArray keyOrdinalPath(@Nonnull final List<KeyExpression> normalizedKeyExpressions,
+                                                    final int ordinal) {
+        if (ordinal < normalizedKeyExpressions.size() &&
+                normalizedKeyExpressions.get(ordinal) instanceof ListKeyExpression) {
+            return ImmutableIntArray.of(ordinal, 0);
+        }
+        return ImmutableIntArray.of(ordinal);
     }
 
     /**
