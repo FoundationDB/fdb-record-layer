@@ -291,8 +291,15 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
             return false;
         }
 
-        return preOrderStream().filter(value -> value instanceof QuantifiedValue)
-                .allMatch(quantifiedValue -> quantifiedValue.isFunctionallyDependentOn(otherValue));
+        // A value is dependent on the other value if everything in it that is correlated is. A quantified value decides
+        // that for itself. Any other value that is correlated on its own, such as an index entry column, is dependent
+        // only if it is correlated to nothing but the alias of the other value.
+        final CorrelationIdentifier otherAlias = ((QuantifiedValue)otherValue).getAlias();
+        return preOrderStream()
+                .filter(value -> !value.getCorrelatedToWithoutChildren().isEmpty())
+                .allMatch(value -> value instanceof QuantifiedValue
+                                   ? value.isFunctionallyDependentOn(otherValue)
+                                   : value.getCorrelatedToWithoutChildren().equals(ImmutableSet.of(otherAlias)));
     }
 
     /**
