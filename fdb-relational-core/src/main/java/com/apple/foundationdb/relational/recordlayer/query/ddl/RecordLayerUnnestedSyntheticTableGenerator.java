@@ -123,7 +123,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
                                      @Nonnull final String parentAlias,
                                      @Nonnull final RecordLayerTable parentTable,
                                      @Nonnull final String syntheticTableName) {
-        this.unnestings = unnestings;
+        this.unnestings = Map.copyOf(unnestings);
         this.parentAlias = parentAlias;
         this.parentTable = parentTable;
         this.syntheticTableName = syntheticTableName;
@@ -151,7 +151,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
         if (!isNeededFor(spec, unnestings)) {
             return Optional.empty();
         }
-        final var parentTable = spec.getTable();
+        final var parentTable = spec.table();
         // Currently, the synthetic table name is derived from the record type. This may or may not be true in the
         // future.
         final var syntheticTableName = UNNESTED_TABLE_NAME_PREFIX + parentTable.getType().getName() + "_" + indexName;
@@ -305,7 +305,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
                 "group by on an index over an unnested synthetic table");
         // The slot names the stored table the index reads from, which the synthetic table is built over, so it carries
         // through unchanged; what the index is defined on is the synthetic type, which the caller takes from here.
-        return new IndexSpec(spec.scanCount(), spec.getTable(), null, null,
+        return new IndexSpec(spec.scanCount(), spec.table(), null, null,
                 spec.orderBy() == null ? null : rewrite(spec.orderBy()),
                 new IndexSpec.Projection(rewrite(spec.projection().values())));
     }

@@ -103,7 +103,7 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
             spec = unnestedTableGenerator.rewrite(spec);
             tableType = unnestedTableGenerator.getSyntheticType();
         } else {
-            tableType = spec.getTable().getType();
+            tableType = spec.table().getType();
         }
         final var translation = translateToKeyExpression(spec, unnestedTableGeneratorMaybe.isEmpty());
         final var indexType = translation.indexType();

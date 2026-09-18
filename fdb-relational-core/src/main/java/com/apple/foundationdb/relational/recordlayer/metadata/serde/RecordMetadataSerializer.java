@@ -78,7 +78,7 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
 
     private void visit(@Nonnull final RecordLayerUnnestedSyntheticTable unnestedSyntheticTable) {
         final UnnestedRecordTypeBuilder builder =
-                getBuilder().addUnnestedRecordType(unnestedSyntheticTable.getRecord().getStorageName());
+                getBuilder().addUnnestedRecordType(unnestedSyntheticTable.getType().getStorageName());
         final RecordTypeBuilder recordTypeBuilder = getBuilder().getRecordType(unnestedSyntheticTable.getParentTableStorageName());
         builder.addParentConstituent(unnestedSyntheticTable.getAlias(), recordTypeBuilder);
         final Map<String, Descriptors.Descriptor> descriptorsByAlias = new LinkedHashMap<>();

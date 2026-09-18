@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.metadata;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.metadata.SyntheticTable;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
@@ -40,26 +39,26 @@ public abstract sealed class RecordLayerSyntheticTable implements SyntheticTable
         permits RecordLayerUnnestedSyntheticTable {
 
     @Nonnull
-    final Type.Record record;
+    final Type.Record type;
 
     @Nonnull
     private final Set<RecordLayerIndex> indexes;
 
     protected RecordLayerSyntheticTable(@Nonnull final Set<RecordLayerIndex> indexes,
-                                        @Nonnull final Type.Record record) {
-        this.indexes = ImmutableSet.copyOf(indexes);
-        this.record = record;
+                                        @Nonnull final Type.Record type) {
+        this.indexes = Set.copyOf(indexes);
+        this.type = type;
     }
 
     @Nonnull
     @Override
     public String getName() {
-        return Objects.requireNonNull(record.getName());
+        return Objects.requireNonNull(type.getName());
     }
 
     @Nonnull
-    public Type.Record getRecord() {
-        return Objects.requireNonNull(record);
+    public Type.Record getType() {
+        return Objects.requireNonNull(type);
     }
 
     @Nonnull
@@ -77,12 +76,12 @@ public abstract sealed class RecordLayerSyntheticTable implements SyntheticTable
             return false;
         }
         final RecordLayerSyntheticTable that = (RecordLayerSyntheticTable) o;
-        return Objects.equals(record, that.record) && Objects.equals(indexes, that.indexes);
+        return Objects.equals(type, that.type) && Objects.equals(indexes, that.indexes);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(record, indexes);
+        return Objects.hash(type, indexes);
     }
 
     public interface Builder {

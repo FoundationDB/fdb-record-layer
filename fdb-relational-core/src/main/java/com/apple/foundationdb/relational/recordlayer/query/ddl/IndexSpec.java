@@ -93,8 +93,9 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
                 .resolve(expression.getResultValue(), indexSpec.groupBy()));
     }
 
+    @Override
     @Nonnull
-    public RecordLayerTable getTable() {
+    public RecordLayerTable table() {
         return Objects.requireNonNull(table);
     }
 

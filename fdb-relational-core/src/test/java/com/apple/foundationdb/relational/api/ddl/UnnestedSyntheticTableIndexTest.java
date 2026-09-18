@@ -187,8 +187,8 @@ public class UnnestedSyntheticTableIndexTest {
                         KeyExpression.fromProto(index.getKeyExpression().toKeyExpression()));
                 final var metaData = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class).toRecordMetadata();
                 // the descriptor is keyed by the storage name, which is the protobuf-compliant form of the declared one
-                Assertions.assertTrue(metaData.getSyntheticRecordTypes().containsKey(syntheticTable.getRecord().getStorageName()),
-                        () -> "synthetic type '" + syntheticTable.getRecord().getStorageName() + "' missing from serialized metadata, got "
+                Assertions.assertTrue(metaData.getSyntheticRecordTypes().containsKey(syntheticTable.getType().getStorageName()),
+                        () -> "synthetic type '" + syntheticTable.getType().getStorageName() + "' missing from serialized metadata, got "
                                 + metaData.getSyntheticRecordTypes().keySet());
                 validator.accept(syntheticTable, metaData);
                 return txn -> {
@@ -771,9 +771,9 @@ public class UnnestedSyntheticTableIndexTest {
                 final var derived = Iterables.getOnlyElement(reloaded.getUnnestedSyntheticTables());
                 Assertions.assertEquals(
                         List.of("parent", "unnesting_0", "unnesting_1", UnnestedRecordType.POSITIONS_FIELD),
-                        fieldNamesOf(composed.getRecord()));
-                Assertions.assertEquals(fieldNamesOf(composed.getRecord()), fieldNamesOf(derived.getRecord()));
-                Assertions.assertEquals(composed.getRecord(), derived.getRecord(),
+                        fieldNamesOf(composed.getType()));
+                Assertions.assertEquals(fieldNamesOf(composed.getType()), fieldNamesOf(derived.getType()));
+                Assertions.assertEquals(composed.getType(), derived.getType(),
                         "the synthetic type composed from the index definition should equal the one derived from its descriptor");
                 return txn -> {
                 };
@@ -782,8 +782,8 @@ public class UnnestedSyntheticTableIndexTest {
     }
 
     @Nonnull
-    private static List<String> fieldNamesOf(@Nonnull final Type.Record record) {
-        return record.getFields().stream()
+    private static List<String> fieldNamesOf(@Nonnull final Type.Record type) {
+        return type.getFields().stream()
                 .map(Type.Record.Field::getFieldName)
                 .collect(Collectors.toList());
     }

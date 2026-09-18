@@ -71,8 +71,8 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
                                               @Nonnull final String parentTableStorageName,
                                               @Nonnull final List<NestedConstituent> constituents,
                                               @Nonnull final Set<RecordLayerIndex> indexes,
-                                              @Nonnull final Type.Record record) {
-        super(indexes, record);
+                                              @Nonnull final Type.Record recordType) {
+        super(indexes, recordType);
         this.alias = alias;
         this.parentTableName = parentTableName;
         this.parentTableStorageName = parentTableStorageName;
@@ -202,8 +202,8 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
     }
 
     @Nonnull
-    public static Builder newBuilder(Type.Record record) {
-        return new Builder().setRecord(record);
+    public static Builder newBuilder(Type.Record type) {
+        return new Builder().setType(type);
     }
 
     /**
@@ -222,11 +222,11 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
         @Nonnull
         private final ImmutableSet.Builder<RecordLayerIndex> indexes = ImmutableSet.builder();
         @Nullable
-        private Type.Record record;
+        private Type.Record type;
 
         @Nonnull
-        public Builder setRecord(@Nonnull final Type.Record record) {
-            this.record = record;
+        public Builder setType(@Nonnull final Type.Record type) {
+            this.type = type;
             return this;
         }
 
@@ -272,7 +272,7 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
         public RecordLayerUnnestedSyntheticTable build() {
             Assert.notNullUnchecked(alias, "parent constituent alias is not set");
             Assert.notNullUnchecked(parentTableName, "parent table name is not set");
-            Assert.notNullUnchecked(record, "record is not set");
+            Assert.notNullUnchecked(type, "type is not set");
             if (parentTableStorageName == null) {
                 parentTableStorageName = ProtoUtils.toProtoBufCompliantName(parentTableName);
             }
@@ -288,7 +288,7 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
                         "duplicate constituent alias '%s' in unnested type", constituent.getAlias());
             }
             return new RecordLayerUnnestedSyntheticTable(alias, parentTableName, parentTableStorageName,
-                    constituents, indexes.build(), record);
+                    constituents, indexes.build(), type);
         }
     }
 }

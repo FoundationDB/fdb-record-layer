@@ -211,12 +211,12 @@ public class RecordMetadataDeserializer {
     private static RecordLayerUnnestedSyntheticTable.Builder generateUnnestedSyntheticTableBuilder(
             @Nonnull final RecordMetaData recordMetaData,
             @Nonnull final UnnestedRecordType unnestedRecordType) {
-        final var record = Type.Record.fromDescriptorPreservingName(unnestedRecordType.getDescriptor());
+        final var type = Type.Record.fromDescriptorPreservingName(unnestedRecordType.getDescriptor());
         final UnnestedRecordType.NestedConstituent parentConstituent = unnestedRecordType.getParentConstituent();
         final String parentStorageName = parentConstituent.getRecordType().getName();
         final Type.Record parentType = Type.Record.fromDescriptorPreservingName(
                 recordMetaData.getRecordType(parentStorageName).getDescriptor());
-        final RecordLayerUnnestedSyntheticTable.Builder builder = RecordLayerUnnestedSyntheticTable.newBuilder(record)
+        final RecordLayerUnnestedSyntheticTable.Builder builder = RecordLayerUnnestedSyntheticTable.newBuilder(type)
                 .setAlias(parentConstituent.getName())
                 .setParentTableType(parentType);
         for (final UnnestedRecordType.NestedConstituent constituent : unnestedRecordType.getConstituents()) {
