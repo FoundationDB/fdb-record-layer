@@ -141,6 +141,7 @@ public class OnlineIndexer implements AutoCloseable {
         indexingPolicy = originalPolicy;
         fallbackToRecordsScan = false;
         sourceIndexAdjusted = false;
+        indexer = null;
         return indexingLauncher(indexingFunc, 0, null);
     }
 
@@ -159,11 +160,12 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     private CompletableFuture<Void> indexingLauncherFallbackToRecordsScan(Supplier<CompletableFuture<Void>> indexingFunc, int attemptCount) {
         fallbackToRecordsScan = true;
-        return indexingLauncher(indexingFunc, attemptCount, indexingPolicy.toBuilder()
+        final IndexingPolicy.Builder fallbackPolicy = indexingPolicy.toBuilder()
                 .setSourceIndex(null)
                 .setSourceIndexSubspaceKey(null)
                 .setMutualIndexing(false)
-                .setMutualIndexingBoundaries(null));
+                .setMutualIndexingBoundaries(null);
+        return indexingLauncher(indexingFunc, attemptCount, fallbackPolicy);
     }
 
     @Nonnull
@@ -292,10 +294,14 @@ public class OnlineIndexer implements AutoCloseable {
                     // Some are readable, probably by another process. Call regular indexing to check/mark readable
                     return indexingLauncherFallbackToRecordsScan(indexingFunc, attemptCount);
                 }
-                // Here: the fallback had already been applied, yet some targets are still unreadable. A peer process
-                // is probably in the middle of marking them readable, so retry (bounded by the recursion limit) and
-                // let the next attempt find them all readable.
-                return indexingLauncher(indexingFunc, attemptCount, null);
+                if (attemptCount < INDEXING_ATTEMPTS_RECURSION_LIMIT) {
+                    // Here: the fallback had already been applied, yet some targets are still unreadable. A peer
+                    // process is probably in the middle of marking them readable. Retry and let the next attempt find them all readable.
+                    return indexingLauncher(indexingFunc, attemptCount, null);
+                }
+                // Here: the targets' mixed readability seems stable - probably a peer process had failed to mark
+                // them all readable. Fall through and throw the original exception, which is more informative than
+                // the "too many attempts" one.
             }
         }
 
@@ -379,8 +385,7 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * Get the number of indexing attempts that were made during the last indexing operation. An attempt is retried
-     * only if the indexing policy could be adjusted to handle the failure.
+     * Get the number of indexing attempts that were made during the last indexing operation.
      * @return the number of indexing attempts
      */
     @VisibleForTesting
