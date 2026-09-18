@@ -1361,4 +1361,39 @@ class TypeTest {
         Assertions.assertSame(function1, function2,
                 "Type.FUNCTION should be a singleton");
     }
+
+    @Nonnull
+    private static Type.Record recordWithFieldIndexes(@Nonnull final List<Integer> fieldIndexes) {
+        final var fields = ImmutableList.<Type.Record.Field>builder();
+        for (int i = 0; i < fieldIndexes.size(); i++) {
+            fields.add(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true),
+                    Optional.of("f" + i), Optional.of(fieldIndexes.get(i))));
+        }
+        return Type.Record.fromFields(fields.build());
+    }
+
+    @Nonnull
+    private static List<Integer> fieldIndexesOf(@Nullable final Type type) {
+        return Objects.requireNonNull((Type.Record)type).getFields()
+                .stream()
+                .map(Type.Record.Field::getFieldIndex)
+                .toList();
+    }
+
+    @Test
+    void maximumTypeKeepsFieldIndexesThatBothSidesAgreeOn() {
+        final var skipping = recordWithFieldIndexes(List.of(1, 3, 4));
+        Assertions.assertEquals(List.of(1, 3, 4), fieldIndexesOf(Type.maximumType(skipping, skipping)));
+    }
+
+    @Test
+    void maximumTypeRenumbersFieldIndexesThatDisagree() {
+        final var skipping = recordWithFieldIndexes(List.of(1, 3, 4));
+        final var otherSkipping = recordWithFieldIndexes(List.of(1, 3, 5));
+
+        // Nothing can be said about the numbering of the result, so it is numbered by position, as it always was.
+        Assertions.assertEquals(List.of(1, 2, 3), fieldIndexesOf(Type.maximumType(skipping, otherSkipping)));
+        Assertions.assertEquals(List.of(1, 2, 3),
+                fieldIndexesOf(Type.maximumType(skipping, recordWithFieldIndexes(List.of(1, 2, 3)))));
+    }
 }
