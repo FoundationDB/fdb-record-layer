@@ -315,10 +315,18 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
         final var otherAggregateValue = candidateGroupByExpression.getAggregateValue();
         final var candidateGroupingValue = candidateGroupByExpression.getGroupingValue();
 
+        // Immediately rule out aggregates that cannot be indexed by an aggregate index.
+        if (!isIndexableAggregate(aggregateValue) || !isIndexableAggregate(otherAggregateValue)) {
+            return ImmutableList.of();
+        }
+
         final var valueEquivalence =
                 ValueEquivalence.fromAliasMap(bindingAliasMap)
                         .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
 
+        // Decompose the aggregates into accessors to their primitive result elements. This rejects a result type that
+        // is neither primitive nor a record (such as the array result of `ARRAY_AGG()`, which the is-indexable check
+        // above has already ruled out).
         final var aggregateValues =
                 Values.primitiveAccessorsForType(aggregateValue.getResultType(), () -> aggregateValue).stream()
                         .map(primitiveAggregateValue -> primitiveAggregateValue.simplify(evaluationContext,
@@ -399,6 +407,28 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
                         rollUpToGroupingValues, queryPlanConstraint)
                 .map(ImmutableList::of)
                 .orElse(ImmutableList.of());
+    }
+
+    /**
+     * Determines whether the given aggregate {@link Value} can in principle be materialized by an aggregate index. An
+     * aggregate index only ever materializes an {@link IndexableAggregateValue}, so an aggregate that is not one, or a
+     * composite aggregate that contains one that is not, can never be matched against such an index. The prime example
+     * is {@code ARRAY_AGG()}, which is deliberately not indexable.
+     *
+     * @param aggregateValue the aggregate value to check, either a single aggregate or a {@link RecordConstructorValue}
+     *        composing several of them
+     * @return {@code true} if every aggregate contained in {@code aggregateValue} is an {@link IndexableAggregateValue}
+     */
+    private static boolean isIndexableAggregate(@Nonnull final Value aggregateValue) {
+        if (aggregateValue instanceof RecordConstructorValue) {
+            for (final Value child : aggregateValue.getChildren()) {
+                if (!isIndexableAggregate(child)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return aggregateValue instanceof IndexableAggregateValue;
     }
 
     @Nonnull
