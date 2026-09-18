@@ -218,11 +218,13 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
     @Override
     @Nonnull
     PlanContext createPlanContext(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Options options) throws RelationalException {
+        final var localVars = conn.getTransaction().getLocalVariables();
         return PlanContext.builder()
                 .fromRecordStore(store, options)
                 .fromDatabase(conn.getRecordLayerDatabase())
                 .withMetricsCollector(Assert.notNullUnchecked(conn.getMetricCollector()))
                 .withPreparedParameters(PreparedParams.of(parameters, namedParameters))
+                .withLocalVariables(localVars)
                 .withSchemaTemplate(conn.getTransaction().getBoundSchemaTemplateMaybe().orElse(conn.getSchemaTemplate()))
                 .build();
     }

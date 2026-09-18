@@ -1013,6 +1013,7 @@ specificFunction
     | CONVERT '(' expression separator=',' convertedDataType ')'    #dataTypeFunctionCall
     | CONVERT '(' expression USING charsetName ')'                  #dataTypeFunctionCall
     | CAST '(' expression AS convertedDataType ')'                  #dataTypeFunctionCall
+    | GET_VARIABLE '(' varName=uid ')'                               #getVariableFunctionCall
     | VALUES '(' fullColumnName ')'                                 #valuesFunctionCall
     | CASE expression caseFuncAlternative+
       (ELSE elseArg=functionArg)? END                               #caseExpressionFunctionCall

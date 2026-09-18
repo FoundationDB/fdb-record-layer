@@ -788,6 +788,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     Object visitDataTypeFunctionCall(@Nonnull RelationalParser.DataTypeFunctionCallContext ctx);
 
+    @Override
+    Object visitGetVariableFunctionCall(@Nonnull RelationalParser.GetVariableFunctionCallContext ctx);
+
     @Nonnull
     @Override
     Object visitValuesFunctionCall(@Nonnull RelationalParser.ValuesFunctionCallContext ctx);
