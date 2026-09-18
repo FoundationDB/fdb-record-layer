@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
@@ -70,6 +71,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.HashMultiset;
@@ -83,17 +85,24 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -321,6 +330,97 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(2, i); // 2 records tied for this rank.
         }
+    }
+
+    @Nonnull
+    static Stream<Arguments> concurrentMutationsToRankIndex() {
+        return ParameterizedTestUtils.cartesianProduct(Stream.of(1, 10, 100), ParameterizedTestUtils.booleans("disableConcurrencyManagement"));
+    }
+
+    /**
+     * Attempt to have multiple rank index updates going concurrently. The index maintainer structure
+     * does not currently support this, so this only works if the store manager is instead serializing
+     * mutations. At some point, we should push the concurrency control into the index maintainer, and
+     * then this test can assert on more.
+     *
+     * @param concurrency the amount of concurrent reads to perform
+     * @param disableConcurrencyManagement whether to disable the store's concurrency management
+     * @throws Exception encountered while running the test
+     */
+    @ParameterizedTest(name = "concurrentMutationsToRankIndex[concurrency={0}, {1}]")
+    @MethodSource
+    void concurrentMutationsToRankIndex(int concurrency, boolean disableConcurrencyManagement) throws Exception {
+        final List<TestRecordsRankProto.BasicRankedRecord> records;
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            recordStore = recordStore.asBuilder().setDisableConcurrencyManagement(disableConcurrencyManagement).open();
+            recordStore.deleteAllRecords();
+            records = IntStream.range(0, 500).mapToObj(recNo ->
+                    TestRecordsRankProto.BasicRankedRecord.newBuilder()
+                            .setName("" + recNo)
+                            .setGender(recNo % 2 == 0 ? "F" : "M")
+                            .setScore(((recNo + 1) / 2) * (recNo % 2 == 0 ? 1 : -1))
+                            .build()
+            ).toList();
+            saveRecordsConcurrently(records, concurrency);
+            commit(context);
+        }
+        final List<TestRecordsRankProto.BasicRankedRecord> sortedRecords = records.stream()
+                .sorted(Comparator.comparingInt(TestRecordsRankProto.BasicRankedRecord::getScore))
+                .toList();
+        final RecordFunction<Long> rank = Query.rank("score").getFunction();
+
+        // Validate records are internally consistent. That is not guaranteed by the rank index at the moment,
+        // so if the store's concurrency manager is disabled and there were concurrent writes, so skip this check
+        // in that case
+        if (!disableConcurrencyManagement || concurrency == 1) {
+            try (FDBRecordContext context = openContext()) {
+                openRecordStore(context);
+                recordStore = recordStore.asBuilder().setDisableConcurrencyManagement(disableConcurrencyManagement).open();
+                checkRankConcurrently(rank, sortedRecords, concurrency);
+            }
+        }
+        // Rebuild the index and try again. This time, the index should be corrected and return the right information
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            recordStore = recordStore.asBuilder().setDisableConcurrencyManagement(disableConcurrencyManagement).open();
+            recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex("BasicRankedRecord$score")).get(5, TimeUnit.SECONDS);
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            recordStore = recordStore.asBuilder().setDisableConcurrencyManagement(disableConcurrencyManagement).open();
+            checkRankConcurrently(rank, sortedRecords, concurrency);
+        }
+    }
+
+    private void saveRecordsConcurrently(@Nonnull List<? extends Message> records, int concurrency) throws Exception {
+        final Deque<CompletableFuture<FDBStoredRecord<Message>>> work = new ArrayDeque<>();
+        for (Message rec : records) {
+            work.addLast(recordStore.saveRecordAsync(rec));
+            if (work.size() >= concurrency) {
+                work.removeFirst().get(1, TimeUnit.SECONDS);
+            }
+        }
+        AsyncUtil.whenAll(work).get(1, TimeUnit.SECONDS);
+    }
+
+    private void checkRankConcurrently(@Nonnull RecordFunction<Long> rankFunction, @Nonnull List<TestRecordsRankProto.BasicRankedRecord> sortedRecords, int concurrency) throws Exception {
+        final Deque<CompletableFuture<Void>> work = new ArrayDeque<>();
+        long expectedRank = 0;
+        for (TestRecordsRankProto.BasicRankedRecord rec : sortedRecords) {
+            final long expectedRankForRecord = expectedRank++;
+            work.addLast(recordStore.loadRecordAsync(Tuple.from(rec.getName())).thenCompose(stored -> {
+                assertNotNull(stored);
+                assertEquals(rec, stored.getRecord());
+                return recordStore.evaluateRecordFunction(rankFunction, stored).thenAccept(rankValue ->
+                        assertEquals(expectedRankForRecord, rankValue));
+            }));
+            if (work.size() >= concurrency) {
+                work.removeFirst().get(1, TimeUnit.SECONDS);
+            }
+        }
+        AsyncUtil.whenAll(work).get(1, TimeUnit.SECONDS);
     }
 
     @Test
