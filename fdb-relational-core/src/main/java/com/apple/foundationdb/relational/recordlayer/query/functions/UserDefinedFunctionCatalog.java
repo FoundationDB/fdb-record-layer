@@ -33,17 +33,14 @@ import java.util.function.Function;
 final class UserDefinedFunctionCatalog {
 
     @Nonnull
-    private final Map<String, Function<Boolean, ? extends UserDefinedFunction>> functionsMap;
+    private final Map<String, Function<Map<String, Object>, ? extends UserDefinedFunction>> functionsMap;
 
-    private final boolean isCaseSensitive;
-
-    UserDefinedFunctionCatalog(boolean isCaseSensitive) {
-        this.isCaseSensitive = isCaseSensitive;
+    UserDefinedFunctionCatalog() {
         this.functionsMap = new LinkedHashMap<>();
     }
 
     void registerFunction(@Nonnull final String functionName,
-                          @Nonnull final Function<Boolean, ? extends UserDefinedFunction> function) {
+                          @Nonnull final Function<Map<String, Object>, ? extends UserDefinedFunction> function) {
         functionsMap.put(functionName, function);
     }
 
@@ -52,14 +49,15 @@ final class UserDefinedFunctionCatalog {
     }
 
     @Nonnull
-    public Optional<CatalogedFunction> lookup(@Nonnull final String functionName, @Nonnull final CallSiteArguments arguments) {
+    public Optional<CatalogedFunction> lookup(@Nonnull final String functionName, @Nonnull final CallSiteArguments arguments,
+                                              @Nonnull final Map<String, Object> localVariables) {
         final var functionSupplier = functionsMap.get(functionName);
         if (functionSupplier == null) {
             return Optional.empty();
         }
 
         // lazy-compile the function
-        final var function = functionSupplier.apply(isCaseSensitive);
+        final var function = functionSupplier.apply(localVariables);
 
         // These validations don't include checking if the type of the provided arguments matches the expected function
         // parameter types or the provided values can be promoted to the expected types. Instead, this is delegated
