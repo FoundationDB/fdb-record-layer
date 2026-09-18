@@ -153,10 +153,10 @@ array-join-at:
         "at2" WHERE "OtherT1"."id" = T1."id" AND "val2" = "val" ) AS "subquery"
     ref: array-join-at.yamsql:225
     explain: SCAN([IS T1]) | FLATMAP q0 -> { SCAN([IS T1, EQUALS q0.id]) | FLATMAP
-        q1 -> { EXPLODE q0.arr1 WITH ZERO BASED ORDINALITY | FLATMAP q2 -> { EXPLODE
-        q1.arr1_nn WITH ZERO BASED ORDINALITY | FILTER _._0 EQUALS q2._0 AS q3 RETURN
-        (q2 AS _0, q3 AS _1) } AS q4 RETURN q4 } AS q4 RETURN (q0.id AS id, q4._0._1
-        + 1 AS at, q4._0._0 AS val, q4._1._0 AS val2) }
+        q1 -> { EXPLODE q0.arr1 WITH ORDINALITY | FLATMAP q2 -> { EXPLODE q1.arr1_nn
+        WITH ORDINALITY | FILTER _._0 EQUALS q2._0 AS q3 RETURN (q2 AS _0, q3 AS _1)
+        } AS q4 RETURN q4 } AS q4 RETURN (q0.id AS id, q4._0._1 + 1 AS at, q4._0._0
+        AS val, q4._1._0 AS val2) }
     task_count: 6359
     task_total_time_ms: 111
     transform_count: 3063
@@ -183,8 +183,8 @@ array-join-at:
         WHERE T1."id" IN (1, 2)
     ref: array-join-at.yamsql:308
     explain: '[IN arrayDistinct(promote(@c21 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
-        T1, EQUALS q0]) } | FLATMAP q1 -> { EXPLODE q1.arr1_nn WITH ZERO BASED ORDINALITY
-        AS q2 RETURN (q1.id AS id, q2._0 AS val, q2._1 + 1 AS at) }'
+        T1, EQUALS q0]) } | FLATMAP q1 -> { EXPLODE q1.arr1_nn WITH ORDINALITY AS
+        q2 RETURN (q1.id AS id, q2._0 AS val, q2._1 + 1 AS at) }'
     task_count: 1162
     task_total_time_ms: 14
     transform_count: 452
@@ -197,9 +197,8 @@ array-join-at:
         WHERE "at" IN (1, 2)
     ref: array-join-at.yamsql:320
     explain: EXPLODE arrayDistinct(@c19) | FLATMAP q0 -> { SCAN([IS T1]) | FLATMAP
-        q1 -> { EXPLODE q1.arr1_nn WITH ZERO BASED ORDINALITY | FILTER _._1 + 1 EQUALS
-        q0 AS q2 RETURN (q1.id AS id, q2._0 AS val, q2._1 + 1 AS at) } AS q3 RETURN
-        q3 }
+        q1 -> { EXPLODE q1.arr1_nn WITH ORDINALITY | FILTER _._1 + 1 EQUALS q0 AS
+        q2 RETURN (q1.id AS id, q2._0 AS val, q2._1 + 1 AS at) } AS q3 RETURN q3 }
     task_count: 1056
     task_total_time_ms: 31
     transform_count: 421
