@@ -655,6 +655,57 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
     }
 
     @Test
+    void testMismatchRebuildDoesNotLeakToTheNextOperation() {
+        // A mismatching stamp may be resolved by adjusting the policy to a rebuild. Assert that a following
+        // operation, performed by the very same indexer, starts over from the originally requested policy - and
+        // continues the partly built index instead of rebuilding it.
+
+        final int numRecords = 40;
+        final int chunkSize  = 7;
+        final int builtChunks = 3;
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        final Index target = indexes.get(0);
+
+        populateData(numRecords);
+
+        openSimpleMetaData(allIndexesHook(indexes));
+        disableAll(indexes);
+
+        // 1. partly build both indexes as a multi target set
+        buildIndexAndCrashHalfway(chunkSize, builtChunks, new FDBStoreTimer(), newIndexerBuilder(indexes));
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(target, timer)
+                .setLimit(chunkSize)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD))
+                .build()) {
+            // 2. the multi target stamp mismatches this single target request, hence a rebuild
+            indexBuilder.buildIndex(true);
+            assertEquals(2, indexBuilder.getLastAttemptCount());
+
+            // 3. partly build this index again, now with a matching (single target, by-records) stamp
+            disableAll(List.of(target));
+            buildIndexAndCrashHalfway(chunkSize, builtChunks, new FDBStoreTimer(), newIndexerBuilder(target));
+
+            // 4. the stamps match, hence the requested continuation - and not the previous operation's rebuild
+            timer.reset();
+            indexBuilder.buildIndex(true);
+            assertEquals(1, indexBuilder.getLastAttemptCount());
+            assertTrue(timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED) < numRecords,
+                    "the partly built index should have been continued, not rebuilt");
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.getIndexState(target).isReadable());
+            context.commit();
+        }
+        scrubAndValidate(List.of(target));
+    }
+
+    @Test
     void testMultiTargetRebuild() {
         // Use inline rebuildIndex
         final FDBStoreTimer timer = new FDBStoreTimer();
