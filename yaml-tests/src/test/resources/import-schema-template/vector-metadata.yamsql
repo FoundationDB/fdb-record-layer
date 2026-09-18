@@ -1,0 +1,58 @@
+#
+# vector-metadata.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Purpose: load metadata from JSON where a column is a vector, and check that the column is still a vector once
+# loaded. A vector column is a bytes field whose precision and dimensions are carried by an extension of
+# google.protobuf.FieldOptions, and the proto3 JSON mapping that JsonFormat implements has no notion of extensions,
+# so without re-attaching them the column comes back as plain bytes and the inserts below fail.
+#
+# vector_metadata.json is written by hand rather than exported by MetaDataExportUtilityTests: JsonFormat's printer
+# names an extension by its declared name, which is ambiguous between the extensions of one message, so an exported
+# file does not round-trip its extensions. Its shape is otherwise what the printer produces, camel case keys included.
+#
+---
+options:
+  # A vector column in a stored schema template needs a version that understands vectors; this is the floor
+  # vector.yamsql uses.
+  supported_version: 4.8.11.0
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists VECTOR_METADATA_TEMPLATE
+    - query: drop database if exists /FRL/VECTOR_METADATA_YAML
+    - query: create database /FRL/VECTOR_METADATA_YAML
+    - load schema template: VECTOR_METADATA_TEMPLATE from src/test/resources/import-schema-template/vector_metadata.json
+    - query: create schema /FRL/VECTOR_METADATA_YAML/TEST with template VECTOR_METADATA_TEMPLATE
+    - set schema state: "{\"name\": \"TEST\", \"database_id\": \"/FRL/VECTOR_METADATA_YAML\", \"template_name\": \"VECTOR_METADATA_TEMPLATE\", \"store_info\" : {\"formatVersion\": 2}}"
+---
+test_block:
+  connect: "jdbc:embed:/FRL/VECTOR_METADATA_YAML?schema=TEST"
+  preset: single_repetition_ordered
+  options:
+    statement_type: prepared
+  name: vector-metadata-tests
+  tests:
+    -
+      - query: insert into EMBEDDINGS values (1, !! !v32 [1.3, 1.4, 1.6] !!)
+      - count: 1
+    -
+      - query: select ID, EMBEDDING from EMBEDDINGS
+      - result: [{1, !v32 [1.3, 1.4, 1.6]}]
+...
