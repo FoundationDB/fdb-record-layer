@@ -109,9 +109,9 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull private final FDBDatabaseRunner runner;
     @Nonnull private final Index index; // First target index is used for locks
     @Nonnull private IndexingPolicy indexingPolicy;
+    @Nonnull private IndexingPolicy originalPolicy;
     private boolean fallbackToRecordsScan = false;
-    // The first mismatch that was detected during this operation. If the policy adjustments cannot resolve it, this
-    // one - rather than the last one, which reflects an internal fallback - is reported to the caller.
+    private boolean sourceIndexAdjusted = false;
     @Nullable private IndexingBase.PartlyBuiltException firstPartlyBuiltException = null;
     private int lastAttemptCount = 0;
 
@@ -127,6 +127,7 @@ public class OnlineIndexer implements AutoCloseable {
         this.runner = runner;
         this.index = targetIndexes.get(0);
         this.indexingPolicy = indexingPolicy;
+        this.originalPolicy = indexingPolicy;
 
         this.common = new IndexingCommon(runner, recordStoreBuilder,
                 targetIndexes, recordTypes, configLoader, config,
@@ -135,25 +136,37 @@ public class OnlineIndexer implements AutoCloseable {
 
     @Nonnull
     private CompletableFuture<Void> indexingLauncher(Supplier<CompletableFuture<Void>> indexingFunc) {
-        firstPartlyBuiltException = null; // a new operation, forget the previous one's mismatch
-        return indexingLauncher(indexingFunc, 0);
+        // A new operation - forget the previous one's mismatch and adjustments.
+        firstPartlyBuiltException = null;
+        originalPolicy = indexingPolicy;
+        fallbackToRecordsScan = false;
+        sourceIndexAdjusted = false;
+        return indexingLauncher(indexingFunc, 0, null);
     }
 
     @Nonnull
-    private CompletableFuture<Void> indexingLauncher(Supplier<CompletableFuture<Void>> indexingFunc, int attemptCount) {
-        return indexingLauncher(indexingFunc, attemptCount, null);
-    }
-
-    @Nonnull
-    private CompletableFuture<Void> indexingLauncher(Supplier<CompletableFuture<Void>> indexingFunc, int attemptCount, @Nullable IndexingPolicy requestedPolicy) {
+    private CompletableFuture<Void> indexingLauncher(Supplier<CompletableFuture<Void>> indexingFunc, int attemptCount, @Nullable IndexingPolicy.Builder newPolicy) {
         // The launcher calls the indexing function, letting the results to be handled by the catcher.
         // The catcher may, on some cases, call the launcher in its retry path. The attemptCount limits the recursion level as a safety net.
+        if (newPolicy != null) {
+            // set the adjusted policy - the indexing function will build an indexer according to it
+            indexingPolicy = newPolicy.build();
+        }
         return AsyncUtil.composeHandle( indexingFunc.get(),
-                (ignore, ex) -> indexingCatcher(ex, indexingFunc, attemptCount + 1, requestedPolicy));
+                (ignore, ex) -> indexingCatcher(ex, indexingFunc, attemptCount + 1));
     }
 
     @Nonnull
-    private CompletableFuture<Void> indexingCatcher(Throwable ex, Supplier<CompletableFuture<Void>> indexingFunc, int attemptCount, @Nullable IndexingPolicy requestedPolicy) {
+    private CompletableFuture<Void> indexingLauncherFallbackToRecordsScan(Supplier<CompletableFuture<Void>> indexingFunc, int attemptCount) {
+        fallbackToRecordsScan = true;
+        return indexingLauncher(indexingFunc, attemptCount, indexingPolicy.toBuilder()
+                .setSourceIndex(null)
+                .setSourceIndexSubspaceKey(null)
+                .setMutualIndexing(false));
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> indexingCatcher(Throwable ex, Supplier<CompletableFuture<Void>> indexingFunc, int attemptCount) {
         // (skeleton function, a little long but broken to distinct cases)
         lastAttemptCount = attemptCount;
         if (ex == null) {
@@ -202,18 +215,16 @@ public class OnlineIndexer implements AutoCloseable {
                     if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS ||
                             method == IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS) {
                         // Here: Partly built by records, possibly in multi target mode.
-                        fallbackToRecordsScan = true;
-                        return indexingLauncher(indexingFunc, attemptCount);
+                        return indexingLauncherFallbackToRecordsScan(indexingFunc, attemptCount);
                     }
                     if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX &&
                             !isPolicySourceIndexOf(conflictingIndexingTypeStamp)) {
-                        // Here: Partly built by index. Retry with the old policy, but preserve the requested policy - in case the old one fails.
+                        // Here: Partly built by index. Retry by the previous run's source index.
                         Object sourceIndexSubspaceKey = decodeSubspaceKey(conflictingIndexingTypeStamp.getSourceIndexSubspaceKey());
-                        IndexingPolicy origPolicy = indexingPolicy;
-                        indexingPolicy = origPolicy.toBuilder()
-                                .setSourceIndexSubspaceKey(sourceIndexSubspaceKey)
-                                .build();
-                        return indexingLauncher(indexingFunc, attemptCount, origPolicy);
+                        sourceIndexAdjusted = true;
+                        return indexingLauncher(indexingFunc, attemptCount,
+                                indexingPolicy.toBuilder()
+                                        .setSourceIndexSubspaceKey(sourceIndexSubspaceKey));
                     }
                 }
                 // Here: no adjustment is left to try
@@ -222,32 +233,31 @@ public class OnlineIndexer implements AutoCloseable {
 
             if (desiredAction == IndexingPolicy.DesiredAction.REBUILD) {
                 // Here: Just rebuild
-                indexingPolicy = indexingPolicy.toBuilder()
-                        .setIfWriteOnly(IndexingPolicy.DesiredAction.REBUILD)
-                        .build();
-                return indexingLauncher(indexingFunc, attemptCount);
+                return indexingLauncher(indexingFunc, attemptCount,
+                        indexingPolicy.toBuilder()
+                                .setIfWriteOnly(IndexingPolicy.DesiredAction.REBUILD));
             }
 
             // Error it is
             throw partlyBuiltException;
         }
 
-        if (indexingPolicy.isByIndex() && IndexingByIndex.isValidationException(ex)) {
+        if (indexingPolicy.isByIndex() && IndexingBase.isValidationException(ex)) {
             // Validation failed - the source index cannot be used for records scanning
-            if (requestedPolicy != null) {
-                // We tried to continue a previous indexing session, but failed. The best recovery, as it seems,
-                // is to rebuild with requested policy.
+            if (sourceIndexAdjusted) {
+                // Here: we tried to continue a previous indexing session by its source index, but that index isn't
+                // usable. The only recovery, as it seems, is to rebuild by the originally requested policy.
                 if (LOGGER.isWarnEnabled()) {
                     LOGGER.warn(KeyValueLogMessage.build("The previous method's source index isn't usable. Rebuild by the requested policy",
-                            LogMessageKeys.CURR_ATTEMPT, attemptCount)
+                                    LogMessageKeys.CURR_ATTEMPT, attemptCount)
                             .addKeysAndValues(common.indexLogMessageKeyValues())
                             .toString());
                 }
                 // rebuild by the requested policy
-                indexingPolicy = requestedPolicy.toBuilder()
-                        .setIfWriteOnly(IndexingPolicy.DesiredAction.REBUILD)
-                        .build();
-                return indexingLauncher(indexingFunc, attemptCount);
+                sourceIndexAdjusted = false; // the adjustment is undone, do not attempt this recovery again
+                return indexingLauncher(indexingFunc, attemptCount,
+                        originalPolicy.toBuilder()
+                                .setIfWriteOnly(IndexingPolicy.DesiredAction.REBUILD));
             }
 
             if (! indexingPolicy.isForbidRecordScan() && ! fallbackToRecordsScan) {
@@ -259,8 +269,7 @@ public class OnlineIndexer implements AutoCloseable {
                             .toString());
                 }
                 // build by records
-                fallbackToRecordsScan = true;
-                return indexingLauncher(indexingFunc, attemptCount);
+                return indexingLauncherFallbackToRecordsScan(indexingFunc, attemptCount);
             }
         }
 
@@ -272,8 +281,7 @@ public class OnlineIndexer implements AutoCloseable {
                     return AsyncUtil.DONE;
                 }
                 // Some are readable, probably by another process. Call regular indexing to check/mark readable
-                fallbackToRecordsScan = true;
-                return indexingLauncher(indexingFunc, attemptCount);
+                return indexingLauncherFallbackToRecordsScan(indexingFunc, attemptCount);
             }
         }
 
@@ -315,10 +323,10 @@ public class OnlineIndexer implements AutoCloseable {
 
     @Nonnull
     private IndexingBase getIndexer() {
-        if (indexingPolicy.isMutual() && !fallbackToRecordsScan) {
+        if (indexingPolicy.isMutual()) {
             return getMutualIndexerByRecords();
         }
-        if (indexingPolicy.isByIndex() && !common.isMultiTarget() && !fallbackToRecordsScan) {
+        if (indexingPolicy.isByIndex() && !common.isMultiTarget()) {
             return getIndexerByIndex();
         }
         // default
@@ -1302,10 +1310,10 @@ public class OnlineIndexer implements AutoCloseable {
              * exception and the build may fall back to building the index by a records scan depending
              * on the value given to {@link #setForbidRecordScan(boolean)}.
              *
-             * @param sourceIndex an existing, readable, index.
+             * @param sourceIndex an existing, readable, index. If null, do not use a source index.
              * @return this builder
              */
-            public Builder setSourceIndex(@Nonnull final String sourceIndex) {
+            public Builder setSourceIndex(@Nullable final String sourceIndex) {
                 this.sourceIndex = sourceIndex;
                 return this;
             }
