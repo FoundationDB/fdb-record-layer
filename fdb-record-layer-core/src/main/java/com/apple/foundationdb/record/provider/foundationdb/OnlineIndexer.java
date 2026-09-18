@@ -138,6 +138,7 @@ public class OnlineIndexer implements AutoCloseable {
     private CompletableFuture<Void> indexingLauncher(Supplier<CompletableFuture<Void>> indexingFunc) {
         // A new operation - forget the previous one's mismatch and adjustments.
         firstPartlyBuiltException = null;
+        indexingPolicy = originalPolicy;
         fallbackToRecordsScan = false;
         sourceIndexAdjusted = false;
         return indexingLauncher(indexingFunc, 0, null);
@@ -161,7 +162,8 @@ public class OnlineIndexer implements AutoCloseable {
         return indexingLauncher(indexingFunc, attemptCount, indexingPolicy.toBuilder()
                 .setSourceIndex(null)
                 .setSourceIndexSubspaceKey(null)
-                .setMutualIndexing(false));
+                .setMutualIndexing(false)
+                .setMutualIndexingBoundaries(null));
     }
 
     @Nonnull
@@ -206,7 +208,8 @@ public class OnlineIndexer implements AutoCloseable {
             if (desiredAction == IndexingPolicy.DesiredAction.CONTINUE) {
                 // Make an effort to finish indexing. Attempt continuation of the previous method
                 // Here: match the policy to the previous run. Every adjustment is attempted once
-                if (firstPartlyBuiltException == null) {
+                final boolean isFirstMismatch = firstPartlyBuiltException == null;
+                if (isFirstMismatch) {
                     firstPartlyBuiltException = partlyBuiltException;
                 }
                 IndexBuildProto.IndexBuildIndexingStamp.Method method = conflictingIndexingTypeStamp.getMethod();
@@ -217,6 +220,7 @@ public class OnlineIndexer implements AutoCloseable {
                         return indexingLauncherFallbackToRecordsScan(indexingFunc, attemptCount);
                     }
                     if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX &&
+                            !indexingPolicy.isMutual() && // mutual indexing by a source index is not supported
                             !isPolicySourceIndexOf(partlyBuiltException)) {
                         // Here: Partly built by index. Retry by the previous run's source index.
                         Object sourceIndexSubspaceKey = decodeSubspaceKey(conflictingIndexingTypeStamp.getSourceIndexSubspaceKey());
@@ -226,7 +230,10 @@ public class OnlineIndexer implements AutoCloseable {
                                         .setSourceIndexSubspaceKey(sourceIndexSubspaceKey));
                     }
                 }
-                // Here: no adjustment is left to try
+                // Here: no adjustment is left to try.
+                if (!isFirstMismatch) {
+                    firstPartlyBuiltException.addSuppressed(partlyBuiltException);
+                }
                 throw firstPartlyBuiltException;
             }
 
@@ -285,6 +292,10 @@ public class OnlineIndexer implements AutoCloseable {
                     // Some are readable, probably by another process. Call regular indexing to check/mark readable
                     return indexingLauncherFallbackToRecordsScan(indexingFunc, attemptCount);
                 }
+                // Here: the fallback had already been applied, yet some targets are still unreadable. A peer process
+                // is probably in the middle of marking them readable, so retry (bounded by the recursion limit) and
+                // let the next attempt find them all readable.
+                return indexingLauncher(indexingFunc, attemptCount, null);
             }
         }
 
