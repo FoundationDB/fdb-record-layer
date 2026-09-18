@@ -144,6 +144,8 @@ public class RelationalMetric {
         OFFLINE_STORED_QUERIES_TEMPLATES_PROCESSED("schema templates successfully processed by offline stored-queries warm-up", false),
         OFFLINE_STORED_QUERIES_QUERIES_PROCESSED("stored queries successfully planned by offline stored-queries warm-up", false),
         OFFLINE_STORED_QUERIES_QUERIES_FAILED("stored queries that failed to plan during offline stored-queries warm-up", false),
+        OFFLINE_STORED_QUERIES_PLANS_WARMED("plans inserted into the cache by offline stored-queries warm-up", false),
+        OFFLINE_STORED_QUERIES_PLANS_FAILED("plans that failed to build during offline stored-queries warm-up", false),
         OFFLINE_STORED_QUERIES_TEMP_FUNCTIONS_PROCESSED("temporary functions successfully planned by offline stored-queries warm-up", false),
         OFFLINE_STORED_QUERIES_TEMP_FUNCTIONS_FAILED("temporary functions that failed to plan during offline stored-queries warm-up", false)
         ;
