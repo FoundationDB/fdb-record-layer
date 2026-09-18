@@ -8,6 +8,28 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.14
 
+{#release-4-14-2-0}
+
+### 4.14.2.0
+
+<h4> New Features </h4>
+
+* Allow EXPLODE WITH ORDINALITY to flow 0-based ordinals - [PR #4625](https://github.com/FoundationDB/fdb-record-layer/pull/4625)
+* Improve Guardiann split/merge policy: peak-relative merge threshold, normalized balance gates, retuned defaults - [PR #4604](https://github.com/FoundationDB/fdb-record-layer/pull/4604)
+
+
+**[Full Changelog (4.14.1.0...4.14.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.14.1.0...4.14.2.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.12.13.0`, ✅`4.12.15.0`, ✅`4.12.16.0`, ✅`4.12.18.0`, ✅`4.13.1.0`, ✅`4.13.2.0`, ✅`4.13.3.0`, ✅`4.13.4.0`, ✅`4.13.5.0`, ✅`4.14.1.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/35200157249)
+
+
+
 {#release-4-14-1-0}
 
 ### 4.14.1.0
