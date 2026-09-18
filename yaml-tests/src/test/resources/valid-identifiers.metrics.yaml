@@ -4,13 +4,13 @@ all-tests:
     ref: valid-identifiers.yamsql:156
     explain: 'COVERING(foo.table$nested.repeated.idx.field.1.3 [EQUALS promote(@c24
         AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)'
-    task_count: 641
-    task_total_time_ms: 50
-    transform_count: 203
-    transform_time_ms: 18
+    task_count: 652
+    task_total_time_ms: 85
+    transform_count: 204
+    transform_time_ms: 33
     transform_yield_count: 53
     insert_time_ms: 1
-    insert_new_count: 66
+    insert_new_count: 67
     insert_reused_count: 1
 -   query: EXPLAIN select t.id from "foo.table$nested.repeated" as t where exists
         (select * from t."level0.field1" as x where x."level1$field.2"."level2$field.1"
@@ -18,28 +18,33 @@ all-tests:
     ref: valid-identifiers.yamsql:161
     explain: 'COVERING(foo.table$nested.repeated.idx.field.1.2.1 [EQUALS promote(@c26
         AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)'
-    task_count: 641
-    task_total_time_ms: 33
-    transform_count: 203
-    transform_time_ms: 12
+    task_count: 652
+    task_total_time_ms: 87
+    transform_count: 204
+    transform_time_ms: 36
     transform_yield_count: 53
-    insert_time_ms: 0
-    insert_new_count: 66
+    insert_time_ms: 2
+    insert_new_count: 67
     insert_reused_count: 1
 -   query: EXPLAIN select t.id from "foo.table$nested.repeated" as t where exists
         (select * from t."level0.field1" as b, b."level1$field.1" where "level2$array.field.1"
         = 10)
     ref: valid-identifiers.yamsql:166
-    explain: 'COVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c26
-        AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)'
-    task_count: 724
-    task_total_time_ms: 103
-    transform_count: 263
-    transform_time_ms: 56
-    transform_yield_count: 60
-    insert_time_ms: 2
-    insert_new_count: 73
-    insert_reused_count: 3
+    explain: SCAN([IS foo.table$nested.repeated]) | FLATMAP q0 -> { EXPLODE q0.level0.field1
+        | FLATMAP q1 -> { EXPLODE (q1._0).level1$field.1 | FILTER _._0.level2$array.field.1
+        EQUALS promote(@c26 AS LONG) AS q2 RETURN ((q1._0).level1$field.1 AS level1$field.1,
+        (q1._0).level1$field.2 AS level1$field.2, (q1._0).level1$field.3 AS level1$field.3,
+        (q2._0).level2$array.field.1 AS level2$array.field.1, (q2._0).level2$field.2
+        AS level2$field.2) } | DEFAULT NULL | FILTER _ NOT_NULL AS q3 RETURN (q0.ID
+        AS ID) }
+    task_count: 614
+    task_total_time_ms: 75
+    transform_count: 212
+    transform_time_ms: 29
+    transform_yield_count: 42
+    insert_time_ms: 1
+    insert_new_count: 61
+    insert_reused_count: 1
 -   query: EXPLAIN select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested"
         where id = 1
     ref: valid-identifiers.yamsql:171
@@ -69,15 +74,15 @@ all-tests:
 -   query: EXPLAIN select "foo.table$repeated".id from "foo.table$repeated" where
         exists (select 1 from "foo.table$repeated"."field.1$array" r where r = 'foo')
     ref: valid-identifiers.yamsql:183
-    explain: 'COVERING(foo.table$repeated.2 [EQUALS @c19] -> [ID: KEY:[2]]) | MAP
-        (_.ID AS ID)'
-    task_count: 461
-    task_total_time_ms: 31
-    transform_count: 138
-    transform_time_ms: 9
-    transform_yield_count: 36
-    insert_time_ms: 0
-    insert_new_count: 44
+    explain: 'COVERING(foo.table$repeated.2 [EQUALS promote(@c19 AS STRING)] -> [ID:
+        KEY:[2]]) | MAP (_.ID AS ID)'
+    task_count: 475
+    task_total_time_ms: 46
+    transform_count: 143
+    transform_time_ms: 19
+    transform_yield_count: 38
+    insert_time_ms: 1
+    insert_new_count: 48
     insert_reused_count: 0
 -   query: EXPLAIN select t."field.1$array" from "foo.table$repeated" as t where 3
         IN t."field.0$array"
@@ -359,14 +364,15 @@ all-tests:
         "_$")
     ref: valid-identifiers.yamsql:387
     explain: EXPLODE array((@c5 AS _$$$, @c7 AS _$$, @c9 AS _$), (@c13 AS _$$$, @c15
-        AS _$$, @c17 AS _$))
-    task_count: 108
-    task_total_time_ms: 2
-    transform_count: 29
+        AS _$$, @c17 AS _$)) | MAP (_._0._$$$ AS _$$$, _._0._$$ AS _$$, _._0._$ AS
+        _$)
+    task_count: 137
+    task_total_time_ms: 6
+    transform_count: 32
     transform_time_ms: 0
-    transform_yield_count: 6
+    transform_yield_count: 8
     insert_time_ms: 0
-    insert_new_count: 8
+    insert_new_count: 13
     insert_reused_count: 0
 -   query: EXPLAIN select struct "x$$" ("foo.tableA.A1", "foo.tableA.A2", "foo.tableA.A3")
         from "foo.tableA"

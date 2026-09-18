@@ -311,24 +311,29 @@ public class LogicalOperator {
                 ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "join correlation can occur only on column of repeated type, not %s type", expression.getDataType()));
         final boolean withOrdinality = atAlias.isPresent();
-        final var explode = new ExplodeExpression(expression.getUnderlying(), withOrdinality);
-        final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explode));
-        final QuantifiedObjectValue flowedObjectValue = resultingQuantifier.getFlowedObjectValue();
-        final Type flowedObjectType = resultingQuantifier.getFlowedObjectType();
+        final ExplodeExpression explodeExpression =
+                new ExplodeExpression(expression.getUnderlying(), withOrdinality);
+        final Quantifier.ForEach resultingQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpression));
+        final Value elementValue = FieldValue.ofOrdinalNumber(resultingQuantifier.getFlowedObjectValue(),
+                ExplodeExpression.ELEMENT_ORDINAL);
 
+        final Type elementType = explodeExpression.getElementType();
         final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
-        if (atAlias.isPresent()) {
-            // With AT, the `ExplodeExpression` produces a struct (element, ordinal). Use `FieldValue` accessors.
-            final Type elementType = explode.getElementType();
-            attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(elementType),
-                    FieldValue.ofOrdinalNumber(flowedObjectValue, 0)));
-            attributesBuilder.add(new Expression(atAlias, DataType.Primitives.INTEGER.type(),
-                    FieldValue.ofOrdinalNumber(flowedObjectValue, 1)));
-        } else if (flowedObjectType.isPrimitive()) {
-            attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(explode.getExplodeResultType()),
-                    flowedObjectValue));
+        if (elementType.isPrimitive()) {
+            attributesBuilder.add(new Expression(alias, DataTypeUtils.toRelationalType(elementType), elementValue));
         } else {
-            attributesBuilder.addAll(convertToExpressions(resultingQuantifier));
+            attributesBuilder.addAll(convertToExpressions(elementValue));
+        }
+        if (atAlias.isPresent()) {
+            //
+            // The ordinal is a property of the unnesting rather than a column of the row, so it is not part of a star
+            // expansion -- the same treatment the row version pseudo field gets above. It stays resolvable by name,
+            // which `Visibility.HIDDEN` would not allow once the attribute carries a qualifier.
+            //
+            attributesBuilder.add(new Expression(atAlias, DataType.Primitives.INTEGER.type(),
+                    FieldValue.ofOrdinalNumber(resultingQuantifier.getFlowedObjectValue(),
+                            ExplodeExpression.ORDINALITY_ORDINAL))
+                    .asEphemeral());
         }
         final Expressions outputAttributes = Expressions.of(attributesBuilder.build());
 
@@ -343,9 +348,9 @@ public class LogicalOperator {
         //  - lookup("item.price", ..., matchQualifiedOnly=true) iterates [EphemeralExpression(item), item.b, item.c, ...]
         //  - EphemeralExpression(item): exact match fails; lookupNestedField → skipped
         //  - item.b: exact match item.b.
-        if (alias.isPresent() && atAlias.isEmpty() && flowedObjectType.isRecord()) {
-            final var elementType = DataTypeUtils.toRelationalType(flowedObjectType);
-            final var wholeStructExpr = new EphemeralExpression(alias, elementType, flowedObjectValue,
+        if (alias.isPresent() && atAlias.isEmpty() && elementType.isRecord()) {
+            final var structType = DataTypeUtils.toRelationalType(elementType);
+            final var wholeStructExpr = new EphemeralExpression(alias, structType, elementValue,
                     Expression.Visibility.VISIBLE);
             return operator.withOutput(Expressions.of(ImmutableList.<Expression>builder()
                     .add(wholeStructExpr)
@@ -357,15 +362,23 @@ public class LogicalOperator {
 
     @Nonnull
     public static Expressions convertToExpressions(@Nonnull Quantifier quantifier) {
+        return convertToExpressions(quantifier.getFlowedObjectValue());
+    }
+
+    /**
+     * Expands a record-typed value into one {@link Expression} per field, each navigating into the value by ordinal.
+     * Used both for a quantifier's own flow and for a value reached inside it -- an {@link ExplodeExpression} wraps the
+     * array element in a struct, so its columns hang off {@code _0} rather than off the quantifier.
+     */
+    @Nonnull
+    public static Expressions convertToExpressions(@Nonnull Value recordValue) {
         final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
         int colCount = 0;
-        final var columns = quantifier.getFlowedColumns();
-        for (final var column : columns) {
-            final var field = column.getField();
-            final var value = column.getValue();
+        final var fields = Assert.castUnchecked(recordValue.getResultType(), Type.Record.class).getFields();
+        for (final var field : fields) {
             final var attributeName = field.getFieldNameOptional().map(Identifier::of);
-            final var attributeType = DataTypeUtils.toRelationalType(value.getResultType());
-            final var attributeExpression = FieldValue.ofOrdinalNumber(quantifier.getFlowedObjectValue(), colCount);
+            final var attributeType = DataTypeUtils.toRelationalType(field.getFieldType());
+            final var attributeExpression = FieldValue.ofOrdinalNumber(recordValue, colCount);
             attributesBuilder.add(new Expression(attributeName, attributeType, attributeExpression));
             colCount++;
         }

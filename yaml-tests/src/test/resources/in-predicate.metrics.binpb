@@ -1,15 +1,15 @@
-˝
+è
 @
-	unnamed-23EXPLAIN select a, b from ta where b in (1, 3, 5, 7)∏
-´†‡ª+° ´éœ	(C0•ﬂà8v@èISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }Üdigraph G {
+	unnamed-23EXPLAIN select a, b from ta where b in (1, 3, 5, 7) 
+´”™Ò9° ƒ®õ(C0“Ÿ◊8x@íISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.B AS B) }ïdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B EQUALS q42</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B EQUALS q42._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -22,18 +22,18 @@
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}Ù
+}Ü
 7
-	unnamed-2*EXPLAIN select a, b from ta where b in (6)∏
-´†‡ª+° ´éœ	(C0•ﬂà8v@èISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }Üdigraph G {
+	unnamed-2*EXPLAIN select a, b from ta where b in (6) 
+´”™Ò9° ƒ®õ(C0“Ÿ◊8x@íISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.B AS B) }ïdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B EQUALS q42</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B EQUALS q42._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -46,18 +46,18 @@
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}˝
+}è
 @
-	unnamed-23EXPLAIN select a, b from ta where b in (10, 33, 66)∏
-´†‡ª+° ´éœ	(C0•ﬂà8v@èISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }Üdigraph G {
+	unnamed-23EXPLAIN select a, b from ta where b in (10, 33, 66) 
+´”™Ò9° ƒ®õ(C0“Ÿ◊8x@íISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.B AS B) }ïdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B EQUALS q42</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B EQUALS q42._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -70,18 +70,18 @@
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}’
+}Á
 H
-	unnamed-2;EXPLAIN select a, b from ta where b in (1 + 0, 3 + 0, 5, 7)à
-´ëˆØ)° ˛î–(C0ñêë8v@∑ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c14 + @c12, @c18, @c20) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }Ædigraph G {
+	unnamed-2;EXPLAIN select a, b from ta where b in (1 + 0, 3 + 0, 5, 7)ö
+´÷‹≤3° ≤ÀÂ(C0ï”·8x@∫ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c14 + @c12, @c18, @c20) AS ARRAY(LONG))) | FILTER q0.B EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.B AS B) }Ωdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B EQUALS q42</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c14 + @c12, @c18, @c20) AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B EQUALS q42._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c14 + @c12, @c18, @c20) AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -94,18 +94,18 @@ H
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}˝
+}è
 @
-	unnamed-23EXPLAIN select a, b from ta where b in (1, 1, 1, 1)∏
-´†‡ª+° ´éœ	(C0•ﬂà8v@èISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }Üdigraph G {
+	unnamed-23EXPLAIN select a, b from ta where b in (1, 1, 1, 1) 
+´”™Ò9° ƒ®õ(C0“Ÿ◊8x@íISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.B AS B) }ïdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B EQUALS q42</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B EQUALS q42._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -118,18 +118,18 @@ H
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}˝
+}è
 @
-	unnamed-23EXPLAIN select a, b from ta where b in (1, 2, 1, 3)∏
-´†‡ª+° ´éœ	(C0•ﬂà8v@èISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }Üdigraph G {
+	unnamed-23EXPLAIN select a, b from ta where b in (1, 2, 1, 3) 
+´”™Ò9° ƒ®õ(C0“Ÿ◊8x@íISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG))) | FILTER q0.B EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.B AS B) }ïdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B EQUALS q42</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B EQUALS q42._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(@c9 AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -142,18 +142,18 @@ H
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}¯
+}ã
 P
-	unnamed-2CEXPLAIN select a, b from ta where b in (1 + 0, 1 + 0, 1 + 0, 1 + 0)£
-´©ŒŒ#° Íﬁ¿	(C0äóy8v@≈ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c10 + @c12, @c10 + @c12, @c10 + @c12) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }ºdigraph G {
+	unnamed-2CEXPLAIN select a, b from ta where b in (1 + 0, 1 + 0, 1 + 0, 1 + 0)∂
+´éÊ∑5° ®ÒÔ(C0∆ëÌ8x@»ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c10 + @c12, @c10 + @c12, @c10 + @c12) AS ARRAY(LONG))) | FILTER q0.B EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.B AS B) }Àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B EQUALS q42</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c10 + @c12, @c10 + @c12, @c10 + @c12) AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B EQUALS q42._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c10 + @c12, @c10 + @c12, @c10 + @c12) AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -166,18 +166,18 @@ P
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}∂
+}…
 B
-	unnamed-25EXPLAIN select a, b from ta where b in (1 + 0, 0 + 1)Ô
-´˚˙ƒ&° ç®Ö	(C0Æöx8v@´ISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c12 + @c10) AS ARRAY(LONG))) | FILTER q0.B EQUALS _ AS q1 RETURN (q0.A AS A, q0.B AS B) }¢digraph G {
+	unnamed-25EXPLAIN select a, b from ta where b in (1 + 0, 0 + 1)Ç
+´πÏµ7° ∏Ó…(C0«ó 8x@ÆISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c12 + @c10) AS ARRAY(LONG))) | FILTER q0.B EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.B AS B) }±digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B EQUALS q42</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c12 + @c10) AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B EQUALS q42._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(array(@c10 + @c12, @c12 + @c10) AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -190,19 +190,18 @@ B
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}◊
+}Í
 F
-	unnamed-29EXPLAIN select a, c from ta where c in (4.56, 3.45, 2.34)å
-´ó‹±*° “ ä
-(C0î¿}8v@wISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.C EQUALS _ AS q1 RETURN (q0.A AS A, q0.C AS C) }Ùdigraph G {
+	unnamed-29EXPLAIN select a, c from ta where c in (4.56, 3.45, 2.34)ü
+´Ï¿Ô6° «ûê(C0«ÌÓ8x@zISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.C EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.C AS C) }Édigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.C AS C)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, DOUBLE AS C)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.C EQUALS q42</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(DOUBLE)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c9)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(DOUBLE)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.C EQUALS q42._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(DOUBLE AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c9)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(DOUBLE AS _0)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -215,19 +214,18 @@ F
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}À
+}ﬁ
 :
-	unnamed-2-EXPLAIN select a, c from ta where c in (9.01)å
-´ó‹±*° “ ä
-(C0î¿}8v@wISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.C EQUALS _ AS q1 RETURN (q0.A AS A, q0.C AS C) }Ùdigraph G {
+	unnamed-2-EXPLAIN select a, c from ta where c in (9.01)ü
+´Ï¿Ô6° «ûê(C0«ÌÓ8x@zISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.C EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.C AS C) }Édigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.C AS C)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, DOUBLE AS C)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.C EQUALS q42</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(DOUBLE)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c9)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(DOUBLE)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.C EQUALS q42._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(DOUBLE AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c9)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(DOUBLE AS _0)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -240,19 +238,18 @@ F
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}Ô
+}Å
 >
-	unnamed-21EXPLAIN select a, c from ta where c in (3.01 + 6)¨
-´Ò∫µ-° ıªº
-(C0¢÷ã8v@ÜISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 + @c12)) | FILTER q0.C EQUALS _ AS q1 RETURN (q0.A AS A, q0.C AS C) }Édigraph G {
+	unnamed-21EXPLAIN select a, c from ta where c in (3.01 + 6)æ
+´ÄÈ˙6° £êÒ(C0Éã√8x@âISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 + @c12)) | FILTER q0.C EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.C AS C) }ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.C AS C)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, DOUBLE AS C)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.C EQUALS q42</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(DOUBLE)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(array(@c10 + @c12))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(DOUBLE)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.C EQUALS q42._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(DOUBLE AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(array(@c10 + @c12))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(DOUBLE AS _0)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -265,19 +262,18 @@ F
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}÷
+}Ë
 A
-	unnamed-24EXPLAIN select a, d from ta where d in (true, false)ê
-´‘∫”,° À˝≥
-(C0ò–é8v@wISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.D EQUALS _ AS q1 RETURN (q0.A AS A, q0.D AS D) }˜digraph G {
+	unnamed-24EXPLAIN select a, d from ta where d in (true, false)¢
+´œ©˛)° óäÊ(C0 ú⁄8x@zISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.D EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.D AS D) }Üdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.D AS D)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, BOOLEAN AS D)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.D EQUALS q42</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BOOLEAN)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c9)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BOOLEAN)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.D EQUALS q42._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BOOLEAN AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c9)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BOOLEAN AS _0)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -290,19 +286,18 @@ A
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}œ
+}·
 :
-	unnamed-2-EXPLAIN select a, d from ta where d in (true)ê
-´‘∫”,° À˝≥
-(C0ò–é8v@wISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.D EQUALS _ AS q1 RETURN (q0.A AS A, q0.D AS D) }˜digraph G {
+	unnamed-2-EXPLAIN select a, d from ta where d in (true)¢
+´œ©˛)° óäÊ(C0 ú⁄8x@zISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.D EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.D AS D) }Üdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.D AS D)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, BOOLEAN AS D)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.D EQUALS q42</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BOOLEAN)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c9)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BOOLEAN)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.D EQUALS q42._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BOOLEAN AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c9)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BOOLEAN AS _0)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -315,18 +310,18 @@ A
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}
+}É
 ;
-	unnamed-2.EXPLAIN select a, d from ta where d in (3 < 4)∞
-´ñ„Ω$° Îï(C0–åu8v@áISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 lt @c12)) | FILTER q0.D EQUALS _ AS q1 RETURN (q0.A AS A, q0.D AS D) }ádigraph G {
+	unnamed-2.EXPLAIN select a, d from ta where d in (3 < 4)√
+´¡ºÓ3° º≈ﬁ(C0€Ÿ‡8x@äISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 lt @c12)) | FILTER q0.D EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.D AS D) }ñdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.D AS D)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, BOOLEAN AS D)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.D EQUALS q42</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BOOLEAN)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(array(@c10 lt @c12))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BOOLEAN)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.D EQUALS q42._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BOOLEAN AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(array(@c10 lt @c12))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BOOLEAN AS _0)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -339,18 +334,18 @@ A
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}”
+}Ê
 B
-	unnamed-25EXPLAIN select a, e from ta where e in ('bar', 'doe')å
-´•øé+° áΩ»	(C0‚˚|8v@wISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.E EQUALS _ AS q1 RETURN (q0.A AS A, q0.E AS E) }Ùdigraph G {
+	unnamed-25EXPLAIN select a, e from ta where e in ('bar', 'doe')ü
+´¸¸ƒ7° ﬁ¶˜(C0€é¡8x@zISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.E EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.E AS E) }Édigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.E AS E)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, STRING AS E)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.E EQUALS q42</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c9)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.E EQUALS q42._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c9)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -363,18 +358,18 @@ B
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}Ã
+}ﬂ
 ;
-	unnamed-2.EXPLAIN select a, e from ta where e in ('foo')å
-´•øé+° áΩ»	(C0‚˚|8v@wISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.E EQUALS _ AS q1 RETURN (q0.A AS A, q0.E AS E) }Ùdigraph G {
+	unnamed-2.EXPLAIN select a, e from ta where e in ('foo')ü
+´¸¸ƒ7° ﬁ¶˜(C0€é¡8x@zISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c9) | FILTER q0.E EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.E AS E) }Édigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.E AS E)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, STRING AS E)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.E EQUALS q42</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c9)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.E EQUALS q42._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c9)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -387,18 +382,18 @@ B
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}ó
+}©
 L
-	unnamed-2?EXPLAIN select a, e from ta where e in ('b' + 'a' + 'r', 'doe')∆
-´á«ô'° ¨£»	(C0™”Ü8v@ìISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 + @c12 + @c14, @c16)) | FILTER q0.E EQUALS _ AS q1 RETURN (q0.A AS A, q0.E AS E) }êdigraph G {
+	unnamed-2?EXPLAIN select a, e from ta where e in ('b' + 'a' + 'r', 'doe')ÿ
+´Ñ‚¡#° ˇ®Â(C0¬†û8x@ñISCAN(F1 <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(array(@c10 + @c12 + @c14, @c16)) | FILTER q0.E EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.E AS E) }üdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.E AS E)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, STRING AS E)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.E EQUALS q42</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(array(@c10 + @c12 + @c14, @c16))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.E EQUALS q42._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(array(@c10 + @c12 + @c14, @c16))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -414,7 +409,7 @@ L
 }È
 M
 	unnamed-2@EXPLAIN select a, b from ta where (a, b) in ((0L, 9L), (1L, 8L))ó
-‚ˇ‡Œ)º Û£œ(I0•ƒå8ê@ÉISCAN(F1 <,>) | FILTER (_.A AS A, _.B AS B) IN array((@c15 AS _0, @c17 AS _1), (@c21 AS _0, @c23 AS _1)) | MAP (_.A AS A, _.B AS B)digraph G {
+‚·πÈBº áœ∞(I0…˛õ8ë@ÉISCAN(F1 <,>) | FILTER (_.A AS A, _.B AS B) IN array((@c15 AS _0, @c17 AS _1), (@c21 AS _0, @c23 AS _1)) | MAP (_.A AS A, _.B AS B)digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -425,16 +420,16 @@ M
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q39> label="q39" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Â
+}≥
 K
-	unnamed-2>EXPLAIN select a, b from ta where f in ((90L, 9L), (81L, 18L))ï
-Ò¶Ëö/ß ûÆ¢(D0∆ˇå8~@—EXPLODE arrayDistinct(array((@c11 AS _0, @c13 AS _1), (@c17 AS _0, @c19 AS _1))) | FLATMAP q0 -> { ISCAN(F1 [EQUALS promote(q0._0 AS LONG), EQUALS promote(q0._1 AS LONG)]) AS q1 RETURN (q1.A AS A, q1.B AS B) }°digraph G {
+	unnamed-2>EXPLAIN select a, b from ta where f in ((90L, 9L), (81L, 18L))„
+ÒïÌÜ:ß ˛¢ﬁ(D0…Äﬂ8@µEXPLODE arrayDistinct(array((@c11 AS _0, @c13 AS _1), (@c17 AS _0, @c19 AS _1))) | FLATMAP q0 -> { ISCAN(F1 [EQUALS q0._0._0, EQUALS q0._0._1]) AS q1 RETURN (q1.A AS A, q1.B AS B) }ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(array((@c11 AS _0, @c13 AS _1), (@c17 AS _0, @c19 AS _1)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q42._0 AS LONG), EQUALS promote(q42._1 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(array((@c11 AS _0, @c13 AS _1), (@c17 AS _0, @c19 AS _1)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q42._0._0, EQUALS q42._0._1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   2 -> 1 [ label=<&nbsp;q42> label="q42" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -447,16 +442,16 @@ K
     rankDir=LR;
     2 -> 3 [ color="red" style="invis" ];
   }
-}‰
+}≤
 b
-	unnamed-2UEXPLAIN select a, b from ta where f in ((90L, 9L), (81L, 18L), (81L, 18L), (90L, 9L))˝
-Ò€ø˚+ß ÔôÊ(D0Üíó8~@ÖEXPLODE arrayDistinct(array((@c11 AS _0, @c13 AS _1), (@c17 AS _0, @c19 AS _1), (@c17 AS _0, @c19 AS _1), (@c11 AS _0, @c13 AS _1))) | FLATMAP q0 -> { ISCAN(F1 [EQUALS promote(q0._0 AS LONG), EQUALS promote(q0._1 AS LONG)]) AS q1 RETURN (q1.A AS A, q1.B AS B) }’digraph G {
+	unnamed-2UEXPLAIN select a, b from ta where f in ((90L, 9L), (81L, 18L), (81L, 18L), (90L, 9L))À
+Ò∫é´3ß ƒ˚´(D0“ï·8@ÈEXPLODE arrayDistinct(array((@c11 AS _0, @c13 AS _1), (@c17 AS _0, @c19 AS _1), (@c17 AS _0, @c19 AS _1), (@c11 AS _0, @c13 AS _1))) | FLATMAP q0 -> { ISCAN(F1 [EQUALS q0._0._0, EQUALS q0._0._1]) AS q1 RETURN (q1.A AS A, q1.B AS B) }ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(array((@c11 AS _0, @c13 AS _1), (@c17 AS _0, @c19 AS _1), (@c17 AS _0, @c19 AS _1), (@c11 AS _0, @c13 AS _1)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q42._0 AS LONG), EQUALS promote(q42._1 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(array((@c11 AS _0, @c13 AS _1), (@c17 AS _0, @c19 AS _1), (@c17 AS _0, @c19 AS _1), (@c11 AS _0, @c13 AS _1)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, LONG AS _1 AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q42._0._0, EQUALS q42._0._1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   2 -> 1 [ label=<&nbsp;q42> label="q42" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -483,16 +478,16 @@ b
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q39> label="q39" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}√
+}÷
 :
-	unnamed-2-EXPLAIN select a, e from ta where 1 in (2, 3)Ñ
-≠æìµ Ñ ¿œÄ	(>0¨¬g8v@vEXPLODE arrayDistinct(@c9) | FILTER @c7 EQUALS _ | FLATMAP q0 -> { ISCAN(F1 <,>) AS q1 RETURN (q1.A AS A, q1.E AS E) }Ìdigraph G {
+	unnamed-2-EXPLAIN select a, e from ta where 1 in (2, 3)ó
+≠º∆ò3Ñ Ω£õ(>0Ñ˘÷8x@yEXPLODE arrayDistinct(@c9) | FILTER @c7 EQUALS _._0 | FLATMAP q0 -> { ISCAN(F1 <,>) AS q1 RETURN (q1.A AS A, q1.E AS E) }¸digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.E AS E)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, STRING AS E)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c7 EQUALS q46</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c9)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c7 EQUALS q46._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c9)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   3 -> 2 [ label=<&nbsp;q46> label="q46" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -507,17 +502,17 @@ b
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}Ç
+}é
 :
-	unnamed-2-EXPLAIN select a from ta where 1 in (1, 2, 3)√
-·¿Äã$â …–≠(A0»§é8Ä@	¶EXPLODE arrayDistinct(@c7) | FLATMAP q0 -> { COVERING(F1 <,> -> [A: KEY:[3], F: [SA: KEY:[0], SB: KEY:[1]]]) | FILTER @c5 EQUALS q0 | MAP (_.A AS A) AS q1 RETURN q1 }˘digraph G {
+	unnamed-2-EXPLAIN select a from ta where 1 in (1, 2, 3)œ
+·Á¨∑.â •¯ı(A0Ù≤¸8Ç@	©EXPLODE arrayDistinct(@c7) | FLATMAP q0 -> { COVERING(F1 <,> -> [A: KEY:[3], F: [SA: KEY:[0], SB: KEY:[1]]]) | FILTER @c5 EQUALS q0._0 | MAP (_.A AS A) AS q1 RETURN q1 }Çdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP q62</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c7)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c7)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q74.A AS A)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c5 EQUALS q47</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c5 EQUALS q47._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F)" ];
   2 -> 1 [ label=<&nbsp;q47> label="q47" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -533,51 +528,23 @@ b
     rankDir=LR;
     2 -> 3 [ color="red" style="invis" ];
   }
-}õ
+}¡
 s
-	unnamed-2fEXPLAIN select id from array_table where exists (select 1 from array_table.fruits f where f = 'apple')£
-…ªóäà ∫õƒ("0ÉÇ8,@ BCOVERING(FRUITS [EQUALS @c17] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)¿digraph G {
+	unnamed-2fEXPLAIN select id from array_table where exists (select 1 from array_table.fruits f where f = 'apple')…
+◊Ø°Öç èü£($0èí480@ UCOVERING(FRUITS [EQUALS promote(@c17 AS STRING)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)”digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q62.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS @c17]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q63.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c17 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">FRUITS</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q62> label="q62" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Æ
+  2 -> 1 [ label=<&nbsp;q63> label="q63" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}±
 G
-	unnamed-2:EXPLAIN select id from array_table where 'apple' in fruits‚
+	unnamed-2:EXPLAIN select id from array_table where 'apple' in fruitsÂ
 ’Ó®¥
-r ™¡á(0µÑ'8 @|SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.FRUITS) | FILTER @c5 EQUALS _ AS q1 RETURN (q0.ID AS ID) }∆digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS ARRAY_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T_CHILD, ARRAY_TABLE, T_PARENT, TA]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c5 EQUALS q34</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(q2.FRUITS)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING)" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q34> label="q34" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q34> label="q34" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    4 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
-  }
-}Ø
-H
-	unnamed-2;EXPLAIN select id from array_table where 'banana' in fruits‚
-’Ó®¥
-r ™¡á(0µÑ'8 @|SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.FRUITS) | FILTER @c5 EQUALS _ AS q1 RETURN (q0.ID AS ID) }∆digraph G {
+r ™¡á(0µÑ'8 @SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.FRUITS) | FILTER @c5 EQUALS _._0 AS q1 RETURN (q0.ID AS ID) }∆digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -602,10 +569,10 @@ H
     2 -> 4 [ color="red" style="invis" ];
   }
 }≤
-K
-	unnamed-2>EXPLAIN select id from array_table where 'pineapple' in fruits‚
+H
+	unnamed-2;EXPLAIN select id from array_table where 'banana' in fruitsÂ
 ’Ó®¥
-r ™¡á(0µÑ'8 @|SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.FRUITS) | FILTER @c5 EQUALS _ AS q1 RETURN (q0.ID AS ID) }∆digraph G {
+r ™¡á(0µÑ'8 @SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.FRUITS) | FILTER @c5 EQUALS _._0 AS q1 RETURN (q0.ID AS ID) }∆digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -629,10 +596,38 @@ K
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}Ë"
+}µ
+K
+	unnamed-2>EXPLAIN select id from array_table where 'pineapple' in fruitsÂ
+’Ó®¥
+r ™¡á(0µÑ'8 @SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.FRUITS) | FILTER @c5 EQUALS _._0 AS q1 RETURN (q0.ID AS ID) }∆digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS ARRAY_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T_CHILD, ARRAY_TABLE, T_PARENT, TA]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c5 EQUALS q34</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(q2.FRUITS)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q34> label="q34" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q34> label="q34" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    4 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 4 [ color="red" style="invis" ];
+  }
+}Î"
 o
-	unnamed-2bEXPLAIN select id from array_table where exists (select 1 from array_table.numbers n where n = 10)Ù!
-‡Ÿ“ñf ˜î¨(0”ó8 @ µSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE q0.NUMBERS | FILTER _ EQUALS promote(@c17 AS LONG) | MAP (@c8 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.ID AS ID) }û digraph G {
+	unnamed-2bEXPLAIN select id from array_table where exists (select 1 from array_table.numbers n where n = 10)˜!
+‡Ÿ“ñf ˜î¨(0”ó8 @ ∏SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE q0.NUMBERS | FILTER _._0 EQUALS promote(@c17 AS LONG) | MAP (@c8 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.ID AS ID) }û digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -662,10 +657,10 @@ o
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}À
+}Œ
 C
-	unnamed-26EXPLAIN select id from array_table where 10 in numbersÉ
-’ó†¨	r íÉÀ(0˛º8 @éSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.NUMBERS) | FILTER promote(@c5 AS LONG) EQUALS _ AS q1 RETURN (q0.ID AS ID) }‘digraph G {
+	unnamed-26EXPLAIN select id from array_table where 10 in numbersÜ
+’ó†¨	r íÉÀ(0˛º8 @ëSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.NUMBERS) | FILTER promote(@c5 AS LONG) EQUALS _._0 AS q1 RETURN (q0.ID AS ID) }‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -689,10 +684,10 @@ C
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}À
+}Œ
 C
-	unnamed-26EXPLAIN select id from array_table where 15 in numbersÉ
-’ó†¨	r íÉÀ(0˛º8 @éSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.NUMBERS) | FILTER promote(@c5 AS LONG) EQUALS _ AS q1 RETURN (q0.ID AS ID) }‘digraph G {
+	unnamed-26EXPLAIN select id from array_table where 15 in numbersÜ
+’ó†¨	r íÉÀ(0˛º8 @ëSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.NUMBERS) | FILTER promote(@c5 AS LONG) EQUALS _._0 AS q1 RETURN (q0.ID AS ID) }‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -804,48 +799,44 @@ K
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q32> label="q32" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}á5
+}ï5
 Ù
-	unnamed-2ÊEXPLAIN SELECT t_child.id AS child_id, t_child.num AS num, t_parent.id AS parent_id FROM t_parent, t_child WHERE get_key(t_child.t_link) = t_parent.id AND 'tag_a' IN t_parent.lst AND t_parent.id = 'p1' AND t_child.num IN (1, 2, 3)ç3
-éI¨ÓÒ‘É  Úíév(Ç0î†“O8Ú
-@üÙSCAN([IS T_PARENT, EQUALS promote(@c44 AS STRING)]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.LST) | FLATMAP q1 -> { [IN arrayDistinct(promote(@c50 AS ARRAY(LONG)))] | INJOIN q2 -> { SCAN([IS T_CHILD]) | FILTER _.T_LINK.NAME EQUALS q0.ID AND _.NUM EQUALS q2 } | FILTER @c34 EQUALS q1 AS q3 RETURN q3 } AS q4 RETURN (q4.ID AS CHILD_ID, q4.NUM AS NUM, q0.ID AS PARENT_ID) }Ú/digraph G {
+	unnamed-2ÊEXPLAIN SELECT t_child.id AS child_id, t_child.num AS num, t_parent.id AS parent_id FROM t_parent, t_child WHERE get_key(t_child.t_link) = t_parent.id AND 'tag_a' IN t_parent.lst AND t_parent.id = 'p1' AND t_child.num IN (1, 2, 3)õ3
+!éI»ùæﬂÉ  ˇîÆ∫(Ç0∑ŸàÜ8í@ü˜SCAN([IS T_PARENT, EQUALS promote(@c44 AS STRING)]) | FLATMAP q0 -> { EXPLODE arrayDistinct(q0.LST) | FLATMAP q1 -> { [IN arrayDistinct(promote(@c50 AS ARRAY(LONG)))] | INJOIN q2 -> { SCAN([IS T_CHILD]) | FILTER _.T_LINK.NAME EQUALS q0.ID AND _.NUM EQUALS q2 } | FILTER @c34 EQUALS q1._0 AS q3 RETURN q3 } AS q4 RETURN (q4.ID AS CHILD_ID, q4.NUM AS NUM, q0.ID AS PARENT_ID) }˚/digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q6.ID AS CHILD_ID, q6.NUM AS NUM, q2.ID AS PARENT_ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS CHILD_ID, LONG AS NUM, STRING AS PARENT_ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T_PARENT, EQUALS promote(@c44 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ID, ARRAY(STRING) AS LST)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T_CHILD, ARRAY_TABLE, T_PARENT, TA]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ID, ARRAY(STRING) AS LST)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP q399</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ID, STRING AS NAME, STRING AS COLOR AS T_LINK, LONG AS NUM)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c34 EQUALS q166</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ID, STRING AS NAME, STRING AS COLOR AS T_LINK, LONG AS NUM)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(q2.LST)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP q401</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ID, STRING AS NAME, STRING AS COLOR AS T_LINK, LONG AS NUM)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(q2.LST)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c34 EQUALS q166._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ID, STRING AS NAME, STRING AS COLOR AS T_LINK, LONG AS NUM)" ];
   7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(STRING AS ID, STRING AS NAME, STRING AS COLOR AS T_LINK, LONG AS NUM)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q6.T_LINK.NAME EQUALS q2.ID AND q6.NUM EQUALS q108</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ID, STRING AS NAME, STRING AS COLOR AS T_LINK, LONG AS NUM)" ];
-  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(promote(@c50 AS ARRAY(LONG))))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ID, STRING AS NAME, STRING AS COLOR AS T_LINK, LONG AS NUM)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(promote(@c50 AS ARRAY(LONG))))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ID, STRING AS NAME, STRING AS COLOR AS T_LINK, LONG AS NUM)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q6.T_LINK.NAME EQUALS q2.ID AND q6.NUM EQUALS q108</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ID, STRING AS NAME, STRING AS COLOR AS T_LINK, LONG AS NUM)" ];
   10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T_CHILD]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ID, STRING AS NAME, STRING AS COLOR AS T_LINK, LONG AS NUM)" ];
   11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T_CHILD, ARRAY_TABLE, T_PARENT, TA]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS ID, STRING AS NAME, STRING AS COLOR AS T_LINK, LONG AS NUM)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q399> label="q399" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q166> label="q166" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q166> label="q166" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q401> label="q401" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   8 -> 7 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   9 -> 7 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  10 -> 8 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 9 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   11 -> 10 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    5 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
     rank=same;
     rankDir=LR;
-    6 -> 5 [ color="red" style="invis" ];
+    8 -> 9 [ color="red" style="invis" ];
   }
   {
-    8 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
-    6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    9 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
@@ -853,48 +844,55 @@ K
     2 -> 4 [ color="red" style="invis" ];
   }
   {
+    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
     rank=same;
     rankDir=LR;
-    9 -> 8 [ color="red" style="invis" ];
+    5 -> 6 [ color="red" style="invis" ];
   }
-}ñ!
+}ü"
 ]
-	unnamed-2PEXPLAIN SELECT t.id, n FROM array_table AS t, t.numbers AS n WHERE n IN (10, 20)¥ 
-§Ç„í"® éèŒ(60‰≠ø8s@ŒEXPLODE arrayDistinct(promote(@c19 AS ARRAY(LONG))) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { EXPLODE q1.NUMBERS | FILTER _ EQUALS q0 AS q2 RETURN (q1.ID AS ID, q2 AS N) } AS q3 RETURN q3 }√digraph G {
+	unnamed-2PEXPLAIN SELECT t.id, n FROM array_table AS t, t.numbers AS n WHERE n IN (10, 20)Ω!
+§ü´ò0ß ≈¿˛
+(60æÌß8u@◊SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c19 AS ARRAY(LONG))) | FLATMAP q1 -> { EXPLODE q0.NUMBERS | FILTER _._0 EQUALS q1._0 AS q2 RETURN q2 } AS q2 RETURN (q0.ID AS ID, q2._0 AS N) }√digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP q92</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS N)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(@c19 AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.ID AS ID, q4 AS N)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS N)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS ARRAY_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4 EQUALS q62</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T_CHILD, ARRAY_TABLE, T_PARENT, TA]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE q2.NUMBERS</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
-  2 -> 1 [ label=<&nbsp;q62> label="q62" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  3 -> 1 [ label=<&nbsp;q92> label="q92" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.ID AS ID, q4._0 AS N)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS N)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS ARRAY_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T_CHILD, ARRAY_TABLE, T_PARENT, TA]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP q4</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(@c19 AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4._0 EQUALS q37._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE q2.NUMBERS</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q37> label="q37" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    7 -> 3 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    5 -> 3 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
-    4 -> 5 [ color="red" style="invis" ];
+    5 -> 6 [ color="red" style="invis" ];
   }
   {
-    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    7 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    4 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
-    2 -> 3 [ color="red" style="invis" ];
+    2 -> 4 [ color="red" style="invis" ];
   }
 }≈
 U
@@ -918,64 +916,88 @@ U
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}Î
+}ﬁ#
 i
-	unnamed-2\EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE n IN (10, 20)˝
-ôÄ≥ù+¶ ˝©Ÿ(50Öûî8r@∞SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE q0.NUMBERS WITH ORDINALITY | FILTER _._0 IN promote(@c23 AS ARRAY(LONG)) AS q1 RETURN (q0.ID AS ID, q1._0 AS N, q1._1 AS IDX) }™digraph G {
+	unnamed-2\EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE n IN (10, 20)"
+ô¢ﬁù¶ —∆ﬁ(50ó≈·8t@êEXPLODE arrayDistinct(promote(@c23 AS ARRAY(LONG))) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY | FILTER _._0 EQUALS q0._0 AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.ID AS ID, q3._1._0 AS N, q3._1._1 AS IDX) }Ω digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.ID AS ID, q4._0 AS N, q4._1 AS IDX)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS N, INT AS IDX)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS ARRAY_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T_CHILD, ARRAY_TABLE, T_PARENT, TA]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4._0 IN promote(@c23 AS ARRAY(LONG))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, INT AS _1)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE q2.NUMBERS WITH ORDINALITY</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, INT AS _1)" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q66._0.ID AS ID, q66._1._0 AS N, q66._1._1 AS IDX)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS N, INT AS IDX)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(promote(@c23 AS ARRAY(LONG)))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2 AS _0, q4 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS AS _0, LONG AS _0, INT AS _1 AS _1)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS ARRAY_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4._0 EQUALS q62._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, INT AS _1)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T_CHILD, ARRAY_TABLE, T_PARENT, TA]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE q2.NUMBERS WITH ORDINALITY</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, INT AS _1)" ];
+  2 -> 1 [ label=<&nbsp;q62> label="q62" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 1 [ label=<&nbsp;q66> label="q66" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    7 -> 3 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
-    4 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    5 -> 3 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
+    4 -> 5 [ color="red" style="invis" ];
   }
-}ª
-i
-	unnamed-2\EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE idx IN (1, 3)Õ
-ôÚ»û-¶ ‚∞π(50¶á≥8r@òSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE q0.NUMBERS WITH ORDINALITY | FILTER _._1 IN @c23 AS q1 RETURN (q0.ID AS ID, q1._0 AS N, q1._1 AS IDX) }ídigraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.ID AS ID, q4._0 AS N, q4._1 AS IDX)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS N, INT AS IDX)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS ARRAY_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T_CHILD, ARRAY_TABLE, T_PARENT, TA]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4._1 IN @c23</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, INT AS _1)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE q2.NUMBERS WITH ORDINALITY</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, INT AS _1)" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
-    4 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    rank=same;
+    rankDir=LR;
+    2 -> 3 [ color="red" style="invis" ];
+  }
+}≠#
+i
+	unnamed-2\EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE idx IN (1, 3)ø"
+ô…÷±2¶ ∏ÖÑ(50î∑¶8t@¯EXPLODE arrayDistinct(@c23) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY | FILTER _._1 EQUALS q0._0 AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.ID AS ID, q3._1._0 AS N, q3._1._1 AS IDX) }§ digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q66._0.ID AS ID, q66._1._0 AS N, q66._1._1 AS IDX)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS N, INT AS IDX)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c23)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2 AS _0, q4 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS AS _0, LONG AS _0, INT AS _1 AS _1)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS ARRAY_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4._1 EQUALS q62._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, INT AS _1)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T_CHILD, ARRAY_TABLE, T_PARENT, TA]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE q2.NUMBERS WITH ORDINALITY</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, INT AS _1)" ];
+  2 -> 1 [ label=<&nbsp;q62> label="q62" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 1 [ label=<&nbsp;q66> label="q66" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
+    2 -> 3 [ color="red" style="invis" ];
+  }
+  {
+    7 -> 3 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    5 -> 3 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    4 -> 5 [ color="red" style="invis" ];
   }
 }¥
 j
 	unnamed-2]EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE t.id IN (2, 4)≈
-é	©Ú¸1∆ ®∑ó(F0ﬁ¡ø8å@	—[IN arrayDistinct(promote(@c25 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS ARRAY_TABLE, EQUALS q0]) } | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 AS IDX) }–digraph G {
+é	ß∆£F∆ Î‚¸(F0‰®√8è@	—[IN arrayDistinct(promote(@c25 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS ARRAY_TABLE, EQUALS q0]) } | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 AS IDX) }–digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -991,11 +1013,6 @@ j
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 1 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    rank=same;
-    rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
-  }
-  {
     6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -1003,31 +1020,48 @@ j
     rankDir=LR;
     2 -> 6 [ color="red" style="invis" ];
   }
-}»
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}ø#
 r
-	unnamed-2eEXPLAIN SELECT t.id, f, idx FROM array_table AS t, t.fruits AS f AT idx WHERE f IN ('apple', 'mango')—
-ôô˜£/¶ ïÉì(50Ö»ﬂ8r@óSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE q0.FRUITS WITH ORDINALITY | FILTER _._0 IN @c23 AS q1 RETURN (q0.ID AS ID, q1._0 AS F, q1._1 AS IDX) }ódigraph G {
+	unnamed-2eEXPLAIN SELECT t.id, f, idx FROM array_table AS t, t.fruits AS f AT idx WHERE f IN ('apple', 'mango')»"
+ôÍìè9¶ ÷ ‘(50Ä∏ü8t@˜EXPLODE arrayDistinct(@c23) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { EXPLODE q1.FRUITS WITH ORDINALITY | FILTER _._0 EQUALS q0._0 AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.ID AS ID, q3._1._0 AS F, q3._1._1 AS IDX) }Æ digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.ID AS ID, q4._0 AS F, q4._1 AS IDX)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS F, INT AS IDX)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS ARRAY_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T_CHILD, ARRAY_TABLE, T_PARENT, TA]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4._0 IN @c23</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE q2.FRUITS WITH ORDINALITY</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q66._0.ID AS ID, q66._1._0 AS F, q66._1._1 AS IDX)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS F, INT AS IDX)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE arrayDistinct(@c23)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2 AS _0, q4 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS AS _0, STRING AS _0, INT AS _1 AS _1)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4._0 EQUALS q62._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS ARRAY_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE q2.FRUITS WITH ORDINALITY</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T_CHILD, ARRAY_TABLE, T_PARENT, TA]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
+  2 -> 1 [ label=<&nbsp;q62> label="q62" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 1 [ label=<&nbsp;q66> label="q66" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     4 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
+    2 -> 3 [ color="red" style="invis" ];
+  }
+  {
+    6 -> 3 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    4 -> 3 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 4 [ color="red" style="invis" ];
   }
 }

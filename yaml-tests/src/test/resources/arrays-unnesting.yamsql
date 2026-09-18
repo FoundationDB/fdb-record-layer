@@ -111,7 +111,7 @@ test_block:
     -
       # Unnesting the array using PartiQL-style unnesting.
       - query: SELECT "id", "item" FROM "T1_indexed" AS "row", "row"."items" AS "item"
-      - explain: "SCAN([IS T1_indexed]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN (q0.id AS id, q1 AS item) }"
+      - explain: "SCAN([IS T1_indexed]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN (q0.id AS id, q1._0 AS item) }"
       - unorderedResult: [
           {id: 1, item: 'a'},
           {id: 1, item: 'b'},
@@ -127,7 +127,7 @@ test_block:
       # Here the subquery packs each array item into a tuple, produces a stream of tuples, and binds SQ to each tuple.
       # The planner is able to produce the same EXPLODE plan as for PartiQL-style unnesting.
       - query: SELECT "id", SQ."item" FROM "T1_indexed" AS "row", (SELECT "item" FROM "row"."items" AS "item") AS SQ
-      - explain: "SCAN([IS T1_indexed]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN (q0.id AS id, q1 AS item) }"
+      - explain: "SCAN([IS T1_indexed]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN (q0.id AS id, q1._0 AS item) }"
       - unorderedResult: [
           {id: 1, item: 'a'},
           {id: 1, item: 'b'},
