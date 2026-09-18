@@ -51,22 +51,18 @@ public final class IndexExpansionInfo {
     @Nonnull
     private final Collection<RecordType> indexedRecordTypes;
     @Nonnull
-    private final Set<String> indexedRecordTypeNames;
-    @Nonnull
     private final Type.Record baseType;
 
     private IndexExpansionInfo(@Nonnull RecordMetaData metaData,
                                @Nonnull Index index,
                                boolean reverse,
                                @Nonnull Collection<RecordType> indexedRecordTypes,
-                               @Nonnull Set<String> indexedRecordTypeNames,
                                @Nonnull Type.Record baseType,
                                @Nullable KeyExpression commonPrimaryKeyForTypes) {
         this.metaData = metaData;
         this.index = index;
         this.reverse = reverse;
         this.indexedRecordTypes = indexedRecordTypes;
-        this.indexedRecordTypeNames = indexedRecordTypeNames;
         this.baseType = baseType;
         this.commonPrimaryKeyForTypes = commonPrimaryKeyForTypes;
     }
@@ -97,7 +93,9 @@ public final class IndexExpansionInfo {
 
     @Nonnull
     public Set<String> getIndexedRecordTypeNames() {
-        return indexedRecordTypeNames;
+        return indexedRecordTypes.stream()
+                .map(RecordType::getName)
+                .collect(ImmutableSet.toImmutableSet());
     }
 
     @Nullable
@@ -133,15 +131,12 @@ public final class IndexExpansionInfo {
         @Nonnull
         final Collection<RecordType> indexedRecordTypes = Collections.unmodifiableCollection(metaData.recordTypesForIndex(index));
         @Nonnull
-        final Set<String> indexedRecordTypeNames = indexedRecordTypes.stream()
-                .map(RecordType::getName)
-                .collect(ImmutableSet.toImmutableSet());
-        @Nonnull
-        final Type.Record baseType = metaData.getPlannerType(indexedRecordTypeNames);
+        final Type.Record baseType = metaData.getPlannerTypeForRecordTypes(indexedRecordTypes);
         @Nullable
         final KeyExpression commonPrimaryKeyForTypes = RecordMetaData.commonPrimaryKey(indexedRecordTypes);
 
-        return new IndexExpansionInfo(metaData, index, reverse, indexedRecordTypes, indexedRecordTypeNames, baseType, commonPrimaryKeyForTypes);
+        return new IndexExpansionInfo(metaData, index, reverse, indexedRecordTypes, baseType,
+                commonPrimaryKeyForTypes);
     }
 
 }

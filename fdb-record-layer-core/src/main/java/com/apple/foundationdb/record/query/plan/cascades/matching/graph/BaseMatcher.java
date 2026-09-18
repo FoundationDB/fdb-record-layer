@@ -270,16 +270,20 @@ public class BaseMatcher<T> {
         return IterableHelpers
                 .flatMap(otherCombinationsIterable,
                         otherCombination -> {
+                            // other permutation -> filtered by current combination
                             final List<CorrelationIdentifier> otherFilteredPermutation =
                                     otherPermutation
                                             .stream()
                                             .filter(otherCombination::contains)
                                             .collect(ImmutableList.toImmutableList());
 
+                            // this' combination -> bound to the size of others' size
                             final Iterable<Set<CorrelationIdentifier>> combinationsIterable =
                                     isCompleteMatchesOnly
                                     ? ImmutableList.of(getAliases())
                                     : soundCombinations(getAliases(), getDependsOnMap(), otherCombination.size(), otherCombination.size()); //  limit to the other combination's size
+
+                            // at this point, we have any 1 permutation of other, and all combinations of this.
 
                             return IterableHelpers.flatMap(combinationsIterable,
                                     combination -> {
