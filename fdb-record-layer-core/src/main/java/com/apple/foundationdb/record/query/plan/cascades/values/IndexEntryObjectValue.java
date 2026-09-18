@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -56,8 +57,18 @@ import java.util.function.Supplier;
 import static com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord.getForOrdinalPath;
 
 /**
- * Represents a value that references into an index entry in the bindings of {@link EvaluationContext} by means of an
- * ordinal path (dewey id).
+ * A value that references into an index entry in the bindings of {@link EvaluationContext} by means of an ordinal
+ * path (dewey id). This is useful in conjunction with a plan that returns records from an index without fetching them,
+ * such as a covering index scan or an aggregate index scan. This value can be used to fill a field of a partial record
+ * from an element of the key or the value tuple of the index entry. The plan temporarily binds the entry under
+ * {@link Quantifier#current()} while it is decoding that entry into a partial record. Thus, this value has meaning only
+ * in the value trees that do that decoding. It is not correlated to a quantifier of the query graph, and it cannot be
+ * evaluated above the scan.
+ *
+ * <p>The closely related {@link IndexEntryColumnValue} addresses an entry the same way but reads it from the record
+ * flowing from a covering index scan, so it can appear anywhere above that scan.
+ *
+ * @see IndexEntryColumnValue
  */
 public class IndexEntryObjectValue extends AbstractValue implements LeafValue, Value.RangeMatchableValue {
 
@@ -125,14 +136,12 @@ public class IndexEntryObjectValue extends AbstractValue implements LeafValue, V
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        final var indexEntry = Objects.requireNonNull((IndexEntry)context.getBinding(Bindings.Internal.CORRELATION, indexEntryAlias));
-
-        final var tuple = (source == TupleSource.KEY ? indexEntry.getKey() : indexEntry.getValue());
-        var value = getForOrdinalPath(tuple, ordinalPath);
+        final IndexEntry indexEntry = Objects.requireNonNull((IndexEntry)context.getBinding(Bindings.Internal.CORRELATION, indexEntryAlias));
+        final Tuple tuple = (source == TupleSource.KEY ? indexEntry.getKey() : indexEntry.getValue());
+        final Object value = getForOrdinalPath(tuple, ordinalPath);
         if (value == null) {
             return null;
         }
-
         return TupleFieldsHelper.tupleValueToRuntimeValue(value, resultType);
     }
 
