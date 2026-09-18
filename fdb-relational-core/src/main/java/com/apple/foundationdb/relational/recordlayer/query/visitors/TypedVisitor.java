@@ -478,9 +478,8 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     QueryPlan.MetadataQueryPlan visitShowSchemaTemplatesStatement(@Nonnull RelationalParser.ShowSchemaTemplatesStatementContext ctx);
 
-    @Nonnull
     @Override
-    Object visitSetVariable(@Nonnull RelationalParser.SetVariableContext ctx);
+    ProceduralPlan visitSetTransactionVariable(@Nonnull RelationalParser.SetTransactionVariableContext ctx);
 
     @Nonnull
     @Override
@@ -501,10 +500,6 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Object visitSetNewValueInsideTrigger(@Nonnull RelationalParser.SetNewValueInsideTriggerContext ctx);
-
-    @Nonnull
-    @Override
-    Object visitVariableClause(@Nonnull RelationalParser.VariableClauseContext ctx);
 
     @Nonnull
     @Override
