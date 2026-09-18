@@ -1,0 +1,12 @@
+sort-index-selection-unique:
+-   query: EXPLAIN select * from my_simple_record order by num_value_unique
+    ref: sort-index-selection-unique.yamsql:154
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE <,>)
+    task_count: 225
+    task_total_time_ms: 3
+    transform_count: 64
+    transform_time_ms: 1
+    transform_yield_count: 35
+    insert_time_ms: 0
+    insert_new_count: 17
+    insert_reused_count: 3

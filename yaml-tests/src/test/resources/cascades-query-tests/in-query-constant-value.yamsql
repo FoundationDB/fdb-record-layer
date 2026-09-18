@@ -1,0 +1,386 @@
+#
+# in-query-constant-value.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBInQueryTest.testInQueryWithConstantValueUnsorted` (:314) and
+# `.testInQuerySortedByConstantValue` (:671) — an IN list supplied as a `ConstantObjectValue` rather than
+# a literal or a parameter. Both use `complexQuerySetup(NO_HOOK)`, so the template carries only the three
+# indexes the proto's field options imply; that is why this is not folded into another file.
+#
+# Both were deferred as "ConstantObjectValue via planGraph". That blocker does not hold: `AstNormalizer`
+# lifts every SQL literal into a `ConstantObjectValue`, so a plain `IN (1, 2, 4)` is already the shape the
+# source builds by hand.
+#
+# What the source asserts:
+#   unsorted (:330-339): `inJoinPlan(mapPlan(coveringIndexPlan(indexPlan(
+#       indexName("MySimpleRecord$num_value_3_indexed"), equalities(exactly(anyValueComparison()))))))`
+#   sorted (:696-703): `inComparandJoinPlan(mapPlan(coveringIndexPlan(...)))`, with the index leg
+#       `isNotReverse()` in *both* directions.
+#
+# Projection is the graph's two result columns (:323-324, :685-686), which is what makes the leg covering.
+#
+# The unsorted method binds its one plan four times (:345-363) — (1,2,4) 60 rows, (3,5) 20, (1,3) 40, and
+# the duplicated (3,1,1,3) 40. Those are four queries here; after literal lifting they normalize to the
+# same query, so they share a plan-cache entry, which is harmless because the source likewise asserts one
+# plan for all four. `unorderedResult`, since the source builds `LogicalSortExpression.unsorted` (:328)
+# and asserts only size and membership.
+#
+# The sorted method's row order is not fixed by its ORDER BY — 20 records share each num_value_3_indexed.
+# It is fixed by the plan: forward gives (nv3 asc, rec_no asc); reverse iterates the IN list descending
+# but scans each leg forward, which is what the source's `isNotReverse()` on the leg says, giving
+# (nv3 desc, rec_no asc).
+#
+# Not reproduced: `setAttemptFailedInJoinAsUnionMaxSize(100)` (:676-678) is not on the SQL surface. The
+# relational layer pins 24, and both lists here are far shorter, so it cannot matter.
+#
+# Lost: `assertDiscardedNone` (:365) and `assertDiscardedAtMost(reverse ? 40 : 0)` (:720); plan hashes.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    cascades-query-tests/includes/simple-record-100.yamsql
+---
+test_block:
+  name: in-query-constant-value
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testInQueryWithConstantValueUnsorted — four bindings of the source's single plan.
+      - query: select num_value_3_indexed, rec_no from my_simple_record
+               where num_value_3_indexed in (1, 2, 4)
+      - explain: ""
+      - unorderedResult: [{NUM_VALUE_3_INDEXED: 1, REC_NO: 1},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 2},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 4},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 6},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 7},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 9},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 11},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 12},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 14},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 16},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 17},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 19},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 21},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 22},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 24},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 26},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 27},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 29},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 31},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 32},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 34},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 36},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 37},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 39},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 41},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 42},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 44},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 46},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 47},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 49},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 51},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 52},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 54},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 56},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 57},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 59},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 61},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 62},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 64},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 66},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 67},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 69},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 71},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 72},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 74},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 76},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 77},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 79},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 81},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 82},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 84},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 86},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 87},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 89},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 91},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 92},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 94},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 96},
+                         {NUM_VALUE_3_INDEXED: 2, REC_NO: 97},
+                         {NUM_VALUE_3_INDEXED: 4, REC_NO: 99}]
+    -
+      # testInQueryWithConstantValueUnsorted — 5 matches nothing, so this is the nv3 = 3 group alone.
+      - query: select num_value_3_indexed, rec_no from my_simple_record
+               where num_value_3_indexed in (3, 5)
+      - explain: ""
+      - unorderedResult: [{NUM_VALUE_3_INDEXED: 3, REC_NO: 3},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 8},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 13},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 18},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 23},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 28},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 33},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 38},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 43},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 48},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 53},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 58},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 63},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 68},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 73},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 78},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 83},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 88},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 93},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 98}]
+    -
+      # testInQueryWithConstantValueUnsorted
+      - query: select num_value_3_indexed, rec_no from my_simple_record
+               where num_value_3_indexed in (1, 3)
+      - explain: ""
+      - unorderedResult: [{NUM_VALUE_3_INDEXED: 1, REC_NO: 1},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 3},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 6},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 8},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 11},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 13},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 16},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 18},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 21},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 23},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 26},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 28},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 31},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 33},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 36},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 38},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 41},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 43},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 46},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 48},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 51},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 53},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 56},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 58},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 61},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 63},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 66},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 68},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 71},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 73},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 76},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 78},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 81},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 83},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 86},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 88},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 91},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 93},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 96},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 98}]
+    -
+      # testInQueryWithConstantValueUnsorted — duplicated list, same 40 rows as (1, 3).
+      - query: select num_value_3_indexed, rec_no from my_simple_record
+               where num_value_3_indexed in (3, 1, 1, 3)
+      - explain: ""
+      - unorderedResult: [{NUM_VALUE_3_INDEXED: 1, REC_NO: 1},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 3},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 6},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 8},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 11},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 13},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 16},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 18},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 21},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 23},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 26},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 28},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 31},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 33},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 36},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 38},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 41},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 43},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 46},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 48},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 51},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 53},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 56},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 58},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 61},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 63},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 66},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 68},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 71},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 73},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 76},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 78},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 81},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 83},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 86},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 88},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 91},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 93},
+                         {NUM_VALUE_3_INDEXED: 1, REC_NO: 96},
+                         {NUM_VALUE_3_INDEXED: 3, REC_NO: 98}]
+    -
+      # testInQuerySortedByConstantValue
+      - query: select num_value_3_indexed, rec_no from my_simple_record
+               where num_value_3_indexed in (1, 3, 4)
+               order by num_value_3_indexed
+      - explain: ""
+      - result: [{NUM_VALUE_3_INDEXED: 1, REC_NO: 1},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 6},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 11},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 16},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 21},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 26},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 31},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 36},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 41},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 46},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 51},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 56},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 61},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 66},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 71},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 76},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 81},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 86},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 91},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 96},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 3},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 8},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 13},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 18},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 23},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 28},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 33},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 38},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 43},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 48},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 53},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 58},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 63},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 68},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 73},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 78},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 83},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 88},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 93},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 98},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 4},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 9},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 14},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 19},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 24},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 29},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 34},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 39},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 44},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 49},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 54},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 59},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 64},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 69},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 74},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 79},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 84},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 89},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 94},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 99}]
+    -
+      # testInQuerySortedByConstantValue, reverse
+      - query: select num_value_3_indexed, rec_no from my_simple_record
+               where num_value_3_indexed in (1, 3, 4)
+               order by num_value_3_indexed desc
+      - explain: ""
+      - result: [{NUM_VALUE_3_INDEXED: 4, REC_NO: 4},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 9},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 14},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 19},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 24},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 29},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 34},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 39},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 44},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 49},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 54},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 59},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 64},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 69},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 74},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 79},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 84},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 89},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 94},
+                {NUM_VALUE_3_INDEXED: 4, REC_NO: 99},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 3},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 8},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 13},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 18},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 23},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 28},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 33},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 38},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 43},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 48},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 53},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 58},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 63},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 68},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 73},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 78},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 83},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 88},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 93},
+                {NUM_VALUE_3_INDEXED: 3, REC_NO: 98},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 1},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 6},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 11},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 16},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 21},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 26},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 31},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 36},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 41},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 46},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 51},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 56},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 61},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 66},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 71},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 76},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 81},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 86},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 91},
+                {NUM_VALUE_3_INDEXED: 1, REC_NO: 96}]
+...

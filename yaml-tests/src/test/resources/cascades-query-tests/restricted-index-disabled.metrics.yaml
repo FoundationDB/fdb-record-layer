@@ -1,0 +1,13 @@
+restricted-index-disabled:
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'not_actually_indexed'
+    ref: restricted-index-disabled.yamsql:90
+    explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE <,>) | FILTER _.STR_VALUE_INDEXED
+        EQUALS promote(@c7 AS STRING)
+    task_count: 423
+    task_total_time_ms: 4
+    transform_count: 105
+    transform_time_ms: 2
+    transform_yield_count: 42
+    insert_time_ms: 0
+    insert_new_count: 51
+    insert_reused_count: 4

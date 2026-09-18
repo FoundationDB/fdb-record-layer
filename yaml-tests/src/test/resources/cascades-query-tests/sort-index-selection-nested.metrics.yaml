@@ -1,0 +1,73 @@
+sort-index-selection-nested:
+-   query: EXPLAIN select * from my_record order by header.num
+    ref: sort-index-selection-nested.yamsql:154
+    explain: ISCAN(MY_RECORD_HEADER_NUM <,>)
+    task_count: 194
+    task_total_time_ms: 3
+    transform_count: 54
+    transform_time_ms: 1
+    transform_yield_count: 22
+    insert_time_ms: 0
+    insert_new_count: 16
+    insert_reused_count: 4
+-   query: EXPLAIN select * from my_record where header.num < 50 order by header.num
+    ref: sort-index-selection-nested.yamsql:259
+    explain: ISCAN(MY_RECORD_HEADER_NUM [[LESS_THAN promote(@c9 AS INT)]])
+    task_count: 275
+    task_total_time_ms: 3
+    transform_count: 70
+    transform_time_ms: 1
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 28
+    insert_reused_count: 2
+-   query: EXPLAIN select * from my_record where header.num = 1 order by str_value
+    ref: sort-index-selection-nested.yamsql:314
+    explain: ISCAN(MY_RECORD_HEADER_NUM [EQUALS promote(@c9 AS INT)])
+    task_count: 181
+    task_total_time_ms: 2
+    transform_count: 55
+    transform_time_ms: 1
+    transform_yield_count: 22
+    insert_time_ms: 0
+    insert_new_count: 16
+    insert_reused_count: 1
+-   query: EXPLAIN select * from my_record where header.num is null and str_value
+        > 'middle' order by str_value
+    ref: sort-index-selection-nested.yamsql:323
+    explain: ISCAN(MY_RECORD_HEADER_NUM [IS_NULL, [GREATER_THAN promote(@c13 AS STRING)]])
+    task_count: 181
+    task_total_time_ms: 3
+    transform_count: 55
+    transform_time_ms: 1
+    transform_yield_count: 22
+    insert_time_ms: 0
+    insert_new_count: 16
+    insert_reused_count: 1
+-   query: EXPLAIN select * from my_record where header.rec_no > 0 order by header.num
+    ref: sort-index-selection-nested.yamsql:330
+    explain: 'COVERING(MY_RECORD_HEADER_NUM <,> -> [STR_VALUE: KEY:[1], HEADER: [NUM:
+        KEY:[0], PATH: KEY:[2], REC_NO: KEY:[3]]]) | FILTER _.HEADER.REC_NO GREATER_THAN
+        promote(@c9 AS LONG) | FETCH'
+    task_count: 264
+    task_total_time_ms: 3
+    transform_count: 66
+    transform_time_ms: 1
+    transform_yield_count: 25
+    insert_time_ms: 0
+    insert_new_count: 28
+    insert_reused_count: 2
+-   query: EXPLAIN select * from my_record where header.rec_no > 10 and header.num
+        < 50 order by header.num
+    ref: sort-index-selection-nested.yamsql:437
+    explain: 'COVERING(MY_RECORD_HEADER_NUM [[LESS_THAN promote(@c15 AS INT)]] ->
+        [STR_VALUE: KEY:[1], HEADER: [NUM: KEY:[0], PATH: KEY:[2], REC_NO: KEY:[3]]])
+        | FILTER _.HEADER.REC_NO GREATER_THAN promote(@c9 AS LONG) | FETCH'
+    task_count: 327
+    task_total_time_ms: 4
+    transform_count: 77
+    transform_time_ms: 2
+    transform_yield_count: 30
+    insert_time_ms: 0
+    insert_new_count: 35
+    insert_reused_count: 1

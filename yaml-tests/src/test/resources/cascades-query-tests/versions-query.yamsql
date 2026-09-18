@@ -1,0 +1,684 @@
+#
+# versions-query.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBVersionsQueryTest` — queries whose sort key or whose projection is the row version.
+#
+# Mirrors VERSIONS_HOOK exactly: `setStoreRecordVersions(true)` plus two VERSION indexes on
+# MySimpleRecord — `versionIndex` over `version()` and `versionByNumValue2Index` over
+# `concat(field("num_value_2"), version())` — on top of the three indexes test_records_1.proto
+# declares for that type.
+#
+# The data set mirrors `populateRecords()`: ten transactions, each writing ten records, with
+#
+#     rec_no = j * 100 + i,   str_value_indexed = j % 2 == 0 ? 'even' : 'odd',
+#     num_value_2 = j % 3,    num_value_3_indexed = j,    num_value_unique = i * 100 + j
+#
+# for transaction i in 0..9 and record j in 0..9. Each INSERT below is one of those ten
+# transactions, so the total row-version order is exactly the write order: every i = 0 record in j
+# order, then every i = 1 record, and so on. `versions-tests.yamsql` establishes that the row
+# version follows the write order both across statements and within one multi-row VALUES list (see
+# its ordered `order by "__ROW_VERSION"` blocks), which is what makes the ordered results below
+# assertable. Note this is *stronger* than the source, which only checks that the versions increase
+# (`assertInVersionOrder`) rather than pinning the REC_NO sequence.
+#
+# REPEATER is declared to mirror MySimpleRecord but never written, so it reads back as NULL here
+# where the record layer would report an empty list.
+#
+# Five sibling methods are not ported. `filterByVersion`, `residualVersionFilter`,
+# `residualVersionFilterWithSelectiveResults`, `sortFilterOnVersionIndexEntries` and
+# `versionInSubSelectQuery` all compare "__ROW_VERSION" against one specific FDBRecordVersion read
+# back out of the data. SQL has neither a version literal nor a way to bind one as a parameter —
+# `versions-tests.yamsql` carries a commented-out attempt with the note "Need to have a solution for
+# casting versions as query arguments for this one".
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index version_index as select "__ROW_VERSION" from my_simple_record
+    create index version_by_num_value_2_index as select num_value_2, "__ROW_VERSION" from my_simple_record
+        order by num_value_2, "__ROW_VERSION"
+    WITH OPTIONS(INTERMINGLE_TABLES=true, STORE_ROW_VERSIONS=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_SIMPLE_RECORD
+            (REC_NO, STR_VALUE_INDEXED, NUM_VALUE_UNIQUE, NUM_VALUE_2, NUM_VALUE_3_INDEXED)
+          VALUES
+            (0, 'even', 0, 0, 0),
+            (100, 'odd', 1, 1, 1),
+            (200, 'even', 2, 2, 2),
+            (300, 'odd', 3, 0, 3),
+            (400, 'even', 4, 1, 4),
+            (500, 'odd', 5, 2, 5),
+            (600, 'even', 6, 0, 6),
+            (700, 'odd', 7, 1, 7),
+            (800, 'even', 8, 2, 8),
+            (900, 'odd', 9, 0, 9)
+    - query: INSERT INTO MY_SIMPLE_RECORD
+            (REC_NO, STR_VALUE_INDEXED, NUM_VALUE_UNIQUE, NUM_VALUE_2, NUM_VALUE_3_INDEXED)
+          VALUES
+            (1, 'even', 100, 0, 0),
+            (101, 'odd', 101, 1, 1),
+            (201, 'even', 102, 2, 2),
+            (301, 'odd', 103, 0, 3),
+            (401, 'even', 104, 1, 4),
+            (501, 'odd', 105, 2, 5),
+            (601, 'even', 106, 0, 6),
+            (701, 'odd', 107, 1, 7),
+            (801, 'even', 108, 2, 8),
+            (901, 'odd', 109, 0, 9)
+    - query: INSERT INTO MY_SIMPLE_RECORD
+            (REC_NO, STR_VALUE_INDEXED, NUM_VALUE_UNIQUE, NUM_VALUE_2, NUM_VALUE_3_INDEXED)
+          VALUES
+            (2, 'even', 200, 0, 0),
+            (102, 'odd', 201, 1, 1),
+            (202, 'even', 202, 2, 2),
+            (302, 'odd', 203, 0, 3),
+            (402, 'even', 204, 1, 4),
+            (502, 'odd', 205, 2, 5),
+            (602, 'even', 206, 0, 6),
+            (702, 'odd', 207, 1, 7),
+            (802, 'even', 208, 2, 8),
+            (902, 'odd', 209, 0, 9)
+    - query: INSERT INTO MY_SIMPLE_RECORD
+            (REC_NO, STR_VALUE_INDEXED, NUM_VALUE_UNIQUE, NUM_VALUE_2, NUM_VALUE_3_INDEXED)
+          VALUES
+            (3, 'even', 300, 0, 0),
+            (103, 'odd', 301, 1, 1),
+            (203, 'even', 302, 2, 2),
+            (303, 'odd', 303, 0, 3),
+            (403, 'even', 304, 1, 4),
+            (503, 'odd', 305, 2, 5),
+            (603, 'even', 306, 0, 6),
+            (703, 'odd', 307, 1, 7),
+            (803, 'even', 308, 2, 8),
+            (903, 'odd', 309, 0, 9)
+    - query: INSERT INTO MY_SIMPLE_RECORD
+            (REC_NO, STR_VALUE_INDEXED, NUM_VALUE_UNIQUE, NUM_VALUE_2, NUM_VALUE_3_INDEXED)
+          VALUES
+            (4, 'even', 400, 0, 0),
+            (104, 'odd', 401, 1, 1),
+            (204, 'even', 402, 2, 2),
+            (304, 'odd', 403, 0, 3),
+            (404, 'even', 404, 1, 4),
+            (504, 'odd', 405, 2, 5),
+            (604, 'even', 406, 0, 6),
+            (704, 'odd', 407, 1, 7),
+            (804, 'even', 408, 2, 8),
+            (904, 'odd', 409, 0, 9)
+    - query: INSERT INTO MY_SIMPLE_RECORD
+            (REC_NO, STR_VALUE_INDEXED, NUM_VALUE_UNIQUE, NUM_VALUE_2, NUM_VALUE_3_INDEXED)
+          VALUES
+            (5, 'even', 500, 0, 0),
+            (105, 'odd', 501, 1, 1),
+            (205, 'even', 502, 2, 2),
+            (305, 'odd', 503, 0, 3),
+            (405, 'even', 504, 1, 4),
+            (505, 'odd', 505, 2, 5),
+            (605, 'even', 506, 0, 6),
+            (705, 'odd', 507, 1, 7),
+            (805, 'even', 508, 2, 8),
+            (905, 'odd', 509, 0, 9)
+    - query: INSERT INTO MY_SIMPLE_RECORD
+            (REC_NO, STR_VALUE_INDEXED, NUM_VALUE_UNIQUE, NUM_VALUE_2, NUM_VALUE_3_INDEXED)
+          VALUES
+            (6, 'even', 600, 0, 0),
+            (106, 'odd', 601, 1, 1),
+            (206, 'even', 602, 2, 2),
+            (306, 'odd', 603, 0, 3),
+            (406, 'even', 604, 1, 4),
+            (506, 'odd', 605, 2, 5),
+            (606, 'even', 606, 0, 6),
+            (706, 'odd', 607, 1, 7),
+            (806, 'even', 608, 2, 8),
+            (906, 'odd', 609, 0, 9)
+    - query: INSERT INTO MY_SIMPLE_RECORD
+            (REC_NO, STR_VALUE_INDEXED, NUM_VALUE_UNIQUE, NUM_VALUE_2, NUM_VALUE_3_INDEXED)
+          VALUES
+            (7, 'even', 700, 0, 0),
+            (107, 'odd', 701, 1, 1),
+            (207, 'even', 702, 2, 2),
+            (307, 'odd', 703, 0, 3),
+            (407, 'even', 704, 1, 4),
+            (507, 'odd', 705, 2, 5),
+            (607, 'even', 706, 0, 6),
+            (707, 'odd', 707, 1, 7),
+            (807, 'even', 708, 2, 8),
+            (907, 'odd', 709, 0, 9)
+    - query: INSERT INTO MY_SIMPLE_RECORD
+            (REC_NO, STR_VALUE_INDEXED, NUM_VALUE_UNIQUE, NUM_VALUE_2, NUM_VALUE_3_INDEXED)
+          VALUES
+            (8, 'even', 800, 0, 0),
+            (108, 'odd', 801, 1, 1),
+            (208, 'even', 802, 2, 2),
+            (308, 'odd', 803, 0, 3),
+            (408, 'even', 804, 1, 4),
+            (508, 'odd', 805, 2, 5),
+            (608, 'even', 806, 0, 6),
+            (708, 'odd', 807, 1, 7),
+            (808, 'even', 808, 2, 8),
+            (908, 'odd', 809, 0, 9)
+    - query: INSERT INTO MY_SIMPLE_RECORD
+            (REC_NO, STR_VALUE_INDEXED, NUM_VALUE_UNIQUE, NUM_VALUE_2, NUM_VALUE_3_INDEXED)
+          VALUES
+            (9, 'even', 900, 0, 0),
+            (109, 'odd', 901, 1, 1),
+            (209, 'even', 902, 2, 2),
+            (309, 'odd', 903, 0, 3),
+            (409, 'even', 904, 1, 4),
+            (509, 'odd', 905, 2, 5),
+            (609, 'even', 906, 0, 6),
+            (709, 'odd', 907, 1, 7),
+            (809, 'even', 908, 2, 8),
+            (909, 'odd', 909, 0, 9)
+---
+test_block:
+  name: versions-query
+  preset: single_repetition_ordered
+  tests:
+    -
+      # orderByVersion
+      # The source sets no required results, so this returns whole records.
+      - query: select * from my_simple_record order by "__ROW_VERSION"
+      - explain: "ISCAN(VERSION_INDEX <,>) | MAP (_.REC_NO AS REC_NO, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.NUM_VALUE_2 AS NUM_VALUE_2, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED, _.REPEATER AS REPEATER)"
+      - result: [
+          {REC_NO: 0, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 0, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: !null _},
+          {REC_NO: 100, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 1, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 200, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 2, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: !null _},
+          {REC_NO: 300, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 3, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+          {REC_NO: 400, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 4, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 500, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 5, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+          {REC_NO: 600, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 6, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 6, REPEATER: !null _},
+          {REC_NO: 700, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 7, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 800, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 8, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 8, REPEATER: !null _},
+          {REC_NO: 900, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 9, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 9, REPEATER: !null _},
+          {REC_NO: 1, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 100, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: !null _},
+          {REC_NO: 101, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 101, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 201, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 102, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: !null _},
+          {REC_NO: 301, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 103, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+          {REC_NO: 401, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 104, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 501, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 105, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+          {REC_NO: 601, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 106, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 6, REPEATER: !null _},
+          {REC_NO: 701, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 107, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 801, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 108, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 8, REPEATER: !null _},
+          {REC_NO: 901, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 109, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 9, REPEATER: !null _},
+          {REC_NO: 2, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 200, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: !null _},
+          {REC_NO: 102, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 201, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 202, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 202, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: !null _},
+          {REC_NO: 302, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 203, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+          {REC_NO: 402, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 204, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 502, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 205, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+          {REC_NO: 602, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 206, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 6, REPEATER: !null _},
+          {REC_NO: 702, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 207, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 802, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 208, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 8, REPEATER: !null _},
+          {REC_NO: 902, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 209, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 9, REPEATER: !null _},
+          {REC_NO: 3, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 300, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: !null _},
+          {REC_NO: 103, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 301, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 203, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 302, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: !null _},
+          {REC_NO: 303, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 303, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+          {REC_NO: 403, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 304, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 503, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 305, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+          {REC_NO: 603, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 306, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 6, REPEATER: !null _},
+          {REC_NO: 703, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 307, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 803, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 308, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 8, REPEATER: !null _},
+          {REC_NO: 903, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 309, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 9, REPEATER: !null _},
+          {REC_NO: 4, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 400, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: !null _},
+          {REC_NO: 104, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 401, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 204, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 402, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: !null _},
+          {REC_NO: 304, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 403, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+          {REC_NO: 404, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 404, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 504, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 405, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+          {REC_NO: 604, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 406, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 6, REPEATER: !null _},
+          {REC_NO: 704, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 407, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 804, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 408, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 8, REPEATER: !null _},
+          {REC_NO: 904, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 409, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 9, REPEATER: !null _},
+          {REC_NO: 5, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 500, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: !null _},
+          {REC_NO: 105, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 501, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 205, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 502, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: !null _},
+          {REC_NO: 305, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 503, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+          {REC_NO: 405, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 504, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 505, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 505, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+          {REC_NO: 605, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 506, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 6, REPEATER: !null _},
+          {REC_NO: 705, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 507, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 805, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 508, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 8, REPEATER: !null _},
+          {REC_NO: 905, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 509, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 9, REPEATER: !null _},
+          {REC_NO: 6, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 600, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: !null _},
+          {REC_NO: 106, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 601, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 206, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 602, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: !null _},
+          {REC_NO: 306, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 603, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+          {REC_NO: 406, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 604, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 506, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 605, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+          {REC_NO: 606, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 606, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 6, REPEATER: !null _},
+          {REC_NO: 706, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 607, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 806, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 608, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 8, REPEATER: !null _},
+          {REC_NO: 906, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 609, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 9, REPEATER: !null _},
+          {REC_NO: 7, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 700, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: !null _},
+          {REC_NO: 107, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 701, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 207, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 702, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: !null _},
+          {REC_NO: 307, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 703, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+          {REC_NO: 407, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 704, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 507, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 705, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+          {REC_NO: 607, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 706, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 6, REPEATER: !null _},
+          {REC_NO: 707, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 707, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 807, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 708, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 8, REPEATER: !null _},
+          {REC_NO: 907, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 709, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 9, REPEATER: !null _},
+          {REC_NO: 8, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 800, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: !null _},
+          {REC_NO: 108, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 801, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 208, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 802, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: !null _},
+          {REC_NO: 308, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 803, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+          {REC_NO: 408, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 804, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 508, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 805, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+          {REC_NO: 608, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 806, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 6, REPEATER: !null _},
+          {REC_NO: 708, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 807, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 808, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 808, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 8, REPEATER: !null _},
+          {REC_NO: 908, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 809, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 9, REPEATER: !null _},
+          {REC_NO: 9, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 900, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, REPEATER: !null _},
+          {REC_NO: 109, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 901, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 209, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 902, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, REPEATER: !null _},
+          {REC_NO: 309, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 903, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, REPEATER: !null _},
+          {REC_NO: 409, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 904, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 509, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 905, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 5, REPEATER: !null _},
+          {REC_NO: 609, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 906, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 6, REPEATER: !null _},
+          {REC_NO: 709, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 907, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 809, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 908, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 8, REPEATER: !null _},
+          {REC_NO: 909, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 909, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 9, REPEATER: !null _},
+        ]
+    -
+      # orderByVersionWithSelectiveResults
+      # setRequiredResults(rec_no, version) becomes the narrow projection. Projecting
+      # "__ROW_VERSION" defeats covering, so this stays a plain index scan as the source asserts.
+      - query: select rec_no, "__ROW_VERSION" from my_simple_record order by "__ROW_VERSION"
+      - explain: "ISCAN(VERSION_INDEX <,>) | MAP (_.REC_NO AS REC_NO, _.__ROW_VERSION AS __ROW_VERSION)"
+      - result: [
+          {REC_NO: 0, '__ROW_VERSION': !not_null _},
+          {REC_NO: 100, '__ROW_VERSION': !not_null _},
+          {REC_NO: 200, '__ROW_VERSION': !not_null _},
+          {REC_NO: 300, '__ROW_VERSION': !not_null _},
+          {REC_NO: 400, '__ROW_VERSION': !not_null _},
+          {REC_NO: 500, '__ROW_VERSION': !not_null _},
+          {REC_NO: 600, '__ROW_VERSION': !not_null _},
+          {REC_NO: 700, '__ROW_VERSION': !not_null _},
+          {REC_NO: 800, '__ROW_VERSION': !not_null _},
+          {REC_NO: 900, '__ROW_VERSION': !not_null _},
+          {REC_NO: 1, '__ROW_VERSION': !not_null _},
+          {REC_NO: 101, '__ROW_VERSION': !not_null _},
+          {REC_NO: 201, '__ROW_VERSION': !not_null _},
+          {REC_NO: 301, '__ROW_VERSION': !not_null _},
+          {REC_NO: 401, '__ROW_VERSION': !not_null _},
+          {REC_NO: 501, '__ROW_VERSION': !not_null _},
+          {REC_NO: 601, '__ROW_VERSION': !not_null _},
+          {REC_NO: 701, '__ROW_VERSION': !not_null _},
+          {REC_NO: 801, '__ROW_VERSION': !not_null _},
+          {REC_NO: 901, '__ROW_VERSION': !not_null _},
+          {REC_NO: 2, '__ROW_VERSION': !not_null _},
+          {REC_NO: 102, '__ROW_VERSION': !not_null _},
+          {REC_NO: 202, '__ROW_VERSION': !not_null _},
+          {REC_NO: 302, '__ROW_VERSION': !not_null _},
+          {REC_NO: 402, '__ROW_VERSION': !not_null _},
+          {REC_NO: 502, '__ROW_VERSION': !not_null _},
+          {REC_NO: 602, '__ROW_VERSION': !not_null _},
+          {REC_NO: 702, '__ROW_VERSION': !not_null _},
+          {REC_NO: 802, '__ROW_VERSION': !not_null _},
+          {REC_NO: 902, '__ROW_VERSION': !not_null _},
+          {REC_NO: 3, '__ROW_VERSION': !not_null _},
+          {REC_NO: 103, '__ROW_VERSION': !not_null _},
+          {REC_NO: 203, '__ROW_VERSION': !not_null _},
+          {REC_NO: 303, '__ROW_VERSION': !not_null _},
+          {REC_NO: 403, '__ROW_VERSION': !not_null _},
+          {REC_NO: 503, '__ROW_VERSION': !not_null _},
+          {REC_NO: 603, '__ROW_VERSION': !not_null _},
+          {REC_NO: 703, '__ROW_VERSION': !not_null _},
+          {REC_NO: 803, '__ROW_VERSION': !not_null _},
+          {REC_NO: 903, '__ROW_VERSION': !not_null _},
+          {REC_NO: 4, '__ROW_VERSION': !not_null _},
+          {REC_NO: 104, '__ROW_VERSION': !not_null _},
+          {REC_NO: 204, '__ROW_VERSION': !not_null _},
+          {REC_NO: 304, '__ROW_VERSION': !not_null _},
+          {REC_NO: 404, '__ROW_VERSION': !not_null _},
+          {REC_NO: 504, '__ROW_VERSION': !not_null _},
+          {REC_NO: 604, '__ROW_VERSION': !not_null _},
+          {REC_NO: 704, '__ROW_VERSION': !not_null _},
+          {REC_NO: 804, '__ROW_VERSION': !not_null _},
+          {REC_NO: 904, '__ROW_VERSION': !not_null _},
+          {REC_NO: 5, '__ROW_VERSION': !not_null _},
+          {REC_NO: 105, '__ROW_VERSION': !not_null _},
+          {REC_NO: 205, '__ROW_VERSION': !not_null _},
+          {REC_NO: 305, '__ROW_VERSION': !not_null _},
+          {REC_NO: 405, '__ROW_VERSION': !not_null _},
+          {REC_NO: 505, '__ROW_VERSION': !not_null _},
+          {REC_NO: 605, '__ROW_VERSION': !not_null _},
+          {REC_NO: 705, '__ROW_VERSION': !not_null _},
+          {REC_NO: 805, '__ROW_VERSION': !not_null _},
+          {REC_NO: 905, '__ROW_VERSION': !not_null _},
+          {REC_NO: 6, '__ROW_VERSION': !not_null _},
+          {REC_NO: 106, '__ROW_VERSION': !not_null _},
+          {REC_NO: 206, '__ROW_VERSION': !not_null _},
+          {REC_NO: 306, '__ROW_VERSION': !not_null _},
+          {REC_NO: 406, '__ROW_VERSION': !not_null _},
+          {REC_NO: 506, '__ROW_VERSION': !not_null _},
+          {REC_NO: 606, '__ROW_VERSION': !not_null _},
+          {REC_NO: 706, '__ROW_VERSION': !not_null _},
+          {REC_NO: 806, '__ROW_VERSION': !not_null _},
+          {REC_NO: 906, '__ROW_VERSION': !not_null _},
+          {REC_NO: 7, '__ROW_VERSION': !not_null _},
+          {REC_NO: 107, '__ROW_VERSION': !not_null _},
+          {REC_NO: 207, '__ROW_VERSION': !not_null _},
+          {REC_NO: 307, '__ROW_VERSION': !not_null _},
+          {REC_NO: 407, '__ROW_VERSION': !not_null _},
+          {REC_NO: 507, '__ROW_VERSION': !not_null _},
+          {REC_NO: 607, '__ROW_VERSION': !not_null _},
+          {REC_NO: 707, '__ROW_VERSION': !not_null _},
+          {REC_NO: 807, '__ROW_VERSION': !not_null _},
+          {REC_NO: 907, '__ROW_VERSION': !not_null _},
+          {REC_NO: 8, '__ROW_VERSION': !not_null _},
+          {REC_NO: 108, '__ROW_VERSION': !not_null _},
+          {REC_NO: 208, '__ROW_VERSION': !not_null _},
+          {REC_NO: 308, '__ROW_VERSION': !not_null _},
+          {REC_NO: 408, '__ROW_VERSION': !not_null _},
+          {REC_NO: 508, '__ROW_VERSION': !not_null _},
+          {REC_NO: 608, '__ROW_VERSION': !not_null _},
+          {REC_NO: 708, '__ROW_VERSION': !not_null _},
+          {REC_NO: 808, '__ROW_VERSION': !not_null _},
+          {REC_NO: 908, '__ROW_VERSION': !not_null _},
+          {REC_NO: 9, '__ROW_VERSION': !not_null _},
+          {REC_NO: 109, '__ROW_VERSION': !not_null _},
+          {REC_NO: 209, '__ROW_VERSION': !not_null _},
+          {REC_NO: 309, '__ROW_VERSION': !not_null _},
+          {REC_NO: 409, '__ROW_VERSION': !not_null _},
+          {REC_NO: 509, '__ROW_VERSION': !not_null _},
+          {REC_NO: 609, '__ROW_VERSION': !not_null _},
+          {REC_NO: 709, '__ROW_VERSION': !not_null _},
+          {REC_NO: 809, '__ROW_VERSION': !not_null _},
+          {REC_NO: 909, '__ROW_VERSION': !not_null _},
+        ]
+    -
+      # sortAndFilterWithSingleIndex
+      # One index answers both the equality and the version sort: NUM_VALUE_2 is j % 3, so this
+      # selects j in {1, 4, 7} from every transaction.
+      - query: select * from my_simple_record where num_value_2 = 1 order by "__ROW_VERSION"
+      - explain: "ISCAN(VERSION_BY_NUM_VALUE_2_INDEX [EQUALS promote(@c7 AS INT)]) | MAP (_.REC_NO AS REC_NO, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.NUM_VALUE_2 AS NUM_VALUE_2, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED, _.REPEATER AS REPEATER)"
+      - result: [
+          {REC_NO: 100, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 1, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 400, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 4, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 700, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 7, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 101, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 101, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 401, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 104, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 701, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 107, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 102, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 201, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 402, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 204, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 702, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 207, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 103, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 301, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 403, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 304, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 703, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 307, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 104, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 401, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 404, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 404, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 704, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 407, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 105, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 501, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 405, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 504, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 705, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 507, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 106, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 601, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 406, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 604, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 706, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 607, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 107, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 701, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 407, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 704, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 707, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 707, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 108, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 801, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 408, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 804, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 708, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 807, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+          {REC_NO: 109, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 901, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: !null _},
+          {REC_NO: 409, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 904, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: !null _},
+          {REC_NO: 709, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 907, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 7, REPEATER: !null _},
+        ]
+    -
+      # requestVersionWhenQueryIsOnOtherFields
+      # The predicate is on an unrelated column but the version is still required, so
+      # MY_SIMPLE_RECORD_STR_VALUE_INDEXED is scanned and the records fetched. No ORDER BY in the
+      # source, so the row sequence is not asserted.
+      - query: select rec_no, "__ROW_VERSION" from my_simple_record where str_value_indexed = 'even'
+      - explain: "ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c9 AS STRING)]) | MAP (_.REC_NO AS REC_NO, _.__ROW_VERSION AS __ROW_VERSION)"
+      - unorderedResult: [
+          {REC_NO: 0, '__ROW_VERSION': !not_null _},
+          {REC_NO: 200, '__ROW_VERSION': !not_null _},
+          {REC_NO: 400, '__ROW_VERSION': !not_null _},
+          {REC_NO: 600, '__ROW_VERSION': !not_null _},
+          {REC_NO: 800, '__ROW_VERSION': !not_null _},
+          {REC_NO: 1, '__ROW_VERSION': !not_null _},
+          {REC_NO: 201, '__ROW_VERSION': !not_null _},
+          {REC_NO: 401, '__ROW_VERSION': !not_null _},
+          {REC_NO: 601, '__ROW_VERSION': !not_null _},
+          {REC_NO: 801, '__ROW_VERSION': !not_null _},
+          {REC_NO: 2, '__ROW_VERSION': !not_null _},
+          {REC_NO: 202, '__ROW_VERSION': !not_null _},
+          {REC_NO: 402, '__ROW_VERSION': !not_null _},
+          {REC_NO: 602, '__ROW_VERSION': !not_null _},
+          {REC_NO: 802, '__ROW_VERSION': !not_null _},
+          {REC_NO: 3, '__ROW_VERSION': !not_null _},
+          {REC_NO: 203, '__ROW_VERSION': !not_null _},
+          {REC_NO: 403, '__ROW_VERSION': !not_null _},
+          {REC_NO: 603, '__ROW_VERSION': !not_null _},
+          {REC_NO: 803, '__ROW_VERSION': !not_null _},
+          {REC_NO: 4, '__ROW_VERSION': !not_null _},
+          {REC_NO: 204, '__ROW_VERSION': !not_null _},
+          {REC_NO: 404, '__ROW_VERSION': !not_null _},
+          {REC_NO: 604, '__ROW_VERSION': !not_null _},
+          {REC_NO: 804, '__ROW_VERSION': !not_null _},
+          {REC_NO: 5, '__ROW_VERSION': !not_null _},
+          {REC_NO: 205, '__ROW_VERSION': !not_null _},
+          {REC_NO: 405, '__ROW_VERSION': !not_null _},
+          {REC_NO: 605, '__ROW_VERSION': !not_null _},
+          {REC_NO: 805, '__ROW_VERSION': !not_null _},
+          {REC_NO: 6, '__ROW_VERSION': !not_null _},
+          {REC_NO: 206, '__ROW_VERSION': !not_null _},
+          {REC_NO: 406, '__ROW_VERSION': !not_null _},
+          {REC_NO: 606, '__ROW_VERSION': !not_null _},
+          {REC_NO: 806, '__ROW_VERSION': !not_null _},
+          {REC_NO: 7, '__ROW_VERSION': !not_null _},
+          {REC_NO: 207, '__ROW_VERSION': !not_null _},
+          {REC_NO: 407, '__ROW_VERSION': !not_null _},
+          {REC_NO: 607, '__ROW_VERSION': !not_null _},
+          {REC_NO: 807, '__ROW_VERSION': !not_null _},
+          {REC_NO: 8, '__ROW_VERSION': !not_null _},
+          {REC_NO: 208, '__ROW_VERSION': !not_null _},
+          {REC_NO: 408, '__ROW_VERSION': !not_null _},
+          {REC_NO: 608, '__ROW_VERSION': !not_null _},
+          {REC_NO: 808, '__ROW_VERSION': !not_null _},
+          {REC_NO: 9, '__ROW_VERSION': !not_null _},
+          {REC_NO: 209, '__ROW_VERSION': !not_null _},
+          {REC_NO: 409, '__ROW_VERSION': !not_null _},
+          {REC_NO: 609, '__ROW_VERSION': !not_null _},
+          {REC_NO: 809, '__ROW_VERSION': !not_null _},
+        ]
+    -
+      # versionGraphQuery
+      # The source builds `SELECT "__ROW_VERSION" AS version, rec_no AS number ... ORDER BY version`
+      # as a graph and sorts on the *projected* column; ORDER BY here resolves the select alias
+      # (QueryVisitor.visitOrderByClauseForSelect), so the sort is on the same expression. If alias
+      # resolution ever stops covering this, `order by "__ROW_VERSION"` is the equivalent spelling.
+      - query: select "__ROW_VERSION" as version, rec_no as number from my_simple_record order by version
+      - explain: "ISCAN(VERSION_INDEX <,>) | MAP (_.__ROW_VERSION AS VERSION, _.REC_NO AS NUMBER)"
+      - result: [
+          {VERSION: !not_null _, NUMBER: 0},
+          {VERSION: !not_null _, NUMBER: 100},
+          {VERSION: !not_null _, NUMBER: 200},
+          {VERSION: !not_null _, NUMBER: 300},
+          {VERSION: !not_null _, NUMBER: 400},
+          {VERSION: !not_null _, NUMBER: 500},
+          {VERSION: !not_null _, NUMBER: 600},
+          {VERSION: !not_null _, NUMBER: 700},
+          {VERSION: !not_null _, NUMBER: 800},
+          {VERSION: !not_null _, NUMBER: 900},
+          {VERSION: !not_null _, NUMBER: 1},
+          {VERSION: !not_null _, NUMBER: 101},
+          {VERSION: !not_null _, NUMBER: 201},
+          {VERSION: !not_null _, NUMBER: 301},
+          {VERSION: !not_null _, NUMBER: 401},
+          {VERSION: !not_null _, NUMBER: 501},
+          {VERSION: !not_null _, NUMBER: 601},
+          {VERSION: !not_null _, NUMBER: 701},
+          {VERSION: !not_null _, NUMBER: 801},
+          {VERSION: !not_null _, NUMBER: 901},
+          {VERSION: !not_null _, NUMBER: 2},
+          {VERSION: !not_null _, NUMBER: 102},
+          {VERSION: !not_null _, NUMBER: 202},
+          {VERSION: !not_null _, NUMBER: 302},
+          {VERSION: !not_null _, NUMBER: 402},
+          {VERSION: !not_null _, NUMBER: 502},
+          {VERSION: !not_null _, NUMBER: 602},
+          {VERSION: !not_null _, NUMBER: 702},
+          {VERSION: !not_null _, NUMBER: 802},
+          {VERSION: !not_null _, NUMBER: 902},
+          {VERSION: !not_null _, NUMBER: 3},
+          {VERSION: !not_null _, NUMBER: 103},
+          {VERSION: !not_null _, NUMBER: 203},
+          {VERSION: !not_null _, NUMBER: 303},
+          {VERSION: !not_null _, NUMBER: 403},
+          {VERSION: !not_null _, NUMBER: 503},
+          {VERSION: !not_null _, NUMBER: 603},
+          {VERSION: !not_null _, NUMBER: 703},
+          {VERSION: !not_null _, NUMBER: 803},
+          {VERSION: !not_null _, NUMBER: 903},
+          {VERSION: !not_null _, NUMBER: 4},
+          {VERSION: !not_null _, NUMBER: 104},
+          {VERSION: !not_null _, NUMBER: 204},
+          {VERSION: !not_null _, NUMBER: 304},
+          {VERSION: !not_null _, NUMBER: 404},
+          {VERSION: !not_null _, NUMBER: 504},
+          {VERSION: !not_null _, NUMBER: 604},
+          {VERSION: !not_null _, NUMBER: 704},
+          {VERSION: !not_null _, NUMBER: 804},
+          {VERSION: !not_null _, NUMBER: 904},
+          {VERSION: !not_null _, NUMBER: 5},
+          {VERSION: !not_null _, NUMBER: 105},
+          {VERSION: !not_null _, NUMBER: 205},
+          {VERSION: !not_null _, NUMBER: 305},
+          {VERSION: !not_null _, NUMBER: 405},
+          {VERSION: !not_null _, NUMBER: 505},
+          {VERSION: !not_null _, NUMBER: 605},
+          {VERSION: !not_null _, NUMBER: 705},
+          {VERSION: !not_null _, NUMBER: 805},
+          {VERSION: !not_null _, NUMBER: 905},
+          {VERSION: !not_null _, NUMBER: 6},
+          {VERSION: !not_null _, NUMBER: 106},
+          {VERSION: !not_null _, NUMBER: 206},
+          {VERSION: !not_null _, NUMBER: 306},
+          {VERSION: !not_null _, NUMBER: 406},
+          {VERSION: !not_null _, NUMBER: 506},
+          {VERSION: !not_null _, NUMBER: 606},
+          {VERSION: !not_null _, NUMBER: 706},
+          {VERSION: !not_null _, NUMBER: 806},
+          {VERSION: !not_null _, NUMBER: 906},
+          {VERSION: !not_null _, NUMBER: 7},
+          {VERSION: !not_null _, NUMBER: 107},
+          {VERSION: !not_null _, NUMBER: 207},
+          {VERSION: !not_null _, NUMBER: 307},
+          {VERSION: !not_null _, NUMBER: 407},
+          {VERSION: !not_null _, NUMBER: 507},
+          {VERSION: !not_null _, NUMBER: 607},
+          {VERSION: !not_null _, NUMBER: 707},
+          {VERSION: !not_null _, NUMBER: 807},
+          {VERSION: !not_null _, NUMBER: 907},
+          {VERSION: !not_null _, NUMBER: 8},
+          {VERSION: !not_null _, NUMBER: 108},
+          {VERSION: !not_null _, NUMBER: 208},
+          {VERSION: !not_null _, NUMBER: 308},
+          {VERSION: !not_null _, NUMBER: 408},
+          {VERSION: !not_null _, NUMBER: 508},
+          {VERSION: !not_null _, NUMBER: 608},
+          {VERSION: !not_null _, NUMBER: 708},
+          {VERSION: !not_null _, NUMBER: 808},
+          {VERSION: !not_null _, NUMBER: 908},
+          {VERSION: !not_null _, NUMBER: 9},
+          {VERSION: !not_null _, NUMBER: 109},
+          {VERSION: !not_null _, NUMBER: 209},
+          {VERSION: !not_null _, NUMBER: 309},
+          {VERSION: !not_null _, NUMBER: 409},
+          {VERSION: !not_null _, NUMBER: 509},
+          {VERSION: !not_null _, NUMBER: 609},
+          {VERSION: !not_null _, NUMBER: 709},
+          {VERSION: !not_null _, NUMBER: 809},
+          {VERSION: !not_null _, NUMBER: 909},
+        ]
+    -
+      # versionsInProjectionOnly
+      # Same access path as requestVersionWhenQueryIsOnOtherFields, with the version projected first
+      # and aliased, which is how the source's graph names it.
+      - query: select "__ROW_VERSION" as version, rec_no from my_simple_record where str_value_indexed = 'even'
+      - explain: "ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c11 AS STRING)]) | MAP (_.__ROW_VERSION AS VERSION, _.REC_NO AS REC_NO)"
+      - unorderedResult: [
+          {VERSION: !not_null _, REC_NO: 0},
+          {VERSION: !not_null _, REC_NO: 200},
+          {VERSION: !not_null _, REC_NO: 400},
+          {VERSION: !not_null _, REC_NO: 600},
+          {VERSION: !not_null _, REC_NO: 800},
+          {VERSION: !not_null _, REC_NO: 1},
+          {VERSION: !not_null _, REC_NO: 201},
+          {VERSION: !not_null _, REC_NO: 401},
+          {VERSION: !not_null _, REC_NO: 601},
+          {VERSION: !not_null _, REC_NO: 801},
+          {VERSION: !not_null _, REC_NO: 2},
+          {VERSION: !not_null _, REC_NO: 202},
+          {VERSION: !not_null _, REC_NO: 402},
+          {VERSION: !not_null _, REC_NO: 602},
+          {VERSION: !not_null _, REC_NO: 802},
+          {VERSION: !not_null _, REC_NO: 3},
+          {VERSION: !not_null _, REC_NO: 203},
+          {VERSION: !not_null _, REC_NO: 403},
+          {VERSION: !not_null _, REC_NO: 603},
+          {VERSION: !not_null _, REC_NO: 803},
+          {VERSION: !not_null _, REC_NO: 4},
+          {VERSION: !not_null _, REC_NO: 204},
+          {VERSION: !not_null _, REC_NO: 404},
+          {VERSION: !not_null _, REC_NO: 604},
+          {VERSION: !not_null _, REC_NO: 804},
+          {VERSION: !not_null _, REC_NO: 5},
+          {VERSION: !not_null _, REC_NO: 205},
+          {VERSION: !not_null _, REC_NO: 405},
+          {VERSION: !not_null _, REC_NO: 605},
+          {VERSION: !not_null _, REC_NO: 805},
+          {VERSION: !not_null _, REC_NO: 6},
+          {VERSION: !not_null _, REC_NO: 206},
+          {VERSION: !not_null _, REC_NO: 406},
+          {VERSION: !not_null _, REC_NO: 606},
+          {VERSION: !not_null _, REC_NO: 806},
+          {VERSION: !not_null _, REC_NO: 7},
+          {VERSION: !not_null _, REC_NO: 207},
+          {VERSION: !not_null _, REC_NO: 407},
+          {VERSION: !not_null _, REC_NO: 607},
+          {VERSION: !not_null _, REC_NO: 807},
+          {VERSION: !not_null _, REC_NO: 8},
+          {VERSION: !not_null _, REC_NO: 208},
+          {VERSION: !not_null _, REC_NO: 408},
+          {VERSION: !not_null _, REC_NO: 608},
+          {VERSION: !not_null _, REC_NO: 808},
+          {VERSION: !not_null _, REC_NO: 9},
+          {VERSION: !not_null _, REC_NO: 209},
+          {VERSION: !not_null _, REC_NO: 409},
+          {VERSION: !not_null _, REC_NO: 609},
+          {VERSION: !not_null _, REC_NO: 809},
+        ]
+...

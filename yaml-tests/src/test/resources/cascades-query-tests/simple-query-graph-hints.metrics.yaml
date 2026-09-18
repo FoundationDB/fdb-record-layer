@@ -1,0 +1,15 @@
+simple-query-graph-hints:
+-   query: EXPLAIN select name as nameNew, rest_no as restNoNew from restaurant_record
+        use index (restaurant_record_name) where rest_no > 1
+    ref: simple-query-graph-hints.yamsql:111
+    explain: 'COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]])
+        | FILTER _.REST_NO GREATER_THAN promote(@c18 AS LONG) | MAP (_.NAME AS NAMENEW,
+        _.REST_NO AS RESTNONEW)'
+    task_count: 345
+    task_total_time_ms: 3
+    transform_count: 84
+    transform_time_ms: 1
+    transform_yield_count: 22
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 3

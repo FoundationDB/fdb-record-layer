@@ -1,0 +1,25 @@
+nested-field-query-hierarchical:
+-   query: EXPLAIN select * from my_hierarchical_record where parent_path = 'photos'
+    ref: nested-field-query-hierarchical.yamsql:70
+    explain: SCAN([EQUALS promote(@c7 AS STRING)]) | TFILTER MY_HIERARCHICAL_RECORD
+    task_count: 350
+    task_total_time_ms: 4
+    transform_count: 82
+    transform_time_ms: 2
+    transform_yield_count: 32
+    insert_time_ms: 0
+    insert_new_count: 41
+    insert_reused_count: 3
+-   query: EXPLAIN select * from my_hierarchical_record where parent_path like 'photos%'
+    ref: nested-field-query-hierarchical.yamsql:87
+    explain: 'COVERING(MY_HIERARCHICAL_RECORD_NUM_VALUE_INDEXED <,> -> [CHILD_NAME:
+        KEY:[2], NUM_VALUE_INDEXED: KEY:[0], PARENT_PATH: KEY:[1]]) | FILTER _.PARENT_PATH
+        LIKE @c7 ESCAPE ''null'' | FETCH'
+    task_count: 336
+    task_total_time_ms: 4
+    transform_count: 79
+    transform_time_ms: 2
+    transform_yield_count: 29
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 4

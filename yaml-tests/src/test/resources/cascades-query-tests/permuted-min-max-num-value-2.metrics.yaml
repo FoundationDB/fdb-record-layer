@@ -1,0 +1,17 @@
+permuted-min-max-num-value-2:
+-   query: EXPLAIN select str_value_indexed, num_value_3_indexed, max(num_value_2)
+        as m from my_simple_record group by str_value_indexed, num_value_3_indexed
+        having str_value_indexed in ('even', 'odd') order by max(num_value_2) desc
+    ref: permuted-min-max-num-value-2.yamsql:70
+    explain: '[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_2_BY_STR_VALUE_THREE
+        [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) |
+        MAP (_._0 AS STR_VALUE_INDEXED, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) }
+        COMPARE BY (_.M, _.STR_VALUE_INDEXED, _.NUM_VALUE_3_INDEXED)'
+    task_count: 556
+    task_total_time_ms: 10
+    transform_count: 221
+    transform_time_ms: 7
+    transform_yield_count: 63
+    insert_time_ms: 0
+    insert_new_count: 36
+    insert_reused_count: 0

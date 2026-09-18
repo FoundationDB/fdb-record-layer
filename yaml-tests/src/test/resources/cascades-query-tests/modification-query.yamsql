@@ -1,0 +1,247 @@
+#
+# modification-query.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBModificationQueryTest` — query graphs that modify the store. All seven methods are
+# `@DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)` and all build their graph with
+# `planGraph`, so the whole class is in scope. Five land here; two do not port, see below.
+#
+# Schema: `openNestedRecordStore` = `nestedMetaData(null)` — *both* TestRecords4 record types in one
+# store with bare primary keys, the two proto-declared `name` indexes, three fan-out indexes over
+# RestaurantRecord's repeated fields and `stats$school` on RestaurantReviewer. This is the same
+# template as `simple-query-graph.yamsql`, which ports the other class built on `openNestedRecordStore`.
+# `addUniversalIndex(globalCountIndex())` is not reproduced — a universal index spans record types and
+# `RecordLayerSchemaTemplate.computeIndexes` cannot express one — and no query here can match it.
+#
+# `WITH OPTIONS(INTERMINGLE_TABLES=true)` removes the record-type prefix, so the two tables share one
+# primary-key space. That is safe here only because RESTAURANT_REVIEWER is never populated — the source
+# never populates it either — as RESTAURANT_RECORD.REST_NO 100 and RESTAURANT_REVIEWER.ID 100 would
+# otherwise be the very same key.
+#
+# **This file is stateful**, which no other file in this directory is: its queries mutate the store, so
+# every `test_block` depends on the ones before it and `preset: single_repetition_ordered` is
+# load-bearing rather than a cost saving. Two framework facts make that sound: blocks and the tests
+# within an ordered block execute in the order written, and only queries whose text starts with
+# `select` are re-run under the ForceContinuations configuration
+# (`QueryExecutor.isForcedContinuationsEligible`), so each DML statement is executed exactly once. The
+# `explain:` directive re-issues the query as `EXPLAIN <query>`, which plans without executing.
+#
+# SUBSTITUTED PREDICATE. The source selects the rows it just wrote with `whereReviewsIsEmptyGraph`, i.e.
+# `reviews = <empty list>` — every record it inserts has an empty `reviews`, so the predicate is just
+# "find my rows". The literal translation `where reviews = []` **fails at execution** with an internal
+# `VerifyException`, so the five verification selects here are unrestricted `select * from
+# restaurant_record` instead. Nothing is lost: the table holds only the rows these blocks write, and what
+# the source asserts is insert/delete/update behaviour and row counts, not array comparison.
+#
+# The failure: `PromoteValue.eval` computes a descriptor for exactly three target shapes — simple
+# promotion, enum, record — and `Verify.verify(promoteToType.isRecord())` (`PromoteValue.java:265`) then
+# fails for an *array* target. `isSimplePromotion` (`:224-226`) admits an array only when its element type
+# is primitive, which is why `arrays-operators.yamsql`'s `INTEGER ARRAY = []` passes and a **struct**
+# array does not. It plans fine and throws on the first row evaluated, so an empty table hides it.
+# Analysis: .out/issue-promotevalue-struct-array-comparison.md.
+---
+options:
+  supported_version: 4.11.1.0
+---
+schema_template:
+    create type as struct restaurant_review(reviewer bigint, rating integer)
+    create type as struct restaurant_tag(value string, weight integer)
+    create type as struct reviewer_stats(start_date bigint, school_name string, hometown string)
+    create table restaurant_record(
+        rest_no bigint,
+        name string,
+        reviews restaurant_review array,
+        tags restaurant_tag array,
+        customer string array,
+        primary key(rest_no))
+    create table restaurant_reviewer(
+        id bigint,
+        name string,
+        email string,
+        stats reviewer_stats,
+        category integer,
+        primary key(id))
+    create index restaurant_record_name as select name from restaurant_record
+    create index restaurant_reviewer_name as select name from restaurant_reviewer
+    create index review_rating as
+        select sq.rating from restaurant_record as r, (select rating from r.reviews) sq
+        order by sq.rating
+    create index tag as
+        select sq.value, sq.weight from restaurant_record as r, (select value, weight from r.tags) sq
+        order by sq.value, sq.weight
+    create index customers as
+        select sq.c from restaurant_record as r, (select c from r.customer as c) sq order by sq.c
+    create index customers_name as
+        select sq.c, r.name from restaurant_record as r, (select c from r.customer as c) sq
+        order by sq.c, r.name
+    create index stats_school as
+        select stats.start_date from restaurant_reviewer order by stats.start_date
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+test_block:
+  name: modification-query-insert
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testPlanInsertExpression — the source plans `insertGraph` once and executes it twice, first with
+      # `setDryRun(true)` and then for real. The dry run flows both rows out of the plan, so the row
+      # count is 2, but nothing reaches the store.
+      - query: insert into restaurant_record
+               values (100, 'Burger King', [], [], []),
+                      (200, 'Heirloom Cafe', [], [], [])
+               options(dry run)
+      - explain: "EXPLODE array((promote(@c5 AS LONG) AS REST_NO, @c7 AS NAME, array() AS REVIEWS, array() AS TAGS, array() AS CUSTOMER), (promote(@c20 AS LONG) AS REST_NO, @c22 AS NAME, array() AS REVIEWS, array() AS TAGS, array() AS CUSTOMER)) | INSERT INTO RESTAURANT_RECORD"
+      - count: 2
+    -
+      # The source's `whereReviewsIsEmptyGraph` select: `reviews` equals the empty list. After the dry
+      # run it must still find nothing.
+      - query: select * from restaurant_record
+      - explain: "ISCAN(RESTAURANT_RECORD_NAME <,>)"
+      - result: []
+    -
+      # The same plan run for real.
+      - query: insert into restaurant_record
+               values (100, 'Burger King', [], [], []),
+                      (200, 'Heirloom Cafe', [], [], [])
+      - explain: "EXPLODE array((promote(@c5 AS LONG) AS REST_NO, @c7 AS NAME, array() AS REVIEWS, array() AS TAGS, array() AS CUSTOMER), (promote(@c20 AS LONG) AS REST_NO, @c22 AS NAME, array() AS REVIEWS, array() AS TAGS, array() AS CUSTOMER)) | INSERT INTO RESTAURANT_RECORD"
+      - count: 2
+    -
+      # Both rows are now readable. Unordered: the query has no ORDER BY and the source asserts no
+      # order either — it switches on REST_NO.
+      - query: select * from restaurant_record
+      - explain: "ISCAN(RESTAURANT_RECORD_NAME <,>)"
+      - unorderedResult: [{REST_NO: 100, NAME: 'Burger King', REVIEWS: [], TAGS: [], CUSTOMER: []},
+                          {REST_NO: 200, NAME: 'Heirloom Cafe', REVIEWS: [], TAGS: [], CUSTOMER: []}]
+---
+test_block:
+  name: modification-query-insert-existing
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testInsertExistingRecordThrowsException — the source inserts the two records and then runs the
+      # very same plan again, expecting a `RecordAlreadyExistsException` whose message contains "record
+      # already exists". `ExceptionUtil:70` maps that to UNIQUE_CONSTRAINT_VIOLATION. No `explain:`
+      # here: the plan is identical to the insert in the block above, and the point is the execution
+      # error rather than the plan.
+      - query: insert into restaurant_record
+               values (100, 'Burger King', [], [], []),
+                      (200, 'Heirloom Cafe', [], [], [])
+      - error: UNIQUE_CONSTRAINT_VIOLATION
+    -
+      # The source's second half: a *dry run* insert of an existing record throws in exactly the same
+      # way. Suppressing the write does not suppress the existence check.
+      - query: insert into restaurant_record
+               values (100, 'Burger King', [], [], []),
+                      (200, 'Heirloom Cafe', [], [], [])
+               options(dry run)
+      - error: UNIQUE_CONSTRAINT_VIOLATION
+---
+test_block:
+  name: modification-query-delete
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testPlanDeleteExpression — the source asserts `deletePlan(typeFilterPlan(scanPlan()))`, with no
+      # distinct operator above the scan, and runs it dry first. The dry run flows the one matching
+      # record out of the plan, so the row count is 1, but the record stays.
+      - query: delete from restaurant_record where rest_no = 100 options(dry run)
+      - explain: "SCAN([EQUALS promote(@c6 AS LONG)]) | TFILTER RESTAURANT_RECORD | DELETE"
+      - count: 1
+    -
+      # Both records still present after the dry run — this is the source's "select returns 2 records".
+      - query: select * from restaurant_record
+      - explain: "ISCAN(RESTAURANT_RECORD_NAME <,>)"
+      - unorderedResult: [{REST_NO: 100, NAME: 'Burger King', REVIEWS: [], TAGS: [], CUSTOMER: []},
+                          {REST_NO: 200, NAME: 'Heirloom Cafe', REVIEWS: [], TAGS: [], CUSTOMER: []}]
+    -
+      # The same plan run for real.
+      - query: delete from restaurant_record where rest_no = 100
+      - explain: "SCAN([EQUALS promote(@c6 AS LONG)]) | TFILTER RESTAURANT_RECORD | DELETE"
+      - count: 1
+    -
+      # Only the untouched record is left. One row, so the sequence is trivially determined.
+      - query: select * from restaurant_record
+      - explain: "ISCAN(RESTAURANT_RECORD_NAME <,>)"
+      - result: [{REST_NO: 200, NAME: 'Heirloom Cafe', REVIEWS: [], TAGS: [], CUSTOMER: []}]
+---
+setup:
+  steps:
+    # Put REST_NO 100 back, so the update block starts from the two records its source method inserts.
+    - query: INSERT INTO RESTAURANT_RECORD (REST_NO, NAME, REVIEWS, TAGS, CUSTOMER)
+             VALUES (100, 'Burger King', [], [], [])
+---
+test_block:
+  name: modification-query-update
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testPlanUpdateExpression — `UPDATE RestaurantRecord WHERE rest_no = 100 SET name = name +
+      # ' McDonalds'`. The source asserts
+      # `updatePlan(unorderedPrimaryKeyDistinctPlan(typeFilterPlan(scanPlan())))` targeting
+      # RestaurantRecord, and runs the plan for real first. No RETURNING, so the plan stays comparable
+      # with that assertion; the old and new values are checked by the dry run below and by the
+      # readback.
+      - query: update restaurant_record set name = name + ' McDonalds' where rest_no = 100
+      - explain: "SCAN([EQUALS promote(@c11 AS LONG)]) | TFILTER RESTAURANT_RECORD | DISTINCT BY PK | UPDATE RESTAURANT_RECORD"
+      - count: 1
+    -
+      # The source's dry run of the same plan: `old` is what the wet run wrote and `new` is the value
+      # the plan computes on top of it, which must *not* be written. RETURNING is the only way to see
+      # that from SQL, at the cost of a MAP above the UPDATE — the two NAME projections have to be
+      # aliased apart, since a projection cannot produce two columns of the same name.
+      - query: update restaurant_record set name = name + ' McDonalds' where rest_no = 100
+               returning "old".name as old_name, "new".name as new_name
+               options(dry run)
+      - explain: "SCAN([EQUALS promote(@c11 AS LONG)]) | TFILTER RESTAURANT_RECORD | DISTINCT BY PK | UPDATE RESTAURANT_RECORD | MAP (_.old.NAME AS OLD_NAME, _.new.NAME AS NEW_NAME)"
+      - result: [{OLD_NAME: 'Burger King McDonalds', NEW_NAME: 'Burger King McDonalds McDonalds'}]
+    -
+      # One wet update and one dry run leave REST_NO 100 renamed exactly once, and REST_NO 200
+      # untouched — the source's closing assertion.
+      - query: select * from restaurant_record
+      - explain: "ISCAN(RESTAURANT_RECORD_NAME <,>)"
+      - unorderedResult: [{REST_NO: 100, NAME: 'Burger King McDonalds', REVIEWS: [], TAGS: [], CUSTOMER: []},
+                          {REST_NO: 200, NAME: 'Heirloom Cafe', REVIEWS: [], TAGS: [], CUSTOMER: []}]
+---
+test_block:
+  name: modification-query-stable-plan-hash
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testStablePlanHash, first shape (`getUpdatePlan`) — an update of a field *inside* a nested
+      # struct, whose assigned literal is an `int` where the column is a `bigint`, so it has to be
+      # promoted. The source only plans this graph (twice, comparing plan hashes) and never executes
+      # it; RESTAURANT_REVIEWER is empty, exactly as in the source, so no row matches. The predicate
+      # `id = 100` picks the same key as RESTAURANT_RECORD.REST_NO 100 under INTERMINGLE_TABLES, which
+      # makes this also a check that the type filter keeps the two apart.
+      - query: update restaurant_reviewer set stats.start_date = 3 where id = 100
+      - explain: "SCAN([EQUALS promote(@c11 AS LONG)]) | TFILTER RESTAURANT_REVIEWER | DISTINCT BY PK | UPDATE RESTAURANT_REVIEWER"
+      - count: 0
+    -
+      # testStablePlanHash, second shape (`getUpdateArrayPlan`) — replacing a whole STRUCT ARRAY column
+      # with an array constructor. Also only planned in the source; executed here.
+      - query: update restaurant_record set reviews = [(1, 34), (2, 14)] where rest_no = 100
+      - explain: "SCAN([EQUALS promote(@c21 AS LONG)]) | TFILTER RESTAURANT_RECORD | DISTINCT BY PK | UPDATE RESTAURANT_RECORD"
+      - count: 1
+    -
+      # The array landed, element order preserved. One row, so the sequence is determined.
+      - query: select * from restaurant_record where rest_no = 100
+      - explain: "SCAN([EQUALS promote(@c7 AS LONG)]) | TFILTER RESTAURANT_RECORD"
+      - result: [{REST_NO: 100, NAME: 'Burger King McDonalds',
+                  REVIEWS: [{REVIEWER: 1, RATING: 34}, {REVIEWER: 2, RATING: 14}],
+                  TAGS: [], CUSTOMER: []}]
+...

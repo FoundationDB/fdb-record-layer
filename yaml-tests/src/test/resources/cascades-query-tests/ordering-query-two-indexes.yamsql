@@ -1,0 +1,86 @@
+#
+# ordering-query-two-indexes.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBOrderingQueryTest.testUnionOrdered2` and `.testUnionOrdered3` — an ordered union
+# whose legs come from two different indexes, one of which stores STR_VALUE_INDEXED in natural
+# order and one in DESC NULLS LAST order.
+#
+# The source hook is `indexHookWithInverseAndNonInverse("order_desc_nulls_last")`. No row has
+# STR_VALUE_INDEXED = 'hello', so the first union leg is always empty; the source tests likewise
+# assert on the plan only. The real assertion arrives with the `explain:` value.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index ordered_str_value as select num_value_2, str_value_indexed from my_simple_record
+        order by num_value_2 asc, str_value_indexed desc nulls last
+    create index num_value_2_str_value_num_value_3_indexed as
+        select num_value_2, str_value_indexed, num_value_3_indexed from my_simple_record
+        order by num_value_2, str_value_indexed, num_value_3_indexed
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_SIMPLE_RECORD (REC_NO, NUM_VALUE_2, STR_VALUE_INDEXED)
+             VALUES (1, 100, 'something'),
+                    (2, 101, null),
+                    (3, 101, 'a'),
+                    (4, 101, 'ab'),
+                    (5, 101, 'b'),
+                    (6, 102, 'nothing')
+---
+test_block:
+  name: ordering-query-two-indexes
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testUnionOrdered2 — the first leg is an equality on all three columns of
+      # NUM_VALUE_2_STR_VALUE_NUM_VALUE_3_INDEXED.
+      - query: select * from my_simple_record
+               where (num_value_2 = 100 and str_value_indexed = 'hello' and num_value_3_indexed = 2)
+                  or num_value_2 = 101 or num_value_2 = 102
+               order by num_value_2 asc, str_value_indexed desc nulls last
+      - explain: "ISCAN(NUM_VALUE_2_STR_VALUE_NUM_VALUE_3_INDEXED [EQUALS promote(@c8 AS INT), EQUALS promote(@c12 AS STRING), EQUALS promote(@c16 AS INT)]) ∪ ISCAN(ORDERED_STR_VALUE [EQUALS promote(@c21 AS INT)]) ∪ ISCAN(ORDERED_STR_VALUE [EQUALS promote(@c25 AS INT)]) COMPARE BY (_.NUM_VALUE_2, to_ordered_bytes(_.STR_VALUE_INDEXED, DESC_NULLS_LAST), _.REC_NO)"
+      - result: [{REC_NO: 5, STR_VALUE_INDEXED: 'b', NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 101, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 4, STR_VALUE_INDEXED: 'ab', NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 101, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 3, STR_VALUE_INDEXED: 'a', NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 101, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 2, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 101, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 6, STR_VALUE_INDEXED: 'nothing', NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 102, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _}]
+    -
+      # testUnionOrdered3 — an inequality on the trailing column forces the first leg onto
+      # ORDERED_STR_VALUE with a residual predicate instead.
+      - query: select * from my_simple_record
+               where (num_value_2 = 100 and str_value_indexed = 'hello' and num_value_3_indexed > 2)
+                  or num_value_2 = 101 or num_value_2 = 102
+               order by num_value_2 asc, str_value_indexed desc nulls last
+      - explain: "ISCAN(ORDERED_STR_VALUE [EQUALS promote(@c8 AS INT), EQUALS to_ordered_bytes(promote(@c12 AS STRING), DESC_NULLS_LAST)]) | FILTER _.NUM_VALUE_3_INDEXED GREATER_THAN promote(@c16 AS INT) ∪ ISCAN(ORDERED_STR_VALUE [EQUALS promote(@c21 AS INT)]) ∪ ISCAN(ORDERED_STR_VALUE [EQUALS promote(@c25 AS INT)]) COMPARE BY (_.NUM_VALUE_2, to_ordered_bytes(_.STR_VALUE_INDEXED, DESC_NULLS_LAST), _.REC_NO)"
+      - result: [{REC_NO: 5, STR_VALUE_INDEXED: 'b', NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 101, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 4, STR_VALUE_INDEXED: 'ab', NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 101, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 3, STR_VALUE_INDEXED: 'a', NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 101, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 2, STR_VALUE_INDEXED: !null _, NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 101, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _},
+                 {REC_NO: 6, STR_VALUE_INDEXED: 'nothing', NUM_VALUE_UNIQUE: !null _, NUM_VALUE_2: 102, NUM_VALUE_3_INDEXED: !null _, REPEATER: !null _}]
+...

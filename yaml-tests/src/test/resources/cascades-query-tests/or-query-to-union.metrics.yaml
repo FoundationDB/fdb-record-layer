@@ -1,0 +1,129 @@
+or-query-to-union:
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'odd'
+        or num_value_3_indexed = 0
+    ref: or-query-to-union.yamsql:65
+    explain: 'COVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)]
+        -> [REC_NO: KEY:[1], STR_VALUE_INDEXED: KEY:[0]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]])
+        COMPARE BY (_.REC_NO) | FETCH'
+    task_count: 3499
+    task_total_time_ms: 33
+    transform_count: 625
+    transform_time_ms: 15
+    transform_yield_count: 215
+    insert_time_ms: 1
+    insert_new_count: 468
+    insert_reused_count: 45
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed = 1 or
+        num_value_3_indexed = 2 or num_value_3_indexed = 4
+    ref: or-query-to-union.yamsql:131
+    explain: 'COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c7 AS
+        INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]])
+        ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c15 AS INT)]
+        -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) COMPARE BY (_.NUM_VALUE_3_INDEXED,
+        _.REC_NO) | FETCH'
+    task_count: 6568
+    task_total_time_ms: 50
+    transform_count: 1043
+    transform_time_ms: 18
+    transform_yield_count: 321
+    insert_time_ms: 4
+    insert_new_count: 775
+    insert_reused_count: 72
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed = 4 or
+        num_value_3_indexed = 2 or num_value_3_indexed = 1
+    ref: or-query-to-union.yamsql:197
+    explain: 'COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c7 AS
+        INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]])
+        ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c15 AS INT)]
+        -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) COMPARE BY (_.NUM_VALUE_3_INDEXED,
+        _.REC_NO) | FETCH'
+    task_count: 6568
+    task_total_time_ms: 50
+    transform_count: 1043
+    transform_time_ms: 18
+    transform_yield_count: 321
+    insert_time_ms: 4
+    insert_new_count: 775
+    insert_reused_count: 72
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed = 1 or
+        num_value_3_indexed = 2 or num_value_3_indexed > 3
+    ref: or-query-to-union.yamsql:262
+    explain: 'COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c7 AS
+        INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]])
+        ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [[GREATER_THAN promote(@c15
+        AS INT)]] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) COMPARE BY (_.NUM_VALUE_3_INDEXED,
+        _.REC_NO) | FETCH'
+    task_count: 6436
+    task_total_time_ms: 47
+    transform_count: 1030
+    transform_time_ms: 16
+    transform_yield_count: 309
+    insert_time_ms: 4
+    insert_new_count: 775
+    insert_reused_count: 62
+-   query: EXPLAIN select * from my_simple_record where num_value_3_indexed < 2 or
+        num_value_3_indexed > 3
+    ref: or-query-to-union.yamsql:327
+    explain: 'COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [[LESS_THAN promote(@c7
+        AS INT)]] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [[GREATER_THAN promote(@c11 AS INT)]] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO:
+        KEY:[1]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH'
+    task_count: 3165
+    task_total_time_ms: 29
+    transform_count: 571
+    transform_time_ms: 10
+    transform_yield_count: 201
+    insert_time_ms: 2
+    insert_new_count: 415
+    insert_reused_count: 45
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        or num_value_3_indexed = 1 or num_value_3_indexed = 3
+    ref: or-query-to-union.yamsql:392
+    explain: 'COVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)]
+        -> [REC_NO: KEY:[1], STR_VALUE_INDEXED: KEY:[0]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]])
+        ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS promote(@c15 AS INT)]
+        -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) COMPARE BY (_.REC_NO)
+        | FETCH'
+    task_count: 7527
+    task_total_time_ms: 55
+    transform_count: 1183
+    transform_time_ms: 18
+    transform_yield_count: 342
+    insert_time_ms: 4
+    insert_new_count: 888
+    insert_reused_count: 62
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed < 'm' or
+        num_value_3_indexed > 3
+    ref: or-query-to-union.yamsql:468
+    explain: 'COVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [[LESS_THAN promote(@c7
+        AS STRING)]] -> [REC_NO: KEY:[1], STR_VALUE_INDEXED: KEY:[0]]) ⊎ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [[GREATER_THAN promote(@c11 AS INT)]] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO:
+        KEY:[1]]) | DISTINCT BY PK | FETCH'
+    task_count: 3243
+    task_total_time_ms: 29
+    transform_count: 584
+    transform_time_ms: 12
+    transform_yield_count: 203
+    insert_time_ms: 2
+    insert_new_count: 420
+    insert_reused_count: 43
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'm' or
+        num_value_3_indexed = 3
+    ref: or-query-to-union.yamsql:534
+    explain: 'COVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)]
+        -> [REC_NO: KEY:[1], STR_VALUE_INDEXED: KEY:[0]]) ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
+        [EQUALS promote(@c11 AS INT)] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]])
+        COMPARE BY (_.REC_NO) | FETCH'
+    task_count: 3499
+    task_total_time_ms: 33
+    transform_count: 625
+    transform_time_ms: 15
+    transform_yield_count: 215
+    insert_time_ms: 1
+    insert_new_count: 468
+    insert_reused_count: 45

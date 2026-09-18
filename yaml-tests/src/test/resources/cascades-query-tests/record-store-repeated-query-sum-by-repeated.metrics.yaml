@@ -1,0 +1,29 @@
+record-store-repeated-query-sum-by-repeated:
+-   query: EXPLAIN select r.num_value_3_indexed, sum(r.num_value_2) as total from
+        my_simple_record as r, (select v from r.repeater as v) sq where sq.v = 42
+        group by sq.v, r.num_value_3_indexed
+    ref: record-store-repeated-query-sum-by-repeated.yamsql:80
+    explain: 'AISCAN(REPEATED_GROUP_SUM [EQUALS @c34] BY_GROUP -> [_0: KEY:[0], _1:
+        KEY:[1], _2: VALUE:[0]]) | MAP (_._1 AS NUM_VALUE_3_INDEXED, _._2 AS TOTAL)'
+    task_count: 489
+    task_total_time_ms: 15
+    transform_count: 170
+    transform_time_ms: 12
+    transform_yield_count: 54
+    insert_time_ms: 0
+    insert_new_count: 39
+    insert_reused_count: 1
+-   query: EXPLAIN select r.num_value_3_indexed, sum(r.num_value_2) as total from
+        my_simple_record as r, (select v from r.repeater as v) sq group by sq.v, r.num_value_3_indexed
+        having sq.v = 42
+    ref: record-store-repeated-query-sum-by-repeated.yamsql:89
+    explain: 'AISCAN(REPEATED_GROUP_SUM [EQUALS @c43] BY_GROUP -> [_0: KEY:[0], _1:
+        KEY:[1], _2: VALUE:[0]]) | MAP (_._1 AS NUM_VALUE_3_INDEXED, _._2 AS TOTAL)'
+    task_count: 423
+    task_total_time_ms: 8
+    transform_count: 132
+    transform_time_ms: 5
+    transform_yield_count: 45
+    insert_time_ms: 0
+    insert_new_count: 36
+    insert_reused_count: 1

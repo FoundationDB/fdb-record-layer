@@ -1,0 +1,14 @@
+nested-field-query-nested-pk:
+-   query: EXPLAIN select * from my_record where header.path = 'a' and header.rec_no
+        = 2
+    ref: nested-field-query-nested-pk.yamsql:52
+    explain: SCAN([EQUALS promote(@c9 AS STRING), EQUALS promote(@c15 AS LONG)]) |
+        TFILTER MY_RECORD
+    task_count: 199
+    task_total_time_ms: 2
+    transform_count: 51
+    transform_time_ms: 1
+    transform_yield_count: 17
+    insert_time_ms: 0
+    insert_new_count: 20
+    insert_reused_count: 1

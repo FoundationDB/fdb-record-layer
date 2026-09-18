@@ -1,0 +1,92 @@
+#
+# record-store-repeated-query-sum-by-repeated.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBRecordStoreRepeatedQueryTest.querySumByRepeatedPredicateOnGroup` (:209) and
+# `.querySumByRepeatedPredicateOnHaving` (:229). A SUM index grouped by an unnested array element,
+# matched with the array predicate on either side of the grouping.
+#
+# The index is `addSumByRepeatedIndex` (:90-99):
+# `field("num_value_2").groupBy(concat(field("repeater", FanOut), field("num_value_3_indexed")))`,
+# type SUM — so grouping key (repeater FanOut, num_value_3_indexed), aggregated column num_value_2.
+#
+# Both methods assert the same plan, `mapPlan(aggregateIndexPlan().where(scanComparisons(
+# range("[[42],[42]]"))))` (:223-224, :248-249). They differ only in where the `repeater = 42`
+# predicate sits: `selectWhereSumByRepeated` takes it before the grouping (:216), while the OnHaving
+# variant adds it to the select-having instead (:240-244). That becomes WHERE versus HAVING.
+#
+# The projection is `selectHavingByGroup` (:145-151): the second grouping column and the aggregate. The
+# source calls its aggregate column "aggregate"; renamed TOTAL here to stay clear of the keyword
+# question, which nothing asserts.
+#
+# `unorderedResult` because both methods build `LogicalSortExpression.unsorted` (:221, :246).
+#
+# The source saves no records — it plans and stops. The four rows below are invented. REC_NO 4 has no 42
+# in its array and would form a (43, 7) group if the predicate were dropped, so it discriminates.
+#
+# Lost: plan hashes.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index repeated_group_sum as
+        select sum(r.num_value_2) from my_simple_record as r, (select v from r.repeater as v) sq
+        group by sq.v, r.num_value_3_indexed
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_SIMPLE_RECORD (REC_NO, NUM_VALUE_2, NUM_VALUE_3_INDEXED, REPEATER)
+             VALUES
+               (1, 10, 7, [42, 43]),
+               (2, 20, 7, [42]),
+               (3, 35, 8, [42]),
+               (4, 40, 7, [43])
+---
+test_block:
+  name: record-store-repeated-query-sum-by-repeated
+  preset: single_repetition_ordered
+  tests:
+    -
+      # querySumByRepeatedPredicateOnGroup — predicate before the grouping.
+      - query: select r.num_value_3_indexed, sum(r.num_value_2) as total
+               from my_simple_record as r, (select v from r.repeater as v) sq
+               where sq.v = 42
+               group by sq.v, r.num_value_3_indexed
+      - explain: "AISCAN(REPEATED_GROUP_SUM [EQUALS @c34] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._1 AS NUM_VALUE_3_INDEXED, _._2 AS TOTAL)"
+      - unorderedResult: [{NUM_VALUE_3_INDEXED: 7, TOTAL: 30},
+                          {NUM_VALUE_3_INDEXED: 8, TOTAL: 35}]
+    -
+      # querySumByRepeatedPredicateOnHaving — same predicate, moved after the grouping.
+      - query: select r.num_value_3_indexed, sum(r.num_value_2) as total
+               from my_simple_record as r, (select v from r.repeater as v) sq
+               group by sq.v, r.num_value_3_indexed
+               having sq.v = 42
+      - explain: "AISCAN(REPEATED_GROUP_SUM [EQUALS @c43] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._1 AS NUM_VALUE_3_INDEXED, _._2 AS TOTAL)"
+      - unorderedResult: [{NUM_VALUE_3_INDEXED: 7, TOTAL: 30},
+                          {NUM_VALUE_3_INDEXED: 8, TOTAL: 35}]
+...

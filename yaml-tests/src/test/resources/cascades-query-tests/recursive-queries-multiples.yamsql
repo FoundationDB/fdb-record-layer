@@ -1,0 +1,154 @@
+#
+# recursive-queries-multiples.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `RecursiveQueriesTest.multiplesOfTest` and
+# `RecursiveQueriesTest.multiplesOfTestFailsWithPreorderTraversal` — the recursion `F(x) = 2x`,
+# iterated until the product reaches a limit.
+#
+# Its own file, and its own schema: unlike every other test in the class this recursion touches no
+# hierarchy at all. The recursive leg reads the recursion state, multiplies by two and filters —
+# there is no join against a base table. That is exactly why PREORDER cannot be planned here: the
+# depth-first implementation matches on a correlated index scan in the recursive leg, and there is
+# no scan to match. The source records the same thing, calling the plan "currently not matchable for
+# the DFS implementation".
+#
+# The one divergence: the source seeds a temp table with the initial values directly, and a temp
+# table has no SQL surface — a recursive CTE's initial leg has to be a query. So the seed values
+# live in a one-column table, and the source's empty-initial case (`List.of()`) becomes a seed query
+# that selects no rows. Nothing else about the recursion changes; in particular the recursive leg
+# stays free of any table access, which is the property the traversal cases turn on.
+#
+# The predicate is written the way the source builds it — an inner select that projects `id * 2 as
+# id`, and an outer select that applies `id < limit` to the *product*. That is why the initial
+# values survive even when they violate the limit, which the last two blocks show at limit 0.
+#
+# `Assertions.assertEquals(7, plan.getComplexity())` has no yamsql equivalent and is not reproduced.
+---
+schema_template:
+    create table seed(id bigint, primary key(id))
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: insert into seed(id) values (2), (5)
+---
+test_block:
+  name: recursive-queries-multiples
+  preset: single_repetition_ordered
+  tests:
+    -
+      # multiplesOfTest — initial [2, 5], limit 50, ANY traversal.
+      # 2, 5 | 4, 10 | 8, 20 | 16, 40 | 32 — 80 is dropped, and with it the sixth level.
+      - query: with recursive multiples as (
+                   select id from seed
+                   union all
+                   select id from (select id * 2 as id from multiples) as sq where id < 50)
+               select id from multiples
+      - explain: "RUNION q0, q1 { INITIAL { SCAN(<,>) | TFILTER SEED | MAP (_.ID AS ID) | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FILTER _.ID * @c18 LESS_THAN promote(@c29 AS LONG) | MAP (_.ID * @c18 AS ID) | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
+      - result: [{ID: 2}, {ID: 5}, {ID: 4}, {ID: 10}, {ID: 8},
+                 {ID: 20}, {ID: 16}, {ID: 40}, {ID: 32}]
+    -
+      # multiplesOfTest — initial [2, 5], limit 50, LEVEL traversal.
+      # The source expects the same sequence as the ANY case above: with no DFS plan available, ANY
+      # is level order.
+      - query: with recursive multiples as (
+                   select id from seed
+                   union all
+                   select id from (select id * 2 as id from multiples) as sq where id < 50)
+               traversal order level_order
+               select id from multiples
+      - explain: "RUNION q0, q1 { INITIAL { SCAN(<,>) | TFILTER SEED | MAP (_.ID AS ID) | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FILTER _.ID * @c18 LESS_THAN promote(@c29 AS LONG) | MAP (_.ID * @c18 AS ID) | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
+      - result: [{ID: 2}, {ID: 5}, {ID: 4}, {ID: 10}, {ID: 8},
+                 {ID: 20}, {ID: 16}, {ID: 40}, {ID: 32}]
+    -
+      # multiplesOfTest — initial [2, 5], limit 6, ANY traversal.
+      # Only 4 survives the first iteration, and 8 does not survive the second.
+      - query: with recursive multiples as (
+                   select id from seed
+                   union all
+                   select id from (select id * 2 as id from multiples) as sq where id < 6)
+               select id from multiples
+      - explain: "RUNION q0, q1 { INITIAL { SCAN(<,>) | TFILTER SEED | MAP (_.ID AS ID) | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FILTER _.ID * @c18 LESS_THAN promote(@c29 AS LONG) | MAP (_.ID * @c18 AS ID) | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
+      - result: [{ID: 2}, {ID: 5}, {ID: 4}]
+    -
+      # multiplesOfTest — initial [2, 5], limit 6, LEVEL traversal.
+      - query: with recursive multiples as (
+                   select id from seed
+                   union all
+                   select id from (select id * 2 as id from multiples) as sq where id < 6)
+               traversal order level_order
+               select id from multiples
+      - explain: "RUNION q0, q1 { INITIAL { SCAN(<,>) | TFILTER SEED | MAP (_.ID AS ID) | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FILTER _.ID * @c18 LESS_THAN promote(@c29 AS LONG) | MAP (_.ID * @c18 AS ID) | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
+      - result: [{ID: 2}, {ID: 5}, {ID: 4}]
+    -
+      # multiplesOfTest — initial [2, 5], limit 0, ANY traversal.
+      # The fix point is reached immediately, but the seed rows are still returned: the limit is
+      # applied to the product, not to the initial values.
+      - query: with recursive multiples as (
+                   select id from seed
+                   union all
+                   select id from (select id * 2 as id from multiples) as sq where id < 0)
+               select id from multiples
+      - explain: "RUNION q0, q1 { INITIAL { SCAN(<,>) | TFILTER SEED | MAP (_.ID AS ID) | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FILTER _.ID * @c18 LESS_THAN promote(@c29 AS LONG) | MAP (_.ID * @c18 AS ID) | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
+      - result: [{ID: 2}, {ID: 5}]
+    -
+      # multiplesOfTest — initial [2, 5], limit 0, LEVEL traversal.
+      - query: with recursive multiples as (
+                   select id from seed
+                   union all
+                   select id from (select id * 2 as id from multiples) as sq where id < 0)
+               traversal order level_order
+               select id from multiples
+      - explain: "RUNION q0, q1 { INITIAL { SCAN(<,>) | TFILTER SEED | MAP (_.ID AS ID) | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FILTER _.ID * @c18 LESS_THAN promote(@c29 AS LONG) | MAP (_.ID * @c18 AS ID) | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
+      - result: [{ID: 2}, {ID: 5}]
+    -
+      # multiplesOfTest — empty initial, limit 1000, ANY traversal.
+      # `where id > 1000` selects none of the seed rows, standing in for the source's `List.of()`
+      # initial value. An empty initial leg means the recursive leg never runs.
+      - query: with recursive multiples as (
+                   select id from seed where id > 1000
+                   union all
+                   select id from (select id * 2 as id from multiples) as sq where id < 1000)
+               select id from multiples
+      - explain: "RUNION q0, q1 { INITIAL { SCAN([[GREATER_THAN promote(@c12 AS LONG)]]) | TFILTER SEED | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FILTER _.ID * @c22 LESS_THAN promote(@c12 AS LONG) | MAP (_.ID * @c22 AS ID) | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
+      - result: []
+    -
+      # multiplesOfTest — empty initial, limit 1000, LEVEL traversal.
+      - query: with recursive multiples as (
+                   select id from seed where id > 1000
+                   union all
+                   select id from (select id * 2 as id from multiples) as sq where id < 1000)
+               traversal order level_order
+               select id from multiples
+      - explain: "RUNION q0, q1 { INITIAL { SCAN([[GREATER_THAN promote(@c12 AS LONG)]]) | TFILTER SEED | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FILTER _.ID * @c22 LESS_THAN promote(@c12 AS LONG) | MAP (_.ID * @c22 AS ID) | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)"
+      - result: []
+    -
+      # multiplesOfTestFailsWithPreorderTraversal — the same recursion under PREORDER cannot be
+      # planned, because a depth-first recursive union needs a correlated scan in its recursive leg
+      # and this one has no table access at all. The source asserts `UnableToPlanException`, which
+      # `ExceptionUtil.toRelationalException` maps to `UNSUPPORTED_QUERY`. No `explain` here: the
+      # query never produces a plan.
+      - query: with recursive multiples as (
+                   select id from seed
+                   union all
+                   select id from (select id * 2 as id from multiples) as sq where id < 50)
+               traversal order pre_order
+               select id from multiples
+      - error: UNSUPPORTED_QUERY
+...

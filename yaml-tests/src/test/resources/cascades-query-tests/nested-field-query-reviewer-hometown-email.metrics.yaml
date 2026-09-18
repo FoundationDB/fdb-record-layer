@@ -1,0 +1,16 @@
+nested-field-query-reviewer-hometown-email:
+-   query: EXPLAIN select * from restaurant_reviewer where stats.hometown = 'Home
+        Town' and stats.school_name = 'University of Learning' and email = 'pmp@example.com'
+    ref: nested-field-query-reviewer-hometown-email.yamsql:64
+    explain: 'COVERING(HOMETOWN_EMAIL [EQUALS promote(@c9 AS STRING), EQUALS promote(@c15
+        AS STRING)] -> [EMAIL: KEY:[3], ID: KEY:[4], STATS: [HOMETOWN: KEY:[0], SCHOOL_NAME:
+        KEY:[1], START_DATE: KEY:[2]]]) | FILTER _.EMAIL EQUALS promote(@c19 AS STRING)
+        | FETCH'
+    task_count: 623
+    task_total_time_ms: 10
+    transform_count: 141
+    transform_time_ms: 6
+    transform_yield_count: 60
+    insert_time_ms: 0
+    insert_new_count: 75
+    insert_reused_count: 5
