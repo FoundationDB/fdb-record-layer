@@ -193,12 +193,12 @@ join-tests:
         _.ID | MAP (1 AS _0) AS q3 RETURN q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME
         AS _1, q2.NAME AS _2) } }'
     task_count: 21936
-    task_total_time_ms: 2281
+    task_total_time_ms: 2010
     transform_count: 8112
-    transform_time_ms: 591
+    transform_time_ms: 527
     transform_yield_count: 1209
-    insert_time_ms: 301
-    insert_new_count: 3823
+    insert_time_ms: 298
+    insert_new_count: 3885
     insert_reused_count: 409
 -   query: EXPLAIN select emp.id, fname from emp, dept where emp.dept_id = dept.id
         and dept.id in (1, 2) and emp.id not in (1, 5)
@@ -208,12 +208,12 @@ join-tests:
         KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) |
         FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }'
     task_count: 6257
-    task_total_time_ms: 1050
+    task_total_time_ms: 1425
     transform_count: 1873
-    transform_time_ms: 279
+    transform_time_ms: 432
     transform_yield_count: 368
-    insert_time_ms: 48
-    insert_new_count: 1096
+    insert_time_ms: 77
+    insert_new_count: 1108
     insert_reused_count: 65
 -   query: EXPLAIN select emp.id, fname from emp, dept where dept.id = emp.dept_id
         and dept.id in (1, 2) and emp.id not in (1, 5)
@@ -223,12 +223,12 @@ join-tests:
         ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) AND q1.ID
         EQUALS _.DEPT_ID | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }'
     task_count: 5354
-    task_total_time_ms: 769
+    task_total_time_ms: 883
     transform_count: 1622
-    transform_time_ms: 216
+    transform_time_ms: 259
     transform_yield_count: 319
-    insert_time_ms: 36
-    insert_new_count: 882
+    insert_time_ms: 81
+    insert_new_count: 893
     insert_reused_count: 60
 -   query: EXPLAIN select emp.id from emp, dept where emp.dept_id = dept.id and dept.id
         = 1 and emp.id in (10, 20, 30)
@@ -237,12 +237,12 @@ join-tests:
         AS ARRAY(LONG)))] | INJOIN q1 -> { SCAN([IS EMP, EQUALS q1]) | FILTER _.DEPT_ID
         EQUALS q0.ID } AS q2 RETURN (q2.ID AS ID) }
     task_count: 6626
-    task_total_time_ms: 1126
+    task_total_time_ms: 1294
     transform_count: 1914
-    transform_time_ms: 280
+    transform_time_ms: 374
     transform_yield_count: 406
-    insert_time_ms: 52
-    insert_new_count: 1216
+    insert_time_ms: 68
+    insert_new_count: 1230
     insert_reused_count: 60
 -   query: EXPLAIN select * from ja join jb using(c1) join jd using(c1);
     ref: join-tests.yamsql:422
@@ -559,12 +559,12 @@ three-way-joins-right-deep-planner:
         q2 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q2.ID AS q3 RETURN q3
         } AS q3 RETURN (q1.ID AS ID, q1.NAME AS _1, q3.NAME AS _2) }'
     task_count: 8826
-    task_total_time_ms: 719
+    task_total_time_ms: 841
     transform_count: 2647
-    transform_time_ms: 206
+    transform_time_ms: 245
     transform_yield_count: 525
-    insert_time_ms: 32
-    insert_new_count: 1559
+    insert_time_ms: 40
+    insert_new_count: 1577
     insert_reused_count: 110
 -   query: EXPLAIN select * from ja join jb using(c1) join jd using(c1);
     ref: join-tests.yamsql:627
