@@ -37,7 +37,7 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutNullOnEmptyOverRef;
 
 /**
  * A rule that pushes an ordering {@link RequestedOrderingConstraint} through an {@link UpdateExpression}.
@@ -46,7 +46,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class PushRequestedOrderingThroughUpdateRule extends AbstractCascadesRule<UpdateExpression> implements PreOrderRule {
     private static final BindingMatcher<Reference> lowerRefMatcher = ReferenceMatchers.anyRef();
-    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierWithoutNullOnEmptyOverRef(lowerRefMatcher);
     private static final BindingMatcher<UpdateExpression> root =
             RelationalExpressionMatchers.updateExpression(innerQuantifierMatcher);
 

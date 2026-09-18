@@ -48,6 +48,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class PushReferencedFieldsThroughDistinctRule extends AbstractCascadesRule<LogicalDistinctExpression> implements PreOrderRule {
     private static final BindingMatcher<Reference> lowerRefMatcher = ReferenceMatchers.anyRef();
+    // This rule passes the quantifier on unchanged, so it can match _any_ for-each quantifier.
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(lowerRefMatcher);
     private static final BindingMatcher<LogicalDistinctExpression> root =
             logicalDistinctExpression(exactly(innerQuantifierMatcher));

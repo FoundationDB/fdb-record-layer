@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesR
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -60,6 +61,7 @@ public class ImplementUnorderedUnionRule extends AbstractCascadesRule<LogicalUni
     private static final BindingMatcher<Reference> unionLegReferenceMatcher =
             planPartitions(rollUpPartitions(any(unionLegPlanPartitionsMatcher)));
 
+    // This rule establishes null-on-empty semantics if desired, so it can match _any_ for-each quantifier.
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =
             all(forEachQuantifierOverRef(unionLegReferenceMatcher));
@@ -80,7 +82,11 @@ public class ImplementUnorderedUnionRule extends AbstractCascadesRule<LogicalUni
 
         final ImmutableList<Quantifier.Physical> quantifiers =
                 Streams.zip(planPartitions.stream(), allQuantifiers.stream(),
-                                (planPartition, quantifier) -> call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), planPartition.getPlans()))
+                                (planPartition, quantifier) -> {
+                                    final Reference legReference =
+                                            call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), planPartition.getPlans());
+                                    return Quantifiers.applyGlue(call, quantifier, legReference);
+                                })
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList());
 

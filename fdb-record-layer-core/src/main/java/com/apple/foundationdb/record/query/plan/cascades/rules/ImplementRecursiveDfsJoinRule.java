@@ -48,8 +48,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutNullOnEmpty;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutNullOnEmptyOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.physicalQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.anyPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.dfsTraversalAllowed;
@@ -85,16 +85,16 @@ public class ImplementRecursiveDfsJoinRule extends AbstractCascadesRule<Recursiv
     private static final BindingMatcher<Reference> recursiveInnerReferenceMatcher = planPartitions(recursiveInnerPlanPartitionsMatcher);
 
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> recursiveInnerQunMatcher = forEachQuantifierOverRef(recursiveInnerReferenceMatcher);
+    private static final BindingMatcher<Quantifier.ForEach> recursiveInnerQunMatcher = forEachQuantifierWithoutNullOnEmptyOverRef(recursiveInnerReferenceMatcher);
 
     @Nonnull
-    private static final BindingMatcher<SelectExpression> recursiveSelectFromTempTableScanMatcher = selectExpression(forEachQuantifier(tempTableScanExpression())).where(hasNoPredicates());
+    private static final BindingMatcher<SelectExpression> recursiveSelectFromTempTableScanMatcher = selectExpression(forEachQuantifierWithoutNullOnEmpty(tempTableScanExpression())).where(hasNoPredicates());
 
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> recursiveSelectFromTempTableScanQunMatcher = forEachQuantifier(recursiveSelectFromTempTableScanMatcher);
+    private static final BindingMatcher<Quantifier.ForEach> recursiveSelectFromTempTableScanQunMatcher = forEachQuantifierWithoutNullOnEmpty(recursiveSelectFromTempTableScanMatcher);
 
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> recursiveTempTableScanQunMatcher = forEachQuantifier(tempTableScanExpression());
+    private static final BindingMatcher<Quantifier.ForEach> recursiveTempTableScanQunMatcher = forEachQuantifierWithoutNullOnEmpty(tempTableScanExpression());
 
     // Match temp table scan expressions with or without a select layer on top.
     // This accommodates a known limitation where select merge cannot merge correlated selects
@@ -106,11 +106,11 @@ public class ImplementRecursiveDfsJoinRule extends AbstractCascadesRule<Recursiv
 
     @Nonnull
     private static final BindingMatcher<TempTableInsertExpression> recursiveSelectExpressionMatcher = tempTableInsertExpression(
-            forEachQuantifierOverRef(exploratoryMember(recursiveInnerSelectMatcher)));
+            forEachQuantifierWithoutNullOnEmptyOverRef(exploratoryMember(recursiveInnerSelectMatcher)));
 
     @Nonnull
-    private static final BindingMatcher<RecursiveUnionExpression> recursiveUnionExpressionMatcher = recursiveUnionExpression(forEachQuantifier(initialPlanMatcher),
-            forEachQuantifier(recursiveSelectExpressionMatcher)).where(dfsTraversalAllowed());
+    private static final BindingMatcher<RecursiveUnionExpression> recursiveUnionExpressionMatcher = recursiveUnionExpression(forEachQuantifierWithoutNullOnEmpty(initialPlanMatcher),
+            forEachQuantifierWithoutNullOnEmpty(recursiveSelectExpressionMatcher)).where(dfsTraversalAllowed());
 
     public ImplementRecursiveDfsJoinRule() {
         super(recursiveUnionExpressionMatcher);

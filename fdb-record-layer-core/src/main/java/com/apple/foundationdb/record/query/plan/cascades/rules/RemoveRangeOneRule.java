@@ -37,7 +37,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutNullOnEmptyOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.exploratoryMember;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tableFunctionExpression;
@@ -47,7 +47,7 @@ public class RemoveRangeOneRule extends AbstractCascadesRule<SelectExpression> i
     @Nonnull
     private static final BindingMatcher<TableFunctionExpression> tfExpression = tableFunctionExpression();
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> middleQun = forEachQuantifierOverRef(exploratoryMember(tfExpression));
+    private static final BindingMatcher<Quantifier.ForEach> middleQun = forEachQuantifierWithoutNullOnEmptyOverRef(exploratoryMember(tfExpression));
     @Nonnull
     private static final BindingMatcher<SelectExpression> root = selectExpression(any(middleQun));
 
