@@ -290,7 +290,9 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                     .build();
             final RecordQueryPlan plan = planQuery(query);
 
-            // Even though the only required result is in the index, there's not a clean way to surface it, so we end up not using a covering index here
+            // Even though the only required result is in the index, there's not a clean way to surface it, so we end up
+            // not using a covering index here. A covering scan hands back the partial record it decodes an entry into,
+            // and the masked field is not on it. The index holds the mask, not the field it was computed from.
             assertMatchesExactly(plan, indexPlan()
                     .where(indexName(index.getName()))
                     .and(scanComparisons(range("[EQUALS $" + strValueParam + ", [GREATER_THAN_OR_EQUALS 1 && LESS_THAN_OR_EQUALS 4]]")))
@@ -351,14 +353,13 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                 Quantifier selectQun = Quantifier.forEach(Reference.initialOf(select));
                 return Reference.initialOf(sortExpression(ImmutableList.of(FieldValue.ofFieldName(selectQun.getFlowedObjectValue(), "sum").rebase(AliasMap.ofAliases(selectQun.getAlias(), Quantifier.current()))), false, selectQun));
             });
-            // Note: This should be a covering index scan, as the mask value can be extracted from the index entries, though the matching isn't quite there
             assertMatchesExactly(plan, mapPlan(
-                    indexPlan()
+                    coveringIndexPlan().where(indexPlanOf(indexPlan()
                             .where(indexName(index.getName()))
-                            .and(scanComparisons(range("[EQUALS $" + strValueParam + ", [GREATER_THAN_OR_EQUALS $" + sumLowerBound + " && LESS_THAN_OR_EQUALS $" + sumUpperBound + "]]")))
+                            .and(scanComparisons(range("[EQUALS $" + strValueParam + ", [GREATER_THAN_OR_EQUALS $" + sumLowerBound + " && LESS_THAN_OR_EQUALS $" + sumUpperBound + "]]")))))
             ));
-            assertEquals(2089976284, plan.planHash(PlanHashable.CURRENT_LEGACY));
-            assertEquals(1454029221, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            assertEquals(-1563678972, plan.planHash(PlanHashable.CURRENT_LEGACY));
+            assertEquals(-589245295, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
             for (String strValue : List.of("even", "odd")) {
                 IntStream.range(-1, 9).forEach(lowerSum ->
