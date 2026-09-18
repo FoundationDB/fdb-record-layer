@@ -55,6 +55,7 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.WindowSpecExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
+import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.query.TautologicalValue;
@@ -580,10 +581,33 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             value = getDelegate().getPlanGenerationContext().processUnnamedPreparedParam(tokenIndex);
         } else {
             final String parameterName = ctx.NAMED_PARAMETER().getText().substring(1); // starts with ?, e.g. ?foo
-            value = getDelegate().getPlanGenerationContext().processNamedPreparedParam(parameterName, tokenIndex);
+            value = getDelegate().getPlanGenerationContext()
+                    .processNamedPreparedParam(parameterName, tokenIndex, this::resolveDeclaredType);
         }
         final var type = DataTypeUtils.toRelationalType(value.getResultType());
         return Expression.ofUnnamed(type, value);
+    }
+
+    /**
+     * Resolves the SQL text of a parameter's type declaration into a type. Done here because the schema template it may
+     * name a type from is reachable from this visitor's semantic analyzer, and nowhere upstream.
+     *
+     * <p>The result is forced non-nullable: a declaration is only resolved for a parameter left without a value, and
+     * that happens only when it is known not to receive a null. {@code Type.fromObject} does the same for a bound
+     * non-null value, so the two agree at cache lookup.</p>
+     */
+    @Nonnull
+    private Type resolveDeclaredType(@Nonnull final String declaration) {
+        final var typeCtx = QueryParser.parseParameterDeclaration(declaration).parameterType;
+        final var typeInfo = typeCtx.customType != null
+                             ? SemanticAnalyzer.ParsedTypeInfo.ofCustomType(visitUid(typeCtx.customType), false,
+                                     typeCtx.ARRAY() != null)
+                             : SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(typeCtx.primitiveType(), false,
+                                     typeCtx.ARRAY() != null);
+        final var dataType = getDelegate().getSemanticAnalyzer().lookupType(typeInfo, name -> Optional.empty());
+        Assert.thatUnchecked(dataType.isResolved(), ErrorCode.UNSUPPORTED_OPERATION,
+                () -> "cannot resolve declared type '" + declaration + "' for a parameter with no value");
+        return DataTypeUtils.toRecordLayerType(dataType).notNullable();
     }
 
     @Nonnull
