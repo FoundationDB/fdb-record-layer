@@ -27,7 +27,6 @@ import com.google.common.collect.Multimap;
 import javax.annotation.Nonnull;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -134,11 +133,21 @@ public interface SchemaTemplate extends Metadata {
     /**
      * Returns the stored queries defined in this schema template.
      *
-     * @return A map of stored query names to their {@link StoredQuery} struct (SELECT text plus
-     *         the temp-function declarations that must precede it).
+     * @return the {@link StoredQuery}s of this schema template.
+     * @throws RelationalException if the stored queries can not be retrieved.
      */
     @Nonnull
-    Map<String, StoredQuery> getStoredQueries() throws RelationalException;
+    Set<? extends StoredQuery> getStoredQueries() throws RelationalException;
+
+    /**
+     * Looks up a {@link StoredQuery} by name.
+     *
+     * @param storedQueryName the name of the stored query.
+     * @return the {@link StoredQuery} with that name, if there is one.
+     * @throws RelationalException if the lookup fails.
+     */
+    @Nonnull
+    Optional<? extends StoredQuery> findStoredQueryByName(@Nonnull String storedQueryName) throws RelationalException;
 
     @Nonnull
     String getTransactionBoundMetadataAsString() throws RelationalException;
