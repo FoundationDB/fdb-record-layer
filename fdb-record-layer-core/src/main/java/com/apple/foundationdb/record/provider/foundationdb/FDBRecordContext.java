@@ -152,11 +152,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nullable
     private byte[] versionStamp;
     @Nonnull
-    private AtomicInteger localVersion;
+    private final AtomicInteger localVersion;
     @Nonnull
-    private ConcurrentNavigableMap<byte[], Integer> localVersionCache;
+    private final ConcurrentNavigableMap<byte[], Integer> localVersionCache;
     @Nonnull
-    private ConcurrentNavigableMap<byte[], NonnullPair<MutationType, byte[]>> versionMutationCache;
+    private final ConcurrentNavigableMap<byte[], NonnullPair<MutationType, byte[]>> versionMutationCache;
     @Nonnull
     private final FDBRecordContextConfig config;
     private final long timeoutMillis;
