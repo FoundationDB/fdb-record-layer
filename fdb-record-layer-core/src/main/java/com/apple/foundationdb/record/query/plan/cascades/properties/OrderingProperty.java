@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexEntryColumnValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordTypeValue;
@@ -103,7 +104,9 @@ import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -287,10 +290,61 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
         @Override
         public Ordering visitMapPlan(@Nonnull final RecordQueryMapPlan mapPlan) {
             final var childOrdering = orderingFromSingleChild(mapPlan);
-            final var resultValue = mapPlan.getResultValue();
+            final var innerAlias = mapPlan.getInner().getAlias();
+            final var mapResultValue = mapPlan.getResultValue();
+            final var resultValue = mapPlan.getChild() instanceof RecordQueryCoveringIndexPlan coveringIndexPlan
+                                    ? restoreComputedIndexColumns(mapResultValue, coveringIndexPlan, childOrdering, innerAlias)
+                                    : mapResultValue;
 
             return childOrdering.pullUp(resultValue, EvaluationContext.empty(),
-                    AliasMap.ofAliases(mapPlan.getInner().getAlias(), Quantifier.current()), mapPlan.getCorrelatedTo());
+                    AliasMap.ofAliases(innerAlias, Quantifier.current()), mapPlan.getCorrelatedTo());
+        }
+
+        /**
+         * Replaces each {@link IndexEntryColumnValue} in the result value of a map over a covering index scan with the
+         * value that the index computes for that element of the index entry.
+         *
+         * <p>The ordering of a covering index scan is stated in terms of the computed values, such as
+         * {@code cardinality(_.arr)}. However, a map that reads such an element out of the index entry refers to it
+         * as an {@link IndexEntryColumnValue}. Without this replacement, the ordering of the scan cannot be pulled up
+         * through the map.
+         *
+         * <p>This only handles a map that ranges directly over the covering index scan. For a map over any other plan,
+         * such as a filter over the scan, the ordering is not pulled up where the map reads such an element.
+         *
+         * @param resultValue the result value of the map
+         * @param coveringIndexPlan the covering index scan underneath the map
+         * @param childOrdering the ordering of {@code coveringIndexPlan}
+         * @param innerAlias the alias that the map reads {@code coveringIndexPlan} through
+         * @return the result value with the computed values restored, for purposes of pulling up the ordering
+         */
+        @Nonnull
+        private static Value restoreComputedIndexColumns(@Nonnull final Value resultValue,
+                                                         @Nonnull final RecordQueryCoveringIndexPlan coveringIndexPlan,
+                                                         @Nonnull final Ordering childOrdering,
+                                                         @Nonnull final CorrelationIdentifier innerAlias) {
+            final CorrelationIdentifier currentAlias = Quantifier.current();
+            final AliasMap currentToInnerAliasMap = AliasMap.ofAliases(currentAlias, innerAlias);
+
+            // Collect the ordering values that the index computes, keyed by the column that reads the respective value
+            // back out of the index entry. For example, `cardinality(_.arr)` is keyed by `_.KEY:[0]`.
+            final Map<IndexEntryColumnValue, Value> computedValues = new HashMap<>();
+            for (final Value orderingValue : childOrdering.getBindingMap().keySet()) {
+                final Value pushedValue = coveringIndexPlan
+                        .pushValueThroughFetch(orderingValue, currentAlias, innerAlias)
+                        .orElse(null);
+                if (pushedValue instanceof IndexEntryColumnValue columnValue) {
+                    final Value rebasedOrderingValue = orderingValue.rebase(currentToInnerAliasMap);
+                    computedValues.put(columnValue, rebasedOrderingValue);
+                }
+            }
+            if (computedValues.isEmpty()) {
+                return resultValue;
+            }
+
+            // Replace each such column in the result value by the ordering value that it stands for.
+            return resultValue.replaceLeavesMaybe(leaf -> computedValues.getOrDefault(leaf, leaf))
+                    .orElse(resultValue);
         }
 
         @Nonnull
