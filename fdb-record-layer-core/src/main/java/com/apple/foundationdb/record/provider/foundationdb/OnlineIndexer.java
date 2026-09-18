@@ -109,7 +109,7 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull private final FDBDatabaseRunner runner;
     @Nonnull private final Index index; // First target index is used for locks
     @Nonnull private IndexingPolicy indexingPolicy;
-    @Nonnull private IndexingPolicy originalPolicy;
+    @Nonnull private final IndexingPolicy originalPolicy; // the policy as requested by the caller, never adjusted
     private boolean fallbackToRecordsScan = false;
     private boolean sourceIndexAdjusted = false;
     @Nullable private IndexingBase.PartlyBuiltException firstPartlyBuiltException = null;
@@ -138,7 +138,6 @@ public class OnlineIndexer implements AutoCloseable {
     private CompletableFuture<Void> indexingLauncher(Supplier<CompletableFuture<Void>> indexingFunc) {
         // A new operation - forget the previous one's mismatch and adjustments.
         firstPartlyBuiltException = null;
-        originalPolicy = indexingPolicy;
         fallbackToRecordsScan = false;
         sourceIndexAdjusted = false;
         return indexingLauncher(indexingFunc, 0, null);
@@ -218,7 +217,7 @@ public class OnlineIndexer implements AutoCloseable {
                         return indexingLauncherFallbackToRecordsScan(indexingFunc, attemptCount);
                     }
                     if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX &&
-                            !isPolicySourceIndexOf(conflictingIndexingTypeStamp)) {
+                            !isPolicySourceIndexOf(partlyBuiltException)) {
                         // Here: Partly built by index. Retry by the previous run's source index.
                         Object sourceIndexSubspaceKey = decodeSubspaceKey(conflictingIndexingTypeStamp.getSourceIndexSubspaceKey());
                         sourceIndexAdjusted = true;
@@ -273,15 +272,19 @@ public class OnlineIndexer implements AutoCloseable {
             }
         }
 
-        if (indexingPolicy.isMutual()) {
+        if (originalPolicy.isMutual()) {
+            // Note: check the original policy - a fallback to a by-records scan clears the mutual indexing flag, yet
+            // the other mutual indexers keep running and may complete the target indexes at any moment.
             IndexingBase.UnexpectedReadableException unexpectedReadableException = IndexingBase.getUnexpectedReadableIfApplicable(ex);
             if (unexpectedReadableException != null) {
                 if (unexpectedReadableException.allReadable) {
                     // All are readable
                     return AsyncUtil.DONE;
                 }
-                // Some are readable, probably by another process. Call regular indexing to check/mark readable
-                return indexingLauncherFallbackToRecordsScan(indexingFunc, attemptCount);
+                if (!fallbackToRecordsScan) {
+                    // Some are readable, probably by another process. Call regular indexing to check/mark readable
+                    return indexingLauncherFallbackToRecordsScan(indexingFunc, attemptCount);
+                }
             }
         }
 
@@ -289,9 +292,17 @@ public class OnlineIndexer implements AutoCloseable {
         throw FDBExceptions.wrapException(ex);
     }
 
-    private boolean isPolicySourceIndexOf(IndexBuildProto.IndexBuildIndexingStamp conflictingIndexingTypeStamp) {
-        // true if the policy already points at the conflicting stamp's source index, hence retrying by this source
-        // index would fail in the very same way
+    private boolean isPolicySourceIndexOf(@Nonnull IndexingBase.PartlyBuiltException partlyBuiltException) {
+        // true if the last attempt already pointed at the conflicting stamp's source index, hence retrying by this
+        // source index would fail in the very same way
+        final IndexBuildProto.IndexBuildIndexingStamp conflictingIndexingTypeStamp = partlyBuiltException.getSavedStamp();
+        final IndexBuildProto.IndexBuildIndexingStamp expectedIndexingTypeStamp = partlyBuiltException.getExpectedStamp();
+        if (expectedIndexingTypeStamp.getMethod() == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX &&
+                expectedIndexingTypeStamp.getSourceIndexSubspaceKey().equals(conflictingIndexingTypeStamp.getSourceIndexSubspaceKey())) {
+            // Here: the requested stamp refers to this very source index (the mismatch is in another stamp attribute).
+            // Note that this covers the common case of a source index that was requested by name.
+            return true;
+        }
         final Object policySourceIndexSubspaceKey = indexingPolicy.getSourceIndexSubspaceKey();
         return policySourceIndexSubspaceKey != null &&
                policySourceIndexSubspaceKey.equals(decodeSubspaceKey(conflictingIndexingTypeStamp.getSourceIndexSubspaceKey()));
