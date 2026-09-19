@@ -52,8 +52,7 @@ public final class ExceptionUtil {
         } else if (re instanceof UncheckedRelationalException) {
             return ((UncheckedRelationalException) re).unwrap();
         } else if (re instanceof VerifyException) {
-            // Guava's no-arg Verify.verify(boolean) throws a VerifyException with a null message; fall back to
-            // something more useful than a literal "null" reaching the client.
+            // Verify.verify(false) throws a VerifyException with a null message; fall back to something more useful than a literal "null" reaching the client.
             final String message = Objects.requireNonNullElseGet(re.getMessage(), () -> "internal invariant violated (" + re.getClass().getSimpleName() + ")");
             return new RelationalException(message, ErrorCode.INTERNAL_ERROR, re);
         }
