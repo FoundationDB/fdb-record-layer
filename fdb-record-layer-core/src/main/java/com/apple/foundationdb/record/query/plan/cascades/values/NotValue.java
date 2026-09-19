@@ -42,7 +42,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
@@ -82,8 +81,7 @@ public class NotValue extends AbstractValue implements BooleanValue, ValueWithCh
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
                                                      @Nonnull final Set<CorrelationIdentifier> localAliases) {
-        Verify.verify(child instanceof BooleanValue);
-        final Optional<QueryPredicate> predicateOptional = ((BooleanValue)child).toQueryPredicate(typeRepository, localAliases);
+        final Optional<QueryPredicate> predicateOptional = BooleanValue.toQueryPredicate(child, typeRepository, localAliases);
         if (predicateOptional.isPresent()) {
             QueryPredicate queryPredicate = predicateOptional.get();
             if (queryPredicate.equals(ConstantPredicate.FALSE)) {

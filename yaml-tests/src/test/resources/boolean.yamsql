@@ -110,5 +110,40 @@ test_block:
       - query: select NOT B from lb
       - result: [ { false }, { true }, { !null }, { false }, { true } ]
 ...
+---
+# All queries above only put AND/OR/NOT in the select list, where the value is never converted to a
+# QueryPredicate. This block exercises the same operators in a WHERE clause, where AndOrValue/NotValue
+# require their operands to be BooleanValue -- which a boolean literal (ConstantObjectValue/LiteralValue)
+# or a boolean column (FieldValue) is not. Currently these all fail with an internal error.
+test_block:
+  name: boolean-predicate-conjunction-tests
+  tests:
+    -
+      - query: select a from lb where a > 1 and true;
+      - unorderedResult: [ {2}, {3}, {4}, {5} ]
+    -
+      - query: select a from lb where true and a > 1;
+      - unorderedResult: [ {2}, {3}, {4}, {5} ]
+    -
+      - query: select a from lb where b and b;
+      - unorderedResult: [ {1}, {4} ]
+    -
+      - query: select a from lb where a < 3 or b;
+      - unorderedResult: [ {1}, {2}, {4} ]
+    -
+      - query: select a from lb where not b;
+      - unorderedResult: [ {2}, {5} ]
+    -
+      # Baseline: the boolean value as the *entire* predicate (no conjunction) already works today.
+      - query: select a from lb where true;
+      - unorderedResult: [ {1}, {2}, {3}, {4}, {5} ]
+    -
+      - query: select a from lb where b;
+      - unorderedResult: [ {1}, {4} ]
+    -
+      # Baseline: both children of AND are RelOpValues, not boolean-typed leaves -- already works today.
+      - query: select a from lb where a > 1 and 1 = 1;
+      - unorderedResult: [ {2}, {3}, {4}, {5} ]
+...
 
 
