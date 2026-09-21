@@ -114,7 +114,7 @@ public class ProtoUtils {
      * <p>
      * Dependencies are visited (in reverse order) before the types declared in {@code fileDescriptor} itself, so
      * a caller finishing the map with {@link ImmutableMap.Builder#buildKeepingLast()} resolves a duplicated full name
-     * in favour of the file closest to the root of the walk.
+     * in favor of the file closest to the root of the walk.
      * <p>
      * {@code excludedDependenciesByName} doubles as the set of already-visited files and is mutated accordingly:
      * a dependency is skipped when it is already present, and is added to the set before being descended into.
@@ -136,21 +136,20 @@ public class ProtoUtils {
                 fileDescriptor.getDependencies().size());
         while (dependencyIterator.hasPrevious()) {
             final var dependency = dependencyIterator.previous();
-            if (!excludedDependenciesByName.contains(dependency.getFullName())) {
-                excludedDependenciesByName.add(dependency.getFullName());
+            if (excludedDependenciesByName.add(dependency.getFullName())) {
                 addAllTypesInFileDescriptorToMap(dependency, descriptorByFullNameBuilder, excludedDependenciesByName);
             }
         }
 
-        final Deque<Descriptors.GenericDescriptor> messageTypesToProcess = new ArrayDeque<>(
+        final Deque<Descriptors.GenericDescriptor> namedTypesToProcess = new ArrayDeque<>(
                 fileDescriptor.getMessageTypes());
-        messageTypesToProcess.addAll(fileDescriptor.getEnumTypes());
-        while (!messageTypesToProcess.isEmpty()) {
-            final var messageType = messageTypesToProcess.pop();
-            descriptorByFullNameBuilder.put(messageType.getFullName(), messageType);
-            if (messageType instanceof Descriptors.Descriptor descriptor) {
-                messageTypesToProcess.addAll(descriptor.getNestedTypes());
-                messageTypesToProcess.addAll(descriptor.getEnumTypes());
+        namedTypesToProcess.addAll(fileDescriptor.getEnumTypes());
+        while (!namedTypesToProcess.isEmpty()) {
+            final var namedType = namedTypesToProcess.pop();
+            descriptorByFullNameBuilder.put(namedType.getFullName(), namedType);
+            if (namedType instanceof Descriptors.Descriptor descriptor) {
+                namedTypesToProcess.addAll(descriptor.getNestedTypes());
+                namedTypesToProcess.addAll(descriptor.getEnumTypes());
             }
         }
     }

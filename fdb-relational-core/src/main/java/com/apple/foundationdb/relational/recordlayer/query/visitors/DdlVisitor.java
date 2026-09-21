@@ -61,8 +61,6 @@ import com.apple.foundationdb.relational.recordlayer.query.ddl.OnSourceIndexGene
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.query.functions.UserDefinedFunctionBuilder;
 import com.apple.foundationdb.relational.util.Assert;
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -80,6 +78,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
@@ -832,7 +831,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     public Expressions visitSqlParameterDeclarations(final RelationalParser.SqlParameterDeclarationsContext ctx) {
         final var parameters = Expressions.of(ctx.sqlParameterDeclaration().stream().map(this::visitSqlParameterDeclaration).collect(ImmutableList.toImmutableList()));
         final var duplicateParameters = parameters.asList().stream().flatMap(p -> p.getName().stream())
-                .collect( Collectors.groupingBy( Functions.identity(), Collectors.counting() ) )
+                .collect( Collectors.groupingBy( Function.identity(), Collectors.counting() ) )
                 .entrySet()
                 .stream()
                 .filter( p -> p.getValue() > 1 )

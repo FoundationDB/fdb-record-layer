@@ -226,7 +226,7 @@ setup:
              create type as struct st3(u st2, v st1)
              create table nested(id bigint, r st3, primary key(id))
              create type as struct st4(a bigint, b bigint)
-             create type as enum colour ('red', 'green', 'blue')
+             create type as enum color ('red', 'green', 'blue')
              create function add_udf(in a bigint, in b bigint) returns bigint return a + b 
              create function st1_constructor(in a bigint) returns st1 return (a, 0L)
              create function st1_constructor_alt(in a bigint) returns st1 as (a, 5L)
@@ -381,9 +381,9 @@ test_block:
       - setup: create temporary function st4_a(IN x TYPE st4) returns bigint on commit drop function return x.a
       - result: [ { !l 1 } ]
     -
-      - query: select red_colour() from range(1, 2)
+      - query: select red_color() from range(1, 2)
       - supported_version: !current_version
-      - setup: create temporary function red_colour() returns colour on commit drop function return 'red'
+      - setup: create temporary function red_color() returns color on commit drop function return 'red'
       - explain: "TF range(promote(@c7 AS LONG), promote(@c9 AS LONG), STEP 1l) | MAP (promote('red' AS ENUM<red(0), green(1), blue(2)>) AS _0)"
       - resultMetadata: [{_0: OTHER}]
       - result: [ { 'red' } ]

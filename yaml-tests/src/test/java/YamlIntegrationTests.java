@@ -418,6 +418,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void sqlFunctionsWithStructParametersTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("sql-functions-with-struct-parameters.yamsql");
+    }
+
+    @TestTemplate
     public void standardTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("standard-tests.yamsql");
     }

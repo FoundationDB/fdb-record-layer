@@ -1188,26 +1188,33 @@ public class TemporaryFunctionTests {
 
     @Test
     void temporaryFunctionWithUserDefinedTypesWorksCorrectly() throws Exception {
-        final String schemaTemplate = "create type as struct city(name string, population bigint) " +
-                "create type as enum colour('red', 'green', 'blue', 'yellow') " +
-                "create table country(id bigint, name string, continent string, cities city array, colour colour, primary key(id))";
+        final String schemaTemplate = """
+                create type as struct city(name string, population bigint)
+                create type as enum color('red', 'green', 'blue', 'yellow')
+                create table country(id bigint, name string, continent string, cities city array, color color, primary key(id))
+                """;
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.executeUpdate("insert into country values " +
-                        "(1, 'USA', 'North America', [('New York' ,8419600), ('Los Angeles', 3980400)], 'red'), " +
-                        "(2, 'Canada', 'North America', [('Toronto', 2731571), ('Montreal', 1760400)], 'blue'), " +
-                        "(3, 'Brazil', 'South America', [('Rio de Janeiro', 6795900), ('Sao Paulo', 12303800)], 'green'), " +
-                        "(4, 'France', 'Europe', [('Paris', 2148327), ('Lyon', 516855)], 'yellow')");
+                statement.executeUpdate(
+                        """
+                        insert into country values
+                        (1, 'USA', 'North America', [('New York' ,8419600), ('Los Angeles', 3980400)], 'red'),
+                        (2, 'Canada', 'North America', [('Toronto', 2731571), ('Montreal', 1760400)], 'blue'),
+                        (3, 'Brazil', 'South America', [('Rio de Janeiro', 6795900), ('Sao Paulo', 12303800)], 'green'),
+                        (4, 'France', 'Europe', [('Paris', 2148327), ('Lyon', 516855)], 'yellow')
+                        """);
             }
             final var connection = ddl.getConnection();
             connection.setAutoCommit(false);
             try (var statement = connection.prepareStatement(
-                    "create temporary function countries_by_colour_and_city(in a type colour, in b type city) " +
-                            "on commit drop function as select country.name AS name from country, country.cities AS city" +
-                            " where b.name = city.name and b.population = city.population and colour = a")) {
+                    """
+                        create temporary function countries_by_color_and_city(in a type color, in b type city)
+                        on commit drop function as select country.name AS name from country, country.cities AS city
+                         where b.name = city.name and b.population = city.population and color = a
+                        """)) {
                 statement.execute();
             }
-            try (var statement = connection.prepareStatement("select name from countries_by_colour_and_city('blue', ('Toronto', 2731571))")) {
+            try (var statement = connection.prepareStatement("select name from countries_by_color_and_city('blue', ('Toronto', 2731571))")) {
                 try (var resultSet = statement.executeQuery()) {
                     Assertions.assertTrue(resultSet.next());
                     Assertions.assertEquals("Canada", resultSet.getString(1));

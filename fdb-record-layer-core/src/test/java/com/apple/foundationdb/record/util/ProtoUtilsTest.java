@@ -168,9 +168,9 @@ class ProtoUtilsTest {
         // one in each dependency file. Since additionalDependency1 is depended on by the recordsDescriptor, it should
         // be preferred over the one coming from additionalDependency2 which is further from the root file descriptor.
         final var typeFromDependencyDescriptor = additionalDependency1.findMessageTypeByName("TypeFromDependency");
-        final var colourEnumDescriptor = additionalDependency1.findEnumTypeByName("Colour");
+        final var colorEnumDescriptor = additionalDependency1.findEnumTypeByName("Color");
         assertThat(typeFromDependencyDescriptor).isNotNull();
-        assertThat(colourEnumDescriptor).isNotNull();
+        assertThat(colorEnumDescriptor).isNotNull();
 
         final var typeMap = ProtoUtils.getTypeDescriptorByFullNameMapForFile(fileDescriptor,
                 ImmutableList.of(RecordMetaDataOptionsProto.getDescriptor()));
@@ -179,7 +179,7 @@ class ProtoUtilsTest {
                 .contains(Map.entry(t1Descriptor.getFullName(), t1Descriptor),
                         Map.entry(t2Descriptor.getFullName(), t2Descriptor),
                         Map.entry(typeFromDependencyDescriptor.getFullName(), typeFromDependencyDescriptor),
-                        Map.entry(colourEnumDescriptor.getFullName(), colourEnumDescriptor),
+                        Map.entry(colorEnumDescriptor.getFullName(), colorEnumDescriptor),
                         Map.entry(recordTypeUnionDescriptor.getFullName(), recordTypeUnionDescriptor));
     }
 }

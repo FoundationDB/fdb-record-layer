@@ -36,13 +36,17 @@ import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.record.util.MapUtils;
+import com.apple.foundationdb.record.util.ProtoUtils;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -117,7 +121,6 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 Collections.unmodifiableMap(orig.indexes),
                 Collections.unmodifiableMap(orig.universalIndexes),
                 Collections.unmodifiableList(orig.formerIndexes),
-                orig.nonRecordTypeDescriptorsByFullNameMap,
                 Collections.unmodifiableMap(orig.userDefinedFunctionMap),
                 Collections.unmodifiableMap(orig.viewMap),
                 Collections.unmodifiableMap(orig.storedQueries),
@@ -140,7 +143,6 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
-                             @Nonnull Supplier<Map<String, Descriptors.GenericDescriptor>> nonRecordTypeDescriptorsByFullNameMap,
                              @Nonnull Map<String, UserDefinedFunction> userDefinedFunctionMap,
                              @Nonnull Map<String, View> viewMap,
                              @Nonnull Map<String, StoredQuery> storedQueries,
@@ -160,7 +162,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.indexes = indexes;
         this.universalIndexes = universalIndexes;
         this.formerIndexes = formerIndexes;
-        this.nonRecordTypeDescriptorsByFullNameMap = nonRecordTypeDescriptorsByFullNameMap;
+        this.nonRecordTypeDescriptorsByFullNameMap = Suppliers.memoize(() -> computeNonRecordTypeDescriptorsMap(unionDescriptor, unionFields));
         this.userDefinedFunctionMap = userDefinedFunctionMap;
         this.viewMap = viewMap;
         this.storedQueries = storedQueries;
@@ -172,6 +174,16 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.recordCountKey = recordCountKey;
         this.usesLocalRecordsDescriptor = usesLocalRecordsDescriptor;
         this.recordTypesForIndex = new ConcurrentHashMap<>();
+    }
+
+    @Nonnull
+    private static Map<String, Descriptors.GenericDescriptor> computeNonRecordTypeDescriptorsMap(@Nonnull Descriptors.Descriptor unionDescriptor,
+                                                                                                 @Nonnull Map<Descriptors.Descriptor, Descriptors.FieldDescriptor> unionFields) {
+        return ProtoUtils.getTypeDescriptorByFullNameMapForFile(unionDescriptor.getFile(), Arrays.asList(RecordMetaDataBuilder.defaultExcludedProtoDependencies))
+                .entrySet().stream()
+                .filter(typeEntry -> !typeEntry.getValue().equals(unionDescriptor))
+                .filter(typeEntry -> !(typeEntry.getValue() instanceof Descriptors.Descriptor && unionFields.containsKey(typeEntry.getValue())))
+                .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     /**
