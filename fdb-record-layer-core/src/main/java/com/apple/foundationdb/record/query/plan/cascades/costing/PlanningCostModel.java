@@ -91,7 +91,8 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
                     RecordQueryMapPlan.class,
                     RecordQueryPlanWithIndex.class,
                     RecordQueryPredicatesFilterPlan.class,
-                    RecordQueryScanPlan.class);
+                    RecordQueryScanPlan.class,
+                    RecordQueryTypeFilterPlan.class);
 
     @Nonnull
     private static final Tiebreaker<RecordQueryPlan> tiebreaker =
