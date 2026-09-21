@@ -284,13 +284,9 @@ test_block:
       - error: DATATYPE_MISMATCH
 ---
 test_block:
-  # Struct-element counterpart of arrays-operators-unary-nonconst / arrays-operators-other: `<struct array> IS [NOT]
-  # NULL` and `<struct array> = []` against a STRUCT ARRAY column (as opposed to a primitive-element one), exercising
-  # the same PromoteValue.eval() code path but with a non-primitive (record) element type. Comparisons against a
-  # non-empty struct-array literal are intentionally not covered here: a single-field struct literal such as `(1)` is
-  # unconditionally flattened to its bare scalar by SqlFunctionCatalog.flattenRecordWithOneField, even inside an array
-  # literal, which is an unrelated, pre-existing limitation of the SQL front-end (not specific to STRUCT ARRAY
-  # promotion) and is not what this test block is about.
+  # Struct-element counterpart of arrays-operators-unary-nonconst / arrays-operators-other, using a STRUCT ARRAY
+  # column instead of a primitive-element one. Non-empty struct-array literals aren't covered here: `(1)` inside an
+  # array literal gets flattened to a bare scalar by an unrelated SqlFunctionCatalog.flattenRecordWithOneField bug.
   name: arrays-operators-struct
   preset: single_repetition_ordered
   tests:
@@ -320,14 +316,12 @@ test_block:
           {arr_nn: [{F: 1}], is_null: FALSE, is_not_null: TRUE, is_empty: FALSE}
         ]
     -
-      # Comparison of a nullable STRUCT ARRAY field to []. Previously threw a VerifyException from PromoteValue.eval(),
-      # which incorrectly required a record descriptor for any non-primitive ARRAY promotion target, even though
-      # coercing an empty array never uses that descriptor.
+      # Comparison of a nullable STRUCT ARRAY field to []. Previously threw a VerifyException from PromoteValue.eval().
       - query: SELECT "pk" FROM T2 WHERE "arr" = []
       - supported_version: !current_version
       - unorderedResult: [{pk: 0}]
     -
-      # Comparison of a not-nullable STRUCT ARRAY field to []. Same underlying bug as above.
+      # Same as above, but with a non-nullable struct array.
       - query: SELECT "pk" FROM T2 WHERE "arr_nn" = [] AND "pk" != -1
       - supported_version: !current_version
       - unorderedResult: [{pk: 0}]
