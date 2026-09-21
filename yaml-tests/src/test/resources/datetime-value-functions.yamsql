@@ -1,0 +1,47 @@
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+  create table t1(col1 bigint, col2 string, timestamp bigint, primary key(col1))
+  create index i1 AS select timestamp from t1 where timestamp > 1789746656400
+---
+setup:
+  options:
+    connection_options:
+      FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS: !l 1789747756400
+  steps:
+    - query: INSERT INTO T1 
+             VALUES (1, 'a', CURRENT_TIMESTAMP), 
+                    (2, 'b', CURRENT_TIMESTAMP)
+---
+test_block:
+  name: basic-sql-function-tests
+  options:
+    connection_options:
+      FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS: !l 1789747756400
+  tests:
+    -
+      - query: select * from range(1, 2) where CURRENT_TIMESTAMP() - INTERVAL '2' DAY < CURRENT_TIMESTAMP() - INTERVAL '1' DAY
+      - result: [{!l 1}]
+    -
+      - query: select CURRENT_TIMESTAMP() AS s, id from range(1, 3) where CURRENT_TIMESTAMP() - INTERVAL '1 23:59:59.999' DAY TO SECOND > CURRENT_TIMESTAMP() - INTERVAL '2' DAY
+      - maxRows: 1
+      - result: [{s: !l 1789747756400, id: !l 1}]
+      - result: [{s: !l 1789747756400, id: !l 2}]
+      - result: []
+
+    -
+      - query: select col1 from t1 where timestamp > CURRENT_TIMESTAMP()
+      - explain: "COVERING(I1 [[GREATER_THAN current_timestamp()]] -> [COL1: KEY:[2], TIMESTAMP: KEY:[0]]) | MAP (_.COL1 AS COL1)"
+      - result: []
+    -
+      - query: select col1 from t1 where timestamp > CURRENT_TIMESTAMP() - INTERVAL '10' DAY
+      - explain: "SCAN([IS T1]) | FILTER _.TIMESTAMP GREATER_THAN current_timestamp() - @c12 | MAP (_.COL1 AS COL1)"
+      - result: [{col1: !l 1}, {col1: !l 2}]
+    -
+      - query: select col1 from t1 where timestamp > CURRENT_TIMESTAMP() - INTERVAL -'-10' DAY
+      - result: [{col1: !l 1}, {col1: !l 2}]
+    -
+      - query: select col1 from t1 where timestamp > CURRENT_TIMESTAMP() - INTERVAL -'10' DAY
+      - result: []

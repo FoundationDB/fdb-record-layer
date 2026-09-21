@@ -823,9 +823,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitMathExpressionAtom(@Nonnull RelationalParser.MathExpressionAtomContext ctx) {
-        final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
-        final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
-        return getDelegate().resolveFunction(ctx.mathOperator().getText(), left, right);
+        return handleMathExpression(ctx.left, ctx.right, ctx.mathOperator().getText());
     }
 
     @Nonnull
@@ -1185,6 +1183,48 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var targetExpression = visitFullColumnName(ctx.fullColumnName());
         final var updateExpression = Assert.castUnchecked(ctx.expression().accept(this), Expression.class);
         return Expressions.of(ImmutableList.of(targetExpression, updateExpression));
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitIntervalLiteral(final RelationalParser.IntervalLiteralContext ctx) {
+        final var intervalStringLiteralExpression =
+                getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> visitStringLiteral(ctx.value));
+        final var intervalStringLiteralValue =
+                Assert.castUnchecked(intervalStringLiteralExpression.getUnderlying(), LiteralValue.class);
+        final var intervalStringLiteral = Assert.castUnchecked(intervalStringLiteralValue.getLiteralValue(), String.class);
+        final var parsedIntervalMilliseconds = SemanticAnalyzer.parseIntervalLiteral(ctx, intervalStringLiteral);
+        final var type = Type.primitiveType(Type.TypeCode.LONG);
+        final var constantValue = getDelegate().getPlanGenerationContext().processQueryLiteral(type,
+                parsedIntervalMilliseconds, ctx.value.getStart().getTokenIndex());
+        return Expression.ofUnnamed(constantValue);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitDatetimeValueFunction(final RelationalParser.DatetimeValueFunctionContext ctx) {
+        return getDelegate().resolveFunction(ctx.functionName.getText());
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitDatetimePlusMinusIntervalExpression(final RelationalParser.DatetimePlusMinusIntervalExpressionContext ctx) {
+        return handleMathExpression(ctx.left, ctx.right, ctx.operator.getText());
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitIntervalPlusDatetimeExpression(final RelationalParser.IntervalPlusDatetimeExpressionContext ctx) {
+        return handleMathExpression(ctx.left, ctx.right, ctx.operator.getText());
+    }
+
+    @Nonnull
+    private Expression handleMathExpression(@Nonnull ParserRuleContext leftCtx,
+                                            @Nonnull ParserRuleContext rightCtx,
+                                            @Nonnull String operator) {
+        final var left = Assert.castUnchecked(leftCtx.accept(this), Expression.class);
+        final var right = Assert.castUnchecked(rightCtx.accept(this), Expression.class);
+        return getDelegate().resolveFunction(operator, left, right);
     }
 
     @Nonnull

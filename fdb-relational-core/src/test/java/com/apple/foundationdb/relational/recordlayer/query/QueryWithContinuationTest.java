@@ -43,6 +43,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Objects;
 
 public class QueryWithContinuationTest {
@@ -379,6 +380,42 @@ public class QueryWithContinuationTest {
                     try (final RelationalResultSet resultSet = statement.executeQuery()) {
                         ResultSetAssert.assertThat(resultSet)
                                 .hasNextRow().hasColumn("REST_NO", 14L)
+                                .hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                        assertContinuation(continuation, false, true);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void standardStatementWithDatetimeValueFunctionUsesTheSameTimestamp() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            executeInsert(ddl);
+            Continuation continuation;
+            try (final var connection = ddl.setSchemaAndGetConnection()) {
+                final long firstCurrentTimestamp;
+                try (RelationalStatement statement = connection.createStatement()) {
+                    statement.setMaxRows(1);
+                    try (final RelationalResultSet resultSet = statement.executeQuery("SELECT *, CURRENT_TIMESTAMP AS ts FROM RestaurantComplexRecord WHERE REST_NO > 9")) {
+
+                        ResultSetAssert.assertThat(resultSet)
+                                .hasNextRow().hasColumn("REST_NO", 10L);
+                        firstCurrentTimestamp = resultSet.getLong("ts");
+                        ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                        assertContinuation(continuation, false, false);
+                    }
+                }
+                try (var statement = connection.prepareStatement("EXECUTE CONTINUATION ?continuation")) {
+                    statement.setBytes("continuation", continuation.serialize());
+                    try (final RelationalResultSet resultSet = statement.executeQuery()) {
+                        ResultSetAssert.assertThat(resultSet)
+                                .hasNextRow().hasColumns(Map.of("REST_NO", 11L, "ts", firstCurrentTimestamp))
+                                .hasNextRow().hasColumns(Map.of("REST_NO", 12L, "ts", firstCurrentTimestamp))
+                                .hasNextRow().hasColumns(Map.of("REST_NO", 13L, "ts", firstCurrentTimestamp))
+                                .hasNextRow().hasColumns(Map.of("REST_NO", 14L, "ts", firstCurrentTimestamp))
                                 .hasNoNextRow();
                         continuation = resultSet.getContinuation();
                         assertContinuation(continuation, false, true);
