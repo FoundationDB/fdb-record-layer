@@ -973,15 +973,7 @@ userVariables
 //    Common Expressons
 
 defaultValue
-    : (NULL_LITERAL | unaryOperator? constant | currentTimestamp | '(' expression ')') (ON UPDATE currentTimestamp)?
-    ;
-
-currentTimestamp
-    :
-    (
-      (CURRENT_TIMESTAMP | LOCALTIME | LOCALTIMESTAMP) ('(' decimalLiteral? ')')?
-      | NOW '(' decimalLiteral? ')'
-    )
+    : (NULL_LITERAL | unaryOperator? constant | datetimeValueFunction | '(' expression ')') (ON UPDATE datetimeValueFunction)?
     ;
 
 expressionOrDefault
@@ -1005,16 +997,18 @@ functionCall
     : aggregateWindowedFunction                                                   #aggregateFunctionCall // done (supported)
     | nonAggregateWindowedFunction                                                #nonAggregateFunctionCall // done
     | specificFunction                                                            #specificFunctionCall //
+    | datetimeValueFunction                                                       #datetimeValueFunctionCall // done
     | scalarFunctionName '(' functionArgs? ')'                                    #scalarFunctionCall // done (unsupported)
     | userDefinedScalarFunctionName '(' namedOrUnnamedFunctionArgs? ')'           #userDefinedScalarFunctionCall
     ;
 
+datetimeValueFunction
+    :
+      functionName=(CURRENT_TIMESTAMP | LOCALTIME | LOCALTIMESTAMP | NOW) ('(' ')')?
+    ;
+
 specificFunction
-    : (
-      CURRENT_DATE | CURRENT_TIME | CURRENT_TIMESTAMP
-      | CURRENT_USER | LOCALTIME
-      ) ('(' ')')?                                                  #simpleFunctionCall
-    | CONVERT '(' expression separator=',' convertedDataType ')'    #dataTypeFunctionCall
+    : CONVERT '(' expression separator=',' convertedDataType ')'    #dataTypeFunctionCall
     | CONVERT '(' expression USING charsetName ')'                  #dataTypeFunctionCall
     | CAST '(' expression AS convertedDataType ')'                  #dataTypeFunctionCall
     | VALUES '(' fullColumnName ')'                                 #valuesFunctionCall
@@ -1214,8 +1208,7 @@ partitionClause
 scalarFunctionName
     : functionNameBase
     | functionNameKeyword
-    | ASCII | CURDATE | CURRENT_DATE | CURRENT_TIME
-    | CURRENT_TIMESTAMP | CURTIME | DATE_ADD | DATE_SUB
+    | ASCII | DATE_ADD | DATE_SUB
     | IF | INSERT | LOCALTIME | LOCALTIMESTAMP | MID | NOW
     | REPLACE | SUBSTR | SUBSTRING | SYSDATE | TRIM
     | UTC_DATE | UTC_TIME | UTC_TIMESTAMP
@@ -1261,12 +1254,30 @@ expressionAtom
     | functionCall                                                                        #functionCallExpressionAtom // done
     | preparedStatementParameter                                                          #preparedStatementParameterAtom // done
     | recordConstructor                                                                   #recordConstructorExpressionAtom // done
-    | arrayConstructor                                                                    #arrayConstructorExpressionAtom // done
+    | arrayConstructor                                                                    #arrayConstructorExpressionAtom // done                                                                     #intervalLiteralExpressionAtom // done
+    | datetimeIntervalMathExpression                                                      #datetimeIntervalArithmeticExpression
     | base=expressionAtom LEFT_SQUARE_BRACKET index=expressionAtom RIGHT_SQUARE_BRACKET   #subscriptExpression // done
     | left=expressionAtom bitOperator right=expressionAtom                                #bitExpressionAtom // done
     | left=expressionAtom mathOperator right=expressionAtom                               #mathExpressionAtom // done
     | left=expressionAtom comparisonOperator right=expressionAtom                         #binaryComparisonPredicate // done
     ;
+
+datetimeIntervalMathExpression
+  : left=datetimeValueFunction operator=(PLUS | MINUS) right=intervalLiteral       #datetimePlusMinusIntervalExpression
+  | left=intervalLiteral operator=PLUS right=datetimeValueFunction                 #intervalPlusDatetimeExpression
+  ;
+
+intervalLiteral
+    : INTERVAL direction=(PLUS | MINUS)? (value=stringLiteral | param=preparedStatementParameter) intervalQualifier
+    ;
+
+intervalQualifier
+    : startField=dayTimeIntervalField (TO endField=dayTimeIntervalField)?         #dayTimeIntervalQualifier
+    ;
+
+dayTimeIntervalField
+     : DAY | HOUR | MINUTE | SECOND
+     ;
 
 inList
     : '(' (queryExpressionBody | expressions) ')'

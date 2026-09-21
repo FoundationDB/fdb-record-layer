@@ -72,6 +72,7 @@ import org.apache.logging.log4j.Logger;
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -163,7 +164,8 @@ public final class PlanGenerator {
             // parse query, generate AST, extract literals from AST, hash it w.r.t. prepared parameters, and identify query caching behavior flags
             final Set<PlanHashable.PlanHashMode> validPlanHashModes = OptionsUtils.getValidPlanHashModes(options);
             final PlanHashable.PlanHashMode currentPlanHashMode = OptionsUtils.getCurrentPlanHashMode(options);
-            final var astHashResult = AstNormalizer.normalizeQuery(planContext, query, isCaseSensitive(), currentPlanHashMode);
+            final var evaluationTimestamp = OptionsUtils.getEvaluationTimestampForCurrentTimestampFunctions(options);
+            final var astHashResult = AstNormalizer.normalizeQuery(planContext, query, isCaseSensitive(), currentPlanHashMode, evaluationTimestamp);
             RelationalLoggingUtil.publishNormalizeQueryLogs(message, stepTimeMicros(), astHashResult.getQueryCacheKey().hashCode(),
                     astHashResult.getQueryCacheKey().getCanonicalQueryString());
             options = options.withChild(astHashResult.getQueryOptions());
@@ -254,9 +256,9 @@ public final class PlanGenerator {
         // The hash value used accounts for the values that identify the query and not part of the execution context (e.g.
         // literal and parameter values without LIMIT and CONTINUATION)
         final var parameterHash = ast.getQueryExecutionContext().getParameterHash();
-
+        final var evaluationTimestamp = ast.getQueryExecutionContext().getEvaluationTimestamp();
         final var planGenerationContext = new MutablePlanGenerationContext(planContext.getPreparedStatementParameters(),
-                currentPlanHashMode, ast.getQuery(), ast.getQueryCacheKey().getCanonicalQueryString(), parameterHash);
+                currentPlanHashMode, ast.getQuery(), ast.getQueryCacheKey().getCanonicalQueryString(), parameterHash, evaluationTimestamp);
         planGenerationContext.setForExplain(ast.getQueryExecutionContext().isForExplain());
         final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
         try (var ignored = new PlannerEventStatsCollector.DefaultStatsCollectorController()) {
@@ -309,7 +311,8 @@ public final class PlanGenerator {
         final var planGenerationContext = new MutablePlanGenerationContext(PreparedParams.empty(),
                 currentPlanHashMode,
                 ast.getQuery(),
-                ast.getQueryCacheKey().getCanonicalQueryString(), Objects.requireNonNull(continuation.getBindingHash()));
+                ast.getQueryCacheKey().getCanonicalQueryString(), Objects.requireNonNull(continuation.getBindingHash()),
+                null);
         final CopyPlan copyPlan = CopyPlan.fromContinuation(continuation.getCopyPlan(), continuation.getExecutionState(),
                 planGenerationContext);
         if (!Objects.requireNonNull(continuation.getPlanHash()).equals(copyPlan.getPlanHash())) {
@@ -375,10 +378,19 @@ public final class PlanGenerator {
         final var preparedStatementParameters =
                 deserializeArgumentsForParameters(compiledStatement, orderedLiterals);
 
+        final Instant evaluationTimestamp;
+        if (compiledStatement.hasEvaluationTimestampInEpochMillis()) {
+            evaluationTimestamp = Instant.ofEpochMilli(compiledStatement.getEvaluationTimestampInEpochMillis());
+        } else {
+            evaluationTimestamp = null;
+        }
+
         final var planGenerationContext = new MutablePlanGenerationContext(preparedStatementParameters,
                 currentPlanHashMode,
                 ast.getQuery(),
-                ast.getQueryCacheKey().getCanonicalQueryString(), Objects.requireNonNull(continuation.getBindingHash()));
+                ast.getQueryCacheKey().getCanonicalQueryString(),
+                Objects.requireNonNull(continuation.getBindingHash()),
+                evaluationTimestamp);
         planGenerationContext.setForExplain(ast.getQueryExecutionContext().isForExplain());
         Arrays.stream(orderedLiterals).forEach(literal -> planGenerationContext.getLiteralsBuilder().addLiteral(literal));
         planGenerationContext.setContinuation(continuationProto);

@@ -158,6 +158,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
                 .put("__pick_value", argumentsCount -> BuiltInFunctionCatalog.resolve("pick", argumentsCount))
                 .put("get_versionstamp_incarnation", argumentsCount -> BuiltInFunctionCatalog.resolve("get_versionstamp_incarnation", argumentsCount))
                 .put("cardinality", argumentsCount -> BuiltInFunctionCatalog.resolve("cardinality", argumentsCount))
+                .put("current_timestamp", argumentsCount -> BuiltInFunctionCatalog.resolve("current_timestamp_millis", argumentsCount))
                 .build();
     }
 

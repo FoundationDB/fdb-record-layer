@@ -80,6 +80,7 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -193,7 +194,7 @@ public class SemanticAnalyzer {
      * @param stringLiteral the {@code stringLiteral} context to decode
      * @return the decoded string value
      */
-    @Nullable
+    @Nonnull
     public static String normalizeStringLiteral(@Nonnull final RelationalParser.StringLiteralContext stringLiteral) {
         if (stringLiteral.STRING_CHARSET_NAME() != null
                 || stringLiteral.START_NATIONAL_STRING_LITERAL() != null
@@ -209,6 +210,24 @@ public class SemanticAnalyzer {
             builder.append(normalizeStringLiteral(part.getText()));
         }
         return builder.toString();
+    }
+
+    public static long parseIntervalLiteral(final RelationalParser.IntervalLiteralContext intervalLiteral) {
+        final var dayTimeIntervalQualifierCtx = Assert.castUnchecked(intervalLiteral.intervalQualifier(),
+                RelationalParser.DayTimeIntervalQualifierContext.class,
+                ErrorCode.UNSUPPORTED_QUERY,
+                () -> "only day time intervals are supported");
+        final var startFieldString = dayTimeIntervalQualifierCtx.startField.getText().toUpperCase(Locale.ROOT);
+        final var endFieldMaybeString = dayTimeIntervalQualifierCtx.endField == null ?
+                                  startFieldString : dayTimeIntervalQualifierCtx.endField.getText().toUpperCase(Locale.ROOT);
+        final var startFieldUnit = ChronoUnit.valueOf(startFieldString + "S");
+        final var endField = ChronoUnit.valueOf(endFieldMaybeString + "S");
+        final var isNegative = intervalLiteral.direction != null && intervalLiteral.direction.getText().equals("-");
+        return ParseHelpers.parseInterval(
+                normalizeStringLiteral(intervalLiteral.value),
+                isNegative,
+                startFieldUnit,
+                endField);
     }
 
     /**

@@ -189,7 +189,7 @@ public class CopyCommandTest {
     private static MutablePlanGenerationContext getMutablePlanGenerationContext(final String sql, final List<byte[]> exportedData) {
         final PreparedParams preparedParams = PreparedParams.of(Map.of(1, exportedData), Map.of());
         final MutablePlanGenerationContext context = new MutablePlanGenerationContext(preparedParams,
-                PlanHashable.PlanHashMode.VC1, sql, sql, 0);
+                PlanHashable.PlanHashMode.VC1, sql, sql, 0, null);
         context.processUnnamedPreparedParam(1);
         return context;
     }

@@ -274,6 +274,12 @@ public final class Options {
          * A boolean indicating whether to (attempt to) compress records when saving.
          */
         COMPRESS_WHEN_SERIALIZING,
+
+        /**
+         * A fixed Unix epoch timestamp in milliseconds to use in current datetime value functions.
+         */
+        FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS
+
     }
 
     public enum IndexFetchMethod {
@@ -590,6 +596,7 @@ public final class Options {
         data.put(Name.ENCRYPTION_KEY_ENTRY_LIST, List.of(new OrderedCollectionContract<>(TypeContract.stringType())));
         data.put(Name.ENCRYPTION_KEY_PASSWORD, List.of(TypeContract.nullableStringType()));
         data.put(Name.COMPRESS_WHEN_SERIALIZING, List.of(TypeContract.booleanType()));
+        data.put(Name.FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS, List.of(TypeContract.longType()));
 
         return Collections.unmodifiableMap(data);
     }

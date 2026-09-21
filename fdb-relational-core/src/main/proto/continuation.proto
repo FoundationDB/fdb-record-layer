@@ -95,6 +95,8 @@ message CompiledStatement {
   optional com.apple.foundationdb.record.planprotos.PQueryPlanConstraint plan_constraint = 5;
   // query metadata
   optional com.apple.foundationdb.record.planprotos.PType queryMetadata = 6;
+  // current time in milliseconds since Unix epoch for use in executing the query
+  optional int64 evaluation_timestamp_in_epoch_millis = 7;
 }
 
 // Continuation state required for COPY.

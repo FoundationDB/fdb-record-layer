@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.time.Instant;
 import java.util.Map;
 
 /**
@@ -172,6 +173,13 @@ public class EvaluationContext {
         return constantsMap.containsKey(constantId);
     }
 
+    public boolean containsEvaluatinoTimestamp() {
+        return containsBinding(Bindings.Internal.EVALUATION_TIMESTAMP.bindingName(""));
+    }
+
+    public Instant getEvaluationTimestamp() {
+        return (Instant)getBinding(Bindings.Internal.EVALUATION_TIMESTAMP.bindingName(""));
+    }
 
     /**
      * Dereferences the constant.

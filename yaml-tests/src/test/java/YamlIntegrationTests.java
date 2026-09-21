@@ -417,6 +417,12 @@ public class YamlIntegrationTests {
         runner.runYamsql("sql-functions.yamsql");
     }
 
+
+    @TestTemplate
+    public void datetimeValueFunctions(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("datetime-value-functions.yamsql");
+    }
+
     @TestTemplate
     public void standardTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("standard-tests.yamsql");

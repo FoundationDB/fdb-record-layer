@@ -34,6 +34,7 @@ import com.apple.foundationdb.relational.recordlayer.util.Hex;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
@@ -41,9 +42,14 @@ import org.antlr.v4.runtime.tree.ParseTree;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 /**
  * Contains a set of utility methods that are relevant for parsing the AST.
@@ -55,6 +61,23 @@ public final class ParseHelpers {
     // used only to be passed to expression lambdas in Record Layer (to be removed).
     @Nonnull
     public static final TypeRepository EMPTY_TYPE_REPOSITORY = TypeRepository.empty();
+
+
+    /**
+     * The fields of a day-time interval, ordered from most to least significant.
+     */
+    @Nonnull
+    private static final List<ChronoUnit> DAY_TIME_FIELDS =
+            ImmutableList.of(ChronoUnit.DAYS, ChronoUnit.HOURS, ChronoUnit.MINUTES, ChronoUnit.SECONDS);
+
+
+    /**
+     * A pattern for every legal day-time interval qualifier, indexed by the start field and then the end field.
+     */
+    @Nonnull
+    private static final Supplier<Map<ChronoUnit, Map<ChronoUnit, Pattern>>> DAY_TIME_INTERVAL_PATTERNS_SUPPLIER =
+            Suppliers.memoize(ParseHelpers::buildDayTimeIntervalPatterns);
+
 
     private ParseHelpers() {
     }
@@ -164,6 +187,48 @@ public final class ParseHelpers {
         }
     }
 
+    public static long parseInterval(@Nonnull String intervalLiteral,
+                                     boolean isNegative,
+                                     @Nonnull ChronoUnit startField,
+                                     @Nullable ChronoUnit endField) {
+        final var effectiveEndField = endField == null ? startField : endField;
+        final var patternForQualifier = DAY_TIME_INTERVAL_PATTERNS_SUPPLIER.get()
+                .getOrDefault(startField, ImmutableMap.of()).get(effectiveEndField);
+        Assert.notNullUnchecked(patternForQualifier, ErrorCode.INTERNAL_ERROR,
+                () -> "invalid qualifier for day-time interval");
+        final var matcher = patternForQualifier.matcher(intervalLiteral.strip());
+        Assert.thatUnchecked(matcher.matches(), ErrorCode.INTERNAL_ERROR,
+                () -> "'" + intervalLiteral + "' is not a valid day time interval literal");
+
+        try {
+            final var startFieldIndex = DAY_TIME_FIELDS.indexOf(startField);
+            final var endFieldIndex = DAY_TIME_FIELDS.indexOf(effectiveEndField);
+            var interval = Duration.ZERO;
+            for (var fieldIndex = startFieldIndex; fieldIndex <= endFieldIndex; fieldIndex++) {
+                final var field = DAY_TIME_FIELDS.get(fieldIndex);
+                final var amount = Long.parseLong(matcher.group(field.name().toLowerCase(Locale.ROOT)));
+                if (fieldIndex > startFieldIndex) {
+                    // only the leading field is unbounded, the remaining ones must be within their natural range
+                    final var maxAmount = field == ChronoUnit.HOURS ? 23L : 59L;
+                    Assert.thatUnchecked(amount <= maxAmount, ErrorCode.INTERNAL_ERROR,
+                            () -> "'" + intervalLiteral + "' is not a valid day time interval literal");
+                }
+                interval = interval.plus(Duration.of(amount, field));
+            }
+            // The fraction group is part of the pattern only when the literal ends in seconds
+            if (effectiveEndField == ChronoUnit.SECONDS && matcher.group("fraction") != null) {
+                final var fractionString = matcher.group("fraction");
+                Assert.thatUnchecked(fractionString.length() <= 3, ErrorCode.INTERNAL_ERROR, () -> "maximum allowed precision for fractional seconds is 3");
+                interval = interval.plusMillis(
+                        Long.parseLong(matcher.group("fraction") + "0".repeat(3 - fractionString.length())));
+            }
+            final var shouldNegate = isNegative ^ "-".equals(matcher.group("sign"));
+            return shouldNegate ? interval.negated().toMillis() : interval.toMillis();
+        } catch (ArithmeticException | NumberFormatException ex) {
+            throw new RelationalException("interval literal is larger than the maximum interval of " + Long.MAX_VALUE + " milliseconds", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
+        }
+    }
+
     public static boolean isNullsLast(@Nullable RelationalParser.OrderClauseContext orderClause, boolean isDescending) {
         if (orderClause == null || orderClause.nulls == null) {
             return isDescending; // Default behavior: ASC NULLS FIRST, DESC NULLS LAST
@@ -176,6 +241,32 @@ public final class ParseHelpers {
             return false; // Default is ASC
         }
         return orderClause.DESC() != null;
+    }
+
+    @Nonnull
+    private static Map<ChronoUnit, Map<ChronoUnit, Pattern>> buildDayTimeIntervalPatterns() {
+        final var signPattern = "(?<sign>[-+])?";
+        final var fieldPatterns = ImmutableList.of(
+                " (?<days>\\d+)",
+                " (?<hours>\\d+)",
+                ":(?<minutes>\\d+)",
+                ":(?<seconds>\\d+)(?:\\.(?<fraction>\\d+))?");
+        final var allPatterns = ImmutableMap.<ChronoUnit, Map<ChronoUnit, Pattern>>builder();
+        for (var startFieldIndex = 0; startFieldIndex < fieldPatterns.size(); startFieldIndex++) {
+            final var patternsByEndField = ImmutableMap.<ChronoUnit, Pattern>builder();
+            for (var endFieldIndex = startFieldIndex; endFieldIndex < fieldPatterns.size(); endFieldIndex++) {
+                final var includedPatterns = fieldPatterns.subList(startFieldIndex, endFieldIndex + 1);
+                // drop the separator preceding the leading field, as nothing comes before it
+                final var pattern = new StringBuilder();
+                pattern.append(signPattern);
+                pattern.append(includedPatterns.get(0).substring(1));
+
+                includedPatterns.subList(1, includedPatterns.size()).forEach(pattern::append);
+                patternsByEndField.put(DAY_TIME_FIELDS.get(endFieldIndex), Pattern.compile(pattern.toString()));
+            }
+            allPatterns.put(DAY_TIME_FIELDS.get(startFieldIndex), patternsByEndField.build());
+        }
+        return allPatterns.build();
     }
 
     public static class ParseTreeLikeAdapter implements TreeLike<ParseTreeLikeAdapter> {

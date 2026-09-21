@@ -1285,12 +1285,6 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Object visitCurrentTimestamp(@Nonnull RelationalParser.CurrentTimestampContext ctx) {
-        return getDelegate().visitCurrentTimestamp(ctx);
-    }
-
-    @Nonnull
-    @Override
     public Object visitExpressionOrDefault(@Nonnull RelationalParser.ExpressionOrDefaultContext ctx) {
         return getDelegate().visitExpressionOrDefault(ctx);
     }
@@ -1343,16 +1337,15 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitSpecificFunctionCall(ctx);
     }
 
-    @Nonnull
     @Override
-    public Expression visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx) {
-        return getDelegate().visitScalarFunctionCall(ctx);
+    public Object visitDatetimeValueFunctionCall(final RelationalParser.DatetimeValueFunctionCallContext ctx) {
+        return getDelegate().visitDatetimeValueFunctionCall(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitSimpleFunctionCall(@Nonnull RelationalParser.SimpleFunctionCallContext ctx) {
-        return getDelegate().visitSimpleFunctionCall(ctx);
+    public Expression visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx) {
+        return getDelegate().visitScalarFunctionCall(ctx);
     }
 
     @Nonnull
@@ -1419,6 +1412,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitGetFormatFunctionCall(@Nonnull RelationalParser.GetFormatFunctionCallContext ctx) {
         return getDelegate().visitGetFormatFunctionCall(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitDatetimeValueFunction(final RelationalParser.DatetimeValueFunctionContext ctx) {
+        return getDelegate().visitDatetimeValueFunction(ctx);
     }
 
     @Nonnull
@@ -1589,6 +1588,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public Object visitDatetimeIntervalArithmeticExpression(final RelationalParser.DatetimeIntervalArithmeticExpressionContext ctx) {
+        return getDelegate().visitDatetimeIntervalArithmeticExpression(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Expression visitPreparedStatementParameterAtom(@Nonnull RelationalParser.PreparedStatementParameterAtomContext ctx) {
         return getDelegate().visitPreparedStatementParameterAtom(ctx);
     }
@@ -1609,6 +1614,36 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Expression visitMathExpressionAtom(@Nonnull RelationalParser.MathExpressionAtomContext ctx) {
         return getDelegate().visitMathExpressionAtom(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitDatetimePlusMinusIntervalExpression(final RelationalParser.DatetimePlusMinusIntervalExpressionContext ctx) {
+        return getDelegate().visitDatetimePlusMinusIntervalExpression(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitIntervalPlusDatetimeExpression(final RelationalParser.IntervalPlusDatetimeExpressionContext ctx) {
+        return getDelegate().visitIntervalPlusDatetimeExpression(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitIntervalLiteral(final RelationalParser.IntervalLiteralContext ctx) {
+        return getDelegate().visitIntervalLiteral(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitDayTimeIntervalQualifier(final RelationalParser.DayTimeIntervalQualifierContext ctx) {
+        return getDelegate().visitDayTimeIntervalQualifier(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitDayTimeIntervalField(final RelationalParser.DayTimeIntervalFieldContext ctx) {
+        return getDelegate().visitDayTimeIntervalField(ctx);
     }
 
     @Nonnull

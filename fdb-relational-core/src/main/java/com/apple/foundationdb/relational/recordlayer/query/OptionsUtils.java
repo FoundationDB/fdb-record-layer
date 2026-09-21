@@ -30,6 +30,8 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Set;
 
@@ -93,5 +95,14 @@ public final class OptionsUtils {
                 throw new RelationalException("Can not convert vector index engine preference '" + preference.name() + "' to planner configuration",
                         ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
         }
+    }
+
+    public static Instant getEvaluationTimestampForCurrentTimestampFunctions(@Nonnull final Options options) {
+        final Long timestampEpochMillis = options.getOption(
+                Options.Name.FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS);
+        if (timestampEpochMillis == null) {
+            return Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        }
+        return Instant.ofEpochMilli(timestampEpochMillis);
     }
 }

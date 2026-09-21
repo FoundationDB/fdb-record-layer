@@ -171,6 +171,7 @@ message Options {
     PREFER_GUARDIANN = 2;
   }
   optional VectorIndexEnginePreference vector_index_engine_preference = 34;
+  optional string fixed_epoch_timestamp_millis_for_current_datetime_functions = 35;
 }
 
 // Request that is part of a transactional (stateful) exchange

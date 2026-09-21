@@ -58,6 +58,7 @@ import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Struct;
+import java.time.Instant;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Locale;
@@ -388,55 +389,25 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitPreparedStatementParameter(@Nonnull RelationalParser.PreparedStatementParameterContext ctx) {
-        Object param;
-        if (ctx.QUESTION() != null) {
-            final int currentUnnamedParameterIndex = preparedStatementParameters.currentUnnamedParamIndex();
-            param = preparedStatementParameters.nextUnnamedParamValue();
-            if (param instanceof Array || param instanceof Struct) {
-                allowLiteralAddition = false;
-            }
-            processUnnamedParameter(param,  currentUnnamedParameterIndex, ctx.getStart().getTokenIndex());
-            if (param instanceof Array || param instanceof Struct) {
-                allowLiteralAddition = true;
-            }
-
-            if (param instanceof Array) {
-                allowTokenAddition = false;
-                processArrayParameter((Array) param, currentUnnamedParameterIndex, null, ctx.getStart().getTokenIndex());
-                allowTokenAddition = true;
-            } else if (param instanceof Struct) {
-                allowTokenAddition = false;
-                processStructParameter((Struct) param, currentUnnamedParameterIndex, null, ctx.getStart().getTokenIndex());
-                allowTokenAddition = true;
-            }
-        } else {
-            // Note we preserve named parameters in canonical representation, otherwise we could mix up different queries
-            // if we use '?' ubiquitously.
-            // e.g. select * from t1 where col1 = ?P1 and col2 = ?P2
-            //      select * from t1 where col1 = ?P2 and col2 = ?P1
-            final var namedParameterContext = ctx.NAMED_PARAMETER();
-            final var parameterName = namedParameterContext.getText().substring(1);
-            param = preparedStatementParameters.namedParamValue(parameterName);
-            if (param instanceof Array || param instanceof Struct) {
-                allowLiteralAddition = false;
-            }
-            processNamedParameter(param, parameterName, namedParameterContext.getSymbol().getTokenIndex());
-            if (param instanceof Array || param instanceof Struct) {
-                allowLiteralAddition = true;
-            }
-
-            if (param instanceof Array) {
-                allowTokenAddition = false;
-                processArrayParameter((Array) param, null, parameterName, ctx.getStart().getTokenIndex());
-                allowTokenAddition = true;
-            } else if (param instanceof Struct) {
-                allowTokenAddition = false;
-                processStructParameter((Struct) param, null, parameterName, ctx.getStart().getTokenIndex());
-                allowTokenAddition = true;
-            }
+        final var parsedLiteral = parseParameter(ctx);
+        if (parsedLiteral.value() instanceof Array || parsedLiteral.value() instanceof Struct) {
+            allowLiteralAddition = false;
+        }
+        processLiteral(parsedLiteral.value(), parsedLiteral.tokenIndex(), parsedLiteral.unnamedParameterIndex(), parsedLiteral.parameterName());
+        if (parsedLiteral.value() instanceof Array || parsedLiteral.value() instanceof Struct) {
+            allowLiteralAddition = true;
         }
 
-        return param;
+        if (parsedLiteral.value() instanceof Array) {
+            allowTokenAddition = false;
+            processArrayParameter((Array) parsedLiteral.value(), parsedLiteral.unnamedParameterIndex(), parsedLiteral.parameterName(), parsedLiteral.tokenIndex());
+            allowTokenAddition = true;
+        } else if (parsedLiteral.value() instanceof Struct) {
+            allowTokenAddition = false;
+            processStructParameter((Struct) parsedLiteral.value(), parsedLiteral.unnamedParameterIndex(), parsedLiteral.parameterName(), parsedLiteral.tokenIndex());
+            allowTokenAddition = true;
+        }
+        return parsedLiteral.value();
     }
 
     @Override
@@ -484,6 +455,14 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             sqlCanonicalizer.append(") ");
         }
 
+        return null;
+    }
+
+    @Override
+    public Object visitIntervalLiteral(final RelationalParser.IntervalLiteralContext ctx) {
+        sqlCanonicalizer.append("INTERVAL ");
+        processScalarLiteral(SemanticAnalyzer.parseIntervalLiteral(ctx), ctx.value.getStart().getTokenIndex());
+        sqlCanonicalizer.append("DAY TO SECOND");
         return null;
     }
 
@@ -544,6 +523,20 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     public Object visitCopyImportStatement(final RelationalParser.CopyImportStatementContext ctx) {
         queryCachingFlags.add(NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION);
         return visitChildren(ctx);
+    }
+
+    private ParsedLiteral parseParameter(@Nonnull final RelationalParser.PreparedStatementParameterContext ctx) {
+        if (ctx.QUESTION() != null) {
+            final var unnamedParameterIndex = preparedStatementParameters.currentUnnamedParamIndex();
+            return new ParsedLiteral(preparedStatementParameters.nextUnnamedParamValue(),
+                    ctx.getStart().getTokenIndex(),
+                    unnamedParameterIndex, null);
+        }
+        // a named parameter is written '?name', so its name is its text less the leading '?'
+        final var parameterName = ctx.NAMED_PARAMETER().getText().substring(1);
+        return new ParsedLiteral(preparedStatementParameters.namedParamValue(parameterName),
+                ctx.NAMED_PARAMETER().getSymbol().getTokenIndex(),
+                null, parameterName);
     }
 
     private void processArrayParameter(@Nonnull final Array param, @Nullable Integer unnamedParameterIndex,
@@ -630,7 +623,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     public static NormalizationResult normalizeQuery(@Nonnull final PlanContext context,
                                                      @Nonnull final String query,
                                                      boolean isCaseSensitive,
-                                                     @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
+                                                     @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
+                                                     @Nullable final Instant evaluationTimestamp) throws RelationalException {
         // lexing, parsing, and normalization are profiled through the metric collector.
         final var metricCollector = context.getMetricsCollector();
         final var parseTreeInfo = metricCollector.clock(RelationalMetric.RelationalEvent.LEX_PARSE,
@@ -643,7 +637,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                         context.getPlannerConfiguration(),
                         isCaseSensitive,
                         currentPlanHashMode,
-                        query
+                        query,
+                        evaluationTimestamp
                 ));
     }
 
@@ -655,8 +650,10 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                                    @Nonnull final PlannerConfiguration plannerConfiguration,
                                                    boolean caseSensitive,
                                                    @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
-                                                   @Nonnull final String query) throws RelationalException {
+                                                   @Nonnull final String query,
+                                                   @Nonnull final Instant evaluationTimestamp) throws RelationalException {
         final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode, parseTreeInfo.getQueryType() == ParseTreeInfo.QueryType.DESCRIBE_QUERY);
+        astNormalizer.queryHasherContextBuilder.setEvaluationTimestamp(evaluationTimestamp);
         astNormalizer.visit(parseTreeInfo.getRootContext());
         final var recordLayerSchemaTemplate = Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class);
 
@@ -684,7 +681,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                         plannerConfiguration,
                         caseSensitive,
                         currentPlanHashMode,
-                        recordLayerRoutine.getDescription());
+                        recordLayerRoutine.getDescription(),
+                        evaluationTimestamp);
                 astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(functionAstResult.queryExecutionContext.getLiterals());
             }
         }
@@ -806,5 +804,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         public String getQuery() {
             return query;
         }
+    }
+
+    private record ParsedLiteral(Object value, int tokenIndex,
+                                 @Nullable Integer unnamedParameterIndex, @Nullable String parameterName) {
     }
 }

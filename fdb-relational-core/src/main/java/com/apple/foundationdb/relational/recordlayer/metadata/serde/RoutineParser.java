@@ -83,7 +83,7 @@ public interface RoutineParser {
                                boolean isCaseSensitive) {
             final var parsed = parse.apply(query);
             final var planGenerationContext = new MutablePlanGenerationContext(preparedParams,
-                    PlanHashable.PlanHashMode.VC0, query, query, 0);
+                    PlanHashable.PlanHashMode.VC0, query, query, 0, null);
             if (scope != null) {
                 planGenerationContext.getLiteralsBuilder().setScope(scope);
             }

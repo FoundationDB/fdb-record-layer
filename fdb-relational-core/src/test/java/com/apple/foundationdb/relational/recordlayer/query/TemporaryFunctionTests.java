@@ -1130,7 +1130,7 @@ public class TemporaryFunctionTests {
                 return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine);
             }
         };
-        final var visitor = new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, statement, statement, 42),
+        final var visitor = new BaseVisitor(new MutablePlanGenerationContext(PreparedParams.empty(), PlanHashable.PlanHashMode.VC0, statement, statement, 42, null),
                 schemaTemplate, NoOpQueryFactory.INSTANCE, metadataOperationsFactory, URI.create("/FDB/FRL1"), false) {
             @Override
             public LogicalOperator visitStatementBody(final RelationalParser.StatementBodyContext ctx) {

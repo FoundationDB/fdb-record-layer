@@ -90,6 +90,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.sql.Struct;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 
@@ -483,6 +485,10 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                         compiledStatementBuilder.addArguments(orderedLiteralProto);
                     }
                     i++;
+                }
+
+                if (queryExecutionContext.getEvaluationTimestamp() != null) {
+                    compiledStatementBuilder.setEvaluationTimestampInEpochMillis(queryExecutionContext.getEvaluationTimestamp().toEpochMilli());
                 }
 
                 compiledStatementBuilder.setPlanConstraint(getContinuationConstraint().toProto(serializationContext))
