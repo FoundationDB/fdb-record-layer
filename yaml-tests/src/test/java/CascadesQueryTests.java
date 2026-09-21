@@ -18,10 +18,7 @@
  * limitations under the License.
  */
 
-import com.apple.foundationdb.relational.yamltests.MaintainYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.YamlTest;
-import com.apple.foundationdb.relational.yamltests.YamlTestConfigFilters;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 
 /**
@@ -44,7 +41,6 @@ import org.junit.jupiter.api.TestTemplate;
  * </p>
  */
 @YamlTest
-@MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPECTATIONS)
 class CascadesQueryTests {
     private static final String PREFIX = "cascades-query-tests";
 

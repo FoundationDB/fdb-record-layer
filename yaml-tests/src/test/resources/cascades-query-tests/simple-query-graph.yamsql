@@ -122,6 +122,7 @@ test_block:
       # predicate; it must be folded away and leave the plan unchanged from testSimplePlanGraph.
       - query: select name as nameNew, rest_no as restNoNew from restaurant_record
                where rest_no > 1 and true
+      - supported_version: !current_version
       - explain: "SCAN([[GREATER_THAN promote(@c13 AS LONG)]]) | TFILTER RESTAURANT_RECORD | MAP (_.NAME AS NAMENEW, _.REST_NO AS RESTNONEW)"
       - result: [{NAMENEW: 'Chez Thenardier', RESTNONEW: 1000},
                  {NAMENEW: 'ABC', RESTNONEW: 1001}]
