@@ -454,7 +454,8 @@ public class MetaDataProtoEditorUnitTest {
     }
 
     public static Stream<Arguments> renamableFiles() {
-        // Note: Explicitly having the .json here so that you can Cmd+click in the IDE to jump to the file
+        // Provides two arguments, the name of the metadata json file, and extra assertions for after the rename.
+        // Note: Explicitly spelling out the .json extensions here so you can Cmd+Click in the IDE to open the files.
         return Stream.concat(
                 Stream.of(
                         "OneBoringType.json",
@@ -696,8 +697,7 @@ public class MetaDataProtoEditorUnitTest {
                         name -> name.equals("T2") ? "T1_1" : name,
                         RecordMetaDataBuilder.getDependencies(originalProto, Map.of())));
         Assertions.assertThat(exception.getMessage())
-                .startsWith("Cannot rename union field to ")
-                .endsWith("as a field of that name already exists");
+                .isEqualTo("Cannot rename union field because a field of the new name already exists");
     }
 
     /**
@@ -866,9 +866,8 @@ public class MetaDataProtoEditorUnitTest {
                     newName -> newName.substring(prefix.length()));
         } catch (MetaDataException e) {
             Assertions.assertThat(e.getMessage())
-                    .satisfiesAnyOf(
-                            message -> Assertions.assertThat(message).startsWith("Cannot rename record type to ").endsWith("as it already exists"),
-                            message -> Assertions.assertThat(message).startsWith("Cannot rename union field to ").endsWith("as a field of that name already exists"));
+                    .isIn("Cannot rename record type as a type of the new name already exists",
+                            "Cannot rename union field because a field of the new name already exists");
         }
     }
 

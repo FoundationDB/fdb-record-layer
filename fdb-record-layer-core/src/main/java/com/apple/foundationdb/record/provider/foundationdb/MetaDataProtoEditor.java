@@ -916,9 +916,10 @@ public class MetaDataProtoEditor {
         for (final RecordTypeRename rename : renames.values()) {
             final String previous = inverse.put(rename.newName, rename.name);
             if (previous != null) {
-                throw new MetaDataException(
-                        "Cannot rename record types `" + previous + "` and `" + rename.name
-                        + "` to the same name `" + rename.newName + "`");
+                throw new MetaDataException("Cannot rename two record types to the same name",
+                        LogMessageKeys.OLD_RECORD_TYPE, previous,
+                        LogMessageKeys.RECORD_TYPE, rename.name,
+                        LogMessageKeys.NEW_RECORD_TYPE, rename.newName);
             }
         }
 
@@ -926,7 +927,9 @@ public class MetaDataProtoEditor {
         for (final DescriptorProtos.DescriptorProto messageType : metaDataBuilder.getRecords().getMessageTypeList()) {
             final String name = messageType.getName();
             if (!renames.containsKey(name) && inverse.containsKey(name)) {
-                throw new MetaDataException("Cannot rename record type to " + name + " as it already exists");
+                throw new MetaDataException("Cannot rename record type as a type of the new name already exists",
+                        LogMessageKeys.RECORD_TYPE, inverse.get(name),
+                        LogMessageKeys.NEW_RECORD_TYPE, name);
             }
         }
 
@@ -935,8 +938,9 @@ public class MetaDataProtoEditor {
         for (final String name : getRecordTypes(metaDataBuilder)) {
             if (!renames.containsKey(name) && inverse.containsKey(name)) {
                 throw new MetaDataException(
-                        "Cannot rename record type to " + name +
-                        " as an imported record type of that name already exists");
+                        "Cannot rename record type as an imported record type of the new name already exists",
+                        LogMessageKeys.RECORD_TYPE, inverse.get(name),
+                        LogMessageKeys.NEW_RECORD_TYPE, name);
             }
         }
 
@@ -958,6 +962,8 @@ public class MetaDataProtoEditor {
         // Find, for each renamed record type, the union field that references it (if any), in a single pass over the
         // union’s fields.
         for (final DescriptorProtos.FieldDescriptorProto.Builder unionField : unionBuilder.getFieldBuilderList()) {
+            // Skip fields that name no type at all. Only message- and enum-typed fields carry a `type_name`; scalar
+            // fields don’t. A union holding a scalar field would be unusual but technically legal proto.
             if (!unionField.hasTypeName() || unionField.getTypeName().isEmpty()) {
                 continue;
             }
@@ -1031,8 +1037,9 @@ public class MetaDataProtoEditor {
                             && !beingRenamed.contains(fb));
             if (hasCollision) {
                 throw new MetaDataException(
-                        "Cannot rename union field to " + newName + " as a field of that name already exists",
-                        LogMessageKeys.RECORD_TYPE, rename.name);
+                        "Cannot rename union field because a field of the new name already exists",
+                        LogMessageKeys.RECORD_TYPE, rename.name,
+                        LogMessageKeys.NEW_FIELD_NAME, newName);
             }
         }
     }
