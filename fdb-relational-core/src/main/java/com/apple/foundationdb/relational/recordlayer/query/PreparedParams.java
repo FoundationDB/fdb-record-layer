@@ -92,17 +92,16 @@ public final class PreparedParams {
         return namedParams.get(name);
     }
 
-    public boolean hasNamedParamValue(@Nonnull String name) {
-        return namedParams.containsKey(name);
-    }
-
     /**
-     * The SQL text of a named parameter's declared type, or empty when it declares none. Only consulted for a
-     * parameter that carries no value, so a declared type may be supplied for every parameter and the bound ones never
-     * read it.
+     * The SQL text of a named parameter's declared type, or empty when the parameter has a value or declares no type.
+     * A declared type is only ever used for a parameter left without a value, so a declared type may be supplied for
+     * every parameter the query declares and the bound ones simply never read it.
      */
     @Nonnull
-    public Optional<String> declaredTypeMaybe(@Nonnull String name) {
+    public Optional<String> unboundDeclaredTypeMaybe(@Nonnull String name) {
+        if (namedParams.containsKey(name)) {
+            return Optional.empty();
+        }
         return Optional.ofNullable(declaredTypeParams.get(name));
     }
 
