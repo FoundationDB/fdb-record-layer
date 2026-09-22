@@ -20,9 +20,12 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios;
 
+import com.apple.foundationdb.half.Half;
+import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.record.TestRecordsIndexScenariosProto;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
 import java.util.ArrayList;
@@ -78,6 +81,23 @@ public final class ScenarioRecords {
     /** An empty grouping prefix, for ungrouped scenarios. */
     public static KeyExpression noPrefix() {
         return EmptyKeyExpression.EMPTY;
+    }
+
+    /**
+     * Build a {@link #VECTOR_DIMENSIONS}-dimensional half-precision vector whose distance from the
+     * origin is determined solely by {@code distinctness}. Giving each record a distinct value keeps
+     * distance-sorted vector scans deterministic and free of tie-breaking ambiguity.
+     *
+     * @param distinctness the value placed in the first component; distinct per record
+     * @return the raw bytes of the vector
+     */
+    public static ByteString vectorBytes(final int distinctness) {
+        final Half[] components = new Half[VECTOR_DIMENSIONS];
+        for (int i = 0; i < components.length; i++) {
+            components[i] = Half.valueOf(0.0f);
+        }
+        components[0] = Half.valueOf((float)distinctness);
+        return ByteString.copyFrom(new HalfRealVector(components).getRawData());
     }
 
     /**

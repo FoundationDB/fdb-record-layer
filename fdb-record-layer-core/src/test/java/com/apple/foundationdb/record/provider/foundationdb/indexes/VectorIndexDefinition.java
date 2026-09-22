@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOption
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexTarget;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
-import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
@@ -73,11 +72,8 @@ class VectorIndexDefinition implements IndexDefinition {
     @Override
     public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int index) {
         // Distinct distance-to-origin per record, so distance-sorted vector scans are deterministic.
-        final Half[] components = constantHalfComponents(0.0f);
-        components[0] = Half.valueOf((float)(index + 1));
-        final HalfRealVector vector = new HalfRealVector(components);
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
-                .setBytesValue(ByteString.copyFrom(vector.getRawData()))
+                .setBytesValue(ScenarioRecords.vectorBytes(index + 1))
                 .build();
     }
 

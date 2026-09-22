@@ -47,6 +47,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenario;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioModel;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
@@ -74,6 +76,7 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -185,6 +188,35 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     @Nonnull
     private SlidingWindow groupedSlidingWindow(@Nullable final Tuple groupingKey) {
         return SlidingWindowTestHelpers.groupedSlidingWindow(recordStore, INDEX_NAME, groupingKey);
+    }
+
+    // ===== Shared index-maintainer scenarios =====
+
+    /**
+     * Runs the shared scenario battery with a window of one, so the index holds exactly the single best
+     * record per partition and every further insert evicts the previous one.
+     */
+    @ParameterizedTest
+    @IndexScenarios
+    void windowSizeOneIndexScenariosTest(IndexScenario scenario) throws Exception {
+        scenario.runTest(
+                () -> new SlidingWindowIndexDefinition(1),
+                this::openContext,
+                FDBRecordStore.newBuilder()
+                        .setKeySpacePath(path));
+    }
+
+    /**
+     * Guards the scenario definition itself: the window predicate is only honoured for vector indexes, and
+     * is otherwise silently inert, so assert that the window really is enforced. The scenarios above
+     * compare scans against each other and would still pass if it were not.
+     */
+    @Test
+    void scenarioDefinitionWindowSizeOneKeepsOneEntry() {
+        final IndexScenarioModel model = new IndexScenarioModel(new SlidingWindowIndexDefinition(1),
+                this::openContext, FDBRecordStore.newBuilder().setKeySpacePath(path));
+        model.saveRecords(model.generateRecords(10));
+        assertEquals(1, model.scanIndex().size(), "window of one should keep exactly the best record");
     }
 
     // ===== DESC tests (keep highest relevance) =====
