@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
@@ -625,6 +626,28 @@ public class MetaDataProtoEditorUnitTest {
                 originalProto,
                 name -> name.equals("T1") ? "Imported" : name,
                 RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
+    }
+
+    /**
+     * Tests that the rename rejects a renamer that maps a record type to the name of a synthetic record type, whether
+     * joined or unnested. Unlike the other exception tests here, this one is batched-only because
+     * {@link MetaDataProtoEditor#renameRecordType} does not check for such a collision at all.
+     */
+    @ParameterizedTest(name = "{0}")
+    @CsvSource({
+            "Joined.json, T1, JOIN",
+            "UnnestedInternal.json, T2, __3_syntheticType_1",
+    })
+    void batchedRejectsRenameToSyntheticType(String name, String recordType, String syntheticTypeName)
+            throws IOException {
+        final RecordMetaDataProto.MetaData originalProto = loadMetaData(name).build();
+        final MetaDataException exception = assertThrows(MetaDataException.class,
+                () -> MetaDataProtoEditor.renameRecordTypes(
+                        originalProto.toBuilder(),
+                        typeName -> typeName.equals(recordType) ? syntheticTypeName : typeName,
+                        RecordMetaDataBuilder.getDependencies(originalProto, Map.of())));
+        assertEquals("Cannot rename record type as a synthetic record type of the new name already exists",
+                exception.getMessage());
     }
 
     /**

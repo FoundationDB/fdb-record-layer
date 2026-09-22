@@ -527,8 +527,8 @@ public class MetaDataProtoEditor {
      *
      * <p><b>Precondition:</b> The {@code renamer} must define a consistent, collision-free mapping. That is, no two
      * distinct existing top-level record types may map to the same new name, and no record type may be renamed to a
-     * name that collides with another (renamed or unchanged) top-level type or an imported record type. If a collision
-     * is detected, no rename is performed, and a {@link MetaDataException} is thrown.
+     * name that collides with another (renamed or unchanged) top-level type, an imported record type, or a synthetic
+     * record type. If a collision is detected, no rename is performed, and a {@link MetaDataException} is thrown.
      *
      * <p>The following is an example of a simple, collision-free renaming. It prepends a fixed string to every name:
      * <pre>
@@ -553,12 +553,13 @@ public class MetaDataProtoEditor {
      * rename outright, with a “No record type found” exception.) An imported record type can still be the cause of
      * a collision, however.
      *
-     * <p>Validating the mapping as a whole means a batch may be accepted where the equivalent one-by-one renames
-     * would fail, and rejected where they would quietly succeed. A batch that permutes existing names, for instance
-     * swapping {@code Foo} and {@code Bar}, is collision-free and therefore accepted, whereas renaming those types
-     * one at a time would collide on whichever is renamed first. Conversely, a mapping that would make two union
-     * fields share a name is rejected here, while {@code renameRecordType} leaves the second field under its old
-     * name instead of reporting the conflict.
+     * <p>Validating the mapping as a whole means a batch may be accepted where the equivalent one-by-one renames would
+     * fail, and rejected where they would quietly succeed. A batch that permutes existing names, for instance swapping
+     * {@code Foo} and {@code Bar}, is collision-free and therefore accepted, whereas renaming those types one at a time
+     * would collide on whichever is renamed first. Conversely, a mapping that would make two union fields share a name
+     * is rejected here, while {@code renameRecordType} leaves the second field under its old name instead of reporting
+     * the conflict; and a rename onto the name of a synthetic record type is rejected here (while
+     * {@code renameRecordType} does not check for that at all).
      *
      * @param metadata the metadata builder
      * @param renamer a function mapping each existing top-level record type name to its new name
@@ -958,7 +959,36 @@ public class MetaDataProtoEditor {
             }
         }
 
+        // Synthetic record types share the record type namespace, but are not themselves renamable here, so any
+        // rename targeting one of their names is a collision.
+        for (final String name : syntheticRecordTypeNames(metaDataBuilder)) {
+            if (inverse.containsKey(name)) {
+                throw new MetaDataException(
+                        "Cannot rename record type as a synthetic record type of the new name already exists",
+                        LogMessageKeys.RECORD_TYPE, inverse.get(name),
+                        LogMessageKeys.NEW_RECORD_TYPE, name);
+            }
+        }
+
         return new RecordTypeRenames(renames);
+    }
+
+    /**
+     * Returns the names of the synthetic record types declared in the metadata, that is, of its joined and unnested
+     * record types.
+     */
+    @Nonnull
+    private static List<String> syntheticRecordTypeNames(
+            @Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder) {
+        final List<String> names = new ArrayList<>(
+                metaDataBuilder.getJoinedRecordTypesCount() + metaDataBuilder.getUnnestedRecordTypesCount());
+        for (final RecordMetaDataProto.JoinedRecordType joined : metaDataBuilder.getJoinedRecordTypesList()) {
+            names.add(joined.getName());
+        }
+        for (final RecordMetaDataProto.UnnestedRecordType unnested : metaDataBuilder.getUnnestedRecordTypesList()) {
+            names.add(unnested.getName());
+        }
+        return names;
     }
 
     /**
