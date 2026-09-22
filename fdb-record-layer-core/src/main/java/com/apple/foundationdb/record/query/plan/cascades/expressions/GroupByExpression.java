@@ -73,6 +73,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -283,6 +284,17 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
             return ImmutableList.of();
         }
 
+        // Rule out a query aggregate that is not indexable (e.g., `ARRAY_AGG()`), since no aggregate index can ever
+        // materialize such an aggregate.
+        final boolean isIndexable =
+                aggregateValue instanceof RecordConstructorValue
+                ? Streams.stream(aggregateValue.getChildren())
+                        .allMatch(agg -> agg instanceof IndexableAggregateValue)
+                : aggregateValue instanceof IndexableAggregateValue;
+        if (!isIndexable) {
+            return ImmutableList.of();
+        }
+
         final var candidateGroupByExpression = (GroupByExpression)candidateExpression;
         final var candidateInnerQuantifier = candidateGroupByExpression.getInnerQuantifier();
 
@@ -319,6 +331,9 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
                 ValueEquivalence.fromAliasMap(bindingAliasMap)
                         .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
 
+        // Decompose the aggregates into accessors to their primitive result elements. Note that this rejects a result
+        // type that is neither primitive nor a record (such as the array result of `ARRAY_AGG()`, though that has
+        // already been ruled out by the is-indexable check above).
         final var aggregateValues =
                 Values.primitiveAccessorsForType(aggregateValue.getResultType(), () -> aggregateValue).stream()
                         .map(primitiveAggregateValue -> primitiveAggregateValue.simplify(evaluationContext,
