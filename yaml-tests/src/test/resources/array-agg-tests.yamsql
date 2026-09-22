@@ -44,6 +44,12 @@ schema_template:
     CREATE INDEX doc_asset_by_rid AS SELECT rid FROM doc_asset ORDER BY rid
 
     CREATE TABLE big (id BIGINT, val BIGINT, PRIMARY KEY (id))
+
+    CREATE TABLE T4 (id BIGINT, grp BIGINT, val BIGINT, PRIMARY KEY (id))
+    CREATE INDEX T4_grp AS SELECT grp FROM T4 ORDER BY grp
+    CREATE INDEX T4_count AS SELECT COUNT(*) FROM T4
+    CREATE INDEX T4_count_by_grp AS SELECT COUNT(*) FROM T4 GROUP BY grp
+    CREATE INDEX T4_sum_by_grp AS SELECT SUM(val) FROM T4 GROUP BY grp
 ---
 setup:
   steps:
@@ -72,6 +78,10 @@ setup:
              VALUES (1, 10, 'a1.png'),
                     (2, 20, 'b1.png'),
                     (3, 20, 'b2.png')
+    - query: INSERT INTO T4
+             VALUES (1, 10, 100),
+                    (2, 10, 200),
+                    (3, 20, 300)
 ---
 # ARRAY_AGG() cannot back an aggregate index, since there is no index type that materializes it.
 test_block:
@@ -479,6 +489,55 @@ test_block:
       - resultMetadata: [{mid: BIGINT}, {rid: BIGINT}, {assets: {array: [{aid: BIGINT}, {rid: BIGINT}, {url: STRING}]}}]
       - explain: "SCAN([IS doc_rev, EQUALS promote(@c62 AS LONG)]) | FILTER @c52 IN _.tags | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0) | AGG (array_agg((_._0.aid AS aid, _._0.rid AS rid, _._0.url AS url)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } | FLATMAP q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }"
       - result: [{1, 20, [{2, 20, 'b1.png'}, {3, 20, 'b2.png'}]}]
+---
+# Tests for the interaction between ARRAY_AGG() and aggregate indexes. Since aggregate indexes do not support
+# ARRAY_AGG(), a candidate aggregate index on the same table can never match an ARRAY_AGG() query. The following tests
+# verify that the planner rejects such candidates gracefully and falls back to a scan plus a streaming aggregation.
+# The T4 table carries a COUNT index, a grouped COUNT index and a grouped SUM index. Each of these indexes is considered
+# as a match candidate for the queries below.
+test_block:
+  name: array-agg-with-aggregate-index
+  options:
+    supported_version: !current_version
+  tests:
+    -
+      - query: SELECT ARRAY_AGG(val) FROM T4
+      - explain: "ISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - result: [{[100, 200, 300]}]
+    -
+      # The GROUP BY form, which additionally has the two grouped aggregate indexes as candidates.
+      - query: SELECT grp, ARRAY_AGG(val) FROM T4 GROUP BY grp
+      - explain: "ISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)"
+      - result: [{10, [100, 200]}, {20, [300]}]
+    -
+      # The STRUCT form, whose aggregate result type is an array of records rather than an array of primitives.
+      - query: SELECT ARRAY_AGG((T4.*)) FROM T4
+      - explain: "ISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (array_agg((_._0.id AS id, _._0.grp AS grp, _._0.val AS val)) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - result: [{[{1, 10, 100}, {2, 10, 200}, {3, 20, 300}]}]
+    -
+      # Mixing ARRAY_AGG() with an aggregate that *is* indexable. The whole group-by nevertheless has to be computed by
+      # the streaming aggregation, since the index can contribute only one of the two aggregates.
+      - query: SELECT grp, COUNT(*), ARRAY_AGG(val) FROM T4 GROUP BY grp
+      - explain: "ISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0, array_agg(_._0.val) AS _1) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1, _._1._1 AS _2)"
+      - result: [{10, 2, [100, 200]}, {20, 1, [300]}]
+    -
+      # The indexable aggregates on their own continue to match their indexes.
+      - query: SELECT COUNT(*) FROM T4
+      - explain: "AISCAN(T4_count <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)"
+      - result: [{3}]
+    -
+      - query: SELECT grp, SUM(val) FROM T4 GROUP BY grp
+      - explain: "AISCAN(T4_sum_by_grp <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS grp, _._1 AS _1)"
+      - result: [{10, 300}, {20, 300}]
+    -
+      # A correlated ARRAY_AGG() subquery in the FROM clause, collecting the detail rows as an array of structs. This
+      # repeats the realistic scenario of the block above, but over a detail table that has aggregate indexes.
+      - query: SELECT t.id, sq.vals
+                 FROM T1 t,
+                      (SELECT ARRAY_AGG((d.*)) AS vals FROM T4 d WHERE d.grp = t.grp) sq
+                WHERE t.id = 1
+      - explain: "SCAN([IS T1, EQUALS promote(@c42 AS LONG)]) | FLATMAP q0 -> { ISCAN(T4_grp [EQUALS q0.grp]) | MAP (_ AS _0) | AGG (array_agg((_._0.id AS id, _._0.grp AS grp, _._0.val AS val)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (q0.id AS id, q0._0._0 AS vals) }"
+      - result: [{1, [{1, 10, 100}, {2, 10, 200}]}]
 ---
 test_block:
   name: array-agg-large-group
