@@ -599,12 +599,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     private Type resolveDeclaredType(@Nonnull final String declaration) {
         final var typeCtx = QueryParser.parseParameterDeclaration(declaration).parameterType;
-        final var typeInfo = typeCtx.customType != null
-                             ? SemanticAnalyzer.ParsedTypeInfo.ofCustomType(visitUid(typeCtx.customType), false,
-                                     typeCtx.ARRAY() != null)
-                             : SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(typeCtx.primitiveType(), false,
-                                     typeCtx.ARRAY() != null);
-        final var dataType = getDelegate().getSemanticAnalyzer().lookupType(typeInfo, name -> Optional.empty());
+        final var dataType = getDelegate().lookupType(typeCtx.customType, typeCtx.primitiveType(), false,
+                typeCtx.ARRAY() != null, name -> Optional.empty());
         Assert.thatUnchecked(dataType.isResolved(), ErrorCode.UNSUPPORTED_OPERATION,
                 () -> "cannot resolve declared type '" + declaration + "' for a parameter with no value");
         return DataTypeUtils.toRecordLayerType(dataType).notNullable();
