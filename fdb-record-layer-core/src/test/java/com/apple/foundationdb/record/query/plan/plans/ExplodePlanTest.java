@@ -251,10 +251,11 @@ public class ExplodePlanTest {
     // Pinned hash values for the `planHashIsStable()` test.
     private static final int WITHOUT_ORDINALITY_LEGACY_HASH = -1251896027;
     private static final int WITHOUT_ORDINALITY_FOR_CONTINUATION_HASH = -1251896027;
-    private static final int WITH_ORDINALITY_LEGACY_HASH = -154069942;
-    private static final int WITH_ORDINALITY_FOR_CONTINUATION_HASH = -154069942;
-    private static final int WITH_ZERO_BASED_ORDINALITY_LEGACY_HASH = -481199675;
-    private static final int WITH_ZERO_BASED_ORDINALITY_FOR_CONTINUATION_HASH = -481199675;
+    // The ordinality hashes are those of the record constructor, which is what such a plan now flows.
+    private static final int WITH_ORDINALITY_LEGACY_HASH = -1832119195;
+    private static final int WITH_ORDINALITY_FOR_CONTINUATION_HASH = -1832119195;
+    private static final int WITH_ZERO_BASED_ORDINALITY_LEGACY_HASH = -961118966;
+    private static final int WITH_ZERO_BASED_ORDINALITY_FOR_CONTINUATION_HASH = -961118966;
 
     @Test
     void planHashIsStable() {
@@ -272,7 +273,7 @@ public class ExplodePlanTest {
         Assertions.assertEquals(WITH_ORDINALITY_FOR_CONTINUATION_HASH,
                 withOrdinality.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
-        final var withZeroBasedOrdinality = new RecordQueryExplodePlan(collectionValue, true, true, false);
+        final var withZeroBasedOrdinality = new RecordQueryExplodePlan(collectionValue, true, true, true);
         Assertions.assertEquals(WITH_ZERO_BASED_ORDINALITY_LEGACY_HASH,
                 withZeroBasedOrdinality.planHash(PlanHashable.CURRENT_LEGACY));
         Assertions.assertEquals(WITH_ZERO_BASED_ORDINALITY_FOR_CONTINUATION_HASH,
@@ -346,7 +347,7 @@ public class ExplodePlanTest {
     @Nonnull
     @SuppressWarnings("DataFlowIssue") // explode transposes a constant array Value, it does not need a record store
     private static List<Object> ordinalsOf(@Nonnull final List<Integer> elements, final boolean zeroBasedOrdinality) {
-        final var plan = new RecordQueryExplodePlan(LiteralValue.ofList(elements), true, zeroBasedOrdinality, false);
+        final var plan = new RecordQueryExplodePlan(LiteralValue.ofList(elements), true, zeroBasedOrdinality, true);
         final var resultType = plan.getExplodeResultType();
         final var typeRepository = TypeRepository.newBuilder().addTypeIfNeeded(resultType).build();
         final var descriptor = Objects.requireNonNull(typeRepository.getMessageDescriptor(resultType));
@@ -398,7 +399,7 @@ public class ExplodePlanTest {
         final Value collectionValue = FieldValue.ofFieldName(qov, "arr");
         final var translationMap = TranslationMap.ofAliases(sourceAlias, targetAlias);
 
-        final var plan = new RecordQueryExplodePlan(collectionValue, true, true, false);
+        final var plan = new RecordQueryExplodePlan(collectionValue, true, true, true);
         final var translatedPlan = plan.translateCorrelations(translationMap, true, List.of());
         Assertions.assertNotSame(plan, translatedPlan);
         Assertions.assertTrue(translatedPlan.isWithOrdinality());
@@ -418,8 +419,8 @@ public class ExplodePlanTest {
         // The two variants flow different ordinals for the same array, so neither may stand in for the other, whether
         // as a plan or as an expression to be matched.
         Assertions.assertNotEquals(
-                new RecordQueryExplodePlan(collectionValue, true, false, false),
-                new RecordQueryExplodePlan(collectionValue, true, true, false));
+                new RecordQueryExplodePlan(collectionValue, true, false, true),
+                new RecordQueryExplodePlan(collectionValue, true, true, true));
         Assertions.assertFalse(new ExplodeExpression(collectionValue, true, false)
                 .semanticEquals(new ExplodeExpression(collectionValue, true, true), AliasMap.emptyMap()));
     }
@@ -429,8 +430,8 @@ public class ExplodePlanTest {
         // The ordinal base does not show up in the explain output, so a plan that flows 0-based ordinals explains
         // exactly as one that flows 1-based ordinals, and no expected plan string changes on account of it.
         final var collectionValue = LiteralValue.ofList(List.of(1, 2, 3));
-        final var oneBased = new RecordQueryExplodePlan(collectionValue, true, false, false);
-        final var zeroBased = new RecordQueryExplodePlan(collectionValue, true, true, false);
+        final var oneBased = new RecordQueryExplodePlan(collectionValue, true, false, true);
+        final var zeroBased = new RecordQueryExplodePlan(collectionValue, true, true, true);
 
         final String zeroBasedExplain = ExplainPlanVisitor.toStringForDebugging(zeroBased);
         Assertions.assertEquals(ExplainPlanVisitor.toStringForDebugging(oneBased), zeroBasedExplain);
@@ -480,8 +481,9 @@ public class ExplodePlanTest {
         final var collectionValue = LiteralValue.ofList(List.of(1, 2, 3));
         final var elementValue = new RecordQueryExplodePlan(collectionValue, false).getResultValue();
 
-        // The shape existing plans get: one opaque value standing for the whole struct, with nothing inside it reachable.
-        final var opaque = new RecordQueryExplodePlan(collectionValue, true);
+        // The shape a plan has to ask for now: one opaque value standing for the whole struct, with nothing inside it
+        // reachable.
+        final var opaque = new RecordQueryExplodePlan(collectionValue, true, false, false);
         Assertions.assertFalse(opaque.flowsRecordConstructorValue());
         Assertions.assertInstanceOf(QueriedValue.class, opaque.getResultValue());
 
@@ -504,8 +506,9 @@ public class ExplodePlanTest {
 
         // Two plans that flow the same data in different shapes are not interchangeable, since what is reachable in the
         // value each flows differs, and neither may be substituted for the other under a continuation.
-        final var opaque = new RecordQueryExplodePlan(collectionValue, true);
-        final var recordConstructor = new RecordQueryExplodePlan(collectionValue, true, false, true);
+        final var opaque = new RecordQueryExplodePlan(collectionValue, true, false, false);
+        final var recordConstructor = new RecordQueryExplodePlan(collectionValue, true);
+        Assertions.assertTrue(recordConstructor.flowsRecordConstructorValue());
         Assertions.assertNotEquals(opaque, recordConstructor);
         Assertions.assertNotEquals(opaque.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
                 recordConstructor.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
@@ -605,7 +608,7 @@ public class ExplodePlanTest {
 
         // A plan flowing the opaque value must not set the field at all, so that it serializes to exactly the bytes it
         // serialized to before the field existed.
-        final var opaque = new RecordQueryExplodePlan(collectionValue, true);
+        final var opaque = new RecordQueryExplodePlan(collectionValue, true, false, false);
         final var opaqueProto = opaque.toProto(newSerializationContext());
         Assertions.assertFalse(opaqueProto.hasFlowsRcv());
 

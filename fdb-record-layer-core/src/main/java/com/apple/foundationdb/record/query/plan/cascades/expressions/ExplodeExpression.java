@@ -118,7 +118,9 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
 
     public ExplodeExpression(@Nonnull final Value collectionValue, final boolean withOrdinality,
                              final boolean zeroBasedOrdinality) {
-        this(collectionValue, withOrdinality, zeroBasedOrdinality, false);
+        // a `WITH ORDINALITY` explode flows the element and the ordinal as a record constructor; the plain variant
+        // has only the element
+        this(collectionValue, withOrdinality, zeroBasedOrdinality, withOrdinality);
     }
 
     public ExplodeExpression(@Nonnull final Value collectionValue, final boolean withOrdinality) {
