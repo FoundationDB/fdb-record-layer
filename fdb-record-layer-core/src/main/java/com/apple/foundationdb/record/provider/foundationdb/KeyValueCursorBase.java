@@ -195,7 +195,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
                 RecordCursorProto.KeyValueCursorContinuation continuationProto = RecordCursorProto.KeyValueCursorContinuation.parseFrom(rawBytes);
                 if (continuationProto.getMagicNumber() != MAGIC_NUMBER) {
                     // a continuation from before continuations were wrapped in this proto was accidentally deserialized as proto
-                    return rawBytes;
+                    throw new RecordCoreException("Unable to parse KeyValueCursorContinuation");
                 }
                 return continuationProto.getInnerContinuation().toByteArray();
             } catch (InvalidProtocolBufferException ipbe) {
