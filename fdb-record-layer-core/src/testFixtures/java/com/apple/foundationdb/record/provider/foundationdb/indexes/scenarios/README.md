@@ -129,7 +129,7 @@ This method was added during development to make things work, and is now needed 
 
 - [ ] **Lucene** - with partitioning
 - [x] **Lucene** - without partitioning
-- [ ] **Sliding Window**
+- [x] **Sliding Window**
 - [ ] **Index validation** - particularly for Lucene/Sliding Window, validating their internal details are consistent (i.e. counts). There is a `validateEntries` method on `IndexMaintainer`, but it looks like that is only implemented by `ValueIndexMaintainer`, so it would probably be good to replace that with scrubbing, and a new method on the `IndexDefinition`. This new `IndexDefinition` method would be somewhat different from scrubbing, because it can run across multiple transactions, assuming the data is not changing.
 - [ ] **Basic Delete** - a basic delete test
 - [ ] **Combine synthetic** - It would be good ot combine synthetic record types with other operations, particularly deletes

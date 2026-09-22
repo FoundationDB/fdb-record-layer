@@ -111,6 +111,12 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     private static final int VECTOR_DIMS = 4;
 
     /**
+     * A window comfortably larger than the ten to twelve records the shared scenarios insert, so that the
+     * window never fills up.
+     */
+    private static final int LARGE_WINDOW_SIZE = 1000;
+
+    /**
      * Primary key used when opening the store. Defaults to {@code rec_no}; a test may prefix it with a grouping
      * field so that {@code deleteRecordsWhere} (which deletes by primary-key prefix) can target that group.
      */
@@ -217,6 +223,34 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
                 this::openContext, FDBRecordStore.newBuilder().setKeySpacePath(path));
         model.saveRecords(model.generateRecords(10));
         assertEquals(1, model.scanIndex().size(), "window of one should keep exactly the best record");
+    }
+
+    /**
+     * Runs the shared scenario battery with a window far larger than the number of records the scenarios
+     * insert, so the window never fills and every record stays in the index. This is the regime where the
+     * sliding window is effectively a no-op wrapper, and the index should behave exactly like the
+     * undecorated vector index it delegates to.
+     */
+    @ParameterizedTest
+    @IndexScenarios
+    void windowLargerThanRecordCountIndexScenariosTest(IndexScenario scenario) throws Exception {
+        scenario.runTest(
+                () -> new SlidingWindowIndexDefinition(LARGE_WINDOW_SIZE),
+                this::openContext,
+                FDBRecordStore.newBuilder()
+                        .setKeySpacePath(path));
+    }
+
+    /**
+     * The counterpart to {@link #scenarioDefinitionWindowSizeOneKeepsOneEntry()}: with a window this large
+     * nothing is ever evicted, so every record has to remain visible.
+     */
+    @Test
+    void scenarioDefinitionLargeWindowKeepsEveryEntry() {
+        final IndexScenarioModel model = new IndexScenarioModel(new SlidingWindowIndexDefinition(LARGE_WINDOW_SIZE),
+                this::openContext, FDBRecordStore.newBuilder().setKeySpacePath(path));
+        model.saveRecords(model.generateRecords(10));
+        assertEquals(10, model.scanIndex().size(), "a window larger than the data should evict nothing");
     }
 
     // ===== DESC tests (keep highest relevance) =====
