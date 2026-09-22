@@ -1,7 +1,7 @@
 array-agg-tests:
 -   query: EXPLAIN SELECT ARRAY_AGG(val IGNORE NULLS) AS a, ARRAY_AGG(val RESPECT
         NULLS) AS b FROM T1 WHERE grp = 10
-    ref: array-agg-tests.yamsql:246
+    ref: array-agg-tests.yamsql:282
     explain: ISCAN(T1_grp [EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (array_agg(_._0.val
         IGNORE NULLS) AS _0, array_agg(_._0.val) AS _1) GROUP BY () | ON EMPTY NULL
         | MAP (_._0._0 AS a, _._0._1 AS b)
@@ -13,11 +13,23 @@ array-agg-tests:
     insert_time_ms: 1
     insert_new_count: 47
     insert_reused_count: 3
+-   query: EXPLAIN SELECT ARRAY_AGG(val IGNORE NULLS LIMIT 3) FROM T1
+    ref: array-agg-tests.yamsql:306
+    explain: ISCAN(T1_grp <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val IGNORE NULLS
+        LIMIT 3) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
+    task_count: 315
+    task_total_time_ms: 23
+    transform_count: 76
+    transform_time_ms: 8
+    transform_yield_count: 27
+    insert_time_ms: 1
+    insert_new_count: 33
+    insert_reused_count: 4
 array-agg-scenario:
 -   query: EXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT
         ARRAY_AGG(a.url) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq WHERE
         m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20
-    ref: array-agg-tests.yamsql:391
+    ref: array-agg-tests.yamsql:450
     explain: SCAN([IS doc_rev, EQUALS promote(@c60 AS LONG)]) | FILTER @c50 IN _.tags
         | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0)
         | AGG (array_agg(_._0.url) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN
@@ -25,18 +37,18 @@ array-agg-scenario:
         NOT_NULL AS q2 RETURN (q2.mid AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets)
         }
     task_count: 2151
-    task_total_time_ms: 270
+    task_total_time_ms: 296
     transform_count: 831
-    transform_time_ms: 86
+    transform_time_ms: 91
     transform_yield_count: 127
-    insert_time_ms: 20
+    insert_time_ms: 19
     insert_new_count: 290
     insert_reused_count: 44
 -   query: EXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT
         a.rid AS rid, ARRAY_AGG(a.url) AS assets FROM doc_asset a GROUP BY a.rid)
         sq WHERE m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20 AND sq.rid
         = r.rid
-    ref: array-agg-tests.yamsql:419
+    ref: array-agg-tests.yamsql:478
     explain: ISCAN(doc_asset_by_rid <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.url)
         AS _0) GROUP BY (_._0.rid AS _0) | FLATMAP q0 -> { SCAN([IS doc_rev, EQUALS
         promote(@c63 AS LONG)]) | FILTER @c53 IN _.tags AND q0._0._0 EQUALS _.rid
@@ -44,17 +56,17 @@ array-agg-scenario:
         (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.mid AS mid, q3._1.rid AS rid, q0._1._0
         AS assets) }
     task_count: 5104
-    task_total_time_ms: 320
+    task_total_time_ms: 549
     transform_count: 2165
-    transform_time_ms: 99
+    transform_time_ms: 182
     transform_yield_count: 283
-    insert_time_ms: 25
+    insert_time_ms: 47
     insert_new_count: 766
     insert_reused_count: 184
 -   query: EXPLAIN SELECT m.mid, r.rid, sq.assets FROM doc_meta m, doc_rev r, (SELECT
         ARRAY_AGG((a.*)) AS assets FROM doc_asset a WHERE a.rid = r.rid) sq WHERE
         m.owner IS NOT NULL AND 'featured' IN r.tags AND r.rid = 20
-    ref: array-agg-tests.yamsql:431
+    ref: array-agg-tests.yamsql:490
     explain: SCAN([IS doc_rev, EQUALS promote(@c62 AS LONG)]) | FILTER @c52 IN _.tags
         | FLATMAP q0 -> { ISCAN(doc_asset_by_rid [EQUALS q0.rid]) | MAP (_ AS _0)
         | AGG (array_agg((_._0.aid AS aid, _._0.rid AS rid, _._0.url AS url)) AS _0)
@@ -62,10 +74,100 @@ array-agg-scenario:
         q1 -> { SCAN([IS doc_meta]) | FILTER _.owner NOT_NULL AS q2 RETURN (q2.mid
         AS mid, q1._0.rid AS rid, q1._1._0._0 AS assets) }
     task_count: 2151
-    task_total_time_ms: 262
+    task_total_time_ms: 292
     transform_count: 831
-    transform_time_ms: 85
+    transform_time_ms: 90
     transform_yield_count: 127
     insert_time_ms: 17
     insert_new_count: 290
     insert_reused_count: 44
+array-agg-with-aggregate-index:
+-   query: EXPLAIN SELECT ARRAY_AGG(val) FROM T4
+    ref: array-agg-tests.yamsql:505
+    explain: ISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val) AS _0) GROUP
+        BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)
+    task_count: 339
+    task_total_time_ms: 137
+    transform_count: 88
+    transform_time_ms: 94
+    transform_yield_count: 39
+    insert_time_ms: 3
+    insert_new_count: 33
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT grp, ARRAY_AGG(val) FROM T4 GROUP BY grp
+    ref: array-agg-tests.yamsql:510
+    explain: ISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val) AS _0) GROUP
+        BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)
+    task_count: 293
+    task_total_time_ms: 134
+    transform_count: 82
+    transform_time_ms: 89
+    transform_yield_count: 36
+    insert_time_ms: 5
+    insert_new_count: 25
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT ARRAY_AGG((T4.*)) FROM T4
+    ref: array-agg-tests.yamsql:515
+    explain: ISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (array_agg((_._0.id AS id, _._0.grp
+        AS grp, _._0.val AS val)) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS _0)
+    task_count: 339
+    task_total_time_ms: 159
+    transform_count: 88
+    transform_time_ms: 114
+    transform_yield_count: 39
+    insert_time_ms: 4
+    insert_new_count: 33
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT grp, COUNT(*), ARRAY_AGG(val) FROM T4 GROUP BY grp
+    ref: array-agg-tests.yamsql:521
+    explain: ISCAN(T4_grp <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0, array_agg(_._0.val)
+        AS _1) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1, _._1._1
+        AS _2)
+    task_count: 293
+    task_total_time_ms: 156
+    transform_count: 82
+    transform_time_ms: 110
+    transform_yield_count: 36
+    insert_time_ms: 6
+    insert_new_count: 25
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT COUNT(*) FROM T4
+    ref: array-agg-tests.yamsql:526
+    explain: 'AISCAN(T4_count <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON
+        EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)'
+    task_count: 473
+    task_total_time_ms: 160
+    transform_count: 126
+    transform_time_ms: 116
+    transform_yield_count: 48
+    insert_time_ms: 4
+    insert_new_count: 47
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT grp, SUM(val) FROM T4 GROUP BY grp
+    ref: array-agg-tests.yamsql:530
+    explain: 'AISCAN(T4_sum_by_grp <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) |
+        MAP (_._0 AS grp, _._1 AS _1)'
+    task_count: 408
+    task_total_time_ms: 158
+    transform_count: 121
+    transform_time_ms: 112
+    transform_yield_count: 46
+    insert_time_ms: 5
+    insert_new_count: 36
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT t.id, sq.vals FROM T1 t, (SELECT ARRAY_AGG((d.*)) AS vals
+        FROM T4 d WHERE d.grp = t.grp) sq WHERE t.id = 1
+    ref: array-agg-tests.yamsql:539
+    explain: SCAN([IS T1, EQUALS promote(@c42 AS LONG)]) | FLATMAP q0 -> { ISCAN(T4_grp
+        [EQUALS q0.grp]) | MAP (_ AS _0) | AGG (array_agg((_._0.id AS id, _._0.grp
+        AS grp, _._0.val AS val)) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN
+        (q0.id AS id, q0._0._0 AS vals) }
+    task_count: 860
+    task_total_time_ms: 58
+    transform_count: 239
+    transform_time_ms: 26
+    transform_yield_count: 82
+    insert_time_ms: 3
+    insert_new_count: 99
+    insert_reused_count: 6

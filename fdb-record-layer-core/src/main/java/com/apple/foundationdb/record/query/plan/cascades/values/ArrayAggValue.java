@@ -75,11 +75,20 @@ import java.util.function.Supplier;
  * used or the child expression type is already non-nullable; only a nullable child expression evaluated under
  * {@code RESPECT NULLS} produces a nullable element type.
  *
+ * <p><b>Limit:</b> An in-call {@code LIMIT} caps the number of elements to collect, and thereby bounds both the array
+ * held in memory and the partial state serialized into a continuation. Note that rows after the cap are still consumed,
+ * since the group boundary has to be determined nevertheless, but they are neither converted nor retained.
+ *
  * <p>{@code DISTINCT} and in-call {@code ORDER BY} clauses are not supported yet.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ArrayAggValue extends AbstractValue implements AggregateValue, StreamableAggregateValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Array-Agg-Value");
+
+    /**
+     * Sentinel {@link #limit} value for an {@code ARRAY_AGG()} call without an in-call {@code LIMIT} clause.
+     */
+    public static final int NO_LIMIT = -1;
 
     @Nonnull
     private final Value child;
@@ -89,16 +98,27 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
      */
     private final boolean ignoreNulls;
 
+    /**
+     * The maximum number of elements to collect (possibly 0), or {@link #NO_LIMIT} if the aggregation is uncapped.
+     */
+    private final int limit;
+
     @Nonnull
     private final Supplier<Type.Array> resultTypeSupplier;
 
     /**
      * Constructs a value whose element type is derived from the child’s result type. Under {@code ignoreNulls},
-     * the element type will be non-nullable, since {@code NULL} values are then skipped rather than collected.
+     * the element type will be non-nullable.
+     *
+     * @param child the expression whose values are collected
+     * @param ignoreNulls whether {@code NULL} inputs are skipped rather than collected
+     * @param limit the maximum number of elements to collect, or {@link #NO_LIMIT} if the aggregation is uncapped
      */
-    public ArrayAggValue(@Nonnull final Value child, final boolean ignoreNulls) {
+    public ArrayAggValue(@Nonnull final Value child, final boolean ignoreNulls, final int limit) {
+        Verify.verify(limit == NO_LIMIT || limit >= 0);
         this.child = child;
         this.ignoreNulls = ignoreNulls;
+        this.limit = limit;
         // Note: The result type is always nullable, since ARRAY_AGG() must yield a NULL array for empty input.
         this.resultTypeSupplier = Suppliers.memoize(
                 () -> new Type.Array(true, ignoreNulls ? child.getResultType().notNullable() : child.getResultType()));
@@ -152,10 +172,10 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
         final Type elementType = getElementType();
         final Descriptors.Descriptor wrapperDescriptor = wrapperDescriptorIn(typeRepository, elementType);
         if (initialState == null) {
-            return new ArrayAccumulator(wrapperDescriptor, typeRepository, elementType, ignoreNulls);
+            return new ArrayAccumulator(wrapperDescriptor, typeRepository, elementType, ignoreNulls, limit);
         } else {
             Verify.verify(initialState.size() == 1);
-            return new ArrayAccumulator(wrapperDescriptor, typeRepository, elementType, ignoreNulls,
+            return new ArrayAccumulator(wrapperDescriptor, typeRepository, elementType, ignoreNulls, limit,
                     initialState.get(0));
         }
     }
@@ -196,7 +216,7 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
     @Override
     public ArrayAggValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 1);
-        return new ArrayAggValue(Iterables.get(newChildren, 0), ignoreNulls);
+        return new ArrayAggValue(Iterables.get(newChildren, 0), ignoreNulls, limit);
     }
 
     @Nonnull
@@ -210,24 +230,29 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
             // in the explain string.
             argument.addWhitespace().addKeyword("IGNORE").addWhitespace().addKeyword("NULLS");
         }
+        if (limit != NO_LIMIT) {
+            argument.addWhitespace().addKeyword("LIMIT").addWhitespace().addToString(limit);
+        }
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("array_agg", argument));
     }
 
     @Override
     public int hashCodeWithoutChildren() {
-        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, ignoreNulls);
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, ignoreNulls, limit);
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, BASE_HASH, child, ignoreNulls);
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, child, ignoreNulls, limit);
     }
 
     @Nonnull
     @Override
     public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other)
-                .filter(ignored -> ignoreNulls == ((ArrayAggValue)other).ignoreNulls);
+                .filter(ignored -> other instanceof ArrayAggValue o
+                                   && ignoreNulls == o.ignoreNulls
+                                   && limit == o.limit);
     }
 
     @Override
@@ -248,6 +273,7 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
         return PArrayAggValue.newBuilder()
                 .setChild(child.toValueProto(serializationContext))
                 .setIgnoreNulls(ignoreNulls)
+                .setLimit(limit)
                 .build();
     }
 
@@ -259,25 +285,27 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
 
     @Nonnull
     public static ArrayAggValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                          @Nonnull final PArrayAggValue arrayAggValueProto) {
-        final Value child = Value.fromValueProto(serializationContext,
-                Objects.requireNonNull(arrayAggValueProto.getChild()));
-        return new ArrayAggValue(child, arrayAggValueProto.getIgnoreNulls());
+                                          @Nonnull final PArrayAggValue proto) {
+        final Value child = Value.fromValueProto(serializationContext, Objects.requireNonNull(proto.getChild()));
+        return new ArrayAggValue(child, proto.getIgnoreNulls(), proto.getLimit());
     }
 
     /**
      * The {@code ARRAY_AGG(«expr»)} aggregation function.
      *
-     * <p>Note that this function takes a second argument besides the user-facing {@code «expr»} argument. It carries
-     * the null treatment resolved from the call’s {@code {IGNORE|RESPECT} NULLS} clause as a boolean literal, and is
-     * consumed during encapsulation rather than passed as a child to the resulting {@link ArrayAggValue}.
+     * <p>Note that this function takes two further arguments besides the user-facing {@code «expr»} argument: the null
+     * treatment resolved from the call’s {@code {IGNORE|RESPECT} NULLS} clause, as a boolean literal, and the limit
+     * resolved from its {@code LIMIT} clause, as an integer literal. They are consumed during encapsulation rather than
+     * passed as children to the resulting {@link ArrayAggValue}.
      */
     @AutoService(BuiltInFunction.class)
     @SuppressWarnings("PMD.UnusedFormalParameter")
     public static class ArrayAggFn extends BuiltInFunction<AggregateValue> {
         public ArrayAggFn() {
             super("ARRAY_AGG",
-                    ImmutableList.of(new Type.Any(), Type.primitiveType(Type.TypeCode.BOOLEAN)),
+                    ImmutableList.of(new Type.Any(),
+                            Type.primitiveType(Type.TypeCode.BOOLEAN),
+                            Type.primitiveType(Type.TypeCode.INT)),
                     ArrayAggFn::encapsulate);
         }
 
@@ -285,18 +313,23 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
         private static AggregateValue encapsulate(@Nonnull final BuiltInFunction<AggregateValue> builtInFunction,
                                                   @Nonnull final CallSiteArguments callSiteArguments) {
             final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
-            Verify.verify(arguments.size() == 2);
+            Verify.verify(arguments.size() == 3);
             final Typed arg0 = arguments.get(0);
             final Typed arg1 = arguments.get(1);
+            final Typed arg2 = arguments.get(2);
             if (!(arg1 instanceof LiteralValue<?> nullTreatment)
                     || !(nullTreatment.getLiteralValue() instanceof Boolean ignoreNulls)) {
                 throw new RecordCoreException("null treatment must be a boolean literal");
+            }
+            if (!(arg2 instanceof LiteralValue<?> limitLiteral)
+                    || !(limitLiteral.getLiteralValue() instanceof Integer limit)) {
+                throw new RecordCoreException("limit must be an integer literal");
             }
             // Reject an argument whose type cannot be determined, such as an untyped NULL.
             SemanticException.check(!arg0.getResultType().isUnresolved(),
                     SemanticException.ErrorCode.UNKNOWN_TYPE,
                     "Cannot resolve the argument type of ARRAY_AGG()");
-            return new ArrayAggValue((Value)arg0, ignoreNulls);
+            return new ArrayAggValue((Value)arg0, ignoreNulls, limit);
         }
     }
 
@@ -326,6 +359,7 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
         private final List<Object> elements;
 
         private final boolean ignoreNulls;
+        private final int limit;
 
         /**
          * Whether any input row was seen for the current group. This is independent of {@code NULL}-skipping. A group
@@ -344,11 +378,13 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
          * @param typeRepository the type repository the collected elements are converted against
          * @param elementType the type of the collected elements
          * @param ignoreNulls whether {@code NULL} inputs are skipped rather than collected
+         * @param limit the maximum number of elements to collect, or {@link #NO_LIMIT}
          */
         ArrayAccumulator(@Nonnull final Descriptors.Descriptor wrapperDescriptor,
                          @Nonnull final TypeRepository typeRepository,
                          @Nonnull final Type elementType,
-                         final boolean ignoreNulls) {
+                         final boolean ignoreNulls,
+                         final int limit) {
             this.typeRepository = typeRepository;
             this.elementType = elementType;
             this.wrapperDescriptor = wrapperDescriptor;
@@ -356,6 +392,7 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
                     wrapperDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()));
             this.elements = new ArrayList<>();
             this.ignoreNulls = ignoreNulls;
+            this.limit = limit;
             this.seenAnyRow = false;
         }
 
@@ -368,14 +405,16 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
          * @param typeRepository the type repository the collected elements are converted against
          * @param elementType the type of the collected elements
          * @param ignoreNulls whether {@code NULL} inputs are skipped rather than collected
+         * @param limit the maximum number of elements to collect, or {@link #NO_LIMIT}
          * @param initialState the partial state to restore
          */
         ArrayAccumulator(@Nonnull final Descriptors.Descriptor wrapperDescriptor,
                          @Nonnull final TypeRepository typeRepository,
                          @Nonnull final Type elementType,
                          final boolean ignoreNulls,
+                         final int limit,
                          @Nonnull final RecordCursorProto.AccumulatorState initialState) {
-            this(wrapperDescriptor, typeRepository, elementType, ignoreNulls);
+            this(wrapperDescriptor, typeRepository, elementType, ignoreNulls, limit);
             Verify.verify(initialState.getStateList().size() == 1);
             Verify.verify(initialState.getState(0).hasBytesState());
             try {
@@ -399,6 +438,11 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
         @Override
         public void accumulate(@Nullable final Object currentObject) {
             seenAnyRow = true;
+            // Drop the element if the LIMIT (if any) has been reached. Note that subsequent rows of the group still
+            // have to be consumed in order to determine the group boundary.
+            if (limit != NO_LIMIT && elements.size() >= limit) {
+                return;
+            }
             if (currentObject == null) {
                 // Under IGNORE NULLS a NULL is simply dropped. Under RESPECT NULLS (the SQL default) it would have to
                 // be collected. However, nulls are not representable currently.
@@ -459,8 +503,8 @@ public class ArrayAggValue extends AbstractValue implements AggregateValue, Stre
         @Nonnull
         @Override
         public ArrayAggValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                       @Nonnull final PArrayAggValue arrayAggValueProto) {
-            return ArrayAggValue.fromProto(serializationContext, arrayAggValueProto);
+                                       @Nonnull final PArrayAggValue proto) {
+            return ArrayAggValue.fromProto(serializationContext, proto);
         }
     }
 }

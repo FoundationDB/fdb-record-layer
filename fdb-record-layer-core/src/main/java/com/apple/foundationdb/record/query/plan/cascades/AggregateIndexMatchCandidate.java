@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -430,6 +431,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         var plan = new RecordQueryAggregateIndexPlan(aggregateIndexScan,
                 recordTypes.get(0).getName(),
                 indexEntryConverter,
+                createIndexEntryToRecordValue(),
                 selectHavingResultValue,
                 getGroupByResultValue(),
                 constraintMaybe);
@@ -501,19 +503,81 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         return NonnullPair.of(groupingAccessorValues, aggregateAccessorValue);
     }
 
+
     /**
-     * Creates a new {@link IndexKeyValueToPartialRecord} to facilitate the correct copying of information from the
-     * index-tuple structure to a partial record (which in this case is dynamically-typed).
-     * @param messageDescriptor message descriptor for the select having result {@link Value}
-     *        TODO This message descriptor is not actually needed as the logic it is used for might as well just use
-     *             the type directly. The problem is that {@link IndexKeyValueToPartialRecord} is shared between the
-     *             heuristic and the cascades planner and the heuristic planner does not maintain a type system. So
-     *             in the heuristic planner, this descriptor is always a descriptor of a record type or synthetic
-     *             type, while here we use it for a dynamically derived type. We should maybe use separate structures
-     *             for the respective planners.
-     * @return a new {@link IndexKeyValueToPartialRecord}
+     * Builds a value that computes this candidate's select-having record from an index entry: one column per field of
+     * that record, each reading the entry position the field was written to.
+     *
+     * @return a value computing the select-having record from an index entry
      */
     @Nonnull
+    public RecordConstructorValue createIndexEntryToRecordValue() {
+        final var selectHavingResultType = (Type.Record)selectHavingExpression.getResultValue().getResultType();
+        final var baseObjectAlias = Iterables.getOnlyElement(selectHavingExpression.getQuantifiers()).getAlias();
+        final var baseObjectValue = QuantifiedObjectValue.of(baseObjectAlias, selectHavingResultType);
+        final var groupingCount = getGroupingCount();
+        return indexEntryToRecordValue(selectHavingResultType, baseObjectValue, groupingCount,
+                getColumnSize() - groupingCount, isPermuted(), isPermuted() ? getPermutedCount() : 0);
+    }
+
+    /**
+     * One column per field of the target record, each reading the entry position that field was written to. For
+     * {@code n} grouping and {@code m} aggregate columns:
+     * <pre>
+     *   target           : (g1, ..., gn, agg(n+1), ..., agg(n+m))
+     *   plain aggregate  : KEY(g1, ..., gn)  VALUE(agg(n+1), ..., agg(n+m))
+     *   permuted         : KEY(g1, ..., g(n-permuted), agg(n+1), ..., agg(n+m), g(n-permuted+1), ..., gn)  VALUE()
+     * </pre>
+     * So a permuted index keeps the first {@code groupingCount - permutedCount} positions, shifts its trailing grouping
+     * columns over the aggregates, and shifts the aggregates back by {@code permutedCount}. Whether an index is permuted
+     * is its type, not {@code permutedCount}: that is zero for a permuted index not ordered by its aggregate, which still
+     * holds every column in the key, aggregate included. Takes the layout as arguments so it can be exercised without a
+     * planner run.
+     *
+     * @param targetType the record the entry is to be read into
+     * @param baseObjectValue a value standing for that record, which the column values are extracted against
+     * @param groupingCount how many leading fields of the target are grouping columns
+     * @param groupedCount how many aggregate columns the index holds
+     * @param permuted whether the index is permuted, and so holds every column in the entry key
+     * @param permutedCount how many trailing grouping columns a permuted index moves behind its aggregates, possibly zero
+     *
+     * @return a value that computes the target record from an index entry
+     */
+    @Nonnull
+    @VisibleForTesting
+    static RecordConstructorValue indexEntryToRecordValue(@Nonnull final Type.Record targetType,
+                                                          @Nonnull final Value baseObjectValue,
+                                                          final int groupingCount,
+                                                          final int groupedCount,
+                                                          final boolean permuted,
+                                                          final int permutedCount) {
+        final var fields = targetType.getFields();
+        final var covered = new IndexEntryToRecordValueHelper();
+        for (int i = 0; i < fields.size(); i++) {
+            final String fieldName = fields.get(i).getFieldName();
+            final IndexKeyValueToPartialRecord.TupleSource source;
+            final int ordinal;
+            if (permuted) {
+                source = IndexKeyValueToPartialRecord.TupleSource.KEY;
+                if (i >= groupingCount) {
+                    ordinal = i - permutedCount;
+                } else if (i >= groupingCount - permutedCount) {
+                    ordinal = i + groupedCount;
+                } else {
+                    ordinal = i;
+                }
+            } else {
+                final var isGrouping = i < groupingCount;
+                source = isGrouping ? IndexKeyValueToPartialRecord.TupleSource.KEY
+                                    : IndexKeyValueToPartialRecord.TupleSource.VALUE;
+                ordinal = isGrouping ? i : i - groupingCount;
+            }
+            covered.withChild(fieldName)
+                    .cover(IndexEntryToRecordValueHelper.entryColumn(baseObjectValue, fieldName, source, ordinal));
+        }
+        return covered.toRecordValue(targetType);
+    }
+
     private IndexKeyValueToPartialRecord createIndexEntryConverter(@Nonnull final Descriptors.Descriptor messageDescriptor) {
         final var selectHavingResultValue = selectHavingExpression.getResultValue();
         final var selectHavingResultType = (Type.Record)selectHavingResultValue.getResultType();

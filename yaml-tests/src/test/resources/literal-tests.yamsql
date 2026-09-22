@@ -90,12 +90,12 @@ test_block:
     # five characters it''s.
     -
       - query: select 'it''s' from B where b1 = 1
-      - supported_version: !current_version
+      - supported_version: 4.13.5.0
       - result: [{"it's"}]
     # A literal that is nothing but one escaped quote.
     -
       - query: select '''' from B where b1 = 1
-      - supported_version: !current_version
+      - supported_version: 4.13.5.0
       - result: [{"'"}]
     # The decode runs on the write path too, so the STORED value is the
     # decoded one and an equality predicate written with the escape matches it.
@@ -104,18 +104,18 @@ test_block:
       - count: 1
     -
       - query: select b2 from B where b1 = 7
-      - supported_version: !current_version
+      - supported_version: 4.13.5.0
       - result: [{"it's"}]
     -
       - query: select b1 from B where b2 = 'it''s'
-      - supported_version: !current_version
+      - supported_version: 4.13.5.0
       - result: [{7}]
     # Adjacent literals are separate tokens and concatenate. getText() renders
     # this run identically to the escaped literal above, which is why the
     # decode works from the tokens rather than from the concatenated text.
     -
       - query: select 'a' 'b' from B where b1 = 1
-      - supported_version: !current_version
+      - supported_version: 4.13.5.0
       - result: [{'ab'}]
     # Controls: an empty literal and a plain one are unaffected. The empty
     # literal is the case an outer-strip-only decoder already got right, which

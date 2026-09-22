@@ -183,6 +183,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void enumDistinctFromFunction(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("enum-distinct-from-function.yamsql");
+    }
+
+    @TestTemplate
     public void enumTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("enum.yamsql");
     }
@@ -195,6 +200,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void fieldIndexTestsProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("field-index-tests-proto.yamsql");
+    }
+
+    @TestTemplate
+    public void fieldOptionsExtensionTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("field-options-extension.yamsql");
     }
 
     @TestTemplate
@@ -358,6 +368,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void scopedKeysetPagination(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("scoped-keyset-pagination.yamsql");
+    }
+
+    @TestTemplate
     public void selectAStar(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("select-a-star.yamsql");
     }
@@ -385,6 +400,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void skippedFieldNumberProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("skipped-field-number-proto.yamsql");
+    }
+
+    @TestTemplate
+    public void isolationLevelSnapshot(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("isolation-level-snapshot.yamsql");
     }
 
     @TestTemplate

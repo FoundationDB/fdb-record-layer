@@ -1,7 +1,35 @@
 join-tests:
+-   query: EXPLAIN select fname, lname from emp where not exists (select * from project
+        where emp_id = emp.id);
+    ref: join-tests.yamsql:137
+    explain: ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID
+        EQUALS q0.ID | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN (q0.FNAME
+        AS FNAME, q0.LNAME AS LNAME) }
+    task_count: 466
+    task_total_time_ms: 53
+    transform_count: 142
+    transform_time_ms: 27
+    transform_yield_count: 49
+    insert_time_ms: 1
+    insert_new_count: 52
+    insert_reused_count: 2
+-   query: EXPLAIN select emp.fname, emp.lname from emp left join project on project.emp_id
+        = emp.id where project.id is null;
+    ref: join-tests.yamsql:148
+    explain: ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID
+        EQUALS q0.ID | ON EMPTY NULL | FILTER _.ID IS_NULL AS q1 RETURN (q0.FNAME
+        AS FNAME, q0.LNAME AS LNAME) }
+    task_count: 513
+    task_total_time_ms: 42
+    transform_count: 153
+    transform_time_ms: 19
+    transform_yield_count: 47
+    insert_time_ms: 1
+    insert_new_count: 61
+    insert_reused_count: 4
 -   query: EXPLAIN select fname, lname from emp inner join project on emp_id = emp.id
         inner join dept on dept_id = dept.id and dept.name = 'Sales';
-    ref: join-tests.yamsql:146
+    ref: join-tests.yamsql:166
     explain: ISCAN(DEPTNAME [EQUALS promote(@c29 AS STRING)]) | FLATMAP q0 -> { ISCAN(EMPDEPT
         [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS
         q1.ID AS q2 RETURN q1 } AS q1 RETURN (q1.FNAME AS FNAME, q1.LNAME AS LNAME)
@@ -16,7 +44,7 @@ join-tests:
     insert_reused_count: 39
 -   query: EXPLAIN select dept.name, project.name from emp, dept, project where emp.dept_id
         = dept.id and project.emp_id = emp.id;
-    ref: join-tests.yamsql:152
+    ref: join-tests.yamsql:172
     explain: 'ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1
         -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) |
         FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
@@ -31,7 +59,7 @@ join-tests:
     insert_reused_count: 31
 -   query: EXPLAIN select dept.name, project.name from emp inner join dept on emp.dept_id
         = dept.id inner join project on project.emp_id = emp.id;
-    ref: join-tests.yamsql:160
+    ref: join-tests.yamsql:180
     explain: 'ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1
         -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) |
         FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
@@ -46,7 +74,7 @@ join-tests:
     insert_reused_count: 31
 -   query: EXPLAIN select dept.name, project.name from emp inner join dept on emp.dept_id
         = dept.id inner join project on project.emp_id = emp.id;
-    ref: join-tests.yamsql:189
+    ref: join-tests.yamsql:209
     explain: 'ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1
         -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) |
         FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
@@ -61,7 +89,7 @@ join-tests:
     insert_reused_count: 31
 -   query: EXPLAIN select * from (select dept.name, project.name from emp, dept, project
         where emp.dept_id = dept.id and project.emp_id = emp.id) X;
-    ref: join-tests.yamsql:202
+    ref: join-tests.yamsql:222
     explain: 'ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1
         -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) |
         FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
@@ -76,7 +104,7 @@ join-tests:
     insert_reused_count: 31
 -   query: EXPLAIN select (*) from (select dept.name, project.name from emp, dept,
         project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
-    ref: join-tests.yamsql:209
+    ref: join-tests.yamsql:229
     explain: 'ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1
         -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) |
         FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
@@ -91,7 +119,7 @@ join-tests:
     insert_reused_count: 31
 -   query: EXPLAIN select dept.name, project.name from project inner join emp on emp.id
         = project.emp_id inner join dept on emp.dept_id = dept.id;
-    ref: join-tests.yamsql:221
+    ref: join-tests.yamsql:241
     explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1
         -> { SCAN([IS EMP, EQUALS q1.EMP_ID]) | FILTER _.DEPT_ID EQUALS q0.ID AS q2
         RETURN q1 } AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }
@@ -106,7 +134,7 @@ join-tests:
 -   query: EXPLAIN select dept.id, dept.name, project.name from emp, dept, project
         where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in
         (1)
-    ref: join-tests.yamsql:248
+    ref: join-tests.yamsql:268
     explain: 'COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT
         _.ID IN promote(@c40 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { SCAN([IS PROJECT])
         | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID:
@@ -123,7 +151,7 @@ join-tests:
 -   query: EXPLAIN select dept.id, dept.name, project.name from emp inner join dept
         on emp.dept_id = dept.id and dept.id not in (1) inner join project on project.emp_id
         = emp.id
-    ref: join-tests.yamsql:255
+    ref: join-tests.yamsql:275
     explain: 'COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT
         _.ID IN promote(@c31 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { SCAN([IS PROJECT])
         | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID:
@@ -140,7 +168,7 @@ join-tests:
 -   query: EXPLAIN select project.id, project.name from emp, dept, project where emp.dept_id
         = dept.id and project.emp_id = emp.id and dept.id not in (3) and project.id
         not in (3)
-    ref: join-tests.yamsql:297
+    ref: join-tests.yamsql:317
     explain: 'COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT
         _.ID IN promote(@c36 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { SCAN([IS PROJECT])
         | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG)) | FLATMAP q1 -> { COVERING(EMPDEPT
@@ -158,7 +186,7 @@ join-tests:
 -   query: EXPLAIN select dept.id, dept.name, project.name from emp, dept, project
         where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id in (1,
         2)
-    ref: join-tests.yamsql:312
+    ref: join-tests.yamsql:332
     explain: '[IN arrayDistinct(promote(@c39 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
         DEPT, EQUALS q0]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FLATMAP q2 -> { COVERING(EMPDEPT
         [EQUALS q1.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q2.EMP_ID EQUALS
@@ -174,7 +202,7 @@ join-tests:
     insert_reused_count: 409
 -   query: EXPLAIN select emp.id, fname from emp, dept where emp.dept_id = dept.id
         and dept.id in (1, 2) and emp.id not in (1, 5)
-    ref: join-tests.yamsql:345
+    ref: join-tests.yamsql:365
     explain: '[IN arrayDistinct(promote(@c23 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
         DEPT, EQUALS q0]) } | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q1.ID] -> [DEPT_ID:
         KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) |
@@ -189,7 +217,7 @@ join-tests:
     insert_reused_count: 65
 -   query: EXPLAIN select emp.id, fname from emp, dept where dept.id = emp.dept_id
         and dept.id in (1, 2) and emp.id not in (1, 5)
-    ref: join-tests.yamsql:355
+    ref: join-tests.yamsql:375
     explain: '[IN arrayDistinct(promote(@c23 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
         DEPT, EQUALS q0]) } | FLATMAP q1 -> { COVERING(EMPDEPT <,> -> [DEPT_ID: KEY:[0],
         ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) AND q1.ID
@@ -204,7 +232,7 @@ join-tests:
     insert_reused_count: 60
 -   query: EXPLAIN select emp.id from emp, dept where emp.dept_id = dept.id and dept.id
         = 1 and emp.id in (10, 20, 30)
-    ref: join-tests.yamsql:381
+    ref: join-tests.yamsql:401
     explain: SCAN([IS DEPT, EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { [IN arrayDistinct(promote(@c27
         AS ARRAY(LONG)))] | INJOIN q1 -> { SCAN([IS EMP, EQUALS q1]) | FILTER _.DEPT_ID
         EQUALS q0.ID } AS q2 RETURN (q2.ID AS ID) }
@@ -217,7 +245,7 @@ join-tests:
     insert_new_count: 1216
     insert_reused_count: 60
 -   query: EXPLAIN select * from ja join jb using(c1) join jd using(c1);
-    ref: join-tests.yamsql:402
+    ref: join-tests.yamsql:422
     explain: SCAN([IS JD]) | FLATMAP q0 -> { SCAN([IS JB]) | FLATMAP q1 -> { SCAN([IS
         JA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS
         _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._1.C3 AS C3, q0.C4
@@ -232,7 +260,7 @@ join-tests:
     insert_reused_count: 21
 -   query: EXPLAIN select jua.c5, jub.c5, jud.c5 from jua join jub using(c1) join
         jud using(c1);
-    ref: join-tests.yamsql:408
+    ref: join-tests.yamsql:428
     explain: SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB]) | FLATMAP q1 -> { SCAN([IS
         JUA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1
         AS _1) } AS q3 RETURN (q3._0.C5 AS _0, q3._1.C5 AS _1, q0.C5 AS _2) }
@@ -246,7 +274,7 @@ join-tests:
     insert_reused_count: 21
 -   query: EXPLAIN select * from jua join (select * from jub join jud using(c1)) as
         X using (c1);
-    ref: join-tests.yamsql:439
+    ref: join-tests.yamsql:459
     explain: SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB, EQUALS q0.C1]) | FLATMAP
         q1 -> { SCAN([IS JUA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS
         q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._0.C5 AS _2, q3._1.C3 AS C3,
@@ -261,7 +289,7 @@ join-tests:
     insert_reused_count: 26
 -   query: EXPLAIN select emp.fname, emp.lname from emp, dept where emp.lname > dept.name
         and dept.name = 'Sales' and emp.lname < 'W'
-    ref: join-tests.yamsql:459
+    ref: join-tests.yamsql:479
     explain: ISCAN(DEPTNAME [EQUALS promote(@c25 AS STRING)]) | FLATMAP q0 -> { ISCAN(EMPNAME
         [[GREATER_THAN q0.NAME && LESS_THAN promote(@c31 AS STRING)]]) AS q1 RETURN
         (q1.FNAME AS FNAME, q1.LNAME AS LNAME) }
@@ -275,7 +303,7 @@ join-tests:
     insert_reused_count: 10
 -   query: EXPLAIN select emp.fname, emp.lname from emp, dept where dept.name < emp.lname
         and dept.name = 'Sales' and emp.lname < 'W'
-    ref: join-tests.yamsql:467
+    ref: join-tests.yamsql:487
     explain: 'ISCAN(EMPNAME [[LESS_THAN promote(@c31 AS STRING)]]) | FLATMAP q0 ->
         { COVERING(DEPTNAME [EQUALS promote(@c25 AS STRING)] -> [ID: KEY:[2], NAME:
         KEY:[0]]) | FILTER _.NAME LESS_THAN q0.LNAME | FETCH AS q1 RETURN (q0.FNAME
@@ -289,7 +317,7 @@ join-tests:
     insert_new_count: 167
     insert_reused_count: 8
 -   query: EXPLAIN select ja.c1, ja.c2, jb.c3 from ja inner join jb on true;
-    ref: join-tests.yamsql:488
+    ref: join-tests.yamsql:508
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) AS q1 RETURN (q0.C1 AS
         C1, q0.C2 AS C2, q1.C3 AS C3) }
     task_count: 456
@@ -301,7 +329,7 @@ join-tests:
     insert_new_count: 50
     insert_reused_count: 6
 -   query: EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where true;
-    ref: join-tests.yamsql:494
+    ref: join-tests.yamsql:514
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) AS q1 RETURN (q0.C1 AS
         C1, q0.C2 AS C2, q1.C3 AS C3) }
     task_count: 456
@@ -313,7 +341,7 @@ join-tests:
     insert_new_count: 50
     insert_reused_count: 6
 -   query: EXPLAIN select ja.c1, ja.c2, jb.c3 from ja inner join jb on false;
-    ref: join-tests.yamsql:500
+    ref: join-tests.yamsql:520
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER false AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
     task_count: 462
@@ -325,7 +353,7 @@ join-tests:
     insert_new_count: 54
     insert_reused_count: 6
 -   query: EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where false;
-    ref: join-tests.yamsql:506
+    ref: join-tests.yamsql:526
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER false AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
     task_count: 462
@@ -338,7 +366,7 @@ join-tests:
     insert_reused_count: 6
 -   query: EXPLAIN select ja.c1, ja.c2, jb.c3 from ja inner join jb on cast(null as
         boolean);
-    ref: join-tests.yamsql:512
+    ref: join-tests.yamsql:532
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
     task_count: 445
@@ -350,7 +378,7 @@ join-tests:
     insert_new_count: 49
     insert_reused_count: 6
 -   query: EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where cast(null as boolean);
-    ref: join-tests.yamsql:518
+    ref: join-tests.yamsql:538
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
     task_count: 445
@@ -362,7 +390,7 @@ join-tests:
     insert_new_count: 49
     insert_reused_count: 6
 -   query: EXPLAIN select ja.c1, ja.c2, jb.c3 from ja inner join jb on null;
-    ref: join-tests.yamsql:524
+    ref: join-tests.yamsql:544
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
     task_count: 445
@@ -374,7 +402,7 @@ join-tests:
     insert_new_count: 49
     insert_reused_count: 6
 -   query: EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;
-    ref: join-tests.yamsql:530
+    ref: join-tests.yamsql:550
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
     task_count: 445
@@ -388,7 +416,7 @@ join-tests:
 three-way-joins-right-deep-planner:
 -   query: EXPLAIN select fname, lname from emp inner join project on emp_id = emp.id
         inner join dept on dept_id = dept.id and dept.name = 'Sales';
-    ref: join-tests.yamsql:544
+    ref: join-tests.yamsql:564
     explain: ISCAN(DEPTNAME [EQUALS promote(@c29 AS STRING)]) | FLATMAP q0 -> { ISCAN(EMPDEPT
         [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS
         q1.ID AS q2 RETURN q1 } AS q1 RETURN (q1.FNAME AS FNAME, q1.LNAME AS LNAME)
@@ -403,7 +431,7 @@ three-way-joins-right-deep-planner:
     insert_reused_count: 22
 -   query: EXPLAIN select dept.name, project.name from emp, dept, project where emp.dept_id
         = dept.id and project.emp_id = emp.id;
-    ref: join-tests.yamsql:549
+    ref: join-tests.yamsql:569
     explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) |
         FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
         q2 } AS q2 RETURN (q0.NAME AS _0, q2.NAME AS _1) }
@@ -417,7 +445,7 @@ three-way-joins-right-deep-planner:
     insert_reused_count: 21
 -   query: EXPLAIN select dept.name, project.name from emp inner join dept on emp.dept_id
         = dept.id inner join project on project.emp_id = emp.id;
-    ref: join-tests.yamsql:556
+    ref: join-tests.yamsql:576
     explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) |
         FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
         q2 } AS q2 RETURN (q0.NAME AS _0, q2.NAME AS _1) }
@@ -431,7 +459,7 @@ three-way-joins-right-deep-planner:
     insert_reused_count: 21
 -   query: EXPLAIN select * from (select dept.name, project.name from emp, dept, project
         where emp.dept_id = dept.id and project.emp_id = emp.id) X;
-    ref: join-tests.yamsql:563
+    ref: join-tests.yamsql:583
     explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) |
         FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
         q2 } AS q2 RETURN (q0.NAME AS _0, q2.NAME AS _1) }
@@ -445,7 +473,7 @@ three-way-joins-right-deep-planner:
     insert_reused_count: 21
 -   query: EXPLAIN select (*) from (select dept.name, project.name from emp, dept,
         project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
-    ref: join-tests.yamsql:570
+    ref: join-tests.yamsql:590
     explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) |
         FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
         q2 } AS q2 RETURN ((q0.NAME AS _0, q2.NAME AS _1) AS X) }
@@ -459,7 +487,7 @@ three-way-joins-right-deep-planner:
     insert_reused_count: 21
 -   query: EXPLAIN select dept.name, project.name from project inner join emp on emp.id
         = project.emp_id inner join dept on emp.dept_id = dept.id;
-    ref: join-tests.yamsql:577
+    ref: join-tests.yamsql:597
     explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1
         -> { SCAN([IS EMP, EQUALS q1.EMP_ID]) | FILTER _.DEPT_ID EQUALS q0.ID AS q2
         RETURN q1 } AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }
@@ -474,7 +502,7 @@ three-way-joins-right-deep-planner:
 -   query: EXPLAIN select dept.id, dept.name, project.name from emp, dept, project
         where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in
         (1)
-    ref: join-tests.yamsql:584
+    ref: join-tests.yamsql:604
     explain: 'COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT
         _.ID IN promote(@c40 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { ISCAN(EMPDEPT
         [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS
@@ -491,7 +519,7 @@ three-way-joins-right-deep-planner:
 -   query: EXPLAIN select dept.id, dept.name, project.name from emp inner join dept
         on emp.dept_id = dept.id and dept.id not in (1) inner join project on project.emp_id
         = emp.id
-    ref: join-tests.yamsql:590
+    ref: join-tests.yamsql:610
     explain: 'COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT
         _.ID IN promote(@c31 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { ISCAN(EMPDEPT
         [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS
@@ -508,7 +536,7 @@ three-way-joins-right-deep-planner:
 -   query: EXPLAIN select project.id, project.name from emp, dept, project where emp.dept_id
         = dept.id and project.emp_id = emp.id and dept.id not in (3) and project.id
         not in (3)
-    ref: join-tests.yamsql:596
+    ref: join-tests.yamsql:616
     explain: 'COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT
         _.ID IN promote(@c36 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { ISCAN(EMPDEPT
         [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER NOT _.ID IN
@@ -525,7 +553,7 @@ three-way-joins-right-deep-planner:
 -   query: EXPLAIN select dept.id, dept.name, project.name from emp, dept, project
         where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id in (1,
         2)
-    ref: join-tests.yamsql:601
+    ref: join-tests.yamsql:621
     explain: '[IN arrayDistinct(promote(@c39 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
         DEPT, EQUALS q0]) } | FLATMAP q1 -> { ISCAN(EMPDEPT [EQUALS q1.ID]) | FLATMAP
         q2 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q2.ID AS q3 RETURN q3
@@ -539,7 +567,7 @@ three-way-joins-right-deep-planner:
     insert_new_count: 1559
     insert_reused_count: 110
 -   query: EXPLAIN select * from ja join jb using(c1) join jd using(c1);
-    ref: join-tests.yamsql:607
+    ref: join-tests.yamsql:627
     explain: SCAN([IS JD]) | FLATMAP q0 -> { SCAN([IS JB]) | FLATMAP q1 -> { SCAN([IS
         JA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS
         _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._1.C3 AS C3, q0.C4
@@ -554,7 +582,7 @@ three-way-joins-right-deep-planner:
     insert_reused_count: 12
 -   query: EXPLAIN select jua.c5, jub.c5, jud.c5 from jua join jub using(c1) join
         jud using(c1);
-    ref: join-tests.yamsql:612
+    ref: join-tests.yamsql:632
     explain: SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB]) | FLATMAP q1 -> { SCAN([IS
         JUA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1
         AS _1) } AS q3 RETURN (q3._0.C5 AS _0, q3._1.C5 AS _1, q0.C5 AS _2) }
@@ -568,7 +596,7 @@ three-way-joins-right-deep-planner:
     insert_reused_count: 12
 -   query: EXPLAIN select * from jua join (select * from jub join jud using(c1)) as
         X using (c1);
-    ref: join-tests.yamsql:617
+    ref: join-tests.yamsql:637
     explain: SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB, EQUALS q0.C1]) | FLATMAP
         q1 -> { SCAN([IS JUA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS
         q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._0.C5 AS _2, q3._1.C3 AS C3,

@@ -16,5 +16,12 @@ Diagram(
         ),
         'skip'
     ),
+    Optional(
+        Sequence(
+            Terminal('LIMIT'),
+            NonTerminal('count'),
+        ),
+        'skip'
+    ),
     Terminal(')'),
 )

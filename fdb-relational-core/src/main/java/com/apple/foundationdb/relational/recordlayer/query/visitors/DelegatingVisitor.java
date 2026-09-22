@@ -1459,6 +1459,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public Integer visitAggregateLimitClause(@Nonnull RelationalParser.AggregateLimitClauseContext ctx) {
+        return getDelegate().visitAggregateLimitClause(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Expression visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx) {
         return getDelegate().visitNonAggregateWindowedFunction(ctx);
     }
