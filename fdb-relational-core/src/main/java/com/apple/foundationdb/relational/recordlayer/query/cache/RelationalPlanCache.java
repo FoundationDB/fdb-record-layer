@@ -34,7 +34,7 @@ import java.util.concurrent.TimeUnit;
  * This is just a specialization of {@link MultiStageCache} with concrete types specific to plan caching.
  */
 @API(API.Status.EXPERIMENTAL)
-public final class RelationalPlanCache extends MultiStageCache<String, QueryCacheKey, PhysicalPlanEquivalence, Plan<?>> {
+public final class RelationalPlanCache extends MultiStageCache<PlanCacheSchemaKey, QueryCacheKey, PhysicalPlanEquivalence, Plan<?>> {
 
     @Nonnull
     private static final TimeUnit DEFAULT_TTL_TIME_UNIT = TimeUnit.MILLISECONDS;
@@ -61,7 +61,7 @@ public final class RelationalPlanCache extends MultiStageCache<String, QueryCach
         super(size, secondarySize, tertiarySize, ttl, ttlTimeUnit, secondaryTtl, secondaryTtlTimeUnit, tertiaryTtl, tertiaryTtlTimeUnit, executor, secondaryExecutor, tertiaryExecutor, ticker);
     }
 
-    public static final class RelationalCacheBuilder extends MultiStageCache.Builder<String, QueryCacheKey, PhysicalPlanEquivalence, Plan<?>, RelationalCacheBuilder> {
+    public static final class RelationalCacheBuilder extends MultiStageCache.Builder<PlanCacheSchemaKey, QueryCacheKey, PhysicalPlanEquivalence, Plan<?>, RelationalCacheBuilder> {
 
         public RelationalCacheBuilder() {
             size = (Integer) (Options.defaultOptions().get(Options.Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES));

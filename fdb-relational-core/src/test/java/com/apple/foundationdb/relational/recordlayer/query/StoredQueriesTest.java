@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.query.cache.PlanCacheSchemaKey;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.utils.ConnectionUtils;
@@ -130,8 +131,9 @@ public class StoredQueriesTest {
             return 0;
         }
         long total = 0;
-        for (QueryCacheKey secondaryKey : cache.getStats().getAllSecondaryKeys(templateName)) {
-            total += cache.getStats().getAllTertiaryMappings(templateName, secondaryKey).size();
+        final var schemaKey = PlanCacheSchemaKey.of(templateName);
+        for (QueryCacheKey secondaryKey : cache.getStats().getAllSecondaryKeys(schemaKey)) {
+            total += cache.getStats().getAllTertiaryMappings(schemaKey, secondaryKey).size();
         }
         return total;
     }
