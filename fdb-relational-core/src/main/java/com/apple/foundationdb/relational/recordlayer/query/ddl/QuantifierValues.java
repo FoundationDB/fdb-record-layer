@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * What every quantifier of an index-defining plan stands for, and with it the ability to resolve a value written in terms
@@ -52,8 +51,27 @@ final class QuantifierValues {
     @Nonnull
     private final Map<CorrelationIdentifier, Value> valuesByQuantifier;
 
-    private QuantifierValues(@Nonnull final Map<CorrelationIdentifier, Value> valuesByQuantifier) {
+    /**
+     * The array each explode of the plan ranges over, in the order they were found. An explode's {@link AnnotatedAccessor}
+     * marker <em>is</em> its position here.
+     */
+    @Nonnull
+    private final List<FieldValue> explodes;
+
+    private QuantifierValues(@Nonnull final Map<CorrelationIdentifier, Value> valuesByQuantifier,
+                             @Nonnull final List<FieldValue> explodes) {
         this.valuesByQuantifier = valuesByQuantifier;
+        this.explodes = explodes;
+    }
+
+    /**
+     * The array each explode of the plan ranges over, in the order they were found.
+     *
+     * @return what the traversal saw at each explode
+     */
+    @Nonnull
+    public List<FieldValue> getExplodes() {
+        return explodes;
     }
 
     /**
@@ -65,7 +83,8 @@ final class QuantifierValues {
      */
     @Nonnull
     public static QuantifierValues collect(@Nonnull final RelationalExpression expression) {
-        return new QuantifierValues(Assert.notNullUnchecked(new Collector().visit(expression)));
+        final var collector = new Collector();
+        return new QuantifierValues(collector.visit(expression), collector.explodes);
     }
 
     /**
@@ -112,11 +131,12 @@ final class QuantifierValues {
     private static final class Collector implements SimpleExpressionVisitor<Map<CorrelationIdentifier, Value>> {
 
         /**
-         * Numbers the unnestings, so that two unnestings of the same array field compare unequal. Only distinctness
-         * matters; the number never reaches the key expression.
+         * The array each explode ranges over, in the order they were found. A position doubles as the explode's marker,
+         * which only has to be distinct -- it numbers the unnestings so two unnestings of one array field compare
+         * unequal, and never reaches the key expression.
          */
         @Nonnull
-        private final AtomicInteger explodeCounter = new AtomicInteger(0);
+        private final List<FieldValue> explodes = new ArrayList<>();
 
         @Nonnull
         @Override
@@ -142,16 +162,17 @@ final class QuantifierValues {
 
         @Nonnull
         private Value unnestedCollectionValue(@Nonnull final ExplodeExpression explode) {
-            final var marker = explodeCounter.incrementAndGet();
             final var collectionValue = explode.getCollectionValue();
-            if (!(collectionValue instanceof FieldValue)) {
+            if (!(collectionValue instanceof final FieldValue field)) {
                 return collectionValue;
             }
-            final var field = (FieldValue)collectionValue;
+            final var marker = explodes.size();
             final var fieldAccessors = new ArrayList<>(field.getFieldPath().getFieldAccessors());
             fieldAccessors.set(fieldAccessors.size() - 1,
                     AnnotatedAccessor.of(fieldAccessors.get(fieldAccessors.size() - 1), marker));
-            return FieldValue.ofFields(field.getChild(), new FieldValue.FieldPath(fieldAccessors));
+            final var annotated = FieldValue.ofFields(field.getChild(), new FieldValue.FieldPath(fieldAccessors));
+            explodes.add(annotated);
+            return annotated;
         }
 
         @Nonnull
@@ -165,6 +186,14 @@ final class QuantifierValues {
     /**
      * A {@link FieldValue.ResolvedAccessor} tagged with which unnesting it came from, which distinguishes two unnestings
      * of the same array field and marks the field as reached through an unnest.
+     * <p>
+     * That tag is the marker: a small integer handed to each explode of the plan in the order the traversal finds them,
+     * so that it is also the explode's position in {@link QuantifierValues#getExplodes()}. It is stamped onto the last
+     * accessor of the field path that reaches the array, and so travels along with every value later built from that
+     * path; a plain {@link FieldValue.ResolvedAccessor} in that position means the field was not reached through an
+     * unnest at all. Two markers therefore mean two unnestings even where the field paths are identical, as in
+     * {@code FROM T1, T1.A X, T1.A Y}. A consumer recovers the markers a key column reads through and looks each one up
+     * against the explode it names, which is how it tells what a column was unnested from.
      */
     static final class AnnotatedAccessor extends FieldValue.ResolvedAccessor {
 
@@ -173,6 +202,15 @@ final class QuantifierValues {
         private AnnotatedAccessor(@Nonnull final Type.Record.Field field, final int ordinal, final int marker) {
             super(field, ordinal);
             this.marker = marker;
+        }
+
+        /**
+         * Which unnesting of the plan the field this accessor reaches was unnested by.
+         *
+         * @return the marker, which is that unnesting's position in {@link QuantifierValues#getExplodes()}
+         */
+        int getMarker() {
+            return marker;
         }
 
         @Nonnull
