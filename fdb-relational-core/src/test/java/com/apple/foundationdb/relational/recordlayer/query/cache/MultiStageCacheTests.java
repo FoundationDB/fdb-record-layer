@@ -140,6 +140,34 @@ public class MultiStageCacheTests {
     }
 
     @Test
+    void putStoresWithoutALookup() {
+        final var builder = MultiStageCache.<String, String, String, String>newMultiStageCacheBuilder();
+        final MultiStageCache<String, String, String, String> testCache = builder.setSize(2).setSecondarySize(2).build();
+
+        testCache.put("U.S.", "Animal", "river", "American Alligator", NoOpMetricCollector.INSTANCE);
+
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "American Alligator"))));
+        Assertions.assertThat(readCache(testCache, "U.S.", "Animal", "river"))
+                .isEqualTo("restored American Alligator from cache");
+    }
+
+    @Test
+    void putUnderAnEqualKeyReplaces() {
+        final var builder = MultiStageCache.<String, String, String, String>newMultiStageCacheBuilder();
+        final MultiStageCache<String, String, String, String> testCache = builder.setSize(2).setSecondarySize(2).build();
+
+        testCache.put("U.S.", "Animal", "river", "American Alligator", NoOpMetricCollector.INSTANCE);
+        testCache.put("U.S.", "Animal", "river", "a second alligator", NoOpMetricCollector.INSTANCE);
+
+        Assertions.assertThat(testCache.getStats().numTertiaryEntries("U.S.", "Animal")).isEqualTo(1L);
+        shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "a second alligator"))));
+
+        testCache.put("U.S.", "Animal", "mountain", "Bighorn Sheep", NoOpMetricCollector.INSTANCE);
+
+        Assertions.assertThat(testCache.getStats().numTertiaryEntries("U.S.", "Animal")).isEqualTo(2L);
+    }
+
+    @Test
     void primaryCacheEvictsDataCorrectly() {
         final var builder = MultiStageCache.<String, String, String, String>newMultiStageCacheBuilder();
         final var ticker = new FakeTicker();
