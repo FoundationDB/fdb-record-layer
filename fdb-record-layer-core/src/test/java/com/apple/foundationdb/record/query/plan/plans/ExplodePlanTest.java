@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -587,6 +589,36 @@ public class ExplodePlanTest {
         // The plain variant produces the bare elements -- see explodeWithSkipAndLimitWorks -- unless it flows a record
         // constructor, in which case each element comes wrapped in the struct that value declares.
         Assertions.assertEquals(List.of(100, 200, 300), structuredElementsOf(List.of(100, 200, 300)));
+    }
+
+    /**
+     * A plain explode is subsumed by an explode with ordinality over the same collection, but only when the candidate
+     * flows a record constructor: that is what makes the element a reachable sub-value for the query's element to be
+     * mapped to, and the mapping is what lets an enclosing select navigate into the element.
+     */
+    @Test
+    void plainExplodeIsSubsumedByAnOrdinalityExplodeFlowingARecordConstructor() {
+        // A string element, so that the element is told apart from the ordinal by its type alone.
+        final var collectionValue = LiteralValue.ofList(List.of("a", "b", "c"));
+        final var query = new ExplodeExpression(collectionValue);
+
+        final var recordConstructorCandidate = new ExplodeExpression(collectionValue, true);
+        final var matchInfo = Iterables.getOnlyElement(query.subsumedBy(recordConstructorCandidate, AliasMap.emptyMap(),
+                IdentityBiMap.create(), EvaluationContext.empty()));
+
+        // What the query's element is matched to is the candidate's element column, not its ordinal.
+        final var matchedCandidateValue = Iterables.getOnlyElement(matchInfo.getMaxMatchMap().getMap().values());
+        Assertions.assertEquals(query.getElementType(), matchedCandidateValue.getResultType());
+        Assertions.assertNotEquals(Type.primitiveType(Type.TypeCode.INT, false),
+                matchedCandidateValue.getResultType());
+
+        // An opaque candidate offers nothing but itself to match against. Subsumption still holds -- the candidate does
+        // produce an element wherever the query does -- but nothing of the query's value is expressible in terms of the
+        // candidate, so the match carries an empty mapping and the element cannot be pulled up through it.
+        final var opaqueCandidate = new ExplodeExpression(collectionValue, true, false, false);
+        final var opaqueMatchInfo = Iterables.getOnlyElement(query.subsumedBy(opaqueCandidate, AliasMap.emptyMap(),
+                IdentityBiMap.create(), EvaluationContext.empty()));
+        Assertions.assertTrue(opaqueMatchInfo.getMaxMatchMap().getMap().isEmpty());
     }
 
     @Test
