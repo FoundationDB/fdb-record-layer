@@ -506,11 +506,11 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     }
 
     /**
-     * Turns a named prepared parameter into a value, either from what is bound to it or from its type declaration.
+     * Turns a named prepared parameter into a value, either from what is bound to it or from its declared type.
      *
      * @param param the parameter name, as the query text spells it
      * @param tokenIndex the lexical position of the parameter token
-     * @param declaredTypeResolver resolves a declaration's SQL text into a type. Passed in because resolving it needs
+     * @param declaredTypeResolver resolves a declared type's SQL text into a type. Passed in because resolving it needs
      *        the schema template, which this context does not have.
      * @return the value the parameter contributes to the plan
      */
@@ -520,9 +520,9 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         if (!preparedParams.hasNamedParamValue(param)) {
             // Declared but unbound: planned as a value-free typed constant, and the runtime re-issue binds a value at
             // the same constant id.
-            final var declaration = preparedParams.declarationMaybe(param);
-            if (declaration.isPresent()) {
-                return valueFreeCovOf(declaredTypeResolver.apply(declaration.get()), param, tokenIndex);
+            final var declaredType = preparedParams.declaredTypeMaybe(param);
+            if (declaredType.isPresent()) {
+                return valueFreeCovOf(declaredTypeResolver.apply(declaredType.get()), param, tokenIndex);
             }
         }
         final var value = preparedParams.namedParamValue(param);

@@ -586,9 +586,24 @@ public final class PlanGenerator {
     }
 
     /**
-     * As {@link #create(Optional, RecordLayerSchemaTemplate, RecordStoreState, MetricCollector, Options)}, but with
-     * caller-supplied prepared parameters — used by warm-up to carry the declared types
-     * ({@link PreparedParams#withDeclarations}).
+     * Create a plan generator for offline DQL planning, with caller-supplied prepared parameters &mdash; as
+     * {@link #create(Optional, RecordLayerSchemaTemplate, RecordStoreState, MetricCollector, Options)}, which passes
+     * {@link PreparedParams#empty()}.
+     *
+     * <p>Why prepared parameters matter here: the plan, and the cache entry it goes into, depend on the types of the
+     * query's parameters. Offline planning has no bound values, so there are no types to read off them. The caller
+     * passes declared types instead ({@link PreparedParams#withDeclaredTypeParams}).</p>
+     *
+     * @param cache             optional plan cache
+     * @param schemaTemplate    schema template; {@link RecordMetaData} is derived via
+     *                          {@link RecordLayerSchemaTemplate#toRecordMetadata()}
+     * @param recordStoreState  record store state (index readability, store header, etc.)
+     * @param metricCollector   metric collector &mdash; required at runtime by {@link #getPlan(String)}
+     * @param options           planner options
+     * @param preparedParams    prepared parameters; for warm-up, values are absent and each parameter carries a
+     *                          declared type instead
+     * @return a new plan generator
+     * @throws RelationalException if creation fails
      */
     @Nonnull
     public static PlanGenerator create(@Nonnull final Optional<RelationalPlanCache> cache,
@@ -632,8 +647,23 @@ public final class PlanGenerator {
     }
 
     /**
-     * As {@link #create(RecordLayerSchemaTemplate, MetadataOperationsFactory, MetricCollector, Options)}, but with
-     * caller-supplied prepared parameters, so a temporary function planned here captures the declared types.
+     * Create a plan generator for offline DDL queries, with caller-supplied prepared parameters &mdash; as
+     * {@link #create(RecordLayerSchemaTemplate, MetadataOperationsFactory, MetricCollector, Options)}, which passes
+     * {@link PreparedParams#empty()}.
+     *
+     * <p>Why prepared parameters matter here: the DDL compiled on this path can hold a query body of its own, such as
+     * a temporary function declared beside a stored query. That body refers to the same parameters, so it needs the
+     * same declared types ({@link PreparedParams#withDeclaredTypeParams}) to be planned value-free. Without them the
+     * function would be compiled against parameters with no value and no type.</p>
+     *
+     * @param schemaTemplate            schema template used to resolve names in the function body
+     * @param metadataOperationsFactory caller-provided factory for DDL
+     * @param metricCollector           metric collector
+     * @param options                   planner options
+     * @param preparedParams            prepared parameters; for warm-up, values are absent and each parameter carries
+     *                                  a declared type instead
+     * @return a new plan generator
+     * @throws RelationalException if creation fails
      */
     @Nonnull
     public static PlanGenerator create(@Nonnull final RecordLayerSchemaTemplate schemaTemplate,

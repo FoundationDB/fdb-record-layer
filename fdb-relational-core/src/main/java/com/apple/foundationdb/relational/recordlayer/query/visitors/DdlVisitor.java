@@ -920,7 +920,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var sourceText = getDelegate().getPlanGenerationContext().getQuery();
         final var parameters = parseParameterList(queryCtx.storedQueryParameterList(), sourceText);
         final var preparedCases = parsePreparedCases(queryCtx.storedQueryPreparedCases(), parameters.types());
-        final var declaredNames = parameters.declarations().keySet();
+        final var declaredNames = parameters.declaredTypeParams().keySet();
         final var queryString = rewriteReferencesToParams(sourceText, queryCtx.storedQuery, declaredNames);
         final ImmutableList.Builder<String> tempFunctionTexts = ImmutableList.builder();
         if (queryCtx.declareBlock() != null) {
@@ -933,17 +933,17 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 tempFunctionTexts.add(rewriteDeclaredFunctionToStandalone(dfCtx, sourceText, declaredNames));
             }
         }
-        metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts.build(), parameters.declarations(),
+        metadataBuilder.addStoredQuery(name, queryString, tempFunctionTexts.build(), parameters.declaredTypeParams(),
                 preparedCases);
     }
 
     /**
-     * Parses a stored query's parameter list, keyed by normalized parameter name. The declaration is kept as source
+     * Parses a stored query's parameter list, keyed by normalized parameter name. The declared type is kept as source
      * text, because warm-up resolves it again against the template it warms with; the resolved type is kept beside it
      * for the prepared cases to be checked against.
      *
      * @param ctx the parameter list, or {@code null} when the query declares none
-     * @param sourceText the full DDL source, for slicing declaration text out of
+     * @param sourceText the full DDL source, for slicing the declared type's text out of
      * @return the declared parameters, both forms, empty if there are none
      */
     @Nonnull
@@ -952,7 +952,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         if (ctx == null) {
             return new DeclaredParameters(ImmutableMap.of(), ImmutableMap.of());
         }
-        final var declarations = new LinkedHashMap<String, String>();
+        final var declaredTypeParams = new LinkedHashMap<String, String>();
         final var types = new LinkedHashMap<String, DataType>();
         for (final var param : ctx.storedQueryParameter()) {
             final var parameterName = visitUid(param.parameterName).getName();
@@ -973,18 +973,18 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final ParserRuleContext lastCtx = param.nullNotnull() != null ? param.nullNotnull() : typeCtx;
             final var declaredType = sourceText.substring(typeCtx.start.getStartIndex(),
                     lastCtx.stop.getStopIndex() + 1);
-            Assert.thatUnchecked(declarations.put(parameterName, declaredType) == null, ErrorCode.UNSUPPORTED_QUERY,
+            Assert.thatUnchecked(declaredTypeParams.put(parameterName, declaredType) == null, ErrorCode.UNSUPPORTED_QUERY,
                     () -> "duplicate stored query parameter '" + parameterName + "'");
             types.put(parameterName, dataType);
         }
-        return new DeclaredParameters(ImmutableMap.copyOf(declarations), ImmutableMap.copyOf(types));
+        return new DeclaredParameters(ImmutableMap.copyOf(declaredTypeParams), ImmutableMap.copyOf(types));
     }
 
     /**
      * The declared parameters of one stored query: the SQL text that is persisted, and the resolved type of each, which
      * the prepared cases are checked against.
      */
-    private record DeclaredParameters(@Nonnull Map<String, String> declarations,
+    private record DeclaredParameters(@Nonnull Map<String, String> declaredTypeParams,
                                       @Nonnull Map<String, DataType> types) {
     }
 
