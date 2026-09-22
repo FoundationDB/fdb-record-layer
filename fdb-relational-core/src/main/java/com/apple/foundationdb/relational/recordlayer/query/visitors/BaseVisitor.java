@@ -52,6 +52,7 @@ import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.base.Function;
 import org.antlr.v4.runtime.tree.ParseTree;
 
 import javax.annotation.Nonnull;
@@ -269,6 +270,36 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
     @Nonnull
     public LogicalOperator resolveTableValuedFunction(@Nonnull Identifier functionName, @Nonnull Expressions arguments) {
         return getSemanticAnalyzer().resolveTableFunction(functionName, arguments, true);
+    }
+
+    /**
+     * Resolves a parsed type specification into a {@link DataType}. Exactly one of {@code customType} and
+     * {@code primitiveTypeContext} must be set.
+     *
+     * @param customType the name of a user-defined type, or {@code null} if the type is primitive
+     * @param primitiveTypeContext the primitive type, or {@code null} if the type is user-defined
+     * @param isNullable whether the resolved type is nullable
+     * @param isRepeated whether the resolved type is an array of the named type
+     * @param dataTypeProvider looks a user-defined type up by name; a custom type it does not find comes back as a
+     *        {@link DataType.UnresolvedType} for a later pass to resolve
+     *
+     * @return the resolved type
+     */
+    @Nonnull
+    public DataType lookupType(@Nullable RelationalParser.UidContext customType,
+                               @Nullable RelationalParser.PrimitiveTypeContext primitiveTypeContext,
+                               boolean isNullable,
+                               boolean isRepeated,
+                               @Nonnull Function<String, Optional<DataType>> dataTypeProvider) {
+        final SemanticAnalyzer.ParsedTypeInfo typeInfo;
+        if (customType != null) {
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(visitUid(customType), isNullable, isRepeated);
+        } else if (primitiveTypeContext != null) {
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(primitiveTypeContext, isNullable, isRepeated);
+        } else {
+            throw new UnsupportedOperationException("unsupported type specification");
+        }
+        return getSemanticAnalyzer().lookupType(typeInfo, dataTypeProvider);
     }
 
     @Override

@@ -866,17 +866,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                                 @Nullable RelationalParser.PrimitiveTypeContext primitiveTypeContext,
                                 boolean isNullable,
                                 boolean isRepeated) {
-        final SemanticAnalyzer.ParsedTypeInfo typeInfo;
-        if (customType != null) {
-            final var columnType = visitUid(customType);
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, isNullable, isRepeated);
-        } else if (primitiveTypeContext != null) {
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(primitiveTypeContext, isNullable, isRepeated);
-        } else {
-            throw new UnsupportedOperationException("unsupported type specification");
-        }
-
-        return getDelegate().getSemanticAnalyzer().lookupType(typeInfo, metadataBuilder::findType);
+        return getDelegate().lookupType(customType, primitiveTypeContext, isNullable, isRepeated,
+                metadataBuilder::findType);
     }
 
     // TODO: remove
