@@ -430,6 +430,12 @@ public class MetaDataProtoEditor {
         /** The fully qualified new name. */
         @Nonnull
         private final String fullNewName;
+        /** The canonical union field name for the current name, i.e., {@code _name}. */
+        @Nonnull
+        private final String canonicalFieldName;
+        /** The canonical union field name for the new name, i.e., {@code _newName}. */
+        @Nonnull
+        private final String newCanonicalFieldName;
         /**
          * The usage, as determined by looking at the union type. (Initially {@code UNSET}, to be filled in by
          * {@link #determineRecordTypeUnionFieldsAndUsages}).
@@ -442,12 +448,20 @@ public class MetaDataProtoEditor {
          */
         @Nullable
         private DescriptorProtos.FieldDescriptorProto.Builder unionField;
+        /**
+         * Whether {@link #unionField} is to be renamed to {@link #newCanonicalFieldName}, which is the case exactly
+         * when it currently carries the canonical name for the old type name. (Initially {@code false}, to be filled
+         * in by {@link #determineRecordTypeUnionFieldsAndUsages}).
+         */
+        private boolean renamesUnionField;
 
         RecordTypeRename(@Nonnull String namespace, @Nonnull String name, @Nonnull String newName) {
             this.name = name;
             this.newName = newName;
             this.fullName = fullyQualifiedTypeName(namespace, name);
             this.fullNewName = fullyQualifiedTypeName(namespace, newName);
+            this.canonicalFieldName = canonicalUnionFieldName(name);
+            this.newCanonicalFieldName = canonicalUnionFieldName(newName);
         }
     }
 
@@ -981,7 +995,7 @@ public class MetaDataProtoEditor {
             // If multiple fields reference this record type, prefer the canonically-named one; otherwise, keep the
             // one with the highest field number.
             if (rename.unionField == null
-                    || isCanonicalUnionFieldName(unionField.getName(), rename.name)
+                    || rename.canonicalFieldName.equals(unionField.getName())
                     || unionField.getNumber() > rename.unionField.getNumber()) {
                 rename.unionField = unionField;
             }
@@ -1000,6 +1014,11 @@ public class MetaDataProtoEditor {
                                ? RecordTypeOptions.Usage.NESTED
                                : RecordTypeOptions.Usage.RECORD;
             }
+
+            // Record whether the union field will have to be renamed along with the type. That is the case only if it
+            // currently carries the canonical name; a field named anything else keeps the name it has.
+            rename.renamesUnionField =
+                    rename.unionField != null && rename.canonicalFieldName.equals(rename.unionField.getName());
 
             // Prevent renaming a non-UNION type to the default union name.
             if (!rename.usage.equals(RecordTypeOptions.Usage.UNION) && rename.newName.equals(DEFAULT_UNION_NAME)) {
@@ -1023,23 +1042,28 @@ public class MetaDataProtoEditor {
         // since Bar’s rename to _Foo would appear to collide with Foo’s own, still-pristine _Foo field.)
         final Set<DescriptorProtos.FieldDescriptorProto.Builder> beingRenamed = new HashSet<>();
         for (final RecordTypeRename rename : renames.values()) {
-            if (rename.unionField != null && isCanonicalUnionFieldName(rename.unionField.getName(), rename.name)) {
+            if (rename.renamesUnionField) {
                 beingRenamed.add(rename.unionField);
             }
         }
-        for (final RecordTypeRename rename : renames.values()) {
-            if (!beingRenamed.contains(rename.unionField)) {
-                continue;
+
+        // Index the names that the union’s fields will still be holding afterwards, so that each rename below can be
+        // checked against them in constant time.
+        final Set<String> retainedFieldNames = new HashSet<>();
+        for (final DescriptorProtos.FieldDescriptorProto.Builder field : unionBuilder.getFieldBuilderList()) {
+            if (!beingRenamed.contains(field)) {
+                retainedFieldNames.add(field.getName());
             }
-            final String newName = canonicalUnionFieldName(rename.newName);
-            final boolean hasCollision = unionBuilder.getFieldBuilderList().stream()
-                    .anyMatch(fb -> fb != rename.unionField && fb.getName().equals(newName)
-                            && !beingRenamed.contains(fb));
-            if (hasCollision) {
+        }
+
+        // No two renames can target the same new canonical field name, since the new type names are distinct, so a
+        // collision can only be with a retained name.
+        for (final RecordTypeRename rename : renames.values()) {
+            if (rename.renamesUnionField && retainedFieldNames.contains(rename.newCanonicalFieldName)) {
                 throw new MetaDataException(
                         "Cannot rename union field because a field of the new name already exists",
                         LogMessageKeys.RECORD_TYPE, rename.name,
-                        LogMessageKeys.NEW_FIELD_NAME, newName);
+                        LogMessageKeys.NEW_FIELD_NAME, rename.newCanonicalFieldName);
             }
         }
     }
@@ -1051,8 +1075,8 @@ public class MetaDataProtoEditor {
      */
     private static void renameUnionFields(@Nonnull RecordTypeRenames renames) {
         for (final RecordTypeRename rename : renames.values()) {
-            if (rename.unionField != null && isCanonicalUnionFieldName(rename.unionField.getName(), rename.name)) {
-                rename.unionField.setName(canonicalUnionFieldName(rename.newName));
+            if (rename.renamesUnionField) {
+                Objects.requireNonNull(rename.unionField).setName(rename.newCanonicalFieldName);
             }
         }
     }
