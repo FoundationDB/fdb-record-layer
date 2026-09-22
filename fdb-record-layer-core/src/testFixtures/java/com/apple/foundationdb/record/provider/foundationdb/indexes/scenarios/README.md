@@ -117,14 +117,18 @@ There is not an example of this yet, but if we add more examples that delete dat
 
 ### `scanResultsEqual`
 
-This method was added during development to make things work, but is no longer overridden. It’s possible this will be needed in the future.
+This method was added during development to make things work, and is now needed again: Lucene index entries cannot be compared with `Tuple` equality, because their key tuple holds the index's key expression and `Tuple` comparison rejects it (`Unsupported data type: NestingKeyExpression`). `LuceneIndexDefinition` overrides this to compare the matched primary keys instead, which also absorbs Lucene's score ordering.
+
+### Lucene and snapshot isolation
+
+`FDBDirectory` always reads through the plain transaction rather than a snapshot read, so a Lucene search takes read-conflict ranges whatever isolation level is requested, and cannot coexist with a concurrent committed writer. `SnapshotScan` is therefore skipped for Lucene via `supportsSnapshotIsolation()`; making it work would be a maintainer change.
 
 ## Future work
 
 ### Immediate
 
 - [ ] **Lucene** - with partitioning
-- [ ] **Lucene** - without partitioning
+- [x] **Lucene** - without partitioning
 - [ ] **Sliding Window**
 - [ ] **Index validation** - particularly for Lucene/Sliding Window, validating their internal details are consistent (i.e. counts). There is a `validateEntries` method on `IndexMaintainer`, but it looks like that is only implemented by `ValueIndexMaintainer`, so it would probably be good to replace that with scrubbing, and a new method on the `IndexDefinition`. This new `IndexDefinition` method would be somewhat different from scrubbing, because it can run across multiple transactions, assuming the data is not changing.
 - [ ] **Basic Delete** - a basic delete test

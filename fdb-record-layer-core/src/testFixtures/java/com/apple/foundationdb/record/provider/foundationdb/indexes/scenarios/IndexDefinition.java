@@ -99,6 +99,33 @@ public interface IndexDefinition {
     }
 
     /**
+     * Whether the {@code SnapshotScan} scenario applies to this index. That scenario materializes a
+     * snapshot-isolation scan, then commits index-changing records from another transaction while the
+     * scanning transaction writes (non-indexed) records of its own, and asserts the snapshot scan was
+     * unaffected. It relies on the scan honouring the requested isolation level, so that it adds no
+     * read-conflict ranges and the scanning transaction can still commit. Return {@code false}, with
+     * the reason documented, for index types whose scan always reads at serializable isolation.
+     *
+     * @return {@code true} if the {@code SnapshotScan} scenario applies to this index
+     */
+    default boolean supportsSnapshotIsolation() {
+        return true;
+    }
+
+    /**
+     * Apply any per-store configuration the index needs. This is called on every store the scenarios
+     * open, immediately after {@code createOrOpen}, because these settings live on the store instance
+     * rather than in the metadata. For example a Lucene index wants
+     * {@code store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false)} so that
+     * merges do not run inline at commit time.
+     *
+     * @param store the record store to configure
+     */
+    default void configureStore(final FDBRecordStore store) {
+        // no-op by default
+    }
+
+    /**
      * Perform any one-time setup that the index requires before records can be saved. This is run
      * in its own transaction against a freshly opened store before the first records are written.
      * Most index types need nothing here; index types that require state to exist before indexing

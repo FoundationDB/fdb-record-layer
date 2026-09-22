@@ -159,7 +159,7 @@ public class IndexScenarioModel {
     public <T> T applyToStore(Function<FDBRecordStore, T> consumer) {
         T result;
         try (FDBRecordContext context = openContext.get()) {
-            final FDBRecordStore store = storeBuilder.setContext(context).createOrOpen();
+            final FDBRecordStore store = openStore(context);
             result = consumer.apply(store);
             context.commit();
         }
@@ -168,9 +168,15 @@ public class IndexScenarioModel {
 
     public void runAgainstStore(Consumer<FDBRecordStore> consumer) {
         try (FDBRecordContext context = openContext.get()) {
-            final FDBRecordStore store = storeBuilder.setContext(context).createOrOpen();
+            final FDBRecordStore store = openStore(context);
             consumer.accept(store);
             context.commit();
         }
+    }
+
+    private FDBRecordStore openStore(final FDBRecordContext context) {
+        final FDBRecordStore store = storeBuilder.setContext(context).createOrOpen();
+        definition.configureStore(store);
+        return store;
     }
 }

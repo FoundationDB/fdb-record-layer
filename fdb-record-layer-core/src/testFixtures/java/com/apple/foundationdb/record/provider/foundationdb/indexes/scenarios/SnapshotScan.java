@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assumptions;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +41,8 @@ public class SnapshotScan implements IndexScenario {
     @Override
     public void runTest(final IndexDefinitionFactory definitionFactory, final Supplier<FDBRecordContext> openContext, final FDBRecordStore.Builder storeBuilder) throws Exception {
         final IndexDefinition definition = definitionFactory.getDefinition();
+        Assumptions.assumeTrue(definition.supportsSnapshotIsolation(),
+                "index scan does not honour snapshot isolation");
         final IndexScenarioModel model = new IndexScenarioModel(definition, openContext, storeBuilder);
         final List<Message> records = model.generateRecords(10);
 
