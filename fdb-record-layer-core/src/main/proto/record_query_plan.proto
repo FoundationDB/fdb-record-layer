@@ -1884,6 +1884,7 @@ message PRecordQueryExplodePlan {
   optional PValue collection_value = 1;
   optional bool with_ordinality = 2;
   optional bool zero_based_ordinality = 3;
+  optional bool flows_rcv = 4;
 }
 
 //

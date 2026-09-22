@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -35,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -57,6 +59,9 @@ import java.util.Set;
  * <p>In the {@code WITH ORDINALITY} variant, it also generates ordinals of the field values. In this case it
  * produces a struct with two anonymous fields—the element and the ordinal—instead of the bare element. The ordinals
  * are 1-based per the SQL standard, unless the expression is created {@linkplain #isZeroBasedOrdinality() 0-based}.
+ *
+ * <p>An explode that {@linkplain #flowsRecordConstructorValue() flows a record constructor} produces a struct in the
+ * plain variant as well, with the element as its only field.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildren implements InternalPlannerGraphRewritable {
@@ -85,15 +90,35 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
     @Nonnull
     private final Type explodeResultType;
 
+    /**
+     * Whether the value this expression flows is a record constructor of the element—and the ordinal, for the
+     * {@code WITH ORDINALITY} variant—rather than one opaque value.
+     */
+    private final boolean flowsRecordConstructorValue;
+
+    /**
+     * The result value of the explode.
+     */
+    @Nonnull
+    private final Value resultValue;
+
     public ExplodeExpression(@Nonnull final Value collectionValue, final boolean withOrdinality,
-                             final boolean zeroBasedOrdinality) {
+                             final boolean zeroBasedOrdinality, final boolean flowsRecordConstructorValue) {
         Verify.verify(withOrdinality || !zeroBasedOrdinality, "cannot base ordinals that are not produced");
         this.collectionValue = collectionValue;
         this.withOrdinality = withOrdinality;
         this.zeroBasedOrdinality = zeroBasedOrdinality;
         Verify.verify(collectionValue.getResultType().isArray());
         this.elementType = Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
-        this.explodeResultType = explodeResultType(elementType, withOrdinality);
+        this.flowsRecordConstructorValue = flowsRecordConstructorValue;
+        this.explodeResultType = explodeResultType(elementType, withOrdinality, flowsRecordConstructorValue);
+        this.resultValue = explodeResultValue(elementType, withOrdinality, flowsRecordConstructorValue);
+        Verify.verify(explodeResultType.equals(resultValue.getResultType()));
+    }
+
+    public ExplodeExpression(@Nonnull final Value collectionValue, final boolean withOrdinality,
+                             final boolean zeroBasedOrdinality) {
+        this(collectionValue, withOrdinality, zeroBasedOrdinality, false);
     }
 
     public ExplodeExpression(@Nonnull final Value collectionValue, final boolean withOrdinality) {
@@ -113,18 +138,28 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
     }
 
     /**
-     * Returns the type of the explode result. For the {@code WITH ORDINALITY} variant, builds an anonymous-field
-     * struct result type holding the element and the ordinal.
+     * Returns the type of the explode result: the element type itself, or an anonymous-field struct holding the
+     * element and, for the {@code WITH ORDINALITY} variant, the ordinal. The {@code WITH ORDINALITY} variant needs the
+     * struct to carry the ordinal; the plain variant takes it only when the explode
+     * {@linkplain #flowsRecordConstructorValue() flows a record constructor}.
+     *
+     * @param elementType the element type of the collection being exploded
+     * @param withOrdinality whether ordinals are produced alongside the elements
+     * @param flowsRecordConstructorValue whether the explode flows a record constructor
+     * @return the result type of such an explode
      */
     @Nonnull
-    public static Type explodeResultType(@Nonnull final Type elementType, boolean withOrdinality) {
-        if (withOrdinality) {
-            return Type.Record.fromFields(ImmutableList.of(
-                    Type.Record.Field.of(elementType, Optional.empty()),
-                    Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.empty())));
-        } else {
+    public static Type explodeResultType(@Nonnull final Type elementType, final boolean withOrdinality,
+                                         final boolean flowsRecordConstructorValue) {
+        if (!withOrdinality && !flowsRecordConstructorValue) {
             return elementType;
         }
+        final var fields = ImmutableList.<Type.Record.Field>builder();
+        fields.add(Type.Record.Field.of(elementType, Optional.empty()));
+        if (withOrdinality) {
+            fields.add(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.empty()));
+        }
+        return Type.Record.fromFields(fields.build());
     }
 
     /**
@@ -135,10 +170,42 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
         return explodeResultType;
     }
 
+    /**
+     * Returns the value an explode of {@code elementType} flows, of the
+     * {@linkplain #explodeResultType(Type, boolean, boolean) explode result type} either way: one opaque
+     * {@link QueriedValue}, or a {@link RecordConstructorValue} whose columns are the element and, for the
+     * {@code WITH ORDINALITY} variant, the ordinal.
+     *
+     * @param elementType the element type of the collection being exploded
+     * @param withOrdinality whether ordinals are produced alongside the elements
+     * @param flowsRecordConstructorValue whether the element and the ordinal are flowed as a record constructor
+     * @return the value flowed by such an explode
+     */
+    @Nonnull
+    public static Value explodeResultValue(@Nonnull final Type elementType, final boolean withOrdinality,
+                                           final boolean flowsRecordConstructorValue) {
+        if (!flowsRecordConstructorValue) {
+            return new QueriedValue(explodeResultType(elementType, withOrdinality, false));
+        }
+        // Note: the element must stay the first column. `MaxMatchMap` returns the first reachable candidate value
+        // that compares equal, and a `QueriedValue` has no identity beyond its class and result type, so an element
+        // whose type is also a non-nullable `INT` -- the ordinal's type -- would just as happily match the ordinal
+        // if the ordinal came first.
+        //
+        // The record is built nullable because `explodeResultType` declares it that way, and the callers verify
+        // that the two agree: that declared type is what the plan looks its protobuf descriptor up by at run time.
+        final var columns = ImmutableList.<Column<? extends Value>>builder();
+        columns.add(Column.unnamedOf(new QueriedValue(elementType)));
+        if (withOrdinality) {
+            columns.add(Column.unnamedOf(new QueriedValue(Type.primitiveType(Type.TypeCode.INT, false))));
+        }
+        return RecordConstructorValue.ofColumns(columns.build(), true);
+    }
+
     @Nonnull
     @Override
     public Value getResultValue() {
-        return new QueriedValue(getExplodeResultType());
+        return resultValue;
     }
 
     @Nonnull
@@ -152,6 +219,15 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
 
     public boolean isZeroBasedOrdinality() {
         return zeroBasedOrdinality;
+    }
+
+    /**
+     * Returns whether the value this expression flows is a record constructor of the element—and the ordinal, for the
+     * {@code WITH ORDINALITY} variant—rather than one opaque value. The plan implementing the expression takes this
+     * over.
+     */
+    public boolean flowsRecordConstructorValue() {
+        return flowsRecordConstructorValue;
     }
 
     @Nonnull
@@ -205,7 +281,8 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
                 collectionValue.translateCorrelations(translationMap, shouldSimplifyValues);
         // this is ok since there are no new quantifiers
         if (translatedCollectionValue != collectionValue) {
-            return new ExplodeExpression(translatedCollectionValue, withOrdinality, zeroBasedOrdinality);
+            return new ExplodeExpression(translatedCollectionValue, withOrdinality, zeroBasedOrdinality,
+                    flowsRecordConstructorValue);
         }
         return this;
     }
