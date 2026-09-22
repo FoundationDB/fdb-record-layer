@@ -71,6 +71,13 @@ public final class Tags {
      * scalar-fallback task.
      */
     public static final String DualScalarSIMD = "DualScalarSIMD";
+    /**
+     * Tests that exercise an {@code IndexMaintainer} through the shared index scenario framework
+     * (see {@code com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios}). Applied
+     * automatically by the {@code @IndexScenarios} annotation, so that the whole index-maintainer
+     * matrix can be run on its own via the {@code indexScenarioTest} Gradle task.
+     */
+    public static final String IndexScenarios = "IndexScenarios";
 
     private Tags() {
     }

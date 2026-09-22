@@ -61,10 +61,25 @@ scenario for everyone else.
 
 ---
 
+## Running it
+
+Every test using `@IndexScenarios` is tagged `Tags.IndexScenarios`, so the whole matrix — across all
+modules — runs with:
+
+```sh
+./gradlew indexScenarioTest
+```
+
+The two test classes that build their parameters as a cartesian product with `@MethodSource` rather
+than via `@IndexScenarios` carry the tag on the test method instead.
+
+---
+
 ## Extending it
 
 - **New index type** — add an `IndexDefinition` (what to index, how to scan) and a thin test that
-  wires it into `@IndexScenarios`. All scenarios then run against it automatically.
+  wires it into `@IndexScenarios`. All scenarios then run against it automatically, and it joins the
+  `indexScenarioTest` task with no extra wiring.
 - **New scenario** — add an `IndexScenario` (`@AutoService`). It immediately applies to every index
   type.
 

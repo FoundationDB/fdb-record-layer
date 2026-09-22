@@ -65,6 +65,18 @@ tasks.register('destructiveTest', Test) {
     }
 }
 
+// Runs only the index-maintainer scenario matrix (see the `indexes.scenarios` framework in
+// fdb-record-layer-core's testFixtures). Applied to every subproject, so a single root invocation
+// covers the definitions in both fdb-record-layer-core and fdb-record-layer-lucene.
+tasks.register('indexScenarioTest', Test) {
+    useJUnitPlatform {
+        includeTags 'IndexScenarios'
+    }
+    reports {
+        junitXml.outputLocation = layout.buildDirectory.dir("test-results/indexScenario")
+    }
+}
+
 tasks.register('performanceTest', Test) {
     useJUnitPlatform {
         includeTags 'Performance'

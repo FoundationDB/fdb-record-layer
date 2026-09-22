@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenariosArgumentsProvider;
+import com.apple.test.Tags;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
 import java.lang.annotation.ElementType;
@@ -28,8 +30,16 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/**
+ * Supplies every registered
+ * {@link com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenario} as the
+ * argument to a {@link org.junit.jupiter.params.ParameterizedTest}, and tags the test with
+ * {@link Tags#IndexScenarios} so that the whole index-maintainer matrix can be run on its own via
+ * the {@code indexScenarioTest} Gradle task.
+ */
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @ArgumentsSource(IndexScenariosArgumentsProvider.class)
+@Tag(Tags.IndexScenarios)
 public @interface IndexScenarios {
 }

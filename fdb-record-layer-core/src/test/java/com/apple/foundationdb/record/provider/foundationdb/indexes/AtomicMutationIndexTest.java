@@ -70,6 +70,7 @@ public class AtomicMutationIndexTest {
 
     @ParameterizedTest
     @MethodSource
+    @Tag(Tags.IndexScenarios)
     void indexScenariosTest(IndexScenario scenario, String indexType) throws Exception {
         scenario.runTest(() -> new AtomicMutationIndexDefinition(indexType),
                 () -> {
