@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsDoubleNestedProto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
+import com.apple.foundationdb.record.TestRecordsImportedAndNewProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataEvolutionValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -808,6 +809,50 @@ public class MetaDataProtoEditorUnitTest {
                 () -> MetaDataProtoEditor.renameRecordType(originalProto.toBuilder(), "Imported",
                         simpleRename("Imported"), dependencies));
         assertEquals("No record type found with name Imported", exception.getMessage());
+    }
+
+    /**
+     * Tests the case where a record type name refers to an imported message type while {@code MetaData.records} also
+     * declares an unrelated top-level message type of the same name. The renamer is not consulted for the name at all,
+     * so the imported record type keeps its name and the local message type is left alone too, being a {@code NESTED}
+     * type like any other. Unlike the other rename tests here, this one is batched-only, because
+     * {@link MetaDataProtoEditor#renameRecordType} does rename the local message type in this situation.
+     */
+    @Test
+    void batchedSkipsImportedTypeShadowedByLocalMessage() {
+        final RecordMetaDataProto.MetaData originalProto =
+                RecordMetaData.build(TestRecordsImportedAndNewProto.getDescriptor()).toProto();
+        final Descriptors.FileDescriptor[] dependencies =
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of());
+        // "MySimpleRecord" names the imported record type, but is also the name of a local NESTED message type.
+        assertEquals(List.of("MySimpleRecord", "MyOtherRecord"),
+                MetaDataProtoEditor.getRecordTypes(originalProto.toBuilder()));
+        assertEquals("com.apple.foundationdb.record.test1.MySimpleRecord",
+                RecordMetaData.build(originalProto).getRecordType("MySimpleRecord")
+                        .getDescriptor().getFullName());
+
+        final Set<String> renamerSawNames = new LinkedHashSet<>();
+        final RecordMetaDataProto.MetaData.Builder builder = originalProto.toBuilder();
+        MetaDataProtoEditor.renameRecordTypes(builder, name -> {
+            renamerSawNames.add(name);
+            return simpleRename(name);
+        }, dependencies);
+        final RecordMetaDataProto.MetaData renamedProto = builder.build();
+
+        // The renamer is never consulted for the imported record type, even though a local message type shares its
+        // name, so only the genuinely local record type is renamed.
+        assertEquals(Set.of("MyOtherRecord"), renamerSawNames);
+        assertEquals(List.of("MySimpleRecord", simpleRename("MyOtherRecord")),
+                MetaDataProtoEditor.getRecordTypes(builder));
+
+        final RecordMetaData renamed = RecordMetaData.build(renamedProto);
+        assertEquals("com.apple.foundationdb.record.test1.MySimpleRecord",
+                renamed.getRecordType("MySimpleRecord").getDescriptor().getFullName());
+        // The local NESTED message type keeps its name, and both fields still point where they did.
+        assertEquals("MySimpleRecord",
+                getFieldMessageType(renamed, simpleRename("MyOtherRecord"), "simple").getName());
+        assertEquals("com.apple.foundationdb.record.test1.MySimpleRecord",
+                getFieldMessageType(renamed, simpleRename("MyOtherRecord"), "imported_simple").getFullName());
     }
 
     /**

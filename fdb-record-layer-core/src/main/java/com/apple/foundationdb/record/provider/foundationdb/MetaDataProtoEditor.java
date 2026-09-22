@@ -574,8 +574,21 @@ public class MetaDataProtoEditor {
     public static void renameRecordTypes(@Nonnull RecordMetaDataProto.MetaData.Builder metadata,
                                          @Nonnull UnaryOperator<String> renamer,
                                          @Nonnull Descriptors.FileDescriptor[] dependencies) {
+        // Build the file descriptor exactly once, from the original `MetaData.records` proto. Every descriptor
+        // lookup below is done by original name, so we can use this single descriptor for every rename in the mapping.
+        final DescriptorProtos.FileDescriptorProto records = metadata.getRecords();
+        final Descriptors.FileDescriptor fileDesc = RecordMetaDataBuilder.buildFileDescriptor(records, dependencies);
+
+        // Fetch the union message type within `MetaData.records`. This is used to tell apart the record types this
+        // metadata defines itself from the types it merely imports.
+        final DescriptorProtos.DescriptorProto.Builder union = fetchUnionBuilder(metadata.getRecordsBuilder());
+        if (union.getNestedTypeCount() > 0) {
+            throw new MetaDataException("Nested types in union type not supported");
+        }
+        final Set<String> localRecordTypes = localRecordTypeNames(records, fileDesc, union);
+
         // Collect the renames into a map, skipping identity renames. Throws `MetaDataException` on any conflict.
-        final RecordTypeRenames renames = analyzeRecordTypeRenames(metadata, renamer);
+        final RecordTypeRenames renames = analyzeRecordTypeRenames(metadata, renamer, localRecordTypes);
         if (renames.isEmpty()) {
             return;
         }
@@ -583,19 +596,10 @@ public class MetaDataProtoEditor {
         // Validate that `MetaData.user_defined_functions`, `MetaData.views` and `MetaData.stored_queries` are empty.
         validateNoUnrenamableDefinitions(metadata);
 
-        // Build the file descriptor exactly once, from the original `MetaData.records` proto. Every descriptor
-        // lookup below is done by original name, so we can use this single descriptor for every rename in the mapping.
-        final DescriptorProtos.FileDescriptorProto records = metadata.getRecords();
-        final Descriptors.FileDescriptor fileDesc = RecordMetaDataBuilder.buildFileDescriptor(records, dependencies);
-
         // Validate the `MetaData.unnested_record_types` constituents.
         validateRecordTypeUsagesInUnnestedRecordTypes(metadata.getUnnestedRecordTypesBuilderList(), fileDesc, renames);
 
         // Determine the usage of each renamed type by looking at the union message type within `MetaData.records`.
-        final DescriptorProtos.DescriptorProto.Builder union = fetchUnionBuilder(metadata.getRecordsBuilder());
-        if (union.getNestedTypeCount() > 0) {
-            throw new MetaDataException("Nested types in union type not supported");
-        }
         determineRecordTypeUnionFieldsAndUsages(renames, fileDesc, union);
 
         // Validate that renaming the canonical union fields would not cause a collision.
@@ -896,6 +900,44 @@ public class MetaDataProtoEditor {
     }
 
     /**
+     * A helper for {@link #renameRecordTypes} that returns the simple names of the top-level message types in
+     * {@code MetaData.records} that a field of the union message type references. These are exactly the record types
+     * that this metadata defines itself, as opposed to those it imports from a dependency file. Note that a record type
+     * name may coincide with the name of an unrelated local message type, so it is not enough to match names alone;
+     * each union field is resolved to the type it actually points at.
+     */
+    @Nonnull
+    private static Set<String> localRecordTypeNames(@Nonnull DescriptorProtos.FileDescriptorProto records,
+                                                    @Nonnull Descriptors.FileDescriptor fileDescriptor,
+                                                    @Nonnull DescriptorProtos.DescriptorProto.Builder unionBuilder) {
+        // Index the top-level message types by fully qualified name, so that each union field below can be matched
+        // against them in constant time.
+        final String namespace = records.getPackage();
+        final Map<String, String> localTypesByFullName = new HashMap<>();
+        for (final DescriptorProtos.DescriptorProto messageType : records.getMessageTypeList()) {
+            localTypesByFullName.put(fullyQualifiedTypeName(namespace, messageType.getName()), messageType.getName());
+        }
+
+        final Descriptors.Descriptor unionDescriptor = getMessageTypeByName(fileDescriptor, unionBuilder.getName());
+        final Set<String> localRecordTypes = new HashSet<>();
+        for (final DescriptorProtos.FieldDescriptorProto.Builder unionField : unionBuilder.getFieldBuilderList()) {
+            // Skip fields that name no type at all, exactly as `determineRecordTypeUnionFieldsAndUsages` does.
+            if (!unionField.hasTypeName() || unionField.getTypeName().isEmpty()) {
+                continue;
+            }
+            final String fullReferencedName = resolveFieldTypeFullName(unionDescriptor, unionField);
+            if (fullReferencedName == null) {
+                continue;
+            }
+            final String localName = localTypesByFullName.get(fullReferencedName);
+            if (localName != null) {
+                localRecordTypes.add(localName);
+            }
+        }
+        return localRecordTypes;
+    }
+
+    /**
      * A helper for {@link #renameRecordTypes} that converts the record-type name mapping defined by {@code renamer}
      * into the internal {@link RecordTypeRenames} map. Also validates the mapping against the full set of top-level
      * message types, and raises {@link MetaDataException} if it is invalid.
@@ -903,18 +945,15 @@ public class MetaDataProtoEditor {
     @Nonnull
     private static RecordTypeRenames analyzeRecordTypeRenames(
             @Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
-            @Nonnull UnaryOperator<String> renamer) {
+            @Nonnull UnaryOperator<String> renamer,
+            @Nonnull Set<String> localRecordTypes) {
         final String namespace = metaDataBuilder.getRecords().getPackage();
-        // Apply `renamer` to each record type name and build the map representing the renamings. Imported record types
-        // need to be skipped. They are registered in `record_types` but defined in a dependency file, so this metadata
-        // cannot rename them.
-        final Set<String> localMessageTypes = new HashSet<>();
-        for (final DescriptorProtos.DescriptorProto messageType : metaDataBuilder.getRecords().getMessageTypeList()) {
-            localMessageTypes.add(messageType.getName());
-        }
+        // Apply `renamer` to each record type this metadata defines itself, and build the map representing the
+        // renamings. Imported record types are skipped, and never passed to `renamer`. Such imported types are
+        // registered in `record_types` but defined in a dependency file, so this metadata cannot rename them.
         final Map<String, RecordTypeRename> renames = new LinkedHashMap<>();
         for (final String recordType : getRecordTypes(metaDataBuilder)) {
-            if (!localMessageTypes.contains(recordType)) {
+            if (!localRecordTypes.contains(recordType)) {
                 continue;
             }
             final String newName = renamer.apply(recordType);
