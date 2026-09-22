@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsDoubleNestedProto;
 import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.MetaDataEvolutionValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
@@ -296,10 +297,9 @@ public class MetaDataProtoEditorUnitTest {
 
         int originalUnionFieldNumber = modifiedFileDescriptor.findMessageTypeByName("RecordTypeUnion").findFieldByName("_OuterRecord").getNumber();
         RecordMetaData metaData = RecordMetaData.build(modifiedFileDescriptor);
-        RecordMetaDataProto.MetaData.Builder metaDataProtoBuilder = metaData.toProto().toBuilder();
-        MetaDataProtoEditor.renameRecordType(metaDataProtoBuilder, "OuterRecord", "OtterRecord",
-                getDependencies(metaData));
-        Descriptors.FileDescriptor renamedDescriptor = Descriptors.FileDescriptor.buildFrom(metaDataProtoBuilder.getRecords(), dependencies);
+        final RecordMetaDataProto.MetaData renamedProto =
+                singleRename(metaData.toProto(), "OuterRecord", "OtterRecord", getDependencies(metaData));
+        Descriptors.FileDescriptor renamedDescriptor = Descriptors.FileDescriptor.buildFrom(renamedProto.getRecords(), dependencies);
         final Descriptors.Descriptor renamedUnionDescriptor = renamedDescriptor.findMessageTypeByName("RecordTypeUnion");
         final Descriptors.FieldDescriptor unionField = renamedUnionDescriptor.findFieldByNumber(originalUnionFieldNumber);
         assertEquals("_OtterRecord", unionField.getName());
@@ -311,15 +311,6 @@ public class MetaDataProtoEditorUnitTest {
         assertEquals(Set.of("MiddleRecord"), getNestedTypeNames(renamedDescriptor.findMessageTypeByName("OtterRecord")));
         assertEquals(Set.of("InnerRecord"), getNestedTypeNames(renamedDescriptor.findMessageTypeByName("OtterRecord")
                 .findNestedTypeByName("MiddleRecord")));
-
-        // Cross-check: Renaming the same single type via the batched `renameRecordTypes()` method should produce
-        // a byte-for-byte identical result.
-        final RecordMetaDataProto.MetaData.Builder batchedBuilder = metaData.toProto().toBuilder();
-        MetaDataProtoEditor.renameRecordTypes(
-                batchedBuilder,
-                name -> name.equals("OuterRecord") ? "OtterRecord" : name,
-                getDependencies(metaData));
-        assertEquals(metaDataProtoBuilder.build(), batchedBuilder.build());
     }
 
     @Nonnull
@@ -350,6 +341,24 @@ public class MetaDataProtoEditorUnitTest {
             MetaDataProtoEditor.renameRecordType(builder, recordType, renamer.apply(recordType), dependencies);
         }
         return builder.build();
+    }
+
+    /**
+     * Renames a single record type, and asserts that the batched {@link MetaDataProtoEditor#renameRecordTypes} and an
+     * equivalent {@link MetaDataProtoEditor#renameRecordType} call produce byte-for-byte the same metadata. Returns
+     * the batched result.
+     */
+    @Nonnull
+    private static RecordMetaDataProto.MetaData singleRename(@Nonnull RecordMetaDataProto.MetaData originalProto,
+                                                             @Nonnull String recordTypeName,
+                                                             @Nonnull String newRecordTypeName,
+                                                             @Nonnull Descriptors.FileDescriptor[] dependencies) {
+        final UnaryOperator<String> renamer = name -> name.equals(recordTypeName) ? newRecordTypeName : name;
+        final RecordMetaDataProto.MetaData.Builder builder = originalProto.toBuilder();
+        MetaDataProtoEditor.renameRecordTypes(builder, renamer, dependencies);
+        final RecordMetaDataProto.MetaData batched = builder.build();
+        assertEquals(renameRecordTypesOneByOne(originalProto, renamer, dependencies), batched);
+        return batched;
     }
 
     /**
@@ -424,10 +433,9 @@ public class MetaDataProtoEditorUnitTest {
         assertSame(nestedOuterRecord, modifiedFile.findMessageTypeByName("MiddleRecord").findFieldByName("other_middle").getMessageType());
 
         RecordMetaData metaData = RecordMetaData.build(modifiedFile);
-        RecordMetaDataProto.MetaData.Builder metaDataProtoBuilder = metaData.toProto().toBuilder();
-        MetaDataProtoEditor.renameRecordType(metaDataProtoBuilder, "OuterRecord", "OtterRecord",
-                        getDependencies(metaData));
-        Descriptors.FileDescriptor renamedDescriptor = Descriptors.FileDescriptor.buildFrom(metaDataProtoBuilder.getRecords(), TestRecordsDoubleNestedProto.getDescriptor().getDependencies().toArray(new Descriptors.FileDescriptor[0]));
+        final RecordMetaDataProto.MetaData renamedProto =
+                singleRename(metaData.toProto(), "OuterRecord", "OtterRecord", getDependencies(metaData));
+        Descriptors.FileDescriptor renamedDescriptor = Descriptors.FileDescriptor.buildFrom(renamedProto.getRecords(), TestRecordsDoubleNestedProto.getDescriptor().getDependencies().toArray(new Descriptors.FileDescriptor[0]));
         Descriptors.Descriptor renamedOuter = renamedDescriptor.findMessageTypeByName("OtterRecord");
         Descriptors.Descriptor renamedOuterOuter = renamedOuter.findNestedTypeByName("OuterRecord");
         assertSame(renamedOuterOuter, renamedOuter.findFieldByName("middle").getMessageType());
@@ -436,13 +444,6 @@ public class MetaDataProtoEditorUnitTest {
         Descriptors.Descriptor renamedOuterOuterInner = renamedOuterOuter.findNestedTypeByName("InnerRecord");
         assertSame(renamedOuterOuterInner, renamedOuterOuter.findFieldByName("inner").getMessageType());
         assertSame(renamedOuter, renamedOuterOuterInner.findFieldByName("outer").getMessageType());
-
-        // Cross-check: Renaming the same single type via the batched `renameRecordTypes()` should produce a
-        // byte-for-byte identical result.
-        final RecordMetaDataProto.MetaData.Builder batchedBuilder = metaData.toProto().toBuilder();
-        MetaDataProtoEditor.renameRecordTypes(batchedBuilder,
-                name -> name.equals("OuterRecord") ? "OtterRecord" : name, getDependencies(metaData));
-        assertEquals(metaDataProtoBuilder.build(), batchedBuilder.build());
     }
 
     public static RecordMetaDataProto.MetaData.Builder loadMetaData(@Nonnull String name) throws IOException {
@@ -464,6 +465,9 @@ public class MetaDataProtoEditorUnitTest {
                         "TwoBoringTypes.json",
                         "TwoBoringTypesInPackage.json",
                         "DuplicateUnionFields.json",
+                        "DuplicateNonCanonicalUnionFields.json",
+                        "NonCanonicalUnionFields.json",
+                        "NestedMessageSameName.json",
                         "OneTypeWithIndexes.json",
                         "MultiTypeIndex.json",
                         "UniversalIndex.json"
@@ -580,6 +584,129 @@ public class MetaDataProtoEditorUnitTest {
         // Content moves with the name: The original single-field shape of UUID is now under "T2", and vice versa.
         assertEquals(1, renamed.getRecordType("T2").getDescriptor().getFields().size());
         assertEquals(3, renamed.getRecordType("UUID").getDescriptor().getFields().size());
+    }
+
+    /**
+     * Tests that a batch that swaps two names must succeed even when neither type has a canonically named union field,
+     * so that no union field name changes and only their {@code typeName} references are swapped.
+     */
+    @Test
+    void batchedAllowsSwappingTwoNamesWithoutCanonicalUnionFields() throws IOException {
+        final RecordMetaDataProto.MetaData originalProto = loadMetaData("NonCanonicalUnionFields.json").build();
+        final RecordMetaDataProto.MetaData.Builder builder = originalProto.toBuilder();
+        MetaDataProtoEditor.renameRecordTypes(builder,
+                name -> name.equals("T1") ? "T2" : name.equals("T2") ? "T1" : name,
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
+        final RecordMetaData renamed = RecordMetaData.build(builder.build());
+        assertEquals(Set.of("T1", "T2"), renamed.getRecordTypes().keySet());
+        // Content moves with the name: The original two-field shape of T2 is now under "T1", and vice versa.
+        assertEquals(1, renamed.getRecordType("T2").getDescriptor().getFields().size());
+        assertEquals(2, renamed.getRecordType("T1").getDescriptor().getFields().size());
+        // The union field names are untouched, since neither was canonical to begin with, but "a" now points at the
+        // type called "T2" and "b" at the one called "T1".
+        final Descriptors.Descriptor union = getMessage(renamed, RecordMetaDataBuilder.DEFAULT_UNION_NAME);
+        assertEquals("T2", union.findFieldByName("a").getMessageType().getName());
+        assertEquals("T1", union.findFieldByName("b").getMessageType().getName());
+    }
+
+    /**
+     * Tests that the rename rejects a renamer whose target is an existing top-level {@code NESTED} type. Renaming
+     * {@code T2} to {@code T1} in {@code NestedMessage.json} collides with the {@code NESTED}-usage {@code T1}, even
+     * though {@code T1} is not itself a renamable {@code RECORD}-usage type.
+     */
+    @Test
+    void batchedRejectsRenameToNestedType() throws IOException {
+        final RecordMetaDataProto.MetaData originalProto = loadMetaData("NestedMessage.json").build();
+        crossCheckRenameRecordTypesIsRejected(
+                originalProto,
+                name -> name.equals("T2") ? "T1" : name,
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
+    }
+
+    /**
+     * Tests that a record type may be renamed to the name of a message nested inside another type, since the two live
+     * in different scopes. References to the nested message must keep pointing at it rather than at the newcomer.
+     */
+    @Test
+    void batchedAllowsRenameToNestedMessageName() throws IOException {
+        final RecordMetaDataProto.MetaData originalProto = loadMetaData("NestedMessageSameName.json").build();
+        final RecordMetaData renamed = runRename(originalProto,
+                name -> name.equals("T1") ? "Inner" : name,
+                newName -> newName.equals("Inner") ? "T1" : newName);
+        assertEquals(Set.of("Inner", "T2"), renamed.getRecordTypes().keySet());
+        // T2’s "inner" field still resolves to T2.Inner, not to the newly named top-level "Inner".
+        final Descriptors.Descriptor nestedInner = getFieldMessageType(renamed, "T2", "inner");
+        assertEquals("T2.Inner", nestedInner.getFullName());
+        assertNotSame(getMessage(renamed, "Inner"), nestedInner);
+    }
+
+    /**
+     * Tests that when several union fields reference the type being renamed, only the canonically named one is renamed
+     * along with it, and all of them still resolve to the renamed type.
+     */
+    @Test
+    void batchedRenamesOnlyTheCanonicalOfSeveralUnionFields() throws IOException {
+        final RecordMetaDataProto.MetaData originalProto = loadMetaData("DuplicateUnionFields.json").build();
+        final RecordMetaData renamed = runRename(originalProto,
+                MetaDataProtoEditorUnitTest::simpleRename,
+                MetaDataProtoEditorUnitTest::simpleRenameUndo);
+        final Descriptors.Descriptor union = getMessage(renamed, RecordMetaDataBuilder.DEFAULT_UNION_NAME);
+        final Descriptors.Descriptor renamedT1 = getMessage(renamed, simpleRename("T1"));
+        // "_T1" was canonical for T1 and follows the rename; "_T1_1" was not and keeps its name. Both still point at
+        // the renamed type.
+        assertEquals(Set.of("_" + simpleRename("T1"), "_T1_1", "_" + simpleRename("T2")),
+                union.getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toSet()));
+        assertSame(renamedT1, union.findFieldByName("_" + simpleRename("T1")).getMessageType());
+        assertSame(renamedT1, union.findFieldByName("_T1_1").getMessageType());
+    }
+
+    /**
+     * Tests that a union field referencing a message nested inside a renamed type has its {@code typeName} rewritten
+     * to follow the renamed parent. The nested type itself is registered as a record type but is not top-level, so the
+     * renamer is never applied to it.
+     */
+    @Test
+    void batchedRenamesUnionFieldReferenceToNestedType() throws IOException {
+        final RecordMetaDataProto.MetaData originalProto = loadMetaData("UnionFieldToNestedType.json").build();
+        final RecordMetaDataProto.MetaData.Builder builder = originalProto.toBuilder();
+        MetaDataProtoEditor.renameRecordTypes(builder,
+                name -> name.equals("T2") ? simpleRename("T2") : name,
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
+        final RecordMetaData renamed = RecordMetaData.build(builder.build());
+        // "Inner" cannot be renamed, since it is not a top-level message type, but it moves with its parent.
+        assertEquals(Set.of(simpleRename("T2"), "Inner"), renamed.getRecordTypes().keySet());
+        assertEquals(simpleRename("T2") + ".Inner",
+                renamed.getRecordType("Inner").getDescriptor().getFullName());
+        final Descriptors.Descriptor union = getMessage(renamed, RecordMetaDataBuilder.DEFAULT_UNION_NAME);
+        assertEquals(simpleRename("T2") + ".Inner",
+                union.findFieldByName("_Inner").getMessageType().getFullName());
+    }
+
+    /**
+     * Tests that the rename works against a union message type that is not called {@code RecordTypeUnion} but declares
+     * {@code UNION} usage explicitly.
+     */
+    @Test
+    void batchedRenamesWithExplicitlyMarkedUnion() throws IOException {
+        final RecordMetaDataProto.MetaData.Builder builder = loadMetaData("TwoBoringTypes.json");
+        for (final DescriptorProtos.DescriptorProto.Builder messageType :
+                builder.getRecordsBuilder().getMessageTypeBuilderList()) {
+            if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                messageType.setName("MyUnion");
+                messageType.getOptionsBuilder().setExtension(RecordMetaDataOptionsProto.record,
+                        RecordMetaDataOptionsProto.RecordTypeOptions.newBuilder()
+                                .setUsage(RecordMetaDataOptionsProto.RecordTypeOptions.Usage.UNION)
+                                .build());
+            }
+        }
+        final RecordMetaData renamed = runRename(builder.build(),
+                MetaDataProtoEditorUnitTest::simpleRename,
+                MetaDataProtoEditorUnitTest::simpleRenameUndo);
+        assertEquals(Set.of(simpleRename("T1"), simpleRename("T2")), renamed.getRecordTypes().keySet());
+        // The union keeps its own name, and its canonical fields follow the types they reference.
+        final Descriptors.Descriptor union = getMessage(renamed, "MyUnion");
+        assertEquals(Set.of("_" + simpleRename("T1"), "_" + simpleRename("T2")),
+                union.getFields().stream().map(Descriptors.FieldDescriptor::getName).collect(Collectors.toSet()));
     }
 
     /**
@@ -704,6 +831,22 @@ public class MetaDataProtoEditorUnitTest {
         assertEquals("T2.T1", renamed.getSyntheticRecordType("__3_syntheticType_1").getConstituents().stream()
                 .filter(constituent -> constituent.getName().equals("child"))
                 .findFirst().orElseThrow().getRecordType().getDescriptor().getFullName());
+    }
+
+    /**
+     * The mirror image of {@link #shadowedNestedTypeNameDoesNotBlockRename}. The fixture is the same but for the
+     * constituent naming the top-level {@code T1} instead of {@code T2}’s shadowing nested type of the same name, so
+     * renaming {@code T1} must now be rejected.
+     */
+    @Test
+    void shadowedNestedTypeNameDoesNotHideRename() throws IOException {
+        final RecordMetaDataProto.MetaData originalProto =
+                loadMetaData("UnnestedShadowedNameTopLevel.json").build();
+        // Ensure that the original metadata is valid.
+        RecordMetaData.build(originalProto);
+        crossCheckRenameRecordTypesIsRejected(originalProto,
+                name -> name.equals("T1") ? simpleRename("T1") : name,
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
     }
 
     /**
@@ -934,10 +1077,11 @@ public class MetaDataProtoEditorUnitTest {
     @ParameterizedTest
     @BooleanSource("t1Conflicts")
     void conflictingName(boolean t1Conflicts) throws IOException {
-        // In the future we may want to make this work, but for now, I just want to assert that it either succeeds
-        // and produces a valid metadata, or fails with a clear exception. Currently, it is order dependent.
-        // Note also that this is exactly the kind of scenario where one-by-one renaming is *not* expected to match
-        // the batched renaming; so we use `runRenameBatchedOnly()` here rather than `runRename()`.
+        // Set up a metadata in which one type already holds the prefixed name of the other, then prefix everything.
+        // Switch which one gets renamed first based on `t1Conflicts` to make sure it is consistent regardless of the
+        // ordering of types. Batched renaming validates the mapping as a whole, so the shift succeeds either way;
+        // this is exactly the kind of scenario where one-by-one renaming is *not* expected to match the batched
+        // renaming, so we use `runRenameBatchedOnly()` here rather than `runRename()`.
         final String prefix = "__Q_";
         final RecordMetaData withConflict = runRenameBatchedOnly(loadMetaData("TwoBoringTypes.json").build(),
                 oldName -> {
@@ -948,20 +1092,14 @@ public class MetaDataProtoEditorUnitTest {
                     }
                 },
                 newName -> newName.startsWith(prefix) ? newName.substring(prefix.length()) : newName);
-        if (t1Conflicts) {
-            assertEquals(Set.of("T1", prefix + "T1"), withConflict.getRecordTypes().keySet());
-        } else {
-            assertEquals(Set.of("T2", prefix + "T2"), withConflict.getRecordTypes().keySet());
-        }
-        try {
-            runRenameBatchedOnly(withConflict.toProto(),
-                    oldName -> prefix + oldName,
-                    newName -> newName.substring(prefix.length()));
-        } catch (MetaDataException e) {
-            Assertions.assertThat(e.getMessage())
-                    .isIn("Cannot rename record type as a type of the new name already exists",
-                            "Cannot rename union field because a field of the new name already exists");
-        }
+        final String conflicting = t1Conflicts ? "T1" : "T2";
+        assertEquals(Set.of(conflicting, prefix + conflicting), withConflict.getRecordTypes().keySet());
+
+        final RecordMetaData prefixed = runRenameBatchedOnly(withConflict.toProto(),
+                oldName -> prefix + oldName,
+                newName -> newName.substring(prefix.length()));
+        assertEquals(Set.of(prefix + conflicting, prefix + prefix + conflicting),
+                prefixed.getRecordTypes().keySet());
     }
 
     /**
@@ -1118,6 +1256,12 @@ public class MetaDataProtoEditorUnitTest {
                                                      final Function<String, String> renamer,
                                                      final Function<String, String> undoRename) {
         final RecordMetaData renamed = RecordMetaData.build(build);
+        // Renaming record types has to be a valid evolution of the original metadata. It does not bump the version,
+        // hence `setAllowNoVersionChange`.
+        MetaDataEvolutionValidator.newBuilder()
+                .setAllowNoVersionChange(true)
+                .build()
+                .validate(originalMetaData, renamed);
         final Set<String> expectedNewNames = originalMetaData.getRecordTypes().keySet()
                 .stream().map(renamer)
                 .collect(Collectors.toSet());
