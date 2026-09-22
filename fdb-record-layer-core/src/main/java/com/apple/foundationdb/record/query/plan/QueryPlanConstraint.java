@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
@@ -54,7 +55,14 @@ public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
     }
 
     public boolean compileTimeEval(@Nonnull final EvaluationContext context) {
-        return Boolean.TRUE.equals(predicate.compileTimeEval(context));
+        try {
+            return Boolean.TRUE.equals(predicate.compileTimeEval(context));
+        } catch (final Bindings.MissingBindingException e) {
+            // A constraint referencing a constant the context does not bind cannot be shown to hold, so it does not
+            // match. Only this subtype is caught, to avoid swallowing other RecordCoreExceptions. Not logged: every
+            // lookup against a cached value-free plan reaches this, so it is ordinary control flow.
+            return false;
+        }
     }
 
     @Nonnull
