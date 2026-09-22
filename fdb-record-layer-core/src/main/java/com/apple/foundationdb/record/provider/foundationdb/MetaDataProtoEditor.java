@@ -1061,6 +1061,16 @@ public class MetaDataProtoEditor {
                         "Cannot rename record type to the default union name",
                         LogMessageKeys.RECORD_TYPE, rename.name);
             }
+
+            // Likewise, prevent renaming a non-UNION type that for some reason has the default union name. Such a type
+            // is indistinguishable from the union by name alone, so renaming it would flip its `record.usage` option to
+            // UNION and leave the records descriptor with two types claiming to be the union. (This case can only be
+            // reached with a raw proto, since `RecordMetaDataBuilder` rejects such a descriptor outright.)
+            if (!rename.usage.equals(RecordTypeOptions.Usage.UNION) && rename.name.equals(DEFAULT_UNION_NAME)) {
+                throw new MetaDataException(
+                        "Cannot rename a non-union record type that has the default union name",
+                        LogMessageKeys.RECORD_TYPE, rename.name);
+            }
         }
     }
 
@@ -1139,8 +1149,12 @@ public class MetaDataProtoEditor {
                 continue;
             }
 
-            // If renaming the union type, be sure that the `record.usage` option is set to UNION.
-            if (name.equals(DEFAULT_UNION_NAME) && getMessageTypeUsage(mtb) != RecordTypeOptions.Usage.UNION) {
+            // If renaming the union type, be sure that the `record.usage` option is set to UNION. Note that we detect
+            // this from the `usage` rather than via `name.equals(DEFAULT_UNION_NAME)`. This is to prevent a type that is
+            // named DEFAULT_UNION_NAME for some reason from being mislabelled. (Though such a type is normally
+            // rejected upfront by `determineRecordTypeUnionFieldsAndUsages()`.)
+            if (rename.usage.equals(RecordTypeOptions.Usage.UNION)
+                    && getMessageTypeUsage(mtb) != RecordTypeOptions.Usage.UNION) {
                 setMessageTypeUsage(mtb, RecordTypeOptions.Usage.UNION);
             }
 

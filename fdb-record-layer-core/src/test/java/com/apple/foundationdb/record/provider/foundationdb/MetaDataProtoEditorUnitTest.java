@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsDoubleNestedProto;
@@ -763,6 +764,36 @@ public class MetaDataProtoEditorUnitTest {
         builder.addStoredQueries(RecordMetaDataProto.PStoredQuery.newBuilder()
                 .setName("Q1").setQuery("SELECT * FROM T1"));
         assertBatchedRenameRejected(builder.build(), "Renaming record types with stored queries is not supported");
+    }
+
+    /**
+     * Tests that the rename rejects a {@code RECORD}-usage type that (for whatever reason) carries the default union
+     * name while some other message type is the actual union. Renaming such a type would set its {@code record.usage}
+     * option to {@code UNION} and leave the metadata with two types claiming to be the union. Note that
+     * {@link RecordMetaDataBuilder} rejects such a records descriptor outright, so the rename can only ever encounter
+     * it as a raw proto. The point of the check is to report it rather than silently make it worse.
+     */
+    @Test
+    void batchedRejectsRenamingDefaultUnionNamedType() throws IOException {
+        final RecordMetaDataProto.MetaData.Builder builder = loadMetaData("TwoBoringTypes.json");
+        for (final DescriptorProtos.DescriptorProto.Builder messageType :
+                builder.getRecordsBuilder().getMessageTypeBuilderList()) {
+            if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                // Make the real union a differently named type that declares UNION usage explicitly, and point its
+                // first field at the type that is about to take over the default union name.
+                messageType.setName("MyUnion");
+                messageType.getOptionsBuilder().setExtension(RecordMetaDataOptionsProto.record,
+                        RecordMetaDataOptionsProto.RecordTypeOptions.newBuilder()
+                                .setUsage(RecordMetaDataOptionsProto.RecordTypeOptions.Usage.UNION)
+                                .build());
+                messageType.getFieldBuilder(0).setTypeName(RecordMetaDataBuilder.DEFAULT_UNION_NAME);
+            } else if (messageType.getName().equals("T1")) {
+                messageType.setName(RecordMetaDataBuilder.DEFAULT_UNION_NAME);
+            }
+        }
+        builder.getRecordTypesBuilder(0).setName(RecordMetaDataBuilder.DEFAULT_UNION_NAME);
+        assertBatchedRenameRejected(builder.build(),
+                "Cannot rename a non-union record type that has the default union name");
     }
 
     /**
