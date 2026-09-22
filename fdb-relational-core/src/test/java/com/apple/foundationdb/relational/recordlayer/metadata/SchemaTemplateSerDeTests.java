@@ -856,7 +856,8 @@ public class SchemaTemplateSerDeTests {
             final String syntheticName, final RecordLayerTable parentTable, final String indexName,
             final KeyExpression keyExpression,
             final RecordLayerUnnestedSyntheticTable.NestedConstituent... constituents) {
-        final var builder = RecordLayerUnnestedSyntheticTable.newBuilder(syntheticRecord(syntheticName, parentTable.getDatatype()))
+        final var syntheticType = syntheticRecord(syntheticName, parentTable.getDatatype());
+        final var builder = RecordLayerUnnestedSyntheticTable.newBuilder(syntheticType)
                 .setAlias("row")
                 .setParentTableType(parentTable.getType());
         for (final var constituent : constituents) {
@@ -864,8 +865,9 @@ public class SchemaTemplateSerDeTests {
         }
         return builder.addIndex(RecordLayerIndex.newBuilder()
                         .setName(indexName)
-                        .setTableName(syntheticName)
-                        .setTableStorageName(syntheticName)
+                        // both names come from the synthetic type, as the generator does it, so that they stay consistent
+                        // when the declared name is not a legal protobuf identifier
+                        .setTableType(syntheticType)
                         .setIndexType(IndexTypes.VALUE)
                         .setKeyExpression(keyExpression)
                         .build())
@@ -971,6 +973,48 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertEquals("score_idx", index.getName());
         Assertions.assertEquals(IndexTypes.VALUE, index.getIndexType());
         Assertions.assertEquals(keyExpression, KeyExpression.fromProto(index.getKeyExpression().toKeyExpression()));
+        // the index has to name the table it is defined on, or nothing ties the two together once reloaded
+        Assertions.assertEquals(deserialized.getName(), index.getTableName());
+    }
+
+    /**
+     * Round trips a synthetic table whose declared name is not a legal protobuf identifier. The name is composed from the
+     * index name, which is a user identifier, so it need not be one -- and the descriptor can only hold the escaped form.
+     * Every name the deserializer hands back has to be the declared one again, including the table name the index carries,
+     * which is what lets a reloaded table and its index still refer to each other.
+     */
+    @Test
+    void testUnnestedSyntheticTableWithNonProtoCompliantNameSerializationAndDeserialization() {
+        final var syntheticName = "__unnested_employees_score.idx";
+        final var storageName = ProtoUtils.toProtoBufCompliantName(syntheticName);
+        // the dot cannot survive into a proto identifier, so the two forms really do differ here
+        Assertions.assertNotEquals(syntheticName, storageName);
+
+        final var scoreType = struct("score",
+                structField("label", DataType.Primitives.STRING.type(), 1),
+                structField("value", DataType.Primitives.LONG.type(), 2));
+        final var table = tableWithId("employees", "scores", DataType.ArrayType.from(scoreType, true));
+        final var keyExpression = Key.Expressions.concat(
+                constituentField("SQ", "label"),
+                constituentField("row", "id"),
+                constituentField("SQ", "value"));
+        final var originalTemplate = templateWith(table,
+                syntheticTable(syntheticName, table, "score.idx", keyExpression,
+                        new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                                arrayElementsExpression("scores", true))),
+                scoreType);
+
+        // the descriptor is keyed by the escaped form, which is what serializeWithSyntheticType looks it up by
+        final var recordMetaData = serializeWithSyntheticType(originalTemplate, storageName);
+
+        final var deserialized = deserializeSyntheticTable(recordMetaData);
+        Assertions.assertEquals(syntheticName, deserialized.getName());
+        Assertions.assertEquals(storageName, deserialized.getType().getStorageName());
+
+        final var index = Iterables.getOnlyElement(deserialized.getIndexes());
+        Assertions.assertEquals("score.idx", index.getName());
+        Assertions.assertEquals(syntheticName, index.getTableName());
+        Assertions.assertEquals(storageName, index.getTableStorageName());
     }
 
     /**
@@ -998,6 +1042,20 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertFalse(mapping.keySet().contains("__unnested_employees_score_idx"),
                 () -> "synthetic table leaked into a table-keyed mapping: " + mapping.keySet());
         Assertions.assertTrue(template.getIndexes().contains("score_idx"));
+    }
+
+    /**
+     * A constituent's nesting expression has to be a path of fields, since that path is what the serializer follows to
+     * reach the element descriptor. Anything else describes a navigation nothing downstream can walk, and is rejected as
+     * the constituent is created.
+     */
+    @Test
+    void constituentNestingExpressionMustBeAPathOfFields() {
+        final var thrown = Assertions.assertThrows(UncheckedRelationalException.class, () ->
+                new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
+                        Key.Expressions.field("scores").nest(Key.Expressions.concatenateFields("a", "b"))));
+        MatcherAssert.assertThat(thrown.getMessage(), Matchers.containsString("unsupported nesting expression"));
+        MatcherAssert.assertThat(thrown.getMessage(), Matchers.containsString("'SQ'"));
     }
 
     /**
@@ -1135,23 +1193,24 @@ public class SchemaTemplateSerDeTests {
     }
 
     /**
-     * The builder derives the parent's proto storage name from its table name when the caller does not supply one, which is
-     * the path taken by any caller that sets the parent by name rather than by type.
+     * Both of the parent's names come from the parent's type and are kept apart: the declared name is what a schema
+     * template lookup uses, while the storage name is what the record layer's descriptor is keyed by. They differ
+     * whenever the declared name is not a legal protobuf identifier.
      */
     @Test
-    void unnestedSyntheticTableBuilderDefaultsParentStorageName() {
+    void unnestedSyntheticTableKeepsParentDeclaredAndStorageNamesApart() {
         final var parentType = struct("employee.records", structField("id", DataType.Primitives.LONG.type(), 1));
         final var table = RecordLayerUnnestedSyntheticTable.newBuilder(
                         syntheticRecord("__unnested_employees_score_idx", parentType))
                 .setAlias("row")
-                .setParentTableName("employee.records")
+                .setParentTableType((Type.Record)DataTypeUtils.toRecordLayerType(parentType))
                 .addConstituent(new RecordLayerUnnestedSyntheticTable.NestedConstituent("SQ", "row",
                         arrayElementsExpression("scores", true)))
                 .build();
         Assertions.assertEquals(Set.of("employee.records"), table.getUnderlyingTableNames());
         Assertions.assertEquals(ProtoUtils.toProtoBufCompliantName("employee.records"),
                 table.getParentTableStorageName());
-        // the dot cannot survive into a proto identifier, so the derived name is not simply the table name
+        // the dot cannot survive into a proto identifier, so the storage name is not simply the table name
         Assertions.assertFalse(table.getUnderlyingTableNames().contains(table.getParentTableStorageName()));
     }
 

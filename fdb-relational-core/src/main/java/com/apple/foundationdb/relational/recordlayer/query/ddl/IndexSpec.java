@@ -58,7 +58,6 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -93,12 +92,6 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
                 .resolve(expression.getResultValue(), indexSpec.groupBy()));
     }
 
-    @Override
-    @Nonnull
-    public RecordLayerTable table() {
-        return Objects.requireNonNull(table);
-    }
-
     /**
      * The columns the index is ordered by, resolved down to the base record, empty when the definition had no
      * {@code ORDER BY}.
@@ -130,6 +123,15 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
         return reorderValues(projection().fieldValues(), getOrderByValues());
     }
 
+    /**
+     * Puts the key columns first, followed by the projected columns that are not part of the key. The result is the
+     * values in the order they need to be traversed to come up with the equivalent {@code KeyExpression}.
+     *
+     * @param allValues every projected column
+     * @param keyValues the columns the index is ordered by, a subset of {@code allValues}
+     *
+     * @return the columns in traversal order
+     */
     @Nonnull
     private static List<Value> reorderValues(@Nonnull final List<Value> allValues, @Nonnull final List<Value> keyValues) {
         Assert.thatUnchecked(allValues.size() >= keyValues.size());
@@ -304,7 +306,7 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
 
     @Nullable
     private static RecordLayerTable pickOneTable(@Nullable final RecordLayerTable left,
-                                                @Nullable final RecordLayerTable right) {
+                                                 @Nullable final RecordLayerTable right) {
         Assert.thatUnchecked(left == null || right == null, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported query, expected to find exactly one type filter operator");
         return left == null ? right : left;

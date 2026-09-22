@@ -128,9 +128,9 @@ public class RecordMetadataDeserializer {
         }
         for (final var syntheticType : recordMetaData.getSyntheticRecordTypes().values()) {
             // knowingly ignoring other for now since they are not supported
-            if (syntheticType instanceof UnnestedRecordType) {
+            if (syntheticType instanceof UnnestedRecordType unnestedRecordType) {
                 schemaTemplateBuilder.addSyntheticTable(
-                        generateUnnestedSyntheticTableBuilder(recordMetaData, (UnnestedRecordType) syntheticType).build());
+                        generateUnnestedSyntheticTableBuilder(recordMetaData, unnestedRecordType).build());
             }
         }
         for (final var entry : recordMetaData.getStoredQueries().entrySet()) {
@@ -229,7 +229,7 @@ public class RecordMetadataDeserializer {
         }
         // add indexes
         for (final Index index : unnestedRecordType.getIndexes()) {
-            builder.addIndex(RecordLayerIndex.from(unnestedRecordType.getName(), unnestedRecordType.getName(), index));
+            builder.addIndex(RecordLayerIndex.from(type.getName(), type.getStorageName(), index));
         }
         return builder;
     }

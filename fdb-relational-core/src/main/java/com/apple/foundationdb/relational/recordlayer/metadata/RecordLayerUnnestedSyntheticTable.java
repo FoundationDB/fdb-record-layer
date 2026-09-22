@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
@@ -102,11 +101,9 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
 
     @Override
     public boolean equals(final Object o) {
-        if (!super.equals(o)) {
-            return false;
-        }
-        final RecordLayerUnnestedSyntheticTable that = (RecordLayerUnnestedSyntheticTable) o;
-        return Objects.equals(alias, that.alias)
+        return o instanceof RecordLayerUnnestedSyntheticTable that
+                && super.equals(o)
+                && Objects.equals(alias, that.alias)
                 && Objects.equals(parentTableName, that.parentTableName)
                 && Objects.equals(parentTableStorageName, that.parentTableStorageName)
                 && Objects.equals(constituents, that.constituents);
@@ -134,12 +131,16 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
         @Nonnull
         private final KeyExpression nestingExpression;
 
+        @Nonnull
+        private final List<String> fieldPath;
+
         public NestedConstituent(@Nonnull final String alias,
                                  @Nonnull final String parentAlias,
                                  @Nonnull final KeyExpression nestingExpression) {
             this.alias = alias;
             this.parentAlias = parentAlias;
             this.nestingExpression = nestingExpression;
+            this.fieldPath = computeFieldPath(alias, nestingExpression);
         }
 
         @Nonnull
@@ -163,14 +164,9 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
 
         @Override
         public boolean equals(final Object o) {
-            if (o == null) {
-                return false;
-            }
-            if (getClass() != o.getClass()) {
-                return false;
-            }
-            final NestedConstituent that = (NestedConstituent) o;
-            return Objects.equals(alias, that.alias) && Objects.equals(parentAlias, that.parentAlias)
+            return o instanceof NestedConstituent that
+                    && Objects.equals(alias, that.alias)
+                    && Objects.equals(parentAlias, that.parentAlias)
                     && Objects.equals(nestingExpression, that.nestingExpression);
         }
 
@@ -185,18 +181,30 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
          */
         @Nonnull
         public List<String> getFieldPath() {
+            return fieldPath;
+        }
+
+        /**
+         * Walks the nesting expression into the chain of field names the serializer follows to reach the element
+         * descriptor.
+         *
+         * @param alias the constituent's alias, for the rejection message
+         * @param nestingExpression the expression navigating to the constituent's elements
+         *
+         * @return the field names the expression walks, outermost first
+         */
+        @Nonnull
+        private static List<String> computeFieldPath(@Nonnull final String alias,
+                                                    @Nonnull final KeyExpression nestingExpression) {
             final ImmutableList.Builder<String> fieldPath = ImmutableList.builder();
             KeyExpression remaining = nestingExpression;
             while (remaining instanceof NestingKeyExpression nesting) {
                 fieldPath.add(nesting.getParent().getFieldName());
                 remaining = nesting.getChild();
             }
-            if (remaining instanceof FieldKeyExpression fieldKeyExpression) {
-                fieldPath.add(fieldKeyExpression.getFieldName());
-            } else {
-                throw Assert.failUnchecked("unsupported nesting expression '" + nestingExpression
-                        + "' for constituent '" + alias + "'");
-            }
+            Assert.thatUnchecked(remaining instanceof FieldKeyExpression, ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                    "unsupported nesting expression '%s' for constituent '%s'", nestingExpression, alias);
+            fieldPath.add(((FieldKeyExpression)remaining).getFieldName());
             return fieldPath.build();
         }
     }
@@ -208,6 +216,10 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
 
     /**
      * Builder for {@link RecordLayerUnnestedSyntheticTable}.
+     * <p>
+     * {@link #build()} checks the constituents to form a tree rooted at the stored record. It rejects a
+     * table with no nested constituent, a duplicate alias, and a constituent whose parent alias is not the parent
+     * constituent's or an earlier constituent's.
      */
     public static final class Builder implements RecordLayerSyntheticTable.Builder {
 
@@ -237,21 +249,10 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
         }
 
         @Nonnull
-        public Builder setParentTableName(@Nonnull final String parentTableName) {
-            this.parentTableName = parentTableName;
-            return this;
-        }
-
-        @Nonnull
-        public Builder setParentTableStorageName(@Nonnull final String parentTableStorageName) {
-            this.parentTableStorageName = parentTableStorageName;
-            return this;
-        }
-
-        @Nonnull
         public Builder setParentTableType(@Nonnull final Type.Record tableType) {
-            return setParentTableName(tableType.getName())
-                    .setParentTableStorageName(tableType.getStorageName());
+            this.parentTableName = tableType.getName();
+            this.parentTableStorageName = tableType.getStorageName();
+            return this;
         }
 
         @Nonnull
@@ -271,11 +272,8 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
         @Override
         public RecordLayerUnnestedSyntheticTable build() {
             Assert.notNullUnchecked(alias, "parent constituent alias is not set");
-            Assert.notNullUnchecked(parentTableName, "parent table name is not set");
+            Assert.notNullUnchecked(parentTableName, "parent table type is not set");
             Assert.notNullUnchecked(type, "type is not set");
-            if (parentTableStorageName == null) {
-                parentTableStorageName = ProtoUtils.toProtoBufCompliantName(parentTableName);
-            }
             Assert.thatUnchecked(!constituents.isEmpty(), "unnested type has no nested constituents");
             final Set<String> aliases = new LinkedHashSet<>();
             aliases.add(alias);

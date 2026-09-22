@@ -31,9 +31,7 @@ import java.util.Set;
 public interface SyntheticTable extends Metadata {
 
     /**
-     * Returns the indexes maintained on this synthetic table.
-     *
-     * @return the indexes of this synthetic table
+     * {@return the indexes of this synthetic table}
      */
     @Nonnull
     Set<? extends Index> getIndexes();

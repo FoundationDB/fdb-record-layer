@@ -326,6 +326,25 @@ public class UnnestedSyntheticTableIndexTest {
     }
 
     /**
+     * A scalar repeated field reached through a non-repeated struct. Re-rooting the reference onto the constituent that
+     * owns the array has to carry every hop of that path, not just the array's own field: the table here also declares a
+     * top-level {@code s}, so dropping the {@code FIZZ} hop would silently index the wrong column rather than fail.
+     */
+    @Test
+    void createIndexWithScalarRepeatedUnderPathKeepsFanOut() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TYPE AS STRUCT A(col2 string, col3 bigint) " +
+                "CREATE TYPE AS STRUCT FIZZ(s string array) " +
+                "CREATE TABLE T1(col1 bigint, a A Array, fizz FIZZ, s string array, primary key(col1)) " +
+                "CREATE INDEX mv1 AS SELECT X.col2, V.s AS v1, X.col3 FROM T1, (SELECT col2, col3 FROM T1.A) X, (SELECT s FROM T1.FIZZ.S) V ORDER BY X.col2, v1, X.col3";
+        syntheticIndexIs(stmt, IndexTypes.VALUE, (parent, x) -> concat(
+                field(x).nest("COL2"),
+                field(parent).nest(field("FIZZ").nest(
+                        field("S").nest(field("values", KeyExpression.FanType.FanOut)))),
+                field(x).nest("COL3")));
+    }
+
+    /**
      * Two <em>separate</em> explodes over the same scalar repeated field are distinct unnestings, so their cross-product is
      * the intended meaning of the cross join and each is referenced once.
      */

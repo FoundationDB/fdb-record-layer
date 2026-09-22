@@ -126,7 +126,7 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
         indexBuilder.setKeyExpression(KeyExpression.fromProto(
                 NullableArrayUtils.wrapArray(keyExpression.toKeyExpression(), tableType, options.containsNullableArray())));
         return new IndexGenerationResult(indexBuilder,
-                unnestedTableGeneratorMaybe.map(RecordLayerUnnestedSyntheticTableGenerator::generate));
+                unnestedTableGeneratorMaybe.map(RecordLayerUnnestedSyntheticTableGenerator::generate).orElse(null));
     }
 
     /**

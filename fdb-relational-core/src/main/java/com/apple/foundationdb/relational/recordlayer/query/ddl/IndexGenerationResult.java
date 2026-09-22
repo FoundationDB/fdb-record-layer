@@ -27,7 +27,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSyntheticTable;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
+import javax.annotation.Nullable;
 
 /**
  * The outcome of generating an index from a DDL definition.
@@ -39,11 +39,11 @@ import java.util.Optional;
  * would produce an index on a type that does not exist.
  *
  * @param indexBuilder the index definition
- * @param syntheticTable the synthetic table to register, empty for an index on a stored table
+ * @param syntheticTable the synthetic table to register, {@code null} for an index on a stored table
  */
 @API(API.Status.INTERNAL)
 public record IndexGenerationResult(@Nonnull RecordLayerIndex.Builder indexBuilder,
-                                    @Nonnull Optional<RecordLayerSyntheticTable.Builder> syntheticTable) {
+                                    @Nullable RecordLayerSyntheticTable.Builder syntheticTable) {
 
     /**
      * Registers the generated index on the given schema template, together with the synthetic table it is defined
@@ -53,8 +53,8 @@ public record IndexGenerationResult(@Nonnull RecordLayerIndex.Builder indexBuild
      * @param metadataBuilder the schema template being built
      */
     public void registerOn(@Nonnull final RecordLayerSchemaTemplate.Builder metadataBuilder) {
-        if (syntheticTable.isPresent()) {
-            metadataBuilder.addSyntheticTable(syntheticTable.get().addIndex(indexBuilder.build()).build());
+        if (syntheticTable != null) {
+            metadataBuilder.addSyntheticTable(syntheticTable.addIndex(indexBuilder.build()).build());
         } else {
             final RecordLayerIndex index = indexBuilder.build();
             final var table = metadataBuilder.extractTable(index.getTableName());

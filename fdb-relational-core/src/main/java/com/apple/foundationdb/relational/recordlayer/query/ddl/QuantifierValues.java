@@ -84,8 +84,7 @@ final class QuantifierValues {
     @Nonnull
     public static QuantifierValues collect(@Nonnull final RelationalExpression expression) {
         final var collector = new Collector();
-        final var valuesByQuantifier = Assert.notNullUnchecked(collector.visit(expression));
-        return new QuantifierValues(valuesByQuantifier, collector.explodes);
+        return new QuantifierValues(collector.visit(expression), collector.explodes);
     }
 
     /**
@@ -187,6 +186,14 @@ final class QuantifierValues {
     /**
      * A {@link FieldValue.ResolvedAccessor} tagged with which unnesting it came from, which distinguishes two unnestings
      * of the same array field and marks the field as reached through an unnest.
+     * <p>
+     * That tag is the marker: a small integer handed to each explode of the plan in the order the traversal finds them,
+     * so that it is also the explode's position in {@link QuantifierValues#getExplodes()}. It is stamped onto the last
+     * accessor of the field path that reaches the array, and so travels along with every value later built from that
+     * path; a plain {@link FieldValue.ResolvedAccessor} in that position means the field was not reached through an
+     * unnest at all. Two markers therefore mean two unnestings even where the field paths are identical, as in
+     * {@code FROM T1, T1.A X, T1.A Y}. A consumer recovers the markers a key column reads through and looks each one up
+     * against the explode it names, which is how it tells what a column was unnested from.
      */
     static final class AnnotatedAccessor extends FieldValue.ResolvedAccessor {
 
@@ -197,6 +204,11 @@ final class QuantifierValues {
             this.marker = marker;
         }
 
+        /**
+         * Which unnesting of the plan the field this accessor reaches was unnested by.
+         *
+         * @return the marker, which is that unnesting's position in {@link QuantifierValues#getExplodes()}
+         */
         int getMarker() {
             return marker;
         }

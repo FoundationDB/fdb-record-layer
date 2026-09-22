@@ -58,7 +58,7 @@ public abstract sealed class RecordLayerSyntheticTable implements SyntheticTable
 
     @Nonnull
     public Type.Record getType() {
-        return Objects.requireNonNull(type);
+        return type;
     }
 
     @Nonnull

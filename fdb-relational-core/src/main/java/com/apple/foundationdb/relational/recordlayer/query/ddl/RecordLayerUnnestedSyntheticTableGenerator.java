@@ -120,10 +120,13 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
     private final Supplier<Type.Record> syntheticType;
 
     private RecordLayerUnnestedSyntheticTableGenerator(@Nonnull final Map<Integer, UnnestingInfo> unnestings,
-                                     @Nonnull final String parentAlias,
-                                     @Nonnull final RecordLayerTable parentTable,
-                                     @Nonnull final String syntheticTableName) {
-        this.unnestings = Map.copyOf(unnestings);
+                                                       @Nonnull final String parentAlias,
+                                                       @Nonnull final RecordLayerTable parentTable,
+                                                       @Nonnull final String syntheticTableName) {
+        // ImmutableMap, not Map.copyOf: the constituents are registered and the synthetic type's fields are
+        // numbered by iterating this map, so its insertion (marker) order is load-bearing, and Map.copyOf makes
+        // no order guarantee.
+        this.unnestings = ImmutableMap.copyOf(unnestings);
         this.parentAlias = parentAlias;
         this.parentTable = parentTable;
         this.syntheticTableName = syntheticTableName;
@@ -145,8 +148,8 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      */
     @Nonnull
     static Optional<RecordLayerUnnestedSyntheticTableGenerator> initIfNeeded(@Nonnull final IndexSpec spec,
-                                                           @Nonnull final String indexName,
-                                                           @Nonnull final QuantifierValues quantifierValues) {
+                                                                             @Nonnull final String indexName,
+                                                                             @Nonnull final QuantifierValues quantifierValues) {
         final var unnestings = composeUnnestings(quantifierValues);
         if (!isNeededFor(spec, unnestings)) {
             return Optional.empty();
@@ -263,19 +266,29 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      * more than one hop.
      */
     private record UnnestingInfo(@Nullable String alias, @Nonnull String owningAlias,
-                                @Nonnull FieldValue.FieldPath arrayPath) {
+                                 @Nonnull FieldValue.FieldPath arrayPath) {
 
         @Nonnull
         private Type.Array arrayType() {
             return (Type.Array)arrayPath.getLastFieldType();
         }
 
+        /**
+         * Navigates from the record owning the array to the array's elements. Unlike the index key, which is wrapped
+         * afterwards by {@link NullableArrayUtils#wrapArray}, this expression is metadata of its own and so is built
+         * with the array already in the form it is stored in.
+         *
+         * @return an expression reaching the array's elements from the record the path starts at
+         */
         @Nonnull
         public KeyExpression arrayElements() {
-            return NullableArrayUtils.arrayElements(arrayPath.getFieldAccessors().stream()
-                            .map(accessor -> accessor.getField().getFieldStorageName())
-                            .collect(ImmutableList.toImmutableList()),
-                    arrayType().isNullable());
+            final var accessors = arrayPath.getFieldAccessors();
+            final var prefix = accessors.subList(0, accessors.size() - 1).stream()
+                    .map(ValueToKeyExpressionVisitor::storageName)
+                    .collect(ImmutableList.toImmutableList());
+            return KeyExpression.fromPath(prefix, NullableArrayUtils.arrayElements(
+                    ValueToKeyExpressionVisitor.storageName(accessors.get(accessors.size() - 1)),
+                    arrayType().isNullable()));
         }
 
         public boolean structArray() {
@@ -391,9 +404,13 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
                     names.add(innermost.alias());
                     remaining = accessors.subList(innermostIdx + 1, accessors.size());
                 } else {
-                    // a scalar array is not a constituent: it stays a field of whichever constituent owns it
+                    // A scalar array is not a constituent: it stays a field of whichever constituent owns it, reached by
+                    // the path the unnesting itself walks from that constituent. That path is the array's own field only
+                    // when the array hangs directly off the owning record -- a non-repeated struct in between
+                    // contributes hops that taking the array's accessor alone would drop. Nothing follows the array,
+                    // since a scalar element has no fields to reference.
                     names.add(innermost.owningAlias());
-                    remaining = accessors.subList(innermostIdx, accessors.size());
+                    remaining = innermost.arrayPath().getFieldAccessors();
                 }
             }
             remaining.forEach(accessor -> names.add(accessor.getField().getFieldName()));
@@ -514,7 +531,7 @@ final class RecordLayerUnnestedSyntheticTableGenerator {
      * defined on a synthetic table.
      */
     private static boolean isNeededFor(@Nonnull final IndexSpec spec,
-                               @Nonnull final Map<Integer, UnnestingInfo> unnestings) {
+                                       @Nonnull final Map<Integer, UnnestingInfo> unnestings) {
         final Map<Integer, Integer> firstPositions = new LinkedHashMap<>();
         final Map<Integer, Integer> lastPositions = new LinkedHashMap<>();
         final Map<Integer, Integer> counts = new LinkedHashMap<>();
