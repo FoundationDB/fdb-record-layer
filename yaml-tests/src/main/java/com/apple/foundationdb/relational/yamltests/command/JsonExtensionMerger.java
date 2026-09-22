@@ -53,11 +53,10 @@ import java.util.Map;
  *                "options": { "com.apple.foundationdb.record.field": {
  *                             "vectorOptions": { "precision": 64, "dimensions": 512 }}}}
  * }</pre>
- * An extension must be named by its full name, as above. Its declared name ({@code "field"}) is not accepted: two
- * extensions of one message may share a declared name — {@code com.apple.foundationdb.record.field} and
- * {@code com.apple.ckrecdb.field} both extend {@code FieldOptions} — which makes the short form ambiguous and its
- * resolution a guess. Note that {@link JsonFormat#printer()} emits the short form, so a file written by
- * {@code ExportSchemaTemplateUtil} does not round-trip its extensions through this class.
+ * An extension must be named by its full name, as above; its declared name ({@code "field"}) is not accepted, since two
+ * extensions of one message may share one and the short form would be ambiguous. Note that
+ * {@link JsonFormat#printer()} emits the short form, so a file it writes does not round-trip its extensions through
+ * this class.
  * </p>
  */
 final class JsonExtensionMerger {
