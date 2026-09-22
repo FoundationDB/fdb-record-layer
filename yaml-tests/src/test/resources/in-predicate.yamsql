@@ -382,7 +382,7 @@ test_block:
       # The ordinal (IDX) reflects the position in the original array, not the rank among filtered rows.
       - query: SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE n IN (10, 20)
       - supported_version: 4.12.5.0
-      - explain: "SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(promote(@c23 AS ARRAY(LONG))) | FLATMAP q1 -> { EXPLODE q0.NUMBERS WITH ORDINALITY | FILTER _._0 EQUALS q1 AS q2 RETURN q2 } AS q2 RETURN (q0.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) }"
+      - explain: "EXPLODE arrayDistinct(promote(@c23 AS ARRAY(LONG))) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY | FILTER _._0 EQUALS q0 AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) } AS q3 RETURN q3 }"
       - unorderedResult: [
           {ID: 1, N: 10, IDX: 1}, {ID: 1, N: 20, IDX: 2},
           {ID: 3, N: 10, IDX: 1},
@@ -402,7 +402,7 @@ test_block:
       # PartiQL join AT on bigint array with IN predicate on the primary key.
       - query: SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE t.id IN (2, 4)
       - supported_version: 4.12.5.0
-      - explain: "[IN arrayDistinct(promote(@c25 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS ARRAY_TABLE, EQUALS q0]) | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) } }"
+      - explain: "[IN arrayDistinct(promote(@c25 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS ARRAY_TABLE, EQUALS q0]) } | FLATMAP q1 -> { EXPLODE q1.NUMBERS WITH ORDINALITY AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) }"
       - unorderedResult: [
           {ID: 2, N: 40, IDX: 1}, {ID: 2, N: 50, IDX: 2},
           {ID: 4, N: 80, IDX: 1}]
@@ -410,7 +410,7 @@ test_block:
       # PartiQL join AT on string array with IN predicate on the unnested value.
       - query: SELECT t.id, f, idx FROM array_table AS t, t.fruits AS f AT idx WHERE f IN ('apple', 'mango')
       - supported_version: 4.12.5.0
-      - explain: "SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c23) | FLATMAP q1 -> { EXPLODE q0.FRUITS WITH ORDINALITY | FILTER _._0 EQUALS q1 AS q2 RETURN q2 } AS q2 RETURN (q0.ID AS ID, q2._0 AS F, q2._1 + 1 AS IDX) }"
+      - explain: "EXPLODE arrayDistinct(@c23) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { EXPLODE q1.FRUITS WITH ORDINALITY | FILTER _._0 EQUALS q0 AS q2 RETURN (q1.ID AS ID, q2._0 AS F, q2._1 + 1 AS IDX) } AS q3 RETURN q3 }"
       - unorderedResult: [
           {ID: 1, F: 'apple', IDX: 1},
           {ID: 3, F: 'apple', IDX: 1}, {ID: 3, F: 'mango', IDX: 3}]

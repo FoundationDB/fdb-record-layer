@@ -305,7 +305,7 @@ test_block:
       - query: SELECT "id", "val", "at"
                  FROM T1, T1."arr1_nn" AS "val" AT "at"
                 WHERE T1."id" IN (1, 2)
-      - explain: "[IN arrayDistinct(promote(@c21 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS T1, EQUALS q0]) } | FLATMAP q1 -> { EXPLODE q1.arr1_nn WITH ORDINALITY AS q2 RETURN (q1.id AS id, q2._0 AS val, q2._1 + 1 AS at) }"
+      - explain: "[IN arrayDistinct(promote(@c21 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS T1, EQUALS q0]) | FLATMAP q1 -> { EXPLODE q1.arr1_nn WITH ORDINALITY AS q2 RETURN (q1.id AS id, q2._0 AS val, q2._1 + 1 AS at) } }"
       - unorderedResult: [
           {id: 1, val: 101, at: 1},
           {id: 2, val: 201, at: 1},
@@ -317,7 +317,7 @@ test_block:
       - query: SELECT "id", "val", "at"
                  FROM T1, T1."arr1_nn" AS "val" AT "at"
                 WHERE "at" IN (1, 2)
-      - explain: "EXPLODE arrayDistinct(@c19) | FLATMAP q0 -> { SCAN([IS T1]) | FLATMAP q1 -> { EXPLODE q1.arr1_nn WITH ORDINALITY | FILTER _._1 + 1 EQUALS q0 AS q2 RETURN (q1.id AS id, q2._0 AS val, q2._1 + 1 AS at) } AS q3 RETURN q3 }"
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { EXPLODE q0.arr1_nn WITH ORDINALITY | FILTER _._1 + 1 IN @c19 AS q1 RETURN (q0.id AS id, q1._0 AS val, q1._1 + 1 AS at) }"
       - resultMetadata: [{id: BIGINT}, {val: INTEGER}, {at: INTEGER}]
       - unorderedResult: [
           {id: 1, val: 101, at: 1},
