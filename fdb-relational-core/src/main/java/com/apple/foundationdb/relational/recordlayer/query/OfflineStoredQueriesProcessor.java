@@ -178,8 +178,8 @@ public final class OfflineStoredQueriesProcessor {
                                                            @Nonnull final RecordLayerSchemaTemplate template,
                                                            @Nonnull final Counts counts) {
         final String templateKey = template.getName() + ":" + template.getVersion();
-        for (final var entry : template.getStoredQueries().entrySet()) {
-            planStoredQuery(cache, metricCollector, template, templateKey, entry.getKey(), entry.getValue(), counts);
+        for (final var storedQuery : template.getStoredQueries()) {
+            planStoredQuery(cache, metricCollector, template, templateKey, storedQuery.getName(), storedQuery, counts);
         }
     }
 

@@ -36,7 +36,6 @@ import com.google.common.collect.Multimap;
 import javax.annotation.Nonnull;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -143,7 +142,13 @@ public class NoOpSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     @Override
-    public Map<String, StoredQuery> getStoredQueries() throws RelationalException {
+    public Set<? extends StoredQuery> getStoredQueries() throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have stored queries!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
+    public Optional<? extends StoredQuery> findStoredQueryByName(@Nonnull final String storedQueryName) throws RelationalException {
         throw new RelationalException("NoOpSchemaTemplate doesn't have stored queries!", ErrorCode.INVALID_PARAMETER);
     }
 
