@@ -740,6 +740,45 @@ public class MetaDataProtoEditorUnitTest {
     }
 
     /**
+     * Tests that the rename rejects any renaming when the metadata declares views, whose definition is a SQL string
+     * that may reference record types by name. Unlike {@link #batchedRejectsUserDefinedFunctions}, this one is
+     * batched-only because {@link MetaDataProtoEditor#renameRecordType} does not check for views.
+     */
+    @Test
+    void batchedRejectsViews() throws IOException {
+        final RecordMetaDataProto.MetaData.Builder builder = loadMetaData("TwoBoringTypes.json");
+        builder.addViews(RecordMetaDataProto.PView.newBuilder()
+                .setName("V1").setDefinition("SELECT * FROM T1"));
+        assertBatchedRenameRejected(builder.build(), "Renaming record types with views is not supported");
+    }
+
+    /**
+     * Tests that the rename rejects any renaming when the metadata declares stored queries, whose query is a SQL
+     * string that may reference record types by name. Unlike {@link #batchedRejectsUserDefinedFunctions}, this one is
+     * batched-only because {@link MetaDataProtoEditor#renameRecordType} does not check for stored queries.
+     */
+    @Test
+    void batchedRejectsStoredQueries() throws IOException {
+        final RecordMetaDataProto.MetaData.Builder builder = loadMetaData("TwoBoringTypes.json");
+        builder.addStoredQueries(RecordMetaDataProto.PStoredQuery.newBuilder()
+                .setName("Q1").setQuery("SELECT * FROM T1"));
+        assertBatchedRenameRejected(builder.build(), "Renaming record types with stored queries is not supported");
+    }
+
+    /**
+     * Asserts that the batched {@link MetaDataProtoEditor#renameRecordTypes} rejects {@link #simpleRename} on
+     * {@code originalProto} with exactly {@code expectedMessage}.
+     */
+    private static void assertBatchedRenameRejected(@Nonnull RecordMetaDataProto.MetaData originalProto,
+                                                    @Nonnull String expectedMessage) {
+        final MetaDataException exception = assertThrows(MetaDataException.class,
+                () -> MetaDataProtoEditor.renameRecordTypes(originalProto.toBuilder(),
+                        MetaDataProtoEditorUnitTest::simpleRename,
+                        RecordMetaDataBuilder.getDependencies(originalProto, Map.of())));
+        assertEquals(expectedMessage, exception.getMessage());
+    }
+
+    /**
      * Tests that the rename rejects a renamer that maps a non-union record type to the default union name.
      */
     @Test
@@ -1066,17 +1105,18 @@ public class MetaDataProtoEditorUnitTest {
 
     /**
      * This test solely exists to decrease the chance that someone will add something to the metadata protobuf, and not
-     * update the {@link MetaDataProtoEditor}.
+     * update the {@link MetaDataProtoEditor}. Any new field that can reference a record type has to be either rewritten
+     * by {@link MetaDataProtoEditor#renameRecordTypes} or rejected by it.
      */
     @Test
     void validateMetaDataCoverage() {
         assertEquals(Set.of(
                         "split_long_records", "version", "former_indexes", "record_count_key",
                         "store_record_versions", "dependencies", "subspace_key_counter", "uses_subspace_key_counter",
-                        "stored_queries",
-                        // the below reference record types
+                        // the below reference record types, and are rewritten by the rename
                         "records", "indexes", "record_types", "joined_record_types", "unnested_record_types",
-                        "user_defined_functions", "views"),
+                        // the below may reference record types from within a string, so the rename rejects them
+                        "user_defined_functions", "views", "stored_queries"),
                 RecordMetaDataProto.MetaData.getDescriptor().getFields().stream()
                         .map(Descriptors.FieldDescriptor::getName)
                 .collect(Collectors.toSet()));

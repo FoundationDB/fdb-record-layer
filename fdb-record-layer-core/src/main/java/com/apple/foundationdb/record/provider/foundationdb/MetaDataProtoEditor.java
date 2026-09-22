@@ -553,6 +553,11 @@ public class MetaDataProtoEditor {
      * rename outright, with a “No record type found” exception.) An imported record type can still be the cause of
      * a collision, however.
      *
+     * <p>Any rename is rejected outright if the metadata declares {@code user_defined_functions}, {@code views} or
+     * {@code stored_queries}. Each of those holds a string that would need parsing to figure out the record types it
+     * references, so renaming cannot keep them consistent. (Note that {@code renameRecordType} rejects only the
+     * first of the three.)
+     *
      * <p>Validating the mapping as a whole means a batch may be accepted where the equivalent one-by-one renames would
      * fail, and rejected where they would quietly succeed. A batch that permutes existing names, for instance swapping
      * {@code Foo} and {@code Bar}, is collision-free and therefore accepted, whereas renaming those types one at a time
@@ -575,8 +580,8 @@ public class MetaDataProtoEditor {
             return;
         }
 
-        // Validate that `MetaData.user_defined_functions` is empty.
-        validateNoUserDefinedFunctions(metadata);
+        // Validate that `MetaData.user_defined_functions`, `MetaData.views` and `MetaData.stored_queries` are empty.
+        validateNoUnrenamableDefinitions(metadata);
 
         // Build the file descriptor exactly once, from the original `MetaData.records` proto. Every descriptor
         // lookup below is done by original name, so we can use this single descriptor for every rename in the mapping.
@@ -1198,13 +1203,19 @@ public class MetaDataProtoEditor {
     }
 
     /**
-     * Validates that {@code MetaData.user_defined_functions} is empty, since a user-defined function may be a
-     * string that needs parsing to figure out the record types it references, which renaming does not support.
-     * Performs no mutation, so that this can be called before any other edits are made.
+     * Validates that {@code MetaData.user_defined_functions}, {@code MetaData.views} and
+     * {@code MetaData.stored_queries} are all empty. Each of them holds a string that would need parsing to figure out
+     * the record types it references, which renaming does not support.
      */
-    private static void validateNoUserDefinedFunctions(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder) {
+    private static void validateNoUnrenamableDefinitions(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder) {
         if (metaDataBuilder.getUserDefinedFunctionsCount() > 0) {
             throw new MetaDataException("Renaming record types with UserDefinedFunctions is not supported");
+        }
+        if (metaDataBuilder.getViewsCount() > 0) {
+            throw new MetaDataException("Renaming record types with views is not supported");
+        }
+        if (metaDataBuilder.getStoredQueriesCount() > 0) {
+            throw new MetaDataException("Renaming record types with stored queries is not supported");
         }
     }
 
