@@ -228,7 +228,7 @@ public class SyntheticRecordPlanner {
         if (indexes.isEmpty()) {
             return true;
         }
-        return indexes.stream().allMatch(recordStore::isIndexDisabled);
+        return indexes.stream().allMatch(index -> recordStore.getIndexState(index).isDisabled());
     }
 
     /**

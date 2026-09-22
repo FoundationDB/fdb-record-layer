@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
@@ -317,7 +316,6 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nullable
-    @SpotBugsSuppressWarnings(value = {"NP_NONNULL_PARAM_VIOLATION"}, justification = "compile-time evaluations take their value from the context only")
     default Boolean compileTimeEval(@Nonnull final EvaluationContext context) {
         return eval(null, context);
     }

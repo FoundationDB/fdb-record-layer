@@ -1661,12 +1661,12 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * Delete all the data in the record store.
      * <p>
      * Everything except the store header and index state information is cleared from the database.
-     * This is is an efficient operation as all data are contiguous.
+     * This is an efficient operation as all data are contiguous.
      * This means that any {@linkplain IndexState#DISABLED disabled} or {@linkplain IndexState#WRITE_ONLY write-only}
      * index will remain in its disabled or write-only state after all of the data are cleared. If one also wants
      * to reset all index states, one can call {@link FDBRecordStore#rebuildAllIndexes()}, which should complete
      * quickly on an empty record store. If one wants to remove the record store entirely (including the store
-     * header and all index states), one should call {@link FDBRecordStore#deleteStore(FDBRecordContext, KeySpacePath)}
+     * header and all index states), one should call {@link FDBRecordStore#deleteStoreAsync(FDBRecordContext, KeySpacePath)}
      * instead of this method.
      *
      * <p>
@@ -1676,8 +1676,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * See: <a href="https://github.com/FoundationDB/fdb-record-layer/issues/398">Issue #398</a>.
      * </p>
      *
-     * @see FDBRecordStore#deleteStore(FDBRecordContext, KeySpacePath)
-     * @see FDBRecordStore#deleteStore(FDBRecordContext, Subspace)
+     * @see FDBRecordStore#deleteStoreAsync(FDBRecordContext, KeySpacePath)
+     * @see FDBRecordStore#deleteStoreAsync(FDBRecordContext, Subspace)
      */
     void deleteAllRecords();
 

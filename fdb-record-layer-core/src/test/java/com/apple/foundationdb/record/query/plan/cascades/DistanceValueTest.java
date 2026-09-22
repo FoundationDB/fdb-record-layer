@@ -62,7 +62,7 @@ class DistanceValueTest {
     @MethodSource("vectorDistanceFunctionTests")
     void testVectorDistanceFunctions(LiteralValue<?> vector1, LiteralValue<?> vector2, BuiltInFunction<?> function, Double expectedDistance) {
         final List<Value> arguments = List.of(vector1, vector2);
-        final DistanceValue value = (DistanceValue) function.encapsulate(arguments);
+        final DistanceValue value = (DistanceValue) function.encapsulate(CallSiteArguments.ofPositional(arguments));
         final Object result = value.evalWithoutStore(evaluationContext);
         Assertions.assertNotNull(result, "Vector distance function should not return null for non-null vectors");
         Assertions.assertInstanceOf(Double.class, result, "Vector distance function should return a Double");
@@ -148,7 +148,7 @@ class DistanceValueTest {
     @MethodSource("nullVectorTestCases")
     void testNullVectorThrowsException(LiteralValue<?> vector1, LiteralValue<?> vector2, BuiltInFunction<?> function) {
         final List<Value> arguments = List.of(vector1, vector2);
-        final DistanceValue value = (DistanceValue) function.encapsulate(arguments);
+        final DistanceValue value = (DistanceValue) function.encapsulate(CallSiteArguments.ofPositional(arguments));
         RecordCoreException exception = Assertions.assertThrows(RecordCoreException.class,
                 () -> value.evalWithoutStore(evaluationContext),
                 "Distance function should throw RecordCoreException for null vectors");
@@ -197,9 +197,9 @@ class DistanceValueTest {
         final List<Value> arguments2 = List.of(VECTOR_1_0_0, VECTOR_0_1_0);
         final List<Value> arguments3 = List.of(VECTOR_1_0_0, VECTOR_3_4_0);
 
-        final Value value1 = (Value) distanceFunction.encapsulate(arguments1);
-        final Value value2 = (Value) distanceFunction.encapsulate(arguments2);
-        final Value value3 = (Value) distanceFunction.encapsulate(arguments3);
+        final Value value1 = (Value) distanceFunction.encapsulate(CallSiteArguments.ofPositional(arguments1));
+        final Value value2 = (Value) distanceFunction.encapsulate(CallSiteArguments.ofPositional(arguments2));
+        final Value value3 = (Value) distanceFunction.encapsulate(CallSiteArguments.ofPositional(arguments3));
 
         // Same arguments should be semantically equal
         Assertions.assertTrue(value1.semanticEquals(value2, AliasMap.emptyMap()),
@@ -219,9 +219,9 @@ class DistanceValueTest {
         final List<Value> arguments2 = List.of(VECTOR_1_0_0, VECTOR_0_1_0);
         final List<Value> arguments3 = List.of(VECTOR_1_0_0, VECTOR_3_4_0);
 
-        final DistanceValue value1 = (DistanceValue) distanceFunction.encapsulate(arguments1);
-        final DistanceValue value2 = (DistanceValue) distanceFunction.encapsulate(arguments2);
-        final DistanceValue value3 = (DistanceValue) distanceFunction.encapsulate(arguments3);
+        final DistanceValue value1 = (DistanceValue) distanceFunction.encapsulate(CallSiteArguments.ofPositional(arguments1));
+        final DistanceValue value2 = (DistanceValue) distanceFunction.encapsulate(CallSiteArguments.ofPositional(arguments2));
+        final DistanceValue value3 = (DistanceValue) distanceFunction.encapsulate(CallSiteArguments.ofPositional(arguments3));
 
         // Reflexive: value should equal itself
         Assertions.assertEquals(value1, value1,
@@ -256,8 +256,8 @@ class DistanceValueTest {
         // Create values using different distance functions with same arguments
         final List<Value> arguments = List.of(VECTOR_1_0_0, VECTOR_0_1_0);
 
-        final DistanceValue euclideanValue = (DistanceValue) new DistanceValue.EuclideanDistanceFn().encapsulate(arguments);
-        final DistanceValue cosineValue = (DistanceValue) new DistanceValue.CosineDistanceFn().encapsulate(arguments);
+        final DistanceValue euclideanValue = (DistanceValue) new DistanceValue.EuclideanDistanceFn().encapsulate(CallSiteArguments.ofPositional(arguments));
+        final DistanceValue cosineValue = (DistanceValue) new DistanceValue.CosineDistanceFn().encapsulate(CallSiteArguments.ofPositional(arguments));
 
         // Different distance functions should produce non-equal values even with same arguments
         Assertions.assertNotEquals(euclideanValue, cosineValue,

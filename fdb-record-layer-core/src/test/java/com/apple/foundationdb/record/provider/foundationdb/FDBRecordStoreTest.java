@@ -926,7 +926,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
         final SwitchingProvider newProvider2 = new SwitchingProvider(102, metaData1, metaData2);
         try (FDBRecordContext context = openContext()) {
-            FDBRecordStore.deleteStore(context, path);
+            FDBRecordStore.deleteStoreAsync(context, path).join();
             recordStore = FDBRecordStore.newBuilder()
                     .setContext(context).setKeySpacePath(path).setMetaDataProvider(newProvider2).setUserVersionChecker(newProvider2)
                     .create();

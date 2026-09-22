@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -259,7 +260,7 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         @Override
         public ExplainTokensWithPrecedence explain() {
             return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword("IS")
-                    .addWhitespace().addIdentifier(typelessString()));
+                    .addWhitespace().addIdentifier(ProtoUtils.toUserIdentifier(typelessString())));
         }
 
         @Override

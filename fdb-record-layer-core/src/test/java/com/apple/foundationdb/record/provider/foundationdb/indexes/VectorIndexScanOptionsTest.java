@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.planprotos.PVectorIndexScanOptions;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions;
 import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOptions.Builder;
@@ -31,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class VectorIndexScanOptionsTest {
     @Test
@@ -77,8 +80,80 @@ class VectorIndexScanOptionsTest {
         builder2.putOption(VectorIndexScanOptions.HNSW_EF_SEARCH, 20);
         assertThat(builder1).isNotEqualTo(builder2);
 
-        assertThat((VectorIndexScanOptions.OptionKey<?>)VectorIndexScanOptions.HNSW_EF_SEARCH)
-                .isNotEqualTo(VectorIndexScanOptions.HNSW_RETURN_VECTORS);
+        assertThat((VectorOptionKey<?>)VectorIndexScanOptions.HNSW_EF_SEARCH)
+                .isNotEqualTo(VectorIndexScanOptions.VECTOR_RETURN_VECTORS);
+    }
+
+    @Test
+    void legacyScanOptionNameResolvesToCanonicalKeyTest() {
+        // A plan serialized under the legacy wire name must deserialize to the same key as one written under the
+        // current name — equal, same hash, same plan hash, and readable through the canonical key.
+        final PVectorIndexScanOptions legacyProto =
+                PVectorIndexScanOptions.newBuilder()
+                        .addOptionEntries(PVectorIndexScanOptions.POptionEntry.newBuilder()
+                                .setKey("hnswReturnVectors")
+                                .setValue(LiteralKeyExpression.toProtoValue(true)))
+                        .build();
+
+        final VectorIndexScanOptions.Deserializer deserializer = new VectorIndexScanOptions.Deserializer();
+        final VectorIndexScanOptions fromLegacy =
+                deserializer.fromProto(PlanSerializationContext.newForCurrentMode(), legacyProto);
+
+        final VectorIndexScanOptions canonical =
+                VectorIndexScanOptions.builder()
+                        .putOption(VectorIndexScanOptions.VECTOR_RETURN_VECTORS, true)
+                        .build();
+
+        assertThat(fromLegacy.getOption(VectorIndexScanOptions.VECTOR_RETURN_VECTORS)).isTrue();
+        assertThat(fromLegacy).isEqualTo(canonical);
+        assertThat(fromLegacy).hasSameHashCodeAs(canonical);
+        assertThat(fromLegacy.planHash(PlanHashable.CURRENT_FOR_CONTINUATION))
+                .isEqualTo(canonical.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+
+        // Re-serializing the legacy-sourced options emits only the canonical name.
+        final PVectorIndexScanOptions reserialized = fromLegacy.toProto(PlanSerializationContext.newForCurrentMode());
+        assertThat(reserialized.getOptionEntries(0).getKey()).isEqualTo("vectorReturnVectors");
+    }
+
+    @Test
+    void duplicateAliasInProtoIsRejected() {
+        // A proto carrying the same option under two names (current + legacy alias) must be rejected — even when the
+        // two values agree — rather than silently keeping one.
+        final PVectorIndexScanOptions proto =
+                PVectorIndexScanOptions.newBuilder()
+                        .addOptionEntries(PVectorIndexScanOptions.POptionEntry.newBuilder()
+                                .setKey("vectorReturnVectors")
+                                .setValue(LiteralKeyExpression.toProtoValue(true)))
+                        .addOptionEntries(PVectorIndexScanOptions.POptionEntry.newBuilder()
+                                .setKey("hnswReturnVectors")
+                                .setValue(LiteralKeyExpression.toProtoValue(true)))
+                        .build();
+
+        final VectorIndexScanOptions.Deserializer deserializer = new VectorIndexScanOptions.Deserializer();
+        assertThatThrownBy(() -> deserializer.fromProto(PlanSerializationContext.newForCurrentMode(), proto))
+                .isInstanceOf(RecordCoreException.class);
+    }
+
+    @Test
+    void guardiannScanOptionsRoundTripTest() {
+        final VectorIndexScanOptions options =
+                VectorIndexScanOptions.builder()
+                        .putOption(VectorIndexScanOptions.GUARDIANN_CANDIDATE_POOL_FACTOR, 1.25d)
+                        .putOption(VectorIndexScanOptions.GUARDIANN_SEARCH_MAX_CLUSTERS, 32)
+                        .putOption(VectorIndexScanOptions.GUARDIANN_SEARCH_CONCURRENCY, 4)
+                        .build();
+
+        final PVectorIndexScanOptions proto = options.toProto(PlanSerializationContext.newForCurrentMode());
+        final VectorIndexScanOptions.Deserializer deserializer = new VectorIndexScanOptions.Deserializer();
+        final VectorIndexScanOptions afterRoundTrip =
+                deserializer.fromProto(PlanSerializationContext.newForCurrentMode(), proto);
+
+        assertThat(afterRoundTrip.getOption(VectorIndexScanOptions.GUARDIANN_CANDIDATE_POOL_FACTOR)).isEqualTo(1.25d);
+        assertThat(afterRoundTrip.getOption(VectorIndexScanOptions.GUARDIANN_SEARCH_MAX_CLUSTERS)).isEqualTo(32);
+        assertThat(afterRoundTrip.getOption(VectorIndexScanOptions.GUARDIANN_SEARCH_CONCURRENCY)).isEqualTo(4);
+        assertThat(afterRoundTrip.planHash(PlanHashable.CURRENT_FOR_CONTINUATION))
+                .isEqualTo(options.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        assertThat(afterRoundTrip).isEqualTo(options);
     }
 
     @Test

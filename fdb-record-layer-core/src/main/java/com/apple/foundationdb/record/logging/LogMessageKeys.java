@@ -198,6 +198,9 @@ public enum LogMessageKeys {
 
     // FDB client configuration
     API_VERSION,
+    CLIENT_KNOBS,
+    CLIENT_KNOB_NAME,
+    CLIENT_KNOB_VALUE,
     RUN_LOOP_PROFILING,
     THREADS_PER_CLIENT_VERSION,
     TRACE_DIRECTORY,
@@ -350,6 +353,12 @@ public enum LogMessageKeys {
     // Store Lock State
     STORE_LOCK_STATE_REASON,
     STORE_LOCK_STATE_TIMESTAMP_MILLIS,
+    // function call-site options
+    OPTION_NAME,
+    OPTION_VALUE,
+
+    // Vector Index Maintainer
+    DEFERRED_TASK_COUNT
     ;
 
     private final String logKey;

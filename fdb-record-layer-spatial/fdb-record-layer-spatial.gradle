@@ -18,6 +18,9 @@
  * limitations under the License.
  */
 
+import de.undercouch.gradle.tasks.download.Download
+import de.undercouch.gradle.tasks.download.Verify
+
 apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
 
@@ -57,7 +60,7 @@ def geonamesFilesWithChecksums = [
         ]
 ]
 
-tasks.register("downloadGeonames", de.undercouch.gradle.tasks.download.Download) {
+tasks.register("downloadGeonames", Download) {
     // src geonamesFiles.collect { file -> "http://download.geonames.org/export/dump/${file}" }
     /* some times geonames times out or is otherwise unreliable, move files to
     an s3 bucket that we control for more consistent download behavior */
@@ -69,7 +72,7 @@ tasks.register("downloadGeonames", de.undercouch.gradle.tasks.download.Download)
 }
 
 def verifyGeonamesFilesTasks = geonamesFilesWithChecksums.collect { fileWithChecksum ->
-    tasks.register("verifyGeonamesFile-${fileWithChecksum.name}", de.undercouch.gradle.tasks.download.Verify) {
+    tasks.register("verifyGeonamesFile-${fileWithChecksum.name}", Verify) {
         dependsOn 'downloadGeonames'
         src geonamesFilesDirectory.file(fileWithChecksum.name).asFile
         algorithm 'SHA256'

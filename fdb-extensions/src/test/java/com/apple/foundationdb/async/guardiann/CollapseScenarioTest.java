@@ -79,7 +79,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  * <p>
  * Collapse removes the standalone primary references it folds, so it leaves the (other-cluster) replicas of those
  * vectors dangling — exactly like a delete. These tests therefore assert structure via
- * {@link TestHelpers#assertGuardiannInvariantsAfterDeletes}, which tolerates dangling replicas.
+ * {@link GuardiannStructureAsserts#assertGuardiannInvariantsAfterDeletes}, which tolerates dangling replicas.
  */
 public class CollapseScenarioTest implements BaseTest {
     private static final Logger logger = LoggerFactory.getLogger(CollapseScenarioTest.class);
@@ -267,14 +267,15 @@ public class CollapseScenarioTest implements BaseTest {
     @ParameterizedTest
     @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L, 78910L, 1123581321345589L})
     void clusterOverlapDiagnosticsDetectsRealSphereOverlap(final long randomSeed) throws Exception {
-        // Small cap forces the near-duplicate cloud to split into co-located sub-clusters; the huge
-        // collapseMinDuplicates (plus distinct perturbed signatures) keeps CollapseTask from folding them away.
-        final Guardiann guardiann = newGuardiann(50, 1_000_000);
+        // Small cap forces the near-duplicate cloud to split into co-located sub-clusters; the distinct perturbed
+        // signatures keep CollapseTask from folding them away (collapseMinDuplicates is pinned just under the cap, the
+        // highest the config invariant allows).
+        final Guardiann guardiann = newGuardiann(50, 49);
         final Search search = guardiann.getLocator().search();
         final SearchConfig searchConfig = new SearchConfig.SearchConfigBuilder().build();
 
         final DoubleRealVector base =
-                (DoubleRealVector) TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1).get(0).vector();
+                (DoubleRealVector) VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1).get(0).vector();
 
         // Guard 1: a brand-new structure has no AccessInfo yet, so the diagnostic short-circuits to an empty list.
         final List<Integer> noAccessInfoOverlaps = db.run(tr ->
@@ -287,13 +288,13 @@ public class CollapseScenarioTest implements BaseTest {
             final DoubleRealVector perturbed = CommonTestHelpers.perturb(base, sampler, 0.5d);
             final Tuple pk = Tuple.from("overlap", i);
             db.run(tr -> {
-                guardiann.insert(tr, pk, perturbed, null).join();
+                guardiann.insert(tr, pk, perturbed, null, true).join();
                 return null;
             });
         }
-        TestHelpers.runToQuiescence(db, guardiann);
+        GuardiannStructureAsserts.runToQuiescence(db, guardiann);
 
-        final StructureSnapshot snapshot = Objects.requireNonNull(TestHelpers.snapshotStructure(db, guardiann));
+        final StructureSnapshot snapshot = Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann));
         assertThat(snapshot.numClusters())
                 .as("the near-duplicate cloud must split into multiple co-located sub-clusters for overlap to exist")
                 .isGreaterThanOrEqualTo(2);
@@ -335,12 +336,12 @@ public class CollapseScenarioTest implements BaseTest {
         final Guardiann guardiann = newGuardiann(80, 20);
         final RealVector duplicate = duplicateVector();
 
-        // Count COLLAPSE executions across both the inserts (which drain tasks via executeSomeDeferredTasks) and the
+        // Count COLLAPSE executions across both the inserts (which drain tasks via executeDeferredTasks) and the
         // explicit drain. The listener only tallies onto a pushed frame, so push one before any task can run.
         onWriteListener.pushFrame();
         try {
             insertIdentical(guardiann, duplicate, 0L, numDuplicates);
-            TestHelpers.runToQuiescence(db, guardiann);
+            GuardiannStructureAsserts.runToQuiescence(db, guardiann);
 
             assertThat(onWriteListener.getNumTasksExecutedByKind()
                     .getOrDefault(TaskKind.COLLAPSE, 0))
@@ -350,7 +351,7 @@ public class CollapseScenarioTest implements BaseTest {
             onWriteListener.popFrame();
         }
 
-        final StructureSnapshot snapshot = Objects.requireNonNull(TestHelpers.snapshotStructure(db, guardiann));
+        final StructureSnapshot snapshot = Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann));
         assertThat(snapshot.totalCollapsedRefs())
                 .as("the identical vectors must be folded into at least one collapsed reference")
                 .isGreaterThanOrEqualTo(1);
@@ -363,7 +364,7 @@ public class CollapseScenarioTest implements BaseTest {
                     .isFalse();
         }
 
-        TestHelpers.assertGuardiannInvariantsAfterDeletes(db, guardiann);
+        GuardiannStructureAsserts.assertGuardiannInvariantsAfterDeletes(db, guardiann);
     }
 
     /**
@@ -377,10 +378,10 @@ public class CollapseScenarioTest implements BaseTest {
         final RealVector duplicate = duplicateVector();
 
         final List<Tuple> primaryKeys = insertIdentical(guardiann, duplicate, 0L, numDuplicates);
-        TestHelpers.runToQuiescence(db, guardiann);
+        GuardiannStructureAsserts.runToQuiescence(db, guardiann);
 
         // precondition: collapse actually happened, otherwise this test wouldn't be exercising it
-        assertThat(Objects.requireNonNull(TestHelpers.snapshotStructure(db, guardiann)).totalCollapsedRefs())
+        assertThat(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)).totalCollapsedRefs())
                 .as("precondition: the duplicates must have collapsed")
                 .isGreaterThanOrEqualTo(1);
 
@@ -396,14 +397,14 @@ public class CollapseScenarioTest implements BaseTest {
         final Guardiann guardiann = newGuardiann(100_000, 20); // huge cap: inserts never auto-collapse
         final RealVector duplicate = duplicateVector();
         insertIdentical(guardiann, duplicate, 0L, 30);
-        TestHelpers.runToQuiescence(db, guardiann);
+        GuardiannStructureAsserts.runToQuiescence(db, guardiann);
 
-        final StructureSnapshot before = Objects.requireNonNull(TestHelpers.snapshotStructure(db, guardiann));
+        final StructureSnapshot before = Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann));
         final ClusterView cluster = Iterables.getOnlyElement(before.clusters().values());
 
         // (a) cluster not in COLLAPSE state -> no-op
         runCollapseDirectly(guardiann, cluster.clusterId(), cluster.transformedCentroid());
-        final StructureSnapshot afterUnmarked = Objects.requireNonNull(TestHelpers.snapshotStructure(db, guardiann));
+        final StructureSnapshot afterUnmarked = Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann));
         assertThat(afterUnmarked.totalCollapsedRefs())
                 .as("CollapseTask must be a no-op when the cluster is not in COLLAPSE state")
                 .isZero();
@@ -414,7 +415,7 @@ public class CollapseScenarioTest implements BaseTest {
         assertThatCode(() -> runCollapseDirectly(guardiann, missingClusterId, cluster.transformedCentroid()))
                 .as("CollapseTask must be a no-op when the target cluster does not exist")
                 .doesNotThrowAnyException();
-        final StructureSnapshot afterMissing = Objects.requireNonNull(TestHelpers.snapshotStructure(db, guardiann));
+        final StructureSnapshot afterMissing = Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann));
         assertThat(afterMissing.totalCollapsedRefs()).isZero();
         assertThat(afterMissing.totalPrimaries()).isEqualTo(before.totalPrimaries());
     }
@@ -433,11 +434,11 @@ public class CollapseScenarioTest implements BaseTest {
 
         // ---- Round 1: fold the first batch ----
         final List<Tuple> firstKeys = insertIdentical(guardiann, duplicate, 0L, firstBatch);
-        TestHelpers.runToQuiescence(db, guardiann);
+        GuardiannStructureAsserts.runToQuiescence(db, guardiann);
         collapseOnlyCluster(guardiann);
 
         final ClusterView afterFirst =
-                onlyCluster(Objects.requireNonNull(TestHelpers.snapshotStructure(db, guardiann)));
+                onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
         assertThat(afterFirst.collapsedRefs())
                 .as("round 1 must produce exactly one collapsed reference")
                 .hasSize(1);
@@ -450,11 +451,11 @@ public class CollapseScenarioTest implements BaseTest {
 
         // ---- Round 2: more identical copies, collapse again ----
         final List<Tuple> secondKeys = insertIdentical(guardiann, duplicate, 1_000_000L, secondBatch);
-        TestHelpers.runToQuiescence(db, guardiann);
+        GuardiannStructureAsserts.runToQuiescence(db, guardiann);
         collapseOnlyCluster(guardiann);
 
         final ClusterView afterSecond =
-                onlyCluster(Objects.requireNonNull(TestHelpers.snapshotStructure(db, guardiann)));
+                onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
         assertThat(afterSecond.collapsedRefs())
                 .as("re-collapse must not create a second collapsed reference")
                 .hasSize(1);
@@ -469,7 +470,7 @@ public class CollapseScenarioTest implements BaseTest {
         allKeys.addAll(secondKeys);
         assertAllResolvable(guardiann, duplicate, allKeys);
 
-        TestHelpers.assertGuardiannInvariantsAfterDeletes(db, guardiann);
+        GuardiannStructureAsserts.assertGuardiannInvariantsAfterDeletes(db, guardiann);
     }
 
     /**
@@ -495,17 +496,17 @@ public class CollapseScenarioTest implements BaseTest {
         // A real, single cluster of distinct primaries, so reassign has a genuine cluster to dissolve. Index 0 is
         // reserved for the duplicate vector (see duplicateVector()), so the primaries use indices 1..n.
         final List<PrimaryKeyAndVector> records =
-                TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, numDistinctPrimaries + 1);
+                VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, numDistinctPrimaries + 1);
         for (int i = 1; i <= numDistinctPrimaries; i++) {
             final Tuple primaryKey = Tuple.from("distinct", i);
             final RealVector vector = records.get(i).vector();
             db.run(tr -> {
-                guardiann.insert(tr, primaryKey, vector, null).join();
+                guardiann.insert(tr, primaryKey, vector, null, true).join();
                 return null;
             });
         }
-        TestHelpers.runToQuiescence(db, guardiann);
-        final ClusterView cluster = onlyCluster(Objects.requireNonNull(TestHelpers.snapshotStructure(db, guardiann)));
+        GuardiannStructureAsserts.runToQuiescence(db, guardiann);
+        final ClusterView cluster = onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
         final UUID clusterId = cluster.clusterId();
 
         // The vector whose copies were collapsed elsewhere (index 0; distinct from the primaries inserted above).
@@ -531,7 +532,7 @@ public class CollapseScenarioTest implements BaseTest {
         });
 
         // Phase 2: derive the signature from the read-back references (lossy encoding), then record them as collapsed.
-        final ClusterView staged = onlyCluster(Objects.requireNonNull(TestHelpers.snapshotStructure(db, guardiann)));
+        final ClusterView staged = onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
         final List<VectorReference> stagedReplicas = staged.references().stream()
                 .filter(ref -> !ref.isPrimaryCopy() && !ref.isCollapsed())
                 .toList();
@@ -552,7 +553,7 @@ public class CollapseScenarioTest implements BaseTest {
         reassignCluster(guardiann, clusterId, staged.transformedCentroid());
 
         // Every dangling replica of the collapsed signature must have folded into exactly one collapsed-area reference.
-        final ClusterView after = onlyCluster(Objects.requireNonNull(TestHelpers.snapshotStructure(db, guardiann)));
+        final ClusterView after = onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
         assertThat(after.references().stream()
                 .filter(ref -> !ref.isPrimaryCopy() && !ref.isCollapsed()
                         && signature.equals(StorageAdapter.signatureUuid(ref.vector())))
@@ -578,9 +579,272 @@ public class CollapseScenarioTest implements BaseTest {
         assertAllResolvable(guardiann, duplicate, collapsedPrimaryKeys);
     }
 
+    /**
+     * A target cluster holds both an <em>already-collapsed</em> replica for a signature (as a collapsed primary from
+     * another cluster appears once replicated in) and a plain member replica of the <em>same</em> signature whose
+     * primary has been folded. The already-collapsed replica is the collapsed-area representative, not a store member,
+     * so its fold-time lookup {@code fetchCollapsedVectorId(signature, Tuple.from(signature))} returns {@code null} and
+     * it takes {@code foldCollapsedReplicas}' pass-through branch — which registers its signature so the later member is
+     * dropped as a duplicate rather than folded into a second collapsed reference. Both share
+     * {@code primaryKey = Tuple.from(signature)}, so absent that dedup they collide when
+     * {@link AbstractDeferredTask#computeTargetClusterDelta} builds its {@code ImmutableMap}.
+     * <p>
+     * Verifies reassign completes and the two same-signature references collapse to a single collapsed-area reference
+     * keeping the highest replication priority among them (here the already-collapsed replica, given the higher priority
+     * so the fold walks it first). Mirrors {@link #reassignFoldsCollapsedReplicasIntoOneReference} for the all-plain case.
+     */
+    @Test
+    void reassignDedupesAnAlreadyCollapsedReplicaAgainstAMember() throws Exception {
+        final Guardiann guardiann = newGuardiann(1_000, 20); // huge cap: the distinct inserts stay in one cluster
+        final Primitives primitives = guardiann.getLocator().primitives();
+
+        // A real, single cluster of distinct primaries, so reassign has a genuine cluster to dissolve.
+        final int numDistinctPrimaries = 10;
+        final List<PrimaryKeyAndVector> records =
+                VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, numDistinctPrimaries + 1);
+        for (int i = 1; i <= numDistinctPrimaries; i++) {
+            final Tuple primaryKey = Tuple.from("distinct", i);
+            final RealVector vector = records.get(i).vector();
+            db.run(tr -> {
+                guardiann.insert(tr, primaryKey, vector, null, true).join();
+                return null;
+            });
+        }
+        GuardiannStructureAsserts.runToQuiescence(db, guardiann);
+        final ClusterView cluster = onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
+        final UUID clusterId = cluster.clusterId();
+
+        final RealVector duplicate = duplicateVector();
+
+        // Phase 1: one plain (non-collapsed) member replica whose primary is (below) recorded in the collapsed set.
+        final Tuple memberPrimaryKey = Tuple.from("collapsed-dup", 0);
+        db.run(tr -> {
+            final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
+            final Quantizer quantizer = primitives.quantizer(accessInfo);
+            final Transformed<RealVector> transformedDuplicate =
+                    primitives.storageTransform(accessInfo).transform(duplicate);
+            final VectorMetadata memberMetadata =
+                    new VectorMetadata(memberPrimaryKey, RandomHelpers.randomUuid(memberPrimaryKey, true), null);
+            primitives.writeVectorMetadata(tr, memberMetadata);
+            // lower priority than the already-collapsed replica added below, so the fold processes it second
+            primitives.writeVectorReference(tr, quantizer, clusterId,
+                    VectorReference.replicatedCopy(memberMetadata.vectorId(), transformedDuplicate, 0.5d, false));
+            return null;
+        });
+
+        // Derive the signature from the read-back reference (RaBitQ is lossy), exactly as foldCollapsedReplicas sees it.
+        final ClusterView withMember = onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
+        final VectorReference memberReplica = withMember.references().stream()
+                .filter(ref -> !ref.isPrimaryCopy() && !ref.isCollapsed())
+                .findFirst().orElseThrow();
+        final UUID signature = StorageAdapter.signatureUuid(memberReplica.vector());
+
+        // Phase 2: record the member in the collapsed store (so it folds), and add a HIGHER-priority already-collapsed
+        // replica of the same signature. Its primaryKey is Tuple.from(signature); we deliberately write NO collapsed-
+        // store entry for (signature, Tuple.from(signature)), so its fold-time lookup returns null and it passes through.
+        db.run(tr -> {
+            final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
+            final Quantizer quantizer = primitives.quantizer(accessInfo);
+            final Transformed<RealVector> transformedDuplicate =
+                    primitives.storageTransform(accessInfo).transform(duplicate);
+            primitives.writeCollapsedVectorId(tr, signature, memberReplica.id());
+            final VectorId collapsedReplicaId =
+                    new VectorId(Tuple.from(signature), RandomHelpers.randomUuid(Tuple.from("already-collapsed"), true));
+            primitives.writeVectorReference(tr, quantizer, clusterId,
+                    VectorReference.replicatedCopy(collapsedReplicaId, transformedDuplicate, 0.99d, true));
+            return null;
+        });
+
+        final ClusterView staged = onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
+        assertThat(staged.references().stream()
+                .filter(ref -> !ref.isPrimaryCopy() && ref.isCollapsed()
+                        && Tuple.from(signature).equals(ref.id().primaryKey()))
+                .toList())
+                .as("precondition: exactly one already-collapsed replica for the signature")
+                .hasSize(1);
+        assertThat(staged.references().stream()
+                .filter(ref -> !ref.isPrimaryCopy() && !ref.isCollapsed()
+                        && signature.equals(StorageAdapter.signatureUuid(ref.vector())))
+                .toList())
+                .as("precondition: exactly one plain member replica of the same signature")
+                .hasSize(1);
+
+        // The already-collapsed replica (processed first, higher priority) registers its signature on the pass-through
+        // branch, so the lower-priority member is dropped as a duplicate rather than folded into a colliding reference.
+        reassignCluster(guardiann, clusterId, staged.transformedCentroid());
+
+        final ClusterView after = onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
+        assertThat(after.references().stream()
+                .filter(ref -> !ref.isPrimaryCopy() && !ref.isCollapsed()
+                        && signature.equals(StorageAdapter.signatureUuid(ref.vector())))
+                .toList())
+                .as("the plain member replica of the collapsed signature must be folded away")
+                .isEmpty();
+        final List<VectorReference> collapsedAreaRefs = after.references().stream()
+                .filter(ref -> ref.isCollapsed() && Tuple.from(signature).equals(ref.id().primaryKey()))
+                .toList();
+        assertThat(collapsedAreaRefs)
+                .as("the same-signature references must collapse to exactly one collapsed-area reference")
+                .hasSize(1);
+        assertThat(collapsedAreaRefs.get(0).replicationPriority())
+                .as("the surviving collapsed reference must keep the highest replication priority among the members")
+                .isEqualTo(0.99d);
+    }
+
+    /**
+     * The dedup is membership-aware: a same-signature replica that is NOT a member of the collapsed set — a duplicate
+     * inserted after the collapse and not yet aggregated — is a distinct record and must be kept, not dropped merely
+     * because a collapsed-area reference for that signature is present. Stages a higher-priority already-collapsed
+     * replica plus a lower-priority non-member replica of the same signature (present in metadata, absent from the
+     * collapsed store), then verifies reassign keeps BOTH: the single collapsed-area reference and the distinct
+     * non-member replica.
+     */
+    @Test
+    void reassignKeepsAFreshNonMemberReplicaAlongsideACollapsedReference() throws Exception {
+        final Guardiann guardiann = newGuardiann(1_000, 20); // huge cap: the distinct inserts stay in one cluster
+        final Primitives primitives = guardiann.getLocator().primitives();
+
+        // A real, single cluster of distinct primaries, so reassign has a genuine cluster to dissolve.
+        final int numDistinctPrimaries = 10;
+        final List<PrimaryKeyAndVector> records =
+                VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, numDistinctPrimaries + 1);
+        for (int i = 1; i <= numDistinctPrimaries; i++) {
+            final Tuple primaryKey = Tuple.from("distinct", i);
+            final RealVector vector = records.get(i).vector();
+            db.run(tr -> {
+                guardiann.insert(tr, primaryKey, vector, null, true).join();
+                return null;
+            });
+        }
+        GuardiannStructureAsserts.runToQuiescence(db, guardiann);
+        final UUID clusterId =
+                onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann))).clusterId();
+
+        final RealVector duplicate = duplicateVector();
+
+        // A fresh, non-collapsed duplicate replica: same content (hence same signature) but a distinct primary key and,
+        // crucially, NO collapsed-store entry — the state a duplicate inserted after a collapse leaves.
+        final Tuple freshPrimaryKey = Tuple.from("fresh-dup", 0);
+        db.run(tr -> {
+            final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
+            final Quantizer quantizer = primitives.quantizer(accessInfo);
+            final Transformed<RealVector> transformedDuplicate =
+                    primitives.storageTransform(accessInfo).transform(duplicate);
+            final VectorMetadata freshMetadata =
+                    new VectorMetadata(freshPrimaryKey, RandomHelpers.randomUuid(freshPrimaryKey, true), null);
+            primitives.writeVectorMetadata(tr, freshMetadata);
+            primitives.writeVectorReference(tr, quantizer, clusterId,
+                    VectorReference.replicatedCopy(freshMetadata.vectorId(), transformedDuplicate, 0.5d, false));
+            return null;
+        });
+
+        // Derive the signature from the read-back reference (RaBitQ is lossy), exactly as foldCollapsedReplicas sees it.
+        final UUID signature = StorageAdapter.signatureUuid(
+                onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)))
+                        .references().stream().filter(ref -> !ref.isPrimaryCopy() && !ref.isCollapsed())
+                        .findFirst().orElseThrow().vector());
+
+        // A HIGHER-priority already-collapsed representative for the same signature (processed first). No collapsed-
+        // store entry for (signature, Tuple.from(signature)), so it takes the collapsed short-circuit and claims S.
+        db.run(tr -> {
+            final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
+            final Quantizer quantizer = primitives.quantizer(accessInfo);
+            final Transformed<RealVector> transformedDuplicate =
+                    primitives.storageTransform(accessInfo).transform(duplicate);
+            final VectorId collapsedReplicaId =
+                    new VectorId(Tuple.from(signature), RandomHelpers.randomUuid(Tuple.from("already-collapsed"), true));
+            primitives.writeVectorReference(tr, quantizer, clusterId,
+                    VectorReference.replicatedCopy(collapsedReplicaId, transformedDuplicate, 0.99d, true));
+            return null;
+        });
+
+        final ClusterView staged = onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
+        reassignCluster(guardiann, clusterId, staged.transformedCentroid());
+
+        final ClusterView after = onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
+        assertThat(after.references().stream()
+                .filter(ref -> ref.isCollapsed() && Tuple.from(signature).equals(ref.id().primaryKey()))
+                .toList())
+                .as("the collapsed-area reference is kept (exactly one)")
+                .hasSize(1);
+        assertThat(after.references().stream()
+                .filter(ref -> !ref.isPrimaryCopy() && !ref.isCollapsed()
+                        && freshPrimaryKey.equals(ref.id().primaryKey()))
+                .toList())
+                .as("a same-signature non-member replica must be kept, not dropped on signature alone")
+                .hasSize(1);
+    }
+
     // ---------------------------------------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------------------------------------
+
+    /**
+     * {@code executeSingleDeferredTask} must skip a task whose queue row was already removed earlier in the same
+     * transaction — the situation a {@link BounceTask} creates when it picks and runs a dependency that also sits in a
+     * caller's fetched batch. Re-running would be a state no-op (the task's cluster-state flag is already gone), but it
+     * would still fire {@code onTaskExecuted} a second time and over-decrement the outstanding-work count. Here the
+     * prior removal is simulated with a direct {@code deleteDeferredTask}; the second execution must be skipped and
+     * silent.
+     */
+    @Test
+    void executeSingleDeferredTaskSkipsAnAlreadyRemovedTask() throws Exception {
+        final Guardiann guardiann = newGuardiann(100_000, 20); // one cluster; this small load triggers no split/collapse
+        insertIdentical(guardiann, duplicateVector(), 0L, 10);
+        final ClusterView cluster =
+                onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
+
+        onWriteListener.pushFrame(); // the listener only tallies onto a pushed frame
+        try {
+            final boolean ran = db.run(tr -> {
+                final Primitives primitives = guardiann.getLocator().primitives();
+                final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
+                final CollapseTask task = CollapseTask.of(guardiann.getLocator(), accessInfo,
+                        RandomHelpers.randomUuid(cluster.clusterId(), true), cluster.clusterId(),
+                        cluster.transformedCentroid());
+                task.writeDeferredTask(tr);              // enqueue it
+                primitives.deleteDeferredTask(tr, task); // simulate a BounceTask having already run and removed it
+                return primitives.executeSingleDeferredTask(tr, task).join();
+            });
+            assertThat(ran).as("a task whose queue row was already removed must be skipped").isFalse();
+            assertThat(onWriteListener.getNumTasksExecutedByKind().getOrDefault(TaskKind.COLLAPSE, 0))
+                    .as("a skipped task must not fire onTaskExecuted (which would drift the outstanding-work count)")
+                    .isEqualTo(0);
+        } finally {
+            onWriteListener.popFrame();
+        }
+    }
+
+    /**
+     * The other half of the contract: a task whose queue row is still present runs, reports {@code true}, and fires
+     * {@code onTaskExecuted} exactly once (the cluster is not in {@code COLLAPSE} state, so the collapse itself is a
+     * no-op, but the execution is still recorded once).
+     */
+    @Test
+    void executeSingleDeferredTaskRunsAndReportsAPresentTask() throws Exception {
+        final Guardiann guardiann = newGuardiann(100_000, 20);
+        insertIdentical(guardiann, duplicateVector(), 0L, 10);
+        final ClusterView cluster =
+                onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
+
+        onWriteListener.pushFrame();
+        try {
+            final boolean ran = db.run(tr -> {
+                final Primitives primitives = guardiann.getLocator().primitives();
+                final AccessInfo accessInfo = Objects.requireNonNull(primitives.fetchAccessInfo(tr).join());
+                final CollapseTask task = CollapseTask.of(guardiann.getLocator(), accessInfo,
+                        RandomHelpers.randomUuid(cluster.clusterId(), true), cluster.clusterId(),
+                        cluster.transformedCentroid());
+                task.writeDeferredTask(tr);
+                return primitives.executeSingleDeferredTask(tr, task).join();
+            });
+            assertThat(ran).as("a present task must run").isTrue();
+            assertThat(onWriteListener.getNumTasksExecutedByKind().getOrDefault(TaskKind.COLLAPSE, 0))
+                    .as("a task that ran must fire onTaskExecuted exactly once").isEqualTo(1);
+        } finally {
+            onWriteListener.popFrame();
+        }
+    }
 
     @Nonnull
     private Guardiann newGuardiann(final int primaryClusterMax, final int collapseMinDuplicates) {
@@ -590,6 +854,9 @@ public class CollapseScenarioTest implements BaseTest {
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)
                 .setPrimaryClusterMax(primaryClusterMax)
+                // Config requires the hard cap to exceed the split threshold; keep it proportional. Every insert here
+                // uses maintainInTransaction=true, which bypasses the hard-cap valve, so this value never back-pressures.
+                .setPrimaryClusterHardMax(2 * primaryClusterMax)
                 .setPrimaryClusterMin(1)
                 .setCollapseMinDuplicates(collapseMinDuplicates)
                 .setDeterministicRandomness(true)
@@ -604,7 +871,7 @@ public class CollapseScenarioTest implements BaseTest {
     /** The first SIFT-small base vector, used as the vector we insert many identical copies of. */
     @Nonnull
     private RealVector duplicateVector() throws Exception {
-        return TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1).get(0).vector();
+        return VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1).get(0).vector();
     }
 
     /** Inserts {@code count} copies of {@code vector} under distinct primary keys {@code [pkBase, pkBase+count)}. */
@@ -616,7 +883,7 @@ public class CollapseScenarioTest implements BaseTest {
             final Tuple primaryKey = Tuple.from(pkBase + i);
             primaryKeys.add(primaryKey);
             db.run(tr -> {
-                guardiann.insert(tr, primaryKey, vector, null).join();
+                guardiann.insert(tr, primaryKey, vector, null, true).join();
                 return null;
             });
         }
@@ -630,7 +897,7 @@ public class CollapseScenarioTest implements BaseTest {
 
     /** Marks the single cluster COLLAPSE and runs a {@link CollapseTask} on it directly. */
     private void collapseOnlyCluster(@Nonnull final Guardiann guardiann) {
-        final ClusterView cluster = onlyCluster(Objects.requireNonNull(TestHelpers.snapshotStructure(db, guardiann)));
+        final ClusterView cluster = onlyCluster(Objects.requireNonNull(GuardiannStructureAsserts.snapshotStructure(db, guardiann)));
         setCollapseState(guardiann, cluster.clusterId());
         runCollapseDirectly(guardiann, cluster.clusterId(), cluster.transformedCentroid());
     }

@@ -39,11 +39,13 @@ import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
-import org.apache.commons.lang3.ArrayUtils;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 @SuppressWarnings("PMD.AvoidPrintStackTrace")
 @API(API.Status.EXPERIMENTAL)
@@ -79,7 +81,11 @@ public class RelationalSQLLine {
 
         // Now start SQLLine
         try {
-            args = ArrayUtils.addAll(new String[] { "-ac", "com.apple.foundationdb.relational.cli.sqlline.Customize"}, args);
+            final List<String> withCustomize = new ArrayList<>();
+            withCustomize.add("-ac");
+            withCustomize.add("com.apple.foundationdb.relational.cli.sqlline.Customize");
+            withCustomize.addAll(Arrays.asList(args));
+            args = withCustomize.toArray(new String[0]);
             sqlline.SqlLine.main(args);
         } catch (Exception e) {
             e.printStackTrace();

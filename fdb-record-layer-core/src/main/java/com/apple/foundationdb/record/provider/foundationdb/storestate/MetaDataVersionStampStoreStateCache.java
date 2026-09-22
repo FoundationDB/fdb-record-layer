@@ -42,6 +42,16 @@ import java.util.concurrent.CompletableFuture;
  * on any record store whose state one would want cached by calling {@link FDBRecordStore#setStateCacheability(boolean)}.
  * Then only those stores will be cached by this store state cache.
  *
+ * <p>
+ * Note that the cache instance itself is process-local and bound to a single {@link FDBDatabase} object, so each JVM
+ * has its own copy of cached entries. What makes the cache safe across processes is the usage of the
+ * meta-data version-stamp key: entries are keyed on the value of that stamp at load time, and any transaction
+ * (in any process) that bumps the stamp via {@link FDBRecordContext#setMetaDataVersionStamp()} causes every process's
+ * next cache lookup to see a different stamp value and consequently invalidate the older entry. The per-JVM cache and
+ * the cluster-wide invalidation key are complementary: the former makes the cache cheap to consult, the latter makes it
+ * safe to trust.
+ * </p>
+ *
  * @see FDBRecordStore#setStateCacheabilityAsync(boolean)
  * @see FDBRecordContext#getMetaDataVersionStamp(IsolationLevel)
  */

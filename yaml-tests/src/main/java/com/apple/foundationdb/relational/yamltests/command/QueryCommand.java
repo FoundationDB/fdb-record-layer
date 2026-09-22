@@ -99,7 +99,7 @@ public final class QueryCommand extends Command {
                     QueryConfig.parseConfigs(blockName, reference, queryConfigsWithValueList, executionContext);
 
             final List<QueryConfig> skipConfigs = configs.stream().filter(config -> config instanceof QueryConfig.SkipConfig)
-                    .collect(Collectors.toList());
+                    .toList();
             Assert.thatUnchecked(skipConfigs.size() < 2, "Query should not have more than one skip");
             if (!skipConfigs.isEmpty()) {
                 return new SkippedCommand(reference, executionContext,
@@ -155,7 +155,7 @@ public final class QueryCommand extends Command {
                             .anyMatch(config -> Objects.equals(config.getConfigName(), QueryConfig.QUERY_CONFIG_DEBUGGER));
             return new QueryCommand(reference, queryInterpreter, configs, executionContext, hasDebuggerConfig);
         } catch (Exception e) {
-            throw executionContext.wrapContext(e,
+            throw YamlExecutionContext.wrapContext(e,
                     () -> "‼️ Error parsing query command at " + reference, "query", reference);
         }
     }
@@ -193,7 +193,7 @@ public final class QueryCommand extends Command {
             throw tAE;
         } catch (Throwable e) {
             if (maybeExecutionThrowable.get() == null) {
-                maybeExecutionThrowable.set(executionContext.wrapContext(e,
+                maybeExecutionThrowable.set(YamlExecutionContext.wrapContext(e,
                         () -> "‼️ Error executing query command at " + getReference() + " against connection for versions " + connection.getVersions(),
                         String.format(Locale.ROOT, "query [%s] ", executor), getReference()));
             }

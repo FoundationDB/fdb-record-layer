@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="JavaProjectCodeInsightSettings">
+    <excluded-names>
+      <name>com.beust.jcommander.internal.Nullable</name>
+      <name>edu.umd.cs.findbugs.annotations.NonNull</name>
+      <name>org.checkerframework.checker.nullness.qual.NonNull</name>
+      <name>org.checkerframework.checker.nullness.qual.Nullable</name>
+      <name>org.jspecify.annotations.NonNull</name>
+      <name>org.jspecify.annotations.Nullable</name>
+    </excluded-names>
+  </component>
+</project>

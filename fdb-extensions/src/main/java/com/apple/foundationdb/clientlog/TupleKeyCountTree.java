@@ -42,7 +42,7 @@ import java.util.TreeMap;
  * A tree of occurrence counts tuple-encoded keys.
  */
 @API(API.Status.EXPERIMENTAL)
-@SpotBugsSuppressWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
+@SpotBugsSuppressWarnings("EI_EXPOSE_REP")
 public class TupleKeyCountTree {
     @Nonnull
     private final byte[] bytes;

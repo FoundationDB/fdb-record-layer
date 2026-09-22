@@ -613,7 +613,7 @@ public class CopyCommandTest {
 
             // Try to import to destination database - should fail because schema exists with different template
             RelationalAssertions.assertThrowsSqlException(() -> importDatabase(quoted, true, setup.dest, exportedData))
-                    .hasErrorCode(ErrorCode.INVALID_SCHEMA_TEMPLATE);
+                    .hasErrorCode(ErrorCode.SCHEMA_ALREADY_EXISTS);
         } finally {
             dropTemplateAndDatabase(quoted, List.of(sourceTemplateName), setup.source);
             dropTemplateAndDatabase(quoted, List.of(destTemplateName), setup.dest);

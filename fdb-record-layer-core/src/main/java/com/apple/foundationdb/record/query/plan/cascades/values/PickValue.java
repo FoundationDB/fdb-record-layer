@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
@@ -232,7 +233,8 @@ public class PickValue extends AbstractValue {
 
         @SuppressWarnings("PMD.UnusedFormalParameter")
         private static Value encapsulate(@Nonnull BuiltInFunction<Value> ignored,
-                                         @Nonnull final List<? extends Typed> arguments) {
+                                         @Nonnull final CallSiteArguments callSiteArguments) {
+            final List<? extends Typed> arguments = callSiteArguments.getArgumentsList();
             Verify.verify(arguments.size() > 1);
             var selectorValue = (Value)arguments.get(0);
             final var selectorMaxType = Type.maximumType(selectorValue.getResultType(), Type.primitiveType(Type.TypeCode.INT));

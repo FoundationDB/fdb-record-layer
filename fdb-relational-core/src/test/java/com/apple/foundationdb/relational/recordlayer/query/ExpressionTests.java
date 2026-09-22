@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -32,12 +33,16 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import org.assertj.core.api.Assertions;
 import org.assertj.core.api.AutoCloseableSoftAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -401,5 +406,99 @@ class ExpressionTests {
             softly.assertThat(sameNamedArg)
                     .isSameAs(namedArg);
         }
+    }
+
+    @Test
+    void toCallSiteArgumentsOnNoExpressionsIsEmpty() {
+        final CallSiteArguments callSiteArguments = Expressions.empty().toCallSiteArguments();
+
+        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+            softly.assertThat(callSiteArguments)
+                    .isSameAs(CallSiteArguments.empty());
+            softly.assertThat(callSiteArguments.isEmpty())
+                    .isTrue();
+        }
+    }
+
+    @Test
+    void toCallSiteArgumentsOnUnnamedExpressionsIsPositional() {
+        final Expressions expressions = Expressions.of(ImmutableList.of(ANONYMOUS, FOO));
+
+        final CallSiteArguments callSiteArguments = expressions.toCallSiteArguments();
+
+        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+            softly.assertThat(callSiteArguments.isNamed())
+                    .as("unnamed arguments should use the positional calling convention")
+                    .isFalse();
+            softly.assertThat(callSiteArguments.getArgumentsList())
+                    .as("the argument order should be the order the expressions were supplied in")
+                    .containsExactly(ANONYMOUS.getUnderlying(), FOO.getUnderlying());
+            softly.assertThat(callSiteArguments.isSimplePositional())
+                    .as("a call site built from expressions alone carries neither options nor a window specification")
+                    .isTrue();
+        }
+    }
+
+    @Test
+    void toCallSiteArgumentsOnNamedExpressionsIsNamed() {
+        final Expressions expressions = Expressions.of(ImmutableList.of(
+                ANONYMOUS.toNamedArgument(Identifier.of("second")),
+                FOO.toNamedArgument(Identifier.of("first"))));
+
+        final CallSiteArguments callSiteArguments = expressions.toCallSiteArguments();
+
+        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+            softly.assertThat(callSiteArguments.isNamed())
+                    .as("named arguments should use the named calling convention")
+                    .isTrue();
+            softly.assertThat(callSiteArguments.asNamedArguments().namedArguments())
+                    .containsOnlyKeys("second", "first")
+                    .containsEntry("second", ANONYMOUS.getUnderlying())
+                    .containsEntry("first", FOO.getUnderlying());
+            softly.assertThat(callSiteArguments.isSimpleNamed())
+                    .isTrue();
+        }
+    }
+
+    @Test
+    void toCallSiteArgumentsOnMixedExpressionsThrows() {
+        final Expressions expressions = Expressions.of(ImmutableList.of(
+                ANONYMOUS, FOO.toNamedArgument(Identifier.of("first"))));
+
+        Assertions.assertThatThrownBy(expressions::toCallSiteArguments)
+                .isInstanceOf(UncheckedRelationalException.class)
+                .hasMessageContaining("mixing named and unnamed arguments is not supported")
+                .extracting(throwable -> ((UncheckedRelationalException)throwable).unwrap().getErrorCode())
+                .isEqualTo(ErrorCode.UNSUPPORTED_OPERATION);
+    }
+
+    @Test
+    void toCallSiteArgumentsFlattensSingleItemRecordsWhenAsked() {
+        final Value singleItemRecord = RecordConstructorValue.ofColumns(
+                ImmutableList.of(Column.of(Optional.of("x"), LiteralValue.ofScalar(42L))));
+        final Expressions expressions = Expressions.ofSingle(Expression.fromUnderlying(singleItemRecord));
+
+        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+            softly.assertThat(expressions.toCallSiteArguments(true).getArgumentsList())
+                    .as("a single-item record is the value it wraps")
+                    .containsExactly(LiteralValue.ofScalar(42L));
+            softly.assertThat(expressions.toCallSiteArguments(false).getArgumentsList())
+                    .as("without flattening the record should be handed over as-is")
+                    .containsExactly(singleItemRecord);
+            softly.assertThat(expressions.toCallSiteArguments().getArgumentsList())
+                    .as("flattening should be off by default")
+                    .containsExactly(singleItemRecord);
+        }
+    }
+
+    @Test
+    void toCallSiteArgumentsDoesNotFlattenMultiItemRecords() {
+        final Value multiItemRecord = RecordConstructorValue.ofColumns(ImmutableList.of(
+                Column.of(Optional.of("x"), LiteralValue.ofScalar(42L)),
+                Column.of(Optional.of("y"), LiteralValue.ofScalar("hello"))));
+        final Expressions expressions = Expressions.ofSingle(Expression.fromUnderlying(multiItemRecord));
+
+        Assertions.assertThat(expressions.toCallSiteArguments(true).getArgumentsList())
+                .containsExactly(multiItemRecord);
     }
 }

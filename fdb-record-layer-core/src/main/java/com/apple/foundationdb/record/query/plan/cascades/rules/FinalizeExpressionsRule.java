@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionPartition;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
@@ -35,11 +36,10 @@ import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
+import java.util.stream.StreamSupport;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.anyExpressionPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.expressionPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.rollUpPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.anyExploratoryExpression;
@@ -55,12 +55,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class FinalizeExpressionsRule extends AbstractCascadesRule<RelationalExpression> implements ImplementationCascadesRule<RelationalExpression> {
     @Nonnull
-    private static final BindingMatcher<ExpressionPartition<RelationalExpression>> childPartitionsMatcher =
-            anyExpressionPartition();
-    
+    private static final CollectionMatcher<ExpressionPartition<RelationalExpression>> allPartitions = all(anyExpressionPartition());
+
     @Nonnull
-    private static final BindingMatcher<Reference> childReferenceMatcher =
-            expressionPartitions(rollUpPartitions(any(childPartitionsMatcher)));
+    private static final BindingMatcher<Reference> childReferenceMatcher = expressionPartitions(allPartitions);
 
     @Nonnull
     private static final CollectionMatcher<Quantifier> allQuantifiersMatcher =
@@ -85,19 +83,22 @@ public class FinalizeExpressionsRule extends AbstractCascadesRule<RelationalExpr
     public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var exploratoryExpression = bindings.get(root);
-        final var partitions = bindings.getAll(childPartitionsMatcher);
+        final var partitionsCollectedByQuantifier = bindings.getAll(allPartitions);
         final var allQuantifiers = bindings.get(allQuantifiersMatcher);
 
-        final var newQuantifiers =
-                Streams.zip(partitions.stream(), allQuantifiers.stream(),
+        if (allQuantifiers.isEmpty()) {
+            call.yieldFinalExpression(exploratoryExpression.withQuantifiers(ImmutableList.of()));
+        } else {
+            StreamSupport.stream(CrossProduct.crossProduct(partitionsCollectedByQuantifier).spliterator(), false).forEach(
+                    partitions -> {
+                        final var newQuantifiers = Streams.zip(partitions.stream(), allQuantifiers.stream(),
                                 (partition, quantifier) -> {
-                                    final var reference =
-                                            call.memoizeFinalExpressionsFromOther(quantifier.getRangesOver(),
-                                                    partition.getExpressions());
+                                    final var reference = call.memoizeFinalExpressionsFromOther(
+                                            quantifier.getRangesOver(), partition.getExpressions());
                                     return quantifier.toBuilder().build(reference);
-                                })
-                        .collect(ImmutableList.toImmutableList());
-
-        call.yieldFinalExpression(exploratoryExpression.withQuantifiers(newQuantifiers));
+                                }).collect(ImmutableList.toImmutableList());
+                        call.yieldFinalExpression(exploratoryExpression.withQuantifiers(newQuantifiers));
+                    });
+        }
     }
 }

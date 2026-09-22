@@ -1,6 +1,6 @@
-==============
-SQL data types
-==============
+=====
+Types
+=====
 
 .. _sql-types:
 
@@ -8,7 +8,7 @@ SQL data types
 Primitive types
 ###############
 
-As with most relational databases, the FDB Relational Layer supports the expected types--referred to as "primitive types" in Relational Layer parlance:
+As with most relational databases, the FDB Relational Layer supports the expected SQL data types--referred to as "primitive types" in Relational Layer parlance:
 
 * Strings (STRING)
 * Scalars (INTEGER/BIGINT)

@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.catalog.SchemaExistsBehavior;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
@@ -62,7 +63,8 @@ public class HollowStoreCatalog implements StoreCatalog, KeySpaceProvider {
     }
 
     @Override
-    public void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite, boolean createDatabaseIfNecessary) throws RelationalException {
+    public void saveSchema(@Nonnull Transaction txn, @Nonnull Schema dataToWrite, boolean createDatabaseIfNecessary,
+                           @Nonnull SchemaExistsBehavior existsBehavior) throws RelationalException {
         throw new OperationUnsupportedException("This store catalog is hollow and does not support calls.");
     }
 

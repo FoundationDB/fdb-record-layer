@@ -65,9 +65,9 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -1159,12 +1159,12 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
-     * Get the database's meta-data version-stamp. This key is somewhat different from other keys in the
-     * database in that its value is returned to the client at the same time that the client receives its
-     * {@linkplain Transaction#getReadVersion() read version}. This means that reading this key does not
-     * require querying any storage server, so the client can use this key as a kind of "cache invalidation" key
-     * without needing to worry about the extra reads to this key overloading the backing storage servers (which
-     * would be the case for other keys).
+     * Get the database's meta-data version-stamp. This key is somewhat different from other keys in the database,
+     * in that its value is returned to the client at the same time that the client receives its
+     * {@linkplain Transaction#getReadVersion() read version}, which means that reading it does not require querying
+     * any storage server. The intended use is as a coordinated cross-process cache-invalidation signal: any transaction
+     * that calls {@link #setMetaDataVersionStamp()} advances the stamp, and every other client's next read sees the new
+     * value at zero storage-server cost.
      *
      * <p>
      * This key can only be updated by calling {@link #setMetaDataVersionStamp()}, which will set the key
@@ -1215,8 +1215,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
-     * Update the meta-data version-stamp. At commit time, the database will write to this key
-     * the commit version-stamp of this transaction. After this has been committed, any subsequent
+     * Update the meta-data version-stamp. At commit time, the database will write the commit version-stamp of this
+     * transaction to a system key. After this has been committed, any subsequent
      * transaction will see an updated value when calling {@link #getMetaDataVersionStamp(IsolationLevel)},
      * and those transactions may use that value to invalidate any stale cache entries using the
      * meta-data version-stamp key. After this method has been called, any calls to {@code getMetaDataVersionStamp()}

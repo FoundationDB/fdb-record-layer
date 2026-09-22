@@ -79,10 +79,25 @@ public final class SlidingWindowTestHelpers {
                                                                   int vectorDims,
                                                                   @Nonnull Direction direction,
                                                                   @Nonnull List<List<String>> groupingFields) {
+        return buildSlidingWindowVectorMetaData(indexName, windowSize, vectorDims, direction, groupingFields,
+                Key.Expressions.field("rec_no"));
+    }
+
+    /**
+     * Same as {@link #buildSlidingWindowVectorMetaData(String, int, int, Direction, List)} but with an explicit
+     * primary key. Prefixing the primary key with a grouping field lets {@code deleteRecordsWhere} target that group.
+     */
+    @Nonnull
+    public static RecordMetaData buildSlidingWindowVectorMetaData(@Nonnull String indexName,
+                                                                  int windowSize,
+                                                                  int vectorDims,
+                                                                  @Nonnull Direction direction,
+                                                                  @Nonnull List<List<String>> groupingFields,
+                                                                  @Nonnull KeyExpression primaryKey) {
         final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecordsSlidingWindowVectorProto.getDescriptor());
         metaDataBuilder.getRecordType("SlidingWindowVectorRecord")
-                .setPrimaryKey(Key.Expressions.field("rec_no"));
+                .setPrimaryKey(primaryKey);
 
         final IndexPredicate.RowNumberWindowPredicate windowPredicate =
                 new IndexPredicate.RowNumberWindowPredicate(
@@ -154,7 +169,8 @@ public final class SlidingWindowTestHelpers {
                 .asList()
                 .join()
                 .stream()
-                .map(e -> e.getPrimaryKey().getLong(0))
+                // rec_no is the last primary-key column (grouped models may prefix the primary key with the group).
+                .map(e -> e.getPrimaryKey().getLong(e.getPrimaryKey().size() - 1))
                 .collect(Collectors.toSet());
     }
 

@@ -22,14 +22,12 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.half.Half;
 import com.apple.foundationdb.linear.HalfRealVector;
-import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsIndexScenariosProto;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
@@ -39,17 +37,28 @@ import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanOption
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexTarget;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
-import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
+import java.util.Map;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 
+/**
+ * A vector index over the scenario schema. The engine-specific index options (engine kind, metric,
+ * dimensionality) are supplied by the test that owns the engine — see
+ * {@link VectorIndexEngineTestSuite} — so the same definition exercises every vector engine.
+ */
 class VectorIndexDefinition implements IndexDefinition {
     private final String indexName = "vectorIndex";
+    @Nonnull
+    private final Map<String, String> indexOptions;
     // A fixed query vector (all zeros) shared by every scan so that the before/after scans are comparable.
     private final HalfRealVector queryVector = new HalfRealVector(constantHalfComponents(0.0f));
+
+    VectorIndexDefinition(@Nonnull final Map<String, String> indexOptions) {
+        this.indexOptions = indexOptions;
+    }
 
     @Override
     public String getIndexName() {
@@ -79,19 +88,16 @@ class VectorIndexDefinition implements IndexDefinition {
         final KeyExpression root = groupingPrefix.getColumnSize() == 0
                 ? new KeyWithValueExpression(vectorField, 0)
                 : new KeyWithValueExpression(concat(groupingPrefix, vectorField), groupingPrefix.getColumnSize());
-        return new Index(indexName, root, IndexTypes.VECTOR,
-                ImmutableMap.of(IndexOptions.HNSW_METRIC, Metric.EUCLIDEAN_METRIC.name(),
-                        IndexOptions.HNSW_NUM_DIMENSIONS, String.valueOf(ScenarioRecords.VECTOR_DIMENSIONS)));
+        return new Index(indexName, root, IndexTypes.VECTOR, indexOptions);
     }
 
     @Override
     public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final ScanProperties scanProperties) {
         final Index index = store.getRecordMetaData().getIndex(indexName);
-        // A large efSearch and k make the (approximate) HNSW search effectively exhaustive
-        // for the small number of records used by the scenarios.
+        // A large k makes the (approximate) nearest-neighbor search effectively exhaustive for the small
+        // number of records the scenarios use. The options are deliberately engine-neutral.
         final VectorIndexScanOptions options = VectorIndexScanOptions.builder()
-                .putOption(VectorIndexScanOptions.HNSW_EF_SEARCH, 1000)
-                .putOption(VectorIndexScanOptions.HNSW_RETURN_VECTORS, false)
+                .putOption(VectorIndexScanOptions.VECTOR_RETURN_VECTORS, false)
                 .build();
         final VectorIndexScanComparisons comparisons =
                 VectorIndexTestBase.createVectorIndexScanComparisons(queryVector, 1000, options);

@@ -102,10 +102,13 @@ public class ComposedBitmapIndexQueryPlan extends AbstractRelationalExpressionWi
                 .map(RecordQueryCoveringIndexPlan::getIndexPlan)
                 .map(scan -> (Function<byte[], RecordCursor<IndexEntry>>) childContinuation -> scan.executeEntries(store, context, childContinuation, scanExecuteProperties))
                 .collect(Collectors.toList());
+        final RecordQueryCoveringIndexPlan coveringIndexPlan = indexPlans.get(0);
         return ComposedBitmapIndexCursor.create(cursorFunctions, composer, continuation, store.getTimer())
                 // Composers can return null bitmaps when empty, which is then left out of the result set.
                 .filter(indexEntry -> indexEntry.getValue().get(0) != null)
-                .map(indexPlans.get(0).indexEntryToQueriedRecord(store))
+                // An empty evaluation context is enough here: a covering index plan decodes entries into a partial copy
+                // of the base record and so does not resolve its shape against the context.
+                .map(indexEntry -> coveringIndexPlan.indexEntryToQueriedRecord(store, EvaluationContext.empty(), indexEntry))
                 .map(queriedRecord -> QueryResult.fromQueriedRecord(getResultValue().getResultType(), context, queriedRecord));
     }
 

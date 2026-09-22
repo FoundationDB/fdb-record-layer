@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
@@ -169,7 +170,7 @@ class ValueComputationTest {
         final var _a_b = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "ab"));
         final var _x_b = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("x", "xb"));
         // _.a.ab + _.x.xb
-        final var _a_ab__plus__x_xb = (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(_a_b, _x_b));
+        final var _a_ab__plus__x_xb = (Value)new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(_a_b, _x_b));
         final var toBePulledUpValues = ImmutableList.of(record_type, _a_ab__plus__x_xb);
 
         final var resultsMap = pulledThroughValue.pullUp(toBePulledUpValues,
@@ -181,7 +182,7 @@ class ValueComputationTest {
 
         final var expectedMap = ImmutableMultimap.of(
                 record_type, new RecordTypeValue(QuantifiedObjectValue.of(UPPER_ALIAS, new Type.AnyRecord(true))),
-                _a_ab__plus__x_xb, (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(new_a_b, new_x_b)));
+                _a_ab__plus__x_xb, (Value)new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(new_a_b, new_x_b)));
         Assertions.assertEquals(expectedMap, resultsMap);
     }
 
@@ -197,7 +198,7 @@ class ValueComputationTest {
         final var _a_b = FieldValue.ofFieldNames(qov, ImmutableList.of("a", "ab"));
         final var _x_b = FieldValue.ofFieldNames(qov, ImmutableList.of("x", "xb"));
         // _.a.ab + _.x.xb
-        final var _a_ab__plus__x_xb = (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(_a_b, _x_b));
+        final var _a_ab__plus__x_xb = (Value)new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(_a_b, _x_b));
         final var toBePulledUpValues = ImmutableList.of(record_type, _a_ab__plus__x_xb);
 
         final var resultsMap = pulledThroughValue.pullUp(toBePulledUpValues,
@@ -209,7 +210,7 @@ class ValueComputationTest {
 
         final var expectedMap = ImmutableMultimap.of(
                 record_type, new RecordTypeValue(FieldValue.ofFieldName(upperCurrentValue, "_1")),
-                _a_ab__plus__x_xb, (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(new_a_b, new_x_b)));
+                _a_ab__plus__x_xb, (Value)new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(new_a_b, new_x_b)));
         Assertions.assertEquals(expectedMap, resultsMap);
     }
 
@@ -226,7 +227,7 @@ class ValueComputationTest {
         final var _a_b = FieldValue.ofFieldNames(qov1, ImmutableList.of("a", "ab"));
         final var _x_b = FieldValue.ofFieldNames(qov1, ImmutableList.of("x", "xb"));
         // _.a.ab + _.x.xb
-        final var _a_ab__plus__x_xb = (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(_a_b, _x_b));
+        final var _a_ab__plus__x_xb = (Value)new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(_a_b, _x_b));
         final var toBePulledUpValues = ImmutableList.of(_a_ab__plus__x_xb);
 
         final var resultsMap = pulledThroughValue.pullUp(toBePulledUpValues,
@@ -237,7 +238,7 @@ class ValueComputationTest {
         final var new_x_b = FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_0", "x", "xb"));
 
         final var expectedMap = ImmutableMultimap.of(
-                _a_ab__plus__x_xb, (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(new_a_b, new_x_b)));
+                _a_ab__plus__x_xb, (Value)new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(new_a_b, new_x_b)));
         Assertions.assertEquals(expectedMap, resultsMap);
     }
 

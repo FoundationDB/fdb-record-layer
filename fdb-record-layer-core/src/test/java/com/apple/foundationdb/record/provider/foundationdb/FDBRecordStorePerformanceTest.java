@@ -189,7 +189,7 @@ public class FDBRecordStorePerformanceTest {
                         .setKeySpacePath(keyspacePath);
                 final FDBRecordStore recordStore;
                 if (n == 0) {
-                    FDBRecordStore.deleteStore(context, keyspacePath);
+                    FDBRecordStore.deleteStoreAsync(context, keyspacePath).join();
                     recordStore = storeBuilder.create();
                 } else {
                     recordStore = storeBuilder.open();

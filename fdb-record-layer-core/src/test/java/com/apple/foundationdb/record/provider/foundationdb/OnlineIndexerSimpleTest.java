@@ -568,7 +568,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
             // Verify rangeSet is cleared when index is marked readable
-            assertTrue(recordStore.isIndexReadable(index));
+            assertTrue(recordStore.getIndexState(index).isReadable());
 
             final RangeSet rangeSet = new RangeSet(recordStore.indexRangeSubspace(index));
             Boolean isEmpty = rangeSet.isEmpty(context.ensureActive()).join();

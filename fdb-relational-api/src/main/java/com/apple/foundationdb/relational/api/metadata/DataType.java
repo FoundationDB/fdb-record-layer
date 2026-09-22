@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 
@@ -110,7 +109,6 @@ public abstract class DataType {
      *
      * @return a corresponding JDBC SQL type.
      */
-    @SpotBugsSuppressWarnings(value = {"NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"}, justification = "there is protection against nulls")
     public int getJdbcSqlCode() {
         return typeCodeJdbcTypeMap.get(Objects.requireNonNull(getCode()));
     }

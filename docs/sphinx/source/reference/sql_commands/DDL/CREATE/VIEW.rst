@@ -102,7 +102,7 @@ Views can reference other views. The following creates a second view on top of t
 View with JOIN
 --------------
 
-Views support joins, including self-joins (see :ref:`inner_join` for join syntax):
+Views support joins, including self-joins (see :ref:`INNER JOIN <inner_join>` for join syntax):
 
 .. code-block:: sql
 
@@ -114,7 +114,7 @@ Views support joins, including self-joins (see :ref:`inner_join` for join syntax
 View with CTE
 -------------
 
-Views can use Common Table Expressions (see :doc:`WITH` for CTE syntax):
+Views can use Common Table Expressions (see :doc:`WITH <../../DQL/WITH>` for CTE syntax):
 
 .. code-block:: sql
 

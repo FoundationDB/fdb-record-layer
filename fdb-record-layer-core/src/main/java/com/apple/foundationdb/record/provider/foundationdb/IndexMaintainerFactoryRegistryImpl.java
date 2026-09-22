@@ -21,14 +21,13 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.SlidingWindowIndexMaintainerFactory;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
@@ -39,8 +38,6 @@ import java.util.Map;
  */
 @API(API.Status.INTERNAL)
 public class IndexMaintainerFactoryRegistryImpl implements IndexMaintainerFactoryRegistry {
-    @Nonnull
-    private static final Logger LOGGER = LoggerFactory.getLogger(IndexMaintainerFactoryRegistryImpl.class);
     @Nonnull
     protected static final IndexMaintainerFactoryRegistryImpl INSTANCE = new IndexMaintainerFactoryRegistryImpl();
 
@@ -54,15 +51,30 @@ public class IndexMaintainerFactoryRegistryImpl implements IndexMaintainerFactor
 
     @Nonnull
     protected static Map<String, IndexMaintainerFactory> initRegistry() {
+        return buildRegistry(ServiceLoaderProvider.load(IndexMaintainerFactory.class));
+    }
+
+    /**
+     * Maps each index type to the factory that maintains it. An index type may be claimed by only one factory.
+     *
+     * @param factories the factories found on the class path
+     *
+     * @return the index type to factory map
+     *
+     * @throws RecordCoreException if two factories claim the same index type
+     */
+    @Nonnull
+    @VisibleForTesting
+    static Map<String, IndexMaintainerFactory> buildRegistry(@Nonnull final Iterable<IndexMaintainerFactory> factories) {
         final Map<String, IndexMaintainerFactory> registry = new HashMap<>();
-        for (IndexMaintainerFactory factory : ServiceLoaderProvider.load(IndexMaintainerFactory.class)) {
+        for (IndexMaintainerFactory factory : factories) {
             for (String type : factory.getIndexTypes()) {
-                if (registry.containsKey(type)) {
-                    if (LOGGER.isWarnEnabled()) {
-                        LOGGER.warn(KeyValueLogMessage.of("duplicate index maintainer", LogMessageKeys.INDEX_TYPE, type));
-                    }
-                } else {
-                    registry.put(type, factory);
+                final var existingFactory = registry.put(type, factory);
+                if (existingFactory != null) {
+                    throw new RecordCoreException("duplicate index maintainer factory for index type",
+                            LogMessageKeys.INDEX_TYPE, type,
+                            LogMessageKeys.VALUE, existingFactory.getClass().getName() + ", "
+                                                  + factory.getClass().getName());
                 }
             }
         }

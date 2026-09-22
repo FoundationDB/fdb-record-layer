@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.EvaluatesToValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.OfTypeValue;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
@@ -50,7 +51,6 @@ import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.FakeTicker;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Order;
@@ -351,7 +351,7 @@ public class ConstraintValidityTests {
         final var ticker = new FakeTicker();
         final var cache = getCache(ticker);
         planQuery(cache, "SELECT game.name from score, game use index (gameIdx) where game.score_id is not null and game.score_id = score.id", GameIdx);
-        cacheShouldBe(cache, Map.of("SELECT \"GAME\" . \"NAME\" from \"SCORE\" , \"GAME\" use index ( \"GAMEIDX\" ) " +
-                "where \"GAME\" . \"SCORE_ID\" is not null and \"GAME\" . \"SCORE_ID\" = \"SCORE\" . \"ID\" ", Map.of(ppe(QueryPlanConstraint.noConstraint()), GameIdx)));
+        cacheShouldBe(cache, Map.of("SELECT \"GAME\" . \"NAME\" FROM \"SCORE\" , \"GAME\" USE INDEX ( \"GAMEIDX\" ) " +
+                "WHERE \"GAME\" . \"SCORE_ID\" IS NOT NULL AND \"GAME\" . \"SCORE_ID\" = \"SCORE\" . \"ID\" ", Map.of(ppe(QueryPlanConstraint.noConstraint()), GameIdx)));
     }
 }

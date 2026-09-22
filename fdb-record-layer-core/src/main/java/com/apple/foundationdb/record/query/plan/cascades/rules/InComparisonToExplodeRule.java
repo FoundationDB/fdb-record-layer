@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
@@ -214,7 +215,7 @@ public class InComparisonToExplodeRule extends AbstractCascadesRule<SelectExpres
         final var resultsBuilder = ImmutableList.<QueryPredicate>builder();
         for (int i = 0; i < fieldValues.size(); i++) {
             final Value fieldValue = fieldValues.get(i);
-            BooleanValue currentVal = (BooleanValue) new RelOpValue.EqualsFn().encapsulate(List.of(fieldValue, comparandValueChildren.get(i).getValue()));
+            BooleanValue currentVal = (BooleanValue) new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(fieldValue, comparandValueChildren.get(i).getValue()));
             Optional<QueryPredicate> currentQueryPredicate = currentVal.toQueryPredicate(null, Quantifier.current());
             Verify.verify(currentQueryPredicate.isPresent());
             resultsBuilder.add(currentQueryPredicate.get());

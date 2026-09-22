@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -47,7 +46,6 @@ public class QueryExecutor {
     private final RecordQueryPlan plan;
     private final EvaluationContext evaluationContext;
 
-    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "internal implementation should have proper usage")
     public QueryExecutor(@Nonnull final RecordQueryPlan plan,
                          @Nonnull final EvaluationContext evaluationContext,
                          @Nonnull final RecordLayerSchema schema) {

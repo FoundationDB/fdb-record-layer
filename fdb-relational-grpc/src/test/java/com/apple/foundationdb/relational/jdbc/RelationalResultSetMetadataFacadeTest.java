@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.jdbc;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSetMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
-import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumnMetadata;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.StructMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Type;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -36,10 +36,9 @@ import java.sql.Types;
 import java.util.stream.Stream;
 
 public class RelationalResultSetMetadataFacadeTest {
-
     private static ResultSetMetadata createResultSetProtoForType(Type type) {
         return ResultSetMetadata.newBuilder()
-                .setColumnMetadata(ListColumnMetadata.newBuilder()
+                .setColumnMetadata(StructMetadata.newBuilder()
                         .addColumnMetadata(ColumnMetadata.newBuilder()
                                 .setName("foo")
                                 .setType(type)
@@ -81,33 +80,54 @@ public class RelationalResultSetMetadataFacadeTest {
     @Test
     void testStructMetadata() throws SQLException {
         final var metadata = new RelationalResultSetMetaDataFacade(ResultSetMetadata.newBuilder()
-                .setColumnMetadata(ListColumnMetadata.newBuilder()
+                .setColumnMetadata(StructMetadata.newBuilder()
                         .addColumnMetadata(ColumnMetadata.newBuilder()
                                 .setName("foo")
                                 .setType(Type.STRUCT)
-                                .setStructMetadata(ListColumnMetadata.newBuilder()
+                                .setStructMetadata(StructMetadata.newBuilder()
                                         .addColumnMetadata(ColumnMetadata.newBuilder().setType(Type.INTEGER).setName("bar"))
                                         .addColumnMetadata(ColumnMetadata.newBuilder().setType(Type.INTEGER).setName("baz"))
                                 )
                         )
                 ).build());
-        Assertions.assertEquals(metadata.getColumnType(1), Types.STRUCT);
+        Assertions.assertEquals(Types.STRUCT, metadata.getColumnType(1));
         final var actualStructMetadata = Assertions.assertInstanceOf(RelationalStructMetaData.class, metadata.getStructMetaData(1));
-        Assertions.assertEquals(actualStructMetadata.getColumnType(1), Types.INTEGER);
-        Assertions.assertEquals(actualStructMetadata.getColumnType(2), Types.INTEGER);
+        Assertions.assertEquals(Types.INTEGER, actualStructMetadata.getColumnType(1));
+        Assertions.assertEquals(Types.INTEGER, actualStructMetadata.getColumnType(2));
+    }
+
+    @Test
+    void testNamedStructMetadata() throws SQLException {
+        final var metadata = new RelationalResultSetMetaDataFacade(ResultSetMetadata.newBuilder()
+                .setColumnMetadata(StructMetadata.newBuilder()
+                        .addColumnMetadata(ColumnMetadata.newBuilder()
+                                .setName("foo")
+                                .setType(Type.STRUCT)
+                                .setStructMetadata(StructMetadata.newBuilder()
+                                        .setTypeName("FooType")
+                                        .addColumnMetadata(ColumnMetadata.newBuilder().setType(Type.INTEGER).setName("bar"))
+                                        .addColumnMetadata(ColumnMetadata.newBuilder().setType(Type.INTEGER).setName("baz"))
+                                )
+                        )
+                ).build());
+        Assertions.assertEquals(Types.STRUCT, metadata.getColumnType(1));
+        final var actualStructMetadata = Assertions.assertInstanceOf(RelationalStructMetaData.class, metadata.getStructMetaData(1));
+        Assertions.assertEquals("FooType", actualStructMetadata.getTypeName());
+        Assertions.assertEquals(Types.INTEGER, actualStructMetadata.getColumnType(1));
+        Assertions.assertEquals(Types.INTEGER, actualStructMetadata.getColumnType(2));
     }
 
     @Test
     void testArrayMetadata() throws SQLException {
         final var metadata = new RelationalResultSetMetaDataFacade(ResultSetMetadata.newBuilder()
-                .setColumnMetadata(ListColumnMetadata.newBuilder()
+                .setColumnMetadata(StructMetadata.newBuilder()
                         .addColumnMetadata(ColumnMetadata.newBuilder()
                                 .setName("foo")
                                 .setType(Type.ARRAY)
                                 .setArrayMetadata(ColumnMetadata.newBuilder().setType(Type.INTEGER).setName("bar"))
                         )
                 ).build());
-        Assertions.assertEquals(metadata.getColumnType(1), Types.ARRAY);
+        Assertions.assertEquals(Types.ARRAY, metadata.getColumnType(1));
         // We do not yet implement getArrayMetaData yet, probably because the JDBC support for arrays is not
         // tested rigorously.
         Assertions.assertThrows(SQLException.class, () -> metadata.getArrayMetaData(1));

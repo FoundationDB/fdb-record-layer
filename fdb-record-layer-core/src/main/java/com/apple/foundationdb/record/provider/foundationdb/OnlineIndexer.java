@@ -918,6 +918,8 @@ public class OnlineIndexer implements AutoCloseable {
         private final String allowUnblockId;
         private final long initialMergesCountLimit;
         private final boolean reverseScanOrder;
+        private final Set<Index> pendingWriteQueueIndexes;
+        private final long pendingWriteQueueIndexesMaxDrainAttempts;
 
         /**
          * Possible actions when an index is already partially built.
@@ -965,6 +967,8 @@ public class OnlineIndexer implements AutoCloseable {
          * @param allowUnblockId if preset, allow unblocking only if the block ID matches this param
          * @param initialMergesCountLimit the initial max merges count for index merger
          * @param reverseScanOrder if true, scan records in reverse order
+         * @param pendingWriteQueueIndexes the subset of target indexes that should be built with a pending write queue
+         * @param pendingWriteQueueIndexesMaxDrainAttempts the maximum number of times to re-drain the pending write queue while attempting to mark a queued index readable
          */
         @SuppressWarnings("squid:S00107") // too many parameters
         private IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan,
@@ -973,7 +977,9 @@ public class OnlineIndexer implements AutoCloseable {
                                boolean mutualIndexing, List<Tuple> mutualIndexingBoundaries,
                                boolean allowUnblock, String allowUnblockId,
                                long initialMergesCountLimit,
-                               boolean reverseScanOrder) {
+                               boolean reverseScanOrder,
+                               Set<Index> pendingWriteQueueIndexes,
+                               long pendingWriteQueueIndexesMaxDrainAttempts) {
             this.sourceIndex = sourceIndex;
             this.forbidRecordScan = forbidRecordScan;
             this.sourceIndexSubspaceKey = sourceIndexSubspaceKey;
@@ -989,6 +995,8 @@ public class OnlineIndexer implements AutoCloseable {
             this.allowUnblockId = allowUnblockId;
             this.initialMergesCountLimit = initialMergesCountLimit;
             this.reverseScanOrder = reverseScanOrder;
+            this.pendingWriteQueueIndexes = pendingWriteQueueIndexes;
+            this.pendingWriteQueueIndexesMaxDrainAttempts = pendingWriteQueueIndexesMaxDrainAttempts;
         }
 
         /**
@@ -1059,6 +1067,8 @@ public class OnlineIndexer implements AutoCloseable {
                     .setAllowUnblock(allowUnblock, allowUnblockId)
                     .setInitialMergesCountLimit(initialMergesCountLimit)
                     .setReverseScanOrder(reverseScanOrder)
+                    .setUsePendingWriteQueue(pendingWriteQueueIndexes.stream().toList())
+                    .setPendingWriteQueueIndexesMaxDrainAttempts(pendingWriteQueueIndexesMaxDrainAttempts)
                     ;
         }
 
@@ -1102,7 +1112,7 @@ public class OnlineIndexer implements AutoCloseable {
         public DesiredAction getStateDesiredAction(IndexState state) {
             switch (state) {
                 case DISABLED:      return getIfDisabled();
-                case WRITE_ONLY:    return getIfWriteOnly();
+                case WRITE_ONLY, WRITE_ONLY_WITH_QUEUE:    return getIfWriteOnly();
                 case READABLE:      return getIfReadable();
                 case READABLE_UNIQUE_PENDING: return DesiredAction.MARK_READABLE;
                 default: throw new RecordCoreException("bad index state: " + state);
@@ -1196,6 +1206,30 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * Whether the given target index should be built with a pending write queue. While such an index is being
+         * built, user updates are accumulated in a pending write queue (to be drained by the indexer) instead of being
+         * written to the index directly.
+         * @param index the target index to check
+         * @return true if the given index should be built with a pending write queue
+         */
+        @API(API.Status.EXPERIMENTAL)
+        public boolean shouldUsePendingWriteQueue(@Nonnull Index index) {
+            return pendingWriteQueueIndexes.contains(index);
+        }
+
+        /**
+         * Get the maximum number of times to re-drain the pending write queue while attempting to mark a write-only-with-queue index
+         * as readable. Because the queue is drained and the index is marked readable in separate transactions while
+         * concurrent writers may still be enqueuing, the queue can be observed non-empty at mark-readable time; each
+         * attempt re-drains before re-checking. The default is 100.
+         * @return the maximum number of drain-and-mark-readable attempts
+         */
+        @API(API.Status.EXPERIMENTAL)
+        public long getPendingWriteQueueIndexesMaxDrainAttempts() {
+            return pendingWriteQueueIndexesMaxDrainAttempts;
+        }
+
+        /**
          * Builder for {@link IndexingPolicy}.
          *
          * <pre><code>
@@ -1225,6 +1259,8 @@ public class OnlineIndexer implements AutoCloseable {
             private String allowUnblockId = null;
             private long initialMergesCountLimit = 0;
             private boolean reverseScanOrder = false;
+            private Set<Index> pendingWriteQueueIndexes = new HashSet<>();
+            private long pendingWriteQueueIndexesMaxDrainAttempts = 100;
 
             protected Builder() {
             }
@@ -1497,6 +1533,36 @@ public class OnlineIndexer implements AutoCloseable {
                 return this;
             }
 
+            /**
+             * Set the subset of target indexes that should be built with a pending write queue. While such an index
+             * is being built, user updates are accumulated in a pending write queue (to be drained by the indexer)
+             * instead of being written to the index directly. By default, no index uses a pending write queue.
+             * This state is intended to reduce conflicts between user transactions and indexer transactions, which might
+             * help in cases of index types that with indexing bottlenecks. Not all index maintainers can support this
+             * state. Since the index update operation is deferred, this state may break versioned indexes.
+             * @param indexes the target indexes that should be built with a pending write queue
+             * @return this builder
+             */
+            @API(API.Status.EXPERIMENTAL)
+            public Builder setUsePendingWriteQueue(@Nonnull final List<Index> indexes) {
+                this.pendingWriteQueueIndexes = new HashSet<>(indexes);
+                return this;
+            }
+
+            /**
+             * Set the maximum number of times to re-drain the pending write queue while attempting to mark a write-only-with-queued
+             * index as readable. The queue is drained and the index is marked readable in separate transactions, so while
+             * concurrent writers keep enqueuing, the queue can be observed non-empty at mark-readable time; each attempt
+             * re-drains before re-checking. Must be positive. The default is 100.
+             * @param pendingWriteQueueIndexesMaxDrainAttempts the maximum number of drain-and-mark-readable attempts
+             * @return this builder
+             */
+            @API(API.Status.EXPERIMENTAL)
+            public Builder setPendingWriteQueueIndexesMaxDrainAttempts(final long pendingWriteQueueIndexesMaxDrainAttempts) {
+                this.pendingWriteQueueIndexesMaxDrainAttempts = pendingWriteQueueIndexesMaxDrainAttempts;
+                return this;
+            }
+
             public IndexingPolicy build() {
                 if (useMutualIndexingBoundaries != null) {
                     useMutualIndexing = true;
@@ -1505,7 +1571,8 @@ public class OnlineIndexer implements AutoCloseable {
                         ifDisabled, ifWriteOnly, ifMismatchPrevious, ifReadable,
                         doAllowUniquePendingState, allowedTakeoverSet,
                         useMutualIndexing, useMutualIndexingBoundaries, allowUnblock, allowUnblockId,
-                        initialMergesCountLimit, reverseScanOrder);
+                        initialMergesCountLimit, reverseScanOrder,
+                        pendingWriteQueueIndexes, pendingWriteQueueIndexesMaxDrainAttempts);
             }
         }
     }

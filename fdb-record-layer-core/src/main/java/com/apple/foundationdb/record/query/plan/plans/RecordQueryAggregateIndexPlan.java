@@ -23,18 +23,19 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.planprotos.PRecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
@@ -52,7 +53,9 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithoutChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
@@ -60,7 +63,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -69,7 +71,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.StreamSupport;
 
 /**
  * A query plan that reconstructs records from the entries in an aggregate index.
@@ -78,7 +79,8 @@ import java.util.stream.StreamSupport;
 public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionWithoutChildren implements RecordQueryPlanWithNoChildren,
                                                                                                           RecordQueryPlanWithMatchCandidate,
                                                                                                           RecordQueryPlanWithConstraint,
-                                                                                                          RecordQueryPlanWithComparisons {
+                                                                                                          RecordQueryPlanWithComparisons,
+                                                                                                          RecordQueryPlanWithIndexEntryToQueriedRecord {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Aggregate-Index-Plan");
 
     @Nonnull
@@ -87,12 +89,10 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
     private final String recordTypeName;
     @Nonnull
     private final IndexKeyValueToPartialRecord toRecord;
-    // TODO the following value should not be part of this plan
-    //      https://github.com/FoundationDB/fdb-record-layer/issues/3367
+    // todo replace this attribute with "Type resultType" once we bump the plan hash mode to VC1.
     @Nonnull
     private final Value resultValue;
-    // TODO the following value should not be part of this plan
-    //      https://github.com/FoundationDB/fdb-record-layer/issues/3367
+    // todo remove this attribute once we bump the plan hash mode to VC1.
     @Nonnull
     private final Value groupByResultValue;
     @Nonnull
@@ -105,7 +105,6 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
      * @param recordTypeName The name of the base record, used for debugging.
      * @param indexEntryToPartialRecordConverter A converter from index entry to record.
      * @param resultValue the result value this plan produces.
-     * @param groupByResultValue The result value.
      * @param constraint The index filter.
      */
     public RecordQueryAggregateIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan,
@@ -124,37 +123,42 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
 
     @Nonnull
     @Override
-    @SuppressWarnings({"unchecked", "resource"})
+    @SuppressWarnings("resource")
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        final TypeRepository typeRepository = context.getTypeRepository();
-        final Descriptors.Descriptor recordDescriptor = Objects.requireNonNull(typeRepository.getMessageDescriptor(resultValue.getResultType()));
-
         return indexPlan
                 .executeEntries(store, context, continuation, executeProperties)
-                .map(indexEntry -> {
-                    final RecordMetaData metaData = store.getRecordMetaData();
-                    final RecordType recordType = metaData.getRecordType(recordTypeName);
-                    final Index index = metaData.getIndex(getIndexName());
-                    return store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M)toRecord.toRecord(recordDescriptor, indexEntry), false);
-                })
+                .map(indexEntry -> indexEntryToQueriedRecord(store, context, indexEntry))
                 .map(queriedRecord -> QueryResult.fromQueriedRecord(resultValue.getResultType(), context, queriedRecord));
+    }
+
+    /**
+     * Entries are decoded into the shape of this plan's result -- the result of the select-having -- and not into a copy
+     * of a stored record. The aggregate column is the reason: no record has it, so only the result type describes the
+     * shape an entry has to be placed into. The record type is looked up directly rather than as a queryable one because
+     * the indexed record type of an aggregate index need not be queryable.
+     */
+    @Nonnull
+    @Override
+    public <M extends Message> FDBQueriedRecord<M> indexEntryToQueriedRecord(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                            @Nonnull final EvaluationContext context,
+                                                                            @Nonnull final IndexEntry indexEntry) {
+        final var metaData = store.getRecordMetaData();
+        final var shape = Objects.requireNonNull(context.getTypeRepository().getMessageDescriptor(resultValue.getResultType()));
+        return RecordQueryPlanWithIndexEntryToQueriedRecord.intoShape(store,
+                metaData.getIndex(getIndexName()),
+                metaData.getRecordType(recordTypeName),
+                shape,
+                toRecord,
+                false,
+                indexEntry);
     }
 
     @Nonnull
     public RecordQueryIndexPlan getIndexPlan() {
         return indexPlan;
-    }
-
-    public Optional<Value> getGroupingValueMaybe() {
-        final var hasGroupingValue = StreamSupport.stream(groupByResultValue.getChildren().spliterator(), false).count() > 1;
-        if (hasGroupingValue) {
-            return Optional.of(groupByResultValue.getChildren().iterator().next());
-        } else {
-            return Optional.empty();
-        }
     }
 
     @Nonnull
@@ -234,7 +238,8 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
     @Nonnull
     @Override
     public Value getResultValue() {
-        // TODO this is bad since the derivations property or others might pick this up without understanding it
+        // todo this looks wrong and should be replaced with QueriedValue(resultType) once we bump the plan hash mode
+        //  to VC1
         return resultValue;
     }
 
@@ -332,13 +337,14 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
 
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
-        switch (mode.getKind()) {
-            case LEGACY:
-            case FOR_CONTINUATION:
-                return PlanHashable.objectsPlanHash(mode, BASE_HASH, indexPlan, resultValue);
-            default:
-                throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
+        if (mode.getKind() == PlanHashKind.LEGACY) {
+            return PlanHashable.objectsPlanHash(mode, BASE_HASH, indexPlan, resultValue);
         }
+        return switch (mode) {
+            case VC0 -> PlanHashable.objectsPlanHash(mode, BASE_HASH, indexPlan, resultValue);
+            case VC1 -> PlanHashable.objectsPlanHash(mode, BASE_HASH, indexPlan, resultValue.getResultType());
+            default -> throw new RecordCoreException("unsupported plan hash mode");
+        };
     }
 
     @Nonnull
@@ -376,14 +382,26 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
     @Nonnull
     @Override
     public PRecordQueryAggregateIndexPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRecordQueryAggregateIndexPlan.newBuilder()
-                .setIndexPlan(indexPlan.toRecordQueryIndexPlanProto(serializationContext))
-                .setRecordTypeName(recordTypeName)
-                .setToRecord(toRecord.toProto(serializationContext))
-                .setResultValue(resultValue.toValueProto(serializationContext))
-                .setGroupByResultValue(groupByResultValue.toValueProto(serializationContext))
-                .setConstraint(constraint.toProto(serializationContext))
-                .build();
+        return switch (serializationContext.getMode()) {
+            case VL0, VC0 -> PRecordQueryAggregateIndexPlan.newBuilder()
+                    .setIndexPlan(indexPlan.toRecordQueryIndexPlanProto(serializationContext))
+                    .setRecordTypeName(recordTypeName)
+                    .setToRecord(toRecord.toProto(serializationContext))
+                    .setResultValue(resultValue.toValueProto(serializationContext))
+                    .setResultType(resultValue.getResultType().toTypeProto(serializationContext))
+                    .setGroupByResultValue(groupByResultValue.toValueProto(serializationContext))
+                    .setConstraint(constraint.toProto(serializationContext))
+                    .build();
+            case VC1 -> PRecordQueryAggregateIndexPlan.newBuilder()
+                    .setIndexPlan(indexPlan.toRecordQueryIndexPlanProto(serializationContext))
+                    .setRecordTypeName(recordTypeName)
+                    .setToRecord(toRecord.toProto(serializationContext))
+                    .setResultType(resultValue.getResultType().toTypeProto(serializationContext))
+                    .setConstraint(constraint.toProto(serializationContext))
+                    .build();
+            default -> throw new RecordCoreException("unsupported plan hash mode");
+        };
+
     }
 
     @Nonnull
@@ -395,14 +413,32 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
     @Nonnull
     public static RecordQueryAggregateIndexPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                           @Nonnull final PRecordQueryAggregateIndexPlan recordQueryAggregateIndexPlanProto) {
-        return new RecordQueryAggregateIndexPlan(RecordQueryIndexPlan.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getIndexPlan())),
-                Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getRecordTypeName()),
-                IndexKeyValueToPartialRecord.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getToRecord())),
-                Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getResultValue())),
-                recordQueryAggregateIndexPlanProto.hasGroupByResultValue()
-                ? Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getGroupByResultValue()))
-                : Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getResultValue())),
-                QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getConstraint())));
+        final var indexPlan = RecordQueryIndexPlan.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getIndexPlan()));
+        final var recordTypeName = Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getRecordTypeName());
+        final var indexKeyValueToPartialRecord = IndexKeyValueToPartialRecord.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getToRecord()));
+        final var planConstraint = QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getConstraint()));
+        Value resultValue;
+        Value groupByResultValue;
+        Type resultType;
+        switch (serializationContext.getMode()) {
+            case VL0:
+            case VC0: {
+                resultValue = Value.fromValueProto(serializationContext, recordQueryAggregateIndexPlanProto.getResultValue());
+                groupByResultValue = recordQueryAggregateIndexPlanProto.hasGroupByResultValue()
+                                     ? Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getGroupByResultValue()))
+                                     : Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getResultValue()));
+                break;
+            }
+            case VC1: {
+                resultType = Type.fromTypeProto(serializationContext, recordQueryAggregateIndexPlanProto.getResultType());
+                resultValue = new QueriedValue(resultType);
+                groupByResultValue = new ThrowsValue(Type.nullType());
+                break;
+            }
+            default:
+                throw new RecordCoreException("unsupported plan hash mode");
+        }
+        return new RecordQueryAggregateIndexPlan(indexPlan, recordTypeName, indexKeyValueToPartialRecord, resultValue, groupByResultValue, planConstraint);
     }
 
     /**

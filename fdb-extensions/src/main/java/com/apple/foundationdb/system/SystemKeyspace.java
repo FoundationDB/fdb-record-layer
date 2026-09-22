@@ -74,6 +74,16 @@ public class SystemKeyspace {
 
     // System keys
 
+    /**
+     * The database's meta-data version-stamp key. This is a single key whose value is a versionstamp, bumped
+     * atomically by {@code SET_VERSIONSTAMPED_VALUE} mutations and returned to every client alongside its
+     * transaction's read-version — so reading it costs zero storage-server round-trips. Designed to be
+     * used as a coordinated cross-process cache-invalidation broadcast: any transaction (from
+     * any client) that bumps the stamp causes every other client's next read to see a new value, which
+     * can be used to invalidate stale local cache entries.
+     *
+     * @see com.apple.foundationdb.MutationType#SET_VERSIONSTAMPED_VALUE
+     */
     public static final byte[] METADATA_VERSION_KEY = systemPrefixedKey("/metadataVersion");
     public static final byte[] PRIMARY_DATACENTER_KEY = systemPrefixedKey("/primaryDatacenter");
 

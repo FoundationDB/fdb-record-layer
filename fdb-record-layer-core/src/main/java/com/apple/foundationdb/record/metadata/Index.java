@@ -191,7 +191,6 @@ public class Index {
     }
 
     @SuppressWarnings({"deprecation", "squid:CallToDeprecatedMethod", "java:S3776"}) // Old (deprecated) index type needs grouping compatibility
-    @SpotBugsSuppressWarnings("NP_NONNULL_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR")
     public Index(@Nonnull RecordMetaDataProto.Index proto) throws KeyExpression.DeserializationException {
         name = proto.getName();
         // Compatibility with old serialized metadata.
@@ -347,7 +346,8 @@ public class Index {
      * index will be marked as {@link com.apple.foundationdb.record.IndexState#DISABLED}, so it will no
      * longer be maintained and its data will be deleted. See the {@link IndexOptions#REPLACED_BY_OPTION_PREFIX}
      * for more details. If the returned list is empty, then this index is not being replaced by any other
-     * indexes.
+     * indexes. If this index is being replaced by any other indexes, the store will only attempt to build the index
+     * if it is explicitly requested.
      *
      * @return either the empty list or a list of indexes that when built should cause this index to be removed
      * @see IndexOptions#REPLACED_BY_OPTION_PREFIX

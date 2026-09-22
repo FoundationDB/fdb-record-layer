@@ -533,7 +533,7 @@ public class LuceneScaleTest extends FDBRecordStoreTestBase {
                 maxDocId = LuceneConcurrency.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY,
                         store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).getCount(), context);
                 continuing = maxDocId > 0;
-                if (!store.isIndexReadable(INDEX.getName())) {
+                if (!store.getIndexState(INDEX.getName()).isReadable()) {
                     indexBuilder = OnlineIndexer.newBuilder()
                             .setRecordStore(store)
                             .addTargetIndex(INDEX.getName());

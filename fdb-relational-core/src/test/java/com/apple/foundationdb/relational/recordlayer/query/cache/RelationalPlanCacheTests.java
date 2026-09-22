@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectVa
 import com.apple.foundationdb.record.query.plan.cascades.values.EvaluatesToValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.OfTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
@@ -55,7 +56,6 @@ import com.apple.foundationdb.relational.utils.TestSchemas;
 import com.apple.test.BooleanSource;
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.FakeTicker;
-import org.apache.commons.lang3.tuple.Pair;
 import org.assertj.core.groups.Tuple;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
@@ -530,6 +530,22 @@ public class RelationalPlanCacheTests {
                 // tautology is expected since a primary scan accepts everything.
                 Map.of(ppe(tautology, cons(ofTypeIntCp0(7), ofTypeIntCp1(11), isNotNullInt(7), isNotNullInt(11))), Scan)
         ));
+    }
+
+    @Test
+    void testKeywordCaseSharesCacheEntry() throws Exception {
+        final var ticker = new FakeTicker();
+        final var cache = getCache(ticker);
+
+        // warm the cache with a canonically-cased query.
+        planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10,
+                Set.of(i1970, i1980), i1970);
+        // an otherwise-identical query that differs only in keyword case reuses the same cache entry, because
+        // keyword case is normalized in the canonical form. The cache therefore still has a single entry.
+        planQuery(cache, "sELEct * frOm BOOKS wHeRe YEAR > 1970 aNd YEAR < 1979", "SCHEMA_TEMPLATE_1", 10,
+                Set.of(i1970, i1980), i1970);
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, configOf(Set.of(i1970, i1980)), ""),
+                Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11), isNotNullInt(7), isNotNullInt(11))), i1970)));
     }
 
     @Test

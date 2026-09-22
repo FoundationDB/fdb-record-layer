@@ -35,8 +35,8 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumn;
-import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.StructMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Type;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.PositionalIndex;
@@ -180,7 +180,7 @@ class RelationalArrayFacade implements RelationalArray {
         var resultSetBuilder = ResultSet.newBuilder();
 
         final var columnMetadata = delegateMetadata.toBuilder().setName("VALUE").build();
-        resultSetBuilder.setMetadata(ResultSetMetadata.newBuilder().setColumnMetadata(ListColumnMetadata.newBuilder()
+        resultSetBuilder.setMetadata(ResultSetMetadata.newBuilder().setColumnMetadata(StructMetadata.newBuilder()
                 .addColumnMetadata(ColumnMetadata.newBuilder().setName("INDEX").setType(Type.INTEGER).build())
                 .addColumnMetadata(columnMetadata).build()).build());
         for (int i = index; i < count; i++) {
@@ -255,7 +255,7 @@ class RelationalArrayFacade implements RelationalArray {
             return this;
         }
 
-        private void initOrCheckMetadata(ListColumnMetadata innerMetadata) {
+        private void initOrCheckMetadata(StructMetadata innerMetadata) {
             if (metadata == null) {
                 final var builder = ColumnMetadata.newBuilder().setName("ARRAY").setType(Type.STRUCT);
                 builder.setStructMetadata(innerMetadata);

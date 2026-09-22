@@ -132,7 +132,7 @@ public class MutableRecordStoreState extends RecordStoreState {
     public IndexState setState(@Nonnull String indexName, @Nonnull IndexState state) {
         verifyWritable();
         IndexState previous;
-        if (state == IndexState.READABLE) {
+        if (state.isReadable()) {
             previous = indexStateMap.get().remove(indexName);
         } else {
             previous = indexStateMap.get().put(indexName, state);

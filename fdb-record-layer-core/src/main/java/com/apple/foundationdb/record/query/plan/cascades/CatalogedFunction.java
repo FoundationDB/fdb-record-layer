@@ -23,11 +23,15 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Functions;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
@@ -37,6 +41,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -59,7 +64,7 @@ public abstract class CatalogedFunction {
     protected final BiMap<String, Integer> parameterNamesMap;
 
     @Nonnull
-    protected final List<Optional<? extends Typed>> parameterDefaults;
+    protected final List<Optional<Value>> parameterDefaults;
 
     /**
      * The type of the function's variadic parameters (if any).
@@ -78,7 +83,7 @@ public abstract class CatalogedFunction {
 
     protected CatalogedFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                                 @Nonnull final List<Type> parameterTypes,
-                                @Nonnull final List<Optional<? extends Typed>> parameterDefaults) {
+                                @Nonnull final List<Optional<Value>> parameterDefaults) {
         Verify.verify(parameterNames.size() == parameterTypes.size());
         this.functionName = functionName;
         this.parameterTypes = ImmutableList.copyOf(parameterTypes);
@@ -112,11 +117,6 @@ public abstract class CatalogedFunction {
         return parameterNamesMap.keySet();
     }
 
-    @Nullable
-    public Type getVariadicSuffixType() {
-        return variadicSuffixType;
-    }
-
     public boolean hasVariadicSuffix() {
         return variadicSuffixType != null;
     }
@@ -128,7 +128,7 @@ public abstract class CatalogedFunction {
             return parameterTypes.get(index);
         } else {
             if (hasVariadicSuffix()) {
-                return variadicSuffixType;
+                return Verify.verifyNotNull(variadicSuffixType);
             }
             throw new IllegalArgumentException("cannot resolve declared parameter at index " + index);
         }
@@ -139,26 +139,16 @@ public abstract class CatalogedFunction {
         return computeParameterType(getParamIndex(parameterName));
     }
 
-    @Nonnull
-    public List<Type> getParameterTypes(int numberOfArguments) {
-        Verify.verify(numberOfArguments > 0, "unexpected number of arguments");
-        final ImmutableList.Builder<Type> resultBuilder = ImmutableList.builder();
-        for (int i = 0; i < numberOfArguments; i ++) {
-            resultBuilder.add(computeParameterType(i));
-        }
-        return resultBuilder.build();
-    }
-
     public int getParamIndex(@Nonnull final String parameter) {
         return parameterNamesMap.get(parameter);
     }
 
-    public Optional<? extends Typed> getDefaultValue(@Nonnull final String paramName) {
+    public Optional<Value> getDefaultValue(@Nonnull final String paramName) {
         return parameterDefaults.get(getParamIndex(paramName));
     }
 
-    public Optional<? extends Typed> getDefaultValue(int paramIndex) {
-        return parameterDefaults.get(paramIndex);
+    public Optional<Value> getDefaultValue(int paramIndex) {
+        return parameterDefaults.isEmpty() ? Optional.empty() : parameterDefaults.get(paramIndex);
     }
 
     public boolean hasDefaultValue(@Nonnull final String paramName) {
@@ -174,31 +164,194 @@ public abstract class CatalogedFunction {
     }
 
     /**
+     * The options this function understands when supplied at a call site, e.g. through the {@code OPTIONS} clause of a
+     * window specification. Options are declared per function rather than centrally, so a function owns the names and
+     * value types of its own options and two unrelated functions may declare an option of the same name with different
+     * value types.
+     * <p>
+     * The default is to declare no options at all, which means any option supplied at a call site is rejected rather
+     * than silently ignored. Option names must be unique within the returned set.
+     * </p>
+     * @return the options this function understands
+     */
+    @Nonnull
+    public Set<CallSiteArguments.Option<?>> getSupportedOptions() {
+        return ImmutableSet.of();
+    }
+
+    /**
+     * Resolves the options supplied at a call site against the options this function declares, rejecting any option
+     * this function does not understand and converting each remaining value to its declared type. Implementors of
+     * {@link #encapsulate(CallSiteArguments)} must pass the arguments through this method before reading any option.
+     *
+     * @param arguments the call-site arguments
+     * @return {@code arguments}, with the option values converted to their declared types
+     */
+    @Nonnull
+    protected final CallSiteArguments validateAndNormalizeOptions(@Nonnull final CallSiteArguments arguments) {
+        if (!arguments.hasOptions()) {
+            return arguments;
+        }
+        //
+        // toImmutableMap() rejects duplicate keys, so a function that declares two options of the same name fails fast.
+        // The index is built on demand rather than cached, as it is only needed for the rare call site that supplies
+        // options at all.
+        //
+        final var supportedOptionsByName = getSupportedOptions().stream()
+                .collect(ImmutableMap.toImmutableMap(CallSiteArguments.Option::getName, Functions.identity()));
+        return arguments.withOptions(arguments.getOptions().resolve(supportedOptionsByName, functionName));
+    }
+
+    /**
      * Validates the function invocation using named arguments. It checks whether the argument names match parameter
      * names, and that any missing parameter has a default value. It effectively leaves all the work related to handling
-     * permisslbe implicit promotions to the actual function invocation.
+     * permissible implicit promotions to the actual function invocation.
      * @param namedArgumentsTypeMap a list of named arguments.
      * @return if the arguments type match, an {@link Optional} containing <code>this</code> instance, otherwise
      * and empty {@link Optional}.
      */
     @Nonnull
-    public Optional<? extends CatalogedFunction> validateCall(@Nonnull final Map<String, ? extends Typed> namedArgumentsTypeMap) {
+    public Optional<CatalogedFunction> validateCall(@Nonnull final Map<String, ? extends Typed> namedArgumentsTypeMap) {
         if (parameterNamesMap.isEmpty()) {
             return Optional.empty();
         }
-        final var argumentNames = namedArgumentsTypeMap.keySet();
+
         final var parameterNames = parameterNamesMap.keySet();
-        final var unknownArgs = Sets.difference(argumentNames, parameterNames);
-        if (!unknownArgs.isEmpty()) {
-            return Optional.empty();
+        // Check unknown arguments and argument types
+        for (var namedArgument : namedArgumentsTypeMap.entrySet()) {
+            if (!parameterNames.contains(namedArgument.getKey())) {
+                return Optional.empty();
+            }
         }
+
+        // Check missing required arguments
+        final var argumentNames = namedArgumentsTypeMap.keySet();
         final var missingParams = Sets.difference(parameterNames, argumentNames);
         for (final var missingParam : missingParams) {
             if (!hasDefaultValue(missingParam)) {
                 return Optional.empty();
             }
         }
+
         return Optional.of(this);
+    }
+
+    /**
+     * Validates the function invocation using unnamed arguments. It checks whether the argument names match parameter
+     * names, and that any missing parameter has a default value. It effectively leaves all the work related to handling
+     * permissible implicit promotions to the actual function invocation.
+     * @param unnamedArguments a list of named arguments.
+     * @return if the arguments type match, an {@link Optional} containing <code>this</code> instance, otherwise
+     * and empty {@link Optional}.
+     */
+    @Nonnull
+    public Optional<CatalogedFunction> validateCall(@Nonnull final List<? extends Typed> unnamedArguments) {
+        if (unnamedArguments.size() > getParameterTypes().size()) {
+            return Optional.empty();
+        }
+        for (var paramIdx = unnamedArguments.size(); paramIdx < getParameterTypes().size(); paramIdx++) {
+            if (!hasDefaultValue(paramIdx)) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(this);
+    }
+
+
+    /**
+     * Resolves the list of {@link Value}s to be passed to this function from an unnamed (positional) argument list.
+     * <p>
+     * Each positional argument is matched to the parameter at the same index. If fewer arguments are supplied than
+     * the function declares parameters, the remaining parameters must have default values; otherwise a
+     * {@link com.apple.foundationdb.record.query.plan.cascades.SemanticException} is thrown. Each resolved argument
+     * is promoted to the declared parameter type when necessary (see {@link #promoteArgumentValueIfNeeded}).
+     *
+     * @param arguments the positional arguments provided to the function call
+     * @return a list of {@link Value}s, one per declared parameter
+     */
+    protected List<Value> resolveParameterValuesFromArguments(@Nonnull List<? extends Typed> arguments) {
+        checkArgumentCount(arguments.size());
+        ImmutableList.Builder<Value> valueBuilder = ImmutableList.builder();
+        for (var paramIdx = 0; paramIdx < getParameterTypes().size(); paramIdx++) {
+            if (paramIdx >= arguments.size()) {
+                final var defaultArgumentValue = getDefaultValue(paramIdx);
+                SemanticException.check(defaultArgumentValue.isPresent(),
+                        SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES,
+                        "required argument must be specified");
+                valueBuilder.add(defaultArgumentValue.get());
+            } else {
+                final var providedArgValue = arguments.get(paramIdx);
+                Verify.verify(providedArgValue instanceof Value);
+                valueBuilder.add(promoteArgumentValueIfNeeded((Value)providedArgValue, computeParameterType(paramIdx)));
+            }
+        }
+        return valueBuilder.build();
+    }
+
+    /**
+     * Resolves the list of {@link Value}s to be passed to this function from a named argument map.
+     * <p>
+     * Arguments are matched to parameters by name. The function must support named arguments; otherwise a
+     * {@link com.apple.foundationdb.record.query.plan.cascades.SemanticException} is thrown. Parameters absent from the
+     * map must have default values; otherwise the same exception is thrown as well. Each resolved argument is promoted
+     * to the declared parameter type when necessary (see {@link #promoteArgumentValueIfNeeded}).
+     * </p>
+     * @param namedArguments a map from parameter name to argument value provided to the function call
+     * @return a list of {@link Value}s, one per declared parameter
+     */
+    protected List<Value> resolveParameterValuesFromArguments(@Nonnull final Map<String, ? extends Typed> namedArguments) {
+        checkArgumentCount(namedArguments.size());
+        ImmutableList.Builder<Value> valueBuilder = ImmutableList.builder();
+        SemanticException.check(
+                hasNamedParameters(),
+                SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES,
+                "unexpected invocation of function with named arguments");
+        for (final var name : getParameterNames()) {
+            if (!namedArguments.containsKey(name)) {
+                final var defaultArgumentValue = getDefaultValue(name);
+                SemanticException.check(defaultArgumentValue.isPresent(),
+                        SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES,
+                        "required argument for function is not specified");
+                valueBuilder.add(defaultArgumentValue.get());
+            } else {
+                final var providedArgValue = namedArguments.get(name);
+                Verify.verify(providedArgValue instanceof Value);
+                valueBuilder.add(promoteArgumentValueIfNeeded((Value)providedArgValue, computeParameterType(name)));
+            }
+        }
+        return valueBuilder.build();
+    }
+
+    /**
+     * Promotes {@code providedArgumentValue} to {@code parameterType} when the two types differ.
+     * <p>
+     * Throws a {@link com.apple.foundationdb.record.query.plan.cascades.SemanticException}
+     * if the argument cannot be promoted to the parameter type. When promotion is not needed the original value is
+     * returned unchanged.
+     * </p>
+     * @param providedArgumentValue the call-site argument value
+     * @param parameterType the declared parameter type
+     * @return {@link Value} that is the same as providedArgumentValue if no promotion is needed, otherwise a promoted {@link Value}.
+     */
+    private Value promoteArgumentValueIfNeeded(@Nonnull final Value providedArgumentValue, final Type parameterType) {
+        if (!PromoteValue.isPromotionNeeded(providedArgumentValue.getResultType(), parameterType)) {
+            return providedArgumentValue;
+        }
+        SemanticException.check(PromoteValue.isPromotable(providedArgumentValue.getResultType(), parameterType),
+                SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES,
+                "argument type doesn't match with function definition");
+        return PromoteValue.inject(providedArgumentValue, parameterType);
+    }
+
+    /**
+     * Validates that the number of supplied arguments does not exceed the number of declared parameters for a function.
+     *
+     * @param argumentCount the number of arguments supplied at the call site
+     */
+    private void checkArgumentCount(final int argumentCount) {
+        SemanticException.check(argumentCount <= getParameterTypes().size(),
+                SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES,
+                "argument length doesn't match with function definition");
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -223,8 +376,5 @@ public abstract class CatalogedFunction {
     }
 
     @Nonnull
-    public abstract Typed encapsulate(@Nonnull List<? extends Typed> arguments);
-
-    @Nonnull
-    public abstract Typed encapsulate(@Nonnull Map<String, ? extends Typed> namedArguments);
+    public abstract Typed encapsulate(@Nonnull CallSiteArguments arguments);
 }

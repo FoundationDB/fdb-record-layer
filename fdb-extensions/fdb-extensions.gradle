@@ -18,6 +18,9 @@
  * limitations under the License.
  */
 
+import de.undercouch.gradle.tasks.download.Download
+import de.undercouch.gradle.tasks.download.Verify
+
 apply plugin: 'java-test-fixtures'
 apply from: rootProject.file('gradle/publishing.gradle')
 
@@ -39,7 +42,9 @@ dependencies {
 
     testFixturesImplementation(libs.bundles.test.impl)
     testFixturesImplementation(libs.snakeyaml)
+    testFixturesImplementation(libs.guava)
     testFixturesCompileOnly(libs.bundles.test.compileOnly)
+    testFixturesCompileOnly(libs.jsr305)
     testFixturesImplementation(libs.slf4j.api)
     testFixturesAnnotationProcessor(libs.autoService)
 }
@@ -78,7 +83,7 @@ def downloadsDir = project.ext.downloadsDirectory
 // so downstream wiring can depend on "this dataset is present and validated". downloadTaskDir lives
 // under the cached downloads dir too, so onlyIfModified ETag state also survives `clean`.
 def siftTasks = siftDownloads.collectEntries { name, cfg ->
-    def download = tasks.register("download${name.capitalize()}", de.undercouch.gradle.tasks.download.Download) {
+    def download = tasks.register("download${name.capitalize()}", Download) {
         src cfg.url
         dest downloadsDir.file(cfg.file).asFile
         downloadTaskDir downloadsDir.dir("downloads-task")
@@ -89,7 +94,7 @@ def siftTasks = siftDownloads.collectEntries { name, cfg ->
     }
     def terminal = download
     if (cfg.sha256) {
-        terminal = tasks.register("verify${name.capitalize()}", de.undercouch.gradle.tasks.download.Verify) {
+        terminal = tasks.register("verify${name.capitalize()}", Verify) {
             dependsOn download
             src downloadsDir.file(cfg.file).asFile
             algorithm 'SHA256'
@@ -108,10 +113,11 @@ tasks.register('extractSiftSmall', Copy) {
     into extractDir
 
     doLast {
-        println "Extracted files into: ${extractDir.get().asFile}"
-        fileTree(extractDir).visit { details ->
-            if (!details.isDirectory()) {
-                println " - ${details.file}"
+        File extractedDir = extractDir.get().asFile
+        println "Extracted files into: ${extractedDir}"
+        extractedDir.eachFileRecurse { file ->
+            if (file.isFile()) {
+                println " - ${file}"
             }
         }
     }
@@ -204,7 +210,7 @@ afterEvaluate {
 // fdb.vector.simd=scalar system property also forces scalar selection (so RealVectorPrimitives
 // resolves to the scalar backend even though the SIMD class is technically on the classpath).
 //
-task scalarFallbackTest(type: Test) {
+tasks.register('scalarFallbackTest', Test) {
     description = 'Runs the RequiresScalar and DualScalarSIMD tagged tests without --add-modules to exercise the scalar fallback.'
     group = 'verification'
     useJUnitPlatform {

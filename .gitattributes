@@ -1,0 +1,17 @@
+# Mark the Gradle wrapper boilerplate as generated, since it is not hand-written project code.
+# This keeps GitHub’s language stats and diffs focused on the actual project source.
+gradlew linguist-generated=true
+gradlew.bat linguist-generated=true
+gradle/wrapper/gradle-wrapper.jar linguist-generated=true binary
+gradle/wrapper/gradle-wrapper.properties linguist-generated=true
+
+# Mark the WordNet lexical database (which is bundled for Lucene’s synonym filter) as vendored data. It is not actual
+ # Prolog source code, but its size and .pl extension otherwise dominate GitHub’s languages stats.
+fdb-record-layer-lucene/src/main/resources/wn_s.pl linguist-vendored=true
+
+# Mark yamsql files as YAML, since Linguist can’t infer that from the extension alone.
+*.yamsql linguist-language=YAML
+
+# Mark the serialized metrics baselines as generated binary files, since they are auto-corrected by the yaml-tests
+# framework. GitHub’s generated-file heuristics don’t reliably fire on arbitrary binary payloads.
+*.metrics.binpb binary linguist-generated=true

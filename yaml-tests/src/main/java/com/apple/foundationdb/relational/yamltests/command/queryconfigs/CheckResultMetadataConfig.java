@@ -66,7 +66,7 @@ import java.util.Map;
  *     YAMSQL source file to be updated with the actual column metadata rather than failing the test.
  * </p>
  */
-@SuppressWarnings("PMD.GuardLogStatement")
+@SuppressWarnings({"PMD.AvoidCatchingThrowable", "PMD.GuardLogStatement"})
 public class CheckResultMetadataConfig extends QueryConfig {
     private static final Logger logger = LogManager.getLogger(CheckResultMetadataConfig.class);
 
@@ -248,19 +248,21 @@ public class CheckResultMetadataConfig extends QueryConfig {
     }
 
     private void addResultMetadata(@Nonnull final List<ColumnDescriptor> actualDescriptors) {
-        if (!executionContext.addResultMetadata(getReference(), actualDescriptors)) {
-            QueryCommand.reportTestFailure("‼️ Cannot add resultMetadata at " + getReference());
-        } else {
-            logger.debug(() -> "⭐️ Successfully added resultMetadata at " + getReference());
+        try {
+            executionContext.getFilesMaintainer().addResultMetadata(getReference(), actualDescriptors);
+        } catch (Throwable throwable) {
+            throw YamlExecutionContext.wrapContext(throwable, () -> "‼️ Cannot add resultMetadata", QUERY_CONFIG_RESULT_METADATA, getReference());
         }
+        logger.debug(() -> "⭐️ Successfully added resultMetadata at " + getReference());
     }
 
     private void correctMetadata(@Nonnull final List<ColumnDescriptor> actualDescriptors) {
-        if (!executionContext.correctResultMetadata(getReference(), actualDescriptors)) {
-            QueryCommand.reportTestFailure("‼️ Cannot correct resultMetadata at " + getReference());
-        } else {
-            logger.debug(() -> "⭐️ Successfully corrected resultMetadata at " + getReference());
+        try {
+            executionContext.getFilesMaintainer().correctResultMetadata(getReference(), actualDescriptors);
+        } catch (Throwable throwable) {
+            throw YamlExecutionContext.wrapContext(throwable, () -> "‼️ Cannot correct resultMetadata", QUERY_CONFIG_RESULT_METADATA, getReference());
         }
+        logger.debug(() -> "⭐️ Successfully corrected resultMetadata at " + getReference());
     }
 
     private void reportMetadataMismatch(@Nonnull final List<Map<?, ?>> expectedColumns,

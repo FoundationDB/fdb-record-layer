@@ -128,7 +128,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
 
         final boolean isAlwaysReadable;
         try (FDBRecordContext context = openContext()) {
-            isAlwaysReadable = recordStore.isIndexReadable(index);
+            isAlwaysReadable = recordStore.getIndexState(index).isReadable();
             context.commit();
         }
 

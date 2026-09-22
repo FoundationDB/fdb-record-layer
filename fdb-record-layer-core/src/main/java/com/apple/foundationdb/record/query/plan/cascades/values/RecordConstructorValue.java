@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
-import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -124,12 +123,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             var childResult = deepCopyIfNeeded(typeRepository, fieldType, child.eval(store, context));
             if (childResult != null) {
                 final var fieldDescriptor = fieldDescriptors.get(i);
-                if (fieldType.isArray() && fieldType.isNullable()) {
-                    final var wrappedDescriptor = fieldDescriptor.getMessageType();
-                    final var wrapperBuilder = DynamicMessage.newBuilder(wrappedDescriptor);
-                    wrapperBuilder.setField(wrappedDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()), childResult);
-                    childResult = wrapperBuilder.build();
-                }
+                childResult = MessageHelpers.wrapIfNullableArray(fieldType, fieldDescriptor, childResult);
                 resultMessageBuilder.setField(fieldDescriptor, childResult);
             } else {
                 Verify.verify(fieldType.isNullable(), "Cannot set a non-nullable field to the NULL value");
@@ -371,11 +365,15 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                 final var fields = Objects.requireNonNull(getResultType().getFields());
 
                 for (final var childAccumulator : childAccumulators) {
-                    final var finalResult = childAccumulator.finish();
+                    Object finalResult = childAccumulator.finish();
                     if (finalResult != null) {
-                        resultMessageBuilder.setField(descriptorForType.findFieldByNumber(fields.get(i).getFieldIndex()), finalResult);
+                        final var field = fields.get(i);
+                        final var fieldType = field.getFieldType();
+                        final var fieldDescriptor = descriptorForType.findFieldByNumber(field.getFieldIndex());
+                        finalResult = MessageHelpers.wrapIfNullableArray(fieldType, fieldDescriptor, finalResult);
+                        resultMessageBuilder.setField(fieldDescriptor, finalResult);
                     }
-                    i ++;
+                    ++i;
                 }
 
                 return resultMessageBuilder.build();
@@ -509,7 +507,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
     public static class RecordFn extends BuiltInFunction<Value> {
         public RecordFn() {
             super("record",
-                    ImmutableList.of(), new Type.Any(), (builtInFunction, arguments) -> encapsulateInternal(arguments));
+                    ImmutableList.of(), new Type.Any(), (builtInFunction, arguments) -> encapsulateInternal(arguments.getArgumentsList()));
         }
 
         @Nonnull

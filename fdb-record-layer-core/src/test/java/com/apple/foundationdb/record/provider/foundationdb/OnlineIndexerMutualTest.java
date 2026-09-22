@@ -342,7 +342,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         }
         openSimpleMetaData(allIndexesHook(indexes));
         try (FDBRecordContext context = openContext()) {
-            final boolean allReadable = indexes.stream().allMatch(i -> recordStore.isIndexReadable(i));
+            final boolean allReadable = indexes.stream().allMatch(i -> recordStore.getIndexState(i).isReadable());
             context.commit();
             return allReadable;
         }
@@ -1182,7 +1182,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
             // unique index with uniqueness violation:
             assertEquals(numRecords, (int)recordStore.scanUniquenessViolations(indexes.get(0)).getCount().join());
             if (allowUniquePending) {
-                assertTrue(recordStore.isIndexReadableUniquePending(indexes.get(0)));
+                assertTrue(recordStore.getIndexState(indexes.get(0)).isReadableUniquePending());
                 final List<IndexEntry> scanned = recordStore.scanIndex(indexes.get(0), IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
                         .asList().join();
                 assertEquals(scanned.size(), records.size());
@@ -1191,15 +1191,15 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
                 assertTrue(numValues.containsAll(scannedValues));
                 assertTrue(scannedValues.containsAll(numValues));
             } else {
-                assertTrue(recordStore.isIndexWriteOnly(indexes.get(0)));
+                assertTrue(recordStore.getIndexState(indexes.get(0)).isWriteOnly());
                 RecordCoreException e = assertThrows(ScanNonReadableIndexException.class,
                         () -> recordStore.scanIndex(indexes.get(0), IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN));
                 assertTrue(e.getMessage().contains("Cannot scan non-readable index"));
             }
             // non-unique index:
-            assertTrue(recordStore.isIndexReadable(indexes.get(1)));
+            assertTrue(recordStore.getIndexState(indexes.get(1)).isReadable());
             // unique index of unique numbers:
-            assertTrue(recordStore.isIndexReadable(indexes.get(2)));
+            assertTrue(recordStore.getIndexState(indexes.get(2)).isReadable());
             context.commit();
         }
 
@@ -1462,7 +1462,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         openSimpleMetaData(allIndexesHook(indexes));
         try (FDBRecordContext context = openContext()) {
             for (Index index : indexes) {
-                assertTrue(recordStore.isIndexWriteOnly(index));
+                assertTrue(recordStore.getIndexState(index).isWriteOnly());
             }
             context.commit();
         }
@@ -1770,7 +1770,7 @@ class OnlineIndexerMutualTest extends OnlineIndexerTest  {
         openSimpleMetaData(allIndexesHook(indexes));
         try (FDBRecordContext context = openContext()) {
             for (Index index : indexes) {
-                assertTrue(recordStore.isIndexWriteOnly(index));
+                assertTrue(recordStore.getIndexState(index).isWriteOnly());
             }
             context.commit();
         }

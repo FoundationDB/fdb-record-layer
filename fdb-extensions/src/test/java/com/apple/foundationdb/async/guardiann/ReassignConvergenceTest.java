@@ -139,11 +139,11 @@ public class ReassignConvergenceTest implements BaseTest {
         // ---- Phase 0: insert the sample; let everything (including auto-enqueued reassigns) run. ----
         logger.info("seed={} inserting {} vectors", seed, sample.size());
         TestHelpers.insertRecords(getDb(), guardiann, sample, BATCH_SIZE);
-        TestHelpers.runToQuiescence(getDb(), guardiann);
+        GuardiannStructureAsserts.runToQuiescence(getDb(), guardiann);
 
         // ---- Baseline: the post-insert state must be imperfect to have anything to converge. ----
         final StructureSnapshot postInsert = Objects.requireNonNull(
-                TestHelpers.snapshotStructure(getDb(), guardiann), "structure after inserts");
+                GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann), "structure after inserts");
         final int wrong0 = postInsert.computeAssignmentRanking().numWrongAssignments();
         final int under0 = TestHelpers.countUnderReplicatedPrimaries(postInsert);
         logger.info("seed={} post-insert: clusters={}, wrongAssignments={}, underReplicated={}",
@@ -156,7 +156,7 @@ public class ReassignConvergenceTest implements BaseTest {
         // ---- Round 1: re-home mis-assigned primaries toward their nearest cluster. ----
         reassignEveryClusterOnce(guardiann, "round-1");
         final StructureSnapshot afterRound1 = Objects.requireNonNull(
-                TestHelpers.snapshotStructure(getDb(), guardiann), "structure after round 1");
+                GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann), "structure after round 1");
         final int wrong1 = afterRound1.computeAssignmentRanking().numWrongAssignments();
         final int under1 = TestHelpers.countUnderReplicatedPrimaries(afterRound1);
         logger.info("seed={} after round 1: wrongAssignments={} (was {}), underReplicated={} (was {})",
@@ -165,7 +165,7 @@ public class ReassignConvergenceTest implements BaseTest {
         // ---- Round 2: replicate the primaries that round 1 pushed into new (now-correct) clusters. ----
         reassignEveryClusterOnce(guardiann, "round-2");
         final StructureSnapshot afterRound2 = Objects.requireNonNull(
-                TestHelpers.snapshotStructure(getDb(), guardiann), "structure after round 2");
+                GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann), "structure after round 2");
         final int wrong2 = afterRound2.computeAssignmentRanking().numWrongAssignments();
         final int under2 = TestHelpers.countUnderReplicatedPrimaries(afterRound2);
         logger.info("seed={} after round 2: wrongAssignments={} (was {}), underReplicated={} (was {})",
@@ -192,7 +192,7 @@ public class ReassignConvergenceTest implements BaseTest {
      * tasks are enqueued). Logs progress so a long run is visibly advancing.
      */
     private void reassignEveryClusterOnce(@Nonnull final Guardiann guardiann, @Nonnull final String roundName) {
-        final StructureSnapshot snapshot = TestHelpers.snapshotStructure(getDb(), guardiann);
+        final StructureSnapshot snapshot = GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann);
         if (snapshot == null) {
             return;
         }
@@ -250,7 +250,7 @@ public class ReassignConvergenceTest implements BaseTest {
     @Nonnull
     private static List<PrimaryKeyAndVector> seededSample(final long seed, final int size) throws Exception {
         final List<PrimaryKeyAndVector> all =
-                new ArrayList<>(TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 10_000));
+                new ArrayList<>(VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 10_000));
         Collections.shuffle(all, new Random(seed));
         return List.copyOf(all.subList(0, Math.min(size, all.size())));
     }
@@ -267,6 +267,7 @@ public class ReassignConvergenceTest implements BaseTest {
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)
                 .setPrimaryClusterMax(80)
+                .setCollapseMinDuplicates(40)
                 .setPrimaryClusterMin(1)
                 .setDeterministicRandomness(true)
                 .setUnderreplicatedPrimaryClusterMax(3)

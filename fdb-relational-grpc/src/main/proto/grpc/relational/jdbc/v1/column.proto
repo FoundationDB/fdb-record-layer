@@ -51,11 +51,11 @@ message ColumnMetadata {
   int32 java_sql_types_code = 3 [deprecated = true];
   bool nullable = 4;
   // Indicates a column that isn't part of the DDL for a query, but is part of the returned
-  // tuple (and therefore necessary to keep so that our positional ordering is intact)
+  // tuple (and therefore] necessary to keep so that our positional ordering is intact)
   bool phantom = 5;
   // If this column has a Struct or Array, Enum, or Vector type, their metadata is here.
   oneof metadata {
-    ListColumnMetadata structMetadata = 6;
+    StructMetadata structMetadata = 6;
     ColumnMetadata arrayMetadata = 7;
     EnumMetadata enumMetadata = 8;
     VectorMetadata vectorMetadata = 10;
@@ -124,8 +124,9 @@ message ListColumn {
   repeated Column column = 1;
 }
 
-message ListColumnMetadata {
+message StructMetadata {
   repeated ColumnMetadata columnMetadata = 1;
+  optional string typeName = 2;
 }
 
 message EnumMetadata {

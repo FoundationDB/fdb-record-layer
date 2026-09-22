@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
+import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
@@ -59,6 +60,7 @@ import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -79,11 +81,14 @@ import java.util.function.Supplier;
  * </ul>
  * <p>
  * The visitor is designed to be very fast;
- * it does not perform any semantic checks
- * leaving that to {@link com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor}, et al.
+ * it leaves semantic analysis to {@link com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor}, et al.
  * Its main purpose is to lookup queries in the plan cache, and generate enough context to be able to execute a matching
  * physical plan.
  * <br>
+ * It does reject a few things outright, and only where the check has to happen before the plan cache is consulted: an
+ * unsupported clause that would never plan anyway ({@code OFFSET}, {@code LIMIT}), and a {@code NULL} written in an
+ * {@code IN} list. The latter has to be here rather than with the other semantic checks, because a query that hits the
+ * plan cache is never planned, so a check that lives in planning would be skipped for it.
  *
  * <p>
  * Note: this class is currently not thread-safe, I do not see currently any reason for making it so as it is mainly a
@@ -143,7 +148,11 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             return ctx.FALSE() == null;
         });
         literalNodes.put(RelationalParser.BytesConstantContext.class, context -> ParseHelpers.parseBytes(context.getText()));
-        literalNodes.put(RelationalParser.StringConstantContext.class, context -> SemanticAnalyzer.normalizeString(context.getText(), false));
+        // Must decode exactly as ExpressionVisitor.visitStringLiteral does: this is the value the
+        // literal is extracted as for the plan cache, and a literal that caches differently from the
+        // way it evaluates is a cache that answers with the wrong constant.
+        literalNodes.put(RelationalParser.StringConstantContext.class, context ->
+                SemanticAnalyzer.normalizeStringLiteral(((RelationalParser.StringConstantContext) context).stringLiteral()));
         literalNodes.put(RelationalParser.DecimalConstantContext.class, context -> ParseHelpers.parseDecimal(context.getText()));
         literalNodes.put(RelationalParser.NegativeDecimalConstantContext.class, context -> ParseHelpers.parseDecimal(context.getText()));
     }
@@ -180,8 +189,18 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Void visitTerminal(@Nonnull TerminalNode node) {
-        if (node.getSymbol().getType() != Token.EOF) {
-            sqlCanonicalizer.append(node.getText()).append(" ");
+        final var token = node.getSymbol();
+        if (token.getType() != Token.EOF) {
+            //
+            // SQL keywords are case-insensitive, so keyword (and punctuation) tokens are upper-cased in the
+            // canonical form to make it insensitive to keyword case. Only literal tokens are normalized: tokens
+            // defined by lexer rules (identifiers, literals, and unquoted function names) are preserved as-is,
+            // otherwise case-sensitively distinct references (e.g. functions f3 vs F3) would collapse to the
+            // same plan-cache key.
+            //
+            final var text = node.getText();
+            final var isLiteralToken = RelationalLexer.VOCABULARY.getLiteralName(token.getType()) != null;
+            sqlCanonicalizer.append(isLiteralToken ? text.toUpperCase(Locale.ROOT) : text).append(" ");
         }
         return null;
     }
@@ -261,15 +280,15 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
-    public RelationalExpression visitQueryOptions(@Nonnull RelationalParser.QueryOptionsContext ctx) {
-        for (final var opt : ctx.queryOption()) {
+    public RelationalExpression visitStatementOptions(@Nonnull RelationalParser.StatementOptionsContext ctx) {
+        for (final var opt : ctx.statementOption()) {
             visit(opt);
         }
         return null;
     }
 
     @Override
-    public Object visitQueryOption(@Nonnull RelationalParser.QueryOptionContext ctx) {
+    public Object visitStatementOption(@Nonnull RelationalParser.StatementOptionContext ctx) {
         try {
             if (ctx.NOCACHE() != null) {
                 queryCachingFlags.add(NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION);
@@ -433,24 +452,30 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         } else if (ctx.inList().fullColumnName() != null) {
             visit(ctx.inList().fullColumnName());
         } else {
+            Assert.thatUnchecked(
+                    ctx.inList().queryExpressionBody() == null,
+                    ErrorCode.UNSUPPORTED_QUERY,
+                    "IN predicate does not support nested SELECT");
+            final RelationalParser.ExpressionsContext expressions = ctx.inList().expressions();
+            rejectNullItems(expressions);
             sqlCanonicalizer.append("( ");
-            if (ParseHelpers.isConstant(ctx.inList().expressions())) {
+            if (ParseHelpers.isConstant(expressions)) {
                 // todo (yhatem) we should prevent making the constant expressions
                 //   contribute to the hash or the canonical query representation.
                 queryHasherContextBuilder.getLiteralsBuilder().startArrayLiteral();
                 allowTokenAddition = false;
                 sqlCanonicalizer.append("[ ");
-                for (int i = 0; i < ctx.inList().expressions().expression().size(); i++) {
-                    visit(ctx.inList().expressions().expression(i));
+                for (int i = 0; i < expressions.expression().size(); i++) {
+                    visit(expressions.expression(i));
                 }
                 queryHasherContextBuilder.getLiteralsBuilder().finishArrayLiteral(null,
                         null, true, ctx.inList().getStart().getTokenIndex());
                 allowTokenAddition = true;
                 sqlCanonicalizer.append("] ");
             } else {
-                final var size = ctx.inList().expressions().expression().size();
+                final var size = expressions.expression().size();
                 for (int i = 0; i < size; i++) {
-                    visit(ctx.inList().expressions().expression(i));
+                    visit(expressions.expression(i));
                     if (i < size - 1) {
                         sqlCanonicalizer.append(", ");
                     }
@@ -462,12 +487,49 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         return null;
     }
 
+    /**
+     * Rejects a bare {@code NULL} written in an {@code IN} list. An {@code IN} list is represented as an array, and an
+     * array cannot hold a {@code NULL} element. Only the branch that spells the list out is covered; {@code IN ?param}
+     * and {@code IN some.column} write no list, so there is no {@code NULL} to find syntactically.
+     *
+     * <p>This runs during normalization, so it runs for every query, before the plan cache is consulted. That matters:
+     * the same rule also lives in {@link SemanticAnalyzer#validateInListItems}, but that one only runs while a query is
+     * being planned, and planning is skipped on a cache hit. An all-constant list is canonicalized to
+     * {@code IN ( [ ] )}, dropping its constants from the plan cache key, so were a list holding a {@code NULL} ever to
+     * share that key, it would reuse a plan built without one and be checked by nothing. Today the {@code NULL} keyword
+     * itself still reaches the canonical string through {@link #visitTerminal}, so the keys differ.
+     *
+     * @param expressions the items of the {@code IN} list
+     */
+    private void rejectNullItems(@Nonnull final RelationalParser.ExpressionsContext expressions) {
+        for (final var expression : expressions.expression()) {
+            Assert.thatUnchecked(!isNullLiteral(expression), ErrorCode.WRONG_OBJECT_TYPE,
+                    "NULL values are not allowed in the IN list");
+        }
+    }
+
+    /**
+     * Returns {@code true} if the given item is a bare {@code NULL}. Descends through single-child nodes only, so a
+     * {@code NULL} that is merely wrapped is still found, while an expression that happens to contain a {@code NULL}
+     * somewhere below, such as {@code CAST(NULL AS BIGINT)}, is not. Those have a resolved type and are allowed.
+     *
+     * @param tree one item of an {@code IN} list
+     * @return {@code true} if the item is a bare {@code NULL} literal
+     */
+    private static boolean isNullLiteral(@Nonnull final ParseTree tree) {
+        var current = tree;
+        while (!(current instanceof RelationalParser.NullLiteralContext) && current.getChildCount() == 1) {
+            current = current.getChild(0);
+        }
+        return current instanceof RelationalParser.NullLiteralContext;
+    }
+
     @Override
     public Object visitExecuteContinuationStatement(@Nonnull RelationalParser.ExecuteContinuationStatementContext ctx) {
         queryCachingFlags.add(NormalizationResult.QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT);
         queryCachingFlags.add(NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION);
-        if (ctx.queryOptions() != null) {
-            ctx.queryOptions().accept(this);
+        if (ctx.statementOptions() != null) {
+            ctx.statementOptions().accept(this);
         }
         return ctx.packageBytes.accept(this);
     }

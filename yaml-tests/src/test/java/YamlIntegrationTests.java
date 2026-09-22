@@ -66,13 +66,18 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    void arrays(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("arrays.yamsql");
+    void arrayAggTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("array-agg-tests.yamsql");
     }
 
     @TestTemplate
     void arrayJoinAt(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("array-join-at.yamsql");
+    }
+
+    @TestTemplate
+    void arrays(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("arrays.yamsql");
     }
 
     @TestTemplate
@@ -193,6 +198,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void fieldOptionsExtensionTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("field-options-extension.yamsql");
+    }
+
+    @TestTemplate
     void functions(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("functions.yamsql");
     }
@@ -200,6 +210,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void groupByTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("groupby-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void guardiannSemanticSearchTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("guardiann-semantic-search.yamsql");
     }
 
     @TestTemplate
@@ -288,6 +303,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void keywordCaseInsensitivity(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("keyword-case-insensitivity.yamsql");
+    }
+
+    @TestTemplate
     public void nested(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("nested-tests.yamsql");
     }
@@ -343,6 +363,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void scopedKeysetPagination(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("scoped-keyset-pagination.yamsql");
+    }
+
+    @TestTemplate
     public void selectAStar(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("select-a-star.yamsql");
     }
@@ -380,6 +405,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void sparseIndex(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("sparse-index-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void sqlComments(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("sql-comments.yamsql");
     }
 
     @TestTemplate
@@ -475,6 +505,16 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void vectorEnginePreferenceTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("vector-engine-preference.yamsql");
+    }
+
+    @TestTemplate
+    public void vectorMixedVersionMetadataTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("vector-mixed-version-metadata.yamsql");
+    }
+
+    @TestTemplate
     public void vectorTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("vector.yamsql");
     }
@@ -517,5 +557,10 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void filterIndexTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("filter-index.yamsql");
+    }
+
+    @TestTemplate
+    public void selectWithoutFrom(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("select-without-from.yamsql");
     }
 }

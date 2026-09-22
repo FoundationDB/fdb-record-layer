@@ -28,9 +28,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 
 import javax.annotation.Nonnull;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -168,35 +165,6 @@ public class IndexValidator {
     }
 
     /**
-     * Get a set containing all changed index options. This compares the options map of the
-     * index associated with this validator with the options map of an older version of that
-     * index. Any option whose value has been changed (including options that have been added
-     * or removed) are added to the set.
-     *
-     * @param oldIndex an older version of the index associated with this validator
-     * @return a set of option names that have had their value changed
-     * @see #validateChangedOptions(Index)
-     */
-    @Nonnull
-    private Set<String> getChangedOptions(@Nonnull Index oldIndex) {
-        Set<String> changedOptions = new HashSet<>();
-        for (Map.Entry<String, String> oldOptionEntry : oldIndex.getOptions().entrySet()) {
-            final String optionName = oldOptionEntry.getKey();
-            final String newOptionValue = index.getOption(optionName);
-            if (!Objects.equals(oldOptionEntry.getValue(), newOptionValue)) {
-                changedOptions.add(optionName);
-            }
-        }
-        for (Map.Entry<String, String> newOptionEntry : index.getOptions().entrySet()) {
-            final String optionName = newOptionEntry.getKey();
-            if (!oldIndex.getOptions().containsKey(optionName) && newOptionEntry.getValue() != null) {
-                changedOptions.add(optionName);
-            }
-        }
-        return changedOptions;
-    }
-
-    /**
      * Validate any option changes included in the set of changed options provided.
      * This is a natural extension point for subclasses which may wish to override how
      * certain options are handled. This function should look at <em>only</em> the options
@@ -211,11 +179,19 @@ public class IndexValidator {
      *     <li>Call {@code super.validateChangedOptions(oldIndex, changedOptions} to handle common options.</li>
      * </ol>
      *
+     * <p>
+     * In general, an option should be considered safe to mutate if it does not impact the
+     * stored data. For example, {@link IndexOptions#ALLOWED_FOR_QUERY_OPTION} only determines
+     * whether an index may be selected by the planner, so it safe to mutate at any time. Some
+     * options, like {@link IndexOptions#UNIQUE_OPTION}, may be safe to mutate but only in certain
+     * ways (e.g., it is safe to <em>remove</em> a uniqueness constraint, but not to add one).
+     * </p>
+     *
      * @param oldIndex an older version of this validator's index
      * @param changedOptions the set of changed options to inspect
      */
     @API(API.Status.EXPERIMENTAL)
-    protected void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
+    public void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
         for (String changedOption : changedOptions) {
             if (changedOption.startsWith(IndexOptions.REPLACED_BY_OPTION_PREFIX)) {
                 // The set of replacement indexes can be safely added or removed on existing indexes as it
@@ -244,31 +220,5 @@ public class IndexValidator {
                             LogMessageKeys.NEW_OPTION, newValue);
             }
         }
-    }
-
-    /**
-     * Validate any options that have changed. This should inspect the options of {@code oldIndex},
-     * which will be an older version of this index, and determine if all index option changes
-     * are valid. In particular, this should validate that none of the changes necessitate any
-     * on-disk changes or index rebuilds. For example, it is generally legal to drop a
-     * {@linkplain IndexOptions#UNIQUE_OPTION uniqueness} constraint from an index, but it is
-     * not legal to change the {@linkplain IndexOptions#TEXT_TOKENIZER_NAME_OPTION tokenizer}
-     * of a text index.
-     *
-     * <p>
-     * The default behavior is to allow the index to go from having a uniqueness constraint to not
-     * having one as well as allowing any change to the option specifying whether the index may be
-     * {@linkplain IndexOptions#ALLOWED_FOR_QUERY_OPTION used for queries}, but all other changes are
-     * rejected. If an index type would like to different behavior because some options specific
-     * to it may be safely changed, the validator for that type should either override this method
-     * or {@link #validateChangedOptions(Index, Set)}.
-     * </p>
-     *
-     * @param oldIndex an older version of this validator's index
-     * @see #validateChangedOptions(Index, Set)
-     */
-    @API(API.Status.EXPERIMENTAL)
-    public void validateChangedOptions(@Nonnull Index oldIndex) {
-        validateChangedOptions(oldIndex, getChangedOptions(oldIndex));
     }
 }

@@ -115,6 +115,7 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
                 .setRaBitQNumExBits(6)
                 .setMetric(Metric.EUCLIDEAN_METRIC)
                 .setPrimaryClusterMax(CLUSTER_MAX)
+                .setCollapseMinDuplicates(CLUSTER_MAX / 2)
                 .setPrimaryClusterMin(10)
                 .setDeterministicRandomness(true)
                 .setReplicationPriorityMin(0.65d)
@@ -134,7 +135,7 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
         // Read just the first SIFT-small vector as the "center" of the near-duplicate cloud.
         // Stream a single entry via loadVectors rather than slurping all 10k via loadSiftSmall().
         final List<PrimaryKeyAndVector> baseLoaded =
-                TestHelpers.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1);
+                VecsDatasetLoaders.loadVectors(SiftTestHelpers.SIFT_SMALL_BASE_PATH, 1);
         Verify.verify(!baseLoaded.isEmpty(), "SIFT-small must contain at least one vector");
         final DoubleRealVector base = (DoubleRealVector) baseLoaded.get(0).vector();
 
@@ -150,12 +151,12 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
                 final DoubleRealVector perturbed = CommonTestHelpers.perturb(base, sampler, PERTURBATION_SIGMA);
                 final Tuple pk = CommonTestHelpers.createPrimaryKey(i);
                 db.run(tr -> {
-                    guardiann.insert(tr, pk, perturbed, null).join();
+                    guardiann.insert(tr, pk, perturbed, null, true).join();
                     return null;
                 });
             }
 
-            TestHelpers.runToQuiescence(db, guardiann);
+            GuardiannStructureAsserts.runToQuiescence(db, guardiann);
 
             final Map<TaskKind, Integer> executed =
                     onWriteListener.getNumTasksExecutedByKind();
@@ -166,9 +167,9 @@ public class SplitMergeSplitScenarioTest implements BaseTest {
                             CLUSTER_MAX)
                     .isGreaterThanOrEqualTo(1);
 
-            TestHelpers.assertGuardiannInvariants(db, guardiann);
+            GuardiannStructureAsserts.assertGuardiannInvariants(db, guardiann);
 
-            final StructureSnapshot snap = TestHelpers.snapshotStructure(db, guardiann);
+            final StructureSnapshot snap = GuardiannStructureAsserts.snapshotStructure(db, guardiann);
             assertThat(snap)
                     .as("structure snapshot must be non-null after inserts")
                     .isNotNull();

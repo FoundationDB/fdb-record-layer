@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
@@ -48,7 +49,7 @@ class CardinalitiesPropertyTest {
     @Nonnull
     private static Quantifier.ForEach rangeQuantifier(final long endExclusive) {
         final RangeValue rangeValue = (RangeValue) new RangeValue.RangeFn()
-                .encapsulate(ImmutableList.of(LiteralValue.ofScalar(endExclusive)));
+                .encapsulate(CallSiteArguments.ofPositional(LiteralValue.ofScalar(endExclusive)));
         final TableFunctionExpression tvf = new TableFunctionExpression(rangeValue);
         return Quantifier.forEach(Reference.initialOf(tvf));
     }

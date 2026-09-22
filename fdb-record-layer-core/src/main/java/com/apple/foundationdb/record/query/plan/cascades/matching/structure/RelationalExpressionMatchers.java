@@ -135,6 +135,11 @@ public class RelationalExpressionMatchers {
                 (expression, currentReference) -> !currentReference.isFinal(expression));
     }
 
+    public static <E extends RelationalExpression> BindingMatcher<E> isFinalExpression() {
+        return PrimitiveMatchers.satisfiesWithOuterBinding(ReferenceMatchers.getCurrentReferenceMatcher(),
+                (expression, currentReference) -> currentReference.isFinal(expression));
+    }
+
     @Nonnull
     public static BindingMatcher<FullUnorderedScanExpression> fullUnorderedScanExpression() {
         return ofTypeOwning(FullUnorderedScanExpression.class, CollectionMatcher.empty());
