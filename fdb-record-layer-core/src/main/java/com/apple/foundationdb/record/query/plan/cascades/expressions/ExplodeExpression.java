@@ -153,13 +153,6 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
      * {@link RecordConstructorValue} of two such values, the element and the ordinal, rather than a single opaque value
      * of the struct type.
      *
-     * <p>The distinction matters for matching, not for evaluation. {@link com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap}
-     * descends into record constructors but not into opaque values, so building the struct explicitly makes the element
-     * a <em>reachable</em> sub-value of the result: a plain explode on the query side can then be related to a
-     * {@code WITH ORDINALITY} explode on the candidate side, and the correspondence pulls up through the enclosing
-     * quantifiers as {@code q._0} rather than being lost. An opaque value of the struct type offers nothing to match
-     * against but itself.
-     *
      * @param elementType the element type of the collection being exploded
      * @param withOrdinality whether ordinals are produced alongside the elements
      * @return the value flowed by such an explode
@@ -171,11 +164,12 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
             return elementValue;
         }
         // Note: the element must stay the first column. `MaxMatchMap` returns the first reachable candidate value that
-        // compares equal, and a `QueriedValue` compares equal to any other `QueriedValue`, so an element on the query
-        // side would just as happily match the ordinal if the ordinal came first.
+        // compares equal, and a `QueriedValue` has no identity beyond its class and result type, so an element whose
+        // type is also a non-nullable `INT` -- the ordinal's type -- would just as happily match the ordinal if the
+        // ordinal came first.
         //
-        // The record is built nullable so that its type is the one `explodeResultType` already declares -- that type
-        // backs the protobuf descriptor the plan builds at run time, so it is the type that must not move.
+        // The record is built nullable because `explodeResultType` declares it that way, and the constructor verifies
+        // that the two agree: that declared type is what the plan looks its protobuf descriptor up by at run time.
         return RecordConstructorValue.ofColumns(
                 ImmutableList.of(Column.unnamedOf(elementValue),
                         Column.unnamedOf(new QueriedValue(Type.primitiveType(Type.TypeCode.INT, false)))),
@@ -266,13 +260,11 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
         if (!isCompatiblyAndCompletelyBound(bindingAliasMap, candidateExpression.getQuantifiers())) {
             return ImmutableList.of();
         }
-
         if (!withOrdinality
                 && candidateExpression instanceof final ExplodeExpression candidateExplodeExpression
                 && candidateExplodeExpression.isWithOrdinality()) {
             return subsumedByWithOrdinality(candidateExplodeExpression, bindingAliasMap, partialMatchMap);
         }
-
         return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, TranslationMap.empty());
     }
 
@@ -282,12 +274,6 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
      * emits just element. That satisfies subsumption: the candidate produces at least everything the query may produce.
      * This case cannot be dealt with by {@link #exactlySubsumedBy}, whose {@code equalsWithoutChildren} compares
      * {@link #isWithOrdinality()}.
-     *
-     * <p>No {@link com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence} is needed to relate the two
-     * result values: {@link #explodeResultValue} builds the candidate's as a record constructor, so this expression's
-     * element value is a reachable sub-value of it and the correspondence is found structurally. The resulting mapping
-     * points at the candidate's element column, which is what lets the enclosing select express a navigation into the
-     * element as {@code q._0.field}.
      *
      * @param candidateExpression the candidate explode, which must be {@code WITH ORDINALITY}
      * @param bindingAliasMap a map of aliases defining the equivalence between quantifiers
@@ -301,11 +287,9 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
         if (!collectionValue.semanticEquals(candidateExpression.getCollectionValue(), bindingAliasMap)) {
             return ImmutableList.of();
         }
-
         final var maxMatchMap =
                 MaxMatchMap.compute(getResultValue(), candidateExpression.getResultValue(),
                         Quantifiers.aliases(candidateExpression.getQuantifiers()));
-
         return MatchInfo.RegularMatchInfo.tryFromMatchMap(bindingAliasMap, partialMatchMap, maxMatchMap)
                 .map(ImmutableList::of)
                 .orElse(ImmutableList.of());
