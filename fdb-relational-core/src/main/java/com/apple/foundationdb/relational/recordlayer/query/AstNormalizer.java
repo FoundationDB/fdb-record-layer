@@ -419,8 +419,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             //      select * from t1 where col1 = ?P2 and col2 = ?P1
             final var namedParameterContext = ctx.NAMED_PARAMETER();
             final var parameterName = namedParameterContext.getText().substring(1);
-            if (!preparedStatementParameters.hasNamedParamValue(parameterName)
-                    && preparedStatementParameters.declaredTypeMaybe(parameterName).isPresent()) {
+            if (preparedStatementParameters.unboundDeclaredTypeMaybe(parameterName).isPresent()) {
                 // Declared but unbound. Canonicalized to ?name so the cache key matches what a runtime client sends;
                 // nothing is added to the literal table, since planning registers a value-free literal instead. The
                 // parameter hash omits the absent value, which is safe because it feeds continuation validation rather
