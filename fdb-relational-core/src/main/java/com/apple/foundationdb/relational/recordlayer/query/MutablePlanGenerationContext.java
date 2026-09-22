@@ -517,13 +517,11 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nonnull
     public Value processNamedPreparedParam(@Nonnull String param, int tokenIndex,
                                            @Nonnull Function<String, Type> declaredTypeResolver) {
-        if (!preparedParams.hasNamedParamValue(param)) {
-            // Declared but unbound: planned as a value-free typed constant, and the runtime re-issue binds a value at
-            // the same constant id.
-            final var declaredType = preparedParams.declaredTypeMaybe(param);
-            if (declaredType.isPresent()) {
-                return valueFreeCovOf(declaredTypeResolver.apply(declaredType.get()), param, tokenIndex);
-            }
+        // Declared but unbound: planned as a value-free typed constant, and the runtime re-issue binds a value at
+        // the same constant id.
+        final var declaredType = preparedParams.unboundDeclaredTypeMaybe(param);
+        if (declaredType.isPresent()) {
+            return valueFreeCovOf(declaredTypeResolver.apply(declaredType.get()), param, tokenIndex);
         }
         final var value = preparedParams.namedParamValue(param);
         //TODO type should probably be Type.any() instead of null
