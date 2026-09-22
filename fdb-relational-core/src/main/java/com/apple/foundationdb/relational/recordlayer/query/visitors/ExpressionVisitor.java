@@ -589,20 +589,20 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     /**
-     * Resolves the SQL text of a parameter's type declaration into a type. Done here because the schema template it may
+     * Resolves the SQL text of a parameter's declared type into a type. Done here because the schema template it may
      * name a type from is reachable from this visitor's semantic analyzer, and nowhere upstream.
      *
-     * <p>The result is forced non-nullable: a declaration is only resolved for a parameter left without a value, and
+     * <p>The result is forced non-nullable: a declared type is only resolved for a parameter left without a value, and
      * that happens only when it is known not to receive a null. {@code Type.fromObject} does the same for a bound
      * non-null value, so the two agree at cache lookup.</p>
      */
     @Nonnull
-    private Type resolveDeclaredType(@Nonnull final String declaration) {
-        final var typeCtx = QueryParser.parseParameterDeclaration(declaration).parameterType;
+    private Type resolveDeclaredType(@Nonnull final String declaredType) {
+        final var typeCtx = QueryParser.parseParameterDeclaration(declaredType).parameterType;
         final var dataType = getDelegate().lookupType(typeCtx.customType, typeCtx.primitiveType(), false,
                 typeCtx.ARRAY() != null, name -> Optional.empty());
         Assert.thatUnchecked(dataType.isResolved(), ErrorCode.UNSUPPORTED_OPERATION,
-                () -> "cannot resolve declared type '" + declaration + "' for a parameter with no value");
+                () -> "cannot resolve declared type '" + declaredType + "' for a parameter with no value");
         return DataTypeUtils.toRecordLayerType(dataType).notNullable();
     }
 
