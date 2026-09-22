@@ -65,7 +65,7 @@ class OfflineValueFreePlanGenerationTest {
                         NoOpMetadataOperationsFactory.INSTANCE,
                         NoOpMetricCollector.INSTANCE,
                         Options.NONE,
-                        PreparedParams.empty().withDeclarations(Map.of("param_a", "BIGINT")))
+                        PreparedParams.empty().withDeclaredTypeParams(Map.of("param_a", "BIGINT")))
                 .getPlan("select title from books where id = ?param_a");
 
         final var constraint = plan.getConstraint();
@@ -85,7 +85,7 @@ class OfflineValueFreePlanGenerationTest {
                         new RecordStoreState(null, null),
                         NoOpMetricCollector.INSTANCE,
                         Options.NONE,
-                        PreparedParams.empty().withDeclarations(Map.of("param_a", "BIGINT")))
+                        PreparedParams.empty().withDeclaredTypeParams(Map.of("param_a", "BIGINT")))
                 .getPlan("select title from books where id = ?param_a");
 
         assertThat(plan.getConstraint().isConstrained()).isTrue();
@@ -140,8 +140,8 @@ class OfflineValueFreePlanGenerationTest {
      * Plans {@code where id = ?param_a} with {@code param_a} declared and unbound, and returns the plan's constraint.
      */
     @Nonnull
-    private QueryPlanConstraint valueFreePlanConstraint(@Nonnull final String declaration) throws Exception {
-        return planConstraint(PreparedParams.empty().withDeclarations(Map.of("param_a", declaration)));
+    private QueryPlanConstraint valueFreePlanConstraint(@Nonnull final String declaredType) throws Exception {
+        return planConstraint(PreparedParams.empty().withDeclaredTypeParams(Map.of("param_a", declaredType)));
     }
 
     @Nonnull
