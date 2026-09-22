@@ -133,7 +133,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                 Suppliers.memoize(() -> MatchCandidate.computePrimaryKeyValuesMaybe(primaryKey, baseType));
         this.indexEntryToLogicalRecordOptionalSupplier =
                 Suppliers.memoize(() -> ScanWithFetchMatchCandidate.computeIndexEntryToLogicalRecord(queriedRecordTypes,
-                        baseAlias, baseType, indexKeyValues, indexValueValues));
+                        baseAlias, baseType, indexKeyValues, indexValueValues,
+                        fullKeyExpression.normalizeKeyForPositions()));
     }
 
     @Override

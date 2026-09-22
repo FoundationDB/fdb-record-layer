@@ -22,18 +22,18 @@
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.table$nested.repeated.idx.field.1.2.1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3) AS level0.field1)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q102> label="q102" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ó
+}ô
 ±
-	all-tests£EXPLAIN select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as b, b."level1$field.1" where "level2$array.field.1" = 10)¼
-ƒ„½Ì0À ŽŸ­(E0¡°i8^@vCOVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c26 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)¥digraph G {
+	all-tests£EXPLAIN select t.id from "foo.table$nested.repeated" as t where exists (select * from t."level0.field1" as b, b."level1$field.1" where "level2$array.field.1" = 10)½
+Ô¢ÑÃ1‡ ÛÎ€(<0™â­8I@vCOVERING(foo.table$nested.repeated.idx.field.1.1.1 [EQUALS promote(@c26 AS LONG)] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)¥digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q117.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q116.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c26 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3) AS level0.field1)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">foo.table$nested.repeated.idx.field.1.1.1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(ARRAY(LONG AS level2$array.field.1, LONG AS level2$field.2) AS level1$field.1, LONG AS level2$field.1, LONG AS level2$field.2 AS level1$field.2, LONG AS level1$field.3) AS level0.field1)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q117> label="q117" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q116> label="q116" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }ß
 r
 	all-testseEXPLAIN select "level0.field1"."level1$field.1"."level2$field.1" from "foo.table$nested" where id = 1è

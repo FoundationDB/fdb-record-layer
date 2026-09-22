@@ -89,8 +89,12 @@ class IndexEntryTranslatorEquivalenceTest {
                 FieldValue.ofFieldNames(baseObjectValue, List.of("header", "num")),
                 FieldValue.ofFieldNames(baseObjectValue, List.of("header", "rec_no")));
 
+        // The positions of the full key the candidate scans, index columns then primary key, as the candidates pass them.
+        final var keyPositions = concat(metaDataBuilder.build().getIndex("multi").getRootExpression(),
+                recordType.getPrimaryKey()).normalizeKeyForPositions();
+
         final var translators = ScanWithFetchMatchCandidate.computeIndexEntryToLogicalRecord(List.of(recordType),
-                baseAlias, baseType, indexKeyValues, ImmutableList.of()).orElseThrow();
+                baseAlias, baseType, indexKeyValues, ImmutableList.of(), keyPositions).orElseThrow();
         final var copiers = translators.indexKeyValueToPartialRecord();
         final var recordValue = translators.indexEntryToRecordValue();
         assertNotNull(recordValue, "a nested index should still yield a value based translator");
@@ -133,8 +137,11 @@ class IndexEntryTranslatorEquivalenceTest {
                 FieldValue.ofFieldNames(baseObjectValue, List.of("num_value_2")),
                 FieldValue.ofFieldNames(baseObjectValue, List.of("rec_no")));
 
+        final var keyPositions = concat(metaData.getIndex("dup").getRootExpression(), recordType.getPrimaryKey())
+                .normalizeKeyForPositions();
+
         final var translators = ScanWithFetchMatchCandidate.computeIndexEntryToLogicalRecord(List.of(recordType),
-                baseAlias, baseType, indexKeyValues, ImmutableList.of()).orElseThrow();
+                baseAlias, baseType, indexKeyValues, ImmutableList.of(), keyPositions).orElseThrow();
         final var recordValue = translators.indexEntryToRecordValue();
         assertNotNull(recordValue, "a repeated field should still yield a value based translator");
 

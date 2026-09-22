@@ -1031,6 +1031,17 @@ public interface Compensation {
 
         @Nonnull
         private CorrelationIdentifier getMatchedForEachAlias() {
+            return Iterables.getOnlyElement(getMatchedForEachAliases());
+        }
+
+        /**
+         * Returns the aliases of the matched for-each quantifiers. There is more than one exactly when the match
+         * stands in for a join, which is what a candidate over a synthetic record type produces.
+         *
+         * @return the aliases of the matched for-each quantifiers
+         */
+        @Nonnull
+        private Set<CorrelationIdentifier> getMatchedForEachAliases() {
             final var matchedQuantifierMap =
                     Quantifiers.aliasToQuantifierMap(matchedQuantifiers);
 
@@ -1038,13 +1049,10 @@ public interface Compensation {
                     matchedQuantifierMap.keySet();
             Verify.verify(compensatedAliases.equals(matchedAliases));
 
-            final var matchedForEachQuantifierAliases =
-                    matchedAliases
-                            .stream()
-                            .filter(alias -> matchedQuantifierMap.get(alias) instanceof Quantifier.ForEach)
-                            .collect(ImmutableSet.toImmutableSet());
-
-            return Iterables.getOnlyElement(matchedForEachQuantifierAliases);
+            return matchedAliases
+                    .stream()
+                    .filter(alias -> matchedQuantifierMap.get(alias) instanceof Quantifier.ForEach)
+                    .collect(ImmutableSet.toImmutableSet());
         }
 
         @Nonnull
@@ -1055,7 +1063,13 @@ public interface Compensation {
             Verify.verify(!isImpossible());
             Verify.verify(resultCompensationFunction.isNeeded());
 
-            final var matchedForEachAlias = getMatchedForEachAlias();
+            //
+            // Any of the matched for-each aliases will do here, and when the match stands in for a join there is more
+            // than one with none of them distinguished. The compensated result value is expressed over the top of the
+            // match, the translation below re-targets it onto the alias picked here, and that alias then names the
+            // single new quantifier over the data access -- so the choice only decides a name.
+            //
+            final var matchedForEachAlias = Iterables.get(getMatchedForEachAliases(), 0);
 
             final var resultValue =
                     resultCompensationFunction.applyCompensationForResult(

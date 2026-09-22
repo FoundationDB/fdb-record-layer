@@ -159,7 +159,8 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
         this.primaryKeyValuesSupplier = Suppliers.memoize(() -> MatchCandidate.computePrimaryKeyValuesMaybe(primaryKey, baseType));
         this.indexEntryToLogicalRecordOptionalSupplier =
                 Suppliers.memoize(() -> ScanWithFetchMatchCandidate.computeIndexEntryToLogicalRecord(queriedRecordTypes,
-                        baseAlias, baseType, indexKeyValues, ImmutableList.of()));
+                        baseAlias, baseType, indexKeyValues, ImmutableList.of(),
+                        fullKeyExpression.normalizeKeyForPositions()));
     }
 
     @Override

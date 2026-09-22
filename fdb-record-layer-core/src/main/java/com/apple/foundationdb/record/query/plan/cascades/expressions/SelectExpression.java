@@ -911,16 +911,25 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         }
 
         //
-        // We now know we need compensation, and if we have more than one quantifier, we would have to translate
-        // the references of the values from the query graph to values operating on the MQT in order to do that
-        // compensation. We cannot do that (yet). If we, however, do not have to worry about compensation we just do
-        // this select entirely with the scan.
+        // We now know we need compensation. If more than one for-each quantifier was matched, reapplying that
+        // compensation means translating references from the query graph onto values over the MQT. For predicates and
+        // for unmatched quantifiers we cannot do that (yet), because such a reference may reach a quantifier whose
+        // correspondence to the candidate was never established.
+        //
+        // For the result value we can: `computeResultCompensation` above already expressed it over the root of the
+        // match. That is the case a candidate over a synthetic record type produces -- the match stands in for the
+        // whole join, and all that is left is to project the query's result out of the record the scan flows.
         //
         final var partialMatchMap = regularMatchInfo.getPartialMatchMap();
-        if (quantifiers.stream()
-                    .filter(quantifier -> quantifier instanceof Quantifier.ForEach &&
-                            partialMatchMap.containsKeyUnwrapped(quantifier))
-                    .count() > 1) {
+        final var isResultCompensationOnly =
+                !childCompensation.isNeeded() &&
+                        unmatchedQuantifiers.isEmpty() &&
+                        !isAnyCompensationFunctionNeeded;
+        if (!isResultCompensationOnly &&
+                quantifiers.stream()
+                        .filter(quantifier -> quantifier instanceof Quantifier.ForEach &&
+                                partialMatchMap.containsKeyUnwrapped(quantifier))
+                        .count() > 1) {
             return Compensation.impossibleCompensation();
         }
 

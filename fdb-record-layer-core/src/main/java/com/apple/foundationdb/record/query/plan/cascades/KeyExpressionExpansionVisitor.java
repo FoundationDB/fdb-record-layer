@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
@@ -441,7 +442,63 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     @Nonnull
     @Override
     public GraphExpansion visitExpression(@Nonnull final ListKeyExpression listKeyExpression) {
-        throw new UnsupportedOperationException("visitor method for this key expression is not implemented");
+        final ImmutableList.Builder<GraphExpansion> expandedPredicatesBuilder = ImmutableList.builder();
+        final VisitorState state = getCurrentState();
+        int currentOrdinal = state.getCurrentOrdinal();
+        for (KeyExpression child : listKeyExpression.getChildren()) {
+            final VisitorState childState = state.withCurrentOrdinal(currentOrdinal);
+            final Value value = childState.registerValue(listChildValue(child, childState));
+            expandedPredicatesBuilder.add(expansionForListChild(childState, value));
+            currentOrdinal++;
+        }
+        return GraphExpansion.ofOthers(expandedPredicatesBuilder.build());
+    }
+
+    /**
+     * Computes the single {@link Value} a child of a {@link ListKeyExpression} contributes. The child is expanded as an
+     * internal expansion so that it neither registers its own values nor creates its own placeholders, and the values
+     * of the columns it yields are then collapsed into one.
+     *
+     * @param child the child of the list
+     * @param state the state to expand the child under, whose ordinal is the child's key position
+     * @return the value the child contributes at its position
+     */
+    @Nonnull
+    private Value listChildValue(@Nonnull final KeyExpression child, @Nonnull final VisitorState state) {
+        final GraphExpansion childExpansion = pop(child.expand(push(state.forFunctionalExpansion())));
+        if (!childExpansion.getQuantifiers().isEmpty()) {
+            throw new UnsupportedOperationException("cannot expand a list whose child introduces quantifiers");
+        }
+        final var childValues = childExpansion.getResultColumns()
+                .stream()
+                .map(Column::getValue)
+                .collect(ImmutableList.toImmutableList());
+        if (childValues.size() == 1) {
+            return Iterables.getOnlyElement(childValues);
+        }
+        return RecordConstructorValue.ofUnnamed(childValues);
+    }
+
+    /**
+     * Emits the expansion for one child of a {@link ListKeyExpression}, mirroring what
+     * {@link #visitExpression(FieldKeyExpression)} does for a scalar field.
+     *
+     * @param state the state whose ordinal is the child's key position
+     * @param value the value the child contributes
+     * @return the expansion contributed by that child
+     */
+    @Nonnull
+    private GraphExpansion expansionForListChild(@Nonnull final VisitorState state, @Nonnull final Value value) {
+        final boolean isSargable = state.isKey() && !state.isInternalExpansion();
+        if (state.isSelectStar()) {
+            return isSargable
+                   ? GraphExpansion.ofPlaceholder(value.asPlaceholder(newParameterAlias()))
+                   : GraphExpansion.empty();
+        }
+        final Column<?> column = Column.unnamedOf(value);
+        return isSargable
+               ? GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()))
+               : GraphExpansion.ofResultColumn(column);
     }
 
     /**
