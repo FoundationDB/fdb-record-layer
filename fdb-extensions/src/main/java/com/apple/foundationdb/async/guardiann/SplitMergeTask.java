@@ -393,9 +393,38 @@ class SplitMergeTask extends AbstractDeferredTask {
                                             targetClusterMetadata.withNewStates(EnumSet.of(ClusterMetadata.State.COLLAPSE)));
                                     return null;
                                 }
+                                throw new IllegalStateException(
+                                        noAdmissibleCandidateMessage(candidateToEvaluationResultMap));
                             }
-                            return bestValidCandidateOptional.orElseThrow();
+                            return bestValidCandidateOptional.get();
                         }));
+    }
+
+    /**
+     * Describes a split that found nothing it was allowed to do: every candidate was rejected and the cluster held no
+     * duplicates to collapse instead. Only {@link PartitionEvaluator.Decision#INVALID_CANDIDATE} makes a candidate
+     * unusable, and only {@code minChildFraction} produces that verdict, so naming the configured bound next to the
+     * smallest-child fraction each candidate actually reached is what separates a mis-tuned configuration from data
+     * that genuinely cannot be partitioned within it.
+     *
+     * @param candidateToEvaluationResultMap the candidates that were considered, with their verdicts
+     *
+     * @return the message for the thrown exception
+     */
+    @Nonnull
+    private String noAdmissibleCandidateMessage(@Nonnull final Map<RepartitioningCandidate, EvaluationResult> candidateToEvaluationResultMap) {
+        final StringBuilder builder = new StringBuilder("no admissible repartitioning candidate for cluster ")
+                .append(getTargetClusterId())
+                .append("; minChildFraction=").append(getConfig().minChildFraction());
+        for (final EvaluationResult evaluationResult : candidateToEvaluationResultMap.values()) {
+            final PartitionEvaluator.PartitionStats candidateStats = evaluationResult.candidateStats();
+            builder.append("; candidate k=").append(candidateStats.k())
+                    .append(", smallestFrac=").append(candidateStats.smallestFrac())
+                    .append(", largestFrac=").append(candidateStats.largestFrac())
+                    .append(", decision=").append(evaluationResult.decision())
+                    .append(", reason=").append(evaluationResult.reason());
+        }
+        return builder.toString();
     }
 
     /**
@@ -1104,11 +1133,30 @@ class SplitMergeTask extends AbstractDeferredTask {
                 primaryVectorReferencesBuilder.build();
 
         // re-fit only the primary vectors
-        return new RepartitioningCandidate(classification, primaryVectorReferences,
+        final KMeans.Result<Transformed<RealVector>> kMeansResult =
                 KMeans.fit(random, estimator, VectorReference.vectorLens(),
                         Transformed.underlyingLens(), primaryVectorReferences,
                         targetNumPartitions, maxIterations,
-                        maxRestarts, 0.00, KMeans.overflowQuadraticPenalty()));
+                        maxRestarts, 0.00, KMeans.overflowQuadraticPenalty());
+        if (logger.isDebugEnabled()) {
+            // The closest pair of resulting centroids says whether k-means found real structure or merely cut a
+            // homogeneous region: separation on the order of the data's own spread means the partition is following a
+            // genuine boundary, while a separation near zero means the population had no boundary to follow and the
+            // resulting sizes are down to where the local optimum happened to fall.
+            double minCentroidDistance = Double.POSITIVE_INFINITY;
+            final List<Transformed<RealVector>> centroids = kMeansResult.clusterCentroids();
+            for (int i = 0; i < centroids.size(); i++) {
+                for (int j = i + 1; j < centroids.size(); j++) {
+                    minCentroidDistance =
+                            Math.min(minCentroidDistance, estimator.distance(centroids.get(i), centroids.get(j)));
+                }
+            }
+            logger.debug("k-means fit; k={}, numVectors={}, clusterSizes={}, objective={}, minCentroidDistance={}",
+                    targetNumPartitions, primaryVectorReferences.size(),
+                    java.util.Arrays.toString(kMeansResult.clusterSizes()), kMeansResult.objective(),
+                    minCentroidDistance);
+        }
+        return new RepartitioningCandidate(classification, primaryVectorReferences, kMeansResult);
     }
 
     /**

@@ -542,6 +542,19 @@ final class GuardiannVectorIndexEngine implements VectorIndexEngine {
             register.onTaskExecuted(transaction);
         }
 
+        @Override
+        public void onVectorReferencesCleanedUp(final int numDroppedMissingMetadata,
+                                                final int numDroppedSupersededMetadata) {
+            if (timer != null) {
+                final int numDropped = numDroppedMissingMetadata + numDroppedSupersededMetadata;
+                timer.increment(FDBStoreTimer.Counts.VECTOR_REFERENCE_CLEANUPS);
+                if (numDropped > 0) {
+                    timer.increment(FDBStoreTimer.Counts.VECTOR_REFERENCE_CLEANUPS_WITH_STALE);
+                    timer.increment(FDBStoreTimer.Counts.VECTOR_STALE_REFERENCES_DROPPED, numDropped);
+                }
+            }
+        }
+
         // Listener for insert/delete/drain: metrics plus forwarding task enqueue/execute events to the register
         // (e.g. count maintenance and/or merge-required signaling) against the operation's transaction.
         @Nonnull

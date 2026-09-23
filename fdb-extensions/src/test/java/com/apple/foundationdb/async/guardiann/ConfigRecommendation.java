@@ -77,18 +77,41 @@ final class ConfigRecommendation {
      */
     @Nonnull
     static Config.ConfigBuilder forClusterMax(@Nonnull final Metric metric, final int primaryClusterMax) {
+        return forClusterBounds(metric, primaryClusterMax, primaryClusterMax / 10);
+    }
+
+    /**
+     * Recommends a configuration for the given metric and both cluster size bounds. Use this rather than
+     * {@link #forClusterMax} whenever the floor is not {@code primaryClusterMax / 10}, because several derived knobs —
+     * {@code minChildFraction} above all — are ratios of the two bounds. Overriding {@code primaryClusterMin} on a
+     * builder returned by {@link #forClusterMax} does <em>not</em> re-derive them, which leaves the configuration
+     * quietly inconsistent: a child-size floor computed from one pair of bounds applied to another.
+     *
+     * @param metric the distance metric the data is compared under
+     * @param primaryClusterMax the number of primary vectors at which a cluster splits
+     * @param primaryClusterMin the number of primary vectors below which a cluster merges away
+     * @return a builder carrying the recommendation, ready for {@code build(numDimensions)} and for any
+     *         dataset-specific overrides the caller wants to layer on
+     */
+    @Nonnull
+    static Config.ConfigBuilder forClusterBounds(@Nonnull final Metric metric, final int primaryClusterMax,
+                                                 final int primaryClusterMin) {
         if (primaryClusterMax < MIN_SUPPORTED_CLUSTER_MAX) {
             throw new IllegalArgumentException("primaryClusterMax must be at least " + MIN_SUPPORTED_CLUSTER_MAX
                     + " for the recommended ratios to be meaningful; got " + primaryClusterMax);
         }
-        final int primaryClusterMin = primaryClusterMax / 10;
         return Guardiann.newConfigBuilder()
                 .setMetric(metric)
                 // cluster shape
                 .setPrimaryClusterMax(primaryClusterMax)
                 .setPrimaryClusterMin(primaryClusterMin)
                 .setPrimaryClusterHardMax(2 * primaryClusterMax)
-                .setMinChildFraction(primaryClusterMin / (double)primaryClusterMax)
+                // Expressed against twice the cap rather than the cap itself. The gate compares the smallest child
+                // against the fraction of the *candidate's* population, and a 2-to-3 candidate pools the target with a
+                // neighbour, so that population runs to about twice primaryClusterMax; dividing by the cap alone would
+                // then demand twice primaryClusterMin. Erring low is deliberate: a child born below the merge floor
+                // costs one extra merge, whereas rejecting every candidate leaves the split with nothing to do.
+                .setMinChildFraction(primaryClusterMin / (2.0d * primaryClusterMax))
                 // replication, scaled with cluster size
                 .setReplicatedClusterTarget(primaryClusterMax / 10)
                 .setReplicatedClusterMaxWrites(3 * primaryClusterMax / 10)
