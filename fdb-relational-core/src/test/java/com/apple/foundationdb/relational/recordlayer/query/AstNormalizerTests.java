@@ -1016,7 +1016,8 @@ public class AstNormalizerTests {
     }
 
     @Test
-    void parseUpdateStatementWithoutPlanRightDeepSetsItToFalse() throws Exception {        validate(List.of("update A set A2 = 52 where A1 > 2"),
+    void parseUpdateStatementWithoutPlanRightDeepSetsItToFalse() throws Exception {
+        validate(List.of("update A set A2 = 52 where A1 > 2"),
                 PreparedParams.empty(),
                 "UPDATE \"A\" SET \"A2\" = ? WHERE \"A1\" > ? ",
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
