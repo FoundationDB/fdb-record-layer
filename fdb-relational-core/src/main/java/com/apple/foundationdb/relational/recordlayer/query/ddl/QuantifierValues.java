@@ -64,8 +64,7 @@ final class QuantifierValues {
 
     /**
      * The stored record type behind each type-filter quantifier, by the correlation it is bound to, in the order they
-     * were found. One is an ordinary single-table definition; two or more make the plan a join, and then each
-     * correlation becomes a constituent of a joined synthetic table.
+     * were found. One is an ordinary single-table definition; two or more make the plan a join.
      */
     @Nonnull
     private final Map<CorrelationIdentifier, String> storedConstituents;

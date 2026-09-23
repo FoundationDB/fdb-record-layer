@@ -45,18 +45,19 @@ final class SyntheticTableGeneratorFactory {
      * @return the generator, empty when the index is maintained from a stored table
      */
     @Nonnull
-    static Optional<SyntheticTableGenerator> forDefinition(@Nonnull final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
-                                                          @Nonnull final IndexSpec spec,
-                                                          @Nonnull final String indexName,
-                                                          @Nonnull final QuantifierValues quantifierValues) {
-        final Optional<SyntheticTableGenerator> joined = RecordLayerJoinedSyntheticTableGenerator
-                .initIfNeeded(schemaTemplateBuilder, spec, indexName, quantifierValues)
-                .map(SyntheticTableGenerator.class::cast);
-        if (joined.isPresent()) {
-            return joined;
+    static Optional<? extends SyntheticTableGenerator> forDefinition(@Nonnull final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
+                                                                     @Nonnull final IndexSpec spec,
+                                                                     @Nonnull final String indexName,
+                                                                     @Nonnull final QuantifierValues quantifierValues) {
+        final var isJoin = quantifierValues.isJoin();
+        final var hasUnnesting = !quantifierValues.getExplodes().isEmpty();
+        if (isJoin && !hasUnnesting) {
+            return RecordLayerJoinedSyntheticTableGenerator.initIfNeeded(schemaTemplateBuilder, spec,
+                    indexName, quantifierValues);
+        } else if (hasUnnesting && !isJoin) {
+            return RecordLayerUnnestedSyntheticTableGenerator.initIfNeeded(spec, indexName, quantifierValues);
+        } else {
+            return Optional.empty();
         }
-        return RecordLayerUnnestedSyntheticTableGenerator
-                .initIfNeeded(spec, indexName, quantifierValues)
-                .map(SyntheticTableGenerator.class::cast);
     }
 }

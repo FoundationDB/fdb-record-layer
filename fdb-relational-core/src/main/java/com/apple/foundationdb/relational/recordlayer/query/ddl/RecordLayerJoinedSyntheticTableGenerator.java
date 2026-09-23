@@ -60,24 +60,15 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
  * stored table.
  *
  * <p>Every constituent is inner-joined, one per joined table in the order the plan found them. The equalities relating
- * the tables become the synthetic table's join conditions rather than an index predicate — a joined record is precisely
- * the combination of stored records that satisfies them, so there is nothing left to filter.
- *
- * <p>Like {@link UnnestedRecordTableGenerator}, this re-expresses the index key in the synthetic table's coordinates:
- * {@link #rewrite} re-roots each column at the constituent it was read from, after which the columns are ordinary field
- * paths that {@link ValueToKeyExpressionVisitor} translates with collapsing disabled — a constituent must be navigated
- * on its own, not merged into a run with its neighbour.
+ * the tables become the synthetic table's join conditions — a joined record is precisely the combination of stored
+ * records that satisfies them, so there is nothing left to filter.
  */
 final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGenerator {
 
     private static final String JOINED_TABLE_NAME_PREFIX = "__joined_";
 
     /**
-     * Prefixes the alias of each joined constituent, numbered by the order its table was found in. Constituent aliases
-     * are persisted in the metadata, so they are derived from the index definition alone rather than taken from the
-     * plan's correlation identifiers, whose values depend on how many quantifiers the JVM has allocated and so differ
-     * between runs of the same DDL. The record layer reserves {@code "__"} for constituent names of its own, so this
-     * cannot carry that prefix.
+     * Prefixes the alias of each joined constituent, numbered by the order its table was found in.
      */
     private static final String CONSTITUENT_ALIAS_PREFIX = "joined_";
 
@@ -88,15 +79,22 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
     @Nonnull
     private final Map<CorrelationIdentifier, ConstituentInfo> constituents;
 
-    @Nonnull
-    private final List<JoinCondition> joinConditions;
-
     /**
-     * The filters the definition applies on top of the join. Stored with the index and evaluated against the joined
-     * record, so that only the joined records the definition asks for are indexed.
+     * What the plan's quantifiers stand for, which is the shape {@link #checkSupported} judges.
      */
     @Nonnull
-    private final List<QueryPredicate> residualPredicates;
+    private final QuantifierValues quantifierValues;
+
+    /**
+     * The equalities relating the constituents, and the filters the definition applies on top of them. The filters are
+     * stored with the index and evaluated against the joined record, so that only the joined records the definition
+     * asks for are indexed.
+     *
+     * <p>Split on demand rather than on construction, so that {@link #checkSupported} gets to reject an unsupported
+     * shape before the definition's predicates are read as a join.
+     */
+    @Nonnull
+    private final Supplier<SplitPredicates> split;
 
     @Nonnull
     private final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder;
@@ -108,58 +106,39 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
     private final Supplier<Type.Record> syntheticType;
 
     private RecordLayerJoinedSyntheticTableGenerator(@Nonnull final Map<CorrelationIdentifier, ConstituentInfo> constituents,
-                                       @Nonnull final List<JoinCondition> joinConditions,
-                                       @Nonnull final List<QueryPredicate> residualPredicates,
+                                       @Nullable final QueryPredicate predicate,
+                                       @Nonnull final QuantifierValues quantifierValues,
                                        @Nonnull final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
                                        @Nonnull final String syntheticTableName) {
         this.constituents = constituents;
-        this.joinConditions = joinConditions;
-        this.residualPredicates = residualPredicates;
+        this.quantifierValues = quantifierValues;
+        this.split = Suppliers.memoize(() -> splitPredicates(predicate, constituents.keySet()));
         this.schemaTemplateBuilder = schemaTemplateBuilder;
         this.syntheticTableName = syntheticTableName;
         this.syntheticType = Suppliers.memoize(this::computeSyntheticType);
     }
 
     /**
-     * A generator for the index's joined synthetic table, if the definition ranges over more than one stored table.
+     * A generator for the index's joined synthetic table, the definition having been found to range over more than one
+     * stored table.
      *
      * @param schemaTemplateBuilder the metadata the stored record types are looked up in
      * @param spec what the index is made of, whose predicate carries the join conditions
      * @param indexName the name the definition gives the index
      * @param quantifierValues what the plan's quantifiers stand for, and which of them are stored tables
      *
-     * @return a generator for the synthetic table, empty when the definition ranges over a single table
+     * @return a generator for the synthetic table, which every join needs
      */
     @Nonnull
     static Optional<RecordLayerJoinedSyntheticTableGenerator> initIfNeeded(@Nonnull final RecordLayerSchemaTemplate.Builder schemaTemplateBuilder,
                                                                           @Nonnull final IndexSpec spec,
                                                                           @Nonnull final String indexName,
                                                                           @Nonnull final QuantifierValues quantifierValues) {
-        if (!quantifierValues.isJoin()) {
-            return Optional.empty();
-        }
-        // Stated in the order that gives the clearest reason first: what the shape is, before what it lacks.
-        Assert.thatUnchecked(!quantifierValues.hasOuterJoin(), ErrorCode.UNSUPPORTED_OPERATION,
-                "Unsupported index definition, an outer join is not supported on an index over a joined synthetic table");
-        // The two kinds of synthetic table do not compose yet, so a definition needing both is rejected rather than
-        // silently losing one.
-        Assert.thatUnchecked(quantifierValues.getExplodes().isEmpty(), ErrorCode.UNSUPPORTED_OPERATION,
-                "Unsupported index definition, an unnesting cannot be combined with a join");
-        Assert.thatUnchecked(quantifierValues.storedConstituentsShareOneSelect(), ErrorCode.UNSUPPORTED_OPERATION,
-                "Unsupported index definition, the joined tables must be selected from directly rather than through a subquery");
         final var constituents = nameConstituents(quantifierValues.getStoredConstituents());
         // A synthetic table exists for one index, so its name carries that index's.
         final var syntheticTableName = JOINED_TABLE_NAME_PREFIX + indexName;
-        final var split = splitPredicates(spec.predicate(), constituents.keySet());
-        return Optional.of(new RecordLayerJoinedSyntheticTableGenerator(constituents, split.joinConditions(), split.residuals(),
-                schemaTemplateBuilder, syntheticTableName));
-    }
-
-    /**
-     * How many tables are joined, which is how many scans the plan is allowed.
-     */
-    int constituentCount() {
-        return constituents.size();
+        return Optional.of(new RecordLayerJoinedSyntheticTableGenerator(constituents, spec.predicate(),
+                quantifierValues, schemaTemplateBuilder, syntheticTableName));
     }
 
     /**
@@ -198,6 +177,11 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
      */
     @Override
     public void checkSupported(@Nonnull final IndexSpec spec) {
+        // Stated in the order that gives the clearest reason first: what the shape is, before what it lacks.
+        Assert.thatUnchecked(!quantifierValues.hasOuterJoin(), ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, an outer join is not supported on an index over a joined synthetic table");
+        Assert.thatUnchecked(quantifierValues.storedConstituentsShareOneSelect(), ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, the joined tables must be selected from directly rather than through a subquery");
         final var projection = spec.projection();
         Assert.thatUnchecked(projection.aggregate() == null, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, an aggregate cannot be defined on a joined synthetic table");
@@ -346,6 +330,7 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
     @Override
     public IndexSpec rewrite(@Nonnull final IndexSpec spec) {
         Assert.isNullUnchecked(spec.groupBy(), "group by on an index over a joined synthetic table");
+        final var residualPredicates = split.get().residuals();
         // Normalised after re-rooting, so that what is checked to be storable is the form actually stored.
         final var residual = residualPredicates.isEmpty()
                              ? null
@@ -463,7 +448,7 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
         constituents.values().forEach(constituent ->
                 builder.addConstituent(constituent.alias(),
                         schemaTemplateBuilder.findTableByStorageName(constituent.recordTypeName()).getType()));
-        joinConditions.forEach(condition ->
+        split.get().joinConditions().forEach(condition ->
                 builder.addJoinCondition(new RecordLayerJoinedSyntheticTable.JoinCondition(
                         aliasOf(condition.leftAlias()), condition.leftExpression(),
                         aliasOf(condition.rightAlias()), condition.rightExpression())));

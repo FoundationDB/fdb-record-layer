@@ -93,7 +93,7 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
     public IndexGenerationResult generate() {
         final var quantifierValues = QuantifierValues.collect(relationalExpression);
         var spec = IndexSpec.collect(relationalExpression, quantifierValues, schemaTemplateBuilder);
-        spec.checkValidity(quantifierValues.isJoin());
+        spec.checkValidity(quantifierValues);
         final var syntheticTableGeneratorMaybe = SyntheticTableGeneratorFactory.forDefinition(
                 schemaTemplateBuilder, spec, indexName, quantifierValues);
         final Type.Record tableType;

@@ -194,8 +194,15 @@ record IndexSpec(int scanCount, @Nullable RecordLayerTable table, @Nullable Quer
      * collected, and ordering by the aggregate, checked once the index type is known. What a stored table can express but
      * an unnested synthetic table cannot is a separate question, answered by
      * {@code RecordLayerUnnestedSyntheticTableGenerator#checkSupported} once it is known that one is needed.
+     *
+     * @param quantifierValues what the plan's quantifiers stand for, which is the shape the rules here are about
      */
-    public void checkValidity(final boolean isJoin) {
+    public void checkValidity(@Nonnull final QuantifierValues quantifierValues) {
+        final var isJoin = quantifierValues.isJoin();
+        // The two kinds of synthetic table do not compose yet, so a definition needing both is rejected here rather than
+        // by either kind, no generator serving it.
+        Assert.thatUnchecked(!isJoin || quantifierValues.getExplodes().isEmpty(), ErrorCode.UNSUPPORTED_OPERATION,
+                "Unsupported index definition, an unnesting cannot be combined with a join");
         // One iteration generator per stored table: exactly one unless the plan is a join, which has one per joined
         // table -- except that joining a table to itself shares a single scan, so the count can be lower.
         Assert.thatUnchecked(isJoin ? scanCount >= 1 : scanCount == 1, ErrorCode.UNSUPPORTED_OPERATION,
