@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
@@ -49,6 +48,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
+import com.apple.foundationdb.relational.recordlayer.query.ddl.IndexGenerationResult;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
 import com.apple.foundationdb.relational.util.Assert;
@@ -434,19 +434,19 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext ctx) {
+    public IndexGenerationResult visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext ctx) {
         return ddlVisitor.visitIndexAsSelectDefinition(ctx);
     }
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx) {
+    public IndexGenerationResult visitIndexOnSourceDefinition(@Nonnull RelationalParser.IndexOnSourceDefinitionContext ctx) {
         return ddlVisitor.visitIndexOnSourceDefinition(ctx);
     }
 
     @Nonnull
     @Override
-    public RecordLayerIndex visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext ctx) {
+    public IndexGenerationResult visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext ctx) {
         return ddlVisitor.visitVectorIndexDefinition(ctx);
     }
 
