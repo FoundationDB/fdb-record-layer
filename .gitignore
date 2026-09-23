@@ -72,6 +72,9 @@ atlassian-ide-plugin.xml
 .out
 .dist/
 .downloaded-build-assets
+# Staging directory for JaCoCo execution data downloaded from parallel CI jobs, see
+# the `codeCoverageReport` task in gradle/root.gradle.
+.coverage-data/
 
 # Temporary files.
 .tmp
