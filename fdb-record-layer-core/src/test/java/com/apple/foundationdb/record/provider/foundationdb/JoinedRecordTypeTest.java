@@ -218,7 +218,6 @@ public class JoinedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                     .asList()
                     .join();
             assertEquals(expected, scanned);
-
             context.commit();
         }
     }
