@@ -1354,6 +1354,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitDataTypeFunctionCall(ctx);
     }
 
+    @Override
+    public Object visitGetVariableFunctionCall(@Nonnull RelationalParser.GetVariableFunctionCallContext ctx) {
+        return getDelegate().visitGetVariableFunctionCall(ctx);
+    }
+
     @Nonnull
     @Override
     public Object visitValuesFunctionCall(@Nonnull RelationalParser.ValuesFunctionCallContext ctx) {
