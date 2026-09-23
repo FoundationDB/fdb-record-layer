@@ -258,14 +258,15 @@ storedQueryParameterList
     ;
 
 storedQueryParameter
-    : parameterName=uid parameterType=functionColumnType nullNotnull?
+    : parameterName=uid storedQueryParameterType
     ;
 
-// The persisted form of one declared parameter's type, i.e. exactly what follows the parameter name in
-// storedQueryParameter. Parsed on its own when a declared type has to be resolved from metadata rather than from a
-// statement being planned. EOF is required so that trailing text is an error instead of a silent partial parse.
-storedQueryParameterDeclaration
-    : parameterType=functionColumnType nullNotnull? EOF
+// A declared parameter's type, as written after the parameter name. Its own rule so that the persisted form of a type
+// is parsed by the very rule that accepted it, rather than by a second copy of the same syntax that could drift.
+// Parsed on its own when a declared type has to be resolved from metadata rather than from a statement being planned;
+// QueryParser checks there that nothing follows it.
+storedQueryParameterType
+    : parameterType=functionColumnType nullNotnull?
     ;
 
 storedQueryPreparedCases

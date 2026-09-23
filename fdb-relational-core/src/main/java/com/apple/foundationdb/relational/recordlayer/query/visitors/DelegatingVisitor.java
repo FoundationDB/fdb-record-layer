@@ -330,8 +330,8 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
-    public Object visitStoredQueryParameterDeclaration(final RelationalParser.StoredQueryParameterDeclarationContext ctx) {
-        return getDelegate().visitStoredQueryParameterDeclaration(ctx);
+    public Object visitStoredQueryParameterType(final RelationalParser.StoredQueryParameterTypeContext ctx) {
+        return getDelegate().visitStoredQueryParameterType(ctx);
     }
 
     @Override
