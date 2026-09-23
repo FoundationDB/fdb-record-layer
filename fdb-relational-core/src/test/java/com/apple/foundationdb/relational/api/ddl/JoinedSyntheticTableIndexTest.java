@@ -151,7 +151,7 @@ public class JoinedSyntheticTableIndexTest {
     private static KeyExpression constituentColumn(@Nonnull final RecordLayerJoinedSyntheticTable joinedTable,
                                                    final int constituentIndex, @Nonnull final String column) {
         // Read back as well as named, so a drift between the two shows up here rather than in the key expression only.
-        assertThat(joinedTable.getConstituents().get(constituentIndex).getAlias())
+        assertThat(joinedTable.getConstituents().get(constituentIndex).alias())
                 .isEqualTo(constituentAlias(constituentIndex));
         return Key.Expressions.field(constituentAlias(constituentIndex), KeyExpression.FanType.None).nest(column);
     }
@@ -179,19 +179,19 @@ public class JoinedSyntheticTableIndexTest {
         // One constituent per joined table, in FROM order.
         final var constituents = joinedTable.getConstituents();
         assertThat(constituents.size()).isEqualTo(2);
-        assertThat(constituents.stream().map(RecordLayerJoinedSyntheticTable.JoinedConstituent::getTableName)
+        assertThat(constituents.stream().map(RecordLayerJoinedSyntheticTable.JoinedConstituent::tableName)
                 .collect(Collectors.toList())).isEqualTo(List.of("T1", "T2"));
         // Deterministic aliases: the same DDL always names its constituents the same way.
-        assertThat(constituents.stream().map(RecordLayerJoinedSyntheticTable.JoinedConstituent::getAlias)
+        assertThat(constituents.stream().map(RecordLayerJoinedSyntheticTable.JoinedConstituent::alias)
                 .collect(Collectors.toList())).isEqualTo(List.of("joined_0", "joined_1"));
 
         // The WHERE/ON equality became the join condition, one side per constituent.
         assertThat(joinedTable.getJoinConditions().size()).isEqualTo(1);
         final var joinCondition = joinedTable.getJoinConditions().get(0);
-        assertThat(joinCondition.getLeftAlias()).isEqualTo(constituents.get(0).getAlias());
-        assertThat(joinCondition.getRightAlias()).isEqualTo(constituents.get(1).getAlias());
-        assertThat(joinCondition.getLeftExpression()).isEqualTo(Key.Expressions.field("k"));
-        assertThat(joinCondition.getRightExpression()).isEqualTo(Key.Expressions.field("k"));
+        assertThat(joinCondition.leftAlias()).isEqualTo(constituents.get(0).alias());
+        assertThat(joinCondition.rightAlias()).isEqualTo(constituents.get(1).alias());
+        assertThat(joinCondition.leftExpression()).isEqualTo(Key.Expressions.field("k"));
+        assertThat(joinCondition.rightExpression()).isEqualTo(Key.Expressions.field("k"));
 
         assertThat(joinedTable.getIndexes().size()).isEqualTo(1);
         final var index = joinedTable.getIndexes().stream().findFirst().orElseThrow();
@@ -277,7 +277,7 @@ public class JoinedSyntheticTableIndexTest {
         shouldWorkWithInjectedFactory(THREE_TABLE_SCHEMA + indexDdl, assertingFactory(template -> {
             final var joinedTable = soleJoinedTable(template, "mv1");
             assertThat(joinedTable.getConstituents().stream()
-                    .map(RecordLayerJoinedSyntheticTable.JoinedConstituent::getTableName)
+                    .map(RecordLayerJoinedSyntheticTable.JoinedConstituent::tableName)
                     .collect(Collectors.toList())).isEqualTo(List.of("T1", "T2", "T3"));
             // Two equalities, each relating a different pair of constituents.
             assertThat(joinedTable.getJoinConditions().size()).isEqualTo(2);
@@ -298,13 +298,13 @@ public class JoinedSyntheticTableIndexTest {
             final var joinedTable = soleJoinedTable(template, "mv1");
             final var constituents = joinedTable.getConstituents();
             assertThat(constituents.stream()
-                    .map(RecordLayerJoinedSyntheticTable.JoinedConstituent::getTableName)
+                    .map(RecordLayerJoinedSyntheticTable.JoinedConstituent::tableName)
                     .collect(Collectors.toList())).isEqualTo(List.of("T1", "T1"));
             // Same table, distinct aliases — otherwise the two sides could not be told apart.
-            assertThat(constituents.get(0).getAlias()).isNotEqualTo(constituents.get(1).getAlias());
+            assertThat(constituents.get(0).alias()).isNotEqualTo(constituents.get(1).alias());
             final var joinCondition = joinedTable.getJoinConditions().get(0);
-            assertThat(joinCondition.getLeftExpression()).isEqualTo(Key.Expressions.field("k"));
-            assertThat(joinCondition.getRightExpression()).isEqualTo(Key.Expressions.field("x"));
+            assertThat(joinCondition.leftExpression()).isEqualTo(Key.Expressions.field("k"));
+            assertThat(joinCondition.rightExpression()).isEqualTo(Key.Expressions.field("x"));
         }));
     }
 
@@ -407,6 +407,27 @@ public class JoinedSyntheticTableIndexTest {
                         + "CREATE INDEX mv1 AS SELECT a.x, b.y FROM T1 AS a LEFT OUTER JOIN T2 AS b ON a.k = b.k "
                         + "order by a.x, b.y ",
                 "an outer join is not supported");
+    }
+
+    /**
+     * The synthetic table's name is composed from the index name, which is a user identifier and so need not be a legal
+     * protobuf message name. The relational model keeps the name as written, while the descriptor can only hold the
+     * escaped form — so the record type has to be registered under the storage name, not the user-facing one.
+     */
+    @Test
+    void createIndexWithNonProtoCompliantNameOverJoinedSyntheticTable() throws Exception {
+        final String indexDdl = "CREATE INDEX \"mv.1\" AS SELECT a.x, b.y FROM T1 AS a, T2 AS b WHERE a.k = b.k "
+                + "order by a.x, b.y ";
+        shouldWorkWithInjectedFactory(TWO_TABLE_SCHEMA + indexDdl, assertingFactory(template -> {
+            final var recordLayerTemplate = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class);
+            final var joinedTable = recordLayerTemplate.getJoinedSyntheticTables().stream().findFirst().orElseThrow();
+            // The relational model keeps the name as the definition wrote it.
+            Assertions.assertEquals("__joined_mv.1", joinedTable.getName());
+            // The descriptor, and so the metadata, is keyed by the escaped form.
+            final var recordMetaData = Assertions.assertDoesNotThrow(recordLayerTemplate::toRecordMetadata);
+            Assertions.assertTrue(recordMetaData.getSyntheticRecordTypes().containsKey("__joined_mv__21"),
+                    () -> "expected the escaped name, got " + recordMetaData.getSyntheticRecordTypes().keySet());
+        }));
     }
 
     /**

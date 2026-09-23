@@ -106,17 +106,16 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
         }
     }
 
-    public void visit(@Nonnull final RecordLayerJoinedSyntheticTable joinedType) {
+    public void visit(@Nonnull final RecordLayerJoinedSyntheticTable joinedSyntheticTable) {
         final JoinedRecordTypeBuilder typeBuilder =
-                getBuilder().addJoinedRecordType(joinedType.getName());
-        for (final RecordLayerJoinedSyntheticTable.JoinedConstituent constituent : joinedType.getConstituents()) {
-            // Every constituent is inner-joined; the DDL layer does not produce outer joins.
-            typeBuilder.addConstituent(constituent.getAlias(),
-                    getBuilder().getRecordType(constituent.getTableStorageName()), false);
+                getBuilder().addJoinedRecordType(joinedSyntheticTable.getType().getStorageName());
+        for (final RecordLayerJoinedSyntheticTable.JoinedConstituent constituent : joinedSyntheticTable.getConstituents()) {
+            typeBuilder.addConstituent(constituent.alias(),
+                    getBuilder().getRecordType(constituent.tableStorageName()), false);
         }
-        for (final RecordLayerJoinedSyntheticTable.JoinCondition joinCondition : joinedType.getJoinConditions()) {
-            typeBuilder.addJoin(joinCondition.getLeftAlias(), joinCondition.getLeftExpression(),
-                    joinCondition.getRightAlias(), joinCondition.getRightExpression());
+        for (final RecordLayerJoinedSyntheticTable.JoinCondition joinCondition : joinedSyntheticTable.getJoinConditions()) {
+            typeBuilder.addJoin(joinCondition.leftAlias(), joinCondition.leftExpression(),
+                    joinCondition.rightAlias(), joinCondition.rightExpression());
         }
     }
 

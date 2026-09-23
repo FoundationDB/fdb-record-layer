@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
  * A synthetic table that joins two or more stored record types. Each combination of stored records satisfying every
  * join condition forms one synthetic record, so an index key can reference fields of several tables at once.
  *
- * <p>Every constituent is inner-joined; outer joins are not supported yet. A join condition is an equality between a
+ * <p>Every constituent is inner-joined; outer joins are not supported (yet). A join condition is an equality between a
  * column of one constituent and a column of another, which is exactly what
  * {@link com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder} accepts.
  */
@@ -88,7 +88,7 @@ public final class RecordLayerJoinedSyntheticTable extends RecordLayerSyntheticT
     @Override
     public Set<String> getUnderlyingTableNames() {
         return constituents.stream()
-                .map(JoinedConstituent::getTableName)
+                .map(JoinedConstituent::tableName)
                 .collect(Collectors.toUnmodifiableSet());
     }
 
@@ -110,136 +110,29 @@ public final class RecordLayerJoinedSyntheticTable extends RecordLayerSyntheticT
     /**
      * One constituent of a {@link RecordLayerJoinedSyntheticTable}: a stored record type together with the correlation
      * the index definition referenced it by, which is also how the index key names it.
+     *
+     * @param alias the alias the constituent is registered under
+     * @param tableName the joined table
+     * @param tableStorageName the joined table by its protobuf storage name, which is how the record layer refers to it
      */
     @API(API.Status.EXPERIMENTAL)
-    public static final class JoinedConstituent {
-
-        @Nonnull
-        private final String alias;
-
-        @Nonnull
-        private final String tableName;
-
-        @Nonnull
-        private final String tableStorageName;
-
-        public JoinedConstituent(@Nonnull final String alias,
-                                 @Nonnull final String tableName,
-                                 @Nonnull final String tableStorageName) {
-            this.alias = alias;
-            this.tableName = tableName;
-            this.tableStorageName = tableStorageName;
-        }
-
-        @Nonnull
-        public String getAlias() {
-            return alias;
-        }
-
-        @Nonnull
-        public String getTableName() {
-            return tableName;
-        }
-
-        /**
-         * The joined table by its protobuf storage name, which is how the record layer refers to it.
-         *
-         * @return the storage name
-         */
-        @Nonnull
-        public String getTableStorageName() {
-            return tableStorageName;
-        }
-
-        @Override
-        public boolean equals(final Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            final JoinedConstituent that = (JoinedConstituent) o;
-            return Objects.equals(alias, that.alias)
-                    && Objects.equals(tableName, that.tableName)
-                    && Objects.equals(tableStorageName, that.tableStorageName);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(alias, tableName, tableStorageName);
-        }
+    public record JoinedConstituent(@Nonnull String alias, @Nonnull String tableName,
+                                    @Nonnull String tableStorageName) {
     }
 
     /**
-     * An equality between a column of one constituent and a column of another. The two expressions are the ones the
-     * record layer stores and evaluates, kept verbatim so that a joined table read back out of
+     * An equality between a column of one constituent and a column of another. The expressions are the ones the record
+     * layer stores and evaluates, kept verbatim so that a joined table read back out of
      * {@link com.apple.foundationdb.record.RecordMetaData} round-trips exactly.
+     *
+     * @param leftAlias the constituent the left column reads from
+     * @param leftExpression the left column, relative to that constituent's record
+     * @param rightAlias the constituent the right column reads from
+     * @param rightExpression the right column, relative to that constituent's record
      */
     @API(API.Status.EXPERIMENTAL)
-    public static final class JoinCondition {
-
-        @Nonnull
-        private final String leftAlias;
-
-        @Nonnull
-        private final KeyExpression leftExpression;
-
-        @Nonnull
-        private final String rightAlias;
-
-        @Nonnull
-        private final KeyExpression rightExpression;
-
-        public JoinCondition(@Nonnull final String leftAlias,
-                             @Nonnull final KeyExpression leftExpression,
-                             @Nonnull final String rightAlias,
-                             @Nonnull final KeyExpression rightExpression) {
-            this.leftAlias = leftAlias;
-            this.leftExpression = leftExpression;
-            this.rightAlias = rightAlias;
-            this.rightExpression = rightExpression;
-        }
-
-        @Nonnull
-        public String getLeftAlias() {
-            return leftAlias;
-        }
-
-        @Nonnull
-        public KeyExpression getLeftExpression() {
-            return leftExpression;
-        }
-
-        @Nonnull
-        public String getRightAlias() {
-            return rightAlias;
-        }
-
-        @Nonnull
-        public KeyExpression getRightExpression() {
-            return rightExpression;
-        }
-
-        @Override
-        public boolean equals(final Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            final JoinCondition that = (JoinCondition) o;
-            return Objects.equals(leftAlias, that.leftAlias)
-                    && Objects.equals(leftExpression, that.leftExpression)
-                    && Objects.equals(rightAlias, that.rightAlias)
-                    && Objects.equals(rightExpression, that.rightExpression);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(leftAlias, leftExpression, rightAlias, rightExpression);
-        }
+    public record JoinCondition(@Nonnull String leftAlias, @Nonnull KeyExpression leftExpression,
+                                @Nonnull String rightAlias, @Nonnull KeyExpression rightExpression) {
     }
 
     @Nonnull
@@ -307,16 +200,16 @@ public final class RecordLayerJoinedSyntheticTable extends RecordLayerSyntheticT
                     "joined table must have at least two constituents, found " + constituents.size());
             final Set<String> aliases = new LinkedHashSet<>();
             for (final JoinedConstituent constituent : constituents) {
-                Assert.thatUnchecked(aliases.add(constituent.getAlias()),
-                        "duplicate constituent alias '" + constituent.getAlias() + "' in joined table");
+                Assert.thatUnchecked(aliases.add(constituent.alias()),
+                        "duplicate constituent alias '" + constituent.alias() + "' in joined table");
             }
             // A condition naming an unregistered alias cannot be registered on a JoinedRecordType, so it is caught here
             // rather than deeper in the record layer.
             for (final JoinCondition joinCondition : joinConditions) {
-                Assert.thatUnchecked(aliases.contains(joinCondition.getLeftAlias()),
-                        "join condition references unknown constituent '" + joinCondition.getLeftAlias() + "'");
-                Assert.thatUnchecked(aliases.contains(joinCondition.getRightAlias()),
-                        "join condition references unknown constituent '" + joinCondition.getRightAlias() + "'");
+                Assert.thatUnchecked(aliases.contains(joinCondition.leftAlias()),
+                        "join condition references unknown constituent '" + joinCondition.leftAlias() + "'");
+                Assert.thatUnchecked(aliases.contains(joinCondition.rightAlias()),
+                        "join condition references unknown constituent '" + joinCondition.rightAlias() + "'");
             }
             return new RecordLayerJoinedSyntheticTable(constituents, joinConditions, indexes.build(), type);
         }

@@ -1668,14 +1668,14 @@ public class SchemaTemplateSerDeTests {
         final var roundTripped = deserializeJoinedTable(recordMetaData);
         Assertions.assertEquals(syntheticName, roundTripped.getName());
         Assertions.assertEquals(List.of("a", "b"), roundTripped.getConstituents().stream()
-                .map(RecordLayerJoinedSyntheticTable.JoinedConstituent::getAlias).collect(Collectors.toList()));
+                .map(RecordLayerJoinedSyntheticTable.JoinedConstituent::alias).collect(Collectors.toList()));
         Assertions.assertEquals(List.of("orders", "customers"), roundTripped.getConstituents().stream()
-                .map(RecordLayerJoinedSyntheticTable.JoinedConstituent::getTableName).collect(Collectors.toList()));
+                .map(RecordLayerJoinedSyntheticTable.JoinedConstituent::tableName).collect(Collectors.toList()));
         final var roundTrippedJoin = Iterables.getOnlyElement(roundTripped.getJoinConditions());
-        Assertions.assertEquals("a", roundTrippedJoin.getLeftAlias());
-        Assertions.assertEquals(Key.Expressions.field("customer_id"), roundTrippedJoin.getLeftExpression());
-        Assertions.assertEquals("b", roundTrippedJoin.getRightAlias());
-        Assertions.assertEquals(Key.Expressions.field("id"), roundTrippedJoin.getRightExpression());
+        Assertions.assertEquals("a", roundTrippedJoin.leftAlias());
+        Assertions.assertEquals(Key.Expressions.field("customer_id"), roundTrippedJoin.leftExpression());
+        Assertions.assertEquals("b", roundTrippedJoin.rightAlias());
+        Assertions.assertEquals(Key.Expressions.field("id"), roundTrippedJoin.rightExpression());
         Assertions.assertEquals(keyExpression,
                 Iterables.getOnlyElement(roundTripped.getIndexes()).getKeyExpression());
     }
@@ -1700,7 +1700,7 @@ public class SchemaTemplateSerDeTests {
         final var roundTripped = deserializeJoinedTable(recordMetaData);
         Assertions.assertEquals(List.of("tenant", "id"), roundTripped.getJoinConditions().stream()
                 .map(condition -> ((com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression)
-                        condition.getLeftExpression()).getFieldName())
+                        condition.leftExpression()).getFieldName())
                 .collect(Collectors.toList()));
     }
 

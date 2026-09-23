@@ -68,7 +68,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
  * paths that {@link ValueToKeyExpressionVisitor} translates with collapsing disabled — a constituent must be navigated
  * on its own, not merged into a run with its neighbour.
  */
-final class RecordLayerJoinedSyntheticTableGenerator {
+final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGenerator {
 
     private static final String JOINED_TABLE_NAME_PREFIX = "__joined_";
 
@@ -196,7 +196,8 @@ final class RecordLayerJoinedSyntheticTableGenerator {
      *
      * @param spec what the index is made of
      */
-    void checkSupported(@Nonnull final IndexSpec spec) {
+    @Override
+    public void checkSupported(@Nonnull final IndexSpec spec) {
         final var projection = spec.projection();
         Assert.thatUnchecked(projection.aggregate() == null, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, an aggregate cannot be defined on a joined synthetic table");
@@ -321,7 +322,7 @@ final class RecordLayerJoinedSyntheticTableGenerator {
                     ErrorCode.UNSUPPORTED_OPERATION,
                     "Unsupported index definition, a filter on an index over a joined synthetic table cannot compare two of the joined tables");
         }
-        final var rewriter = new Rewriter(new QueriedValue(getSyntheticType()));
+        final var rewriter = new Rewriter(new QueriedValue(getType()));
         return withRanges.withValue(Objects.requireNonNull(withRanges.getValue().acceptVisitor(rewriter)));
     }
 
@@ -342,6 +343,7 @@ final class RecordLayerJoinedSyntheticTableGenerator {
      * @return the same index, in the synthetic table's coordinates
      */
     @Nonnull
+    @Override
     public IndexSpec rewrite(@Nonnull final IndexSpec spec) {
         Assert.isNullUnchecked(spec.groupBy(), "group by on an index over a joined synthetic table");
         // Normalised after re-rooting, so that what is checked to be storable is the form actually stored.
@@ -374,7 +376,7 @@ final class RecordLayerJoinedSyntheticTableGenerator {
 
     @Nonnull
     private List<Value> rewrite(@Nonnull final List<Value> values) {
-        final var rewriter = new Rewriter(new QueriedValue(getSyntheticType()));
+        final var rewriter = new Rewriter(new QueriedValue(getType()));
         return values.stream()
                 .map(value -> Objects.requireNonNull(value.acceptVisitor(rewriter)))
                 .collect(ImmutableList.toImmutableList());
@@ -427,7 +429,8 @@ final class RecordLayerJoinedSyntheticTableGenerator {
     }
 
     @Nonnull
-    Type.Record getSyntheticType() {
+    @Override
+    public Type.Record getType() {
         return syntheticType.get();
     }
 
@@ -454,6 +457,7 @@ final class RecordLayerJoinedSyntheticTableGenerator {
      * @return the synthetic table, which the caller has to register alongside the index
      */
     @Nonnull
+    @Override
     public RecordLayerSyntheticTable.Builder generate() {
         final var builder = RecordLayerJoinedSyntheticTable.newBuilder(syntheticType.get());
         constituents.values().forEach(constituent ->
