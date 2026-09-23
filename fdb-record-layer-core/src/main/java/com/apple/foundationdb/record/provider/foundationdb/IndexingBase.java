@@ -1166,6 +1166,20 @@ public abstract class IndexingBase {
 
     abstract CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store);
 
+    /**
+     * Safety net for {@link #rebuildIndexAsync}.
+     * @param recordsScanned the number of records scanned by the rebuild so far
+     */
+    protected void checkRebuildRecordScanLimit(long recordsScanned) {
+        final int limit = policy.getRebuildRecordScanLimit();
+        if (limit > 0 && recordsScanned > limit) {
+            throw new RebuildRecordScanLimitExceededException("Rebuild index record scan limit exceeded",
+                    LogMessageKeys.TARGET_INDEX_NAME, common.getTargetIndexesNames(),
+                    LogMessageKeys.TOTAL_RECORDS_SCANNED, recordsScanned,
+                    LogMessageKeys.SCAN_LIMIT, limit);
+        }
+    }
+
     protected void validateOrThrowEx(boolean isValid, @Nonnull String msg) {
         if (!isValid) {
             throw new ValidationException(msg,
@@ -1271,6 +1285,20 @@ public abstract class IndexingBase {
         TimeLimitException(@Nonnull String msg, @Nullable Object ... keyValues) {
             super(msg, keyValues);
         }
+    }
+
+    /**
+     * Thrown when an inline (single-transaction) rebuild scans more records than allowed.
+     */
+    @SuppressWarnings("serial")
+    public static class RebuildRecordScanLimitExceededException extends RecordCoreException {
+        RebuildRecordScanLimitExceededException(@Nonnull String msg, @Nullable Object ... keyValues) {
+            super(msg, keyValues);
+        }
+    }
+
+    public static boolean isRebuildRecordScanLimitExceededException(@Nullable Throwable ex) {
+        return findException(ex, RebuildRecordScanLimitExceededException.class) != null;
     }
 
     /**

@@ -920,6 +920,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final boolean reverseScanOrder;
         private final Set<Index> pendingWriteQueueIndexes;
         private final long pendingWriteQueueIndexesMaxDrainAttempts;
+        private final int rebuildRecordScanLimit;
 
         /**
          * Possible actions when an index is already partially built.
@@ -969,6 +970,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param reverseScanOrder if true, scan records in reverse order
          * @param pendingWriteQueueIndexes the subset of target indexes that should be built with a pending write queue
          * @param pendingWriteQueueIndexesMaxDrainAttempts the maximum number of times to re-drain the pending write queue while attempting to mark a queued index readable
+         * @param rebuildRecordScanLimit the maximum number of records that an inline (single-transaction) rebuild is allowed to scan, or 0 for unlimited
          */
         @SuppressWarnings("squid:S00107") // too many parameters
         private IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan,
@@ -979,7 +981,8 @@ public class OnlineIndexer implements AutoCloseable {
                                long initialMergesCountLimit,
                                boolean reverseScanOrder,
                                Set<Index> pendingWriteQueueIndexes,
-                               long pendingWriteQueueIndexesMaxDrainAttempts) {
+                               long pendingWriteQueueIndexesMaxDrainAttempts,
+                               int rebuildRecordScanLimit) {
             this.sourceIndex = sourceIndex;
             this.forbidRecordScan = forbidRecordScan;
             this.sourceIndexSubspaceKey = sourceIndexSubspaceKey;
@@ -997,6 +1000,7 @@ public class OnlineIndexer implements AutoCloseable {
             this.reverseScanOrder = reverseScanOrder;
             this.pendingWriteQueueIndexes = pendingWriteQueueIndexes;
             this.pendingWriteQueueIndexesMaxDrainAttempts = pendingWriteQueueIndexesMaxDrainAttempts;
+            this.rebuildRecordScanLimit = rebuildRecordScanLimit;
         }
 
         /**
@@ -1069,6 +1073,7 @@ public class OnlineIndexer implements AutoCloseable {
                     .setReverseScanOrder(reverseScanOrder)
                     .setUsePendingWriteQueue(pendingWriteQueueIndexes.stream().toList())
                     .setPendingWriteQueueIndexesMaxDrainAttempts(pendingWriteQueueIndexesMaxDrainAttempts)
+                    .setRebuildRecordScanLimit(rebuildRecordScanLimit)
                     ;
         }
 
@@ -1230,6 +1235,15 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * Get the maximum number of records that an inline (single-transaction) rebuild may scan.
+         * The default is 0, which means unlimited.
+         * @return the rebuild record scan limit
+         */
+        public int getRebuildRecordScanLimit() {
+            return rebuildRecordScanLimit;
+        }
+
+        /**
          * Builder for {@link IndexingPolicy}.
          *
          * <pre><code>
@@ -1261,6 +1275,7 @@ public class OnlineIndexer implements AutoCloseable {
             private boolean reverseScanOrder = false;
             private Set<Index> pendingWriteQueueIndexes = new HashSet<>();
             private long pendingWriteQueueIndexesMaxDrainAttempts = 100;
+            private int rebuildRecordScanLimit = 0;
 
             protected Builder() {
             }
@@ -1563,6 +1578,17 @@ public class OnlineIndexer implements AutoCloseable {
                 return this;
             }
 
+            /**
+             * Set the maximum number of records that an inline (single-transaction) rebuild may scan.
+             * The default is 0, which means unlimited.
+             * @param rebuildRecordScanLimit the rebuild record scan limit
+             * @return this builder
+             */
+            public Builder setRebuildRecordScanLimit(final int rebuildRecordScanLimit) {
+                this.rebuildRecordScanLimit = rebuildRecordScanLimit;
+                return this;
+            }
+
             public IndexingPolicy build() {
                 if (useMutualIndexingBoundaries != null) {
                     useMutualIndexing = true;
@@ -1572,7 +1598,8 @@ public class OnlineIndexer implements AutoCloseable {
                         doAllowUniquePendingState, allowedTakeoverSet,
                         useMutualIndexing, useMutualIndexingBoundaries, allowUnblock, allowUnblockId,
                         initialMergesCountLimit, reverseScanOrder,
-                        pendingWriteQueueIndexes, pendingWriteQueueIndexesMaxDrainAttempts);
+                        pendingWriteQueueIndexes, pendingWriteQueueIndexesMaxDrainAttempts,
+                        rebuildRecordScanLimit);
             }
         }
     }
