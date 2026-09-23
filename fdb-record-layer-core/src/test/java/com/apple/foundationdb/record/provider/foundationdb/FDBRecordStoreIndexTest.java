@@ -1514,6 +1514,37 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    void rebuildIndexWithFewRecordsReasonDisablesIndexWhenScanLimitExceeded() throws Exception {
+        final String indexName = "MySimpleRecord$str_value_indexed";
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            // More records than the safety-net scan limit that FDBRecordStore.rebuildIndex applies for
+            // RebuildIndexReason.FEW_RECORDS, simulating a record count estimate that turned out to be wrong.
+            for (int i = 0; i < FDBRecordStore.MAX_RECORDS_FOR_REBUILD + 10; i++) {
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setStrValueIndexed("value")
+                        .build());
+            }
+            recordStore.markIndexWriteOnly(indexName).get();
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            assertTrue(recordStore.getIndexState(indexName).isWriteOnly());
+
+            // Does not throw: the scan limit is exceeded internally, but the index is disabled rather than
+            // failing the rebuild call or the enclosing transaction.
+            recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex(indexName), FDBRecordStore.RebuildIndexReason.FEW_RECORDS).get();
+
+            assertTrue(recordStore.getIndexState(indexName).isDisabled());
+            commit(context);
+        }
+    }
+
     @ParameterizedTest
     @BooleanSource("useNumericSubspaceKeys")
     void removingFormerIndexClearsIndexState(boolean useNumericSubspaceKeys) {
