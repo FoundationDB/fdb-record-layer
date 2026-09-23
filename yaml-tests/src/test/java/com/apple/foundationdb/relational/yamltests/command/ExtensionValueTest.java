@@ -50,6 +50,7 @@ class ExtensionValueTest {
                 {"%1$sa_bool": true,
                  "%1$san_int": -7,
                  "%1$sa_long": "-9223372036854775808",
+                 "%1$sa_float": 1.25,
                  "%1$sa_double": 1.5,
                  "%1$sa_string": "hello",
                  "%1$ssome_bytes": "q80+/w==",
@@ -59,6 +60,7 @@ class ExtensionValueTest {
         assertThat(options.getExtension(ExtensionTestsProto.aBool)).isTrue();
         assertThat(options.getExtension(ExtensionTestsProto.anInt)).isEqualTo(-7);
         assertThat(options.getExtension(ExtensionTestsProto.aLong)).isEqualTo(Long.MIN_VALUE);
+        assertThat(options.getExtension(ExtensionTestsProto.aFloat)).isEqualTo(1.25f);
         assertThat(options.getExtension(ExtensionTestsProto.aDouble)).isEqualTo(1.5);
         assertThat(options.getExtension(ExtensionTestsProto.aString)).isEqualTo("hello");
         assertThat(options.getExtension(ExtensionTestsProto.someBytes))
@@ -71,12 +73,26 @@ class ExtensionValueTest {
     void alternativeSpellingsAreAccepted() throws Exception {
         final DescriptorProtos.FieldOptions options = mergeOptions(String.format("""
                 {"%1$ssome_bytes": "q80-_w==",
+                 "%1$sa_bool": "true",
                  "%1$sa_kind": 2}
                 """, EXT));
 
         assertThat(options.getExtension(ExtensionTestsProto.someBytes))
                 .isEqualTo(ByteString.copyFrom(new byte[] {(byte) 0xab, (byte) 0xcd, 0x3e, (byte) 0xff}));
+        assertThat(options.getExtension(ExtensionTestsProto.aBool)).isTrue();
         assertThat(options.getExtension(ExtensionTestsProto.aKind)).isEqualTo(ExtensionTestsProto.Kind.SECOND);
+    }
+
+    /** The non-finite values, which the proto3 JSON mapping spells as strings rather than as numbers. */
+    @Test
+    void nonFiniteValuesAreConverted() throws Exception {
+        final DescriptorProtos.FieldOptions options = mergeOptions(String.format("""
+                {"%1$sa_float": "-Infinity",
+                 "%1$sa_double": "NaN"}
+                """, EXT));
+
+        assertThat(options.getExtension(ExtensionTestsProto.aFloat)).isEqualTo(Float.NEGATIVE_INFINITY);
+        assertThat(options.getExtension(ExtensionTestsProto.aDouble)).isNaN();
     }
 
     /**
@@ -106,6 +122,21 @@ class ExtensionValueTest {
         assertThatThrownBy(() -> mergeOptions(String.format("{\"%sa_bool\": \"1\"}", EXT)))
                 .hasMessageContaining("a_bool")
                 .hasMessageContaining("boolean");
+        // JsonFormat compares the literals case sensitively, so this is not the spelling of true that it takes
+        assertThatThrownBy(() -> mergeOptions(String.format("{\"%sa_bool\": \"TRUE\"}", EXT)))
+                .hasMessageContaining("a_bool")
+                .hasMessageContaining("boolean");
+        assertThatThrownBy(() -> mergeOptions(String.format("{\"%sa_bool\": 1}", EXT)))
+                .hasMessageContaining("a_bool")
+                .hasMessageContaining("boolean");
+        // Out of the float range but well within the double range, so reading it as a double, as Gson does, would hand
+        // back an infinity rather than refuse the value
+        assertThatThrownBy(() -> mergeOptions(String.format("{\"%sa_float\": 1e300}", EXT)))
+                .hasMessageContaining("a_float")
+                .hasMessageContaining("float in range");
+        assertThatThrownBy(() -> mergeOptions(String.format("{\"%sa_double\": 1e400}", EXT)))
+                .hasMessageContaining("a_double")
+                .hasMessageContaining("double in range");
         assertThatThrownBy(() -> mergeOptions(String.format("{\"%sa_kind\": \"THIRD\"}", EXT)))
                 .hasMessageContaining("a_kind");
     }

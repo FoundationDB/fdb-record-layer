@@ -60,6 +60,13 @@ import java.util.Map;
  * </p>
  */
 final class JsonExtensionMerger {
+    /**
+     * The magnitude a float extension may hold. {@code JsonFormat} allows a little beyond the range, since printing a
+     * float and reading it back can come out very slightly larger, and this follows it.
+     */
+    private static final BigDecimal MAX_FLOAT = BigDecimal.valueOf(Float.MAX_VALUE * (1.0 + 1.0e-6));
+    private static final BigDecimal MAX_DOUBLE = BigDecimal.valueOf(Double.MAX_VALUE);
+
     @Nonnull
     private final ExtensionRegistry registry;
     /** The fields of a message by the JSON keys naming them. Metadata of any size meets the same few messages over. */
@@ -130,7 +137,11 @@ final class JsonExtensionMerger {
             throw new IllegalArgumentException("no registered extension named " + key + " of "
                     + descriptor.getFullName());
         }
-        // Anything else is a field of a newer metadata than this one knows, and is left as the parse left it.
+        // An undotted key that names neither a field of this build nor a registered extension is one of two things,
+        // indistinguishable here, so both are left as the parse left them: a field of a newer version of these protos,
+        // which the parse discarded and which must not be an error if an older build is to read a newer file; or an
+        // extension spelled by its declared name, the form JsonFormat's printer writes, which is not unique among the
+        // extensions of one message and so cannot be resolved.
     }
 
     /**
@@ -154,8 +165,9 @@ final class JsonExtensionMerger {
         }
         if (value.isJsonArray()) {
             final JsonArray elements = value.getAsJsonArray();
-            // the builder was parsed from this very array, so the two are in the same order
-            for (int i = 0; i < Math.min(elements.size(), builder.getRepeatedFieldCount(field)); i++) {
+            // The builder was parsed from this very array, by a parser that reads the JSON with Gson as this class does
+            // and refuses a null element, so the two hold the same elements in the same order.
+            for (int i = 0; i < elements.size(); i++) {
                 mergeExtensions(builder.getRepeatedFieldBuilder(field, i), elements.get(i).getAsJsonObject());
             }
         }
@@ -192,16 +204,21 @@ final class JsonExtensionMerger {
             }
             case INT -> (int) integerValue(extension, value, Integer.SIZE);
             case LONG -> integerValue(extension, value, Long.SIZE);
-            case FLOAT -> value.getAsFloat();
-            case DOUBLE -> value.getAsDouble();
+            case FLOAT -> (float) realValue(extension, value, MAX_FLOAT, "float");
+            case DOUBLE -> realValue(extension, value, MAX_DOUBLE, "double");
             case STRING -> value.getAsString();
             case BOOLEAN -> {
-                // JsonFormat accepts only the two literals, and coercing anything else would land on false, which is
-                // also the default and so invisible
-                if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isBoolean()) {
+                // JsonFormat's parseBool compares the string form of the value, so it takes the bare literal and its
+                // quoted spelling alike and nothing else. Coercing instead, as Gson's getAsBoolean does, lands every
+                // unrecognised value on false, which is also the default of a bool extension and so leaves no trace.
+                if (!value.isJsonPrimitive()) {
                     throw new IllegalArgumentException(notA("boolean", extension, value));
                 }
-                yield value.getAsBoolean();
+                yield switch (value.getAsString()) {
+                        case "true" -> true;
+                        case "false" -> false;
+                        default -> throw new IllegalArgumentException(notA("boolean", extension, value));
+                    };
             }
             case BYTE_STRING -> {
                 // the printer emits the standard alphabet, but JsonFormat reads either
@@ -264,6 +281,52 @@ final class JsonExtensionMerger {
             throw new IllegalArgumentException(notA("signed " + bits + " bit number", extension, value));
         }
         return number.longValue();
+    }
+
+    /**
+     * Read a real number whose magnitude {@code limit} allows. The range check is the point of the method:
+     * {@code JsonFormat} makes the same one, and says why it does not simply call {@code Float.parseFloat}, which takes
+     * every literal and answers an infinity for one out of range — a value the extension cannot hold arriving as one it
+     * can, with nothing to show that it happened.
+     */
+    private static double realValue(@Nonnull Descriptors.FieldDescriptor extension,
+                                    @Nonnull JsonElement value,
+                                    @Nonnull BigDecimal limit,
+                                    @Nonnull String type) {
+        final Double nonFinite = nonFiniteValue(value);
+        if (nonFinite != null) {
+            return nonFinite;
+        }
+        if (!value.isJsonPrimitive()) {
+            throw new IllegalArgumentException(notA(type, extension, value));
+        }
+        final BigDecimal number;
+        try {
+            number = new BigDecimal(value.getAsString());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(notA(type, extension, value), e);
+        }
+        if (number.abs().compareTo(limit) > 0) {
+            throw new IllegalArgumentException(notA(type + " in range", extension, value));
+        }
+        return number.doubleValue();
+    }
+
+    /**
+     * The three values the proto3 JSON mapping spells as strings rather than as numbers, or {@code null} where the
+     * value is not one of them. They are the only spellings {@code JsonFormat} takes for them.
+     */
+    @Nullable
+    private static Double nonFiniteValue(@Nonnull JsonElement value) {
+        if (!value.isJsonPrimitive()) {
+            return null;
+        }
+        return switch (value.getAsString()) {
+            case "NaN" -> Double.NaN;
+            case "Infinity" -> Double.POSITIVE_INFINITY;
+            case "-Infinity" -> Double.NEGATIVE_INFINITY;
+            default -> null;
+        };
     }
 
     @Nonnull

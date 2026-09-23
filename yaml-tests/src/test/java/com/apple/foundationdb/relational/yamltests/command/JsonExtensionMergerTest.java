@@ -20,10 +20,13 @@
 
 package com.apple.foundationdb.relational.yamltests.command;
 
+import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.relational.api.metadata.Column;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -38,12 +41,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests for the proto2 extensions that {@link JsonExtensionMerger} re-attaches to metadata loaded from JSON. The
- * extension used here carries the precision and dimensions of a vector column, which is the one the metadata cannot do
- * without: lose it and the column is a plain {@code bytes} field.
+ * extension used here carries the precision and dimensions of a vector column, so losing it leaves the plain
+ * {@code bytes} field the column is declared as. That is the most visible loss rather than the only one: the same
+ * {@code FieldOptions} extension also spells the primary key and the index of a column, and sibling extensions carry
+ * the record type and the schema options.
  * <p>
- * The keys below are spelled in snake case, the form a hand-written file tends to use, where
- * {@code vector-metadata.yamsql}'s fixture uses the camel case that {@code JsonFormat}'s printer emits. Both spellings
- * have to resolve, so the divergence is deliberate.
+ * The keys below are spelled in snake case where {@code vector-metadata.yamsql}'s fixture uses camel case, because both
+ * are forms this class has to read: a printer that writes the declared proto names produces the first, and
+ * {@code JsonFormat}'s printer the second.
  * </p>
  */
 class JsonExtensionMergerTest {
@@ -100,9 +105,55 @@ class JsonExtensionMergerTest {
     }
 
     /**
-     * A key naming neither a field nor an extension is left as the ordinary parse left it, so that metadata written by
-     * a newer version still loads. Without the extension the column is the {@code bytes} field it is declared as, which
-     * is what makes the assertions above evidence about this class rather than about the stack under it.
+     * The vector extension is not the only one the metadata may carry: this one names an extension of the file, of a
+     * message and of a field, which the walk reaches at three different depths.
+     */
+    @Test
+    void extensionsOfFileMessageAndFieldSurvive() throws Exception {
+        final SchemaTemplate template = loadTemplate("""
+                {
+                  "records": {
+                    "dependency": ["record_metadata_options.proto"],
+                    "options": {
+                      "com.apple.foundationdb.record.schema": {"store_record_versions": true}
+                    },
+                    "message_type": [
+                      {
+                        "name": "RecordTypeUnion",
+                        "field": [{"name": "_FIRST", "number": 1, "type": "TYPE_MESSAGE", "type_name": "FIRST"}]
+                      },
+                      {
+                        "name": "FIRST",
+                        "options": {"com.apple.foundationdb.record.record": {"usage": "RECORD"}},
+                        "field": [
+                          {"name": "ID", "number": 1, "type": "TYPE_INT64",
+                           "options": {"com.apple.foundationdb.record.field": {"primary_key": true}}}
+                        ]
+                      }
+                    ]
+                  },
+                  "record_types": [
+                    {"name": "FIRST", "primary_key": {"field": {"field_name": "ID", "fan_type": "SCALAR"}}}
+                  ]
+                }
+                """);
+
+        final Descriptors.Descriptor first = ((RecordLayerSchemaTemplate) template).toRecordMetadata()
+                .getRecordType("FIRST").getDescriptor();
+        assertThat(first.getFile().getOptions().getExtension(RecordMetaDataOptionsProto.schema)
+                .getStoreRecordVersions()).isTrue();
+        assertThat(first.getOptions().getExtension(RecordMetaDataOptionsProto.record).getUsage())
+                .isEqualTo(RecordMetaDataOptionsProto.RecordTypeOptions.Usage.RECORD);
+        assertThat(first.findFieldByName("ID").getOptions()
+                .getExtension(RecordMetaDataOptionsProto.field).getPrimaryKey()).isTrue();
+    }
+
+    /**
+     * An undotted key that names neither a field nor a registered extension is left as the parse left it rather than
+     * rejected: it may be a field of a newer version of these protos, which an older build has to go on reading, and it
+     * cannot be told apart from an extension spelled by its declared name. Without the extension the column is the
+     * {@code bytes} field it is declared as, which is what makes the assertions above evidence about this class rather
+     * than about the stack under it.
      */
     @Test
     void unknownKeyIsLeftAlone() throws Exception {

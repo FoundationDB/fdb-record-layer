@@ -51,6 +51,7 @@ extend google.protobuf.FieldOptions {
   optional Carrier carrier = 60001;
   optional bool a_bool = 60002;
   optional int32 an_int = 60003;
+  optional float a_float = 60004;
   optional int64 a_long = 60005;
   optional double a_double = 60007;
   optional string a_string = 60008;
