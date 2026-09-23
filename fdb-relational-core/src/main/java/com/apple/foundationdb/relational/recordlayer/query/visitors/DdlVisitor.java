@@ -962,17 +962,17 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                             + "'_' or '/'");
             // Resolved with the declared nullability rather than through visitFunctionColumnType, which hardcodes
             // nullable and cannot see the nullNotnull clause beside it.
-            final var typeCtx = param.parameterType;
-            final boolean isNullable = param.nullNotnull() == null || param.nullNotnull().NOT() == null;
-            final var dataType = lookupType(typeCtx.customType, typeCtx.primitiveType(), isNullable,
-                    typeCtx.ARRAY() != null);
+            final var typeCtx = param.storedQueryParameterType();
+            final var columnTypeCtx = typeCtx.parameterType;
+            final boolean isNullable = typeCtx.nullNotnull() == null || typeCtx.nullNotnull().NOT() == null;
+            final var dataType = lookupType(columnTypeCtx.customType, columnTypeCtx.primitiveType(), isNullable,
+                    columnTypeCtx.ARRAY() != null);
             Assert.thatUnchecked(dataType.isResolved(), ErrorCode.UNKNOWN_TYPE,
                     () -> "unknown type for stored query parameter '" + parameterName + "'");
             // Sliced from the source, not rebuilt from tokens: the lexer skips whitespace, so `BIGINT ARRAY` would
-            // come back as `BIGINTARRAY`.
-            final ParserRuleContext lastCtx = param.nullNotnull() != null ? param.nullNotnull() : typeCtx;
+            // come back as `BIGINTARRAY`. The slice spans the whole rule, which is also what parses it back.
             final var declaredType = sourceText.substring(typeCtx.start.getStartIndex(),
-                    lastCtx.stop.getStopIndex() + 1);
+                    typeCtx.stop.getStopIndex() + 1);
             Assert.thatUnchecked(declaredTypeParams.put(parameterName, declaredType) == null, ErrorCode.UNSUPPORTED_QUERY,
                     () -> "duplicate stored query parameter '" + parameterName + "'");
             types.put(parameterName, dataType);

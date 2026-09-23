@@ -179,17 +179,27 @@ public class QueryParser {
     }
 
     /**
-     * Parses a parameter's type declaration on its own — a type optionally followed by a nullability clause, for
-     * example {@code BIGINT}, {@code BIGINT NOT NULL} or {@code VECTOR(128, FLOAT)}. Declarations are persisted as
+     * Parses a parameter's declared type on its own &mdash; a type optionally followed by a nullability clause, for
+     * example {@code BIGINT}, {@code BIGINT NOT NULL} or {@code VECTOR(128, FLOAT)}. Declared types are persisted as
      * source text, so resolving one needs a parse.
      *
-     * @param declaration the declaration text
-     * @return the parsed declaration
+     * <p>This uses the same rule that accepts the type inside a parameter list, so the persisted form cannot drift from
+     * the declared one. That rule does not end in {@code EOF}, since it is also matched mid-statement, so trailing text
+     * is rejected here instead &mdash; otherwise {@code "BIGINT and then some"} would parse as {@code BIGINT} and the
+     * rest would be dropped silently.</p>
+     *
+     * @param declaredType the declared type's text
+     * @return the parsed declared type
      */
     @Nonnull
-    public static RelationalParser.StoredQueryParameterDeclarationContext parseParameterDeclaration(
-            @Nonnull final String declaration) {
-        return parse(declaration, ignored -> { }, RelationalParser::storedQueryParameterDeclaration);
+    public static RelationalParser.StoredQueryParameterTypeContext parseParameterType(
+            @Nonnull final String declaredType) {
+        return parse(declaredType, ignored -> { }, parser -> {
+            final var parameterType = parser.storedQueryParameterType();
+            Assert.thatUnchecked(parser.getCurrentToken().getType() == Token.EOF, ErrorCode.SYNTAX_ERROR,
+                    () -> "unexpected text after the declared type '" + declaredType + "'");
+            return parameterType;
+        });
     }
 
     private static final class PreparedParamsValidator extends RelationalParserBaseVisitor<Void> {
