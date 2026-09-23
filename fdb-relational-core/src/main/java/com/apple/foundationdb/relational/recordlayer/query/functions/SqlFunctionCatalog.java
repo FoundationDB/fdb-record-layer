@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 
 import javax.annotation.Nonnull;
+import java.util.Map;
 import java.util.stream.StreamSupport;
 
 import static java.util.stream.Collectors.toList;
@@ -43,10 +44,13 @@ public interface SqlFunctionCatalog {
      * is the first time it was looked up, i.e. the compilation is lazily, and only once.
      * @param name The name of the function.
      * @param arguments The arguments passed with the invocation of the function.
+     * @param localVariables The current transaction's local variables, made available to a table-valued
+     *                       function body being lazily compiled so it can resolve its own GET_VARIABLE references.
      * @return the function instance.
      */
     @Nonnull
-    CatalogedFunction lookupFunction(@Nonnull String name, @Nonnull CallSiteArguments arguments);
+    CatalogedFunction lookupFunction(@Nonnull String name, @Nonnull CallSiteArguments arguments,
+                                     @Nonnull Map<String, Object> localVariables);
 
     /**
      * Checks whether a function exists in the catalog. Note that invoking this method shall not trigger compiling
@@ -66,7 +70,7 @@ public interface SqlFunctionCatalog {
      *     <ul>user-defined table-valued functions, lazily-compiled</ul>
      * </li>
      * The user-defined functions are loaded from the passed {@code metadata} argument, they are only compiled when
-     * looked up with {@link SqlFunctionCatalog#lookupFunction(String, CallSiteArguments)}, and their compiled version is
+     * looked up with {@link SqlFunctionCatalog#lookupFunction(String, CallSiteArguments, Map)}, and their compiled version is
      * cached so it is done at most once.
      *
      * @param metadata The metadata used to load any user-defined functions.
