@@ -7,6 +7,7 @@ Diagram(
             Sequence(Terminal('LOG'), Terminal('QUERY')),
             Sequence(Terminal('DRY'), Terminal('RUN')),
             Sequence(Terminal('PLAN'), Terminal('RIGHT'), Terminal('DEEP')),
+            Sequence(Terminal('PLAN'), Terminal('CACHE'), Terminal('WRITE'), Terminal('ONLY')),
             Sequence(Terminal('ISOLATION'), Terminal('LEVEL'), Terminal('SNAPSHOT'))
         ),
         Terminal(',')
