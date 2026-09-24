@@ -1,5 +1,5 @@
 /*
- * CascadesCostModel.java
+ * TiebreakerResult.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,20 +18,22 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades;
+package com.apple.foundationdb.record.query.plan.cascades.costing;
 
-import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
 import javax.annotation.Nonnull;
-import java.util.Comparator;
+import java.util.Optional;
+import java.util.Set;
 
-/**
- * Basic cost model interface to be provided by each {@link PlannerPhase}.
- */
-@API(API.Status.EXPERIMENTAL)
-public interface CascadesCostModel extends Comparator<RelationalExpression> {
+interface TiebreakerResult<T extends RelationalExpression> {
+
     @Nonnull
-    RecordQueryPlannerConfiguration getConfiguration();
+    TiebreakerResult<T> thenApply(@Nonnull Tiebreaker<? super T> nextTiebreaker);
+
+    @Nonnull
+    Set<T> getBestExpressions();
+
+    @Nonnull
+    Optional<T> getOnlyExpressionMaybe();
 }

@@ -285,7 +285,7 @@ public class ConstraintsMap {
 
     /**
      * Advance the current planner stage to a new one that succeeds the current one. Note that this method is
-     * destructive. Much like the owning reference of this map (when advanced to a new stage) removes earlier
+     * destructive. Much like the owning {@link Reference} of this map (when advanced to a new stage) removes earlier
      * exploratory members and cleans out its {@link ExpressionPropertiesMap}, the constraints map also has to be
      * cleaned up before we can explore the group again. For the constraints map, specifically, we need to remove all
      * constraints that were pushed during an earlier {@link PlannerStage} but preserve all constraints that were pushed
