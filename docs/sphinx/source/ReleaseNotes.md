@@ -4,6 +4,57 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
+{#release-4-15}
+
+## 4.15
+
+{#release-4-15-1-0}
+
+### 4.15.1.0
+
+<h4> Breaking Changes </h4>
+
+* Make SQL AT unnesting use 0-based explode ordinals - [PR #4633](https://github.com/FoundationDB/fdb-record-layer/pull/4633)
+* Cleanup `KeyValueCursor` continuations and reject output from older versions - [PR #4630](https://github.com/FoundationDB/fdb-record-layer/pull/4630)
+<h4> New Features </h4>
+
+* Support for Indexes over `unnestedRecordType`s in Relational - [PR #4467](https://github.com/FoundationDB/fdb-record-layer/pull/4467)
+<h4> Bug Fixes </h4>
+
+* Reject non-indexable aggregates in `GroupByExpression.subsumedBy()` - [PR #4643](https://github.com/FoundationDB/fdb-record-layer/pull/4643)
+<h4> Dependency Updates </h4>
+
+* Bump grpc from 1.83.1 to 1.84.0 - [PR #4637](https://github.com/FoundationDB/fdb-record-layer/pull/4637)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Re-attach proto2 extensions when loading meta-data from JSON - [PR #4477](https://github.com/FoundationDB/fdb-record-layer/pull/4477)
+* Bump minor version to 4.15 - [PR #4656](https://github.com/FoundationDB/fdb-record-layer/pull/4656)
+* Bump org.yaml:snakeyaml from 2.6 to 2.7 - [PR #4638](https://github.com/FoundationDB/fdb-record-layer/pull/4638)
+* Bump org.jline:jline from 4.4.0 to 4.4.2 - [PR #4640](https://github.com/FoundationDB/fdb-record-layer/pull/4640)
+* Bump peter-evans/create-pull-request from c9f8b51aaac1dfba340a97878061732b0e738ec1 to 11e8dc7c9cc95aabee9cfaa85faaec8b50907340 - [PR #4635](https://github.com/FoundationDB/fdb-record-layer/pull/4635)
+* Bump actions/deploy-pages from 5.0.0 to 5.0.1 - [PR #4636](https://github.com/FoundationDB/fdb-record-layer/pull/4636)
+
+</details>
+
+
+**[Full Changelog (4.14.2.0...4.15.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.14.2.0...4.15.1.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.12.15.0`, ❌`4.12.16.0`, ❌`4.12.18.0`, ❌`4.13.1.0`, ❌`4.13.2.0`, ❌`4.13.3.0`, ❌`4.13.4.0`, ❌`4.13.5.0`, ❌`4.14.1.0`, ✅`4.14.2.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/35985793444)
+
+
+
 {#release-4-14}
 
 ## 4.14
