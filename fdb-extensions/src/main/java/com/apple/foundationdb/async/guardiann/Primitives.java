@@ -63,6 +63,7 @@ import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.async.MoreAsyncUtil.forEach;
@@ -1549,15 +1550,26 @@ class Primitives {
             }
         }
 
+        final AtomicInteger droppedMissingMetadata = new AtomicInteger();
+        final AtomicInteger droppedSupersededMetadata = new AtomicInteger();
+
         return forEach(vectorsByIdMap.values(),
                 vectorReference ->
                         fetchVectorMetadata(transaction, vectorReference.id().primaryKey())
-                                .thenApply(vectorMetadata ->
-                                        vectorReference.isCollapsed() ||
-                                                (vectorMetadata != null &&
-                                                         vectorMetadata.vectorId().uuid()
-                                                                 .equals(vectorReference.id().uuid()))
-                                        ? vectorReference : null),
+                                .thenApply(vectorMetadata -> {
+                                    if (vectorReference.isCollapsed()) {
+                                        return vectorReference;
+                                    }
+                                    if (vectorMetadata == null) {
+                                        droppedMissingMetadata.incrementAndGet();
+                                        return null;
+                                    }
+                                    if (!vectorMetadata.vectorId().uuid().equals(vectorReference.id().uuid())) {
+                                        droppedSupersededMetadata.incrementAndGet();
+                                        return null;
+                                    }
+                                    return vectorReference;
+                                }),
                 concurrency,
                 executor)
                 .thenApply(vectorReferences -> {
@@ -1567,6 +1579,8 @@ class Primitives {
                             nonnullReferencesBuilder.add(vectorReference);
                         }
                     }
+                    getOnWriteListener().onVectorReferencesCleanedUp(droppedMissingMetadata.get(),
+                            droppedSupersededMetadata.get());
                     return nonnullReferencesBuilder.build();
                 });
     }

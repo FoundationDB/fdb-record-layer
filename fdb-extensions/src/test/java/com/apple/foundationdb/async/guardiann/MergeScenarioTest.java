@@ -54,7 +54,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Scenario: forces a cluster to drop below {@code primaryClusterMin}, which must trigger a merge.
  * <p>
  * First inserts more near-duplicates than fit in one cluster (as in
- * {@link SplitMergeSplitScenarioTest}) so the structure splits into at least two clusters. Then it
+ * {@link SplitScenarioTest}) so the structure splits into at least two clusters. Then it
  * deletes most of them, dropping the surviving clusters below {@code primaryClusterMin}; per
  * {@code Primitives}, a delete that takes a cluster under the minimum enqueues a
  * {@link SplitMergeTask} that takes the <em>merge</em> branch. The default 2→1 merge runs k-means
@@ -122,13 +122,11 @@ public class MergeScenarioTest implements BaseTest {
         onWriteListener = new TestHelpers.TestOnWriteListener();
         final TestHelpers.TestOnReadListener onReadListener = new TestHelpers.TestOnReadListener();
 
-        final Config config = Guardiann.newConfigBuilder()
+        final Config config = ConfigRecommendation.forClusterBounds(Metric.EUCLIDEAN_METRIC, CLUSTER_MAX,
+                        PRIMARY_CLUSTER_MIN)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
-                .setMetric(Metric.EUCLIDEAN_METRIC)
-                .setPrimaryClusterMax(CLUSTER_MAX)
                 .setCollapseMinDuplicates(CLUSTER_MAX / 2)
-                .setPrimaryClusterMin(PRIMARY_CLUSTER_MIN)
                 .setDeterministicRandomness(true)
                 .setReplicationPriorityMin(0.65d)
                 .setReplicatedClusterTarget(40)
