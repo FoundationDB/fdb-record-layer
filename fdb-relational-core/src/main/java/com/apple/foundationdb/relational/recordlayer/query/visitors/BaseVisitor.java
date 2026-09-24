@@ -1683,6 +1683,12 @@ public class BaseVisitor extends RelationalParserBaseVisitor<Object> implements 
 
     @Nonnull
     @Override
+    public Expression visitScalarSubqueryExpressionAtom(@Nonnull RelationalParser.ScalarSubqueryExpressionAtomContext ctx) {
+        return expressionVisitor.visitScalarSubqueryExpressionAtom(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Expression visitPreparedStatementParameter(@Nonnull RelationalParser.PreparedStatementParameterContext ctx) {
         return expressionVisitor.visitPreparedStatementParameter(ctx);
     }

@@ -112,6 +112,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -152,6 +153,25 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
     @Nonnull
     public Cardinalities evaluate(@Nonnull final RelationalExpression expression) {
         return createVisitor().visit(expression);
+    }
+
+    /**
+     * Evaluates the cardinalities of semantically equivalent expressions and returns the intersection of their
+     * individual bounds. The expressions are typically the members of a {@link Reference}. As they are considered
+     * equivalent, a bound proven for any one of them holds for all of them. Hence the intersection, which is computed
+     * via {@link Cardinalities#intersect}. The intersection is often tighter than any of the individual bounds, as the
+     * expressions typically differ in how exactly they compute the result, and one expression may expose a bound that’s
+     * not apparent in another expression. For example, a scan for a particular primary key is provably single-row,
+     * whereas an equivalent full scan with a filter is not.
+     *
+     * @param expressions the semantically equivalent expressions
+     * @return the intersection of the cardinalities, or {@link Cardinalities#unknownCardinalities()} if there are none
+     */
+    @Nonnull
+    public Cardinalities evaluate(@Nonnull final Iterable<? extends RelationalExpression> expressions) {
+        return Streams.stream(expressions)
+                .map(this::evaluate)
+                .reduce(Cardinalities.unknownCardinalities(), Cardinalities::intersect);
     }
 
     @Nonnull
@@ -943,6 +963,36 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         public Cardinalities times(@Nonnull final Cardinalities otherCardinalities) {
             return new Cardinalities(getMinCardinality().times(otherCardinalities.getMinCardinality()),
                     getMaxCardinality().times(otherCardinalities.getMaxCardinality()));
+        }
+
+        /**
+         * Returns the intersection of the bounds of {@code this} and {@code other}, that is, the tightest bounds
+         * known to hold. In other words, this method picks the larger of the two minimums and the smaller of the two
+         * maximums. An unknown bound carries no information, so the bound of the other side is taken.
+         */
+        @Nonnull
+        public Cardinalities intersect(@Nonnull final Cardinalities other) {
+            return new Cardinalities(
+                    maxKnown(getMinCardinality(), other.getMinCardinality()),
+                    minKnown(getMaxCardinality(), other.getMaxCardinality()));
+        }
+
+        /**
+         * Returns the larger of {@code a} and {@code b}, where an unknown cardinality is ignored in favor of a known
+         * one.
+         */
+        @Nonnull
+        private static Cardinality maxKnown(@Nonnull final Cardinality a, @Nonnull final Cardinality b) {
+            return a.isUnknown() || (!b.isUnknown() && b.getCardinality() > a.getCardinality()) ? b : a;
+        }
+
+        /**
+         * Returns the smaller of {@code a} and {@code b}, where an unknown cardinality is ignored in favor of a known
+         * one.
+         */
+        @Nonnull
+        private static Cardinality minKnown(@Nonnull final Cardinality a, @Nonnull final Cardinality b) {
+            return a.isUnknown() || (!b.isUnknown() && b.getCardinality() < a.getCardinality()) ? b : a;
         }
 
         /**

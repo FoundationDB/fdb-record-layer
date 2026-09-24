@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.OuterJoinExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinalities;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
@@ -161,6 +162,39 @@ class CardinalitiesPropertyTest {
 
         // The implementation returns `this` when neither bound needs to change.
         assertThat(original.floor(Cardinality.ofCardinality(5L))).isSameAs(original);
+    }
+
+    // ---- `intersect()` ----
+
+    @Test
+    void cardinalitiesIntersect() {
+        final Cardinalities c0_5 = new Cardinalities(Cardinality.ofCardinality(0L), Cardinality.ofCardinality(5L));
+        final Cardinalities c1_unknown = new Cardinalities(Cardinality.ofCardinality(1L), Cardinality.unknownCardinality());
+
+        // The larger minimum and the smaller maximum win; an unknown bound is ignored in favor of the known one.
+        final Cardinalities c = c0_5.intersect(c1_unknown);
+        assertThat(c.getMinCardinality().getCardinality()).isEqualTo(1L);
+        assertThat(c.getMaxCardinality().getCardinality()).isEqualTo(5L);
+        assertThat(c1_unknown.intersect(c0_5)).isEqualTo(c);
+
+        // `unknownCardinalities()` is the identity element.
+        assertThat(c0_5.intersect(Cardinalities.unknownCardinalities())).isEqualTo(c0_5);
+    }
+
+    // ---- `evaluate(Iterable)` ----
+
+    @Test
+    void evaluateEquivalentExpressionsIntersectsTheirCardinalities() {
+        // RANGE(1) → (1, 1); FullUnorderedScan → (0, unknown). The intersection takes the tighter bound of each.
+        final ImmutableList<RelationalExpression> expressions = ImmutableList.of(
+                unknownCardinalityQuantifier().getRangesOver().get(),
+                rangeQuantifier(1L).getRangesOver().get());
+        final Cardinalities c = cardinalities().evaluate(expressions);
+        assertThat(c.getMinCardinality().getCardinality()).isEqualTo(1L);
+        assertThat(c.getMaxCardinality().getCardinality()).isEqualTo(1L);
+
+        // No expressions at all yield no information.
+        assertThat(cardinalities().evaluate(ImmutableList.of())).isEqualTo(Cardinalities.unknownCardinalities());
     }
 
     // ---- `ceiling()` ----
