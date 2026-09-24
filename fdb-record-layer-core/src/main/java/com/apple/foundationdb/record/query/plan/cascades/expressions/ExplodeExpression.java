@@ -187,13 +187,6 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
         if (!flowsRecordConstructorValue) {
             return new QueriedValue(explodeResultType(elementType, withOrdinality, false));
         }
-        // Note: the element must stay the first column. `MaxMatchMap` returns the first reachable candidate value
-        // that compares equal, and a `QueriedValue` has no identity beyond its class and result type, so an element
-        // whose type is also a non-nullable `INT` -- the ordinal's type -- would just as happily match the ordinal
-        // if the ordinal came first.
-        //
-        // The record is built nullable because `explodeResultType` declares it that way, and the callers verify
-        // that the two agree: that declared type is what the plan looks its protobuf descriptor up by at run time.
         final var columns = ImmutableList.<Column<? extends Value>>builder();
         columns.add(Column.unnamedOf(new QueriedValue(elementType)));
         if (withOrdinality) {
@@ -253,6 +246,7 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
             return collectionValue.semanticEquals(other.getCollectionValue(), equivalencesMap) &&
                     isWithOrdinality() == other.isWithOrdinality() &&
                     isZeroBasedOrdinality() == other.isZeroBasedOrdinality() &&
+                    flowsRecordConstructorValue() == other.flowsRecordConstructorValue() &&
                     semanticEqualsForResults(otherExpression, equivalencesMap);
         }
         return false;

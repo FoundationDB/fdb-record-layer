@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisi
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithoutChildren;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -63,9 +64,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.IntStream;
-
-import static com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression.explodeResultType;
-import static com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression.explodeResultValue;
 
 /**
  * An {@code EXPLODE} query plan.
@@ -139,8 +137,8 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         Verify.verify(collectionValue.getResultType().isArray());
         this.elementType = Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
         this.flowsRecordConstructorValue = flowsRecordConstructorValue;
-        this.explodeResultType = explodeResultType(elementType, withOrdinality, flowsRecordConstructorValue);
-        this.resultValue = explodeResultValue(elementType, withOrdinality, flowsRecordConstructorValue);
+        this.explodeResultType = ExplodeExpression.explodeResultType(elementType, withOrdinality, flowsRecordConstructorValue);
+        this.resultValue = ExplodeExpression.explodeResultValue(elementType, withOrdinality, flowsRecordConstructorValue);
         Verify.verify(explodeResultType.equals(resultValue.getResultType()));
     }
 
@@ -332,6 +330,7 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         return collectionValue.semanticEquals(otherExplodePlan.getCollectionValue(), equivalencesMap) &&
                 isWithOrdinality() == otherExplodePlan.isWithOrdinality() &&
                 isZeroBasedOrdinality() == otherExplodePlan.isZeroBasedOrdinality() &&
+                flowsRecordConstructorValue() == otherExplodePlan.flowsRecordConstructorValue() &&
                 semanticEqualsForResults(otherExpression, equivalencesMap);
     }
 
@@ -402,7 +401,7 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
             builder.setZeroBasedOrdinality(true);
         }
         if (flowsRecordConstructorValue) {
-            builder.setFlowsRcv(true);
+            builder.setFlowsRecordConstructorValue(true);
         }
         return builder.build();
     }
@@ -418,9 +417,10 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
                                                    @Nonnull final PRecordQueryExplodePlan proto) {
         return new RecordQueryExplodePlan(
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(proto.getCollectionValue())),
-                // defaults to false, which is what a plan serialized before these fields existed flows
+                // The following flags are optional and hence can be unset. This is intentional, to maintain
+                // compatibility with what a plan serialized before these fields existed flows.
                 proto.getWithOrdinality(), proto.getZeroBasedOrdinality(),
-                proto.getFlowsRcv());
+                proto.getFlowsRecordConstructorValue());
     }
 
     /**

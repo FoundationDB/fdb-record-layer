@@ -361,7 +361,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
                     columns.add(Column.of(Type.Record.Field.of(ordinalType, Optional.empty()),
                             new ThrowsValue(ordinalType)));
                 }
-                representative = RecordConstructorValue.ofColumns(columns.build());
+                representative = RecordConstructorValue.ofColumns(columns.build(), true);
             } else {
                 representative = first;
             }

@@ -597,7 +597,7 @@ public class ExplodePlanTest {
 
         final var recordConstructor = new RecordQueryExplodePlan(collectionValue, true, false, true);
         final var recordConstructorProto = recordConstructor.toProto(newSerializationContext());
-        Assertions.assertTrue(recordConstructorProto.getFlowsRcv());
+        Assertions.assertTrue(recordConstructorProto.getFlowsRecordConstructorValue());
         final var deserializedRecordConstructor =
                 RecordQueryExplodePlan.fromProto(newSerializationContext(), recordConstructorProto);
         Assertions.assertTrue(deserializedRecordConstructor.flowsRecordConstructorValue());
@@ -607,7 +607,7 @@ public class ExplodePlanTest {
         // serialized to before the field existed.
         final var opaque = new RecordQueryExplodePlan(collectionValue, true);
         final var opaqueProto = opaque.toProto(newSerializationContext());
-        Assertions.assertFalse(opaqueProto.hasFlowsRcv());
+        Assertions.assertFalse(opaqueProto.hasFlowsRecordConstructorValue());
 
         // ... and a plan serialized by such a version, which cannot have the field, deserializes to the opaque value.
         final var legacyProto = PRecordQueryExplodePlan.newBuilder()
@@ -621,12 +621,12 @@ public class ExplodePlanTest {
         // The plain variant round-trips the same way, where the field decides whether a struct is flowed at all.
         final var plainRecordConstructor = new RecordQueryExplodePlan(collectionValue, false, false, true);
         final var plainRecordConstructorProto = plainRecordConstructor.toProto(newSerializationContext());
-        Assertions.assertTrue(plainRecordConstructorProto.getFlowsRcv());
+        Assertions.assertTrue(plainRecordConstructorProto.getFlowsRecordConstructorValue());
         Assertions.assertEquals(plainRecordConstructor,
                 RecordQueryExplodePlan.fromProto(newSerializationContext(), plainRecordConstructorProto));
 
         final var plainElement = new RecordQueryExplodePlan(collectionValue, false);
-        Assertions.assertFalse(plainElement.toProto(newSerializationContext()).hasFlowsRcv());
+        Assertions.assertFalse(plainElement.toProto(newSerializationContext()).hasFlowsRecordConstructorValue());
         Assertions.assertEquals(plainElement, RecordQueryExplodePlan.fromProto(newSerializationContext(),
                 PRecordQueryExplodePlan.newBuilder()
                         .setCollectionValue(collectionValue.toValueProto(newSerializationContext()))
