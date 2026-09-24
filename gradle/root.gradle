@@ -129,7 +129,6 @@ apply plugin: 'jacoco'
 tasks.register('codeCoverageReport', JacocoReport) {
     def coverageSubprojects = subprojects.findAll { sp ->
         sp.name != 'examples' &&
-            sp.name != 'fdb-record-layer-core-shaded' &&
             sp.name != 'fdb-record-layer-jmh'
     }
 
@@ -193,7 +192,6 @@ tasks.register('codeCoverageReport', JacocoReport) {
 tasks.register('createEmptyCoverageData') {
     def coverageSubprojects = subprojects.findAll { sp ->
         sp.name != 'examples' &&
-            sp.name != 'fdb-record-layer-core-shaded' &&
             sp.name != 'fdb-record-layer-jmh'
     }
     // Resolve the destination files to plain File objects at configuration time (mirroring how
