@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -67,7 +68,15 @@ public class ExplodePlanTest {
     private static final class ExplodeCursorBuilder {
 
         @Nonnull
-        private final RecordQueryPlan explodePlan;
+        private final RecordQueryExplodePlan explodePlan;
+
+        /**
+         * The repository the plan looks the descriptor of the record it flows up in. One per builder: the messages the
+         * cursor produces carry the descriptor from this repository, and only field descriptors from the same one can
+         * read them.
+         */
+        @Nonnull
+        private final TypeRepository typeRepository;
 
         @Nonnull
         private Optional<Integer> skip;
@@ -77,6 +86,7 @@ public class ExplodePlanTest {
 
         private ExplodeCursorBuilder() {
             explodePlan = generateExplodePlan();
+            typeRepository = TypeRepository.newBuilder().addTypeIfNeeded(explodePlan.getExplodeResultType()).build();
             skip = Optional.empty();
             limit = Optional.empty();
         }
@@ -107,11 +117,22 @@ public class ExplodePlanTest {
             skip.ifPresent(executionPropertiesBuilder::setSkip);
             limit.ifPresent(executionPropertiesBuilder::setReturnedRowLimit);
             final var executionProperties = executionPropertiesBuilder.build();
-            return explodePlan.executePlan(null, EvaluationContext.EMPTY, null, executionProperties);
+            return explodePlan.executePlan(null, EvaluationContext.forTypeRepository(typeRepository), null,
+                    executionProperties);
+        }
+
+        /**
+         * The descriptor of the element field of the record the explode flows.
+         */
+        @Nonnull
+        Descriptors.FieldDescriptor elementField() {
+            final var descriptor =
+                    Objects.requireNonNull(typeRepository.getMessageDescriptor(explodePlan.getExplodeResultType()));
+            return descriptor.getFields().get(ExplodeExpression.ELEMENT_ORDINAL);
         }
 
         @Nonnull
-        private static RecordQueryPlan generateExplodePlan() {
+        private static RecordQueryExplodePlan generateExplodePlan() {
             final Value collectionValue = LiteralValue.ofList(List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
             return new RecordQueryExplodePlan(collectionValue);
         }
@@ -122,14 +143,18 @@ public class ExplodePlanTest {
         }
     }
 
-    private static void verifyCursor(@Nonnull final RecordCursor<QueryResult> actualCursor,
+    private static void verifyCursor(@Nonnull final ExplodeCursorBuilder actualCursorBuilder,
                                      @Nonnull final List<Integer> expectedResults,
                                      boolean verifyLimitExceeded) {
+        final var actualCursor = actualCursorBuilder.build();
+        final var elementField = actualCursorBuilder.elementField();
         for (final var expectedValue : expectedResults) {
             final var result = actualCursor.getNext();
             Assertions.assertTrue(result.hasNext());
             Assertions.assertNotNull(result.get());
-            Assertions.assertEquals(expectedValue, Objects.requireNonNull(result.get()).getDatum());
+            // an explode flows the element wrapped in a record, so the element is read out of that record
+            final var message = (Message)Objects.requireNonNull(result.get()).getDatum();
+            Assertions.assertEquals(expectedValue, message.getField(elementField));
         }
         if (verifyLimitExceeded) {
             final var result = actualCursor.getNext();
@@ -156,7 +181,7 @@ public class ExplodePlanTest {
     void explodeWithSkipAndLimitWorks(@Nonnull final ExplodeCursorBuilder actualCursorBuilder,
                                       @Nonnull final List<Integer> expectedResult,
                                       boolean shouldReachLimit) {
-        verifyCursor(actualCursorBuilder.build(), expectedResult, shouldReachLimit);
+        verifyCursor(actualCursorBuilder, expectedResult, shouldReachLimit);
     }
 
     @Test
@@ -249,8 +274,12 @@ public class ExplodePlanTest {
     }
 
     // Pinned hash values for the `planHashIsStable()` test.
-    private static final int WITHOUT_ORDINALITY_LEGACY_HASH = -1251896027;
-    private static final int WITHOUT_ORDINALITY_FOR_CONTINUATION_HASH = -1251896027;
+    // The plain hashes are those of the record constructor, which is what such a plan now flows.
+    private static final int WITHOUT_ORDINALITY_LEGACY_HASH = 1014226403;
+    private static final int WITHOUT_ORDINALITY_FOR_CONTINUATION_HASH = 1014226403;
+    // What a plain plan that flows the element itself hashes to, which is every plan serialized before this change.
+    private static final int WITHOUT_ORDINALITY_ELEMENT_LEGACY_HASH = -1251896027;
+    private static final int WITHOUT_ORDINALITY_ELEMENT_FOR_CONTINUATION_HASH = -1251896027;
     // The ordinality hashes are those of the record constructor, which is what such a plan now flows.
     private static final int WITH_ORDINALITY_LEGACY_HASH = -1832119195;
     private static final int WITH_ORDINALITY_FOR_CONTINUATION_HASH = -1832119195;
@@ -266,6 +295,12 @@ public class ExplodePlanTest {
                 withoutOrdinality.planHash(PlanHashable.CURRENT_LEGACY));
         Assertions.assertEquals(WITHOUT_ORDINALITY_FOR_CONTINUATION_HASH,
                 withoutOrdinality.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+
+        final var withoutOrdinalityFlowingTheElement = new RecordQueryExplodePlan(collectionValue, false, false, false);
+        Assertions.assertEquals(WITHOUT_ORDINALITY_ELEMENT_LEGACY_HASH,
+                withoutOrdinalityFlowingTheElement.planHash(PlanHashable.CURRENT_LEGACY));
+        Assertions.assertEquals(WITHOUT_ORDINALITY_ELEMENT_FOR_CONTINUATION_HASH,
+                withoutOrdinalityFlowingTheElement.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         final var withOrdinality = new RecordQueryExplodePlan(collectionValue, true);
         Assertions.assertEquals(WITH_ORDINALITY_LEGACY_HASH,
@@ -479,7 +514,7 @@ public class ExplodePlanTest {
     @Test
     void theFlagDecidesTheShapeOfTheFlowedValue() {
         final var collectionValue = LiteralValue.ofList(List.of(1, 2, 3));
-        final var elementValue = new RecordQueryExplodePlan(collectionValue, false).getResultValue();
+        final var elementValue = new RecordQueryExplodePlan(collectionValue, false, false, false).getResultValue();
 
         // The shape a plan has to ask for now: one opaque value standing for the whole struct, with nothing inside it
         // reachable.
@@ -514,7 +549,7 @@ public class ExplodePlanTest {
                 recordConstructor.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
         // The same holds of the plain variant, where the shape decides the type the plan flows as well.
-        final var plainElement = new RecordQueryExplodePlan(collectionValue, false);
+        final var plainElement = new RecordQueryExplodePlan(collectionValue, false, false, false);
         final var plainRecordConstructor = new RecordQueryExplodePlan(collectionValue, false, false, true);
         Assertions.assertNotEquals(plainElement, plainRecordConstructor);
         Assertions.assertNotEquals(plainElement.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
@@ -526,7 +561,7 @@ public class ExplodePlanTest {
         final var collectionValue = LiteralValue.ofList(List.of(1, 2, 3));
 
         // The shape existing plans get: the element itself, which is also the plan's result type.
-        final var element = new RecordQueryExplodePlan(collectionValue, false);
+        final var element = new RecordQueryExplodePlan(collectionValue, false, false, false);
         final var elementValue = element.getResultValue();
         Assertions.assertInstanceOf(QueriedValue.class, elementValue);
         Assertions.assertEquals(element.getElementType(), element.getExplodeResultType());
@@ -546,11 +581,11 @@ public class ExplodePlanTest {
         // Unlike WITH ORDINALITY, where the struct is the result type either way, the shape decides the plain variant's
         // result type.
         Assertions.assertNotEquals(element.getExplodeResultType(), recordConstructor.getExplodeResultType());
-        Assertions.assertEquals(new RecordQueryExplodePlan(collectionValue, true).getExplodeResultType(),
+        Assertions.assertEquals(new RecordQueryExplodePlan(collectionValue, true, false, false).getExplodeResultType(),
                 new RecordQueryExplodePlan(collectionValue, true, false, true).getExplodeResultType());
 
         // An expression flows what the plan implementing it flows.
-        final var expression = new ExplodeExpression(collectionValue, false, false, true);
+        final var expression = new ExplodeExpression(collectionValue, false);
         Assertions.assertTrue(expression.flowsRecordConstructorValue());
         Assertions.assertEquals(recordConstructor.getExplodeResultType(), expression.getExplodeResultType());
         Assertions.assertEquals(recordConstructor.getResultValue(), expression.getResultValue());
@@ -628,7 +663,7 @@ public class ExplodePlanTest {
         Assertions.assertEquals(plainRecordConstructor,
                 RecordQueryExplodePlan.fromProto(newSerializationContext(), plainRecordConstructorProto));
 
-        final var plainElement = new RecordQueryExplodePlan(collectionValue, false);
+        final var plainElement = new RecordQueryExplodePlan(collectionValue, false, false, false);
         Assertions.assertFalse(plainElement.toProto(newSerializationContext()).hasFlowsRcv());
         Assertions.assertEquals(plainElement, RecordQueryExplodePlan.fromProto(newSerializationContext(),
                 PRecordQueryExplodePlan.newBuilder()

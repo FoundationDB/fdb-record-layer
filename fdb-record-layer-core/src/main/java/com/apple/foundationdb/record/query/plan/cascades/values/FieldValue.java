@@ -318,6 +318,12 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     }
 
     @Nonnull
+    public static FieldValue ofFieldNamesAndFuseIfPossible(@Nonnull Value childValue, @Nonnull final List<String> fieldNames) {
+        final var resolved = resolveFieldPath(childValue.getResultType(), fieldNames.stream().map(fieldName -> new Accessor(fieldName, -1)).collect(ImmutableList.toImmutableList()));
+        return ofFieldsAndFuseIfPossible(childValue, resolved);
+    }
+
+    @Nonnull
     public static FieldValue ofFields(@Nonnull Value childValue, @Nonnull final FieldPath fieldPath) {
         return new FieldValue(childValue, fieldPath);
     }

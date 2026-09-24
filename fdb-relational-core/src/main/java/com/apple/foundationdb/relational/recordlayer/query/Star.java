@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -139,10 +138,10 @@ public final class Star extends Expression {
 
     @Nonnull
     public static Star overQuantifiers(@Nonnull Optional<Identifier> qualifier,
-                                       @Nonnull List<QuantifiedObjectValue> quantifiers,
+                                       @Nonnull List<? extends Value> values,
                                        @Nonnull String typeName,
                                        @Nonnull Expressions expansion) {
-        final var underlyingStarType = quantifiers.size() == 1 ? quantifiers.get(0) : RecordConstructorValue.ofUnnamed(quantifiers);
+        final var underlyingStarType = values.size() == 1 ? values.get(0) : RecordConstructorValue.ofUnnamed(values);
         final var starType = createStarType(typeName, expansion);
         return new Star(qualifier, starType, ensureValueConsistentWithExpansion(underlyingStarType, expansion), expansion);
     }
