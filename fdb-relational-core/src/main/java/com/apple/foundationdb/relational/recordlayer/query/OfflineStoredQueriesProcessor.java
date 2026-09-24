@@ -110,9 +110,10 @@ public final class OfflineStoredQueriesProcessor {
      * Plans the stored queries for each given schema template and inserts the resulting plans
      * into {@code cache}. This is an offline operation and does not require an FDB transaction.
      *
-     * <p>Stored queries are planned with {@link Options#NONE}, i.e. the planner's default
-     * options &mdash; this includes the default case-sensitivity setting
-     * ({@link Options.Name#CASE_SENSITIVE_IDENTIFIERS}) and every other planner-tunable.</p>
+     * <p>Stored queries are planned with the planner's default options &mdash; this includes the
+     * default case-sensitivity setting ({@link Options.Name#CASE_SENSITIVE_IDENTIFIERS}) and every
+     * other planner-tunable &mdash; plus {@link Options.Name#PLAN_CACHE_WRITE_ONLY}, so each plan is
+     * stored without a cache lookup that could only miss.</p>
      *
      * <p>Failures are never propagated &mdash; a bad query must not abort startup. Each failure is
      * logged at {@code ERROR} level, and is also surfaced as a metric: per-query failures bump
@@ -227,18 +228,19 @@ public final class OfflineStoredQueriesProcessor {
         }
         try {
             final var sql = storedQuery.getQuery();
+            final var warmUpOptions = Options.builder().withOption(Options.Name.PLAN_CACHE_WRITE_ONLY, true).build();
             PlanGenerator.create(
                             Optional.of(cache),
                             currentTemplate,
                             new RecordStoreState(null, null),
                             metricCollector,
-                            Options.NONE)
+                            warmUpOptions)
                     .getPlan(sql, Map.of(
                             "schemaTemplate", templateKey,
                             "storedQueryName", storedQueryName,
                             "storedQuerySql", sql));
             counts.queriesProcessed++;
-        } catch (RelationalException | RuntimeException e) {
+        } catch (java.sql.SQLException | RelationalException | RuntimeException e) {
             // error already logged inside getPlan's finally
             counts.queriesFailed++;
         }

@@ -142,6 +142,22 @@ public abstract class AbstractCache<K, S, T, V> {
                              @Nonnull MetricCollector metricCollector);
 
     /**
+     * Stores an item under {@code key}, {@code secondaryKey} and {@code tertiaryKey} without looking one up first. An
+     * item already stored under an equal tertiary key is replaced.
+     *
+     * @param key The key of the item.
+     * @param secondaryKey The secondary key of the item.
+     * @param tertiaryKey The tertiary key to store the item under.
+     * @param value The item to store.
+     * @param metricCollector metric collector to consume events from interacting with the cache.
+     */
+    public abstract void put(@Nonnull K key,
+                             @Nonnull S secondaryKey,
+                             @Nonnull T tertiaryKey,
+                             @Nonnull V value,
+                             @Nonnull MetricCollector metricCollector);
+
+    /**
      * Retrieves the statistics of the cache.
      * @return The statistics of the cache.
      */

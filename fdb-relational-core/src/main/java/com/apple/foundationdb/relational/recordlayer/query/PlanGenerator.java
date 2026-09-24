@@ -184,6 +184,21 @@ public final class PlanGenerator {
             // currently exists in the cache.
             RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.HIT, -1, cache.get().getStats().numEntries());
 
+            // Write-only: plan and store, skipping the lookup. The key is built straight from the constraint, so the
+            // stored keys are never compared and no PhysicalPlanEquivalence comparison takes place. An entry already
+            // held under an equal constraint is replaced.
+            if (options.getOption(Options.Name.PLAN_CACHE_WRITE_ONLY)) {
+                final Plan<?> physicalPlan = generatePhysicalPlan(astHashResult, validPlanHashModes, currentPlanHashMode);
+                planContext.getMetricsCollector().increment(RelationalMetric.RelationalCount.PLAN_CACHE_WRITE_ONLY_STORE);
+                cache.get().put(astHashResult.getSchemaTemplateName(),
+                        astHashResult.getQueryCacheKey(),
+                        PhysicalPlanEquivalence.of(physicalPlan.getConstraint()),
+                        physicalPlan,
+                        planContext.getMetricsCollector());
+                RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.MISS, stepTimeMicros(), cache.get().getStats().numEntries());
+                return physicalPlan;
+            }
+
             // otherwise, lookup the query in the cache
             final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionContext().getEvaluationContext());
             return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.CACHE_LOOKUP, () ->

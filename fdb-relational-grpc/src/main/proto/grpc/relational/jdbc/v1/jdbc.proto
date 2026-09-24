@@ -179,6 +179,7 @@ message Options {
     SNAPSHOT = 1;
   }
   optional IsolationLevel isolation_level = 35;
+  optional bool plan_cache_write_only = 36;
 }
 
 // Request that is part of a transactional (stateful) exchange
