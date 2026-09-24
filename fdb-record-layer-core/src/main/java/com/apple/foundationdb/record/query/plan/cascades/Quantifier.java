@@ -223,7 +223,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Supplier<Reference> referenceSupplier) {
+        protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final FinalMemoizer memoizer,
+                                                           @Nonnull final Supplier<Reference> referenceSupplier) {
             return isNullOnEmpty
                     ? Optional.of(RecordQueryDefaultOnEmptyPlan.forNullOnEmpty(this, referenceSupplier.get()))
                     : Optional.empty();
@@ -366,10 +367,11 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     /**
      * A quantifier that conceptually collapses many items into one. It flows exactly one item from the sub-graph it
      * ranges over to the owning expression, or {@code NULL} if the result is empty. Accordingly, the flowed type is the
-     * nullable variant of the inner type.
+     * nullable variant of the inner type. The semantics are further controlled by the concrete subclass; see
+     * {@link Existential} and {@link Scalar}.
      */
     @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
-    public abstract static sealed class AtMostOne extends Quantifier permits Existential {
+    public abstract static sealed class AtMostOne extends Quantifier permits Existential, Scalar {
         @Nonnull
         private final Reference rangesOver;
 
@@ -377,6 +379,20 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             super(alias);
             this.rangesOver = rangesOver;
         }
+
+        /**
+         * Returns whether the sub-graph this quantifier ranges over is <em>required</em> to produce at most one item.
+         * An {@link Existential} quantifier takes the first item the sub-graph produces and discards the rest,
+         * which is what {@code EXISTS} wants; a {@link Scalar} quantifier, as for a SQL scalar subquery, instead
+         * requires that there be no second item at all.
+         *
+         * <p>Note that this states the requirement, not the decision to check it. Whether an implementation has to
+         * enforce the requirement at run time is decided when the quantifier is implemented, and is skipped where the
+         * sub-graph is provably single-row anyway, since then the check could never fire.
+         *
+         * @return {@code true} if more than one item from the sub-graph is an error
+         */
+        public abstract boolean requiresMaxOneRecord();
 
         @Override
         @Nonnull
@@ -459,9 +475,15 @@ public abstract class Quantifier implements Correlated<Quantifier> {
                     .build(reference);
         }
 
+        @Override
+        public boolean requiresMaxOneRecord() {
+            return false;
+        }
+
         @Nonnull
         @Override
-        protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Supplier<Reference> referenceSupplier) {
+        protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final FinalMemoizer memoizer,
+                                                           @Nonnull final Supplier<Reference> referenceSupplier) {
             return Optional.of(RecordQueryFirstOrDefaultPlan.forExistential(this, referenceSupplier.get()));
         }
     }
@@ -474,6 +496,91 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Nonnull
     public static Existential.ExistentialBuilder existentialBuilder() {
         return new Existential.ExistentialBuilder();
+    }
+
+    /**
+     * A scalar quantifier. Used when the owning expression uses the item <em>as a value</em>, by projecting a column
+     * out of the flowed record, as for a SQL scalar subquery. The sub-graph is required to produce at most one item
+     * (see {@link AtMostOne#requiresMaxOneRecord()}), so an execution strategy enforcing that requirement has to look
+     * for a second item in order to reject it.
+     */
+    @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
+    public static final class Scalar extends AtMostOne {
+        /**
+         * Builder subclass for scalar quantifiers.
+         */
+        public static class ScalarBuilder extends Builder<Scalar, ScalarBuilder> {
+            @Override
+            @Nonnull
+            public Scalar build(@Nonnull final Reference rangesOver) {
+                return new Scalar(alias == null ? Quantifier.uniqueId() : alias, rangesOver);
+            }
+        }
+
+        private Scalar(@Nonnull final CorrelationIdentifier alias, @Nonnull final Reference rangesOver) {
+            super(alias, rangesOver);
+        }
+
+        @Override
+        @Nonnull
+        public Builder<? extends Quantifier, ? extends Builder<?, ?>> toBuilder() {
+            return new Scalar.ScalarBuilder()
+                    .from(this);
+        }
+
+        @Override
+        @Nonnull
+        public String getShorthand() {
+            return "ι";
+        }
+
+        @Nonnull
+        @Override
+        public Scalar overNewReference(@Nonnull final Reference reference) {
+            return overNewReference(reference, getAlias());
+        }
+
+        @Override
+        @Nonnull
+        public Scalar overNewReference(@Nonnull final Reference reference,
+                                       @Nonnull final CorrelationIdentifier newAlias) {
+            return Quantifier.scalarBuilder()
+                    .from(this)
+                    .withAlias(newAlias)
+                    .build(reference);
+        }
+
+        @Override
+        public boolean requiresMaxOneRecord() {
+            return true;
+        }
+
+        @Nonnull
+        @Override
+        protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final FinalMemoizer memoizer,
+                                                           @Nonnull final Supplier<Reference> referenceSupplier) {
+            return Optional.of(RecordQueryFirstOrDefaultPlan.forScalar(this, memoizer, referenceSupplier.get()));
+        }
+    }
+
+    /**
+     * Create a builder for a scalar quantifier containing relational expressions.
+     * @return a scalar quantifier builder
+     */
+    @Nonnull
+    public static Scalar.ScalarBuilder scalarBuilder() {
+        return new Scalar.ScalarBuilder();
+    }
+
+    /**
+     * Shorthand to create a scalar quantifier ranging over a reference.
+     * @param reference the reference
+     * @return a new scalar quantifier ranging over {@code reference}
+     */
+    @Nonnull
+    public static Scalar scalar(@Nonnull final Reference reference) {
+        return scalarBuilder()
+                .build(reference);
     }
 
     /**
@@ -875,7 +982,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      */
     @Nonnull
     public final Reference applyGlue(@Nonnull final FinalMemoizer memoizer, @Nonnull final Reference reference) {
-        return createGluePlan(() -> reference).map(memoizer::memoizePlan).orElse(reference);
+        return createGluePlan(memoizer, () -> reference).map(memoizer::memoizePlan).orElse(reference);
     }
 
     /**
@@ -886,16 +993,18 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     public final Memoizer.ReferenceOfPlansBuilder applyGlue(@Nonnull final FinalMemoizer memoizer,
                                                             @Nonnull final Memoizer.ReferenceOfPlansBuilder builder) {
         // Only obtain the reference if glue is needed, as doing so memoizes the plans of the builder.
-        return createGluePlan(builder::reference).map(memoizer::memoizePlanBuilder).orElse(builder);
+        return createGluePlan(memoizer, builder::reference).map(memoizer::memoizePlanBuilder).orElse(builder);
     }
 
     /**
      * Creates the glue plan for {@link #applyGlue(FinalMemoizer, Reference)} over the reference that
      * {@code referenceSupplier} provides, or returns {@code Optional.empty()} if this quantifier needs no glue, which
-     * is the default. Implementations must not call {@code referenceSupplier} unless glue is needed.
+     * is the default. Implementations must not call {@code referenceSupplier} unless glue is needed. They may use
+     * {@code memoizer} to memoize any intermediate plans between the reference and the returned glue plan.
      */
     @Nonnull
-    protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final Supplier<Reference> referenceSupplier) {
+    protected Optional<RecordQueryPlan> createGluePlan(@Nonnull final FinalMemoizer memoizer,
+                                                       @Nonnull final Supplier<Reference> referenceSupplier) {
         return Optional.empty();
     }
 

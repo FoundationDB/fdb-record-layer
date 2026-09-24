@@ -831,3 +831,268 @@ exists-subquery:
     insert_time_ms: 1
     insert_new_count: 52
     insert_reused_count: 4
+scalar-subquery:
+-   query: EXPLAIN SELECT p.id, (SELECT SUM(c.i2) FROM T6 c WHERE c.i1 = p.id) AS
+        total FROM T5 p
+    ref: subquery-tests.yamsql:533
+    explain: SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_
+        AS _0) | AGG (sum_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS _0) | DEFAULT NULL AS q0 RETURN (q0.id AS id, q0._0 AS total) }
+    task_count: 578
+    task_total_time_ms: 39
+    transform_count: 160
+    transform_time_ms: 12
+    transform_yield_count: 46
+    insert_time_ms: 1
+    insert_new_count: 58
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT p.id, (SELECT SUM(c.i2) FROM T6 c) AS total FROM T5 p
+    ref: subquery-tests.yamsql:538
+    explain: ISCAN(T6_i1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.i2) AS _0) GROUP BY
+        () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FLATMAP q0 -> {
+        SCAN([IS T5]) AS q1 RETURN (q1.id AS id, q0._0 AS total) }
+    task_count: 468
+    task_total_time_ms: 26
+    transform_count: 121
+    transform_time_ms: 8
+    transform_yield_count: 43
+    insert_time_ms: 1
+    insert_new_count: 49
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT p.id, (SELECT c.i2 FROM T6 c WHERE c.id = p.id) AS v FROM
+        T5 p
+    ref: subquery-tests.yamsql:544
+    explain: SCAN([IS T5]) | FLATMAP q0 -> { SCAN([IS T6, EQUALS q0.id]) | MAP (_.i2
+        AS i2) | DEFAULT NULL AS q1 RETURN (q0.id AS id, q1.i2 AS v) }
+    task_count: 518
+    task_total_time_ms: 37
+    transform_count: 144
+    transform_time_ms: 13
+    transform_yield_count: 44
+    insert_time_ms: 1
+    insert_new_count: 54
+    insert_reused_count: 2
+-   query: EXPLAIN SELECT p.id, (SELECT c.i2 FROM T6 c WHERE c.i1 = 999) AS v FROM
+        T5 p
+    ref: subquery-tests.yamsql:549
+    explain: ISCAN(T6_i1 [EQUALS promote(@c18 AS LONG)]) | MAP (_.i2 AS i2) | MAX
+        1 RECORD | DEFAULT NULL | FLATMAP q0 -> { SCAN([IS T5]) AS q1 RETURN (q1.id
+        AS id, q0.i2 AS v) }
+    task_count: 531
+    task_total_time_ms: 44
+    transform_count: 144
+    transform_time_ms: 14
+    transform_yield_count: 44
+    insert_time_ms: 1
+    insert_new_count: 58
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT p.id, p.id + (SELECT SUM(c.i2) FROM T6 c WHERE c.i1 = p.id)
+        AS total FROM T5 p
+    ref: subquery-tests.yamsql:554
+    explain: SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_
+        AS _0) | AGG (sum_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS _0) | DEFAULT NULL AS q0 RETURN (q0.id AS id, q0.id + q0._0 AS total) }
+    task_count: 578
+    task_total_time_ms: 23
+    transform_count: 160
+    transform_time_ms: 10
+    transform_yield_count: 46
+    insert_time_ms: 1
+    insert_new_count: 58
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT (SELECT SUM(c.i2) FROM T6 c WHERE c.i1 = p.id) AS total,
+        (SELECT SUM(c.id) FROM T6 c WHERE c.i1 = p.id) AS ids FROM T5 p
+    ref: subquery-tests.yamsql:561
+    explain: SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_
+        AS _0) | AGG (sum_l(_._0.id) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS _0) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP
+        (_ AS _0) | AGG (sum_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS _0) | DEFAULT NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } AS q1 RETURN (q1._0._0
+        AS total, q1._1._0 AS ids) }
+    task_count: 1075
+    task_total_time_ms: 60
+    transform_count: 303
+    transform_time_ms: 21
+    transform_yield_count: 75
+    insert_time_ms: 2
+    insert_new_count: 112
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT p.id, CASE WHEN p.id = 1 THEN (SELECT MAX(c.i2) FROM T6
+        c) ELSE 0 END AS v FROM T5 p
+    ref: subquery-tests.yamsql:566
+    explain: ISCAN(T6_i1 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.i2) AS _0) GROUP BY
+        () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FLATMAP q0 -> {
+        SCAN([IS T5]) AS q1 RETURN (q1.id AS id, pick(ConditionSelector(q1.id equals
+        @c11, TRUE), q0._0, promote(@c26 AS LONG)) AS v) }
+    task_count: 468
+    task_total_time_ms: 34
+    transform_count: 121
+    transform_time_ms: 11
+    transform_yield_count: 43
+    insert_time_ms: 1
+    insert_new_count: 49
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT p.id, (SELECT SUM(c.i2) + (SELECT SUM(c2.id) FROM T6 c2)
+        FROM T6 c WHERE c.i1 = p.id) AS total FROM T5 p
+    ref: subquery-tests.yamsql:573
+    explain: SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_
+        AS _0) | AGG (sum_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | FLATMAP
+        q0 -> { ISCAN(T6_i1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.id) AS _0) GROUP
+        BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL AS q0 RETURN (q0._0._0
+        + q0._0 AS _0) } | DEFAULT NULL AS q1 RETURN (q0.id AS id, q1._0 AS total)
+        }
+    task_count: 866
+    task_total_time_ms: 58
+    transform_count: 231
+    transform_time_ms: 18
+    transform_yield_count: 68
+    insert_time_ms: 2
+    insert_new_count: 94
+    insert_reused_count: 7
+-   query: EXPLAIN SELECT p.id, (SELECT c.i2 FROM T6 c WHERE c.id = (SELECT MIN(c2.id)
+        FROM T6 c2 WHERE c2.i1 = p.id) ) AS v FROM T5 p
+    ref: subquery-tests.yamsql:583
+    explain: SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_
+        AS _0) | AGG (min_l(_._0.id) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS _0) | DEFAULT NULL | FLATMAP q0 -> { SCAN([IS T6, EQUALS q0._0]) AS q1
+        RETURN (q1.i2 AS i2) } | DEFAULT NULL AS q2 RETURN (q0.id AS id, q2.i2 AS
+        v) }
+    task_count: 1047
+    task_total_time_ms: 97
+    transform_count: 290
+    transform_time_ms: 34
+    transform_yield_count: 75
+    insert_time_ms: 3
+    insert_new_count: 124
+    insert_reused_count: 6
+-   query: EXPLAIN SELECT p.id, (SELECT c.i2 FROM T6 c WHERE c.i1 = p.id) AS v FROM
+        T5 p
+    ref: subquery-tests.yamsql:589
+    explain: SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_.i2
+        AS i2) | MAX 1 RECORD | DEFAULT NULL AS q1 RETURN (q0.id AS id, q1.i2 AS v)
+        }
+    task_count: 489
+    task_total_time_ms: 30
+    transform_count: 139
+    transform_time_ms: 11
+    transform_yield_count: 42
+    insert_time_ms: 1
+    insert_new_count: 50
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT p.id, (SELECT c.i2 FROM T6 c) AS v FROM T5 p
+    ref: subquery-tests.yamsql:594
+    explain: ISCAN(T6_i1 <,>) | MAP (_.i2 AS i2) | MAX 1 RECORD | DEFAULT NULL | FLATMAP
+        q0 -> { SCAN([IS T5]) AS q1 RETURN (q1.id AS id, q0.i2 AS v) }
+    task_count: 374
+    task_total_time_ms: 34
+    transform_count: 100
+    transform_time_ms: 13
+    transform_yield_count: 38
+    insert_time_ms: 1
+    insert_new_count: 41
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT p.id FROM T5 p JOIN T6 c ON c.i1 = (SELECT MIN(c2.i1) FROM
+        T6 c2 WHERE c2.id = p.id)
+    ref: subquery-tests.yamsql:605
+    explain: 'SCAN([IS T5]) | FLATMAP q0 -> { SCAN([IS T6, EQUALS q0.id]) | MAP (_
+        AS _0) | AGG (min_l(_._0.i1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS _0) | DEFAULT NULL | FLATMAP q0 -> { COVERING(T6_i1 [EQUALS q0._0] -> [i1:
+        KEY:[0], id: KEY:[2]]) | MAP (1 AS _0) AS q1 RETURN (1 AS _0) } AS q2 RETURN
+        (q0.id AS id) }'
+    task_count: 1216
+    task_total_time_ms: 94
+    transform_count: 364
+    transform_time_ms: 33
+    transform_yield_count: 80
+    insert_time_ms: 4
+    insert_new_count: 132
+    insert_reused_count: 5
+-   query: EXPLAIN SELECT p.id FROM T5 p WHERE p.id = (SELECT SUM(c.id) FROM T6 c
+        WHERE c.i1 = 1)
+    ref: subquery-tests.yamsql:610
+    explain: ISCAN(T6_i1 [EQUALS promote(@c28 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.id)
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL |
+        FLATMAP q0 -> { SCAN([IS T5, EQUALS q0._0]) AS q1 RETURN (q1.id AS id) }
+    task_count: 832
+    task_total_time_ms: 60
+    transform_count: 232
+    transform_time_ms: 16
+    transform_yield_count: 57
+    insert_time_ms: 7
+    insert_new_count: 86
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT p.id FROM T5 p WHERE (SELECT SUM(c.i2) FROM T6 c WHERE c.i1
+        = p.id) > 250
+    ref: subquery-tests.yamsql:615
+    explain: SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_
+        AS _0) | AGG (sum_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS _0) | DEFAULT NULL | FILTER _._0 GREATER_THAN promote(@c29 AS LONG) AS
+        q0 RETURN (q0.id AS id) }
+    task_count: 682
+    task_total_time_ms: 49
+    transform_count: 190
+    transform_time_ms: 16
+    transform_yield_count: 48
+    insert_time_ms: 2
+    insert_new_count: 69
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT p.id FROM T5 p WHERE p.id = 3 OR (SELECT MAX(c.i2) FROM
+        T6 c WHERE c.i1 = p.id) > 250
+    ref: subquery-tests.yamsql:621
+    explain: SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_
+        AS _0) | AGG (max_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS _0) | DEFAULT NULL | FILTER q0.id EQUALS promote(@c12 AS LONG) OR _._0
+        GREATER_THAN promote(@c35 AS LONG) AS q0 RETURN (q0.id AS id) }
+    task_count: 682
+    task_total_time_ms: 51
+    transform_count: 190
+    transform_time_ms: 18
+    transform_yield_count: 48
+    insert_time_ms: 2
+    insert_new_count: 69
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT p.id FROM T5 p WHERE (SELECT SUM(c.i2) FROM T6 c WHERE c.i1
+        = p.id) IS NULL
+    ref: subquery-tests.yamsql:626
+    explain: SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_
+        AS _0) | AGG (sum_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS _0) | DEFAULT NULL | FILTER _._0 IS_NULL AS q0 RETURN (q0.id AS id) }
+    task_count: 682
+    task_total_time_ms: 50
+    transform_count: 190
+    transform_time_ms: 22
+    transform_yield_count: 48
+    insert_time_ms: 1
+    insert_new_count: 69
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT p.id, c.id AS cid FROM T5 p, T6 c WHERE c.i1 = p.id AND
+        c.i2 = (SELECT MAX(c2.i2) FROM T6 c2 WHERE c2.i1 = p.id)
+    ref: subquery-tests.yamsql:634
+    explain: SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_
+        AS _0) | AGG (max_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0
+        AS _0) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | FILTER
+        _.i2 EQUALS q0._0 AS q1 RETURN q1 } AS q1 RETURN (q0.id AS id, q1.id AS cid)
+        }
+    task_count: 1142
+    task_total_time_ms: 81
+    transform_count: 354
+    transform_time_ms: 38
+    transform_yield_count: 78
+    insert_time_ms: 5
+    insert_new_count: 123
+    insert_reused_count: 8
+-   query: EXPLAIN SELECT c.i1 FROM T6 c GROUP BY c.i1 HAVING SUM(c.id) < (SELECT
+        MAX(c2.id) FROM T6 c2)
+    ref: subquery-tests.yamsql:644
+    explain: ISCAN(T6_i1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.id) AS _0) GROUP BY
+        (_._0.i1 AS _0) | FLATMAP q0 -> { ISCAN(T6_i1 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.id)
+        AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL |
+        FILTER q0._1._0 LESS_THAN _._0 AS q0 RETURN (q0._0._0 AS i1) }
+    task_count: 744
+    task_total_time_ms: 47
+    transform_count: 201
+    transform_time_ms: 14
+    transform_yield_count: 53
+    insert_time_ms: 2
+    insert_new_count: 79
+    insert_reused_count: 7

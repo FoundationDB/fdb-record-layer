@@ -1659,6 +1659,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitExistsExpressionAtom(ctx);
     }
 
+    @Nonnull
+    @Override
+    public Expression visitScalarSubqueryExpressionAtom(@Nonnull RelationalParser.ScalarSubqueryExpressionAtomContext ctx) {
+        return getDelegate().visitScalarSubqueryExpressionAtom(ctx);
+    }
+
     @Override
     public Object visitBetweenComparisonPredicate(final RelationalParser.BetweenComparisonPredicateContext ctx) {
         return getDelegate().visitBetweenComparisonPredicate(ctx);

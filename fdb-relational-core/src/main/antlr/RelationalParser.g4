@@ -1258,6 +1258,7 @@ expressionAtom
     | fullColumnName                                                                      #fullColumnNameExpressionAtom // done
     | functionCall                                                                        #functionCallExpressionAtom // done
     | preparedStatementParameter                                                          #preparedStatementParameterAtom // done
+    | '(' query ')'                                                                       #scalarSubqueryExpressionAtom // done
     | recordConstructor                                                                   #recordConstructorExpressionAtom // done
     | arrayConstructor                                                                    #arrayConstructorExpressionAtom // done
     | datetimeIntervalMathExpression                                                      #datetimeIntervalArithmeticExpression

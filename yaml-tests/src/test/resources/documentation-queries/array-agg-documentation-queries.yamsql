@@ -82,7 +82,10 @@ test_block:
 
     -
       - query: SELECT p.pid, (SELECT ARRAY_AGG(c.val IGNORE NULLS) FROM child c WHERE c.pid = p.pid) FROM parent p
-      - error: SYNTAX_ERROR
+      - supported_version: !current_version
+      - result: [{pid: 1, _1: [100, 200]},
+                 {pid: 2, _1: [300]},
+                 {pid: 3, _1: !null _}]
 
     -
       # “Arrays of arrays”: Aggregating an ARRAY-typed argument is rejected, …

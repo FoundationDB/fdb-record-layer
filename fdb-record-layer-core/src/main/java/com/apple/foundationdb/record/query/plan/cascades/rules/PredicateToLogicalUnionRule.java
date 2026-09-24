@@ -130,9 +130,11 @@ public class PredicateToLogicalUnionRule extends AbstractCascadesRule<MatchParti
     // ON EMPTY NULL glue nodes get collapsed correctly by the DISTINCT union. However, the fact that the NULL row
     // is not a stored record and does not have a known primary key makes it incompatible with the existing mechanism
     // that deduplicates by primary key.
+    // Also, only existential quantifiers are supported among the quantifiers that are not for-each quantifiers (see
+    // below where the existential quantifiers needed by the legs are carried over).
     @Nonnull
     private static final BindingMatcher<Quantifier> qunMatcher =
-            typedMatcherWithPredicate(Quantifier.class, qun -> !(qun instanceof Quantifier.ForEach forEach) || forEach.isPlain());
+            typedMatcherWithPredicate(Quantifier.class, PredicateToLogicalUnionRule::isSupportedQuantifier);
     @Nonnull
     private static final CollectionMatcher<QueryPredicate> combinationPredicateMatcher = all(anyPredicate());
     @Nonnull
@@ -146,6 +148,13 @@ public class PredicateToLogicalUnionRule extends AbstractCascadesRule<MatchParti
 
     public PredicateToLogicalUnionRule() {
         super(rootMatcher);
+    }
+
+    private static boolean isSupportedQuantifier(@Nonnull final Quantifier quantifier) {
+        if (quantifier instanceof Quantifier.ForEach forEach) {
+            return forEach.isPlain();
+        }
+        return quantifier instanceof Quantifier.Existential;
     }
 
     @Override

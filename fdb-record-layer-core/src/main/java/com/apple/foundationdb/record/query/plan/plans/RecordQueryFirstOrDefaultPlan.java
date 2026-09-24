@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.DerivedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -106,6 +107,50 @@ public class RecordQueryFirstOrDefaultPlan extends AbstractRelationalExpressionW
                 = Quantifier.physicalBuilder().withAlias(existential.getAlias()).build(innerReference);
         final NullValue onEmptyResultValue = new NullValue(existential.getFlowedObjectType());
         return new RecordQueryFirstOrDefaultPlan(inner, onEmptyResultValue);
+    }
+
+    /**
+     * Constructs a {@link RecordQueryFirstOrDefaultPlan} that implements the given scalar quantifier. The returned plan
+     * ranges over {@code innerReference} via a physical quantifier with the same alias as {@code scalar}, and emits a
+     * single null row (typed as the flowed object type of {@code scalar}) when the inner produces no records. As a
+     * scalar quantifier requires its sub-graph to produce at most one record, the inner is wrapped in a
+     * {@link RecordQueryMaxOneRecordPlan} that raises an error if there is more than one, unless the plans in
+     * {@code innerReference} are provably single-row, in which case that check could never fire.
+     *
+     * @param scalar a scalar quantifier
+     * @param memoizer the memoizer used to memoize the {@link RecordQueryMaxOneRecordPlan}
+     * @param innerReference the reference whose plans should be wrapped
+     * @return a new {@link RecordQueryFirstOrDefaultPlan}
+     */
+    @Nonnull
+    public static RecordQueryFirstOrDefaultPlan forScalar(@Nonnull final Quantifier.Scalar scalar,
+                                                          @Nonnull final FinalMemoizer memoizer,
+                                                          @Nonnull final Reference innerReference) {
+        Debugger.sanityCheck(() -> Verify.verify(
+                innerReference.getFinalExpressions().stream().allMatch(RecordQueryPlan.class::isInstance)));
+        // The `RecordQueryMaxOneRecordPlan` gets a physical quantifier with a fresh alias, as the surrounding query
+        // graph refers to the `RecordQueryFirstOrDefaultPlan` above it, which keeps the alias of the scalar quantifier.
+        final Reference checkedReference = scalar.requiresMaxOneRecord() && !isProvablyMaxOneRecord(innerReference)
+                                           ? memoizer.memoizePlan(
+                                                   new RecordQueryMaxOneRecordPlan(Quantifier.physical(innerReference)))
+                                           : innerReference;
+        final Quantifier.Physical inner
+                = Quantifier.physicalBuilder().withAlias(scalar.getAlias()).build(checkedReference);
+        final NullValue onEmptyResultValue = new NullValue(scalar.getFlowedObjectType());
+        return new RecordQueryFirstOrDefaultPlan(inner, onEmptyResultValue);
+    }
+
+    /**
+     * Returns whether the plans in the given reference provably produce at most one record.
+     *
+     * @param reference the reference whose plans are to be examined
+     * @return {@code true} if at least one plan in the reference is provably single-row, which makes all of them so
+     */
+    private static boolean isProvablyMaxOneRecord(@Nonnull final Reference reference) {
+        final CardinalitiesProperty.Cardinalities cardinalities
+                = CardinalitiesProperty.cardinalities().evaluate(reference.getFinalExpressions());
+        final CardinalitiesProperty.Cardinality maxCardinality = cardinalities.getMaxCardinality();
+        return !maxCardinality.isUnknown() && maxCardinality.getCardinality() <= 1L;
     }
 
     @Nonnull
