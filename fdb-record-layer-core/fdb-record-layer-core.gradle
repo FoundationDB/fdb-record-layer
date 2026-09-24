@@ -128,6 +128,13 @@ tasks.register('testShadowJar', ShadowJar) {
     mergeServiceFiles()
 }
 
+// Applying the shadow plugin (above, for the ShadowJar task type used by testShadowJar) makes the plugin's
+// default `shadowJar` task auto-attach a `shadowRuntimeElements` variant to the `java` component.
+// Skip them here to avoid publishing those artifacts.
+components.java.withVariantsFromConfiguration(configurations.shadowRuntimeElements) {
+    skip()
+}
+
 publishing {
     publications {
         library(MavenPublication) {
