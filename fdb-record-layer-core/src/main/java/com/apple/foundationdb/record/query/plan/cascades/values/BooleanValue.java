@@ -20,7 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -62,4 +65,42 @@ public interface BooleanValue extends Value {
                                               @Nonnull CorrelationIdentifier localAlias) {
         return toQueryPredicate(typeRepository, ImmutableSet.of(localAlias));
     }
+
+    /**
+     * Translates an arbitrary boolean-typed {@code value} into an equivalent {@link QueryPredicate}, even if
+     * {@code value} doesn't implement {@link BooleanValue} itself (e.g. a boolean literal, constant, or column).
+     * Callers that combine boolean operands (e.g. {@link AndOrValue#toQueryPredicate}) should use this for each
+     * operand rather than casting to {@link BooleanValue} directly.
+     * @param value a boolean-typed value, which may or may not implement {@link BooleanValue}
+     * @param typeRepository a type repository that can be passed to e.g. compile-time evaluable functions
+     * @param localAliases set of aliases which are immediately visible to the expression
+     * @return a {@link QueryPredicate} that is equivalent to {@code value}
+     */
+    @Nonnull
+    static Optional<QueryPredicate> toQueryPredicate(@Nonnull final Value value,
+                                                      @Nullable final TypeRepository typeRepository,
+                                                      @Nonnull final Set<CorrelationIdentifier> localAliases) {
+        // A `BooleanValue` can convert itself into a `QueryPredicate`.
+        if (value instanceof BooleanValue) {
+            return ((BooleanValue)value).toQueryPredicate(typeRepository, localAliases);
+        }
+
+        // A NULL predicate matches nothing, so map it to `ConstantPredicate.NULL`. Check the class and the type,
+        // because one SQL NULL arrives in two shapes: `NULL` in the query text becomes a `NullValue`, while a
+        // parameter bound to `null` becomes a `ConstantObjectValue` of the special NULL type.
+        if (value instanceof NullValue || value.getResultType().isNull()) {
+            return Optional.of(ConstantPredicate.NULL);
+        }
+
+        // A plain boolean `LiteralValue` (including one whose literal is itself `null`) folds to the
+        // corresponding `ConstantPredicate`.
+        if (value instanceof LiteralValue<?>) {
+            return Optional.of(ConstantPredicate.of((Boolean)((LiteralValue<?>)value).getLiteralValue()));
+        }
+
+        // Everything else (a bound constant, a parameter, a column, ...) is lifted into a `ValuePredicate`
+        // performing a `«value» = TRUE` comparison.
+        return Optional.of(new ValuePredicate(value, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)));
+    }
 }
+
