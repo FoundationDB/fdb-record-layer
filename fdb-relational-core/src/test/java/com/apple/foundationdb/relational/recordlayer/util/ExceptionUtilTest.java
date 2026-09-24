@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.util;
 
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.record.RecordCoreCardinalityViolationException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
@@ -63,6 +64,21 @@ class ExceptionUtilTest {
     void detectsDeserializationFailure() {
         RelationalException converted = ExceptionUtil.toRelationalException(new RecordDeserializationException("Failed to deserialize record", new IllegalArgumentException()));
         Assertions.assertEquals(ErrorCode.DESERIALIZATION_FAILURE, converted.getErrorCode());
+    }
+
+    /**
+     * Tests that a {@link RecordCoreCardinalityViolationException} maps to {@link ErrorCode#CARDINALITY_VIOLATION},
+     * both directly and as the cause of another {@link RecordCoreException}.
+     */
+    @Test
+    void detectsCardinalityViolation() {
+        final RecordCoreCardinalityViolationException violation =
+                new RecordCoreCardinalityViolationException("returned more than one row");
+        Assertions.assertEquals(ErrorCode.CARDINALITY_VIOLATION,
+                ExceptionUtil.toRelationalException(violation).getErrorCode());
+        Assertions.assertEquals(ErrorCode.CARDINALITY_VIOLATION,
+                ExceptionUtil.toRelationalException(new RecordCoreException("wrapped", violation)).getErrorCode());
+        Assertions.assertEquals("21000", ErrorCode.CARDINALITY_VIOLATION.getErrorCode());
     }
 
     @Test

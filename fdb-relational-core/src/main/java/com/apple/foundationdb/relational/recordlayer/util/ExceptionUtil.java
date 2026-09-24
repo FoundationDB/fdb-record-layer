@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.util;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreCardinalityViolationException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
@@ -124,6 +125,8 @@ public final class ExceptionUtil {
             return ErrorCode.DESERIALIZATION_FAILURE;
         } else if (re instanceof RecordAlreadyExistsException || cause instanceof RecordAlreadyExistsException || re instanceof RecordIndexUniquenessViolation) {
             return ErrorCode.UNIQUE_CONSTRAINT_VIOLATION;
+        } else if (re instanceof RecordCoreCardinalityViolationException || cause instanceof RecordCoreCardinalityViolationException) {
+            return ErrorCode.CARDINALITY_VIOLATION;
         } else if (re instanceof MetaDataException) {
             //TODO(bfines) map this to specific error codes based on the violation
             return ErrorCode.SYNTAX_OR_ACCESS_VIOLATION;

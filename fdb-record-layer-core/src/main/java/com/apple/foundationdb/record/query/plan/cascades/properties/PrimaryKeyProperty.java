@@ -59,6 +59,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnK
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMaxOneRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
@@ -315,6 +316,13 @@ public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Valu
         @Override
         public Optional<List<Value>> visitFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan firstOrDefaultPlan) {
             return primaryKeyFromSingleChild(firstOrDefaultPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Optional<List<Value>> visitMaxOneRecordPlan(@Nonnull final RecordQueryMaxOneRecordPlan maxOneRecordPlan) {
+            // The property passes straight through, as MAX 1 RECORD just flows the record of its inner unchanged.
+            return primaryKeyFromSingleChild(maxOneRecordPlan);
         }
 
         @Nonnull
