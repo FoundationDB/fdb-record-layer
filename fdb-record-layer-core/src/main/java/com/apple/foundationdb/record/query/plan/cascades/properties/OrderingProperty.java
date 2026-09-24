@@ -74,6 +74,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnK
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMaxOneRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
@@ -386,6 +387,13 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
             // TODO This plan is sorted by anything it's flowing as its max cardinality is one.
             //      We cannot express that as of yet.
             return Ordering.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitMaxOneRecordPlan(@Nonnull final RecordQueryMaxOneRecordPlan maxOneRecordPlan) {
+            // The property passes straight through, as MAX 1 RECORD just flows the record of its inner unchanged.
+            return orderingFromSingleChild(maxOneRecordPlan);
         }
 
         @Nonnull

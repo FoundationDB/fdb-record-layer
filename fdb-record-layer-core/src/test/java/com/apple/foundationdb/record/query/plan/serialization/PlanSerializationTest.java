@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.serialization;
 
 import com.apple.foundationdb.record.IndexFetchMethod;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PExistentialValuePredicate;
 import com.apple.foundationdb.record.planprotos.PPlanReference;
@@ -44,8 +45,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMaxOneRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
@@ -56,6 +57,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.annotation.Nonnull;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -145,19 +147,36 @@ public class PlanSerializationTest {
                         ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("field1")),
                                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("field2")))),
                 QueryPlanConstraint.noConstraint());
-        PlanSerializationContext planSerializationContext = PlanSerializationContext.newForCurrentMode();
-        final PPlanReference proto = planSerializationContext.toPlanReferenceProto(plan);
-        final byte[] bytes = proto.toByteArray();
-        final PPlanReference parsedProto = PPlanReference.parseFrom(bytes);
-        planSerializationContext = PlanSerializationContext.newForCurrentMode();
-        final RecordQueryPlan parsedPlan = planSerializationContext.fromPlanReferenceProto(parsedProto);
-        Verify.verify(parsedPlan instanceof RecordQueryIndexPlan);
+        final RecordQueryPlan parsedPlan = doProtoRoundtrip(plan, RecordQueryIndexPlan.class);
         Assertions.assertTrue(plan.semanticEquals(parsedPlan));
     }
 
     @Test
     void recordQueryDefaultOnEmptyPlanTest() throws Exception {
-        final RecordQueryIndexPlan indexPlan = new RecordQueryIndexPlan("an_index",
+        final var plan = new RecordQueryDefaultOnEmptyPlan(Quantifier
+                .Physical.physicalBuilder().withAlias(CorrelationIdentifier.of("q42")).build(
+                        Reference.plannedOf(indexPlan())
+                ), new NullValue(Type.primitiveType(Type.TypeCode.INT, true)));
+        final RecordQueryPlan parsedPlan = doProtoRoundtrip(plan, RecordQueryDefaultOnEmptyPlan.class);
+        Assertions.assertTrue(plan.semanticEquals(parsedPlan));
+    }
+
+    /**
+     * Tests that a {@link RecordQueryMaxOneRecordPlan} round-trips through its proto representation.
+     */
+    @Test
+    void recordQueryMaxOneRecordPlanTest1() throws Exception {
+        final RecordQueryMaxOneRecordPlan plan = new RecordQueryMaxOneRecordPlan(
+                Quantifier.Physical.physicalBuilder().withAlias(CorrelationIdentifier.of("q42")).build(
+                        Reference.plannedOf(indexPlan())));
+        final RecordQueryPlan parsedPlan = doProtoRoundtrip(plan, RecordQueryMaxOneRecordPlan.class);
+        assertThat(plan.semanticEquals(parsedPlan)).isTrue();
+    }
+
+    @Nonnull
+    private static RecordQueryIndexPlan indexPlan() {
+        return new RecordQueryIndexPlan(
+                "an_index",
                 null,
                 IndexScanComparisons.byValue(),
                 IndexFetchMethod.SCAN_AND_FETCH,
@@ -167,19 +186,21 @@ public class PlanSerializationTest {
                 Optional.empty(),
                 Type.primitiveType(Type.TypeCode.INT, true),
                 QueryPlanConstraint.noConstraint());
-        final var plan = new RecordQueryDefaultOnEmptyPlan(Quantifier
-                .Physical.physicalBuilder().withAlias(CorrelationIdentifier.of("q42")).build(
-                        Reference.plannedOf(indexPlan)
-                ), new NullValue(Type.primitiveType(Type.TypeCode.INT, true)));
+    }
 
+    @Nonnull
+    private static RecordQueryPlan doProtoRoundtrip(
+            @Nonnull final RecordQueryPlan plan,
+            @Nonnull final Class<? extends RecordQueryPlan> expectedClass) throws Exception {
         PlanSerializationContext planSerializationContext = PlanSerializationContext.newForCurrentMode();
         final PPlanReference proto = planSerializationContext.toPlanReferenceProto(plan);
-        final byte[] bytes = proto.toByteArray();
-        final PPlanReference parsedProto = PPlanReference.parseFrom(bytes);
+        final PPlanReference parsedProto = PPlanReference.parseFrom(proto.toByteArray());
         planSerializationContext = PlanSerializationContext.newForCurrentMode();
         final RecordQueryPlan parsedPlan = planSerializationContext.fromPlanReferenceProto(parsedProto);
-        Verify.verify(parsedPlan instanceof RecordQueryDefaultOnEmptyPlan);
-        Assertions.assertTrue(plan.semanticEquals(parsedPlan));
+        assertThat(parsedPlan).isInstanceOf(expectedClass);
+        assertThat(parsedPlan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION))
+                .isEqualTo(plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        return parsedPlan;
     }
 
     @Test

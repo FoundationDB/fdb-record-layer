@@ -42,6 +42,7 @@ import java.util.stream.Stream;
  * 02 | No Data
  * 08 | Connection Exception
  * 0A | Unsupported Operation
+ * 21 | Cardinality Violation
  * 22 | Data exception
  * 23 | Integrity Constraint Violation
  * 25 | Transaction State
@@ -77,6 +78,10 @@ public enum ErrorCode {
     UNSUPPORTED_OPERATION("0A000"),
     UNSUPPORTED_QUERY("0AF00"),
     UNSUPPORTED_SORT("0AF01"),
+
+    // Class 21 - Cardinality Violation
+    /** A scalar subquery returned more than a single row. */
+    CARDINALITY_VIOLATION("21000"),
 
     // Class 22 - Data Exception
     CANNOT_CONVERT_TYPE("22000"),
