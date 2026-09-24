@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.util;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreCardinalityViolationException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -60,25 +61,28 @@ public final class ExceptionUtil {
     }
 
     private static RelationalException recordCoreToRelationalException(RecordCoreException re) {
-        if (re.getCause() instanceof RelationalException) {
-            return (RelationalException) re.getCause();
+        final Throwable cause = re.getCause();
+        if (cause instanceof RelationalException relationalException) {
+            return relationalException;
         }
         ErrorCode code = ErrorCode.UNKNOWN;
         if (re instanceof FDBExceptions.FDBStoreTransactionTimeoutException) {
             code = ErrorCode.TRANSACTION_TIMEOUT;
-        } else if (re instanceof RecordContextNotActiveException || re.getCause() instanceof RecordContextNotActiveException) {
+        } else if (re instanceof RecordContextNotActiveException || cause instanceof RecordContextNotActiveException) {
             code = ErrorCode.TRANSACTION_INACTIVE;
-        } else if (re instanceof RecordDeserializationException || re.getCause() instanceof RecordDeserializationException) {
+        } else if (re instanceof RecordDeserializationException || cause instanceof RecordDeserializationException) {
             code = ErrorCode.DESERIALIZATION_FAILURE;
-        } else if (re instanceof RecordAlreadyExistsException || re.getCause() instanceof RecordAlreadyExistsException || re instanceof RecordIndexUniquenessViolation) {
+        } else if (re instanceof RecordAlreadyExistsException || cause instanceof RecordAlreadyExistsException || re instanceof RecordIndexUniquenessViolation) {
             code = ErrorCode.UNIQUE_CONSTRAINT_VIOLATION;
+        } else if (re instanceof RecordCoreCardinalityViolationException || cause instanceof RecordCoreCardinalityViolationException) {
+            code = ErrorCode.CARDINALITY_VIOLATION;
         } else if (re instanceof MetaDataException) {
             //TODO(bfines) map this to specific error codes based on the violation
             code = ErrorCode.SYNTAX_OR_ACCESS_VIOLATION;
-        } else if (re instanceof SemanticException) {
-            code = translateErrorCode((SemanticException)re);
-        } else if (re.getCause() instanceof SemanticException) {
-            code = translateErrorCode((SemanticException)(re.getCause()));
+        } else if (re instanceof SemanticException semanticException) {
+            code = translateErrorCode(semanticException);
+        } else if (cause instanceof SemanticException semanticException) {
+            code = translateErrorCode(semanticException);
         } else if (re instanceof UnableToPlanException) {
             code = ErrorCode.UNSUPPORTED_QUERY;
         }

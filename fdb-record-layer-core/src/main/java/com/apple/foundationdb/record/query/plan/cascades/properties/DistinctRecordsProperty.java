@@ -57,6 +57,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnK
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMax1RecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
@@ -294,6 +295,13 @@ public class DistinctRecordsProperty implements ExpressionProperty<Boolean> {
         @Override
         public Boolean visitFirstOrDefaultPlan(@Nonnull final RecordQueryFirstOrDefaultPlan element) {
             return true;
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitMax1RecordPlan(@Nonnull final RecordQueryMax1RecordPlan max1RecordPlan) {
+            // The property passes straight through, as MAX 1 RECORD just flows the record of its inner unchanged.
+            return distinctRecordsFromSingleChild(max1RecordPlan);
         }
 
         @Nonnull
