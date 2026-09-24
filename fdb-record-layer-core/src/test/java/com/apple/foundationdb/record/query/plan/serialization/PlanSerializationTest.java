@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMax1RecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -162,6 +163,19 @@ public class PlanSerializationTest {
     }
 
     /**
+     * Tests that a {@link RecordQueryFirstOrDefaultPlan} round-trips through its proto representation.
+     */
+    @Test
+    void recordQueryFirstOrDefaultPlanTest1() throws Exception {
+        final RecordQueryFirstOrDefaultPlan plan = firstOrDefaultPlan();
+        final RecordQueryPlan parsedPlan = doProtoRoundtrip(plan, RecordQueryFirstOrDefaultPlan.class);
+        assertThat(plan.semanticEquals(parsedPlan)).isTrue();
+
+        // Test that its plan hash is still the same as before scalar subqueries were introduced.
+        assertThat(plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION)).isEqualTo(-1231939490);
+    }
+
+    /**
      * Tests that a {@link RecordQueryMax1RecordPlan} round-trips through its proto representation.
      */
     @Test
@@ -186,6 +200,15 @@ public class PlanSerializationTest {
                 Optional.empty(),
                 Type.primitiveType(Type.TypeCode.INT, true),
                 QueryPlanConstraint.noConstraint());
+    }
+
+    @Nonnull
+    private static RecordQueryFirstOrDefaultPlan firstOrDefaultPlan() {
+        return new RecordQueryFirstOrDefaultPlan(
+                Quantifier.Physical.physicalBuilder()
+                        .withAlias(CorrelationIdentifier.of("q42"))
+                        .build(Reference.plannedOf(indexPlan())),
+                new NullValue(Type.primitiveType(Type.TypeCode.INT, true)));
     }
 
     @Nonnull

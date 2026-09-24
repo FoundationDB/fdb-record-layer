@@ -510,6 +510,158 @@ test_block:
       - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c16 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i, exists(q0) AS e) }"
       - result: [{i: 10, e: true}, {i: 20, e: true}, {i: 30, e: true}]
 ---
+# Tests for scalar subqueries.
+test_block:
+  name: scalar-subquery
+  options:
+    supported_version: !current_version
+  tests:
+    -
+      # Subquery projecting more than 1 column. This is rejected up front, before planning.
+      - query: SELECT p.id, (SELECT c.id, c.i2 FROM T6 c WHERE c.i1 = p.id) AS v FROM T5 p
+      - error: SUBQUERY_INCORRECT_COLUMN_COUNT
+    -
+      # Subquery projecting more than 1 column via SELECT *. This is rejected for the same reason, as the table has more
+      # than 1 column.
+      - query: SELECT p.id, (SELECT * FROM T6 c WHERE c.id = p.id) AS v FROM T5 p
+      - error: SUBQUERY_INCORRECT_COLUMN_COUNT
+    -
+      # Correlated aggregate subquery in the SELECT list. The row of T5 with id = 3 has no children, so its subquery is
+      # empty and yields NULL. An ungrouped aggregate is provably single-row, so no MAX 1 RECORD check is added to the
+      # plan.
+      - query: SELECT p.id, (SELECT SUM(c.i2) FROM T6 c WHERE c.i1 = p.id) AS total FROM T5 p
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_ AS _0) | AGG (sum_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL AS q0 RETURN (q0.id AS id, q0._0 AS total) }"
+      - result: [{id: 1, total: 300}, {id: 2, total: 300}, {id: 3, total: !null _}]
+    -
+      # Uncorrelated aggregate subquery in the SELECT list. No decorrelation is needed at all.
+      - query: SELECT p.id, (SELECT SUM(c.i2) FROM T6 c) AS total FROM T5 p
+      - explain: "ISCAN(T6_i1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FLATMAP q0 -> { SCAN([IS T5]) AS q1 RETURN (q1.id AS id, q0._0 AS total) }"
+      - result: [{id: 1, total: 600}, {id: 2, total: 600}, {id: 3, total: 600}]
+    -
+      # Non-aggregate subquery with an equality on the primary key of T6, returning exactly 1 row per outer row. No
+      # MAX 1 RECORD check is added, as the planner can see that it’s single-row from the primary-key scan.
+      - query: SELECT p.id, (SELECT c.i2 FROM T6 c WHERE c.id = p.id) AS v FROM T5 p
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { SCAN([IS T6, EQUALS q0.id]) | MAP (_.i2 AS i2) | DEFAULT NULL AS q1 RETURN (q0.id AS id, q1.i2 AS v) }"
+      - result: [{id: 1, v: 100}, {id: 2, v: 200}, {id: 3, v: 300}]
+    -
+      # Subquery returning 0 rows. It yields NULL rather than dropping the outer row.
+      - query: SELECT p.id, (SELECT c.i2 FROM T6 c WHERE c.i1 = 999) AS v FROM T5 p
+      - explain: "ISCAN(T6_i1 [EQUALS promote(@c18 AS LONG)]) | MAP (_.i2 AS i2) | MAX 1 RECORD | DEFAULT NULL | FLATMAP q0 -> { SCAN([IS T5]) AS q1 RETURN (q1.id AS id, q0.i2 AS v) }"
+      - result: [{id: 1, v: !null _}, {id: 2, v: !null _}, {id: 3, v: !null _}]
+    -
+      # Scalar subquery as part of a larger expression.
+      - query: SELECT p.id, p.id + (SELECT SUM(c.i2) FROM T6 c WHERE c.i1 = p.id) AS total FROM T5 p
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_ AS _0) | AGG (sum_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL AS q0 RETURN (q0.id AS id, q0.id + q0._0 AS total) }"
+      - result: [{id: 1, total: 301}, {id: 2, total: 302}, {id: 3, total: !null _}]
+    -
+      # More than one scalar subquery in the same SELECT list.
+      - query: SELECT (SELECT SUM(c.i2) FROM T6 c WHERE c.i1 = p.id) AS total,
+                      (SELECT SUM(c.id) FROM T6 c WHERE c.i1 = p.id) AS ids
+                 FROM T5 p
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_ AS _0) | AGG (sum_l(_._0.id) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_ AS _0) | AGG (sum_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL AS q0 RETURN (q0 AS _0, q0 AS _1) } AS q1 RETURN (q1._0._0 AS total, q1._1._0 AS ids) }"
+      - result: [{total: 300, ids: 3}, {total: 300, ids: 7}, {total: !null _, ids: !null _}]
+    -
+      # Scalar subquery inside a CASE expression.
+      - query: SELECT p.id, CASE WHEN p.id = 1 THEN (SELECT MAX(c.i2) FROM T6 c) ELSE 0 END AS v FROM T5 p
+      - explain: "ISCAN(T6_i1 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FLATMAP q0 -> { SCAN([IS T5]) AS q1 RETURN (q1.id AS id, pick(ConditionSelector(q1.id equals @c11, TRUE), q0._0, promote(@c26 AS LONG)) AS v) }"
+      - result: [{id: 1, v: 300}, {id: 2, v: 0}, {id: 3, v: 0}]
+    -
+      # SELECT item that mixes an aggregate with a scalar subquery, which is constant for the (single) group.
+      - query: SELECT p.id,
+                      (SELECT SUM(c.i2) + (SELECT SUM(c2.id) FROM T6 c2) FROM T6 c WHERE c.i1 = p.id) AS total
+                 FROM T5 p
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_ AS _0) | AGG (sum_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | FLATMAP q0 -> { ISCAN(T6_i1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.id) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL AS q0 RETURN (q0._0._0 + q0._0 AS _0) } | DEFAULT NULL AS q1 RETURN (q0.id AS id, q1._0 AS total) }"
+      - result: [{id: 1, total: 310}, {id: 2, total: 310}, {id: 3, total: !null _}]
+    -
+      # Scalar subquery that itself contains a scalar subquery.
+      - query: SELECT p.id,
+                      (SELECT c.i2
+                         FROM T6 c
+                        WHERE c.id = (SELECT MIN(c2.id) FROM T6 c2 WHERE c2.i1 = p.id)
+                      ) AS v
+                 FROM T5 p
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_ AS _0) | AGG (min_l(_._0.id) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FLATMAP q0 -> { SCAN([IS T6, EQUALS q0._0]) AS q1 RETURN (q1.i2 AS i2) } | DEFAULT NULL AS q2 RETURN (q0.id AS id, q2.i2 AS v) }"
+      - result: [{id: 1, v: 100}, {id: 2, v: 300}, {id: 3, v: !null _}]
+    -
+      # Subquery returning more than 1 row, which is a CARDINALITY_VIOLATION. The rows of T5 with id = 1 and id = 2
+      # have two children each. The violation is raised by the MAX 1 RECORD node below the DEFAULT NULL.
+      - query: SELECT p.id, (SELECT c.i2 FROM T6 c WHERE c.i1 = p.id) AS v FROM T5 p
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_.i2 AS i2) | MAX 1 RECORD | DEFAULT NULL AS q1 RETURN (q0.id AS id, q1.i2 AS v) }"
+      - error: CARDINALITY_VIOLATION
+    -
+      # Uncorrelated subquery returning more than 1 row, which is a CARDINALITY_VIOLATION as well.
+      - query: SELECT p.id, (SELECT c.i2 FROM T6 c) AS v FROM T5 p
+      - explain: "ISCAN(T6_i1 <,>) | MAP (_.i2 AS i2) | MAX 1 RECORD | DEFAULT NULL | FLATMAP q0 -> { SCAN([IS T5]) AS q1 RETURN (q1.id AS id, q0.i2 AS v) }"
+      - error: CARDINALITY_VIOLATION
+    -
+      # LIMIT inside a subquery. This is rejected outright. (It would otherwise be a useful feature, as LIMIT provides a
+      # natural way to turn any subquery into a guaranteed single-row query.)
+      - query: SELECT p.id, (SELECT c.i2 FROM T6 c WHERE c.i1 = p.id LIMIT 1) AS v FROM T5 p
+      - error: UNSUPPORTED_QUERY
+    -
+      # Scalar subquery in an explicit JOIN…ON clause. Each row of T5 joins to the children of the row named by its own
+      # id, so every row matches two children.
+      - query: SELECT p.id FROM T5 p JOIN T6 c ON c.i1 = (SELECT MIN(c2.i1) FROM T6 c2 WHERE c2.id = p.id)
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { SCAN([IS T6, EQUALS q0.id]) | MAP (_ AS _0) | AGG (min_l(_._0.i1) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FLATMAP q0 -> { COVERING(T6_i1 [EQUALS q0._0] -> [i1: KEY:[0], id: KEY:[2]]) | MAP (1 AS _0) AS q1 RETURN (1 AS _0) } AS q2 RETURN (q0.id AS id) }"
+      - result: [{1}, {1}, {2}, {2}, {3}, {3}]
+    -
+      # Uncorrelated scalar subquery in the WHERE clause.
+      - query: SELECT p.id FROM T5 p WHERE p.id = (SELECT SUM(c.id) FROM T6 c WHERE c.i1 = 1)
+      - explain: "ISCAN(T6_i1 [EQUALS promote(@c28 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.id) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FLATMAP q0 -> { SCAN([IS T5, EQUALS q0._0]) AS q1 RETURN (q1.id AS id) }"
+      - result: [{3}]
+    -
+      # Correlated scalar subquery in the WHERE clause.
+      - query: SELECT p.id FROM T5 p WHERE (SELECT SUM(c.i2) FROM T6 c WHERE c.i1 = p.id) > 250
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_ AS _0) | AGG (sum_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FILTER _._0 GREATER_THAN promote(@c29 AS LONG) AS q0 RETURN (q0.id AS id) }"
+      - result: [{1}, {2}]
+    -
+      # Correlated scalar subquery in the WHERE clause, as one term of an OR disjunction. The row of T5 with id = 1
+      # fails both terms, as its largest child i2 is 200.
+      - query: SELECT p.id FROM T5 p WHERE p.id = 3 OR (SELECT MAX(c.i2) FROM T6 c WHERE c.i1 = p.id) > 250
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_ AS _0) | AGG (max_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FILTER q0.id EQUALS promote(@c12 AS LONG) OR _._0 GREATER_THAN promote(@c35 AS LONG) AS q0 RETURN (q0.id AS id) }"
+      - unorderedResult: [{2}, {3}]
+    -
+      # Empty scalar subquery in the WHERE clause. It yields NULL, and a NULL predicate does not select the row.
+      - query: SELECT p.id FROM T5 p WHERE (SELECT SUM(c.i2) FROM T6 c WHERE c.i1 = p.id) IS NULL
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_ AS _0) | AGG (sum_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FILTER _._0 IS_NULL AS q0 RETURN (q0.id AS id) }"
+      - result: [{3}]
+    -
+      # Scalar subquery in a join predicate in the WHERE clause.
+      - query: SELECT p.id, c.id AS cid
+                 FROM T5 p, T6 c
+                WHERE c.i1 = p.id
+                  AND c.i2 = (SELECT MAX(c2.i2) FROM T6 c2 WHERE c2.i1 = p.id)
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | MAP (_ AS _0) | AGG (max_l(_._0.i2) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T6_i1 [EQUALS q0.id]) | FILTER _.i2 EQUALS q0._0 AS q1 RETURN q1 } AS q1 RETURN (q0.id AS id, q1.id AS cid) }"
+      - result: [{id: 1, cid: 2}, {id: 2, cid: 3}]
+    -
+      # Scalar subquery in GROUP BY. This is not supported.
+      - query: SELECT COUNT(*) AS n FROM T6 c GROUP BY (SELECT MAX(c2.id) FROM T6 c2)
+      - error: UNSUPPORTED_QUERY
+    -
+      # Uncorrelated scalar subquery in the HAVING clause, compared with an aggregate. The children of the row of T5
+      # with id = 1 have ids summing up to 3; those of the row with id = 2 sum up to 7.
+      - query: SELECT c.i1 FROM T6 c GROUP BY c.i1 HAVING SUM(c.id) < (SELECT MAX(c2.id) FROM T6 c2)
+      - explain: "ISCAN(T6_i1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.id) AS _0) GROUP BY (_._0.i1 AS _0) | FLATMAP q0 -> { ISCAN(T6_i1 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.id) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0) | DEFAULT NULL | FILTER q0._1._0 LESS_THAN _._0 AS q0 RETURN (q0._0._0 AS i1) }"
+      - result: [{i1: 1}]
+    -
+      # Scalar subquery in the SELECT list of a grouped query, correlated to a non-grouping column (`p.id`). It takes a
+      # different value for each row of a group, so the query is invalid SQL and must stay rejected, even once
+      # subqueries correlated to grouping columns are supported.
+      - query: SELECT p.name, (SELECT SUM(c.i2) FROM T6 c WHERE c.i1 = p.id) AS total FROM T5 p GROUP BY p.name
+      - error: GROUPING_ERROR
+    -
+      # Scalar subquery in ORDER BY. This is not supported.
+      - query: SELECT p.id FROM T5 p ORDER BY (SELECT SUM(c.i2) FROM T6 c WHERE c.i1 = p.id) DESC
+      - error: UNSUPPORTED_QUERY
+    -
+      # Scalar subquery supplying a value in INSERT…VALUES. This is not supported.
+      - query: INSERT INTO T6 VALUES (10, 1, (SELECT MAX(c.i2) FROM T6 c))
+      - error: UNSUPPORTED_QUERY
+    -
+      # Scalar subquery on the right-hand side of UPDATE…SET. This is not supported.
+      - query: UPDATE T6 SET i2 = (SELECT MAX(c.i2) FROM T6 c) WHERE id = 1
+      - error: UNSUPPORTED_QUERY
+---
 # Tests for subqueries in INSERT, UPDATE and DELETE statements.
 test_block:
   name: subquery-in-dml
@@ -522,6 +674,11 @@ test_block:
       # Correlated EXISTS subquery in the WHERE clause of an UPDATE.
       - query: UPDATE T4 SET i = i WHERE EXISTS (SELECT id FROM T1 WHERE T1.T2 = T4.id AND T1.id > 1) RETURNING "new".id
       - unorderedResult: [{2}, {3}]
+    -
+      # Uncorrelated scalar subquery in the WHERE clause of an UPDATE.
+      - query: UPDATE T4 SET i = i WHERE i = (SELECT MAX(t.i) FROM T4 t) RETURNING "new".id
+      - supported_version: !current_version
+      - result: [{3}]
     -
       # Uncorrelated EXISTS subquery in the RETURNING clause of an UPDATE.
       - query: UPDATE T4 SET i = i WHERE id = 1 RETURNING "new".id, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e
