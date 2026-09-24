@@ -72,8 +72,10 @@ public class JoinedSyntheticTableIndexTest {
 
     private static final String COMMA_JOIN = "comma join + WHERE";
     private static final String INNER_JOIN = "explicit INNER JOIN ... ON";
+    private static final String USING_JOIN = "explicit INNER JOIN ... USING";
     private static final String VIEW_COMMA_JOIN = "view + comma join";
     private static final String VIEW_INNER_JOIN = "view + INNER JOIN ... ON";
+    private static final String VIEW_USING_JOIN = "view + INNER JOIN ... USING";
 
     private static final String TWO_TABLE_SCHEMA = "CREATE SCHEMA TEMPLATE test_template " +
             "CREATE TABLE T1(k bigint, x bigint, primary key(k)) " +
@@ -221,11 +223,17 @@ public class JoinedSyntheticTableIndexTest {
                 Arguments.of(INNER_JOIN, "mv1",
                         "CREATE INDEX mv1 AS SELECT a.x, b.y FROM T1 AS a INNER JOIN T2 AS b ON a.k = b.k "
                                 + "order by a.x, b.y "),
+                Arguments.of(USING_JOIN, "mv1",
+                        "CREATE INDEX mv1 AS SELECT a.x, b.y FROM T1 AS a INNER JOIN T2 AS b USING (k) "
+                                + "order by a.x, b.y "),
                 Arguments.of(VIEW_COMMA_JOIN, "i1",
                         "CREATE VIEW mv1 AS SELECT a.x, b.y FROM T1 AS a, T2 AS b WHERE a.k = b.k "
                                 + "CREATE INDEX i1 on mv1(x, y)"),
                 Arguments.of(VIEW_INNER_JOIN, "i1",
                         "CREATE VIEW mv1 AS SELECT a.x, b.y FROM T1 AS a INNER JOIN T2 AS b ON a.k = b.k "
+                                + "CREATE INDEX i1 on mv1(x, y)"),
+                Arguments.of(VIEW_USING_JOIN, "i1",
+                        "CREATE VIEW mv1 AS SELECT a.x, b.y FROM T1 AS a INNER JOIN T2 AS b USING (k) "
                                 + "CREATE INDEX i1 on mv1(x, y)"));
     }
 

@@ -232,7 +232,6 @@ public class RecordMetadataDeserializer {
                     constituent.getName(), Objects.requireNonNull(constituent.getParentName()),
                     constituent.getNestingExpression()));
         }
-        // add indexes
         for (final Index index : unnestedRecordType.getIndexes()) {
             builder.addIndex(RecordLayerIndex.from(type.getName(), type.getStorageName(), index));
         }
@@ -243,12 +242,10 @@ public class RecordMetadataDeserializer {
     private static RecordLayerJoinedSyntheticTable.Builder generateJoinedSyntheticTableBuilder(
             @Nonnull final RecordMetaData recordMetaData,
             @Nonnull final JoinedRecordType joinedRecordType) {
-        final var record = Type.Record.fromDescriptorPreservingName(joinedRecordType.getDescriptor());
-        final RecordLayerJoinedSyntheticTable.Builder builder = RecordLayerJoinedSyntheticTable.newBuilder(record);
+        final var type = Type.Record.fromDescriptorPreservingName(joinedRecordType.getDescriptor());
+        final RecordLayerJoinedSyntheticTable.Builder builder = RecordLayerJoinedSyntheticTable.newBuilder(type);
 
         for (final JoinedRecordType.JoinConstituent constituent : joinedRecordType.getConstituents()) {
-            // The record layer names a constituent's record type by its proto storage name, which is what
-            // Type.Record.fromDescriptorPreservingName recovers the user-facing name from.
             final Type.Record constituentType = Type.Record.fromDescriptorPreservingName(
                     recordMetaData.getRecordType(constituent.getRecordType().getName()).getDescriptor());
             builder.addConstituent(constituent.getName(), constituentType);
@@ -262,7 +259,7 @@ public class RecordMetadataDeserializer {
 
         // Reconstruct indexes defined on this synthetic type.
         for (final Index index : joinedRecordType.getIndexes()) {
-            builder.addIndex(RecordLayerIndex.from(joinedRecordType.getName(), joinedRecordType.getName(), index));
+            builder.addIndex(RecordLayerIndex.from(type.getName(), type.getStorageName(), index));
         }
         return builder;
     }
