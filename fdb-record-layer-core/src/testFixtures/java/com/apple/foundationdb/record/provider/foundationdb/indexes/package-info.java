@@ -20,9 +20,12 @@
 
 /**
  * Test fixtures for the index-maintainer classes in the production package. Current contents
- * are limited to {@link com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils},
+ * are {@link com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils},
  * which provides shared constants for the standard test document types, a compressing
  * serializer for round-trip tests, and a helper for shaping a
- * {@link com.apple.foundationdb.record.RecordMetaData} so text indexes resemble relational tables.
+ * {@link com.apple.foundationdb.record.RecordMetaData} so text indexes resemble relational tables,
+ * and {@link com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexTestSupport},
+ * which provides static helpers for vector-index tests (merging, kNN queries, recall and
+ * Guardiann structure checks).
  */
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
