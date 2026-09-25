@@ -203,7 +203,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public List<OrderByExpression> visitOrderByClause(@Nonnull RelationalParser.OrderByClauseContext orderByClauseContextContext) {
         if (!getDelegate().isTopLevel()) {
-            Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "order by is not supported in subquery");
+            Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "ORDER BY is not supported in a subquery");
         }
         final List<OrderByExpression> exprs = visitOrderByExpressions(orderByClauseContextContext.orderByExpression());
         getDelegate().getSemanticAnalyzer().validateOrderByColumns(exprs);
