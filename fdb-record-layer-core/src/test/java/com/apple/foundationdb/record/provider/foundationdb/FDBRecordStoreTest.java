@@ -55,6 +55,8 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.RecordSerializationException;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
+import com.apple.foundationdb.record.provider.foundationdb.concurrency.FDBRecordStoreConcurrencyManager;
+import com.apple.foundationdb.record.provider.foundationdb.concurrency.NoOpConcurrencyManager;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -1532,7 +1534,8 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
                         getIndexMaintainerRegistry(), getIndexMaintenanceFilter(),
                         getPipelineSizer(), getStoreStateCache(),
                         getStateCacheabilityOnOpen(), getUserVersionChecker(),
-                        getBypassFullStoreLockReason(), getPlanSerializationRegistry()) {
+                        getBypassFullStoreLockReason(), getPlanSerializationRegistry(),
+                        isConcurrencyManagementDisabled() ? NoOpConcurrencyManager.instance() : new FDBRecordStoreConcurrencyManager(getSubspaceProvider(), getContext())) {
                     @Nonnull
                     @Override
                     protected CompletableFuture<Long> getRecordCountForRebuildIndexes(
