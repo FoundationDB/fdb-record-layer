@@ -22,6 +22,8 @@ import de.undercouch.gradle.tasks.download.Download
 import de.undercouch.gradle.tasks.download.Verify
 
 apply plugin: 'java-test-fixtures'
+// Publish a jar of the test fixtures (see gradle/published-test-fixtures.gradle)
+ext.publishTestFixturesJar = true
 apply from: rootProject.file('gradle/publishing.gradle')
 
 dependencies {

@@ -1,0 +1,68 @@
+/*
+ * published-test-fixtures.gradle
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// Builds the test fixtures jar that is published (with the `test-fixtures` classifier) for modules that set
+// `ext.publishTestFixturesJar = true` before applying publishing.gradle. The test fixture variants themselves are not
+// published (see publishing.gradle), so consumers select this jar with
+// `variantOf(...) { classifier('test-fixtures') }`.
+//
+// Rule: the published jar never contains the test fixtures' own protos, the classes generated from them, or classes
+// that link against those, so that consumers bring their own protos. This holds by construction: the published classes
+// are compiled separately from the test fixture sources, leaving out the generated proto sources and the classes listed
+// (fully qualified) in the module's `ext.testFixturesPublishExcludes`, against the test fixtures' dependencies only.
+// A published class that references a left-out class therefore fails to compile, which `check` catches.
+//
+// In-build consumers are unaffected: `testFixtures(project(...))` keeps resolving the full test fixtures variant.
+
+def testFixturesCompile = tasks.named('compileTestFixturesJava', JavaCompile)
+def generatedProtoSources = layout.buildDirectory.dir('generated/sources/proto/testFixtures')
+def publishExcludes = (project.findProperty('testFixturesPublishExcludes') ?: []).collect {
+    it.replace('.', '/') + '.java'
+}
+
+def compilePublishedTestFixtures = tasks.register('compilePublishedTestFixturesJava', JavaCompile) {
+    description = 'Compiles the published test fixtures, leaving out the test fixtures\' protos.'
+    def generatedDir = generatedProtoSources.get().asFile.toPath()
+    source = files(sourceSets.testFixtures.java.srcDirs.findAll { !it.toPath().startsWith(generatedDir) })
+    exclude publishExcludes
+    classpath = sourceSets.testFixtures.compileClasspath
+    destinationDirectory = layout.buildDirectory.dir('classes/java/publishedTestFixtures')
+    javaCompiler = testFixturesCompile.flatMap { it.javaCompiler }
+    options.release = testFixturesCompile.flatMap { it.options.release }
+    options.encoding = testFixturesCompile.get().options.encoding
+    options.compilerArgs = testFixturesCompile.get().options.compilerArgs
+    options.annotationProcessorPath = testFixturesCompile.get().options.annotationProcessorPath
+}
+
+def publishedTestFixturesJar = tasks.register('publishedTestFixturesJar', Jar) {
+    description = 'Assembles the published test fixtures jar.'
+    archiveClassifier = 'test-fixtures'
+    // The java-test-fixtures plugin's testFixturesJar has the same file name
+    destinationDirectory = layout.buildDirectory.dir('libs/published-test-fixtures')
+    includeEmptyDirs = false
+    from compilePublishedTestFixtures
+    from(tasks.named('processTestFixturesResources')) {
+        exclude '**/*.proto'
+    }
+}
+
+tasks.named('check') {
+    dependsOn publishedTestFixturesJar
+}
