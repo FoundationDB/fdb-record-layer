@@ -44,15 +44,15 @@ dependencies {
     testAnnotationProcessor(libs.autoService)
 }
 
-// Disable blocking detection, because we do this *a lot* in lucene
-test.systemProperties['com.apple.foundationdb.record.blockingInAsyncDetection'] = System.getenv('BLOCKING_DETECTION') ?: "DISABLED"
-// Used by lucene tests to create Directory objects for testing our codecs
-test.systemProperties['tests.directory'] = 'com.apple.foundationdb.record.lucene.codec.TestFDBDirectory'
-// uncomment this line, and comment out the one above to easily test against Lucene's RAMDirectory to see how
+// uncomment this line, and comment out the one below to easily test against Lucene's RAMDirectory to see how
 // it might differ
-// test.systemProperties['tests.directory'] = 'org.apache.lucene.store.RAMDirectory'
+// tasks.withType(Test) { it.systemProperties['tests.directory'] = 'org.apache.lucene.store.RAMDirectory' }
 
 tasks.withType(Test) { theTask ->
+    // Disable blocking detection, because we do this *a lot* in lucene
+    theTask.systemProperties['com.apple.foundationdb.record.blockingInAsyncDetection'] = System.getenv('BLOCKING_DETECTION') ?: "DISABLED"
+    // Used by lucene tests to create Directory objects for testing our codecs
+    theTask.systemProperties['tests.directory'] = 'com.apple.foundationdb.record.lucene.codec.TestFDBDirectory'
     // We use special lucene properties here, because lucene still fails sometimes
     // see: https://github.com/FoundationDB/fdb-record-layer/issues/2480
     // When that issue is resolved these can be changed align with the global properties

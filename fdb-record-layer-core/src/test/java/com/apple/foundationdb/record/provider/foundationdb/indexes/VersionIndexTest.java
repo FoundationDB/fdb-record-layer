@@ -71,6 +71,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.ScanNonReadableIndexException;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenario;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -480,6 +481,22 @@ public class VersionIndexTest {
         planner = new RecordQueryPlanner(metaData, recordStore.getRecordStoreState());
 
         return context;
+    }
+
+    @ParameterizedTest
+    @IndexScenarios
+    void  indexScenariosTest(IndexScenario scenario) throws Exception {
+        scenario.runTest(
+                () -> new VersionIndexDefinition(),
+                () -> {
+                    FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                            .setTimer(new FDBStoreTimer())
+                            .build();
+                    return fdb.openContext(config);
+                },
+                FDBRecordStore.newBuilder()
+                        .setKeySpacePath(path)
+                        .setFormatVersion(formatVersion));
     }
 
     @ParameterizedTest(name = "saveLoadWithVersion [formatVersion = {0}, splitLongRecords = {1}]")

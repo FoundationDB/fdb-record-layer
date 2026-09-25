@@ -47,6 +47,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenario;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexScenarioModel;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
@@ -76,6 +78,7 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -108,6 +111,12 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
 
     private static final String INDEX_NAME = "sw_vector_index";
     private static final int VECTOR_DIMS = 4;
+
+    /**
+     * A window comfortably larger than the ten to twelve records the shared scenarios insert, so that the
+     * window never fills up.
+     */
+    private static final int LARGE_WINDOW_SIZE = 1000;
 
     /**
      * Primary key used when opening the store. Defaults to {@code rec_no}; a test may prefix it with a grouping
@@ -187,6 +196,63 @@ class SlidingWindowIndexTest extends FDBRecordStoreTestBase {
     @Nonnull
     private SlidingWindow groupedSlidingWindow(@Nullable final Tuple groupingKey) {
         return SlidingWindowTestHelpers.groupedSlidingWindow(recordStore, INDEX_NAME, groupingKey);
+    }
+
+    // ===== Shared index-maintainer scenarios =====
+
+    /**
+     * Runs the shared scenario battery with a window of one, so the index holds exactly the single best
+     * record per partition and every further insert evicts the previous one.
+     */
+    @ParameterizedTest
+    @IndexScenarios
+    void windowSizeOneIndexScenariosTest(IndexScenario scenario) throws Exception {
+        scenario.runTest(
+                () -> new SlidingWindowIndexDefinition(1),
+                this::openContext,
+                FDBRecordStore.newBuilder()
+                        .setKeySpacePath(path));
+    }
+
+    /**
+     * Guards the scenario definition itself: the window predicate is only honoured for vector indexes, and
+     * is otherwise silently inert, so assert that the window really is enforced. The scenarios above
+     * compare scans against each other and would still pass if it were not.
+     */
+    @Test
+    void scenarioDefinitionWindowSizeOneKeepsOneEntry() {
+        final IndexScenarioModel model = new IndexScenarioModel(new SlidingWindowIndexDefinition(1),
+                this::openContext, FDBRecordStore.newBuilder().setKeySpacePath(path));
+        model.saveRecords(model.generateRecords(10));
+        assertEquals(1, model.scanIndex().size(), "window of one should keep exactly the best record");
+    }
+
+    /**
+     * Runs the shared scenario battery with a window far larger than the number of records the scenarios
+     * insert, so the window never fills and every record stays in the index. This is the regime where the
+     * sliding window is effectively a no-op wrapper, and the index should behave exactly like the
+     * undecorated vector index it delegates to.
+     */
+    @ParameterizedTest
+    @IndexScenarios
+    void windowLargerThanRecordCountIndexScenariosTest(IndexScenario scenario) throws Exception {
+        scenario.runTest(
+                () -> new SlidingWindowIndexDefinition(LARGE_WINDOW_SIZE),
+                this::openContext,
+                FDBRecordStore.newBuilder()
+                        .setKeySpacePath(path));
+    }
+
+    /**
+     * The counterpart to {@link #scenarioDefinitionWindowSizeOneKeepsOneEntry()}: with a window this large
+     * nothing is ever evicted, so every record has to remain visible.
+     */
+    @Test
+    void scenarioDefinitionLargeWindowKeepsEveryEntry() {
+        final IndexScenarioModel model = new IndexScenarioModel(new SlidingWindowIndexDefinition(LARGE_WINDOW_SIZE),
+                this::openContext, FDBRecordStore.newBuilder().setKeySpacePath(path));
+        model.saveRecords(model.generateRecords(10));
+        assertEquals(10, model.scanIndex().size(), "a window larger than the data should evict nothing");
     }
 
     // ===== DESC tests (keep highest relevance) =====
