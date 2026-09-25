@@ -1,0 +1,97 @@
+#
+# group-by-query-no-index.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# Ported from `GroupByTest.attemptToPlanGroupByWithoutCompatiblySortedIndexFails` — a GROUP BY with
+# nothing to provide the grouping order must be rejected rather than planned.
+#
+# Its own file: the index set is bare `complexQuerySetupHook()`, which is
+# `setupHookAndAddData(false, false)`. MULTI_INDEX is ordered (str_value_indexed, num_value_2,
+# num_value_3_indexed), so it provides the *reversed* grouping order and cannot serve this query;
+# nothing else comes close. The source asserts `UnableToPlanException`, which
+# `ExceptionUtil.toRelationalException:79` maps to `UNSUPPORTED_QUERY`.
+#
+# Note what this pins down: Cascades has no sort-then-aggregate or hash-aggregate fallback, so a GROUP BY
+# is only plannable when some access path already delivers the grouping order. If that ever changes, this
+# is the test that will notice.
+
+# The 14-row data set is the source's `setupHookAndAddData`, not the shared 100-row fixture. Every
+# (NUM_VALUE_2, STR_VALUE_INDEXED) pair in it is unique, so each group holds exactly one row and its sum
+# is that row's NUM_VALUE_3_INDEXED. The grouping structure is what is under test, not the arithmetic.
+#
+# NUM_VALUE_2 only ever reaches 7, so `where num_value_2 >= 42` matches nothing and those blocks are
+# empty. That is faithful: the source builds these graphs with `planGraph` and asserts the plan without
+# ever executing it, so the predicates exist to shape the scan range, not to select rows.
+#
+# `constructGroupByPlan`'s four `GroupingKind`s map onto SQL as follows. REGULAR_GROUPING is
+# `group by num_value_2, str_value_indexed`; REVERSED_GROUPING is the same projection with the grouping
+# keys the other way round. EXPLICIT_AND_IMPLICIT_GROUPING and ONLY_IMPLICIT_GROUPING are `@Disabled`
+# in the source ("TODO re-enable") and are not ported.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index multi_index as select str_value_indexed, num_value_2, num_value_3_indexed from my_simple_record
+        order by str_value_indexed, num_value_2, num_value_3_indexed
+    create index repeater_fanout as
+        select sq.v from my_simple_record as r, (select v from r.repeater as v) as sq order by sq.v
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_SIMPLE_RECORD
+               (REC_NO, STR_VALUE_INDEXED, NUM_VALUE_UNIQUE, NUM_VALUE_2,
+                NUM_VALUE_3_INDEXED, REPEATER)
+             VALUES
+               (1, '1', 1, 1, 10, []),
+               (12, '1', 12, 7, 10, []),
+               (2, '2', 2, 1, 20, []),
+               (3, '3', 3, 1, 30, []),
+               (4, '4', 4, 2, 5, []),
+               (13, '4', 13, 5, 5, []),
+               (5, '5', 5, 2, 5, []),
+               (6, '6', 6, 2, 5, []),
+               (7, '7', 7, 3, -10, []),
+               (14, '7', 14, 6, -10, []),
+               (8, '8', 8, 3, -20, []),
+               (9, '9', 9, 3, -30, []),
+               (10, '10', 10, 4, 100, []),
+               (11, '11', 11, 4, 2000, [])
+---
+test_block:
+  name: group-by-query-no-index
+  preset: single_repetition_ordered
+  tests:
+    -
+      # attemptToPlanGroupByWithoutCompatiblySortedIndexFails
+      # The source expects UnableToPlanException from planGraph.
+      - query: select num_value_2, str_value_indexed, sum(num_value_3_indexed) as total
+               from my_simple_record
+               group by num_value_2, str_value_indexed
+      - error: UNSUPPORTED_QUERY
+...

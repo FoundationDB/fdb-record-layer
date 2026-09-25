@@ -1,0 +1,45 @@
+Ë
+
+ï
+"nested-field-query-reviewer-sortedoEXPLAIN select * from restaurant_reviewer where category = 1 and stats.start_date > 0 order by stats.start_dateÕ	
+¡ïıΩ; ª∆m(0œÏ8@`ISCAN(STATS_CAT_SCHOOL_EMAIL [EQUALS promote(@c7 AS INT), [GREATER_THAN promote(@c13 AS LONG)]])Œdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c7 AS INT), [GREATER_THAN promote(@c13 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">STATS_CAT_SCHOOL_EMAIL</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ô
+
+ú
+"nested-field-query-reviewer-sortedvEXPLAIN select * from restaurant_reviewer where category = 1 and stats.start_date > 0 order by stats.start_date, emailÕ	
+¡ÙÑπ; ∞∑j(0ú8@`ISCAN(STATS_CAT_SCHOOL_EMAIL [EQUALS promote(@c7 AS INT), [GREATER_THAN promote(@c13 AS LONG)]])Œdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c7 AS INT), [GREATER_THAN promote(@c13 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">STATS_CAT_SCHOOL_EMAIL</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}€
+
+ò
+"nested-field-query-reviewer-sortedrEXPLAIN select * from restaurant_reviewer where category = 1 and stats.start_date = 1066 order by stats.start_dateΩ	
+¡û‚ß; ®¢_(0Å›8@XISCAN(STATS_CAT_SCHOOL_EMAIL [EQUALS promote(@c7 AS INT), EQUALS promote(@c13 AS LONG)])∆digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c7 AS INT), EQUALS promote(@c13 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">STATS_CAT_SCHOOL_EMAIL</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ì
+
+™
+"nested-field-query-reviewer-sortedÉEXPLAIN select * from restaurant_reviewer where category = 1 and stats.start_date = 1066 order by stats.start_date, category, emailΩ	
+¡¶ç√; ›õs(0°‡8@XISCAN(STATS_CAT_SCHOOL_EMAIL [EQUALS promote(@c7 AS INT), EQUALS promote(@c13 AS LONG)])∆digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c7 AS INT), EQUALS promote(@c13 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">STATS_CAT_SCHOOL_EMAIL</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

@@ -1,0 +1,109 @@
+Û3
+¨
+"in-query-union-intersection-no-nv3EXPLAIN select * from my_simple_record where num_value_2 in (0, 2) and str_value_indexed in ('even') order by num_value_3_indexed­2
+‡â¢öÓ ¾»‰(’0õŠ¡8»@ú[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c15)] INUNION q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1] -> [NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) âˆ© COVERING(NUM_VALUE2_NUM_VALUE3 [EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)Ž.digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q43 IN arrayDistinct(@c15)]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Intersection</td></tr><tr><td align="left">COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q43]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q41]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">STR_VALUE_NUM_VALUE3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">NUM_VALUE2_NUM_VALUE3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q41 IN arrayDistinct(@c7)]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q87> label="q87" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q83> label="q83" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q85> label="q85" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    10 -> 2 [ color="red" style="invis" ];
+  }
+}Ú3
+§
+"in-query-union-intersection-no-nv3€EXPLAIN select * from my_simple_record where num_value_2 in (0, 2) and str_value_indexed in ('odd') order by num_value_3_indexed­2
+‡â¢öÓ ¾»‰(’0õŠ¡8»@ú[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c15)] INUNION q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1] -> [NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) âˆ© COVERING(NUM_VALUE2_NUM_VALUE3 [EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)Ž.digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q43 IN arrayDistinct(@c15)]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Intersection</td></tr><tr><td align="left">COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q43]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q41]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">STR_VALUE_NUM_VALUE3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">NUM_VALUE2_NUM_VALUE3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q41 IN arrayDistinct(@c7)]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q87> label="q87" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q83> label="q83" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q85> label="q85" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    10 -> 2 [ color="red" style="invis" ];
+  }
+}ë3
+¸
+"in-query-union-intersection-no-nv3‘EXPLAIN select * from my_simple_record where num_value_2 in (0, 2) and str_value_indexed in ('even', 'odd', 'other') order by num_value_3_indexed­2
+‡â¢öÓ ¾»‰(’0õŠ¡8»@ú[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c15)] INUNION q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1] -> [NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) âˆ© COVERING(NUM_VALUE2_NUM_VALUE3 [EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)Ž.digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.NUM_VALUE_2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q43 IN arrayDistinct(@c15)]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Intersection</td></tr><tr><td align="left">COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q43]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q41]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">STR_VALUE_NUM_VALUE3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">NUM_VALUE2_NUM_VALUE3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q41 IN arrayDistinct(@c7)]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q87> label="q87" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q83> label="q83" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q85> label="q85" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    10 -> 2 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    4 -> 3 [ color="red" style="invis" ];
+  }
+}

@@ -1,0 +1,18 @@
+or-query-to-union-unorderable-and:
+-   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'even'
+        and (num_value_2 <= 1 or num_value_3_indexed >= 3)
+    ref: or-query-to-union-unorderable-and.yamsql:58
+    explain: 'COVERING(MULTI_INDEX [EQUALS promote(@c7 AS STRING), [LESS_THAN_OR_EQUALS
+        promote(@c13 AS INT)]] -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[2],
+        REC_NO: KEY:[3], STR_VALUE_INDEXED: KEY:[0]]) ⊎ COVERING(MULTI_INDEX_2 [EQUALS
+        promote(@c7 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c18 AS INT)]] ->
+        [NUM_VALUE_3_INDEXED: KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]])
+        | DISTINCT BY PK | FETCH'
+    task_count: 3722
+    task_total_time_ms: 38
+    transform_count: 659
+    transform_time_ms: 17
+    transform_yield_count: 241
+    insert_time_ms: 2
+    insert_new_count: 500
+    insert_reused_count: 50

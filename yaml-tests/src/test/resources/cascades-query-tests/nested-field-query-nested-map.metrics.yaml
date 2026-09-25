@@ -1,0 +1,16 @@
+nested-field-query-nested-map:
+-   query: EXPLAIN select * from outer_record as r where r.other_id = 1 and exists
+        (select 1 from r.map.entry as e where e.key = 'alpha' and e.value <> 'test')
+    ref: nested-field-query-nested-map.yamsql:74
+    explain: ISCAN(KEY_INDEX [EQUALS promote(@c11 AS LONG), EQUALS promote(@c30 AS
+        STRING)]) | FLATMAP q0 -> { EXPLODE q0.MAP.ENTRY | FILTER _.KEY EQUALS promote(@c30
+        AS STRING) AND _.VALUE NOT_EQUALS promote(@c37 AS STRING) | MAP (@c11 AS _0)
+        | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 }
+    task_count: 609
+    task_total_time_ms: 10
+    transform_count: 185
+    transform_time_ms: 5
+    transform_yield_count: 41
+    insert_time_ms: 0
+    insert_new_count: 65
+    insert_reused_count: 3

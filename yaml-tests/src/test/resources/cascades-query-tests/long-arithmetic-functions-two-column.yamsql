@@ -1,0 +1,268 @@
+#
+# long-arithmetic-functions-two-column.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# Ported from `FDBLongArithmeticFunctionQueryTest.calculateFunctionFromCoveringIndexScan`.
+#
+# Despite the class it lives in, the index here is *not* a function index: the source's
+# `new Index("MySimpleRecord$num_value_2-num_value_3_indexed", "num_value_2", "num_value_3_indexed")`
+# is a plain two-column value index, and the arithmetic is only in the query's projection. Being a
+# multi-column value index it needs a top-level ORDER BY, which is what splits key from value; naming
+# both columns keeps the whole key in the index key, as the source's `concat` does.
+#
+# Data: 100 records with REC_NO = i, NUM_VALUE_2 = i % 7 and NUM_VALUE_3_INDEXED = i % 6 -- coprime
+# moduli, so all 42 combinations occur.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index my_simple_record_num_value_2_num_value_3_indexed as
+        select num_value_2, num_value_3_indexed from my_simple_record
+        order by num_value_2, num_value_3_indexed
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO MY_SIMPLE_RECORD (REC_NO, NUM_VALUE_2, NUM_VALUE_3_INDEXED, REPEATER)
+             VALUES
+               (0, 0, 0, []),
+               (1, 1, 1, []),
+               (2, 2, 2, []),
+               (3, 3, 3, []),
+               (4, 4, 4, []),
+               (5, 5, 5, []),
+               (6, 6, 0, []),
+               (7, 0, 1, []),
+               (8, 1, 2, []),
+               (9, 2, 3, []),
+               (10, 3, 4, []),
+               (11, 4, 5, []),
+               (12, 5, 0, []),
+               (13, 6, 1, []),
+               (14, 0, 2, []),
+               (15, 1, 3, []),
+               (16, 2, 4, []),
+               (17, 3, 5, []),
+               (18, 4, 0, []),
+               (19, 5, 1, []),
+               (20, 6, 2, []),
+               (21, 0, 3, []),
+               (22, 1, 4, []),
+               (23, 2, 5, []),
+               (24, 3, 0, []),
+               (25, 4, 1, []),
+               (26, 5, 2, []),
+               (27, 6, 3, []),
+               (28, 0, 4, []),
+               (29, 1, 5, []),
+               (30, 2, 0, []),
+               (31, 3, 1, []),
+               (32, 4, 2, []),
+               (33, 5, 3, []),
+               (34, 6, 4, []),
+               (35, 0, 5, []),
+               (36, 1, 0, []),
+               (37, 2, 1, []),
+               (38, 3, 2, []),
+               (39, 4, 3, []),
+               (40, 5, 4, []),
+               (41, 6, 5, []),
+               (42, 0, 0, []),
+               (43, 1, 1, []),
+               (44, 2, 2, []),
+               (45, 3, 3, []),
+               (46, 4, 4, []),
+               (47, 5, 5, []),
+               (48, 6, 0, []),
+               (49, 0, 1, []),
+               (50, 1, 2, []),
+               (51, 2, 3, []),
+               (52, 3, 4, []),
+               (53, 4, 5, []),
+               (54, 5, 0, []),
+               (55, 6, 1, []),
+               (56, 0, 2, []),
+               (57, 1, 3, []),
+               (58, 2, 4, []),
+               (59, 3, 5, []),
+               (60, 4, 0, []),
+               (61, 5, 1, []),
+               (62, 6, 2, []),
+               (63, 0, 3, []),
+               (64, 1, 4, []),
+               (65, 2, 5, []),
+               (66, 3, 0, []),
+               (67, 4, 1, []),
+               (68, 5, 2, []),
+               (69, 6, 3, []),
+               (70, 0, 4, []),
+               (71, 1, 5, []),
+               (72, 2, 0, []),
+               (73, 3, 1, []),
+               (74, 4, 2, []),
+               (75, 5, 3, []),
+               (76, 6, 4, []),
+               (77, 0, 5, []),
+               (78, 1, 0, []),
+               (79, 2, 1, []),
+               (80, 3, 2, []),
+               (81, 4, 3, []),
+               (82, 5, 4, []),
+               (83, 6, 5, []),
+               (84, 0, 0, []),
+               (85, 1, 1, []),
+               (86, 2, 2, []),
+               (87, 3, 3, []),
+               (88, 4, 4, []),
+               (89, 5, 5, []),
+               (90, 6, 0, []),
+               (91, 0, 1, []),
+               (92, 1, 2, []),
+               (93, 2, 3, []),
+               (94, 3, 4, []),
+               (95, 4, 5, []),
+               (96, 5, 0, []),
+               (97, 6, 1, []),
+               (98, 0, 2, []),
+               (99, 1, 3, [])
+---
+test_block:
+  name: long-arithmetic-functions-two-column
+  preset: single_repetition_ordered
+  tests:
+    -
+      # calculateFunctionFromCoveringIndexScan
+      # No predicate and no ordering (`RequestedOrdering.preserve()`); the whole content is whether the
+      # sum can be computed from the two indexed columns. The source asserts
+      # `mapPlan(typeFilterPlan(scanPlan(unbounded)))` -- a record scan -- and its comment says this
+      # should have been a covering scan of the index. The SQL projection needs only NUM_VALUE_2,
+      # NUM_VALUE_3_INDEXED and REC_NO, all of which the index carries, so the plan generated here may
+      # well be the covering scan the source wanted; either way the rows are the same.
+      - query: select num_value_2 + num_value_3_indexed as sum, rec_no from my_simple_record
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE <,>) | MAP (_.NUM_VALUE_2 + _.NUM_VALUE_3_INDEXED AS SUM, _.REC_NO AS REC_NO)"
+      - unorderedResult: [{SUM: 0, REC_NO: 0},
+                          {SUM: 2, REC_NO: 1},
+                          {SUM: 4, REC_NO: 2},
+                          {SUM: 6, REC_NO: 3},
+                          {SUM: 8, REC_NO: 4},
+                          {SUM: 10, REC_NO: 5},
+                          {SUM: 6, REC_NO: 6},
+                          {SUM: 1, REC_NO: 7},
+                          {SUM: 3, REC_NO: 8},
+                          {SUM: 5, REC_NO: 9},
+                          {SUM: 7, REC_NO: 10},
+                          {SUM: 9, REC_NO: 11},
+                          {SUM: 5, REC_NO: 12},
+                          {SUM: 7, REC_NO: 13},
+                          {SUM: 2, REC_NO: 14},
+                          {SUM: 4, REC_NO: 15},
+                          {SUM: 6, REC_NO: 16},
+                          {SUM: 8, REC_NO: 17},
+                          {SUM: 4, REC_NO: 18},
+                          {SUM: 6, REC_NO: 19},
+                          {SUM: 8, REC_NO: 20},
+                          {SUM: 3, REC_NO: 21},
+                          {SUM: 5, REC_NO: 22},
+                          {SUM: 7, REC_NO: 23},
+                          {SUM: 3, REC_NO: 24},
+                          {SUM: 5, REC_NO: 25},
+                          {SUM: 7, REC_NO: 26},
+                          {SUM: 9, REC_NO: 27},
+                          {SUM: 4, REC_NO: 28},
+                          {SUM: 6, REC_NO: 29},
+                          {SUM: 2, REC_NO: 30},
+                          {SUM: 4, REC_NO: 31},
+                          {SUM: 6, REC_NO: 32},
+                          {SUM: 8, REC_NO: 33},
+                          {SUM: 10, REC_NO: 34},
+                          {SUM: 5, REC_NO: 35},
+                          {SUM: 1, REC_NO: 36},
+                          {SUM: 3, REC_NO: 37},
+                          {SUM: 5, REC_NO: 38},
+                          {SUM: 7, REC_NO: 39},
+                          {SUM: 9, REC_NO: 40},
+                          {SUM: 11, REC_NO: 41},
+                          {SUM: 0, REC_NO: 42},
+                          {SUM: 2, REC_NO: 43},
+                          {SUM: 4, REC_NO: 44},
+                          {SUM: 6, REC_NO: 45},
+                          {SUM: 8, REC_NO: 46},
+                          {SUM: 10, REC_NO: 47},
+                          {SUM: 6, REC_NO: 48},
+                          {SUM: 1, REC_NO: 49},
+                          {SUM: 3, REC_NO: 50},
+                          {SUM: 5, REC_NO: 51},
+                          {SUM: 7, REC_NO: 52},
+                          {SUM: 9, REC_NO: 53},
+                          {SUM: 5, REC_NO: 54},
+                          {SUM: 7, REC_NO: 55},
+                          {SUM: 2, REC_NO: 56},
+                          {SUM: 4, REC_NO: 57},
+                          {SUM: 6, REC_NO: 58},
+                          {SUM: 8, REC_NO: 59},
+                          {SUM: 4, REC_NO: 60},
+                          {SUM: 6, REC_NO: 61},
+                          {SUM: 8, REC_NO: 62},
+                          {SUM: 3, REC_NO: 63},
+                          {SUM: 5, REC_NO: 64},
+                          {SUM: 7, REC_NO: 65},
+                          {SUM: 3, REC_NO: 66},
+                          {SUM: 5, REC_NO: 67},
+                          {SUM: 7, REC_NO: 68},
+                          {SUM: 9, REC_NO: 69},
+                          {SUM: 4, REC_NO: 70},
+                          {SUM: 6, REC_NO: 71},
+                          {SUM: 2, REC_NO: 72},
+                          {SUM: 4, REC_NO: 73},
+                          {SUM: 6, REC_NO: 74},
+                          {SUM: 8, REC_NO: 75},
+                          {SUM: 10, REC_NO: 76},
+                          {SUM: 5, REC_NO: 77},
+                          {SUM: 1, REC_NO: 78},
+                          {SUM: 3, REC_NO: 79},
+                          {SUM: 5, REC_NO: 80},
+                          {SUM: 7, REC_NO: 81},
+                          {SUM: 9, REC_NO: 82},
+                          {SUM: 11, REC_NO: 83},
+                          {SUM: 0, REC_NO: 84},
+                          {SUM: 2, REC_NO: 85},
+                          {SUM: 4, REC_NO: 86},
+                          {SUM: 6, REC_NO: 87},
+                          {SUM: 8, REC_NO: 88},
+                          {SUM: 10, REC_NO: 89},
+                          {SUM: 6, REC_NO: 90},
+                          {SUM: 1, REC_NO: 91},
+                          {SUM: 3, REC_NO: 92},
+                          {SUM: 5, REC_NO: 93},
+                          {SUM: 7, REC_NO: 94},
+                          {SUM: 9, REC_NO: 95},
+                          {SUM: 5, REC_NO: 96},
+                          {SUM: 7, REC_NO: 97},
+                          {SUM: 2, REC_NO: 98},
+                          {SUM: 4, REC_NO: 99}]
+...

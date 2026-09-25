@@ -1,0 +1,203 @@
+#
+# in-query-sorted-extra-unordered-columns.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from three `FDBInQueryTest` methods that share one index, one fixture and one Cascades plan:
+#   `testParameterizedInQuerySortedWithExtraUnorderedColumns` (:1041)
+#   `testConstantObjectInQuerySortedWithExtraUnorderedColumns` (:1124)
+#   `testListInQuerySortedWithExtraUnorderedColumns` (:1389)
+#
+# The index is `indexForInUnion` =
+# `concatenateFields("num_value_2", "num_value_3_indexed", "num_value_unique", "str_value_indexed")`,
+# and the sort is on num_value_unique alone, so STR_VALUE_INDEXED is an "extra unordered column". The
+# old planner's ordering-key calculation gives up on that in most configurations and scans
+# MySimpleRecord$num_value_unique with a filter; Cascades always plans an in-union
+# (:1465-1466, :1094-1095).
+#
+# All three assert `inUnionOnValuesPlan` over a covering scan of the index with two equalities, and
+# comparison values (num_value_unique, str_value_indexed, rec_no, num_value_3_indexed) (:1104, :1475).
+# The constant-object variant wraps the covering scan in a `mapPlan` and orders its comparison values
+# (num_value_unique, str_value_indexed, num_value_3_indexed, rec_no) (:1154-1163), because its graph
+# projects four columns rather than three.
+#
+# Why three methods become two queries: the distinction between them is a parameter, a
+# `ConstantObjectValue` and a literal IN list, and `AstNormalizer` lifts every SQL literal into a
+# `ConstantObjectValue` — so all three are one SQL query. What does survive is the constant-object
+# variant's *duplicate* list, `List.of(1, 1, 2, 2, 4, 4)` (:1172), whose point is that duplicates do not
+# produce duplicate union inputs; that is the second pair of queries here. Each pair is ported forward
+# and reverse, which is the only surviving parameterization (the other 10 combinations of
+# `InAsOrUnionMode`, `omitPrimaryKeyInOrdering` and `attemptFailedInJoinAsUnionMaxSize` are read only by
+# `RecordQueryPlanner`).
+#
+# Projection: the source sets `setRequiredResults(num_value_unique, str_value_indexed, rec_no)`
+# (:1056, :1402) and asserts covering scans, so the first pair projects exactly those; the second pair
+# projects the constant-object variant's four columns (:1143-1146).
+#
+# All three assert 21 rows (:1110, :1173, :1489). NUM_VALUE_UNIQUE is unique over the fixture, so both
+# sorts are total.
+#
+# Comparison-key divergence on the first pair only. The source asserts four comparison values,
+# (num_value_unique, str_value_indexed, rec_no, num_value_3_indexed) (:1104, :1475); the generated plan
+# has three, without NUM_VALUE_3_INDEXED. The covering scan does flow all five index columns, but the MAP
+# sits *inside* the in-union and the comparison key is computed after it, so a projection narrower than
+# the index shrinks the key. Still total, since NUM_VALUE_UNIQUE alone is unique. The second pair
+# projects NUM_VALUE_3_INDEXED and its key matches the source's (:1163) exactly, in the same order.
+# The source's first pair also asserts no `mapPlan` above the covering scan; SQL always emits one for a
+# projection, so that part is not reproducible either.
+#
+# Lost: `assertDiscardedNone` / `assertDiscardedAtMost(79)` (:1118, :1183, :1497) — which is what the
+# duplicate-list assertion actually rests on, so the second pair here checks only that the rows are
+# right; plan hashes.
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create index multi_index as select str_value_indexed, num_value_2, num_value_3_indexed from my_simple_record
+        order by str_value_indexed, num_value_2, num_value_3_indexed
+    create index repeater_fanout as
+        select sq.v from my_simple_record as r, (select v from r.repeater as v) as sq order by sq.v
+    create index index_for_in_union as
+        select num_value_2, num_value_3_indexed, num_value_unique, str_value_indexed from my_simple_record
+        order by num_value_2, num_value_3_indexed, num_value_unique, str_value_indexed
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    cascades-query-tests/includes/simple-record-100.yamsql
+---
+test_block:
+  name: in-query-sorted-extra-unordered-columns
+  preset: single_repetition_ordered
+  tests:
+    -
+      # testParameterizedInQuerySortedWithExtraUnorderedColumns / testListInQuerySortedWithExtraUnorderedColumns
+      - query: select num_value_unique, str_value_indexed, rec_no from my_simple_record
+               where num_value_2 = 1 and num_value_3_indexed in (1, 2, 4)
+               order by num_value_unique
+      - explain: "[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)"
+      - result: [{NUM_VALUE_UNIQUE: 903, STR_VALUE_INDEXED: 'odd', REC_NO: 97},
+                 {NUM_VALUE_UNIQUE: 906, STR_VALUE_INDEXED: 'even', REC_NO: 94},
+                 {NUM_VALUE_UNIQUE: 909, STR_VALUE_INDEXED: 'odd', REC_NO: 91},
+                 {NUM_VALUE_UNIQUE: 918, STR_VALUE_INDEXED: 'even', REC_NO: 82},
+                 {NUM_VALUE_UNIQUE: 921, STR_VALUE_INDEXED: 'odd', REC_NO: 79},
+                 {NUM_VALUE_UNIQUE: 924, STR_VALUE_INDEXED: 'even', REC_NO: 76},
+                 {NUM_VALUE_UNIQUE: 933, STR_VALUE_INDEXED: 'odd', REC_NO: 67},
+                 {NUM_VALUE_UNIQUE: 936, STR_VALUE_INDEXED: 'even', REC_NO: 64},
+                 {NUM_VALUE_UNIQUE: 939, STR_VALUE_INDEXED: 'odd', REC_NO: 61},
+                 {NUM_VALUE_UNIQUE: 948, STR_VALUE_INDEXED: 'even', REC_NO: 52},
+                 {NUM_VALUE_UNIQUE: 951, STR_VALUE_INDEXED: 'odd', REC_NO: 49},
+                 {NUM_VALUE_UNIQUE: 954, STR_VALUE_INDEXED: 'even', REC_NO: 46},
+                 {NUM_VALUE_UNIQUE: 963, STR_VALUE_INDEXED: 'odd', REC_NO: 37},
+                 {NUM_VALUE_UNIQUE: 966, STR_VALUE_INDEXED: 'even', REC_NO: 34},
+                 {NUM_VALUE_UNIQUE: 969, STR_VALUE_INDEXED: 'odd', REC_NO: 31},
+                 {NUM_VALUE_UNIQUE: 978, STR_VALUE_INDEXED: 'even', REC_NO: 22},
+                 {NUM_VALUE_UNIQUE: 981, STR_VALUE_INDEXED: 'odd', REC_NO: 19},
+                 {NUM_VALUE_UNIQUE: 984, STR_VALUE_INDEXED: 'even', REC_NO: 16},
+                 {NUM_VALUE_UNIQUE: 993, STR_VALUE_INDEXED: 'odd', REC_NO: 7},
+                 {NUM_VALUE_UNIQUE: 996, STR_VALUE_INDEXED: 'even', REC_NO: 4},
+                 {NUM_VALUE_UNIQUE: 999, STR_VALUE_INDEXED: 'odd', REC_NO: 1}]
+    -
+      # as above, reverse
+      - query: select num_value_unique, str_value_indexed, rec_no from my_simple_record
+               where num_value_2 = 1 and num_value_3_indexed in (1, 2, 4)
+               order by num_value_unique desc
+      - explain: "[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)"
+      - result: [{NUM_VALUE_UNIQUE: 999, STR_VALUE_INDEXED: 'odd', REC_NO: 1},
+                 {NUM_VALUE_UNIQUE: 996, STR_VALUE_INDEXED: 'even', REC_NO: 4},
+                 {NUM_VALUE_UNIQUE: 993, STR_VALUE_INDEXED: 'odd', REC_NO: 7},
+                 {NUM_VALUE_UNIQUE: 984, STR_VALUE_INDEXED: 'even', REC_NO: 16},
+                 {NUM_VALUE_UNIQUE: 981, STR_VALUE_INDEXED: 'odd', REC_NO: 19},
+                 {NUM_VALUE_UNIQUE: 978, STR_VALUE_INDEXED: 'even', REC_NO: 22},
+                 {NUM_VALUE_UNIQUE: 969, STR_VALUE_INDEXED: 'odd', REC_NO: 31},
+                 {NUM_VALUE_UNIQUE: 966, STR_VALUE_INDEXED: 'even', REC_NO: 34},
+                 {NUM_VALUE_UNIQUE: 963, STR_VALUE_INDEXED: 'odd', REC_NO: 37},
+                 {NUM_VALUE_UNIQUE: 954, STR_VALUE_INDEXED: 'even', REC_NO: 46},
+                 {NUM_VALUE_UNIQUE: 951, STR_VALUE_INDEXED: 'odd', REC_NO: 49},
+                 {NUM_VALUE_UNIQUE: 948, STR_VALUE_INDEXED: 'even', REC_NO: 52},
+                 {NUM_VALUE_UNIQUE: 939, STR_VALUE_INDEXED: 'odd', REC_NO: 61},
+                 {NUM_VALUE_UNIQUE: 936, STR_VALUE_INDEXED: 'even', REC_NO: 64},
+                 {NUM_VALUE_UNIQUE: 933, STR_VALUE_INDEXED: 'odd', REC_NO: 67},
+                 {NUM_VALUE_UNIQUE: 924, STR_VALUE_INDEXED: 'even', REC_NO: 76},
+                 {NUM_VALUE_UNIQUE: 921, STR_VALUE_INDEXED: 'odd', REC_NO: 79},
+                 {NUM_VALUE_UNIQUE: 918, STR_VALUE_INDEXED: 'even', REC_NO: 82},
+                 {NUM_VALUE_UNIQUE: 909, STR_VALUE_INDEXED: 'odd', REC_NO: 91},
+                 {NUM_VALUE_UNIQUE: 906, STR_VALUE_INDEXED: 'even', REC_NO: 94},
+                 {NUM_VALUE_UNIQUE: 903, STR_VALUE_INDEXED: 'odd', REC_NO: 97}]
+    -
+      # testConstantObjectInQuerySortedWithExtraUnorderedColumns — duplicate IN list, four projected columns.
+      - query: select num_value_unique, str_value_indexed, num_value_3_indexed, rec_no from my_simple_record
+               where num_value_2 = 1 and num_value_3_indexed in (1, 1, 2, 2, 4, 4)
+               order by num_value_unique
+      - explain: "[IN arrayDistinct(@c17)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c13 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.NUM_VALUE_3_INDEXED, _.REC_NO)"
+      - result: [{NUM_VALUE_UNIQUE: 903, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 2, REC_NO: 97},
+                 {NUM_VALUE_UNIQUE: 906, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 4, REC_NO: 94},
+                 {NUM_VALUE_UNIQUE: 909, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 1, REC_NO: 91},
+                 {NUM_VALUE_UNIQUE: 918, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 2, REC_NO: 82},
+                 {NUM_VALUE_UNIQUE: 921, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 4, REC_NO: 79},
+                 {NUM_VALUE_UNIQUE: 924, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 1, REC_NO: 76},
+                 {NUM_VALUE_UNIQUE: 933, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 2, REC_NO: 67},
+                 {NUM_VALUE_UNIQUE: 936, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 4, REC_NO: 64},
+                 {NUM_VALUE_UNIQUE: 939, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 1, REC_NO: 61},
+                 {NUM_VALUE_UNIQUE: 948, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 2, REC_NO: 52},
+                 {NUM_VALUE_UNIQUE: 951, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 4, REC_NO: 49},
+                 {NUM_VALUE_UNIQUE: 954, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 1, REC_NO: 46},
+                 {NUM_VALUE_UNIQUE: 963, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 2, REC_NO: 37},
+                 {NUM_VALUE_UNIQUE: 966, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 4, REC_NO: 34},
+                 {NUM_VALUE_UNIQUE: 969, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 1, REC_NO: 31},
+                 {NUM_VALUE_UNIQUE: 978, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 2, REC_NO: 22},
+                 {NUM_VALUE_UNIQUE: 981, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 4, REC_NO: 19},
+                 {NUM_VALUE_UNIQUE: 984, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 1, REC_NO: 16},
+                 {NUM_VALUE_UNIQUE: 993, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 2, REC_NO: 7},
+                 {NUM_VALUE_UNIQUE: 996, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 4, REC_NO: 4},
+                 {NUM_VALUE_UNIQUE: 999, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 1, REC_NO: 1}]
+    -
+      # as above, reverse
+      - query: select num_value_unique, str_value_indexed, num_value_3_indexed, rec_no from my_simple_record
+               where num_value_2 = 1 and num_value_3_indexed in (1, 1, 2, 2, 4, 4)
+               order by num_value_unique desc
+      - explain: "[IN arrayDistinct(@c17)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c13 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.NUM_VALUE_3_INDEXED AS NUM_VALUE_3_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.NUM_VALUE_3_INDEXED, _.REC_NO)"
+      - result: [{NUM_VALUE_UNIQUE: 999, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 1, REC_NO: 1},
+                 {NUM_VALUE_UNIQUE: 996, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 4, REC_NO: 4},
+                 {NUM_VALUE_UNIQUE: 993, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 2, REC_NO: 7},
+                 {NUM_VALUE_UNIQUE: 984, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 1, REC_NO: 16},
+                 {NUM_VALUE_UNIQUE: 981, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 4, REC_NO: 19},
+                 {NUM_VALUE_UNIQUE: 978, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 2, REC_NO: 22},
+                 {NUM_VALUE_UNIQUE: 969, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 1, REC_NO: 31},
+                 {NUM_VALUE_UNIQUE: 966, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 4, REC_NO: 34},
+                 {NUM_VALUE_UNIQUE: 963, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 2, REC_NO: 37},
+                 {NUM_VALUE_UNIQUE: 954, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 1, REC_NO: 46},
+                 {NUM_VALUE_UNIQUE: 951, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 4, REC_NO: 49},
+                 {NUM_VALUE_UNIQUE: 948, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 2, REC_NO: 52},
+                 {NUM_VALUE_UNIQUE: 939, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 1, REC_NO: 61},
+                 {NUM_VALUE_UNIQUE: 936, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 4, REC_NO: 64},
+                 {NUM_VALUE_UNIQUE: 933, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 2, REC_NO: 67},
+                 {NUM_VALUE_UNIQUE: 924, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 1, REC_NO: 76},
+                 {NUM_VALUE_UNIQUE: 921, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 4, REC_NO: 79},
+                 {NUM_VALUE_UNIQUE: 918, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 2, REC_NO: 82},
+                 {NUM_VALUE_UNIQUE: 909, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 1, REC_NO: 91},
+                 {NUM_VALUE_UNIQUE: 906, STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 4, REC_NO: 94},
+                 {NUM_VALUE_UNIQUE: 903, STR_VALUE_INDEXED: 'odd', NUM_VALUE_3_INDEXED: 2, REC_NO: 97}]
+...

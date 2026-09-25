@@ -1,0 +1,28 @@
+covering-index-header-compound-pk:
+-   query: EXPLAIN select header.rec_no from my_record where str_value = 'lion'
+    ref: covering-index-header-compound-pk.yamsql:52
+    explain: 'COVERING(MY_RECORD_STR_VALUE [EQUALS promote(@c9 AS STRING)] -> [STR_VALUE:
+        KEY:[0], HEADER: [PATH: KEY:[1], REC_NO: KEY:[2]]]) | MAP (_.HEADER.REC_NO
+        AS REC_NO)'
+    task_count: 475
+    task_total_time_ms: 12
+    transform_count: 114
+    transform_time_ms: 5
+    transform_yield_count: 36
+    insert_time_ms: 1
+    insert_new_count: 52
+    insert_reused_count: 4
+-   query: EXPLAIN select header.path, header.rec_no, str_value from my_record where
+        str_value like 'l%'
+    ref: covering-index-header-compound-pk.yamsql:61
+    explain: 'COVERING(MY_RECORD_STR_VALUE <,> -> [STR_VALUE: KEY:[0], HEADER: [PATH:
+        KEY:[1], REC_NO: KEY:[2]]]) | FILTER _.STR_VALUE LIKE @c15 ESCAPE ''null''
+        | MAP (_.HEADER.PATH AS PATH, _.HEADER.REC_NO AS REC_NO, _.STR_VALUE AS STR_VALUE)'
+    task_count: 472
+    task_total_time_ms: 10
+    transform_count: 114
+    transform_time_ms: 4
+    transform_yield_count: 33
+    insert_time_ms: 0
+    insert_new_count: 52
+    insert_reused_count: 5

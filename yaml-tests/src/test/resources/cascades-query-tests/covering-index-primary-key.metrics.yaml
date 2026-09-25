@@ -1,0 +1,13 @@
+covering-index-primary-key:
+-   query: EXPLAIN select num_value_2 from my_simple_record where rec_no >= 1000
+    ref: covering-index-primary-key.yamsql:54
+    explain: 'COVERING(PRIMARY_KEY_INDEX [[GREATER_THAN_OR_EQUALS promote(@c8 AS LONG)]]
+        -> [NUM_VALUE_2: VALUE:[0], REC_NO: KEY:[0]]) | MAP (_.NUM_VALUE_2 AS NUM_VALUE_2)'
+    task_count: 1069
+    task_total_time_ms: 45
+    transform_count: 250
+    transform_time_ms: 21
+    transform_yield_count: 81
+    insert_time_ms: 3
+    insert_new_count: 122
+    insert_reused_count: 6

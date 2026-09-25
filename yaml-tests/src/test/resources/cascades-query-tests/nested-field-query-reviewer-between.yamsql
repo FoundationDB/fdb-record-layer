@@ -1,0 +1,62 @@
+#
+# nested-field-query-reviewer-between.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Ported from `FDBNestedFieldQueryTest.nestedWithBetween` — two one-sided inequalities on the same
+# nested field have to merge into one bounded range on the index's second component, rather than
+# leaving one of them behind as a filter.
+#
+# Its own file: the hook drops `stats$school` and re-adds it over (name, stats.start_date).
+---
+schema_template:
+    create type as struct reviewer_stats(start_date bigint, school_name string, hometown string)
+    create table restaurant_reviewer(
+        id bigint,
+        name string,
+        email string,
+        stats reviewer_stats,
+        category integer,
+        primary key(id))
+    create index restaurant_reviewer_name as select name from restaurant_reviewer
+    create index stats_school as
+        select name, stats.start_date from restaurant_reviewer order by name, stats.start_date
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO RESTAURANT_REVIEWER (ID, NAME, EMAIL, STATS, CATEGORY)
+             VALUES
+               (1, 'Person McPersonface', 'pmp@example.com',
+                (0, 'University of Learning', 'Home Town'), 1),
+               (2, 'Newt A. Robot', 'newtarobot@example.com',
+                (1066, 'Human University', 'Real Place'), 1)
+---
+test_block:
+  name: nested-field-query-reviewer-between
+  preset: single_repetition_ordered
+  tests:
+    -
+      # nestedWithBetween
+      - query: select * from restaurant_reviewer
+               where name = 'Newt A. Robot'
+                 and stats.start_date > 100 and stats.start_date < 2000
+      - explain: "ISCAN(STATS_SCHOOL [EQUALS promote(@c7 AS STRING), [GREATER_THAN promote(@c13 AS LONG) && LESS_THAN promote(@c19 AS LONG)]])"
+      - result: [{ID: 2, NAME: 'Newt A. Robot', EMAIL: 'newtarobot@example.com',
+                  STATS: {START_DATE: 1066, SCHOOL_NAME: 'Human University', HOMETOWN: 'Real Place'},
+                  CATEGORY: 1}]
+...

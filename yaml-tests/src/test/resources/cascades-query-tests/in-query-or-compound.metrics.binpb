@@ -1,0 +1,26 @@
+È$
+³
+in-query-or-compoundšEXPLAIN select * from my_simple_record where str_value_indexed = 'odd' and num_value_2 = 0 and (num_value_3_indexed in (1, 3) or num_value_3_indexed >= 4)#
+„!åªíÉ ¯êÑ(™0Âšõ8†@.½[IN arrayDistinct(@c16) SORTED] | INJOIN q0 -> { ISCAN(MULTI_INDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS INT), EQUALS q0]) } âˆª ISCAN(MULTI_INDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS INT), [GREATER_THAN_OR_EQUALS promote(@c25 AS INT)]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO)­ digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Union Distinct</td></tr><tr><td align="left">COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS INT), EQUALS q229]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c16))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MULTI_INDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS INT), [GREATER_THAN_OR_EQUALS promote(@c25 AS INT)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MULTI_INDEX</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q513> label="q513" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 1 [ label=<&nbsp;q515> label="q515" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    4 -> 3 [ color="red" style="invis" ];
+  }
+}

@@ -1,0 +1,73 @@
+permuted-min-max-ordering-keys:
+-   query: EXPLAIN select str_value_indexed, max(num_value_unique) as m, num_value_2,
+        num_value_3_indexed from my_simple_record group by str_value_indexed, num_value_2,
+        num_value_3_indexed having str_value_indexed in ('even', 'odd', 'empty', 'other1',
+        'other2')
+    ref: permuted-min-max-ordering-keys.yamsql:89
+    explain: '[IN arrayDistinct(@c25)] | INJOIN q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_STR_VALUE_2_AND_3
+        [EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3: KEY:[1]])
+        | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2, _._2 AS
+        NUM_VALUE_3_INDEXED) }'
+    task_count: 971
+    task_total_time_ms: 41
+    transform_count: 293
+    transform_time_ms: 24
+    transform_yield_count: 84
+    insert_time_ms: 1
+    insert_new_count: 107
+    insert_reused_count: 3
+-   query: EXPLAIN select str_value_indexed, max(num_value_unique) as m, num_value_2,
+        num_value_3_indexed from my_simple_record group by str_value_indexed, num_value_2,
+        num_value_3_indexed having str_value_indexed in ('even', 'odd', 'empty', 'other1',
+        'other2') order by max(num_value_unique) desc
+    ref: permuted-min-max-ordering-keys.yamsql:133
+    explain: '[IN arrayDistinct(@c25)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_STR_VALUE_2_AND_3
+        [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3:
+        KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2,
+        _._2 AS NUM_VALUE_3_INDEXED) } COMPARE BY (_.M, _.STR_VALUE_INDEXED, _.NUM_VALUE_2,
+        _.NUM_VALUE_3_INDEXED)'
+    task_count: 564
+    task_total_time_ms: 23
+    transform_count: 221
+    transform_time_ms: 17
+    transform_yield_count: 59
+    insert_time_ms: 0
+    insert_new_count: 39
+    insert_reused_count: 0
+-   query: EXPLAIN select str_value_indexed, max(num_value_unique) as m, num_value_2,
+        num_value_3_indexed from my_simple_record group by str_value_indexed, num_value_2,
+        num_value_3_indexed having str_value_indexed in ('even', 'odd', 'empty', 'other1',
+        'other2') order by max(num_value_unique) desc, num_value_2 desc
+    ref: permuted-min-max-ordering-keys.yamsql:177
+    explain: '[IN arrayDistinct(@c25)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_STR_VALUE_2_AND_3
+        [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3:
+        KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2,
+        _._2 AS NUM_VALUE_3_INDEXED) } COMPARE BY (_.M, _.NUM_VALUE_2, _.STR_VALUE_INDEXED,
+        _.NUM_VALUE_3_INDEXED)'
+    task_count: 544
+    task_total_time_ms: 20
+    transform_count: 217
+    transform_time_ms: 15
+    transform_yield_count: 57
+    insert_time_ms: 0
+    insert_new_count: 36
+    insert_reused_count: 0
+-   query: EXPLAIN select str_value_indexed, max(num_value_unique) as m, num_value_2,
+        num_value_3_indexed from my_simple_record group by str_value_indexed, num_value_2,
+        num_value_3_indexed having str_value_indexed in ('even', 'odd', 'empty', 'other1',
+        'other2') order by max(num_value_unique) desc, num_value_2 desc, num_value_3_indexed
+        desc
+    ref: permuted-min-max-ordering-keys.yamsql:221
+    explain: '[IN arrayDistinct(@c25)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_STR_VALUE_2_AND_3
+        [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[3], _3:
+        KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._3 AS M, _._1 AS NUM_VALUE_2,
+        _._2 AS NUM_VALUE_3_INDEXED) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED,
+        _.STR_VALUE_INDEXED)'
+    task_count: 535
+    task_total_time_ms: 18
+    transform_count: 214
+    transform_time_ms: 14
+    transform_yield_count: 55
+    insert_time_ms: 0
+    insert_new_count: 34
+    insert_reused_count: 1

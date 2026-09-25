@@ -1,0 +1,12 @@
+¸
+¤
+#nested-field-query-reviewer-between}EXPLAIN select * from restaurant_reviewer where name = 'Newt A. Robot' and stats.start_date > 100 and stats.start_date < 2000Ž
+
+‡øÞÊu ù˜¤(00Ÿ„8;@|ISCAN(STATS_SCHOOL [EQUALS promote(@c7 AS STRING), [GREATER_THAN promote(@c13 AS LONG) && LESS_THAN promote(@c19 AS LONG)]])òdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c7 AS STRING), [GREATER_THAN promote(@c13 AS LONG) &amp;&amp; LESS_THAN promote(@c19 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">STATS_SCHOOL</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS EMAIL, LONG AS START_DATE, STRING AS SCHOOL_NAME, STRING AS HOMETOWN AS STATS, INT AS CATEGORY)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

@@ -1,0 +1,133 @@
+≈
+
+p
+long-arithmetic-functionsSEXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed = -1–	
+ÑïÑ€ù ˝“ˇ	(E0Õ®ï8O@XISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])÷digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ƒ
+
+o
+long-arithmetic-functionsREXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed = 0–	
+ÑïÑ€ù ˝“ˇ	(E0Õ®ï8O@XISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])÷digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ƒ
+
+o
+long-arithmetic-functionsREXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed = 1–	
+ÑïÑ€ù ˝“ˇ	(E0Õ®ï8O@XISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])÷digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ƒ
+
+o
+long-arithmetic-functionsREXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed = 2–	
+ÑïÑ€ù ˝“ˇ	(E0Õ®ï8O@XISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])÷digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ƒ
+
+o
+long-arithmetic-functionsREXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed = 3–	
+ÑïÑ€ù ˝“ˇ	(E0Õ®ï8O@XISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])÷digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ƒ
+
+o
+long-arithmetic-functionsREXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed = 4–	
+ÑïÑ€ù ˝“ˇ	(E0Õ®ï8O@XISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])÷digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ƒ
+
+o
+long-arithmetic-functionsREXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed = 5–	
+ÑïÑ€ù ˝“ˇ	(E0Õ®ï8O@XISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])÷digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ƒ
+
+o
+long-arithmetic-functionsREXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed = 6–	
+ÑïÑ€ù ˝“ˇ	(E0Õ®ï8O@XISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])÷digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ƒ
+
+o
+long-arithmetic-functionsREXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed = 7–	
+ÑïÑ€ù ˝“ˇ	(E0Õ®ï8O@XISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])÷digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ƒ
+
+o
+long-arithmetic-functionsREXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed = 8–	
+ÑïÑ€ù ˝“ˇ	(E0Õ®ï8O@XISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])÷digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ƒ
+
+o
+long-arithmetic-functionsREXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed = 9–	
+ÑïÑ€ù ˝“ˇ	(E0Õ®ï8O@XISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])÷digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}≈
+
+p
+long-arithmetic-functionsSEXPLAIN select * from my_simple_record where num_value_2 + num_value_3_indexed = 10–	
+ÑïÑ€ù ˝“ˇ	(E0Õ®ï8O@XISCAN(MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED [EQUALS promote(@c9 AS INT)])÷digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS INT)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_NUM_VALUE_2_ADD_NUM_VALUE_3_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
+  2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

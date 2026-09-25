@@ -1,0 +1,27 @@
+†
+i
+!covering-index-header-compound-pkDEXPLAIN select header.rec_no from my_record where str_value = 'lion'˜
+Û‘áŒr ßÂà($0¼Œ?84@¡COVERING(MY_RECORD_STR_VALUE [EQUALS promote(@c9 AS STRING)] -> [STR_VALUE: KEY:[0], HEADER: [PATH: KEY:[1], REC_NO: KEY:[2]]]) | MAP (_.HEADER.REC_NO AS REC_NO)Ödigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q66.HEADER.REC_NO AS REC_NO)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c9 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_RECORD_STR_VALUE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q66> label="q66" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ò
+‚
+!covering-index-header-compound-pk]EXPLAIN select header.path, header.rec_no, str_value from my_record where str_value like 'l%'ê
+Øì§”r ª£Ž(!0žÌ)84@ãCOVERING(MY_RECORD_STR_VALUE <,> -> [STR_VALUE: KEY:[0], HEADER: [PATH: KEY:[1], REC_NO: KEY:[2]]]) | FILTER _.STR_VALUE LIKE @c15 ESCAPE 'null' | MAP (_.HEADER.PATH AS PATH, _.HEADER.REC_NO AS REC_NO, _.STR_VALUE AS STR_VALUE)ædigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q49.HEADER.PATH AS PATH, q49.HEADER.REC_NO AS REC_NO, q49.STR_VALUE AS STR_VALUE)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS PATH, LONG AS REC_NO, STRING AS STR_VALUE)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q45.STR_VALUE LIKE @c15 ESCAPE &#39;null&#39;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_RECORD_STR_VALUE</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS PATH, INT AS NUM AS HEADER, STRING AS STR_VALUE, ARRAY(LONG) AS REPEATED_INT)" ];
+  3 -> 2 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

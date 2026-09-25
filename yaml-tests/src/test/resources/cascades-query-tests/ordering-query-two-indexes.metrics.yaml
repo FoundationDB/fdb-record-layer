@@ -1,0 +1,35 @@
+ordering-query-two-indexes:
+-   query: EXPLAIN select * from my_simple_record where (num_value_2 = 100 and str_value_indexed
+        = 'hello' and num_value_3_indexed = 2) or num_value_2 = 101 or num_value_2
+        = 102 order by num_value_2 asc, str_value_indexed desc nulls last
+    ref: ordering-query-two-indexes.yamsql:67
+    explain: ISCAN(NUM_VALUE_2_STR_VALUE_NUM_VALUE_3_INDEXED [EQUALS promote(@c8 AS
+        INT), EQUALS promote(@c12 AS STRING), EQUALS promote(@c16 AS INT)]) ∪ ISCAN(ORDERED_STR_VALUE
+        [EQUALS promote(@c21 AS INT)]) ∪ ISCAN(ORDERED_STR_VALUE [EQUALS promote(@c25
+        AS INT)]) COMPARE BY (_.NUM_VALUE_2, to_ordered_bytes(_.STR_VALUE_INDEXED,
+        DESC_NULLS_LAST), _.REC_NO)
+    task_count: 45068
+    task_total_time_ms: 976
+    transform_count: 6131
+    transform_time_ms: 412
+    transform_yield_count: 1434
+    insert_time_ms: 139
+    insert_new_count: 4672
+    insert_reused_count: 313
+-   query: EXPLAIN select * from my_simple_record where (num_value_2 = 100 and str_value_indexed
+        = 'hello' and num_value_3_indexed > 2) or num_value_2 = 101 or num_value_2
+        = 102 order by num_value_2 asc, str_value_indexed desc nulls last
+    ref: ordering-query-two-indexes.yamsql:80
+    explain: ISCAN(ORDERED_STR_VALUE [EQUALS promote(@c8 AS INT), EQUALS to_ordered_bytes(promote(@c12
+        AS STRING), DESC_NULLS_LAST)]) | FILTER _.NUM_VALUE_3_INDEXED GREATER_THAN
+        promote(@c16 AS INT) ∪ ISCAN(ORDERED_STR_VALUE [EQUALS promote(@c21 AS INT)])
+        ∪ ISCAN(ORDERED_STR_VALUE [EQUALS promote(@c25 AS INT)]) COMPARE BY (_.NUM_VALUE_2,
+        to_ordered_bytes(_.STR_VALUE_INDEXED, DESC_NULLS_LAST), _.REC_NO)
+    task_count: 44960
+    task_total_time_ms: 454
+    transform_count: 6117
+    transform_time_ms: 154
+    transform_yield_count: 1434
+    insert_time_ms: 78
+    insert_new_count: 4636
+    insert_reused_count: 307
