@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -338,33 +338,78 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     }
 
     /**
-     * A quantifier that conceptually flows exactly one item containing a boolean to the owning
-     * expression indicating whether the sub-graph that the quantifier ranges over, produced a non-empty or an empty
-     * result. When the semantics of these quantifiers are realized in an execution strategy that strategy should
-     * facilitate a boolean "short-circuit" mechanism as the result will be {@code true} as soon as the sub-graph produces
-     * the first item.
+     * A quantifier that conceptually collapses many items into one. It flows exactly one item from the sub-graph it
+     * ranges over to the owning expression. That item is the first item of the result the sub-graph produces,
+     * or {@code NULL} if the result is empty. Accordingly, the flowed type is the nullable variant of the inner type.
+     * The semantics are further controlled by the {@link Kind} of the scalar quantifier. Generally, an execution
+     * strategy realizing these semantics can stop as soon as the sub-graph produces its first item.
      */
     @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
-    public static final class Existential extends Quantifier {
-        @Nonnull
-        private final Reference rangesOver;
-
+    public static final class Scalar extends Quantifier {
         /**
-         * Builder subclass for existential quantifiers.
+         * The kind of a {@link Scalar} quantifier.
          */
-        public static class ExistentialBuilder extends Builder<Existential, ExistentialBuilder> {
-            @Override
+        public enum Kind {
+            /**
+             * An existential quantifier. This is used in combination with {@link com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue ExistsValue}
+             * when the owning expression just needs to know whether the sub-graph produced anything at all.
+             */
+            EXISTENTIAL("∃");
+
             @Nonnull
-            public Existential build(@Nonnull final Reference rangesOver) {
-                return new Existential(alias == null ? Quantifier.uniqueId() : alias,
-                        rangesOver);
+            private final String shorthand;
+
+            Kind(@Nonnull final String shorthand) {
+                this.shorthand = shorthand;
+            }
+
+            @Nonnull
+            public String getShorthand() {
+                return shorthand;
             }
         }
 
-        private Existential(@Nonnull final CorrelationIdentifier alias,
-                            @Nonnull final Reference rangesOver) {
+        @Nonnull
+        private final Reference rangesOver;
+
+        @Nonnull
+        private final Kind kind;
+
+        /**
+         * Builder subclass to rebuild scalar quantifiers; only reachable through {@link #toBuilder()}.
+         */
+        private static class ScalarBuilder extends Quantifier.Builder<Scalar, ScalarBuilder> {
+            @Nullable
+            private Kind kind;
+
+            @Nonnull
+            @Override
+            public ScalarBuilder from(final Scalar quantifier) {
+                this.kind = quantifier.getKind();
+                return withAlias(quantifier.getAlias());
+            }
+
+            @Override
+            @Nonnull
+            public Scalar build(@Nonnull final Reference rangesOver) {
+                return new Scalar(alias == null ? Quantifier.uniqueId() : alias, rangesOver, Objects.requireNonNull(kind));
+            }
+        }
+
+        private Scalar(@Nonnull final CorrelationIdentifier alias,
+                       @Nonnull final Reference rangesOver,
+                       @Nonnull final Kind kind) {
             super(alias);
             this.rangesOver = rangesOver;
+            this.kind = kind;
+        }
+
+        /**
+         * {@return the {@link Kind} of this quantifier}
+         */
+        @Nonnull
+        public Kind getKind() {
+            return kind;
         }
 
         @Override
@@ -376,30 +421,26 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Override
         @Nonnull
         public Builder<? extends Quantifier, ? extends Builder<?, ?>> toBuilder() {
-            return new Existential.ExistentialBuilder()
-                    .from(this);
+            return new ScalarBuilder().from(this);
         }
 
         @Override
         @Nonnull
         public String getShorthand() {
-            return "∃";
+            return kind.getShorthand();
         }
 
         @Nonnull
         @Override
-        public Existential overNewReference(@Nonnull final Reference reference) {
+        public Scalar overNewReference(@Nonnull final Reference reference) {
             return overNewReference(reference, getAlias());
         }
 
         @Override
         @Nonnull
-        public Existential overNewReference(@Nonnull final Reference reference,
-                                            @Nonnull final CorrelationIdentifier newAlias) {
-            return Quantifier.existentialBuilder()
-                    .from(this)
-                    .withAlias(newAlias)
-                    .build(reference);
+        public Scalar overNewReference(@Nonnull final Reference reference,
+                                       @Nonnull final CorrelationIdentifier newAlias) {
+            return new Scalar(newAlias, reference, kind);
         }
 
         @Nonnull
@@ -420,16 +461,16 @@ public abstract class Quantifier implements Correlated<Quantifier> {
                                                                       @Nonnull final CorrelationIdentifier candidateAlias) {
             return Optional.of(TranslationMap.ofAliases(getAlias(), candidateAlias));
         }
-    }
 
-    /**
-     * Create a builder for an existential quantifier containing relational
-     * expressions.
-     * @return an existential quantifier builder
-     */
-    @Nonnull
-    public static Existential.ExistentialBuilder existentialBuilder() {
-        return new Existential.ExistentialBuilder();
+        @Override
+        public boolean semanticEqualsWithoutChildren(final Object o) {
+            return o instanceof Scalar other && kind == other.kind;
+        }
+
+        @Override
+        public int semanticHashCode() {
+            return Objects.hash(getShorthand(), getRangesOver().semanticHashCode(), getKind());
+        }
     }
 
     /**
@@ -438,9 +479,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * @return a new existential quantifier ranging over {@code reference}
      */
     @Nonnull
-    public static Existential existential(@Nonnull final Reference reference) {
-        return existentialBuilder()
-                .build(reference);
+    public static Scalar existential(@Nonnull final Reference reference) {
+        return existential(reference, Quantifier.uniqueId());
     }
 
     /**
@@ -450,11 +490,9 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * @return a new existential quantifier ranging over {@code reference}
      */
     @Nonnull
-    public static Existential existential(@Nonnull final Reference reference,
-                                          @Nonnull final CorrelationIdentifier alias) {
-        return existentialBuilder()
-                .withAlias(alias)
-                .build(reference);
+    public static Scalar existential(@Nonnull final Reference reference,
+                                     @Nonnull final CorrelationIdentifier alias) {
+        return new Scalar(alias, reference, Scalar.Kind.EXISTENTIAL);
     }
 
     /**

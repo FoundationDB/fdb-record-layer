@@ -401,13 +401,13 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         // TODO this should be inverted, i.e. go through the predicates and make sure the referred alias is among the
         //      quantifiers owned by this expression
         //
-        // Go through all matched existential quantifiers. Make sure that there is a predicate, for sure, that owns
-        // the quantifier. This is a bit vague, bit still does ensure that we do not have unmatched existential
+        // Go through all matched scalar quantifiers. Make sure that there is a predicate, for sure, that owns
+        // the quantifier. This is a bit vague, bit still does ensure that we do not have unmatched scalar
         // quantifier. We probably need a more expressive way of suggesting that a predicate "owns" a quantifier.
         //
         if (getQuantifiers()
                 .stream()
-                .filter(quantifier -> quantifier instanceof Quantifier.Existential &&
+                .filter(quantifier -> quantifier instanceof Quantifier.Scalar &&
                         bindingAliasMap.containsSource(quantifier.getAlias()))
                 .anyMatch(quantifier -> getPredicates()
                         .stream()
@@ -510,7 +510,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                     //      way the match cannot be used by itself but can participate in an intersection that may
                     //      eliminate that impossible compensation
                     //
-                    if (quantifierMap.get(correlatedAlias) instanceof Quantifier.Existential) {
+                    if (quantifierMap.get(correlatedAlias) instanceof Quantifier.Scalar) {
                         final var correlatedDependsOn = dependsOnMap.get(correlatedAlias);
                         for (final var dependsOnAlias : correlatedDependsOn) {
                             if (!bindingAliasMap.containsSource(dependsOnAlias)) {

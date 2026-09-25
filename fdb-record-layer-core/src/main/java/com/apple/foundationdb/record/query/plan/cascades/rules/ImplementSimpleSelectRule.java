@@ -62,7 +62,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * <pre>{@code
  *   «inner plan»
  *   | ON EMPTY NULL          (if the inner quantifier is a null-on-empty for-each)
- *   | FIRST_OR_DEFAULT NULL  (if the inner quantifier is Existential)
+ *   | FIRST_OR_DEFAULT NULL  (if the inner quantifier is scalar)
  *   | FILTER <predicates>    (if there are non-tautology predicates)
  *   | MAP <resultValue>      (if the result value is not a passthrough of the inner quantifier)
  * }</pre>
@@ -135,7 +135,7 @@ public class ImplementSimpleSelectRule extends AbstractCascadesRule<SelectExpres
                     resultType, innerQuantifier.getFlowedObjectType()));
         }
 
-        // Add a FIRST_OR_DEFAULT NULL if the quantifier is existential.
+        // Add a FIRST_OR_DEFAULT NULL if the quantifier is scalar.
         // Add a ON EMPTY NULL if the quantifier is a null-on-empty for-each.
         builder = Quantifiers.applyGlue(call, innerQuantifier, builder);
 

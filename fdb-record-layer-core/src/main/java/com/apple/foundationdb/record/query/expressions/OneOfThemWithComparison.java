@@ -114,7 +114,7 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
                         .addPredicate(childBase.getFlowedObjectValue().withComparison(comparison))
                         .build()
                         .buildSimpleSelectOverQuantifier(childBase);
-        final Quantifier.Existential childQuantifier = Quantifier.existential(Reference.initialOf(selectExpression));
+        final Quantifier.Scalar childQuantifier = Quantifier.existential(Reference.initialOf(selectExpression));
 
         // create a query component that creates a path to this prefix and then applies this to it
         // this is needed for reapplication of the component if the sub query cannot be matched or only matched with

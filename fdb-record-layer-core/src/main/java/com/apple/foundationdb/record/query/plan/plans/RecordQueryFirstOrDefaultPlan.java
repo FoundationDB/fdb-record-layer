@@ -88,22 +88,22 @@ public class RecordQueryFirstOrDefaultPlan extends AbstractRelationalExpressionW
     }
 
     /**
-     * Constructs a {@link RecordQueryFirstOrDefaultPlan} that implements the given existential quantifier. The returned
-     * plan ranges over {@code innerReference} via a physical quantifier with the same alias as {@code existential}, and
-     * emits a single null row (typed as the flowed object type of the existential) when the inner produces no records.
+     * Constructs a {@link RecordQueryFirstOrDefaultPlan} that implements the given scalar quantifier. The returned plan
+     * ranges over {@code innerReference} via a physical quantifier with the same alias as {@code scalar}, and emits a
+     * single null row (typed as the flowed object type of {@code scalar}) when the inner produces no records.
      *
-     * @param existential an existential quantifier
+     * @param scalar a scalar quantifier
      * @param innerReference the reference whose plans should be wrapped
      * @return a new {@link RecordQueryFirstOrDefaultPlan}
      */
     @Nonnull
-    public static RecordQueryFirstOrDefaultPlan forExistential(@Nonnull final Quantifier.Existential existential,
-                                                               @Nonnull final Reference innerReference) {
+    public static RecordQueryFirstOrDefaultPlan forScalar(@Nonnull final Quantifier.Scalar scalar,
+                                                          @Nonnull final Reference innerReference) {
         Debugger.sanityCheck(() -> Verify.verify(
                 innerReference.getFinalExpressions().stream().allMatch(RecordQueryPlan.class::isInstance)));
         final Quantifier.Physical inner
-                = Quantifier.physicalBuilder().withAlias(existential.getAlias()).build(innerReference);
-        final NullValue onEmptyResultValue = new NullValue(existential.getFlowedObjectType());
+                = Quantifier.physicalBuilder().withAlias(scalar.getAlias()).build(innerReference);
+        final NullValue onEmptyResultValue = new NullValue(scalar.getFlowedObjectType());
         return new RecordQueryFirstOrDefaultPlan(inner, onEmptyResultValue);
     }
 
