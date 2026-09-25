@@ -17,9 +17,12 @@ inputs:
 runs:
   using: "composite"
   steps:
+  # Uploading a report with no classes in it does not fail -- it just empties the partition.
+  # Catch that here rather than discovering it in Teamscale later.
+  - name: Check coverage report is not empty
+    shell: bash
+    run: python3 ${{ github.action_path }}/../../build/check_coverage_report.py --report "${{ inputs.files }}"
   - name: Upload coverage to teamscale
-    # temporary until we validate that this is working correctly
-    continue-on-error: true
     uses: 'cqse/teamscale-upload-action@93b7b16c0c2a9ad962f82ce7f192e46084786353' # v2.10.0
     with:
       server: 'https://fdb.teamscale.io'
