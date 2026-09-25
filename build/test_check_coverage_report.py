@@ -33,17 +33,35 @@ from check_coverage_report import count_report_elements, main
 # A report with real classes and real coverage.
 POPULATED_XML = """\
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<report name="codeCoverageReport">
-  <package name="com/apple/foundationdb/record">
-    <class name="com/apple/foundationdb/record/Example" sourcefilename="Example.java">
-      <method name="doThing" desc="()V" line="10">
-        <counter type="INSTRUCTION" missed="0" covered="5"/>
+<report name="fdb-record-layer">
+  <sessioninfo id="runnervmlun5p-bd006a00" start="1790147106663" dump="1790147110723"/>
+  <package name="com/apple/foundationdb/relational/recordlayer/metadata">
+    <class name="com/apple/foundationdb/relational/recordlayer/metadata/RecordLayerColumn" sourcefilename="RecordLayerColumn.java">
+      <method name="&lt;init&gt;" desc="(Ljava/lang/String;Lcom/apple/foundationdb/relational/api/metadata/DataType;I)V" line="42">
+        <counter type="INSTRUCTION" missed="0" covered="12"/>
+        <counter type="LINE" missed="0" covered="5"/>
+        <counter type="COMPLEXITY" missed="0" covered="1"/>
+        <counter type="METHOD" missed="0" covered="1"/>
       </method>
     </class>
-    <sourcefile name="Example.java">
-      <line nr="10" mi="0" ci="5" mb="0" cb="0"/>
+    <sourcefile name="RecordLayerUnnestedSyntheticTable.java">
+      <line nr="74" mi="0" ci="4" mb="0" cb="0"/>
+      <line nr="75" mi="0" ci="3" mb="0" cb="0"/>
+      <line nr="76" mi="0" ci="3" mb="0" cb="0"/>
+      <counter type="INSTRUCTION" missed="1" covered="343"/>
+      <counter type="BRANCH" missed="6" covered="20"/>
+      <counter type="LINE" missed="0" covered="71"/>
+      <counter type="COMPLEXITY" missed="6" covered="30"/>
+      <counter type="METHOD" missed="0" covered="23"/>
+      <counter type="CLASS" missed="0" covered="3"/>
     </sourcefile>
   </package>
+  <counter type="INSTRUCTION" missed="92273" covered="467036"/>
+  <counter type="BRANCH" missed="12488" covered="33755"/>
+  <counter type="LINE" missed="18661" covered="99806"/>
+  <counter type="COMPLEXITY" missed="15811" covered="41165"/>
+  <counter type="METHOD" missed="5993" covered="27406"/>
+  <counter type="CLASS" missed="165" covered="3141"/>
 </report>
 """
 
@@ -51,17 +69,35 @@ POPULATED_XML = """\
 # codebase is present but nothing is covered. This MUST be accepted.
 ZERO_PERCENT_XML = """\
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<report name="codeCoverageReport">
-  <package name="com/apple/foundationdb/record">
-    <class name="com/apple/foundationdb/record/Example" sourcefilename="Example.java">
-      <method name="doThing" desc="()V" line="10">
-        <counter type="INSTRUCTION" missed="5" covered="0"/>
+<report name="fdb-record-layer">
+  <sessioninfo id="runnervmlun5p-bd006a00" start="1790147106663" dump="1790147110723"/>
+  <package name="com/apple/foundationdb/relational/recordlayer/metadata">
+    <class name="com/apple/foundationdb/relational/recordlayer/metadata/RecordLayerColumn" sourcefilename="RecordLayerColumn.java">
+      <method name="&lt;init&gt;" desc="(Ljava/lang/String;Lcom/apple/foundationdb/relational/api/metadata/DataType;I)V" line="42">
+        <counter type="INSTRUCTION" missed="0" covered="0"/>
+        <counter type="LINE" missed="0" covered="0"/>
+        <counter type="COMPLEXITY" missed="0" covered="0"/>
+        <counter type="METHOD" missed="0" covered="0"/>
       </method>
     </class>
-    <sourcefile name="Example.java">
-      <line nr="10" mi="5" ci="0" mb="0" cb="0"/>
+    <sourcefile name="RecordLayerUnnestedSyntheticTable.java">
+      <line nr="74" mi="2" ci="0" mb="0" cb="0"/>
+      <line nr="75" mi="1" ci="0" mb="0" cb="0"/>
+      <line nr="76" mi="3" ci="0" mb="0" cb="0"/>
+      <counter type="INSTRUCTION" missed="1" covered="0"/>
+      <counter type="BRANCH" missed="6" covered="0"/>
+      <counter type="LINE" missed="0" covered="0"/>
+      <counter type="COMPLEXITY" missed="6" covered="0"/>
+      <counter type="METHOD" missed="0" covered="0"/>
+      <counter type="CLASS" missed="0" covered="0"/>
     </sourcefile>
   </package>
+  <counter type="INSTRUCTION" missed="92273" covered="0"/>
+  <counter type="BRANCH" missed="12488" covered="0"/>
+  <counter type="LINE" missed="18661" covered="0"/>
+  <counter type="COMPLEXITY" missed="15811" covered="0"/>
+  <counter type="METHOD" missed="5993" covered="0"/>
+  <counter type="CLASS" missed="165" covered="0"/>
 </report>
 """
 
@@ -70,6 +106,17 @@ EMPTY_XML = """\
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <report name="codeCoverageReport">
   <counter type="INSTRUCTION" missed="0" covered="0"/>
+</report>
+"""
+
+# An empty upload that we actually sent to teamscale
+EMPTY_XML_2 = """\
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!DOCTYPE report PUBLIC "-//JACOCO//DTD Report 1.1//EN" "report.dtd">
+<report name="fdb-record-layer">
+<sessioninfo id="runnervmlun5p-55d43c15" start="1790147126056" dump="1790147127816"/>
+<sessioninfo id="runnervmlun5p-1aad5660" start="1790147128143" dump="1790147129103"/>
+<sessioninfo id="runnervmlun5p-20cb41b1" start="1790147146845" dump="1790147150976"/>
 </report>
 """
 
@@ -93,6 +140,10 @@ class CheckCoverageReportTest(unittest.TestCase):
         packages, classes, sourcefiles = count_report_elements(self._write(EMPTY_XML))
         self.assertEqual((0, 0, 0), (packages, classes, sourcefiles))
 
+    def test_counts_empty_report_2(self):
+        packages, classes, sourcefiles = count_report_elements(self._write(EMPTY_XML_2))
+        self.assertEqual((0, 0, 0), (packages, classes, sourcefiles))
+
     def test_accepts_populated_report(self):
         self.assertEqual(0, main(['--report', self._write(POPULATED_XML)]))
 
@@ -103,6 +154,9 @@ class CheckCoverageReportTest(unittest.TestCase):
 
     def test_rejects_report_with_no_classes(self):
         self.assertEqual(1, main(['--report', self._write(EMPTY_XML)]))
+
+    def test_rejects_report_with_no_classes_2(self):
+        self.assertEqual(1, main(['--report', self._write(EMPTY_XML_2)]))
 
     def test_rejects_missing_report(self):
         self.assertEqual(1, main(['--report', '/nonexistent/codeCoverageReport.xml']))
