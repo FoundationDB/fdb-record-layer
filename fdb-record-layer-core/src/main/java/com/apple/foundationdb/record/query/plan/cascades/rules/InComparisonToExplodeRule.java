@@ -125,6 +125,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class InComparisonToExplodeRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
     private static final BindingMatcher<ValuePredicate> inPredicateMatcher =
             valuePredicate(ValueMatchers.anyValue(), anyComparisonOfType(Comparisons.Type.IN));
+    // This rule passes the quantifier on unchanged, so it can match _any_ for-each quantifier.
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifier();
 
     private static final BindingMatcher<SelectExpression> root =

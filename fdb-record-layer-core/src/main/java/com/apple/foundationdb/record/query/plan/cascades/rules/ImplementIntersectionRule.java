@@ -48,7 +48,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPlanPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitionsTo;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutNullOnEmptyOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.logicalIntersectionExpression;
 
 /**
@@ -68,7 +68,7 @@ public class ImplementIntersectionRule extends AbstractCascadesRule<LogicalInter
                     rollUpPartitionsTo(any(intersectionLegPlanPartitionMatcher), PlanPropertiesMap.allAttributesExcept(DistinctRecordsProperty.distinctRecords(), OrderingProperty.ordering()))));
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =
-            all(forEachQuantifierOverRef(intersectionLegReferenceMatcher));
+            all(forEachQuantifierWithoutNullOnEmptyOverRef(intersectionLegReferenceMatcher));
 
     @Nonnull
     private static final BindingMatcher<LogicalIntersectionExpression> root =
