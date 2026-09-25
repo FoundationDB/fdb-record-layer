@@ -57,6 +57,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.SortKeysValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
@@ -109,6 +110,9 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
     private final Supplier<RequestedOrdering> computeRequestedOrderingSupplier;
 
     @Nonnull
+    private final Supplier<List<RequestedOrderingPart>> computeInCallOrderingPartsSupplier;
+
+    @Nonnull
     private final Quantifier innerQuantifier;
 
     /**
@@ -129,6 +133,7 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
         this.resultValueFunction = resultValueFunction;
         this.computeResultSupplier = Suppliers.memoize(() -> resultValueFunction.apply(groupingValue, aggregateValue));
         this.computeRequestedOrderingSupplier = Suppliers.memoize(this::computeRequestedOrdering);
+        this.computeInCallOrderingPartsSupplier = Suppliers.memoize(this::computeInCallOrderingParts);
         this.innerQuantifier = innerQuantifier;
     }
 
@@ -686,21 +691,68 @@ public class GroupByExpression extends AbstractRelationalExpressionWithChildren 
 
     @Nonnull
     private RequestedOrdering computeRequestedOrdering() {
+        // The (possibly empty) in-call ORDER BY clause of the aggregates, normalized into primitive ordering parts.
+        final RequestedOrdering inCallOrdering = getInCallOrdering(innerQuantifier.getCorrelatedTo());
+
+        // With no grouping, or a constant one, there is only one group, so nothing has to be grouped together and the
+        // only requested ordering is the in-call ordering (if any).
         if (groupingValue == null || groupingValue.isConstant()) {
-            return RequestedOrdering.preserve();
+            return inCallOrdering;
         }
 
-        final var groupingValueType = groupingValue.getResultType();
+        // If grouping parts are requested, the ordering parts follow them.
+        final Type groupingValueType = groupingValue.getResultType();
         Verify.verify(groupingValueType.isRecord());
-
-        final var currentGroupingValue =
+        final Value currentGroupingValue =
                 groupingValue.rebase(AliasMap.ofAliases(innerQuantifier.getAlias(), Quantifier.current()));
+        final RequestedOrdering groupingOrdering =
+                RequestedOrdering.ofParts(
+                        ImmutableList.of(new RequestedOrderingPart(currentGroupingValue, RequestedSortOrder.ANY)),
+                        RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS,
+                        false,
+                        innerQuantifier.getCorrelatedTo());
+        return RequestedOrdering.ofPrimitiveParts(
+                RequestedOrdering.concatWithoutDuplicates(
+                        groupingOrdering.getOrderingParts(),
+                        inCallOrdering.getOrderingParts()),
+                RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS,
+                false);
+    }
 
+    /**
+     * Returns the ordering parts imposed by the in-call {@code ORDER BY} clause of the aggregates of this expression,
+     * rebased onto {@link Quantifier#current()}. These parts constrain the order of the rows <em>within</em> each
+     * group.
+     *
+     * @return the in-call ordering parts, or an empty list if no aggregate carries an in-call {@code ORDER BY} clause
+     */
+    @Nonnull
+    public final List<RequestedOrderingPart> getInCallOrderingParts() {
+        return computeInCallOrderingPartsSupplier.get();
+    }
+
+    @Nonnull
+    private List<RequestedOrderingPart> computeInCallOrderingParts() {
+        return SortKeysValue.commonSortKeysOf(aggregateValue)
+                .map(sortKeysValue -> sortKeysValue.toOrderingPartsOnCurrent(innerQuantifier.getAlias()))
+                .orElseGet(ImmutableList::of);
+    }
+
+    /**
+     * Returns the ordering that the in-call {@code ORDER BY} clause of the aggregates of this expression requests of
+     * the input, with its parts normalized into primitive ordering parts. If there is no {@code ORDER BY} clause, this
+     * is the empty “preserve” ordering.
+     *
+     * @param constantAliases the aliases to treat as constant while normalizing
+     * @return the ordering requested by the in-call {@code ORDER BY} clause
+     */
+    @Nonnull
+    public final RequestedOrdering getInCallOrdering(@Nonnull final Set<CorrelationIdentifier> constantAliases) {
         return RequestedOrdering.ofParts(
-                ImmutableList.of(new RequestedOrderingPart(currentGroupingValue, RequestedSortOrder.ANY)),
+                getInCallOrderingParts(),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS,
                 false,
-                innerQuantifier.getCorrelatedTo());
+                constantAliases);
     }
 
     @Nonnull

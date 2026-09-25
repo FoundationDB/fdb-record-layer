@@ -286,6 +286,7 @@ message PValue {
     PIncarnationValue incarnation_value = 62;
     PCardinalityValue cardinality_value = 63;
     PArrayAggValue array_agg_value = 64;
+    PSortKeysValue sort_keys_value = 65;
   }
   // Removed types that are no longer supported
   reserved 38;
@@ -491,6 +492,21 @@ message PArrayAggValue {
   optional PValue child = 1;
   optional bool ignore_nulls = 2;
   optional int32 limit = 3;
+  optional PSortKeysValue sort_keys = 4;
+}
+
+message PSortKeysValue {
+  enum PSortOrder {
+    ASCENDING = 1;
+    DESCENDING = 2;
+    ASCENDING_NULLS_LAST = 3;
+    DESCENDING_NULLS_FIRST = 4;
+  }
+  message PSortKey {
+    optional PValue value = 1;
+    optional PSortOrder sort_order = 2;
+  }
+  repeated PSortKey sort_keys = 1;
 }
 
 message PDerivedValue {

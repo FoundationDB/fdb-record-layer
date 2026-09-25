@@ -38,6 +38,13 @@ schema_template:
     CREATE TABLE T3 (id BIGINT, grp BIGINT, u UUID, b BYTES, s Struct2, PRIMARY KEY (id))
     CREATE INDEX T3_grp AS SELECT grp FROM T3 ORDER BY grp
 
+    CREATE TABLE T5 (id BIGINT, grp BIGINT, val BIGINT, other BIGINT, PRIMARY KEY (id))
+    CREATE INDEX T5_grp_val AS SELECT grp, val FROM T5 ORDER BY grp, val
+    CREATE INDEX T5_grp_other AS SELECT grp, other FROM T5 ORDER BY grp, other
+    CREATE INDEX T5_val AS SELECT val FROM T5 ORDER BY val
+    CREATE INDEX T5_grp_val_other AS SELECT grp, val, other FROM T5 ORDER BY grp, val, other
+    CREATE INDEX T5_grp_other_val AS SELECT grp, other, val FROM T5 ORDER BY grp, other, val
+
     CREATE TABLE doc_meta (mid BIGINT, owner STRING, PRIMARY KEY (mid))
     CREATE TABLE doc_rev (rid BIGINT, title STRING, tags STRING ARRAY, PRIMARY KEY (rid))
     CREATE TABLE doc_asset (aid BIGINT, rid BIGINT, url STRING, PRIMARY KEY (aid))
@@ -69,6 +76,12 @@ setup:
     - query: INSERT INTO T3
              VALUES (1, 10, '0920df1c-be81-4ec1-8a06-2180226f051d', X'0a0b', ('64120112-4e39-40c3-94b9-2cc88a52e8df', X'0c0d')),
                     (2, 10, 'c35ba01f-f8fc-47d7-bb00-f077e8a75682', X'0e0f', ('5394a912-aa8e-40fc-a4bb-ddf3f89ac45b', X'1011'))
+    - query: INSERT INTO T5
+             VALUES (1, 10, 300, 1),
+                    (2, 10, 100, 3),
+                    (3, 10, 200, 2),
+                    (4, 20, 500, 1),
+                    (5, 20, 400, 2)
     - query: INSERT INTO doc_meta
              VALUES (1, 'ann')
     - query: INSERT INTO doc_rev
@@ -113,11 +126,12 @@ test_block:
       - query: SELECT SUM(val IGNORE NULLS) FROM T1
       - error: SYNTAX_ERROR
     -
-      # An ORDER BY clause is grammatically accepted but rejected at semantic analysis time (not yet implemented).
+      # An in-call ORDER BY clause is honored by asking the planner for a suitably ordered input. If there’s no index
+      # that can provide the ordering, the query cannot be planned.
       - query: SELECT ARRAY_AGG(val ORDER BY val) FROM T1
       - error: UNSUPPORTED_QUERY
     -
-      # The ORDER BY expressions are still resolved, so a bogus one is reported as such before the clause is rejected.
+      # The ORDER BY expressions undergo the usual semantic analysis, so a bogus one is reported as such.
       - query: SELECT ARRAY_AGG(val ORDER BY bogus) FROM T1
       - error: UNDEFINED_COLUMN
     -
@@ -128,12 +142,11 @@ test_block:
       - query: SELECT ARRAY_AGG(val ORDER BY GREATEST(val, 0 - val)) FROM T1
       - error: UNSUPPORTED_QUERY
     -
-      # The aggregate’s own argument is resolved before the ORDER BY clause is rejected, so a bogus argument is
-      # reported in preference to the unsupported clause.
+      # The aggregate’s own argument is resolved before the ORDER BY clause, so a bogus argument is reported first.
       - query: SELECT ARRAY_AGG(bogus ORDER BY val) FROM T1
       - error: UNDEFINED_COLUMN
     -
-      # The null treatment clause precedes the in-call ORDER BY clause. Here the ORDER BY is what gets rejected.
+      # The null treatment clause precedes the in-call ORDER BY clause.
       - query: SELECT ARRAY_AGG(val IGNORE NULLS ORDER BY val) FROM T1
       - error: UNSUPPORTED_QUERY
     -
@@ -596,4 +609,133 @@ test_block:
       - result: [{10, [100, 200]}]
       - result: [{20, [400, 500]}]
       - result: [{30, []}]
+---
+# Tests for the in-call ORDER BY clause. It is evaluated purely by requesting a suitably ordered input from the planner,
+# so that the accumulator, which collects in stream order, produces the array in the desired order for free.
+# An index on the full group-by-plus-sort key is needed. The grouping key parts may come in any order, but the sort keys
+# have to follow them exactly.
+test_block:
+  name: array-agg-order-by
+  options:
+    # The in-call ORDER BY clause is new, so a released server cannot plan these queries.
+    supported_version: !current_version
+  tests:
+    -
+      # Ordering by the aggregated column itself. The `T5_grp_val` index provides (grp, val).
+      - query: SELECT grp, ARRAY_AGG(val ORDER BY val) FROM T5 GROUP BY grp
+      - explain: "ISCAN(T5_grp_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ↑) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)"
+      - unorderedResult: [{grp: 10, [100, 200, 300]},
+                          {grp: 20, [400, 500]}]
+    -
+      # ORDER BY … ASC (the default)
+      - query: SELECT grp, ARRAY_AGG(val ORDER BY val ASC) FROM T5 GROUP BY grp
+      - explain: "ISCAN(T5_grp_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ↑) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)"
+      - unorderedResult: [{grp: 10, [100, 200, 300]},
+                          {grp: 20, [400, 500]}]
+    -
+      # ORDER BY … DESC is served by a REVERSE scan of the same index. The reverse scan also reverses the group order,
+      # but that does not get in the way because the grouping key may come in any order.
+      - query: SELECT grp, ARRAY_AGG(val ORDER BY val DESC) FROM T5 GROUP BY grp
+      - explain: "ISCAN(T5_grp_val <,> REVERSE) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ↓) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)"
+      - unorderedResult: [{grp: 10, [300, 200, 100]},
+                          {grp: 20, [500, 400]}]
+    -
+      # Ordering by a column other than the aggregated one. `T5_grp_other` provides the order, and `val` comes from the
+      # record fetch, which preserves it.
+      - query: SELECT grp, ARRAY_AGG(val ORDER BY other) FROM T5 GROUP BY grp
+      - explain: "ISCAN(T5_grp_other <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.other ↑) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)"
+      - unorderedResult: [{grp: 10, [300, 200, 100]},
+                          {grp: 20, [500, 400]}]
+    -
+      # An ungrouped aggregate needs an ordering on the sort key alone, here from `T5_val`.
+      - query: SELECT ARRAY_AGG(val ORDER BY val) FROM T5
+      - explain: "ISCAN(T5_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ↑) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - result: [{[100, 200, 300, 400, 500]}]
+    -
+      # ORDER BY combined with the in-call LIMIT collects a top-n list.
+      - query: SELECT grp, ARRAY_AGG(val ORDER BY val DESC LIMIT 2) FROM T5 GROUP BY grp
+      - explain: "ISCAN(T5_grp_val <,> REVERSE) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ↓ LIMIT 2) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)"
+      - unorderedResult: [{grp: 10, [300, 200]},
+                          {grp: 20, [500, 400]}]
+    -
+      # An aggregate without an in-call ORDER BY imposes no ordering of its own, so it composes with one that does.
+      - query: SELECT grp, ARRAY_AGG(val ORDER BY val), COUNT(*) FROM T5 GROUP BY grp
+      - explain: "ISCAN(T5_grp_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ↑) AS _0, count_star(*) AS _1) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1, _._1._1 AS _2)"
+      - unorderedResult: [{grp: 10, [100, 200, 300], 3},
+                          {grp: 20, [400, 500], 2}]
+    -
+      # A plain ARRAY_AGG() alongside an ordered one. The plain one imposes no ordering of its own, but it does observe
+      # the one the ordered one asks for, since both collect from the same stream. Here the rows arrive ordered by
+      # `val`, so the plain aggregate collects `other` in that same order.
+      - query: SELECT grp, ARRAY_AGG(other), ARRAY_AGG(val ORDER BY val) FROM T5 GROUP BY grp
+      - explain: "ISCAN(T5_grp_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.other) AS _0, array_agg(_._0.val ORDER BY _._0.val ↑) AS _1) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1, _._1._1 AS _2)"
+      - unorderedResult: [{grp: 10, [3, 2, 1], [100, 200, 300]},
+                          {grp: 20, [2, 1], [400, 500]}]
+    -
+      # Several aggregates may share one ordering.
+      - query: SELECT grp, ARRAY_AGG(val ORDER BY val), ARRAY_AGG(other ORDER BY val) FROM T5 GROUP BY grp
+      - explain: "ISCAN(T5_grp_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ↑) AS _0, array_agg(_._0.other ORDER BY _._0.val ↑) AS _1) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1, _._1._1 AS _2)"
+      - unorderedResult: [{grp: 10, [100, 200, 300], [3, 2, 1]},
+                          {grp: 20, [400, 500], [2, 1]}]
+    -
+      # Two aggregates demanding different orderings cannot both be served by one ordered stream.
+      - query: SELECT grp, ARRAY_AGG(val ORDER BY val), ARRAY_AGG(other ORDER BY other) FROM T5 GROUP BY grp
+      - error: UNSUPPORTED_QUERY
+    -
+      # Without an index providing (grp, id) the query cannot be planned.
+      - query: SELECT grp, ARRAY_AGG(val ORDER BY id) FROM T5 GROUP BY grp
+      - error: UNSUPPORTED_QUERY
+    -
+      # In the natural tuple order, nulls come first, so an explicit NULLS LAST cannot be evaluated.
+      - query: SELECT grp, ARRAY_AGG(val ORDER BY val ASC NULLS LAST) FROM T5 GROUP BY grp
+      - error: UNSUPPORTED_QUERY
+    -
+      # Several grouping keys. The sort key has to follow all of them, so the index needs (grp, other, val). Note that
+      # the grouping key parts are requested in the order they are written, so an index on (other, grp, val) would not
+      # be explored even though the rows it enumerates would group just as well.
+      - query: SELECT grp, other, ARRAY_AGG(val ORDER BY val) FROM T5 GROUP BY grp, other
+      - explain: "ISCAN(T5_grp_other_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ↑) AS _0) GROUP BY (_._0.grp AS _0, _._0.other AS _1) | MAP (_._0._0 AS grp, _._0._1 AS other, _._1._0 AS _2)"
+      - unorderedResult: [{grp: 10, other: 1, [300]},
+                          {grp: 10, other: 2, [200]},
+                          {grp: 10, other: 3, [100]},
+                          {grp: 20, other: 1, [500]},
+                          {grp: 20, other: 2, [400]}]
+    -
+      # The natural null orders are the ones the tuple order already provides, so they need no further index.
+      - query: SELECT grp, ARRAY_AGG(val ORDER BY val ASC NULLS FIRST) FROM T5 GROUP BY grp
+      - explain: "ISCAN(T5_grp_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ↑) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)"
+      - unorderedResult: [{grp: 10, [100, 200, 300]},
+                          {grp: 20, [400, 500]}]
+    -
+      - query: SELECT grp, ARRAY_AGG(val ORDER BY val DESC NULLS LAST) FROM T5 GROUP BY grp
+      - explain: "ISCAN(T5_grp_val <,> REVERSE) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ↓) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)"
+      - unorderedResult: [{grp: 10, [300, 200, 100]},
+                          {grp: 20, [500, 400]}]
+    -
+      # An ORDER BY clause cannot reach outside the input of its own aggregate; here `m.owner` belongs to the enclosing
+      # query. This is rejected rather than failing an assertion inside the planner.
+      - query: SELECT m.mid, sq.vals
+               FROM doc_meta m,
+                    (SELECT ARRAY_AGG(a.url ORDER BY m.owner) AS vals FROM doc_asset a WHERE a.rid = m.mid) sq
+      - error: UNSUPPORTED_QUERY
+    -
+      # A repeated sort key adds nothing to what its first occurrence already requires, so it is dropped rather than
+      # making the requested ordering unsatisfiable.
+      - query: SELECT grp, ARRAY_AGG(val ORDER BY val, val) FROM T5 GROUP BY grp
+      - explain: "ISCAN(T5_grp_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.val ↑, _._0.val ↑) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)"
+      - unorderedResult: [{grp: 10, [100, 200, 300]},
+                          {grp: 20, [400, 500]}]
+    -
+      # Two sort keys, where the second breaks ties of the first. T5_grp_val_other provides (grp, val, other).
+      - query: SELECT grp, ARRAY_AGG(other ORDER BY val, other) FROM T5 GROUP BY grp
+      - explain: "ISCAN(T5_grp_val_other <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.other ORDER BY _._0.val ↑, _._0.other ↑) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)"
+      - unorderedResult: [{grp: 10, [3, 2, 1]},
+                          {grp: 20, [2, 1]}]
+    -
+      # A sort key that is also a grouping key is constant within the group, so it imposes no requirement of its own
+      # and is dropped. Here only the `val` part remains, which `T5_grp_val` provides.
+      - query: SELECT grp, ARRAY_AGG(val ORDER BY grp, val) FROM T5 GROUP BY grp
+      - explain: "ISCAN(T5_grp_val <,>) | MAP (_ AS _0) | AGG (array_agg(_._0.val ORDER BY _._0.grp ↑, _._0.val ↑) AS _0) GROUP BY (_._0.grp AS _0) | MAP (_._0._0 AS grp, _._1._0 AS _1)"
+      - unorderedResult: [{grp: 10, [100, 200, 300]},
+                          {grp: 20, [400, 500]}]
 ...

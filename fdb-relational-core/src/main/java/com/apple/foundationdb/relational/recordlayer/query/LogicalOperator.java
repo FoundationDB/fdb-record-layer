@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.SortKeysValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.VariadicFunctionValue;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -441,6 +442,8 @@ public class LogicalOperator {
         final var aggregates = Expressions.of(havingPredicate.map(outputExpressions::concat).orElse(outputExpressions)
                 .collectAggregateValues().stream().map(Expression::fromUnderlying).collect(ImmutableSet.toImmutableSet()));
         SemanticAnalyzer.validateGroupByAggregates(aggregates);
+        final var innerQuantifier = Iterables.getOnlyElement(logicalOperators).quantifier;
+        validateInCallOrderings(aggregates, innerQuantifier.getAlias());
         final var validSubExpressions = groupByExpressions.dereferenced(literals).concat(aggregates.dereferenced(literals));
 
         for (final var expression : outputExpressions.expanded().concat(havingPredicate.map(Expressions::ofSingle).orElseGet(Expressions::empty))) {
@@ -453,7 +456,7 @@ public class LogicalOperator {
         final var groupingValue = RecordConstructorValue.ofUnnamed((List<Value>) Assert.castUnchecked(groupByExpressions.underlying(), List.class));
 
         final var groupByExpression = new GroupByExpression(groupingValue.getColumns().isEmpty() ? null : groupingValue, aggregateValue,
-                GroupByExpression::nestedResults, Iterables.getOnlyElement(logicalOperators).quantifier);
+                GroupByExpression::nestedResults, innerQuantifier);
 
         final var groupByReference = Reference.initialOf(groupByExpression);
         final var resultingQuantifier = groupByExpression.getGroupingValue() == null
@@ -465,6 +468,31 @@ public class LogicalOperator {
                 outerCorrelations).clearQualifier();
 
         return LogicalOperator.newUnnamedOperator(output, resultingQuantifier);
+    }
+
+    /**
+     * Validates that the in-call {@code ORDER BY} clauses of the given aggregates can be served by a single ordered
+     * input stream. Two aggregates demanding different orderings cannot both be satisfied. Aggregates without an
+     * {@code ORDER BY} clause impose no requirement, so a mix of ordered and unordered aggregates composes fine.
+     */
+    private static void validateInCallOrderings(@Nonnull final Expressions aggregates,
+                                                @Nonnull final CorrelationIdentifier innerAlias) {
+        final List<SortKeysValue> distinctSortKeys
+                = SortKeysValue.distinctSortKeysOf(aggregates.stream().map(Expression::getUnderlying));
+        Assert.thatUnchecked(
+                distinctSortKeys.size() <= 1,
+                ErrorCode.UNSUPPORTED_QUERY,
+                "aggregates with different ORDER BY clauses are not supported in the same query");
+        // A sort key becomes an ordering requested of the input of the aggregate, so it cannot reach outside that
+        // input.
+        for (final SortKeysValue sortKeysValue : distinctSortKeys) {
+            for (final SortKeysValue.SortKey sortKey : sortKeysValue.getSortKeys()) {
+                Assert.thatUnchecked(
+                        Set.of(innerAlias).containsAll(sortKey.getValue().getCorrelatedTo()),
+                        ErrorCode.UNSUPPORTED_QUERY,
+                        "an ORDER BY clause of an aggregate cannot refer to an enclosing query");
+            }
+        }
     }
 
     @Nonnull
