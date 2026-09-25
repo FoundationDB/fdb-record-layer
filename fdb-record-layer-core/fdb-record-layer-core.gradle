@@ -112,6 +112,13 @@ tasks.named('test') {
     inputs.dir siftExtractDir
 }
 
+shadowJar {
+    // Disable creating a shadow jar for the main configuration. Applying the plugin (which is needed below
+    // for testShadowJar) will default to constructing one with the archive classifier "-all", which is
+    // not desired.
+    enabled = false
+}
+
 tasks.register('testShadowJar', ShadowJar) {
     archiveClassifier = 'standalone-tests'
     from sourceSets.main.output
