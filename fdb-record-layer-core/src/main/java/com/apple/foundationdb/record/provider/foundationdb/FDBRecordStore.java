@@ -4814,23 +4814,34 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         long startTime = System.nanoTime();
-        OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(this).setIndex(index).build();
+        OnlineIndexer.Builder indexBuilderBuilder = OnlineIndexer.newBuilder().setRecordStore(this).setIndex(index);
+        if (reason == RebuildIndexReason.FEW_RECORDS) {
+            // Safety net in case the record count estimate that led to this in-line rebuild was wrong.
+            indexBuilderBuilder.setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder().setRebuildRecordScanLimit(MAX_RECORDS_FOR_REBUILD + 5));
+        }
+        OnlineIndexer indexBuilder = indexBuilderBuilder.build();
         CompletableFuture<Void> future = indexBuilder.rebuildIndexAsync(this)
                 .thenCompose(vignore -> markIndexReadable(index))
                 .handle((b, t) -> {
-                    if (t != null) {
-                        logExceptionAsWarn(KeyValueLogMessage.build("rebuilding index failed",
-                                LogMessageKeys.INDEX_NAME, index.getName(),
-                                LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
-                                LogMessageKeys.REASON, reason.name(),
-                                LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey()), t);
+                    if (t == null) {
+                        indexBuilder.close();
+                        return AsyncUtil.DONE;
                     }
+                    logExceptionAsWarn(KeyValueLogMessage.build("rebuilding index failed",
+                            LogMessageKeys.INDEX_NAME, index.getName(),
+                            LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
+                            LogMessageKeys.REASON, reason.name(),
+                            LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey()), t);
+                    // The record count estimate that led to this in-line rebuild was wrong: disable the index
+                    // (rather than leaving it write-only) so a subsequent, properly throttled online build is required.
+                    final CompletableFuture<Void> recovery = IndexingBase.isRebuildRecordScanLimitExceededException(t)
+                            ? markIndexDisabled(index).thenApply(ignore -> null)
+                            : AsyncUtil.DONE;
                     // Only call method that builds in the current transaction, so never any pending work,
                     // so it would work to close before returning future, which would look better to SonarQube.
                     // But this is better if close ever does more.
-                    indexBuilder.close();
-                    return null;
-                });
+                    return recovery.whenComplete((ignore, ignoreEx) -> indexBuilder.close());
+                }).thenCompose(Function.identity());
 
         return context.instrument(FDBStoreTimer.Events.REBUILD_INDEX,
                 context.instrument(reason.event, future, startTime),
