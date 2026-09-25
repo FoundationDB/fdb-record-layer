@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -59,5 +60,21 @@ final class IndexPredicates {
         Assert.thatUnchecked(IndexPredicate.isSupported(normalized), ErrorCode.UNSUPPORTED_OPERATION,
                 () -> String.format(Locale.ROOT, "Unsupported predicate '%s'", normalized));
         return IndexPredicateExpansion.dnfPredicateToRanges(normalized).isEmpty() ? conjunction : normalized;
+    }
+
+    /**
+     * The conjunction of the select's predicates, as they stand. A join's predicates become the joined synthetic table's
+     * join conditions rather than a predicate stored with the index, so neither the DNF normalisation nor the check that
+     * the deserializer can read it back applies — and the join conditions are read off the predicates in the form the
+     * plan built them.
+     *
+     * @param predicates the predicates the select carries, at least one
+     *
+     * @return the conjunction, unnormalised
+     */
+    @Nonnull
+    static QueryPredicate conjoin(@Nonnull final List<? extends QueryPredicate> predicates) {
+        final List<QueryPredicate> conjuncts = ImmutableList.copyOf(predicates);
+        return conjuncts.size() == 1 ? conjuncts.get(0) : AndPredicate.and(conjuncts);
     }
 }
