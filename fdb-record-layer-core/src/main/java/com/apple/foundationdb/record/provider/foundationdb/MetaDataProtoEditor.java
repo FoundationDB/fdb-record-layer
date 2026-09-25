@@ -104,15 +104,6 @@ public class MetaDataProtoEditor {
         return "_" + recordTypeName;
     }
 
-    /**
-     * Returns whether the name of a union field is the canonical {@code _recordTypeName} form.
-     */
-    private static boolean isCanonicalUnionFieldName(@Nonnull String unionFieldName, @Nonnull String recordTypeName) {
-        return unionFieldName.length() == recordTypeName.length() + 1
-                && unionFieldName.charAt(0) == '_'
-                && unionFieldName.regionMatches(1, recordTypeName, 0, recordTypeName.length());
-    }
-
     private static void addFieldToUnion(@Nonnull DescriptorProtos.DescriptorProto.Builder unionBuilder,
                                         @Nonnull DescriptorProtos.FileDescriptorProtoOrBuilder fileBuilder,
                                         @Nonnull String typeName) {
@@ -171,32 +162,6 @@ public class MetaDataProtoEditor {
             }
         }
         throw new MetaDataException("Union descriptor not found");
-    }
-
-    @Nullable
-    private static DescriptorProtos.FieldDescriptorProto.Builder fetchUnionFieldBuilder(
-            @Nonnull DescriptorProtos.FileDescriptorProto.Builder recordsBuilder,
-            @Nonnull DescriptorProtos.DescriptorProto.Builder unionBuilder,
-            @Nonnull Descriptors.Descriptor unionDescriptor,
-            @Nonnull String recordTypeName) {
-        DescriptorProtos.FieldDescriptorProto.Builder foundField = null;
-        if (recordTypeName.contains(".")) {
-            throw new MetaDataException("Record Type Name cannot contain '.'");
-        }
-        if (unionBuilder.getNestedTypeCount() > 0) {
-            throw new MetaDataException("Nested types in union type not supported");
-        }
-        for (DescriptorProtos.FieldDescriptorProto.Builder unionField : unionBuilder.getFieldBuilderList()) {
-            final FieldTypeMatch unionFieldMatch = fieldIsType(recordsBuilder, unionDescriptor, unionField, recordTypeName);
-            if (FieldTypeMatch.MATCHES.equals(unionFieldMatch)
-                    && (foundField == null
-                                || isCanonicalUnionFieldName(unionField.getName(), recordTypeName)
-                                || unionField.getNumber() > foundField.getNumber())) {
-                // Choose the matching field with either a matching name or the highest number.
-                foundField = unionField;
-            }
-        }
-        return foundField;
     }
 
     /**
@@ -555,16 +520,13 @@ public class MetaDataProtoEditor {
      *
      * <p>Any rename is rejected outright if the metadata declares {@code user_defined_functions}, {@code views} or
      * {@code stored_queries}. Each of those holds a string that would need parsing to figure out the record types it
-     * references, so renaming cannot keep them consistent. (Note that {@code renameRecordType} rejects only the
-     * first of the three.)
+     * references, so renaming cannot keep them consistent.
      *
      * <p>Validating the mapping as a whole means a batch may be accepted where the equivalent one-by-one renames would
      * fail, and rejected where they would quietly succeed. A batch that permutes existing names, for instance swapping
      * {@code Foo} and {@code Bar}, is collision-free and therefore accepted, whereas renaming those types one at a time
-     * would collide on whichever is renamed first. Conversely, a mapping that would make two union fields share a name
-     * is rejected here, while {@code renameRecordType} leaves the second field under its old name instead of reporting
-     * the conflict; and a rename onto the name of a synthetic record type is rejected here (while
-     * {@code renameRecordType} does not check for that at all).
+     * would collide on whichever is renamed first. Conversely, a rename onto the name of a synthetic record type is
+     * rejected here, while {@code renameRecordType} does not check for that at all.
      *
      * @param metadata the metadata builder
      * @param renamer a function mapping each existing top-level record type name to its new name
@@ -594,6 +556,26 @@ public class MetaDataProtoEditor {
             return;
         }
 
+        applyRecordTypeRenames(metadata, renames, fileDesc, union, unionDescriptor);
+    }
+
+    /**
+     * Applies {@code renames} to every part of the metadata. Shared by {@link #renameRecordType} and
+     * {@link #renameRecordTypes}, which differ only in how they build and pre-validate the map of renames. The steps
+     * are ordered so that every validation happens before the first mutation, leaving {@code metadata}
+     * untouched if any of them raises {@link MetaDataException}.
+     *
+     * @param metadata the metadata builder to rewrite
+     * @param renames the renames to apply, which must be non-empty and collision-free
+     * @param fileDesc the compiled {@code MetaData.records}, as it stands before any rename has been applied
+     * @param union the builder of the union message type within {@code MetaData.records}
+     * @param unionDescriptor the descriptor of the union message type within {@code fileDesc}
+     */
+    private static void applyRecordTypeRenames(@Nonnull RecordMetaDataProto.MetaData.Builder metadata,
+                                               @Nonnull RecordTypeRenames renames,
+                                               @Nonnull Descriptors.FileDescriptor fileDesc,
+                                               @Nonnull DescriptorProtos.DescriptorProto.Builder union,
+                                               @Nonnull Descriptors.Descriptor unionDescriptor) {
         // Validate that `MetaData.user_defined_functions`, `MetaData.views` and `MetaData.stored_queries` are empty.
         validateNoUnrenamableDefinitions(metadata);
 
@@ -630,12 +612,16 @@ public class MetaDataProtoEditor {
      * records descriptor, including {@code NESTED} records or the union descriptor. However, it cannot be used to
      * rename nested messages (i.e., messages defined within other messages) or records defined in imported files.
      *
+     * <p>Unlike {@link #renameRecordTypes}, which can only rename {@code RECORD}-usage top-level types, this method
+     * can rename any of the three: {@code RECORD}, {@code NESTED}, or the union type itself.
+     *
      * <ul>
      * <li>Message names are rewritten.
      * <li>Field types ({@code typeName}) that reference a renamed type are rewritten, whether the reference is direct
      *     or to a nested type of a renamed type.
      * <li>The union usage option is set when the union is renamed.
-     * <li>The canonical {@code _typeName} union field is renamed when possible.
+     * <li>The canonical {@code _typeName} union field is renamed; if the union already has a field under the new
+     *     canonical name, the rename is rejected instead.
      * <li>If the record type has {@code RECORD} usage, the record type list, indexes, and joined record types are
      *     updated.
      * <li>Unnested record type constituents are updated.
@@ -649,8 +635,6 @@ public class MetaDataProtoEditor {
                                         @Nonnull String recordTypeName,
                                         @Nonnull String newRecordTypeName,
                                         @Nonnull Descriptors.FileDescriptor[] dependencies) {
-        // Validate the rename. Rather than calling `metaDataBuilder.getRecordsBuilder()`, create a copy of the records
-        // builder to avoid corrupting the one in `metaDataBuilder` before all validation has been done.
         final DescriptorProtos.FileDescriptorProto records = metaDataBuilder.getRecords();
         boolean found = false;
         for (DescriptorProtos.DescriptorProto messageType : records.getMessageTypeList()) {
@@ -664,240 +648,36 @@ public class MetaDataProtoEditor {
             throw new MetaDataException("No record type found with name " + recordTypeName);
         }
 
+        // Likewise, check for a collision against the metadata's full record type registry, which (unlike
+        // `records.getMessageTypeList()` above) also includes record types imported from a dependency file.
+        for (final String name : getRecordTypes(metaDataBuilder)) {
+            if (!name.equals(recordTypeName) && name.equals(newRecordTypeName)) {
+                throw new MetaDataException("Cannot rename record type to " + newRecordTypeName + " as an imported record type of that name already exists");
+            }
+        }
+
         // Identity transformation requires no work. From here on, we can assume `recordTypeName != newRecordTypeName`,
         // which simplifies things.
         if (recordTypeName.equals(newRecordTypeName)) {
             return;
         }
         final Descriptors.FileDescriptor fileDescriptor = RecordMetaDataBuilder.buildFileDescriptor(records, dependencies);
-        final DescriptorProtos.FileDescriptorProto.Builder recordsBuilder = records.toBuilder();
-
-        // Determine the usage of the original record type by looking through the union builder.
-        // If we find a union field that matches, also update its name to be in the canonical form.
-        DescriptorProtos.DescriptorProto.Builder unionBuilder = fetchUnionBuilder(recordsBuilder);
-        RecordTypeOptions.Usage usage;
-        if (unionBuilder.getName().equals(recordTypeName)) {
-            usage = RecordTypeOptions.Usage.UNION;
-        } else {
-            final Descriptors.Descriptor unionDescriptor = getMessageTypeByName(fileDescriptor, unionBuilder.getName());
-            DescriptorProtos.FieldDescriptorProto.Builder unionFieldBuilder = fetchUnionFieldBuilder(recordsBuilder,
-                    unionBuilder, unionDescriptor, recordTypeName);
-            if (unionFieldBuilder == null) {
-                usage = RecordTypeOptions.Usage.NESTED;
-            } else {
-                usage = RecordTypeOptions.Usage.RECORD;
-                // Change the name to the "canonical" form unless that would cause a field name conflict
-                if (isCanonicalUnionFieldName(unionFieldBuilder.getName(), recordTypeName)) {
-                    String newFieldName = canonicalUnionFieldName(newRecordTypeName);
-                    if (unionBuilder.getFieldBuilderList().stream()
-                            .noneMatch(otherUnionField -> otherUnionField != unionFieldBuilder
-                                    && otherUnionField.getName().equals(newFieldName))) {
-                        unionFieldBuilder.setName(newFieldName);
-                    }
-                }
-            }
+        final DescriptorProtos.DescriptorProto.Builder union = fetchUnionBuilder(metaDataBuilder.getRecordsBuilder());
+        if (union.getNestedTypeCount() > 0) {
+            throw new MetaDataException("Nested types in union type not supported");
         }
+        final Descriptors.Descriptor unionDescriptor = getMessageTypeByName(fileDescriptor, union.getName());
 
-        // Do not allow renaming to the default union name unless the record type is already the union.
-        if (DEFAULT_UNION_NAME.equals(newRecordTypeName) && !RecordTypeOptions.Usage.UNION.equals(usage)) {
-            throw new MetaDataException("Cannot rename record type to the default union name", LogMessageKeys.RECORD_TYPE, recordTypeName);
-        }
-
-        // Rename the record type within the file.
-        renameRecordTypeUsages(recordsBuilder, recordTypeName, newRecordTypeName, fileDescriptor);
-
-        // If the record type is a top-level record type, change its usage elsewhere in the metadata.
-        if (RecordTypeOptions.Usage.RECORD.equals(usage)) {
-            renameTopLevelRecordType(metaDataBuilder, recordTypeName, newRecordTypeName);
-        }
-
-        // Update unnested types (even if the record type is not a top-level type).
-        renameRecordTypeUsagesInUnnested(metaDataBuilder, fileDescriptor, recordTypeName, newRecordTypeName,
-                getMessageTypeByName(fileDescriptor, recordTypeName));
-
-        // Update the file descriptor.
-        metaDataBuilder.setRecords(recordsBuilder);
-    }
-
-    /**
-     * Renames a record type within the records file. To this end, updates references to it in the fields of every
-     * message type (recursively, including nested types). If it is the union type, also update its usage option.
-     */
-    private static void renameRecordTypeUsages(@Nonnull DescriptorProtos.FileDescriptorProto.Builder recordsBuilder,
-                                               @Nonnull String recordTypeName, @Nonnull String newRecordTypeName,
-                                               @Nonnull Descriptors.FileDescriptor fileDescriptor) {
-        final String namespace = recordsBuilder.getPackage();
-        final String fullRecordTypeName = fullyQualifiedTypeName(namespace, recordTypeName);
-        final String fullNewRecordTypeName = fullyQualifiedTypeName(namespace, newRecordTypeName);
-
-        // Rename the record type within the file.
-        for (DescriptorProtos.DescriptorProto.Builder messageTypeBuilder : recordsBuilder.getMessageTypeBuilderList()) {
-            final Descriptors.Descriptor descriptor = getMessageTypeByName(fileDescriptor, messageTypeBuilder.getName());
-            // Change any fields referencing the old type so that they now reference the new type.
-            renameRecordTypeUsages(namespace, messageTypeBuilder, fullRecordTypeName, fullNewRecordTypeName, descriptor);
-            if (messageTypeBuilder.getName().equals(recordTypeName)) {
-                // If renaming the union type, be sure that the record.usage option is set to UNION.
-                if (isUnion(messageTypeBuilder) && getMessageTypeUsage(messageTypeBuilder) != RecordTypeOptions.Usage.UNION) {
-                    setMessageTypeUsage(messageTypeBuilder, RecordTypeOptions.Usage.UNION);
-                }
-                messageTypeBuilder.setName(newRecordTypeName);
-            }
-        }
-    }
-
-    /**
-     * Renames references to a record type among the fields of a single message type, recursing into its nested types.
-     */
-    private static void renameRecordTypeUsages(@Nonnull String namespace,
-                                               @Nonnull DescriptorProtos.DescriptorProto.Builder messageTypeBuilder,
-                                               @Nonnull String fullRecordTypeName,
-                                               @Nonnull String fullNewRecordTypeName,
-                                               final Descriptors.Descriptor descriptorForMessage) {
-        // Rename any fields within the record type to the new type name.
-        for (DescriptorProtos.FieldDescriptorProto.Builder field : messageTypeBuilder.getFieldBuilderList()) {
-            final FieldTypeMatch fieldTypeMatch = fieldIsType(descriptorForMessage, field, fullRecordTypeName);
-            if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch)) {
-                field.setTypeName(fullNewRecordTypeName);
-            } else if (FieldTypeMatch.MATCHES_AS_NESTED.equals(fieldTypeMatch)) {
-                final String fullOldFieldTypeName = Objects.requireNonNull(
-                        resolveFieldTypeFullName(descriptorForMessage, field),
-                        "A field matching as nested must reference a named type");
-                final String newFieldTypeName = fullNewRecordTypeName + fullOldFieldTypeName.substring(fullRecordTypeName.length());
-                field.setTypeName(newFieldTypeName);
-            }
-        }
-
-        // Rename the record type if used within any nested message types.
-        if (messageTypeBuilder.getNestedTypeCount() > 0) {
-            final String nestedNamespace =
-                    namespace.isEmpty()
-                    ? messageTypeBuilder.getName()
-                    : (namespace + "." + messageTypeBuilder.getName());
-            for (DescriptorProtos.DescriptorProto.Builder nestedTypeBuilder : messageTypeBuilder.getNestedTypeBuilderList()) {
-                final Descriptors.Descriptor nestedDescriptor = Objects.requireNonNull(
-                        descriptorForMessage.findNestedTypeByName(nestedTypeBuilder.getName()),
-                        "FileDescriptor does not have nested type that exists in protobuf");
-                renameRecordTypeUsages(nestedNamespace, nestedTypeBuilder, fullRecordTypeName, fullNewRecordTypeName,
-                        nestedDescriptor);
-            }
-        }
-    }
-
-    /**
-     * Updates the top-level record type list, any index definitions, and any joined record types that reference a
-     * renamed record type. Throws if the metadata has {@code UserDefinedFunctions}, since renaming is not supported
-     * in that case.
-     */
-    private static void renameTopLevelRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
-                                                 @Nonnull String recordTypeName,
-                                                 @Nonnull String newRecordTypeName) {
-        List<RecordMetaDataProto.RecordType> recordTypes =
-                new ArrayList<>(metaDataBuilder.getRecordTypesBuilderList().size());
-        boolean foundRecordType = false;
-        for (RecordMetaDataProto.RecordType recordType : metaDataBuilder.getRecordTypesList()) {
-            if (recordType.getName().equals(newRecordTypeName)) {
-                // Note: Despite the earlier check in this method, this can still be triggered if there is an imported
-                // record with the given name.
-                throw new MetaDataException("Cannot rename record type to " + newRecordTypeName + " as an imported record type of that name already exists");
-            } else if (recordType.getName().equals(recordTypeName)) {
-                recordTypes.add(recordType.toBuilder().setName(newRecordTypeName).build());
-                foundRecordType = true;
-            } else {
-                recordTypes.add(recordType);
-            }
-        }
-        if (!foundRecordType) {
-            // This shouldn't happen, but if somehow the record type was in the union but not the record type list,
-            // throw an error.
+        // Unlike `renameRecordTypes`, require a record type that the union references to be listed in
+        // `MetaData.record_types` as well.
+        if (unionRecordTypes(unionDescriptor).contains(new UnionRecordType(recordTypeName, true))
+                && !getRecordTypes(metaDataBuilder).contains(recordTypeName)) {
             throw new MetaDataException("Missing " + recordTypeName + " in record type list");
         }
 
-        // Rename the record type within any indexes.
-        List<RecordMetaDataProto.Index> indexes = new ArrayList<>(metaDataBuilder.getIndexesList());
-        indexes.replaceAll(index -> {
-            if (!index.getRecordTypeList().contains(recordTypeName)) {
-                return index;
-            }
-            List<String> indexRecordTypes = new ArrayList<>(index.getRecordTypeList());
-            indexRecordTypes.replaceAll(name -> name.equals(recordTypeName) ? newRecordTypeName : name);
-            return index.toBuilder().clearRecordType().addAllRecordType(indexRecordTypes).build();
-        });
-
-        // Update the `metaDataBuilder` with all the renamed things.
-        metaDataBuilder.clearRecordTypes();
-        metaDataBuilder.addAllRecordTypes(recordTypes);
-        metaDataBuilder.clearIndexes();
-        metaDataBuilder.addAllIndexes(indexes);
-        // Unnested types have to be updated even if it’s not a top-level type, so they have their own method.
-        updateJoinedRecordTypes(metaDataBuilder, recordTypeName, newRecordTypeName);
-
-        if (metaDataBuilder.getUserDefinedFunctionsCount() > 0) {
-            // UserDefinedFunctions may be a string that needs parsing to figure out the types it references.
-            throw new MetaDataException("Renaming record types with UserDefinedFunctions is not supported");
-        }
-    }
-
-    /**
-     * Updates joined record types' constituents that reference a renamed record type.
-     */
-    private static void updateJoinedRecordTypes(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
-                                                @Nonnull String recordTypeName,
-                                                @Nonnull String newRecordTypeName) {
-        for (var joined : metaDataBuilder.getJoinedRecordTypesBuilderList()) {
-            for (var constituent : joined.getJoinConstituentsBuilderList()) {
-                if (constituent.getRecordType().equals(recordTypeName)) {
-                    constituent.setRecordType(newRecordTypeName);
-                }
-            }
-        }
-    }
-
-    /**
-     * Updates unnested record types' constituents that reference a renamed record type as their (non-nested) parent.
-     */
-    private static void renameRecordTypeUsagesInUnnested(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
-                                                         @Nonnull Descriptors.FileDescriptor fileDescriptor,
-                                                         @Nonnull String recordTypeName,
-                                                         @Nonnull String newRecordTypeName,
-                                                         @Nonnull Descriptors.Descriptor oldTypeDescriptor) {
-        for (var unnested : metaDataBuilder.getUnnestedRecordTypesBuilderList()) {
-            for (var constituent : unnested.getNestedConstituentsBuilderList()) {
-                // The nested constituents would most likely be nested types, not record types, and thus would not be
-                // renamed.
-                if (constituent.getParent().isEmpty() && constituent.getTypeName().equals(recordTypeName)) {
-                    constituent.setTypeName(newRecordTypeName);
-                } else {
-                    final Descriptors.Descriptor constituentTypeDescriptor = UnnestedRecordTypeBuilder.findDescriptorByName(fileDescriptor,
-                            constituent.getTypeName());
-                    if (constituentTypeDescriptor == null) {
-                        throw new MetaDataException("missing descriptor for nested constituent")
-                                .addLogInfo(LogMessageKeys.EXPECTED, constituent.getTypeName())
-                                .addLogInfo(LogMessageKeys.CONSTITUENT, constituent.getName());
-                    }
-                    if (isNested(constituentTypeDescriptor, oldTypeDescriptor)) {
-                        throw new MetaDataException("Renaming types used by non-parent unnested constituents is not supported");
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Whether the {@code targetDescriptor} is equal to or nested within {@code typeDescriptor}.
-     *
-     * @param typeDescriptor a type
-     * @param targetDescriptor a type that may or may not be nested in {@code typeDescriptor}
-     * @return {@code true} if the {@code targetDescriptor} is the same as {@code typeDescriptor} or a nested type of it
-     */
-    private static boolean isNested(@Nonnull Descriptors.Descriptor typeDescriptor,
-                                    @Nonnull Descriptors.Descriptor targetDescriptor) {
-        if (typeDescriptor.equals(targetDescriptor)) {
-            return true;
-        } else if (typeDescriptor.getContainingType() == null) {
-            return false;
-        } else {
-            return isNested(typeDescriptor.getContainingType(), targetDescriptor);
-        }
+        final RecordTypeRename rename = new RecordTypeRename(records.getPackage(), recordTypeName, newRecordTypeName);
+        applyRecordTypeRenames(metaDataBuilder, new RecordTypeRenames(Map.of(recordTypeName, rename)), fileDescriptor,
+                union, unionDescriptor);
     }
 
     /**
@@ -911,9 +691,10 @@ public class MetaDataProtoEditor {
     }
 
     /**
-     * A helper for {@link #renameRecordTypes} that determines the record types of the metadata from the fields of the
-     * union message type. Each union field defines a record type, named after the simple name of the message type it
-     * references. This is aligned with how {@link RecordMetaDataBuilder} determines the record types.
+     * A helper for {@link #renameRecordTypes} and {@link #renameRecordType} that determines the record types of the
+     * metadata from the fields of the union message type. Each union field defines a record type, named after the
+     * simple name of the message type it references. This is aligned with how {@link RecordMetaDataBuilder}
+     * determines the record types.
      */
     @Nonnull
     private static Set<UnionRecordType> unionRecordTypes(@Nonnull Descriptors.Descriptor unionDescriptor) {
@@ -1038,7 +819,7 @@ public class MetaDataProtoEditor {
     }
 
     /**
-     * A helper for {@link #renameRecordTypes} that determines the {@link RecordTypeOptions.Usage Usage} of each
+     * A helper for {@link #applyRecordTypeRenames} that determines the {@link RecordTypeOptions.Usage Usage} of each
      * renamed type by looking at the union. Fills in the {@code usage} and {@code unionField} of the entries
      * in {@code renames}. Does not mutate {@code unionBuilder}.
      */
@@ -1167,7 +948,7 @@ public class MetaDataProtoEditor {
     }
 
     /**
-     * A helper for {@link #renameRecordTypes} that applies the name mapping in a single walk over the message types
+     * A helper for {@link #applyRecordTypeRenames} that applies the name mapping in a single walk over the message types
      * in {@code MetaData.records}, using the given compiled file descriptor for type resolution. Field type
      * references are resolved (via the original descriptor) to the original type they point at; if that original
      * type is, or is nested within, any renamed type, the reference is rewritten to point at the renamed type.

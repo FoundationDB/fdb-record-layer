@@ -941,20 +941,18 @@ public class MetaDataProtoEditorUnitTest {
 
     /**
      * Tests that the rename rejects a renamer whose canonical union field name would collide with an existing,
-     * non-canonically-named union field of another (un-renamed) type. Unlike the other exception tests here, this
-     * one is batched-only because renaming one type at a time via {@link MetaDataProtoEditor#renameRecordType} silently
-     * leaves the colliding field under its old name instead of throwing (see also {@link #conflictingName}).
+     * non-canonically-named union field of another (un-renamed) type.
      */
     @Test
     void batchedRejectsUnionFieldCollision() throws IOException {
         final RecordMetaDataProto.MetaData originalProto = loadMetaData("DuplicateUnionFields.json").build();
+        final UnaryOperator<String> renamer = name -> name.equals("T2") ? "T1_1" : name;
+        final Descriptors.FileDescriptor[] dependencies = RecordMetaDataBuilder.getDependencies(originalProto, Map.of());
         final MetaDataException exception = assertThrows(MetaDataException.class,
-                () -> MetaDataProtoEditor.renameRecordTypes(
-                        originalProto.toBuilder(),
-                        name -> name.equals("T2") ? "T1_1" : name,
-                        RecordMetaDataBuilder.getDependencies(originalProto, Map.of())));
+                () -> MetaDataProtoEditor.renameRecordTypes(originalProto.toBuilder(), renamer, dependencies));
         Assertions.assertThat(exception.getMessage())
                 .isEqualTo("Cannot rename union field because a field of the new name already exists");
+        crossCheckRenameRecordTypesIsRejected(originalProto, renamer, dependencies);
     }
 
     /**
@@ -975,28 +973,32 @@ public class MetaDataProtoEditorUnitTest {
 
     /**
      * Tests that the rename rejects any renaming when the metadata declares views, whose definition is a SQL string
-     * that may reference record types by name. Unlike {@link #batchedRejectsUserDefinedFunctions}, this one is
-     * batched-only because {@link MetaDataProtoEditor#renameRecordType} does not check for views.
+     * that may reference record types by name.
      */
     @Test
     void batchedRejectsViews() throws IOException {
         final RecordMetaDataProto.MetaData.Builder builder = loadMetaData("TwoBoringTypes.json");
         builder.addViews(RecordMetaDataProto.PView.newBuilder()
                 .setName("V1").setDefinition("SELECT * FROM T1"));
-        assertBatchedRenameRejected(builder.build(), "Renaming record types with views is not supported");
+        final RecordMetaDataProto.MetaData originalProto = builder.build();
+        assertBatchedRenameRejected(originalProto, "Renaming record types with views is not supported");
+        crossCheckRenameRecordTypesIsRejected(originalProto, MetaDataProtoEditorUnitTest::simpleRename,
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
     }
 
     /**
      * Tests that the rename rejects any renaming when the metadata declares stored queries, whose query is a SQL
-     * string that may reference record types by name. Unlike {@link #batchedRejectsUserDefinedFunctions}, this one is
-     * batched-only because {@link MetaDataProtoEditor#renameRecordType} does not check for stored queries.
+     * string that may reference record types by name.
      */
     @Test
     void batchedRejectsStoredQueries() throws IOException {
         final RecordMetaDataProto.MetaData.Builder builder = loadMetaData("TwoBoringTypes.json");
         builder.addStoredQueries(RecordMetaDataProto.PStoredQuery.newBuilder()
                 .setName("Q1").setQuery("SELECT * FROM T1"));
-        assertBatchedRenameRejected(builder.build(), "Renaming record types with stored queries is not supported");
+        final RecordMetaDataProto.MetaData originalProto = builder.build();
+        assertBatchedRenameRejected(originalProto, "Renaming record types with stored queries is not supported");
+        crossCheckRenameRecordTypesIsRejected(originalProto, MetaDataProtoEditorUnitTest::simpleRename,
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
     }
 
     /**
