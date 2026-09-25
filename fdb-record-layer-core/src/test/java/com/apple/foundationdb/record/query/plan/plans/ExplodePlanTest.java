@@ -348,7 +348,7 @@ public class ExplodePlanTest {
     private static List<Object> ordinalsOf(@Nonnull final List<Integer> elements, final boolean zeroBasedOrdinality) {
         final var plan = new RecordQueryExplodePlan(LiteralValue.ofList(elements), true, zeroBasedOrdinality, false);
         final var resultType = plan.getExplodeResultType();
-        final var typeRepository = TypeRepository.newBuilder().addTypeIfNeeded(resultType).build();
+        final var typeRepository = TypeRepository.newBuilder().addAllTypes(plan.getDynamicTypes()).build();
         final var descriptor = Objects.requireNonNull(typeRepository.getMessageDescriptor(resultType));
         final var elementField = descriptor.getFields().get(0);
         final var ordinalField = descriptor.getFields().get(1);
@@ -496,6 +496,9 @@ public class ExplodePlanTest {
         // Either shape is of the type the plan looks its protobuf descriptor up by at run time.
         Assertions.assertEquals(opaque.getExplodeResultType(), opaque.getResultValue().getResultType());
         Assertions.assertEquals(opaque.getExplodeResultType(), recordConstructor.getResultValue().getResultType());
+
+        Assertions.assertTrue(opaque.getDynamicTypes().contains(opaque.getExplodeResultType()));
+        Assertions.assertTrue(recordConstructor.getDynamicTypes().contains(recordConstructor.getExplodeResultType()));
     }
 
     @Test
@@ -516,6 +519,19 @@ public class ExplodePlanTest {
         Assertions.assertNotEquals(plainElement, plainRecordConstructor);
         Assertions.assertNotEquals(plainElement.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),
                 plainRecordConstructor.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+    }
+
+    @Test
+    void theShapeOfTheFlowedValueEntersTheSemanticHash() {
+        final var collectionValue = LiteralValue.ofList(List.of(1, 2, 3));
+
+        Assertions.assertEquals(new ExplodeExpression(collectionValue, true, false, true).semanticHashCode(),
+                new ExplodeExpression(collectionValue, true, false, true).semanticHashCode());
+
+        Assertions.assertNotEquals(new ExplodeExpression(collectionValue, true).semanticHashCode(),
+                new ExplodeExpression(collectionValue, true, false, true).semanticHashCode());
+        Assertions.assertNotEquals(new ExplodeExpression(collectionValue).semanticHashCode(),
+                new ExplodeExpression(collectionValue, false, false, true).semanticHashCode());
     }
 
     @Test
@@ -545,6 +561,7 @@ public class ExplodePlanTest {
         Assertions.assertNotEquals(element.getExplodeResultType(), recordConstructor.getExplodeResultType());
         Assertions.assertEquals(new RecordQueryExplodePlan(collectionValue, true).getExplodeResultType(),
                 new RecordQueryExplodePlan(collectionValue, true, false, true).getExplodeResultType());
+        Assertions.assertTrue(recordConstructor.getDynamicTypes().contains(recordConstructor.getExplodeResultType()));
 
         // An expression flows what the plan implementing it flows.
         final var expression = new ExplodeExpression(collectionValue, false, false, true);
@@ -562,7 +579,7 @@ public class ExplodePlanTest {
     private static List<Object> structuredElementsOf(@Nonnull final List<Integer> elements) {
         final var plan = new RecordQueryExplodePlan(LiteralValue.ofList(elements), false, false, true);
         final var resultType = plan.getExplodeResultType();
-        final var typeRepository = TypeRepository.newBuilder().addTypeIfNeeded(resultType).build();
+        final var typeRepository = TypeRepository.newBuilder().addAllTypes(plan.getDynamicTypes()).build();
         final var descriptor = Objects.requireNonNull(typeRepository.getMessageDescriptor(resultType));
         Assertions.assertEquals(1, descriptor.getFields().size());
         final var elementField = descriptor.getFields().get(0);
