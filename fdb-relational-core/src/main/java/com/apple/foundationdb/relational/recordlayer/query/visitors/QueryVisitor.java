@@ -288,6 +288,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             final var groupByExpressions = simpleTableContext.groupByClause() == null ?
                     Expressions.empty() :
                     visitGroupByClause(simpleTableContext.groupByClause());
+            assertNoSubqueries(1, "subqueries in the GROUP BY clause are not supported");
 
             final List<Expression> aliasedGroupByColumns = groupByExpressions.stream().filter(expression ->
                     expression instanceof EphemeralExpression).collect(ImmutableList.toImmutableList());
@@ -296,12 +297,19 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 getDelegate().getCurrentPlanFragment().setOperator(selectWhereWithExtraColumns);
                 selectExpressions = visitSelectElements(simpleTableContext.selectElements());
                 where = Optional.ofNullable(simpleTableContext.havingClause() == null ? null : visitHavingClause(simpleTableContext.havingClause()));
-                getDelegate().getCurrentPlanFragment().setOperator(selectWhere);
             } else {
                 selectExpressions = visitSelectElements(simpleTableContext.selectElements());
                 where = Optional.ofNullable(simpleTableContext.havingClause() == null ? null : visitHavingClause(simpleTableContext.havingClause()));
             }
-            outerCorrelations = getDelegate().getCurrentPlanFragment().getOuterCorrelations();
+            // Set the subqueries of the select list and the HAVING clause aside, so that only the grouped rows feed
+            // into the GROUP BY. The subqueries are evaluated on top of it, where they are constant for every group.
+            final LogicalOperators subqueryOperators = subqueryOperatorsOverGroups(selectWhere);
+            getDelegate().getCurrentPlanFragment().setOperator(selectWhere);
+            // The outer correlations and the subqueries are constant with respect to the grouping.
+            outerCorrelations = ImmutableSet.<CorrelationIdentifier>builder()
+                    .addAll(getDelegate().getCurrentPlanFragment().getOuterCorrelations())
+                    .addAll(subqueryOperators.getCorrelations())
+                    .build();
             final var literals = getDelegate().getPlanGenerationContext().getLiterals();
             final var groupBy = LogicalOperator.generateGroupBy(getDelegate().getLogicalOperators(), groupByExpressions,
                     selectExpressions, where, outerCorrelations, literals);
@@ -313,16 +321,18 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             final var finalOuterCorrelation = outerCorrelations;
             where = where.map(predicate -> predicate.pullUp(groupBy.getQuantifier().getRangesOver().get().getResultValue(), groupBy.getQuantifier().getAlias(), finalOuterCorrelation));
             if (simpleTableContext.orderByClause() != null) {
-                final var resolvedOrderBys = visitOrderByClauseForSelect(simpleTableContext.orderByClause(), selectExpressions);
+                final var resolvedOrderBys = visitOrderByClauseForSelect(simpleTableContext.orderByClause(), selectExpressions,
+                        subqueryOperators.getCorrelations());
                 orderBys = OrderByExpression.pullUp(resolvedOrderBys.stream(),
                         groupBy.getQuantifier().getRangesOver().get().getResultValue(), groupBy.getQuantifier().getAlias(), outerCorrelations, Optional.empty())
                         .collect(ImmutableList.toImmutableList());
             }
             getDelegate().getCurrentPlanFragment().setOperator(groupBy);
+            subqueryOperators.forEach(getDelegate().getCurrentPlanFragment()::addOperator);
         } else {
             selectExpressions = visitSelectElements(simpleTableContext.selectElements());
             if (simpleTableContext.orderByClause() != null) {
-                orderBys = visitOrderByClauseForSelect(simpleTableContext.orderByClause(), selectExpressions);
+                orderBys = visitOrderByClauseForSelect(simpleTableContext.orderByClause(), selectExpressions, ImmutableSet.of());
             }
         }
 
@@ -341,6 +351,29 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.isNullUnchecked(simpleTableContext.limitClause(), ErrorCode.UNSUPPORTED_QUERY, "limit not yet supported in SQL");
 
         return result;
+    }
+
+    /**
+     * Returns the operators of the subqueries visited as part of the select list or the {@code HAVING} clause of a
+     * grouped query, that is, all operators added to the current plan fragment after {@code selectWhere}. As these
+     * subqueries are evaluated on top of the grouping, they must not be correlated to the grouped rows.
+     *
+     * @param selectWhere the operator producing the grouped rows
+     * @return the operators of the subqueries
+     */
+    @Nonnull
+    private LogicalOperators subqueryOperatorsOverGroups(@Nonnull final LogicalOperator selectWhere) {
+        final List<LogicalOperator> operators = getDelegate().getLogicalOperators().asList();
+        final CorrelationIdentifier groupedRowsAlias = selectWhere.getQuantifier().getAlias();
+        Assert.thatUnchecked(operators.get(0).getQuantifier().getAlias().equals(groupedRowsAlias));
+        final LogicalOperators subqueryOperators = LogicalOperators.of(operators.subList(1, operators.size()));
+        for (final LogicalOperator subqueryOperator : subqueryOperators) {
+            Assert.thatUnchecked(
+                    !subqueryOperator.getQuantifier().getCorrelatedTo().contains(groupedRowsAlias),
+                    ErrorCode.GROUPING_ERROR,
+                    "correlated subqueries in the select list or HAVING clause of a grouped query are not supported");
+        }
+        return subqueryOperators;
     }
 
     @Nonnull
@@ -810,6 +843,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         for (final var tupleContext : ctx.recordConstructorForInsert()) {
             insertTuples.add(visitRecordConstructorForInsert(tupleContext));
         }
+        // Subqueries are not supported here, as the explode below would not range over their operators.
+        assertNoSubqueries(0, "subqueries in INSERT ... VALUES are not supported");
         final var arguments = Expressions.of(insertTuples.build()).asList().toArray(new Expression[0]);
         final var arrayOfTuples = getDelegate().resolveFunction("__internal_array", false, arguments);
         final var explodeExpression = new ExplodeExpression(arrayOfTuples.getUnderlying());
@@ -843,6 +878,8 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             final Value update = targetAndUpdateExpressions.get(1).getUnderlying();
             transformMapBuilder.put(target, update);
         }
+        // Subqueries are not supported here, as the update expression would not range over their operators.
+        assertNoSubqueries(1, "subqueries in UPDATE ... SET are not supported");
 
         final var updateExpression = new UpdateExpression(Assert.castUnchecked(updateSource.getQuantifier(), Quantifier.ForEach.class),
                 Assert.notNullUnchecked(tableType.getStorageName(), "Update target type must have storage type name available"),
@@ -938,9 +975,52 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         return Assert.castUnchecked(visitChildren(context), LogicalOperator.class);
     }
 
+    /**
+     * Rejects subqueries in a part of a statement that does not support them. A subquery registers an operator in the
+     * current plan fragment, so it is detected by the number of operators differing from the expected one.
+     *
+     * @param expectedNumberOfOperators the number of operators the current plan fragment has without subqueries
+     * @param message the error message
+     */
+    private void assertNoSubqueries(final int expectedNumberOfOperators, @Nonnull final String message) {
+        Assert.thatUnchecked(getDelegate().getLogicalOperators().size() == expectedNumberOfOperators,
+                ErrorCode.UNSUPPORTED_QUERY, message);
+    }
+
+    /**
+     * Visits the {@code ORDER BY} clause of a {@code SELECT}. Subqueries are rejected in it, as the planner cannot
+     * implement sorting by a subquery, both when they appear in the clause directly and when an alias in the clause
+     * refers to a subquery in the select list.
+     *
+     * @param orderByClauseContext the {@code ORDER BY} clause
+     * @param visibleSelectAliases the select list
+     * @param setAsideSubqueryAliases the aliases of subqueries in the select list that are not registered in the
+     *        current plan fragment, because they were set aside for a grouped query
+     * @return the {@code ORDER BY} expressions
+     */
     @Nonnull
     public List<OrderByExpression> visitOrderByClauseForSelect(@Nonnull RelationalParser.OrderByClauseContext orderByClauseContext,
-                                                               @Nonnull Expressions visibleSelectAliases) {
+                                                               @Nonnull Expressions visibleSelectAliases,
+                                                               @Nonnull Set<CorrelationIdentifier> setAsideSubqueryAliases) {
+        final int numOperators = getDelegate().getLogicalOperators().size();
+        final Set<CorrelationIdentifier> subqueryAliases = ImmutableSet.<CorrelationIdentifier>builder()
+                .addAll(setAsideSubqueryAliases)
+                .addAll(getDelegate().getLogicalOperators().stream()
+                        .filter(operator -> operator.getQuantifier() instanceof Quantifier.Existential)
+                        .map(operator -> operator.getQuantifier().getAlias())
+                        .iterator())
+                .build();
+        final List<OrderByExpression> result
+                = visitOrderByClauseForSelectInternal(orderByClauseContext, visibleSelectAliases, subqueryAliases);
+        assertNoSubqueries(numOperators, "subqueries in the ORDER BY clause are not supported");
+        return result;
+    }
+
+    @Nonnull
+    private List<OrderByExpression> visitOrderByClauseForSelectInternal(
+            @Nonnull RelationalParser.OrderByClauseContext orderByClauseContext,
+            @Nonnull Expressions visibleSelectAliases,
+            @Nonnull Set<CorrelationIdentifier> subqueryAliases) {
         final var validSelectAliases = Expressions.of(visibleSelectAliases.stream()
                 .filter(expr -> expr.getName().isPresent() && !expr.getName().get().isQualified())
                 .collect(ImmutableList.toImmutableList()));
@@ -957,6 +1037,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
             final var matchingExpressionMaybe = isAliasMaybe.flatMap(alias -> semanticAnalyzer.lookupAlias(visitFullId(alias), validSelectAliases));
             matchingExpressionMaybe.ifPresentOrElse(
                     matchingExpression -> {
+                        final boolean refersToSubquery = matchingExpression.getUnderlying().getCorrelatedTo().stream()
+                                .anyMatch(subqueryAliases::contains);
+                        Assert.thatUnchecked(!refersToSubquery, ErrorCode.UNSUPPORTED_QUERY,
+                                "subqueries in the ORDER BY clause are not supported");
                         final var descending = ParseHelpers.isDescending(orderByExpression.orderClause());
                         final var nullsLast = ParseHelpers.isNullsLast(orderByExpression.orderClause(), descending);
                         orderBysBuilder.add(OrderByExpression.of(matchingExpression, descending, nullsLast));
