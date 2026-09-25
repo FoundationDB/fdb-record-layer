@@ -88,7 +88,7 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: jar mixedModeTest
+          gradle_command: jar mixedModeTest codeCoverageReport
           # Setting tests.nightly would cause it to ignore failures at the gradle level.
           # But, in the case of mixed-mode-test we are runnning with continue-on-error and using the result of the gradle
           # task to populate the summary. Thus, there's no benefit to ignoring failures at the gradle level, and if we
@@ -107,33 +107,7 @@ jobs:
             **/.out/libs/*.jar
           include-hidden-files: true
           retention-days: 1
-
-  # Merge the JaCoCo execution data from every mixed-mode matrix leg into a single report and
-  # upload it once. Each leg used to upload to the 'Mixed Mode Tests' partition itself, at the same
-  # revision, so the legs overwrote one another instead of accumulating.
-  mixed_mode_coverage:
-    if: github.repository == 'FoundationDB/fdb-record-layer'
-    needs: [mixed-mode]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Setup Base Environment
-        uses: ./actions/setup-base-env
-      # Deliberately without merge-multiple, so each artifact lands in its own subdirectory:
-      # every leg produces an identically named yaml-tests/.out/jacoco/mixedModeTest.exec, which
-      # would otherwise overwrite. codeCoverageReport globs `.coverage-data/**/*.exec`.
-      - name: Download mixed-mode coverage data
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: mixed-mode-*-coverage-data
-          path: .coverage-data
-      - name: Run JaCoCo Report
-        uses: ./actions/run-gradle
-        with:
-          gradle_command: jar codeCoverageReport
+      # This will upload multiple times, once for each of the old versions
       - name: Upload coverage to teamscale
         uses: ./actions/teamscale-upload
         with:

@@ -228,15 +228,6 @@ tasks.register('codeCoverageReport', JacocoReport) {
     }
     executionData data
 
-    // CI merge jobs stage per-job coverage artifacts under `.coverage-data/<artifact-name>/` when
-    // unpacking them in place would collide (for example, every mixed-mode matrix leg produces its
-    // own `yaml-tests/.out/jacoco/mixedModeTest.exec`). Pick those up alongside the in-tree data.
-    // A directory fileTree is lazy under the configuration cache and is simply empty when the
-    // directory does not exist, which is the normal case outside CI.
-    executionData fileTree(rootProject.file('.coverage-data')) {
-        include '**/*.exec'
-    }
-
     // Not much consistency in naming these.
     def exclusions = [
         "**/*Proto.class", "**/*Proto\$*.class",
