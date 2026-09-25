@@ -265,6 +265,42 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
+    void testIndexFromIndexFallbackDoesNotLeakToTheNextOperation() {
+        // A fallback adjusts the indexing policy. Assert that a following operation, performed by the very same
+        // indexer, starts over from the originally requested policy - and attempts the by-index build again.
+        this.formatVersion = FormatVersionTestUtils.previous(FormatVersion.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE);
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final long numRecords = 6;
+        final long otherRecords = 5;
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        populateDataSimpleAndOther(numRecords, otherRecords);
+
+        openSimpleMetaData(hook);
+        buildIndexClean(srcIndex);
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .build())
+                .build()) {
+            // the by-index attempt is rejected by the format version, then a single fallback to a by-records scan
+            indexBuilder.buildIndex(true);
+            assertEquals(2, indexBuilder.getLastAttemptCount());
+
+            // start over with the same indexer - the requested by-index policy should be attempted again
+            disableAll(List.of(tgtIndex));
+            indexBuilder.buildIndex(true);
+            assertEquals(2, indexBuilder.getLastAttemptCount());
+        }
+        scrubAndValidate(List.of(tgtIndex));
+    }
+
+    @Test
     void testNonIdempotentIndexFromIndexOldFormatNoFallback() {
         // Attempt to build a non-idempotent index at old format version where this is not supported. This should
         // error as falling back to a record scan is not enabled
