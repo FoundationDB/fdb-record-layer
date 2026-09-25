@@ -20,8 +20,9 @@
 
 /**
  * Test fixtures for the {@code Guardiann} clustered vector structure: structural-invariant assertions
- * ({@code GuardiannStructureAsserts}) and vector-dataset ({@code .fvecs}/{@code .ivecs}) loaders and paths
- * ({@code VecsDatasetLoaders}, {@code SiftTestHelpers}), shared between the fdb-extensions guardiann tests and the
+ * ({@code GuardiannStructureAsserts}), vector-dataset ({@code .fvecs}/{@code .ivecs}) loaders and paths
+ * ({@code VecsDatasetLoaders}, {@code SiftTestHelpers}), workload and recall helpers ({@code GuardiannTestHelpers}) and
+ * recommended configurations ({@code ConfigRecommendation}), shared between the fdb-extensions guardiann tests and the
  * record-layer's vector-index tests.
  */
 package com.apple.foundationdb.async.guardiann;

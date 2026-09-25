@@ -60,7 +60,7 @@ import javax.annotation.Nonnull;
  * left at their defaults. Quantization ({@code useRaBitQ}, {@code raBitQNumExBits}) is an encoding decision driven by
  * dimensionality and recall target rather than by cluster size, so it is left to the caller too.
  */
-final class ConfigRecommendation {
+public final class ConfigRecommendation {
     /** Cluster sizes below this leave no room for the ratios below to be meaningful. */
     private static final int MIN_SUPPORTED_CLUSTER_MAX = 50;
 
@@ -76,7 +76,7 @@ final class ConfigRecommendation {
      *         dataset-specific overrides the caller wants to layer on
      */
     @Nonnull
-    static Config.ConfigBuilder forClusterMax(@Nonnull final Metric metric, final int primaryClusterMax) {
+    public static Config.ConfigBuilder forClusterMax(@Nonnull final Metric metric, final int primaryClusterMax) {
         return forClusterBounds(metric, primaryClusterMax, primaryClusterMax / 10);
     }
 
@@ -94,8 +94,8 @@ final class ConfigRecommendation {
      *         dataset-specific overrides the caller wants to layer on
      */
     @Nonnull
-    static Config.ConfigBuilder forClusterBounds(@Nonnull final Metric metric, final int primaryClusterMax,
-                                                 final int primaryClusterMin) {
+    public static Config.ConfigBuilder forClusterBounds(@Nonnull final Metric metric, final int primaryClusterMax,
+                                                        final int primaryClusterMin) {
         if (primaryClusterMax < MIN_SUPPORTED_CLUSTER_MAX) {
             throw new IllegalArgumentException("primaryClusterMax must be at least " + MIN_SUPPORTED_CLUSTER_MAX
                     + " for the recommended ratios to be meaningful; got " + primaryClusterMax);
