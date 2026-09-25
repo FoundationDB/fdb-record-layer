@@ -758,6 +758,19 @@ public class MetaDataProtoEditorUnitTest {
     }
 
     /**
+     * Tests that the rename rejects a renamer that maps a record type to the name of a record type backed by a nested
+     * message type. In the fixture, the union references {@code T2.Inner}, which makes {@code Inner} a record type.
+     */
+    @Test
+    void batchedRejectsRenameToNestedRecordType() throws IOException {
+        final RecordMetaDataProto.MetaData originalProto = loadMetaData("UnionFieldToNestedType.json").build();
+        crossCheckRenameRecordTypesIsRejected(
+                originalProto,
+                name -> name.equals("T2") ? "Inner" : name,
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
+    }
+
+    /**
      * Tests that the rename rejects a renamer that maps a record type to the name of a synthetic record type, whether
      * joined or unnested. Unlike the other exception tests here, this one is batched-only because
      * {@link MetaDataProtoEditor#renameRecordType} does not check for such a collision at all.
@@ -853,6 +866,38 @@ public class MetaDataProtoEditorUnitTest {
                 getFieldMessageType(renamed, simpleRename("MyOtherRecord"), "simple").getName());
         assertEquals("com.apple.foundationdb.record.test1.MySimpleRecord",
                 getFieldMessageType(renamed, simpleRename("MyOtherRecord"), "imported_simple").getFullName());
+    }
+
+    /**
+     * Tests that the rename determines the record types from the union message type rather than from
+     * {@code MetaData.record_types}, the same way {@link RecordMetaDataBuilder} does. In the fixture,
+     * {@code MetaData.record_types} is empty, which is valid as long as the primary keys come from the
+     * {@code (field).primary_key} extension instead. Unlike the other rename tests here, this one is batched-only,
+     * because {@link MetaDataProtoEditor#renameRecordType} rejects such metadata for lacking the record type entry.
+     */
+    @Test
+    void batchedRenamesRecordTypesMissingFromRecordTypes() {
+        final RecordMetaDataProto.MetaData originalProto = RecordMetaData.build(TestRecords1Proto.getDescriptor())
+                .toProto().toBuilder().clearRecordTypes().clearIndexes().build();
+        final RecordMetaData originalMetaData = RecordMetaData.newBuilder().setRecords(originalProto, true).build();
+        assertEquals(Set.of("MySimpleRecord", "MyOtherRecord"), originalMetaData.getRecordTypes().keySet());
+
+        final Set<String> renamerSawNames = new LinkedHashSet<>();
+        final RecordMetaDataProto.MetaData.Builder builder = originalProto.toBuilder();
+        MetaDataProtoEditor.renameRecordTypes(builder, name -> {
+            renamerSawNames.add(name);
+            return simpleRename(name);
+        }, RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
+        assertEquals(Set.of("MySimpleRecord", "MyOtherRecord"), renamerSawNames);
+        assertEquals(List.of(), MetaDataProtoEditor.getRecordTypes(builder));
+
+        final RecordMetaData renamed = RecordMetaData.newBuilder().setRecords(builder.build(), true).build();
+        assertEquals(Set.of(simpleRename("MySimpleRecord"), simpleRename("MyOtherRecord")),
+                renamed.getRecordTypes().keySet());
+        // Indexes declared through the `(field).index` extension are named after their record type, so they follow
+        // the rename too. That is inherent to such metadata, which is why this is not a valid evolution of the original.
+        assertNotNull(originalMetaData.getIndex("MySimpleRecord$num_value_3_indexed"));
+        assertNotNull(renamed.getIndex(simpleRename("MySimpleRecord") + "$num_value_3_indexed"));
     }
 
     /**
