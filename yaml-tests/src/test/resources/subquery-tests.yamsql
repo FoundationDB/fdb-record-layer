@@ -3,7 +3,7 @@
 #
 # This source file is part of the FoundationDB open source project
 #
-# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,73 +18,287 @@
 # limitations under the License.
 
 ---
-schema_template:
-  create table a(ida integer, x integer, primary key(ida))
-  create table x(idx integer, y integer, primary key(idx))
-  CREATE TYPE AS STRUCT s(f integer)
-  create table r(idr integer, z integer, nr s array, primary key(idr))
-  create table b(idb integer, q integer, r integer, primary key(idb))
-  create index ib as select q from b
-  create index ir as select idr, z from r order by idr, z
-  create index ir_f as select sq.f from r, (select f from r.nr) sq;
+options:
+    connection_options:
+      CASE_SENSITIVE_IDENTIFIERS: true
+---
+schema_template: |
+  -- Column T2 has the same name as table T2, to test name resolution.
+  CREATE TABLE T1 (id INTEGER, T2 INTEGER, PRIMARY KEY(id))
+  CREATE TABLE T2 (id INTEGER, PRIMARY KEY(id))
+
+  CREATE TYPE AS STRUCT s (f INTEGER)
+  CREATE TABLE T3 (id INTEGER, i INTEGER, nr s ARRAY, PRIMARY KEY(id))
+  CREATE INDEX T3_id_i AS SELECT id, i FROM T3 ORDER BY id, i
+
+  CREATE TABLE T4 (id INTEGER, i INTEGER, PRIMARY KEY(id))
+  CREATE INDEX T4_i AS SELECT i FROM T4
+
+  CREATE TABLE T5 (id BIGINT, name STRING, PRIMARY KEY(id))
+  CREATE TABLE T6 (id BIGINT, i1 BIGINT, i2 BIGINT, PRIMARY KEY(id))
+  CREATE INDEX T6_i1 AS SELECT i1 FROM T6 ORDER BY i1
+
+  -- View and function whose bodies have an EXISTS subquery.
+  CREATE VIEW V1 AS SELECT T4.i FROM T4 WHERE EXISTS (SELECT id FROM T1 WHERE T1.T2 = T4.id AND T1.id > 1)
+  CREATE FUNCTION F1() AS SELECT T4.i FROM T4 WHERE EXISTS (SELECT id FROM T1 WHERE T1.T2 = T4.id AND T1.id > 1)
 ---
 setup:
   steps:
-    - query: INSERT INTO A VALUES (1, 1), (2, 2), (3, 3)
-    - query: INSERT INTO X VALUES (4, 10), (5, 20), (6, 30)
-    - query: INSERT INTO R VALUES (1, 10, [(11), (12), (13)]), (2, 20, [(21), (22), (23)]), (3, 30, [(31), (32), (33)])
-    - query: INSERT INTO B VALUES (1, 10, 100), (2, 20, 200), (3, 30, 300)
+    - query: INSERT INTO T1 VALUES (1, 1), (2, 2), (3, 3)
+    - query: INSERT INTO T2 VALUES (4), (5), (6)
+    - query: INSERT INTO T3 VALUES
+               (1, 10, [(11), (12), (13)]),
+               (2, 20, [(21), (22), (23)]),
+               (3, 30, [(31), (32), (33)])
+    - query: INSERT INTO T4 VALUES (1, 10), (2, 20), (3, 30)
+    - query: INSERT INTO T5 VALUES (1, 'a'), (2, 'b'), (3, 'c')
+    - query: INSERT INTO T6 VALUES (1, 1, 100), (2, 1, 200), (3, 2, 300), (4, 2, NULL)
 ---
+# Tests for (non-scalar) subqueries in the FROM clause.
 test_block:
-  name: subquery-tests
+  name: subquery-from
   tests:
     -
-      # non correlated subquery, resolving alias should be fine.
-      - query: select ida from a where exists (select ida from a where ida = 1);
-      - explain: "SCAN([IS A, EQUALS promote(@c14 AS INT)]) | MAP (_.IDA AS IDA) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS A]) AS q1 RETURN (q1.IDA AS IDA) }"
+      # PartiQL-style unnesting of an ARRAY column in the FROM clause.
+      - query: SELECT id FROM T3, T3.nr AS nest WHERE nest.f = 23;
+      - explain: "ISCAN(T3_id_i <,>) | FLATMAP q0 -> { EXPLODE q0.nr | FILTER _.f EQUALS promote(@c15 AS INT) AS q1 RETURN (q0.id AS id) }"
+      - result: [{2}]
+    -
+      # The same unnesting, expressed as a FROM-clause subquery. The plan is the same as for the direct unnesting above.
+      - query: SELECT id FROM T3, (SELECT * FROM T3.nr) AS nest WHERE nest.f = 23;
+      - explain: "ISCAN(T3_id_i <,>) | FLATMAP q0 -> { EXPLODE q0.nr | FILTER _.f EQUALS promote(@c20 AS INT) AS q1 RETURN (q0.id AS id) }"
+      - result: [{2}]
+    -
+      # FROM-clause subquery correlated to a preceding table source (`T1.T2`).
+      - query: SELECT T2, sq.id, sq.nr FROM T1, (SELECT * FROM T3 WHERE T3.id = T1.T2) sq;
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T3_id_i [EQUALS q0.T2]) AS q1 RETURN (q0.T2 AS T2, q1.id AS id, q1.nr AS nr) }"
+      - result: [{T2: 1, 1, [{11}, {12}, {13}]}, {T2: 2, 2, [{21}, {22}, {23}]}, {T2: 3, 3, [{31}, {32}, {33}]}]
+    -
+      # Two FROM-clause subqueries, the second unnesting an ARRAY of the first, with further predicates in the outer
+      # WHERE clause. Plans that push these predicates down into the subqueries should be preferred.
+      - query: SELECT sq.id, sq.i
+                 FROM (SELECT * FROM T3 WHERE id = 1) sq,
+                      (SELECT f FROM sq.nr WHERE f > 10) sq2
+                WHERE sq.i = 10
+                  AND sq2.f IS NOT NULL
+      - explain: "ISCAN(T3_id_i [EQUALS promote(@c17 AS INT), EQUALS promote(@c31 AS INT)]) | FLATMAP q0 -> { EXPLODE q0.nr | FILTER _.f GREATER_THAN promote(@c31 AS INT) AND _.f NOT_NULL AS q1 RETURN (q0.id AS id, q0.i AS i) }"
+      - result: [{1, 10}, {1, 10}, {1, 10}]
+---
+# Tests for EXISTS subqueries.
+test_block:
+  name: exists-subquery
+  tests:
+    -
+      # Correlated EXISTS subquery in the SELECT list.
+      - query: SELECT p.id, EXISTS (SELECT c.id FROM T6 c WHERE c.i1 = p.id) AS e FROM T5 p
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { COVERING(T6_i1 [EQUALS q0.id] -> [i1: KEY:[0], id: KEY:[2]]) | MAP (_.id AS id) | DEFAULT NULL AS q1 RETURN (q0.id AS id, exists(q1) AS e) }"
+      - result: [{id: 1, e: true}, {id: 2, e: true}, {id: 3, e: false}]
+    -
+      # Uncorrelated EXISTS subquery in the SELECT list of a grouped query. This is rejected with a grouping error,
+      # although the subquery is constant for every group.
+      - query: SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4 GROUP BY T4.i
+      - error: GROUPING_ERROR
+    -
+      # EXISTS subquery in the SELECT list of a grouped query, correlated to a non-grouping column (`T4.id`).
+      - query: SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = T4.id) AS e FROM T4 GROUP BY T4.i
+      - error: GROUPING_ERROR
+    -
+      # Uncorrelated EXISTS subquery in the SELECT list of an aggregate query without GROUP BY. This is currently
+      # rejected with a GROUPING_ERROR.
+      - query: SELECT COUNT(*) AS n, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4
+      - error: GROUPING_ERROR
+    -
+      # The same but over an empty input, which still yields a single row.
+      - query: SELECT COUNT(*) AS n, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4 WHERE T4.i > 100
+      - error: GROUPING_ERROR
+    -
+      # EXISTS subquery inside an aggregate function argument of a grouped query.
+      - query: SELECT T4.i, SUM(CASE WHEN EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) THEN 1 ELSE 0 END) AS s
+                 FROM T4
+             GROUP BY T4.i
+      - error: UNKNOWN
+    -
+      # EXISTS subquery in the SELECT list, containing a grouped query with an EXISTS subquery in its own SELECT list.
+      # This is currently rejected with a GROUPING_ERROR.
+      - query: SELECT p.id,
+                      EXISTS (SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) FROM T4 GROUP BY T4.i) AS e
+                 FROM T5 p
+      - error: GROUPING_ERROR
+    -
+      # EXISTS subquery in a row of an inline VALUES table in the FROM clause.
+      - query: SELECT * FROM VALUES (1, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)) AS t (a, e)
+      - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c5 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { EXPLODE array((@c5 AS a, exists(q0) AS e)) AS q1 RETURN q1 }"
+      - result: [{a: 1, e: true}]
+    -
+      # Uncorrelated EXISTS subquery in the WHERE clause, over the same table as the outer query. The column `id`
+      # resolves within the subquery.
+      - query: SELECT id FROM T1 WHERE EXISTS (SELECT id FROM T1 WHERE id = 1)
+      - explain: "SCAN([IS T1, EQUALS promote(@c14 AS INT)]) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS T1]) AS q1 RETURN (q1.id AS id) }"
       - result: [{1}, {2}, {3}]
     -
-      # this should work albeit being seemingly ambiguous
-      # upper query block resolution should kick in _iff_ we fail to resolve
-      # the identifier in current query block.
-      - query: select idx from x where exists (select x from a where ida = 1);
-      - explain: "SCAN([IS A, EQUALS promote(@c14 AS INT)]) | MAP (_.X AS X) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS X]) AS q1 RETURN (q1.IDX AS IDX) }"
+      # EXISTS subquery in the WHERE clause, projecting `T2`, which names both a column of the subquery table `T1` and
+      # the outer table. The name resolves within the subquery; an outer query block is only consulted if resolution
+      # in the current block fails.
+      - query: SELECT id FROM T2 WHERE EXISTS (SELECT T2 FROM T1 WHERE id = 1)
+      - explain: "SCAN([IS T1, EQUALS promote(@c14 AS INT)]) | MAP (_.T2 AS T2) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { SCAN([IS T2]) AS q1 RETURN (q1.id AS id) }"
       - result: [{4}, {5}, {6}]
     -
-      # PartiQL resolution.
-      - query: select idr from r, r.nr as NEST where NEST.f = 23;
-      - result: [{2}]
+      # Correlated EXISTS subquery in the WHERE clause. The row of T5 with id 3 has no children.
+      - query: SELECT p.id FROM T5 p WHERE EXISTS (SELECT c.id FROM T6 c WHERE c.i1 = p.id)
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { COVERING(T6_i1 [EQUALS q0.id] -> [i1: KEY:[0], id: KEY:[2]]) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.id AS id) }"
+      - unorderedResult: [{1}, {2}]
     -
-      # PartiQL resolution, another flavour (TODO check whether this still use the IR index).
-      - query: select idr from r, (select * from r.nr) as NEST where NEST.f = 23;
-      - result: [{2}]
+      # The same subquery with NOT EXISTS.
+      - query: SELECT p.id FROM T5 p WHERE NOT EXISTS (SELECT c.id FROM T6 c WHERE c.i1 = p.id)
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { COVERING(T6_i1 [EQUALS q0.id] -> [i1: KEY:[0], id: KEY:[2]]) | MAP (_.id AS id) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN (q0.id AS id) }"
+      - result: [{3}]
     -
-      # correlation are allowed in from-subquery.
-      - query: select x, sq.idr, sq.nr from a, (select * from r where r.idr = a.x) sq;
-      - result: [{x: 1, 1, [{11}, {12}, {13}]}, {x: 2, 2, [{21}, {22}, {23}]}, {x: 3, 3, [{31}, {32}, {33}]}]
+      # View with a correlated EXISTS subquery in its WHERE clause. ⚠️ This currently returns every row of T4, as the
+      # EXISTS subquery is dropped when the view is compiled.
+      - query: SELECT * FROM V1
+      - unorderedResult: [{10}, {20}, {30}]
     -
-      # correlations are allowed inside a nested subquery with group by
-      - query: select x from a where exists (select a.x, max(idb) from b where q > a.x group by q)
-      - explain: "SCAN([IS A]) | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
+      # The same for a function.
+      - query: SELECT * FROM F1()
+      - unorderedResult: [{10}, {20}, {30}]
+    -
+      # Correlated EXISTS subquery in the WHERE clause, with GROUP BY, projecting a qualified outer column (`T1.T2`).
+      - query: SELECT T2 FROM T1 WHERE EXISTS (SELECT T1.T2, MAX(id) FROM T4 WHERE i > T1.T2 GROUP BY i)
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T4_i [[GREATER_THAN q0.T2]]) | MAP (_ AS _0) | AGG (max_i(_._0.id) AS _0) GROUP BY (_._0.i AS _0) | MAP (q0.T2 AS T2, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.T2 AS T2) }"
       - result: [{1}, {2}, {3}]
     -
-      # correlations are allowed inside a nested subquery with group by, not necessarily qualified
-      - query: select x from a where exists (select x, max(idb) from b where q > x group by q)
-      - explain: "SCAN([IS A]) | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
+      # The same but with an unqualified outer column (`T2`).
+      - query: SELECT T2 FROM T1 WHERE EXISTS (SELECT T2, MAX(id) FROM T4 WHERE i > T2 GROUP BY i)
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T4_i [[GREATER_THAN q0.T2]]) | MAP (_ AS _0) | AGG (max_i(_._0.id) AS _0) GROUP BY (_._0.i AS _0) | MAP (q0.T2 AS T2, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.T2 AS T2) }"
       - result: [{1}, {2}, {3}]
     -
-      # correlations inside aggregations are allowed inside a nested subquery with group by
-      - query: select x from a where exists (select max(x), max(idb) from b where q > x group by q)
-      - explain: "SCAN([IS A]) | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
+      # Correlated EXISTS subquery in WHERE, with GROUP BY, aggregating an unqualified outer column (`MAX(T2)`).
+      - query: SELECT T2 FROM T1 WHERE EXISTS (SELECT MAX(T2), MAX(id) FROM T4 WHERE i > T2 GROUP BY i)
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T4_i [[GREATER_THAN q0.T2]]) | MAP (_ AS _0) | AGG (max_i(q0.T2) AS _0, max_i(_._0.id) AS _1) GROUP BY (_._0.i AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.T2 AS T2) }"
       - result: [{1}, {2}, {3}]
     -
-      # correlations inside aggregations are allowed inside a nested subquery with group by
-      - query: select x from a where exists (select max(a.x), max(idb) from b where q > x group by q)
-      - explain: "SCAN([IS A]) | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }"
+      # The same but with a qualified outer column (`MAX(T1.T2)`).
+      - query: SELECT T2 FROM T1 WHERE EXISTS (SELECT MAX(T1.T2), MAX(id) FROM T4 WHERE i > T2 GROUP BY i)
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T4_i [[GREATER_THAN q0.T2]]) | MAP (_ AS _0) | AGG (max_i(q0.T2) AS _0, max_i(_._0.id) AS _1) GROUP BY (_._0.i AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.T2 AS T2) }"
       - result: [{1}, {2}, {3}]
     -
-      # plans with pushed-down predicates should be preferred
-      - query: select sq.idr, sq.z from (select * from r where idr = 1) sq, (select f from sq.nr where f > 10) sq2 where sq.z = 10 AND sq2.f is not null
-      - explain: "ISCAN(IR [EQUALS promote(@c17 AS INT), EQUALS promote(@c31 AS INT)]) | FLATMAP q0 -> { EXPLODE q0.NR | FILTER _.F GREATER_THAN promote(@c31 AS INT) AND _.F NOT_NULL AS q1 RETURN (q0.IDR AS IDR, q0.Z AS Z) }"
-      - result: [{1, 10}, {1, 10}, {1, 10}]
+      # EXISTS subquery in GROUP BY. TODO This currently fails with an internal error.
+      - query: SELECT COUNT(*) AS n FROM T4 GROUP BY EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
+      - error: UNKNOWN
+    -
+      # Uncorrelated EXISTS subquery in the HAVING clause. This is currently rejected with a GROUPING_ERROR, although
+      # the subquery is constant for every group.
+      - query: SELECT T4.i FROM T4 GROUP BY T4.i HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
+      - error: GROUPING_ERROR
+    -
+      # The same but with an empty subquery.
+      - query: SELECT T4.i FROM T4 GROUP BY T4.i HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 99)
+      - error: GROUPING_ERROR
+    -
+      # The same but with an aliased grouping column.
+      - query: SELECT g FROM T4 GROUP BY T4.i AS g HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
+      - error: GROUPING_ERROR
+    -
+      # Uncorrelated EXISTS subqueries in both the SELECT list and the HAVING clause.
+      - query: SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e
+                 FROM T4
+             GROUP BY T4.i
+               HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 2)
+      - error: GROUPING_ERROR
+    -
+      # EXISTS subquery in the HAVING clause of a grouped subquery, correlated to the enclosing query (`p.id`) rather
+      # than to the grouped rows. This is currently rejected with a GROUPING_ERROR.
+      - query: SELECT p.id
+                 FROM T5 p
+                WHERE EXISTS (SELECT T4.i FROM T4 GROUP BY T4.i HAVING EXISTS (SELECT id FROM T1 WHERE T1.id = p.id))
+      - error: GROUPING_ERROR
+    -
+      # EXISTS subquery in the HAVING clause, correlated to a grouping column (`T4.i`). This is valid SQL, but still
+      # rejected. Supporting it would require rewriting the correlation to the grouped rows into one to the output of
+      # the grouping.
+      - query: SELECT T4.i FROM T4 GROUP BY T4.i HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = T4.i)
+      - error: GROUPING_ERROR
+    -
+      # EXISTS subquery in the HAVING clause, whose nested EXISTS subquery is correlated to the grouped rows
+      # (`T4.id`). This must stay rejected.
+      - query: SELECT T4.i
+                 FROM T4
+             GROUP BY T4.i
+               HAVING EXISTS (SELECT id FROM T1 WHERE EXISTS (SELECT c.id FROM T6 c WHERE c.i1 = T4.id))
+      - error: GROUPING_ERROR
+    -
+      # EXISTS subquery in ORDER BY. This is accepted by the frontend, but cannot be planned.
+      - query: SELECT p.id FROM T5 p ORDER BY EXISTS (SELECT c.id FROM T6 c WHERE c.i1 = p.id)
+      - error: UNSUPPORTED_QUERY
+    -
+      # EXISTS subquery in the SELECT list, referred to by its alias in ORDER BY.
+      - query: SELECT p.id, EXISTS (SELECT c.id FROM T6 c WHERE c.i1 = p.id) AS e FROM T5 p ORDER BY e
+      - error: UNSUPPORTED_QUERY
+    -
+      # The same in a grouped query.
+      - query: SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4 GROUP BY T4.i ORDER BY e
+      - error: GROUPING_ERROR
+---
+# Tests for subqueries in INSERT and UPDATE statements.
+test_block:
+  name: subquery-in-dml
+  preset: single_repetition_ordered
+  options:
+    # Some of these statements write, so they must not be executed a second time for the cache check.
+    check_cache: false
+  tests:
+    -
+      # Correlated EXISTS subquery in the WHERE clause of an UPDATE.
+      - query: UPDATE T4 SET i = i WHERE EXISTS (SELECT id FROM T1 WHERE T1.T2 = T4.id AND T1.id > 1) RETURNING "new".id
+      - unorderedResult: [{2}, {3}]
+    -
+      # Uncorrelated EXISTS subquery in the RETURNING clause of an UPDATE.
+      - query: UPDATE T4 SET i = i WHERE id = 1 RETURNING "new".id, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e
+      - result: [{id: 1, e: true}]
+    -
+      # EXISTS subquery on the right-hand side of UPDATE…SET.
+      - query: UPDATE T4 SET i = CASE WHEN EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) THEN i ELSE 0 END WHERE id = 1
+      - error: UNKNOWN
+    -
+      # EXISTS subquery supplying a value in INSERT…VALUES.
+      - query: INSERT INTO T4 VALUES (9, CASE WHEN EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) THEN 90 ELSE 0 END)
+      - error: UNKNOWN
+    -
+      # Uncorrelated EXISTS subquery in the RETURNING clause of a DELETE, deleting a row inserted just before.
+      - query: INSERT INTO T4 VALUES (8, 80)
+      - count: 1
+    -
+      - query: DELETE FROM T4 WHERE id = 8 RETURNING id, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e
+      - result: [{id: 8, e: true}]
+---
+setup:
+  connect: 0
+  steps:
+    - query: DROP SCHEMA TEMPLATE IF EXISTS subquery_view_template_1
+    - query: DROP SCHEMA TEMPLATE IF EXISTS subquery_view_template_2
+---
+# Tests for subqueries in views, whose definitions are compiled with the schema template.
+test_block:
+  name: subquery-in-view-definition
+  connect: 0
+  preset: single_repetition_ordered
+  tests:
+    -
+      # View with an uncorrelated EXISTS subquery in the HAVING clause of a grouped query. This is currently rejected
+      # with a GROUPING_ERROR, just like the same query outside of a view.
+      - query: CREATE SCHEMA TEMPLATE subquery_view_template_1
+                 CREATE TABLE T1 (id INTEGER, T2 INTEGER, PRIMARY KEY(id))
+                 CREATE TABLE T4 (id INTEGER, i INTEGER, PRIMARY KEY(id))
+                 CREATE INDEX T4_i AS SELECT i FROM T4
+                 CREATE VIEW V AS SELECT T4.i FROM T4 GROUP BY T4.i HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
+      - error: GROUPING_ERROR
+    -
+      # View with an EXISTS subquery in the HAVING clause of a grouped query, correlated to a non-grouping column
+      # (`T4.id`). This must stay rejected.
+      - query: CREATE SCHEMA TEMPLATE subquery_view_template_2
+                 CREATE TABLE T1 (id INTEGER, T2 INTEGER, PRIMARY KEY(id))
+                 CREATE TABLE T4 (id INTEGER, i INTEGER, PRIMARY KEY(id))
+                 CREATE INDEX T4_i AS SELECT i FROM T4
+                 CREATE VIEW V AS SELECT T4.i FROM T4 GROUP BY T4.i HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = T4.id)
+      - error: GROUPING_ERROR
 ...
