@@ -660,9 +660,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var selectOperator = visitQuery(ctx.query());
         final var asExistential = selectOperator.withQuantifier(Quantifier.existential(selectOperator.getQuantifier().getRangesOver()));
         final var underlyingValue = new ExistsValue(QuantifiedObjectValue.of(asExistential.getQuantifier()));
-        if (getDelegate().getPlanGenerationContext().shouldProcessLiteral()) {
-            getDelegate().getCurrentPlanFragment().addOperator(asExistential);
-        }
+        getDelegate().getCurrentPlanFragment().addOperator(asExistential);
         return Expression.ofUnnamed(underlyingValue);
     }
 

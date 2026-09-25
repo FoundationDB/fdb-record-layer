@@ -153,14 +153,15 @@ test_block:
       - explain: "SCAN([IS T5]) | FLATMAP q0 -> { COVERING(T6_i1 [EQUALS q0.id] -> [i1: KEY:[0], id: KEY:[2]]) | MAP (_.id AS id) | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN (q0.id AS id) }"
       - result: [{3}]
     -
-      # View with a correlated EXISTS subquery in its WHERE clause. ⚠️ This currently returns every row of T4, as the
-      # EXISTS subquery is dropped when the view is compiled.
+      # View with a correlated EXISTS subquery in its WHERE clause.
       - query: SELECT * FROM V1
-      - unorderedResult: [{10}, {20}, {30}]
+      - supported_version: !current_version
+      - unorderedResult: [{20}, {30}]
     -
       # The same for a function.
       - query: SELECT * FROM F1()
-      - unorderedResult: [{10}, {20}, {30}]
+      - supported_version: !current_version
+      - unorderedResult: [{20}, {30}]
     -
       # Correlated EXISTS subquery in the WHERE clause, with GROUP BY, projecting a qualified outer column (`T1.T2`).
       - query: SELECT T2 FROM T1 WHERE EXISTS (SELECT T1.T2, MAX(id) FROM T4 WHERE i > T1.T2 GROUP BY i)
