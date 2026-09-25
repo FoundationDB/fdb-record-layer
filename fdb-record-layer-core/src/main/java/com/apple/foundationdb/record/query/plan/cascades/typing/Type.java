@@ -644,7 +644,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     return null;
                 }
 
-                final var resultFieldsBuilder = ImmutableList.<Type.Record.Field>builder();
+                final var resultFieldTypes = new ArrayList<Type>(t1Fields.size());
+                final var resultFieldNameOptionals = new ArrayList<Optional<String>>(t1Fields.size());
+                final var resultFieldIndexOptionals = new ArrayList<Optional<Integer>>(t1Fields.size());
                 for (int i = 0; i < t1Fields.size(); i++) {
                     final var t1Field = t1Fields.get(i);
                     final var t2Field = t2Fields.get(i);
@@ -653,6 +655,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     if (resultFieldType == null) {
                         return null;
                     }
+                    resultFieldTypes.add(resultFieldType);
 
                     Optional<String> resultFieldNameOptional = Optional.empty();
                     if (t1Field.getFieldNameOptional().isEmpty()) {
@@ -660,8 +663,22 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                     } else if (t2Field.getFieldNameOptional().isEmpty() || (t1Field.getFieldNameOptional().equals(t2Field.getFieldNameOptional()))) {
                         resultFieldNameOptional = t1Field.getFieldNameOptional();
                     }
+                    resultFieldNameOptionals.add(resultFieldNameOptional);
 
-                    resultFieldsBuilder.add(Record.Field.of(resultFieldType, resultFieldNameOptional));
+                    resultFieldIndexOptionals.add(
+                            t1Field.getFieldIndexOptional().equals(t2Field.getFieldIndexOptional())
+                            ? t1Field.getFieldIndexOptional()
+                            : Optional.empty());
+                }
+                // best-case effort to preserve the index of the Type.Record.Field. That is, the index is kept only if
+                // the two corresponding fields from `Type.Record`s have the same index.
+                final var keepFieldIndexes = resultFieldIndexOptionals.stream().allMatch(Optional::isPresent);
+                final var resultFieldsBuilder = ImmutableList.<Type.Record.Field>builder();
+                for (int i = 0; i < resultFieldTypes.size(); i++) {
+                    resultFieldsBuilder.add(keepFieldIndexes
+                                            ? Record.Field.of(resultFieldTypes.get(i), resultFieldNameOptionals.get(i),
+                                                    resultFieldIndexOptionals.get(i))
+                                            : Record.Field.of(resultFieldTypes.get(i), resultFieldNameOptionals.get(i)));
                 }
                 return Type.Record.fromFields(isResultNullable, resultFieldsBuilder.build());
 
