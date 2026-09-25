@@ -94,36 +94,44 @@ test_block:
       - explain: "SCAN([IS T5]) | FLATMAP q0 -> { COVERING(T6_i1 [EQUALS q0.id] -> [i1: KEY:[0], id: KEY:[2]]) | MAP (_.id AS id) | DEFAULT NULL AS q1 RETURN (q0.id AS id, exists(q1) AS e) }"
       - result: [{id: 1, e: true}, {id: 2, e: true}, {id: 3, e: false}]
     -
-      # Uncorrelated EXISTS subquery in the SELECT list of a grouped query. This is rejected with a grouping error,
-      # although the subquery is constant for every group.
+      # Uncorrelated EXISTS subquery in the SELECT list of a grouped query. It is evaluated on top of the grouping,
+      # where it is constant for every group.
       - query: SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4 GROUP BY T4.i
-      - error: GROUPING_ERROR
+      - supported_version: !current_version
+      - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c16 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i, exists(q0) AS e) }"
+      - unorderedResult: [{i: 10, e: true}, {i: 20, e: true}, {i: 30, e: true}]
     -
       # EXISTS subquery in the SELECT list of a grouped query, correlated to a non-grouping column (`T4.id`).
       - query: SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = T4.id) AS e FROM T4 GROUP BY T4.i
       - error: GROUPING_ERROR
     -
-      # Uncorrelated EXISTS subquery in the SELECT list of an aggregate query without GROUP BY. This is currently
-      # rejected with a GROUPING_ERROR.
+      # Uncorrelated EXISTS subquery in the SELECT list of an aggregate query without GROUP BY.
       - query: SELECT COUNT(*) AS n, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4
-      - error: GROUPING_ERROR
+      - supported_version: !current_version
+      - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c19 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL AS q0 RETURN (coalesce_long(q0._0._0, 0l) AS n, exists(q0) AS e) }"
+      - result: [{n: 3, e: true}]
     -
       # The same but over an empty input, which still yields a single row.
       - query: SELECT COUNT(*) AS n, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4 WHERE T4.i > 100
-      - error: GROUPING_ERROR
+      - supported_version: !current_version
+      - explain: "ISCAN(T4_i [[GREATER_THAN promote(@c30 AS INT)]]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | FLATMAP q0 -> { SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c19 AS INT) | MAP (_.id AS id) | DEFAULT NULL AS q1 RETURN (coalesce_long(q0._0._0, 0l) AS n, exists(q1) AS e) }"
+      - result: [{n: 0, e: true}]
     -
       # EXISTS subquery inside an aggregate function argument of a grouped query.
       - query: SELECT T4.i, SUM(CASE WHEN EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) THEN 1 ELSE 0 END) AS s
                  FROM T4
              GROUP BY T4.i
-      - error: UNKNOWN
+      - supported_version: !current_version
+      - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c20 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG (sum_i(pick(ConditionSelector(exists(q0), TRUE), @c20, @c25)) AS _0) GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i, q0._1._0 AS s) }"
+      - unorderedResult: [{i: 10, s: 1}, {i: 20, s: 1}, {i: 30, s: 1}]
     -
       # EXISTS subquery in the SELECT list, containing a grouped query with an EXISTS subquery in its own SELECT list.
-      # This is currently rejected with a GROUPING_ERROR.
       - query: SELECT p.id,
                       EXISTS (SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) FROM T4 GROUP BY T4.i) AS e
                  FROM T5 p
-      - error: GROUPING_ERROR
+      - supported_version: !current_version
+      - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c23 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i, exists(q0) AS _1) } | DEFAULT NULL | FLATMAP q1 -> { SCAN([IS T5]) AS q2 RETURN (q2.id AS id, exists(q1) AS e) }"
+      - unorderedResult: [{id: 1, e: true}, {id: 2, e: true}, {id: 3, e: true}]
     -
       # EXISTS subquery in a row of an inline VALUES table in the FROM clause.
       - query: SELECT * FROM VALUES (1, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)) AS t (a, e)
@@ -183,36 +191,47 @@ test_block:
       - explain: "SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T4_i [[GREATER_THAN q0.T2]]) | MAP (_ AS _0) | AGG (max_i(q0.T2) AS _0, max_i(_._0.id) AS _1) GROUP BY (_._0.i AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.T2 AS T2) }"
       - result: [{1}, {2}, {3}]
     -
-      # EXISTS subquery in GROUP BY. TODO This currently fails with an internal error.
+      # EXISTS subquery in GROUP BY. This is not supported.
       - query: SELECT COUNT(*) AS n FROM T4 GROUP BY EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
-      - error: UNKNOWN
+      - supported_version: !current_version
+      - error: UNSUPPORTED_QUERY
     -
-      # Uncorrelated EXISTS subquery in the HAVING clause. This is currently rejected with a GROUPING_ERROR, although
-      # the subquery is constant for every group.
+      # Uncorrelated EXISTS subquery in the HAVING clause. It is evaluated on top of the grouping, where it is constant
+      # for every group.
       - query: SELECT T4.i FROM T4 GROUP BY T4.i HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
-      - error: GROUPING_ERROR
+      - supported_version: !current_version
+      - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c23 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i) }"
+      - unorderedResult: [{10}, {20}, {30}]
     -
-      # The same but with an empty subquery.
+      # The same but with an empty subquery, which rejects every group.
       - query: SELECT T4.i FROM T4 GROUP BY T4.i HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 99)
-      - error: GROUPING_ERROR
+      - supported_version: !current_version
+      - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c23 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i) }"
+      - result: []
     -
       # The same but with an aliased grouping column.
       - query: SELECT g FROM T4 GROUP BY T4.i AS g HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
-      - error: GROUPING_ERROR
+      - supported_version: !current_version
+      - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c23 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS g) }"
+      - unorderedResult: [{10}, {20}, {30}]
     -
       # Uncorrelated EXISTS subqueries in both the SELECT list and the HAVING clause.
       - query: SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e
                  FROM T4
              GROUP BY T4.i
                HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 2)
-      - error: GROUPING_ERROR
+      - supported_version: !current_version
+      - explain: "SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c16 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FLATMAP q0 -> { SCAN([IS T1]) | FILTER _.T2 EQUALS promote(@c39 AS INT) | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 } | FLATMAP q0 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i, exists(q0) AS e) }"
+      - unorderedResult: [{i: 10, e: true}, {i: 20, e: true}, {i: 30, e: true}]
     -
       # EXISTS subquery in the HAVING clause of a grouped subquery, correlated to the enclosing query (`p.id`) rather
-      # than to the grouped rows. This is currently rejected with a GROUPING_ERROR.
+      # than to the grouped rows.
       - query: SELECT p.id
                  FROM T5 p
                 WHERE EXISTS (SELECT T4.i FROM T4 GROUP BY T4.i HAVING EXISTS (SELECT id FROM T1 WHERE T1.id = p.id))
-      - error: GROUPING_ERROR
+      - supported_version: !current_version
+      - explain: "SCAN([IS T5]) | FLATMAP q0 -> { SCAN([IS T1]) | FILTER promote(_.id AS LONG) EQUALS q0.id | MAP (_.id AS id) | DEFAULT NULL | FILTER _ NOT_NULL | FLATMAP q1 -> { ISCAN(T4_i <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.i AS _0) AS q0 RETURN (q0._0._0 AS i) } | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.id AS id) }"
+      - unorderedResult: [{1}, {2}, {3}]
     -
       # EXISTS subquery in the HAVING clause, correlated to a grouping column (`T4.i`). This is valid SQL, but still
       # rejected. Supporting it would require rewriting the correlation to the grouped rows into one to the output of
@@ -228,17 +247,18 @@ test_block:
                HAVING EXISTS (SELECT id FROM T1 WHERE EXISTS (SELECT c.id FROM T6 c WHERE c.i1 = T4.id))
       - error: GROUPING_ERROR
     -
-      # EXISTS subquery in ORDER BY. This is accepted by the frontend, but cannot be planned.
+      # EXISTS subquery in ORDER BY. This is not supported.
       - query: SELECT p.id FROM T5 p ORDER BY EXISTS (SELECT c.id FROM T6 c WHERE c.i1 = p.id)
       - error: UNSUPPORTED_QUERY
     -
-      # EXISTS subquery in the SELECT list, referred to by its alias in ORDER BY.
+      # EXISTS subquery in the SELECT list, referred to by its alias in ORDER BY. This is not supported.
       - query: SELECT p.id, EXISTS (SELECT c.id FROM T6 c WHERE c.i1 = p.id) AS e FROM T5 p ORDER BY e
       - error: UNSUPPORTED_QUERY
     -
       # The same in a grouped query.
       - query: SELECT T4.i, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e FROM T4 GROUP BY T4.i ORDER BY e
-      - error: GROUPING_ERROR
+      - supported_version: !current_version
+      - error: UNSUPPORTED_QUERY
 ---
 # Tests for subqueries in INSERT and UPDATE statements.
 test_block:
@@ -257,13 +277,15 @@ test_block:
       - query: UPDATE T4 SET i = i WHERE id = 1 RETURNING "new".id, EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) AS e
       - result: [{id: 1, e: true}]
     -
-      # EXISTS subquery on the right-hand side of UPDATE…SET.
+      # EXISTS subquery on the right-hand side of UPDATE…SET. This is not supported.
       - query: UPDATE T4 SET i = CASE WHEN EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) THEN i ELSE 0 END WHERE id = 1
-      - error: UNKNOWN
+      - supported_version: !current_version
+      - error: UNSUPPORTED_QUERY
     -
-      # EXISTS subquery supplying a value in INSERT…VALUES.
+      # EXISTS subquery supplying a value in INSERT…VALUES. This is not supported.
       - query: INSERT INTO T4 VALUES (9, CASE WHEN EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1) THEN 90 ELSE 0 END)
-      - error: UNKNOWN
+      - supported_version: !current_version
+      - error: UNSUPPORTED_QUERY
     -
       # Uncorrelated EXISTS subquery in the RETURNING clause of a DELETE, deleting a row inserted just before.
       - query: INSERT INTO T4 VALUES (8, 80)
@@ -285,14 +307,18 @@ test_block:
   preset: single_repetition_ordered
   tests:
     -
-      # View with an uncorrelated EXISTS subquery in the HAVING clause of a grouped query. This is currently rejected
-      # with a GROUPING_ERROR, just like the same query outside of a view.
+      # View with an uncorrelated EXISTS subquery in the HAVING clause of a grouped query.
       - query: CREATE SCHEMA TEMPLATE subquery_view_template_1
                  CREATE TABLE T1 (id INTEGER, T2 INTEGER, PRIMARY KEY(id))
                  CREATE TABLE T4 (id INTEGER, i INTEGER, PRIMARY KEY(id))
                  CREATE INDEX T4_i AS SELECT i FROM T4
                  CREATE VIEW V AS SELECT T4.i FROM T4 GROUP BY T4.i HAVING EXISTS (SELECT id FROM T1 WHERE T1.T2 = 1)
-      - error: GROUPING_ERROR
+      - supported_version: !current_version
+      - count: 0
+    -
+      - query: DROP SCHEMA TEMPLATE subquery_view_template_1
+      - supported_version: !current_version
+      - count: 0
     -
       # View with an EXISTS subquery in the HAVING clause of a grouped query, correlated to a non-grouping column
       # (`T4.id`). This must stay rejected.
