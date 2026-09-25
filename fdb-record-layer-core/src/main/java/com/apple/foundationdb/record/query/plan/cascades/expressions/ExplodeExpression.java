@@ -58,7 +58,7 @@ import java.util.Set;
  *
  * <p>In the {@code WITH ORDINALITY} variant, it also generates ordinals of the field values. In this case it
  * produces a struct with two anonymous fields—the element and the ordinal—instead of the bare element. The ordinals
- * are 1-based per the SQL standard, unless the expression is created {@linkplain #isZeroBasedOrdinality() 0-based}.
+ * are 0-based.
  *
  * <p>An explode that {@linkplain #flowsRecordConstructorValue() flows a record constructor} produces a struct in the
  * plain variant as well, with the element as its only field.
@@ -72,11 +72,6 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
      * Whether ordinals should be produced alongside the array elements.
      */
     private final boolean withOrdinality;
-
-    /**
-     * Whether the ordinals produced are 0-based rather than 1-based.
-     */
-    private final boolean zeroBasedOrdinality;
 
     /**
      * The element type of the collection value.
@@ -103,11 +98,9 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
     private final Value resultValue;
 
     public ExplodeExpression(@Nonnull final Value collectionValue, final boolean withOrdinality,
-                             final boolean zeroBasedOrdinality, final boolean flowsRecordConstructorValue) {
-        Verify.verify(withOrdinality || !zeroBasedOrdinality, "cannot base ordinals that are not produced");
+                             final boolean flowsRecordConstructorValue) {
         this.collectionValue = collectionValue;
         this.withOrdinality = withOrdinality;
-        this.zeroBasedOrdinality = zeroBasedOrdinality;
         Verify.verify(collectionValue.getResultType().isArray());
         this.elementType = Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
         this.flowsRecordConstructorValue = flowsRecordConstructorValue;
@@ -116,17 +109,12 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
         Verify.verify(explodeResultType.equals(resultValue.getResultType()));
     }
 
-    public ExplodeExpression(@Nonnull final Value collectionValue, final boolean withOrdinality,
-                             final boolean zeroBasedOrdinality) {
-        this(collectionValue, withOrdinality, zeroBasedOrdinality, false);
-    }
-
     public ExplodeExpression(@Nonnull final Value collectionValue, final boolean withOrdinality) {
         this(collectionValue, withOrdinality, false);
     }
 
     public ExplodeExpression(@Nonnull final Value collectionValue) {
-        this(collectionValue, false, false);
+        this(collectionValue, false);
     }
 
     /**
@@ -210,10 +198,6 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
         return withOrdinality;
     }
 
-    public boolean isZeroBasedOrdinality() {
-        return zeroBasedOrdinality;
-    }
-
     /**
      * Returns whether the value this expression flows is a record constructor of the element—and the ordinal, for the
      * {@code WITH ORDINALITY} variant—rather than one opaque value. The plan implementing the expression takes this
@@ -245,7 +229,6 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
         if (otherExpression instanceof final ExplodeExpression other) {
             return collectionValue.semanticEquals(other.getCollectionValue(), equivalencesMap) &&
                     isWithOrdinality() == other.isWithOrdinality() &&
-                    isZeroBasedOrdinality() == other.isZeroBasedOrdinality() &&
                     flowsRecordConstructorValue() == other.flowsRecordConstructorValue() &&
                     semanticEqualsForResults(otherExpression, equivalencesMap);
         }
@@ -254,15 +237,14 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
 
     @Override
     public int computeHashCodeWithoutChildren() {
-        // Note: This is written in a way that preserves the hashes of every combination that could be expressed before
-        // an explode could flow a record constructor: that flag only ever appends to what was hashed before, so with
-        // the flag unset nothing is appended at all.
+        // Note: This is written in a way that preserves the hashes of every combination that could be expressed
+        // before. A WITH ORDINALITY explode hashes the way one that was explicitly asked for 0-based ordinals hashed
+        // while the ordinal base was still a choice, and the record constructor flag only ever appends to what was
+        // hashed before, so with the flag unset nothing is appended at all.
         final var hashedObjects = ImmutableList.builder().add(collectionValue);
         if (withOrdinality) {
             hashedObjects.add(true);
-            if (zeroBasedOrdinality) {
-                hashedObjects.add(true);
-            }
+            hashedObjects.add(true);
         }
         if (flowsRecordConstructorValue) {
             hashedObjects.add("flowsRecordConstructorValue");
@@ -281,8 +263,7 @@ public class ExplodeExpression extends AbstractRelationalExpressionWithoutChildr
                 collectionValue.translateCorrelations(translationMap, shouldSimplifyValues);
         // this is ok since there are no new quantifiers
         if (translatedCollectionValue != collectionValue) {
-            return new ExplodeExpression(translatedCollectionValue, withOrdinality, zeroBasedOrdinality,
-                    flowsRecordConstructorValue);
+            return new ExplodeExpression(translatedCollectionValue, withOrdinality, flowsRecordConstructorValue);
         }
         return this;
     }

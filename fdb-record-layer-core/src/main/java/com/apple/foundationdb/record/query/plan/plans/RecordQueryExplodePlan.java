@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.planprotos.PRecordQueryExplodePlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
@@ -75,7 +76,7 @@ import java.util.stream.IntStream;
  *
  * <p>In the {@code WITH ORDINALITY} variant, {@code EXPLODE} also generates ordinals of the array elements. In this
  * case the plan produces a {@link DynamicMessage} struct with two anonymous fields (the element and the ordinal)
- * instead of the bare element. The ordinals are 1-based or 0-based depending on {@linkplain #isZeroBasedOrdinality()}.
+ * instead of the bare element. The ordinals are 0-based.
  *
  * <p>For the {@code WITH ORDINALITY} variant, the shape of the {@link Value} the plan declares as its result does not
  * affect the data it produces. For the plain variant it does: the plan produces a struct with the element as its only
@@ -98,11 +99,6 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
      * Whether ordinals should be produced alongside the array elements.
      */
     private final boolean withOrdinality;
-
-    /**
-     * Whether the ordinals produced are 0-based rather than 1-based.
-     */
-    private final boolean zeroBasedOrdinality;
 
     /**
      * The element type of the collection value.
@@ -129,11 +125,9 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     private final Value resultValue;
 
     public RecordQueryExplodePlan(@Nonnull Value collectionValue, boolean withOrdinality,
-                                  boolean zeroBasedOrdinality, boolean flowsRecordConstructorValue) {
-        Verify.verify(withOrdinality || !zeroBasedOrdinality, "cannot base ordinals that are not produced");
+                                  boolean flowsRecordConstructorValue) {
         this.collectionValue = collectionValue;
         this.withOrdinality = withOrdinality;
-        this.zeroBasedOrdinality = zeroBasedOrdinality;
         Verify.verify(collectionValue.getResultType().isArray());
         this.elementType = Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
         this.flowsRecordConstructorValue = flowsRecordConstructorValue;
@@ -143,7 +137,7 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     }
 
     public RecordQueryExplodePlan(@Nonnull Value collectionValue, boolean withOrdinality) {
-        this(collectionValue, withOrdinality, false, false);
+        this(collectionValue, withOrdinality, false);
     }
 
     public RecordQueryExplodePlan(@Nonnull Value collectionValue) {
@@ -157,10 +151,6 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
 
     public boolean isWithOrdinality() {
         return withOrdinality;
-    }
-
-    public boolean isZeroBasedOrdinality() {
-        return zeroBasedOrdinality;
     }
 
     /**
@@ -196,7 +186,6 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         final Descriptors.Descriptor descriptor = Objects.requireNonNull(typeRepository.getMessageDescriptor(resultType));
         final Descriptors.FieldDescriptor elementField = descriptor.getFields().get(0);
         final Descriptors.FieldDescriptor ordinalField = withOrdinality ? descriptor.getFields().get(1) : null;
-        final int firstOrdinal = zeroBasedOrdinality ? 0 : 1;
         final ImmutableList<Message> structs =
                 IntStream.range(0, list.size())
                 .mapToObj(i -> {
@@ -205,7 +194,7 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
                     builder.setField(elementField,
                             RecordConstructorValue.deepCopyIfNeeded(typeRepository, elementType, element));
                     if (ordinalField != null) {
-                        builder.setField(ordinalField, firstOrdinal + i);
+                        builder.setField(ordinalField, i);
                     }
                     return (Message)builder.build();
                 })
@@ -231,7 +220,7 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         final Value translatedCollectionValue =
                 collectionValue.translateCorrelations(translationMap, shouldSimplifyValues);
         if (translatedCollectionValue != collectionValue) {
-            return new RecordQueryExplodePlan(translatedCollectionValue, withOrdinality, zeroBasedOrdinality,
+            return new RecordQueryExplodePlan(translatedCollectionValue, withOrdinality,
                     flowsRecordConstructorValue);
         }
         return this;
@@ -329,7 +318,6 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         final var otherExplodePlan = (RecordQueryExplodePlan)otherExpression;
         return collectionValue.semanticEquals(otherExplodePlan.getCollectionValue(), equivalencesMap) &&
                 isWithOrdinality() == otherExplodePlan.isWithOrdinality() &&
-                isZeroBasedOrdinality() == otherExplodePlan.isZeroBasedOrdinality() &&
                 flowsRecordConstructorValue() == otherExplodePlan.flowsRecordConstructorValue() &&
                 semanticEqualsForResults(otherExpression, equivalencesMap);
     }
@@ -347,8 +335,9 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
 
     @Override
     public int computeHashCodeWithoutChildren() {
-        // Note: This is written in a way that preserves pre-existing hashes for `zeroBasedOrdinality=false`.
-        return zeroBasedOrdinality ? Objects.hash(getResultValue(), true) : Objects.hash(getResultValue());
+        // Note: A WITH ORDINALITY explode hashes the way one that was explicitly asked for 0-based ordinals hashed
+        // while the ordinal base was still a choice, so that plans hash as the version that emitted them hashed them.
+        return withOrdinality ? Objects.hash(getResultValue(), true) : Objects.hash(getResultValue());
     }
 
     @Override
@@ -369,8 +358,7 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
                 if (!withOrdinality) {
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, result);
                 }
-                return zeroBasedOrdinality ? PlanHashable.objectsPlanHash(mode, BASE_HASH, result, true, true)
-                                           : PlanHashable.objectsPlanHash(mode, BASE_HASH, result, true);
+                return PlanHashable.objectsPlanHash(mode, BASE_HASH, result, true, true);
             }
             default -> throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
@@ -396,8 +384,8 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         builder.setCollectionValue(collectionValue.toValueProto(serializationContext));
         if (withOrdinality) {
             builder.setWithOrdinality(true);
-        }
-        if (zeroBasedOrdinality) {
+            // Ordinals are always 0-based, but a version that predates that being the default reads the ordinal base
+            // off this field, and would execute the plan 1-based without it.
             builder.setZeroBasedOrdinality(true);
         }
         if (flowsRecordConstructorValue) {
@@ -415,12 +403,17 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
     @Nonnull
     public static RecordQueryExplodePlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                    @Nonnull final PRecordQueryExplodePlan proto) {
+        final boolean withOrdinality = proto.getWithOrdinality();
+        if (withOrdinality && proto.hasZeroBasedOrdinality() && !proto.getZeroBasedOrdinality()) {
+            // A plan that asks for 1-based ordinals outright asks for something no longer produced. A plan that says
+            // nothing about the ordinal base is read as 0-based, which is the only base there is.
+            throw new RecordCoreException("explode plans flowing 1-based ordinals are no longer supported");
+        }
         return new RecordQueryExplodePlan(
                 Value.fromValueProto(serializationContext, Objects.requireNonNull(proto.getCollectionValue())),
-                // The following flags are optional and hence can be unset. This is intentional, to maintain
-                // compatibility with what a plan serialized before these fields existed flows.
-                proto.getWithOrdinality(), proto.getZeroBasedOrdinality(),
-                proto.getFlowsRecordConstructorValue());
+                // The record constructor flag is optional and hence can be unset. This is intentional, to maintain
+                // compatibility with what a plan serialized before that field existed flows.
+                withOrdinality, proto.getFlowsRecordConstructorValue());
     }
 
     /**
