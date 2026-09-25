@@ -112,6 +112,13 @@ tasks.named('test') {
     inputs.dir siftExtractDir
 }
 
+shadowJar {
+    // Disable creating a shadow jar for the main configuration. Applying the plugin (which is needed below
+    // for testShadowJar) will default to constructing one with the archive classifier "-all", which is
+    // not desired.
+    enabled = false
+}
+
 tasks.register('testShadowJar', ShadowJar) {
     archiveClassifier = 'standalone-tests'
     from sourceSets.main.output
@@ -126,13 +133,6 @@ tasks.register('testShadowJar', ShadowJar) {
     // files reach `mergeServiceFiles()` and their registries merge properly rather than collapse to a single provider.
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
     mergeServiceFiles()
-}
-
-// Applying the shadow plugin (above, for the ShadowJar task type used by testShadowJar) makes the plugin's
-// default `shadowJar` task auto-attach a `shadowRuntimeElements` variant to the `java` component.
-// Skip them here to avoid publishing those artifacts.
-components.java.withVariantsFromConfiguration(configurations.shadowRuntimeElements) {
-    skip()
 }
 
 publishing {
