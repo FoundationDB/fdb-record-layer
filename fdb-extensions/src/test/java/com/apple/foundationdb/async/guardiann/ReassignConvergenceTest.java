@@ -127,7 +127,8 @@ public class ReassignConvergenceTest implements BaseTest {
     @SuperSlow
     @Timeout(value = 2, unit = TimeUnit.HOURS)
     void reassignConvergenceSiftSubsampledSlow(final long seed) throws Exception {
-        runConvergence(seed, newGuardiannBig(), TestHelpers.loadSample(SIFT_1M_BASE_PATH, seed, SAMPLE_SIZE_LARGE));
+        runConvergence(seed, newGuardiannBig(),
+                GuardiannTestHelpers.loadSample(SIFT_1M_BASE_PATH, seed, SAMPLE_SIZE_LARGE));
     }
 
     /**
@@ -138,14 +139,14 @@ public class ReassignConvergenceTest implements BaseTest {
                                 @Nonnull final List<PrimaryKeyAndVector> sample) throws Exception {
         // ---- Phase 0: insert the sample; let everything (including auto-enqueued reassigns) run. ----
         logger.info("seed={} inserting {} vectors", seed, sample.size());
-        TestHelpers.insertRecords(getDb(), guardiann, sample, BATCH_SIZE);
+        GuardiannTestHelpers.insertRecords(getDb(), guardiann, sample, BATCH_SIZE);
         GuardiannStructureAsserts.runToQuiescence(getDb(), guardiann);
 
         // ---- Baseline: the post-insert state must be imperfect to have anything to converge. ----
         final StructureSnapshot postInsert = Objects.requireNonNull(
                 GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann), "structure after inserts");
         final int wrong0 = postInsert.computeAssignmentRanking().numWrongAssignments();
-        final int under0 = TestHelpers.countUnderReplicatedPrimaries(postInsert);
+        final int under0 = countUnderReplicatedPrimaries(postInsert);
         logger.info("seed={} post-insert: clusters={}, wrongAssignments={}, underReplicated={}",
                 seed, postInsert.numClusters(), wrong0, under0);
         Assumptions.assumeTrue(wrong0 > 0,
@@ -158,7 +159,7 @@ public class ReassignConvergenceTest implements BaseTest {
         final StructureSnapshot afterRound1 = Objects.requireNonNull(
                 GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann), "structure after round 1");
         final int wrong1 = afterRound1.computeAssignmentRanking().numWrongAssignments();
-        final int under1 = TestHelpers.countUnderReplicatedPrimaries(afterRound1);
+        final int under1 = countUnderReplicatedPrimaries(afterRound1);
         logger.info("seed={} after round 1: wrongAssignments={} (was {}), underReplicated={} (was {})",
                 seed, wrong1, wrong0, under1, under0);
 
@@ -167,7 +168,7 @@ public class ReassignConvergenceTest implements BaseTest {
         final StructureSnapshot afterRound2 = Objects.requireNonNull(
                 GuardiannStructureAsserts.snapshotStructure(getDb(), guardiann), "structure after round 2");
         final int wrong2 = afterRound2.computeAssignmentRanking().numWrongAssignments();
-        final int under2 = TestHelpers.countUnderReplicatedPrimaries(afterRound2);
+        final int under2 = countUnderReplicatedPrimaries(afterRound2);
         logger.info("seed={} after round 2: wrongAssignments={} (was {}), underReplicated={} (was {})",
                 seed, wrong2, wrong1, under2, under1);
         logger.info("seed={} convergence summary: wrong {} -> {} -> {}, underReplicated {} -> {} -> {}",
@@ -297,12 +298,26 @@ public class ReassignConvergenceTest implements BaseTest {
                 .build(128));
     }
 
+    /**
+     * Sums the under-replicated primary counts across every cluster in {@code snapshot} — i.e. how many primaries
+     * still owe replicas. Useful for asserting a reassign/replication pass drives that total down.
+     *
+     * @param snapshot the structure snapshot to aggregate over
+     *
+     * @return the total number of under-replicated primaries across all clusters
+     */
+    private static int countUnderReplicatedPrimaries(@Nonnull final StructureSnapshot snapshot) {
+        return snapshot.clusters().values().stream()
+                .mapToInt(cv -> cv.metadata().numPrimaryUnderreplicatedVectors())
+                .sum();
+    }
+
     @Nonnull
     private Guardiann guardiannFor(@Nonnull final Config config) {
         return new Guardiann(getSubspace(),
                 TestExecutors.defaultThreadPool(),
                 config,
-                new TestHelpers.TestOnWriteListener(),
-                new TestHelpers.TestOnReadListener());
+                new GuardiannTestHelpers.TestOnWriteListener(),
+                new GuardiannTestHelpers.TestOnReadListener());
     }
 }
