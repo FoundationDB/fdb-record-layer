@@ -351,11 +351,17 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             // Use `FirstOrDefaultValue` as a representative for “some” element of the array.
             final Value first = new FirstOrDefaultValue(collectionValue, new ThrowsValue(elementType));
             final Value representative;
-            if (explodePlan.isWithOrdinality()) {
-                final Type ordinalType = Type.primitiveType(Type.TypeCode.INT, false);
-                representative = RecordConstructorValue.ofColumns(List.of(
-                        Column.of(Type.Record.Field.of(elementType, Optional.empty()), first),
-                        Column.of(Type.Record.Field.of(ordinalType, Optional.empty()), new ThrowsValue(ordinalType))));
+            if (explodePlan.isWithOrdinality() || explodePlan.flowsRecordConstructorValue()) {
+                // The plan flows the element wrapped in a struct, so the representative has to be wrapped the same way:
+                // accesses of the element are written against the wrapper.
+                final var columns = ImmutableList.<Column<? extends Value>>builder();
+                columns.add(Column.of(Type.Record.Field.of(elementType, Optional.empty()), first));
+                if (explodePlan.isWithOrdinality()) {
+                    final Type ordinalType = Type.primitiveType(Type.TypeCode.INT, false);
+                    columns.add(Column.of(Type.Record.Field.of(ordinalType, Optional.empty()),
+                            new ThrowsValue(ordinalType)));
+                }
+                representative = RecordConstructorValue.ofColumns(columns.build(), true);
             } else {
                 representative = first;
             }
