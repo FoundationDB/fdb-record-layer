@@ -225,6 +225,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
         // Note: For an ARRAY column, `isNullable` pertains to the array type; the element type yielded by
         // `lookupType()` is always *not nullable*.
+        // Also, this needs to look the type up from the meta-data builder rather than the schema template
+        // to ensure that it injects the nullable array wrapper.
         final DataType columnType = lookupTypeInMetadataBuilder(colType.customType,
                 colType.primitiveType(), isNullable, isArray);
 

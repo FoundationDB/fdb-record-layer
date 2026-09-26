@@ -26,29 +26,50 @@ schema_template:
     create type as struct st3(u st2, v st1)
     create type as enum color ('red', 'green', 'blue')
     create table nested(id bigint, r st3, primary key(id))
+    create table colorful(id bigint, x color, y string, primary key(id))
     create function f1 ( in a type st1 )
        as select id, r.v.y from nested where r.v.y = a.y and r.v.z = a.z
     create function f2 (in a type color)
        as select a from range(1, 2)
+    create function f3 (in a type color)
+       as select * from colorful where colorful.x = a
+    create view non_green
+       as select * from colorful where colorful.x is distinct from 'green'
 ---
 setup:
   steps:
     - query: INSERT INTO NESTED VALUES (1, ((5, 11), (10, '100')))
+    - query: INSERT INTO COLORFUL VALUES
+          (1, 'red', 'red'),
+          (2, 'green', 'green'),
+          (3, 'blue', 'blue'),
+          (4, null, 'unset')
 ---
 test_block:
   name: sql-functions-with-struct-parameters
   tests:
     -
       - query: select * from f1((10, '100'));
+      - explain: "SCAN([IS NESTED]) | FILTER _.R.V.Y EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Y AND _.R.V.Z EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Z | MAP (_.ID AS ID, _.R.V.Y AS Y)"
       - result: [{!l 1, !l 10}]
     -
       - query: select * from temp_f1((10, '100'));
       - setup: create temporary function temp_f1 ( in a type st1 ) on commit drop function as select id, r.v.y from nested where r.v.y = a.y and r.v.z = a.z
+      - explain: "SCAN([IS NESTED]) | FILTER _.R.V.Y EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Y AND _.R.V.Z EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Z | MAP (_.ID AS ID, _.R.V.Y AS Y)"
       - result: [{!l 1, !l 10}]
     -
       - query: select * from f2('red')
+      - explain: "TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c5 AS ENUM<red(0), green(1), blue(2)>) AS A)"
       - result: [ { 'red' } ]
     -
       # TODO: this should be fixed as part of https://github.com/FoundationDB/fdb-record-layer/issues/4183
       - query: select * from f1(struct st1 (10, '100'));
       - error: UNKNOWN
+    -
+      - query: select * from f3('green');
+      - explain: "SCAN([IS COLORFUL]) | FILTER _.X EQUALS promote(@c5 AS ENUM<red(0), green(1), blue(2)>)"
+      - result: [{id: 2, x: 'green', y: 'green'}]
+    -
+      - query: select y from non_green;
+      - explain: "SCAN([IS COLORFUL]) | FILTER _.X IS_DISTINCT_FROM promote('green' AS ENUM<red(0), green(1), blue(2)>) | MAP (_.Y AS Y)"
+      - result: [{'red'}, {'blue'}, {'unset'}]

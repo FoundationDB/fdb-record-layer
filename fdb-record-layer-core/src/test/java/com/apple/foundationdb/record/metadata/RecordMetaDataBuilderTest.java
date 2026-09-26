@@ -31,10 +31,13 @@ import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.TestRecordsBadUnion1Proto;
 import com.apple.foundationdb.record.TestRecordsBadUnion2Proto;
 import com.apple.foundationdb.record.TestRecordsChained1Proto;
+import com.apple.foundationdb.record.TestRecordsDoubleNestedProto;
 import com.apple.foundationdb.record.TestRecordsDuplicateUnionFields;
 import com.apple.foundationdb.record.TestRecordsDuplicateUnionFieldsReordered;
+import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.TestRecordsImportFlatProto;
 import com.apple.foundationdb.record.TestRecordsImportProto;
+import com.apple.foundationdb.record.TestRecordsImportedMapProto;
 import com.apple.foundationdb.record.TestRecordsMarkedUnmarkedProto;
 import com.apple.foundationdb.record.TestRecordsNoPrimaryKeyProto;
 import com.apple.foundationdb.record.TestRecordsUnionMissingRecordProto;
@@ -62,6 +65,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
@@ -895,7 +899,10 @@ public class RecordMetaDataBuilderTest {
 
     @Test
     void getNonRecordTypeDescriptorsByFullNameReturnsAllTypes() {
-        final var expectedNonRecordTypes = ImmutableList.of(
+        final RecordMetaData metaData = RecordMetaData.newBuilder()
+                .setRecords(TestRecords4WrapperProto.getDescriptor())
+                .build();
+        checkNonRecordTypes(metaData, TestRecords4WrapperProto.getDescriptor(), ImmutableList.of(
                 "ReviewerEndorsements",
                 "ReviewerEndorsementsList",
                 "RestaurantComplexReview",
@@ -906,21 +913,82 @@ public class RecordMetaDataBuilderTest {
                 "RestaurantTagList",
                 "RestaurantReviewList",
                 "RestaurantComplexReviewList",
-                "RestaurantComplexRecord");
-        final var packageName = TestRecords4WrapperProto.getDescriptor().getPackage();
+                "RestaurantComplexRecord"
+        ));
+    }
+
+    @Test
+    void getNonRecordTypesReturnsTypesDefinedWithinOtherTypes() {
         final RecordMetaData metaDataWithNonRecordTypes = RecordMetaData.newBuilder()
-                .setRecords(TestRecords4WrapperProto.getDescriptor())
+                .setRecords(TestRecordsDoubleNestedProto.getDescriptor())
                 .build();
+        checkNonRecordTypes(metaDataWithNonRecordTypes, TestRecordsDoubleNestedProto.getDescriptor(), ImmutableList.of(
+                "OtherRecord",
+                "OuterRecord.MiddleRecord",
+                "OuterRecord.MiddleRecord.InnerRecord"
+        ));
+    }
 
-        final var actualNonRecordTypes = metaDataWithNonRecordTypes.getNonRecordTypeDescriptorsByFullName();
-        assertEquals(expectedNonRecordTypes.size(), actualNonRecordTypes.size());
+    @Test
+    void getNonRecordTypesReturnsEnumsDefinedWithinOtherTypes() {
+        final RecordMetaData metaDataWithNonRecordTypes = RecordMetaData.newBuilder()
+                .setRecords(TestRecordsEnumProto.getDescriptor())
+                .build();
+        checkNonRecordTypes(metaDataWithNonRecordTypes, TestRecordsEnumProto.getDescriptor(), ImmutableList.of(
+                "MyShapeRecord.Size",
+                "MyShapeRecord.Color",
+                "MyShapeRecord.Shape"
+        ));
+    }
 
-        for (final var expectedNonRecordType : expectedNonRecordTypes) {
+    @Test
+    void getNonRecordTypesWithImports() {
+        final RecordMetaData metaDataWithNonRecordTypes = RecordMetaData.newBuilder()
+                .setRecords(TestRecordsImportProto.getDescriptor())
+                .build();
+        checkNonRecordTypes(metaDataWithNonRecordTypes, "com.apple.foundationdb.record", ImmutableList.of(
+                "test1.MyOtherRecord",
+                "test1.RecordTypeUnion",
+                "test2.RecordTypeUnion"
+        ));
+    }
+
+    @Test
+    void getNonRecordTypesWithImportedMap() {
+        final RecordMetaData metaDataWithNonRecordTypes = RecordMetaData.newBuilder()
+                .setRecords(TestRecordsImportedMapProto.getDescriptor())
+                .build();
+        checkNonRecordTypes(metaDataWithNonRecordTypes, "com.apple.foundationdb.record.nestedmaptest", ImmutableList.of(
+                "OuterRecord",
+                "MapRecord",
+                "MapRecord.Entry",
+                "OtherRecord",
+                "RecordTypeUnion"
+        ));
+    }
+
+    private void checkNonRecordTypes(@Nonnull RecordMetaData metaData, @Nonnull Descriptors.FileDescriptor fileDescriptor, @Nonnull List<String> expectedNonRecordTypes) {
+        checkNonRecordTypes(metaData, fileDescriptor.getPackage(), expectedNonRecordTypes);
+    }
+
+    private void checkNonRecordTypes(@Nonnull RecordMetaData metaData, @Nonnull String prefix, @Nonnull List<String> expectedNonRecordTypes) {
+        checkNonRecordTypes(metaData, expectedNonRecordTypes.stream()
+                .map(name -> prefix + "." + name)
+                .toList());
+    }
+
+    private void checkNonRecordTypes(@Nonnull RecordMetaData metaData, @Nonnull List<String> expectedFullNonRecordTypeNames) {
+        final var actualNonRecordTypes = metaData.getNonRecordTypeDescriptorsByFullName();
+        assertEquals(expectedFullNonRecordTypeNames.size(), actualNonRecordTypes.size());
+        for (final var expectedFullName : expectedFullNonRecordTypeNames) {
             // The map is keyed by the full name (<protobuf_package>.<name>) of the type descriptors.
-            final var expectedFullName = packageName + "." + expectedNonRecordType;
             assertTrue(actualNonRecordTypes.containsKey(expectedFullName));
-            assertEquals(expectedNonRecordType, actualNonRecordTypes.get(expectedFullName).getName());
-            assertEquals(TestRecords4WrapperProto.getDescriptor(), actualNonRecordTypes.get(expectedFullName).getFile());
+            final Descriptors.GenericDescriptor actualNonRecordType = actualNonRecordTypes.get(expectedFullName);
+
+            assertEquals(expectedFullName, actualNonRecordType.getFullName());
+            int lastDot = expectedFullName.lastIndexOf('.');
+            final String expectedName = lastDot < 0 ? expectedFullName : expectedFullName.substring(lastDot + 1);
+            assertEquals(expectedName, actualNonRecordType.getName());
         }
     }
 }
