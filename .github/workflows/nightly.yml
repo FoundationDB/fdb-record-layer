@@ -39,8 +39,6 @@ jobs:
           gradle_command: jar test destructiveTest :fdb-extensions:scalarFallbackTest codeCoverageReport
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
       - name: Upload coverage to teamscale
-        # temporary until we validate that this is working correctly
-        continue-on-error: true
         uses: ./actions/teamscale-upload
         with:
           partition: 'CI Tests'
@@ -111,7 +109,6 @@ jobs:
           retention-days: 1
       # This will upload multiple times, once for each of the old versions
       - name: Upload coverage to teamscale
-        continue-on-error: true
         uses: ./actions/teamscale-upload
         with:
           partition: 'Mixed Mode Tests'
@@ -258,8 +255,6 @@ jobs:
         with:
           gradle_command: codeCoverageReport
       - name: Upload coverage to teamscale
-        # temporary until we validate that this is working correctly
-        continue-on-error: true
         uses: ./actions/teamscale-upload
         with:
           partition: 'Nightly Tests'

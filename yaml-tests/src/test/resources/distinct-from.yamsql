@@ -74,7 +74,7 @@ test_block:
 test_block:
   name: not-distinct-from-tests
   options:
-    supported_version: !current_version
+    supported_version: 4.14.1.0
   tests:
     -
       - query: select * from t1 WHERE col2 is      not distinct from null

@@ -147,13 +147,11 @@ public class ReassignScenarioTest implements BaseTest {
         onWriteListener = new TestHelpers.TestOnWriteListener();
         final TestHelpers.TestOnReadListener onReadListener = new TestHelpers.TestOnReadListener();
 
-        final Config config = Guardiann.newConfigBuilder()
+        final Config config = ConfigRecommendation.forClusterBounds(Metric.EUCLIDEAN_METRIC, PRIMARY_CLUSTER_MAX, 1)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
-                .setMetric(Metric.EUCLIDEAN_METRIC)
-                .setPrimaryClusterMax(PRIMARY_CLUSTER_MAX)
                 .setCollapseMinDuplicates(PRIMARY_CLUSTER_MAX / 2)
-                .setPrimaryClusterMin(1)
+                .setMergeMaxEverFraction(0.0d)
                 .setDeterministicRandomness(true)
                 .setUnderreplicatedPrimaryClusterMax(UNDERREPLICATED_MAX)
                 // Keep the OTHER reassign trigger out of the way so the REASSIGN we observe is

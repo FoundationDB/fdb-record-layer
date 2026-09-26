@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexValuePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
@@ -251,6 +252,24 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         }
         return addNested(ExplainLevel.ALL_DETAILS, new ExplainTokens().addWhitespace().addToString("->")
                 .addWhitespace().addToString(coveringIndexPlan.getToRecord()))
+                .addOptionalWhitespace()
+                .addClosingParen();
+    }
+
+    @Nonnull
+    @Override
+    public ExplainTokens visitCoveringIndexValuePlan(@Nonnull final RecordQueryCoveringIndexValuePlan coveringIndexPlan) {
+        addKeyword("COVERING").addOptionalWhitespace().addOpeningParen().addOptionalWhitespace();
+        final var underlyingWithIndex = coveringIndexPlan.getIndexPlan();
+        if (underlyingWithIndex instanceof RecordQueryIndexPlan) {
+            addNested(indexDetails((RecordQueryIndexPlan)underlyingWithIndex));
+        } else if (underlyingWithIndex instanceof RecordQueryTextIndexPlan) {
+            textIndexDetails((RecordQueryTextIndexPlan)underlyingWithIndex);
+        } else {
+            addIdentifier(underlyingWithIndex.getIndexName());
+        }
+        return addNested(ExplainLevel.ALL_DETAILS, new ExplainTokens().addWhitespace().addToString("->")
+                .addWhitespace().addToString(coveringIndexPlan.getIndexEntryToRecordValue()))
                 .addOptionalWhitespace()
                 .addClosingParen();
     }

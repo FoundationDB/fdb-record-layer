@@ -63,6 +63,7 @@ import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.async.MoreAsyncUtil.forEach;
@@ -608,14 +609,14 @@ class Primitives {
     @Nonnull
     CompletableFuture<ClusterMetadata> fetchClusterMetadata(@Nonnull final ReadTransaction readTransaction,
                                                             @Nonnull final UUID clusterId) {
-        final byte[] key = getClusterMetadataSubspace().pack(Tuple.from(clusterId));
+        final byte[] key = clusterMetadataKey(clusterId);
         return getOnReadListener().onAsyncRead(readTransaction.get(key))
                 .thenApply(valueBytes -> {
                     getOnReadListener().onKeyValueRead(key, valueBytes);
                     if (valueBytes == null) {
                         return null;
                     }
-                    return StorageAdapter.clusterMetadataFromTuple(Tuple.fromBytes(valueBytes));
+                    return StorageAdapter.clusterMetadataFromTuple(clusterId, Tuple.fromBytes(valueBytes));
                 });
     }
 
@@ -628,8 +629,7 @@ class Primitives {
      */
     void writeClusterMetadata(@Nonnull final Transaction transaction,
                               @Nonnull final ClusterMetadata clusterMetadata) {
-        final Subspace clusterMetadataSubspace = getClusterMetadataSubspace();
-        final byte[] key = clusterMetadataSubspace.pack(Tuple.from(clusterMetadata.id()));
+        final byte[] key = clusterMetadataKey(clusterMetadata.id());
         final byte[] value = StorageAdapter.valueTupleFromClusterMetadata(clusterMetadata).pack();
 
         getOnWriteListener().onKeyValueWritten(key, value);
@@ -646,11 +646,22 @@ class Primitives {
      */
     void deleteClusterMetadata(@Nonnull final Transaction transaction,
                                @Nonnull final UUID clusterId) {
-        final Subspace clusterMetadataSubspace = getClusterMetadataSubspace();
-        final byte[] key = clusterMetadataSubspace.pack(Tuple.from(clusterId));
+        final byte[] key = clusterMetadataKey(clusterId);
 
         getOnWriteListener().onKeyDeleted(key);
         transaction.clear(key);
+    }
+
+    /**
+     * Returns the key a cluster's {@link ClusterMetadata} is stored under. The id is not repeated in the value, so
+     * this key is the only place it lives.
+     *
+     * @param clusterId the id of the cluster
+     * @return the packed key
+     */
+    @Nonnull
+    private byte[] clusterMetadataKey(@Nonnull final UUID clusterId) {
+        return getClusterMetadataSubspace().pack(Tuple.from(clusterId));
     }
 
     /**
@@ -1113,10 +1124,10 @@ class Primitives {
      * enqueues a {@link ReassignTask} or simply writes the updated metadata, as warranted.
      * <p>
      * This method <em>never</em> enqueues a merge. A merge is triggered only by deleting a primary vector and
-     * is handled separately by {@link #updateClusterMetadataAndEnqueueMergeTaskMaybe}, because deciding whether a
-     * merge is even possible requires an asynchronous read of the centroid HNSW. Callers that remove vectors
-     * (a replicated delete, or the non-merge fallback of the primary-delete path) may still call this method —
-     * it will reassign or plain-write the decrement — but it will not split or merge them.
+     * is handled separately by {@link #updateClusterMetadataAndEnqueueMergeOrReassignTaskMaybe}, because deciding whether a
+     * merge is even possible requires an asynchronous read of the centroid HNSW. Callers that push vectors out of a
+     * cluster during a reassign or a split may still call this method — it will reassign or plain-write the
+     * decrement — but it will not split or merge them.
      *
      * @param transaction the transaction to write the updated metadata and any enqueued task into
      * @param random source of randomness for the id of any enqueued task
@@ -1171,7 +1182,7 @@ class Primitives {
 
     /**
      * Shared tail for {@link #updateClusterMetadataAndEnqueueSplitOrReassignTaskMaybe} and
-     * {@link #updateClusterMetadataAndEnqueueMergeTaskMaybe} for the case where the change neither splits nor
+     * {@link #updateClusterMetadataAndEnqueueMergeOrReassignTaskMaybe} for the case where the change neither splits nor
      * merges the cluster: it enqueues a {@link ReassignTask} if the cluster now violates a replication invariant
      * (or is a cluster we just split into), otherwise it just persists the updated metadata. Unlike the split
      * path, this accepts a negative primary delta (a primary was deleted) and writes it through.
@@ -1192,16 +1203,16 @@ class Primitives {
      * @return the id of an enqueued reassign task, or {@link Optional#empty()} if none was enqueued
      */
     @Nonnull
-    private Optional<UUID> updateClusterMetadataAndEnqueueReassignTaskMaybe(@Nonnull final Transaction transaction,
-                                                                            @Nonnull final SplittableRandom random,
-                                                                            @Nonnull final ClusterMetadata clusterMetadata,
-                                                                            @Nonnull final Transformed<RealVector> clusterCentroid,
-                                                                            @Nonnull final AccessInfo accessInfo,
-                                                                            final int numPrimaryVectorsAdded,
-                                                                            final int numPrimaryUnderreplicatedVectorsAdded,
-                                                                            final int numReplicatedVectorsAdded,
-                                                                            @Nonnull final RunningStats updatedStandardDeviation,
-                                                                            @Nonnull final Set<UUID> causeClusterIds) {
+    Optional<UUID> updateClusterMetadataAndEnqueueReassignTaskMaybe(@Nonnull final Transaction transaction,
+                                                                    @Nonnull final SplittableRandom random,
+                                                                    @Nonnull final ClusterMetadata clusterMetadata,
+                                                                    @Nonnull final Transformed<RealVector> clusterCentroid,
+                                                                    @Nonnull final AccessInfo accessInfo,
+                                                                    final int numPrimaryVectorsAdded,
+                                                                    final int numPrimaryUnderreplicatedVectorsAdded,
+                                                                    final int numReplicatedVectorsAdded,
+                                                                    @Nonnull final RunningStats updatedStandardDeviation,
+                                                                    @Nonnull final Set<UUID> causeClusterIds) {
         final Config config = getConfig();
         final UUID clusterId = clusterMetadata.id();
 
@@ -1253,8 +1264,8 @@ class Primitives {
 
     /**
      * Updates a cluster's metadata after a single primary vector has been deleted from it and, when that drops
-     * the cluster below {@code primaryClusterMin}, enqueues a merge {@link SplitMergeTask} — but only when a
-     * merge is actually possible.
+     * the cluster below its {@link ClusterMetadata#mergeThreshold(Config) merge threshold}, enqueues a merge
+     * {@link SplitMergeTask} — but only when a merge is actually possible.
      * <p>
      * A merge needs at least one other cluster to merge with. The clusters are exactly the nodes of the centroid
      * HNSW, so this consults {@link HNSW#cardinality(com.apple.foundationdb.ReadTransaction)} and enqueues a
@@ -1278,45 +1289,20 @@ class Primitives {
      * @return a future that completes once the metadata has been written and any task enqueued
      */
     @Nonnull
-    CompletableFuture<Void> updateClusterMetadataAndEnqueueMergeTaskMaybe(@Nonnull final Transaction transaction,
-                                                                         @Nonnull final SplittableRandom random,
-                                                                         @Nonnull final ClusterMetadata clusterMetadata,
-                                                                         @Nonnull final Transformed<RealVector> clusterCentroid,
-                                                                         @Nonnull final AccessInfo accessInfo,
-                                                                         @Nonnull final RunningStats updatedStandardDeviation) {
-        final Config config = getConfig();
-
+    CompletableFuture<Void> updateClusterMetadataAndEnqueueMergeOrReassignTaskMaybe(@Nonnull final Transaction transaction,
+                                                                                    @Nonnull final SplittableRandom random,
+                                                                                    @Nonnull final ClusterMetadata clusterMetadata,
+                                                                                    @Nonnull final Transformed<RealVector> clusterCentroid,
+                                                                                    @Nonnull final AccessInfo accessInfo,
+                                                                                    @Nonnull final RunningStats updatedStandardDeviation) {
         // A single primary vector was just deleted, i.e. numPrimaryVectorsAdded == -1.
         final int numTotalPrimaryVectors = clusterMetadata.getNumPrimaryVectors() - 1;
-        final boolean wantsMerge =
-                !clusterMetadata.states().contains(ClusterMetadata.State.SPLIT_MERGE) && // not already splitting/merging
-                        !clusterMetadata.states().contains(ClusterMetadata.State.COLLAPSE) && // not already collapsing
-                        numTotalPrimaryVectors < config.primaryClusterMin();
-        if (!wantsMerge) {
-            // Either the cluster is still within bounds or it already has a pending task; just persist the
-            // decrement (this may reassign or plain-write, but cannot merge).
-            updateClusterMetadataAndEnqueueReassignTaskMaybe(transaction, random, clusterMetadata,
-                    clusterCentroid, accessInfo, -1, 0, 0, updatedStandardDeviation, Set.of());
-            return AsyncUtil.DONE;
-        }
-
-        return getClusterCentroidsHnsw().cardinality(transaction)
-                .thenAccept(cardinality -> {
-                    if (cardinality == Cardinality.MULTIPLE) {
-                        final UUID newTaskId =
-                                updateClusterMetadataAndEnqueueSplitMergeTask(transaction, random, clusterMetadata, clusterCentroid,
-                                        accessInfo, 0, 0, updatedStandardDeviation);
-                        if (logger.isDebugEnabled()) {
-                            logger.debug("enqueued SPLIT_MERGE (merge) due to number of primary vectors, taskId={}, numPrimaryVectors={}",
-                                    newTaskId, numTotalPrimaryVectors);
-                        }
-                    } else {
-                        // Lone cluster below the minimum: nothing to merge with. Persist the decrement only and
-                        // do not set SPLIT_MERGE (avoids a stuck flag and a churn of impossible merge tasks).
-                        if (logger.isDebugEnabled()) {
-                            logger.debug("skipping merge enqueue: cluster={} is below the minimum but has no mergeable neighbor; centroidCardinality={}",
-                                    clusterMetadata.id(), cardinality);
-                        }
+        return enqueueMergeTaskIfUndersizedMaybe(transaction, random, clusterMetadata, clusterCentroid, accessInfo,
+                        updatedStandardDeviation, numTotalPrimaryVectors)
+                .thenAccept(enqueuedMerge -> {
+                    if (!enqueuedMerge) {
+                        // Not undersized, already pending a task, or a lone cluster with nothing to merge with:
+                        // persist the decrement (this may reassign or plain-write, but cannot merge).
                         updateClusterMetadataAndEnqueueReassignTaskMaybe(transaction, random, clusterMetadata,
                                 clusterCentroid, accessInfo, -1, 0, 0, updatedStandardDeviation, Set.of());
                     }
@@ -1324,11 +1310,83 @@ class Primitives {
     }
 
     /**
+     * Shared merge-decision core for the delete path ({@link #updateClusterMetadataAndEnqueueMergeOrReassignTaskMaybe})
+     * and the reassign follow-up ({@link #enqueueMergeTaskAfterReassignIfUndersized}). Enqueues a merge {@link SplitMergeTask}
+     * iff the cluster is undersized (fewer primaries than its
+     * {@link ClusterMetadata#mergeThreshold(Config) merge threshold}), is not already
+     * {@code SPLIT_MERGE}/{@code COLLAPSE}, and has a mergeable neighbor (centroid cardinality
+     * {@link Cardinality#MULTIPLE}). Returns whether a merge was enqueued, so the caller can perform its own
+     * non-merge fallback (the delete path persists the decrement; the reassign path does nothing).
+     *
+     * @param numTotalPrimaryVectors the cluster's primary count after the triggering operation (the delete path
+     *        passes the post-decrement count; the reassign path passes the target's final post-reassign count)
+     */
+    @Nonnull
+    private CompletableFuture<Boolean> enqueueMergeTaskIfUndersizedMaybe(@Nonnull final Transaction transaction,
+                                                                         @Nonnull final SplittableRandom random,
+                                                                         @Nonnull final ClusterMetadata clusterMetadata,
+                                                                         @Nonnull final Transformed<RealVector> clusterCentroid,
+                                                                         @Nonnull final AccessInfo accessInfo,
+                                                                         @Nonnull final RunningStats updatedStandardDeviation,
+                                                                         final int numTotalPrimaryVectors) {
+        final Config config = getConfig();
+        final boolean wantsMerge =
+                !clusterMetadata.states().contains(ClusterMetadata.State.SPLIT_MERGE) && // not already splitting/merging
+                        !clusterMetadata.states().contains(ClusterMetadata.State.COLLAPSE) && // not already collapsing
+                        numTotalPrimaryVectors < clusterMetadata.mergeThreshold(config);
+        if (!wantsMerge) {
+            return CompletableFuture.completedFuture(false);
+        }
+        return getClusterCentroidsHnsw().cardinality(transaction)
+                .thenApply(cardinality -> {
+                    if (cardinality == Cardinality.MULTIPLE) {
+                        final UUID newTaskId =
+                                updateClusterMetadataAndEnqueueSplitMergeTask(transaction, random, clusterMetadata,
+                                        clusterCentroid, accessInfo, 0, 0, updatedStandardDeviation);
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("enqueued SPLIT_MERGE (merge) due to number of primary vectors, taskId={}, numPrimaryVectors={}",
+                                    newTaskId, numTotalPrimaryVectors);
+                        }
+                        return true;
+                    }
+                    // Lone cluster below the merge threshold: nothing to merge with. Do not set SPLIT_MERGE
+                    // (avoids a stuck flag and a churn of impossible merge tasks); the caller handles the rest.
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("skipping merge enqueue: cluster={} is below the merge threshold but has no mergeable neighbor; centroidCardinality={}",
+                                clusterMetadata.id(), cardinality);
+                    }
+                    return false;
+                });
+    }
+
+    /**
+     * Merge follow-up for a reassign. If the just-reassigned target cluster has shrunk below its
+     * {@link ClusterMetadata#mergeThreshold(Config) merge threshold}, enqueues a merge. Reuses the delete path's merge core but
+     * supplies no fallback — the target metadata has already been written with its final post-reassign counts.
+     * <p>
+     * A freshly split child, reassigned post-bounce while still at its birth size, is not caught here: a cluster at its
+     * own peak is merge-eligible only if it sits below {@link Config#primaryClusterMin()}, and
+     * {@link Config#minChildFraction()} already bounds a split from producing one that small. So no split-vs-shrink
+     * discriminator is needed — but note it is the child-size floor that provides that, not the max-ever peak.
+     */
+    @Nonnull
+    CompletableFuture<Void> enqueueMergeTaskAfterReassignIfUndersized(@Nonnull final Transaction transaction,
+                                                                      @Nonnull final SplittableRandom random,
+                                                                      @Nonnull final ClusterMetadata targetClusterMetadata,
+                                                                      @Nonnull final Transformed<RealVector> clusterCentroid,
+                                                                      @Nonnull final AccessInfo accessInfo) {
+        return enqueueMergeTaskIfUndersizedMaybe(transaction, random, targetClusterMetadata, clusterCentroid,
+                accessInfo, targetClusterMetadata.runningStandardDeviation(),
+                targetClusterMetadata.getNumPrimaryVectors())
+                .thenApply(ignored -> null);
+    }
+
+    /**
      * Enqueues a {@link SplitMergeTask} for the given cluster and writes its metadata with the
      * {@link ClusterMetadata.State#SPLIT_MERGE} state set. This is the shared body used both when adding vectors
-     * pushes a cluster over {@code primaryClusterMax} (a split) and when deleting a primary drops it below
-     * {@code primaryClusterMin} (a merge); the task itself decides at execution time whether to split or merge
-     * based on the cluster's size when it runs.
+     * pushes a cluster over {@code primaryClusterMax} (a split) and when deleting a primary drops it below its
+     * {@link ClusterMetadata#mergeThreshold(Config) merge threshold} (a merge); the task itself decides at execution
+     * time whether to split or merge based on the cluster's size when it runs.
      *
      * @param transaction the transaction to use
      * @param random a source of randomness used to mint a task id
@@ -1492,15 +1550,26 @@ class Primitives {
             }
         }
 
+        final AtomicInteger droppedMissingMetadata = new AtomicInteger();
+        final AtomicInteger droppedSupersededMetadata = new AtomicInteger();
+
         return forEach(vectorsByIdMap.values(),
                 vectorReference ->
                         fetchVectorMetadata(transaction, vectorReference.id().primaryKey())
-                                .thenApply(vectorMetadata ->
-                                        vectorReference.isCollapsed() ||
-                                                (vectorMetadata != null &&
-                                                         vectorMetadata.vectorId().uuid()
-                                                                 .equals(vectorReference.id().uuid()))
-                                        ? vectorReference : null),
+                                .thenApply(vectorMetadata -> {
+                                    if (vectorReference.isCollapsed()) {
+                                        return vectorReference;
+                                    }
+                                    if (vectorMetadata == null) {
+                                        droppedMissingMetadata.incrementAndGet();
+                                        return null;
+                                    }
+                                    if (!vectorMetadata.vectorId().uuid().equals(vectorReference.id().uuid())) {
+                                        droppedSupersededMetadata.incrementAndGet();
+                                        return null;
+                                    }
+                                    return vectorReference;
+                                }),
                 concurrency,
                 executor)
                 .thenApply(vectorReferences -> {
@@ -1510,6 +1579,8 @@ class Primitives {
                             nonnullReferencesBuilder.add(vectorReference);
                         }
                     }
+                    getOnWriteListener().onVectorReferencesCleanedUp(droppedMissingMetadata.get(),
+                            droppedSupersededMetadata.get());
                     return nonnullReferencesBuilder.build();
                 });
     }

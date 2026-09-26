@@ -597,6 +597,7 @@ statementOption
     | LOG QUERY
     | DRY RUN
     | PLAN RIGHT DEEP
+    | ISOLATION LEVEL SNAPSHOT
     ;
 
 // Transaction's Statements

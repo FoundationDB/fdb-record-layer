@@ -89,6 +89,8 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
     private final String recordTypeName;
     @Nonnull
     private final IndexKeyValueToPartialRecord toRecord;
+    @Nullable
+    private final Value indexEntryToRecordValue;
     // todo replace this attribute with "Type resultType" once we bump the plan hash mode to VC1.
     @Nonnull
     private final Value resultValue;
@@ -98,21 +100,14 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
     @Nonnull
     private final QueryPlanConstraint constraint;
 
-    /**
-     * Creates an instance of {@link RecordQueryAggregateIndexPlan}.
-     *
-     * @param indexPlan The underlying index.
-     * @param recordTypeName The name of the base record, used for debugging.
-     * @param indexEntryToPartialRecordConverter A converter from index entry to record.
-     * @param resultValue the result value this plan produces.
-     * @param constraint The index filter.
-     */
     public RecordQueryAggregateIndexPlan(@Nonnull final RecordQueryIndexPlan indexPlan,
                                          @Nonnull final String recordTypeName,
                                          @Nonnull final IndexKeyValueToPartialRecord indexEntryToPartialRecordConverter,
+                                         @Nullable final Value indexEntryToRecordValue,
                                          @Nonnull final Value resultValue,
                                          @Nonnull final Value groupByResultValue,
                                          @Nonnull final QueryPlanConstraint constraint) {
+        this.indexEntryToRecordValue = indexEntryToRecordValue;
         this.indexPlan = indexPlan;
         this.recordTypeName = recordTypeName;
         this.toRecord = indexEntryToPartialRecordConverter;
@@ -135,10 +130,9 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
     }
 
     /**
-     * Entries are decoded into the shape of this plan's result -- the result of the select-having -- and not into a copy
-     * of a stored record. The aggregate column is the reason: no record has it, so only the result type describes the
-     * shape an entry has to be placed into. The record type is looked up directly rather than as a queryable one because
-     * the indexed record type of an aggregate index need not be queryable.
+     * An entry decodes into the shape of this plan's result, the select-having record. That shape comes from the result
+     * type rather than from a record descriptor because of the aggregate column, which no record type has a field for,
+     * and which the entry carries in its value for a plain aggregate index and in its key for a permuted one.
      */
     @Nonnull
     @Override
@@ -146,10 +140,16 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
                                                                             @Nonnull final EvaluationContext context,
                                                                             @Nonnull final IndexEntry indexEntry) {
         final var metaData = store.getRecordMetaData();
+        final var index = metaData.getIndex(getIndexName());
+        final var recordType = metaData.getRecordType(recordTypeName);
+        if (indexEntryToRecordValue != null) {
+            return RecordQueryPlanWithIndexEntryToQueriedRecord.toQueriedRecord(store, context, index, recordType,
+                    indexEntryToRecordValue, false, indexEntry);
+        }
         final var shape = Objects.requireNonNull(context.getTypeRepository().getMessageDescriptor(resultValue.getResultType()));
-        return RecordQueryPlanWithIndexEntryToQueriedRecord.intoShape(store,
-                metaData.getIndex(getIndexName()),
-                metaData.getRecordType(recordTypeName),
+        return RecordQueryPlanWithIndexEntryToQueriedRecord.toQueriedRecord(store,
+                index,
+                recordType,
                 shape,
                 toRecord,
                 false,
@@ -210,7 +210,7 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
     @Override
     public RecordQueryAggregateIndexPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
         return new RecordQueryAggregateIndexPlan(indexPlan.strictlySorted(memoizer), recordTypeName, toRecord,
-                resultValue, groupByResultValue, constraint);
+                indexEntryToRecordValue, resultValue, groupByResultValue, constraint);
     }
 
     @Nonnull
@@ -271,11 +271,15 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
 
         final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap,
                 shouldSimplifyValues, translatedQuantifiers);
+        final var translatedIndexEntryToRecordValue =
+                indexEntryToRecordValue == null
+                ? null
+                : indexEntryToRecordValue.translateCorrelations(translationMap, shouldSimplifyValues);
 
         // this is ok as there are no new quantifiers
-        if (translatedIndexPlan != indexPlan) {
-            return new RecordQueryAggregateIndexPlan(translatedIndexPlan, recordTypeName, toRecord, resultValue,
-                    groupByResultValue, constraint);
+        if (translatedIndexPlan != indexPlan || translatedIndexEntryToRecordValue != indexEntryToRecordValue) {
+            return new RecordQueryAggregateIndexPlan(translatedIndexPlan, recordTypeName, toRecord,
+                    translatedIndexEntryToRecordValue, resultValue, groupByResultValue, constraint);
         }
         return this;
     }
@@ -290,7 +294,7 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
     public RecordQueryPlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
         Verify.verify(newQuantifiers.isEmpty());
         return new RecordQueryAggregateIndexPlan(indexPlan.minimize(newQuantifiers), recordTypeName, toRecord,
-                resultValue, groupByResultValue, constraint);
+                indexEntryToRecordValue, resultValue, groupByResultValue, constraint);
     }
 
     @Override
@@ -382,7 +386,12 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
     @Nonnull
     @Override
     public PRecordQueryAggregateIndexPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return switch (serializationContext.getMode()) {
+        //
+        // The value reading index entries goes last in every mode, and is read back last too: a record type is
+        // serialized by value the first time a context sees it and by reference id after that, so reading this value
+        // before whatever carries its record type would meet a reference id that nothing has defined yet.
+        //
+        final var builder = switch (serializationContext.getMode()) {
             case VL0, VC0 -> PRecordQueryAggregateIndexPlan.newBuilder()
                     .setIndexPlan(indexPlan.toRecordQueryIndexPlanProto(serializationContext))
                     .setRecordTypeName(recordTypeName)
@@ -390,18 +399,19 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
                     .setResultValue(resultValue.toValueProto(serializationContext))
                     .setResultType(resultValue.getResultType().toTypeProto(serializationContext))
                     .setGroupByResultValue(groupByResultValue.toValueProto(serializationContext))
-                    .setConstraint(constraint.toProto(serializationContext))
-                    .build();
+                    .setConstraint(constraint.toProto(serializationContext));
             case VC1 -> PRecordQueryAggregateIndexPlan.newBuilder()
                     .setIndexPlan(indexPlan.toRecordQueryIndexPlanProto(serializationContext))
                     .setRecordTypeName(recordTypeName)
                     .setToRecord(toRecord.toProto(serializationContext))
                     .setResultType(resultValue.getResultType().toTypeProto(serializationContext))
-                    .setConstraint(constraint.toProto(serializationContext))
-                    .build();
+                    .setConstraint(constraint.toProto(serializationContext));
             default -> throw new RecordCoreException("unsupported plan hash mode");
         };
-
+        if (indexEntryToRecordValue != null) {
+            builder.setIndexEntryToRecordValue(indexEntryToRecordValue.toValueProto(serializationContext));
+        }
+        return builder.build();
     }
 
     @Nonnull
@@ -438,7 +448,13 @@ public class RecordQueryAggregateIndexPlan extends AbstractRelationalExpressionW
             default:
                 throw new RecordCoreException("unsupported plan hash mode");
         }
-        return new RecordQueryAggregateIndexPlan(indexPlan, recordTypeName, indexKeyValueToPartialRecord, resultValue, groupByResultValue, planConstraint);
+        // Read last, matching the order toProto writes it in, so that the record type it shares has already been seen.
+        final var indexEntryToRecordValue = recordQueryAggregateIndexPlanProto.hasIndexEntryToRecordValue()
+                                            ? Value.fromValueProto(serializationContext,
+                Objects.requireNonNull(recordQueryAggregateIndexPlanProto.getIndexEntryToRecordValue()))
+                                            : null; // temporary, when parsing old continuations.
+        return new RecordQueryAggregateIndexPlan(indexPlan, recordTypeName, indexKeyValueToPartialRecord,
+                indexEntryToRecordValue, resultValue, groupByResultValue, planConstraint);
     }
 
     /**

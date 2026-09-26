@@ -781,6 +781,23 @@ public class FDBStoreTimer extends StoreTimer {
         VECTOR_TASK_ENQUEUED("vector maintenance tasks enqueued", false),
         /** Count of deferred maintenance tasks executed (Guardiann engine). */
         VECTOR_TASK_EXECUTED("vector maintenance tasks executed", false),
+        /**
+         * Count of times repartitioning reconciled a set of vector references (Guardiann engine). The denominator for
+         * {@link #VECTOR_REFERENCE_CLEANUPS_WITH_STALE} and {@link #VECTOR_STALE_REFERENCES_DROPPED}, neither of which
+         * means much on its own.
+         */
+        VECTOR_REFERENCE_CLEANUPS("vector reference cleanups", false),
+        /**
+         * Count of reference reconciliations that found at least one stale reference (Guardiann engine). Against
+         * {@link #VECTOR_REFERENCE_CLEANUPS} this gives the share of repartitionings whose cluster had drifted.
+         */
+        VECTOR_REFERENCE_CLEANUPS_WITH_STALE("vector reference cleanups finding stale references", false),
+        /**
+         * Count of vector references discarded by repartitioning because the vector had been deleted or had moved
+         * (Guardiann engine). A non-zero count means a cluster's recorded vector count had drifted above what it
+         * actually held, so a split or merge decision was taken against the drifted figure.
+         */
+        VECTOR_STALE_REFERENCES_DROPPED("vector stale references dropped", false),
         /** Count of vector indexes disabled because a deferred-task count decoded to a negative (corrupt) value. */
         VECTOR_INDEX_DISABLED_ON_NEGATIVE_TASK_COUNT("vector indexes disabled on negative task count", false),
         /** Count of the writes to a {@code PendingWritesQueue}. */

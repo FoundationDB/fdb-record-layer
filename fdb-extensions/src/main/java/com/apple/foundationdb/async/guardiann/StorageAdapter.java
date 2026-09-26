@@ -337,20 +337,23 @@ class StorageAdapter {
     }
 
     @Nonnull
-    static ClusterMetadata clusterMetadataFromTuple(@Nonnull final Tuple valueTuple) {
-        return new ClusterMetadata(valueTuple.getUUID(0),
+    static ClusterMetadata clusterMetadataFromTuple(@Nonnull final UUID clusterId,
+                                                    @Nonnull final Tuple valueTuple) {
+        return new ClusterMetadata(clusterId,
+                Math.toIntExact(valueTuple.getLong(0)),
                 Math.toIntExact(valueTuple.getLong(1)),
-                Math.toIntExact(valueTuple.getLong(2)),
-                runningStandardDeviationFromTuple(valueTuple.getNestedTuple(3)),
+                runningStandardDeviationFromTuple(valueTuple.getNestedTuple(2)),
+                Math.toIntExact(valueTuple.getLong(3)),
                 Math.toIntExact(valueTuple.getLong(4)));
     }
 
     @Nonnull
     static Tuple valueTupleFromClusterMetadata(@Nonnull final ClusterMetadata clusterMetadata) {
-        return Tuple.from(clusterMetadata.id(),
-                clusterMetadata.numPrimaryUnderreplicatedVectors(), clusterMetadata.numReplicatedVectors(),
+        return Tuple.from(clusterMetadata.numPrimaryUnderreplicatedVectors(),
+                clusterMetadata.numReplicatedVectors(),
                 valueTupleFromRunningStats(clusterMetadata.runningStandardDeviation()),
-                clusterMetadata.getStatesCode());
+                clusterMetadata.getStatesCode(),
+                clusterMetadata.maxEverNumPrimaryVectors());
     }
 
     @Nonnull

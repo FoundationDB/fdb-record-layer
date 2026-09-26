@@ -61,6 +61,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 
@@ -401,18 +402,16 @@ class TestHelpers {
     }
 
     /**
-     * Builds the {@link SearchConfig} the recall checks use: a candidate pool 15% larger than {@code k} (the
-     * dataset-dependent knob), with every other knob left at its builder default (which matches what these checks
-     * have always passed: 48 probed clusters, a min-of-16 prune floor, a 1.5 distance-ratio cutoff). Because the pool
-     * is now expressed as a {@code k}-relative factor ({@link SearchConfig#candidatePoolFactor()}), one config serves
-     * every {@code k}; {@code 1.15} happens to be the builder default, so this is just the all-defaults config, kept as
-     * a named helper so the recall checks document the pool size they rely on.
+     * Builds the {@link SearchConfig} the recall checks use: every knob at its builder default (48 probed clusters, a
+     * min-of-16 prune floor, a 1.5 distance-ratio cutoff, and the default candidate-pool factor). Kept as a named
+     * helper so the recall checks state that they measure what real callers get, rather than a pool size chosen to
+     * make them pass.
      *
      * @return a search config tuned for recall@k checks
      */
     static SearchConfig recallSearchConfig() {
         return new SearchConfig.SearchConfigBuilder()
-                .setCandidatePoolFactor(1.15d)
+                .setCandidatePoolFactor(SearchConfig.DEFAULT_CANDIDATE_POOL_FACTOR)
                 .build();
     }
 
@@ -703,6 +702,16 @@ class TestHelpers {
         }
 
         @Override
+        public void onVectorReferencesCleanedUp(final int numDroppedMissingMetadata,
+                                                final int numDroppedSupersededMetadata) {
+            for (final Frame frame : frames) {
+                frame.numVectorReferenceCleanups().incrementAndGet();
+                frame.numStaleVectorReferencesDropped()
+                        .addAndGet(numDroppedMissingMetadata + numDroppedSupersededMetadata);
+            }
+        }
+
+        @Override
         public void onTaskEnqueued(@Nonnull final TaskKind taskKind,
                                    @Nonnull final UUID taskId, @Nonnull final Set<UUID> targetClusterIds) {
             for (final Frame frame : frames) {
@@ -740,8 +749,29 @@ class TestHelpers {
             return Objects.requireNonNull(frames.peek()).bytesWritten().get();
         }
 
+        /**
+         * Number of vector references repartitioning discarded as stale — the vector deleted, or moved elsewhere. Any
+         * non-zero value means a cluster's recorded count had drifted above what it actually held.
+         *
+         * @return the count within the current frame
+         */
+        public int getNumStaleVectorReferencesDropped() {
+            return Objects.requireNonNull(frames.peek()).numStaleVectorReferencesDropped().get();
+        }
+
+        /**
+         * Number of times repartitioning reconciled a set of vector references, whether or not any were stale. The
+         * denominator for {@link #getNumStaleVectorReferencesDropped()}.
+         *
+         * @return the count within the current frame
+         */
+        public int getNumVectorReferenceCleanups() {
+            return Objects.requireNonNull(frames.peek()).numVectorReferenceCleanups().get();
+        }
+
         public void pushFrame() {
-            frames.push(new Frame(new AtomicLong(0L), Maps.newConcurrentMap(), Maps.newConcurrentMap()));
+            frames.push(new Frame(new AtomicLong(0L), Maps.newConcurrentMap(), Maps.newConcurrentMap(),
+                    new AtomicInteger(0), new AtomicInteger(0)));
         }
 
         public void popFrame() {
@@ -750,7 +780,9 @@ class TestHelpers {
 
         private record Frame(@Nonnull AtomicLong bytesWritten,
                              @Nonnull Map<TaskKind, Integer> numTasksEnqueuedByKind,
-                             @Nonnull Map<TaskKind, Integer> numTasksExecutedByKind) {
+                             @Nonnull Map<TaskKind, Integer> numTasksExecutedByKind,
+                             @Nonnull AtomicInteger numStaleVectorReferencesDropped,
+                             @Nonnull AtomicInteger numVectorReferenceCleanups) {
         }
     }
 

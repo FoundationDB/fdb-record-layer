@@ -384,6 +384,8 @@ class JDBCRelationalConnection implements RelationalConnection {
 
     /**
      * We only currently support {@link Connection#TRANSACTION_SERIALIZABLE}.
+     * We support snapshot isolation via options, but that is most appropriate at the statement level, so it is
+     * exposed via {@link Options.Name#ISOLATION_LEVEL_SNAPSHOT}.
      *
      * @return always {@link Connection#TRANSACTION_SERIALIZABLE}
      */

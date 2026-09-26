@@ -88,7 +88,7 @@ public abstract class IndexPredicate {
         final String typeName = type.getName();
         final String keyName = typeName + "#" + objectQuantifier.getId();
         return queryPredicateMap.computeIfAbsent(keyName, ignored -> {
-            final RecordType recordType = metaData.getRecordType(typeName);
+            final RecordType recordType = metaData.getIndexableRecordType(typeName);
             Type.Record typeRecord = Type.Record.fromDescriptor(recordType.getDescriptor());
             Value recordValue = QuantifiedObjectValue.of(objectQuantifier, typeRecord);
             return toPredicate(recordValue);
@@ -705,7 +705,7 @@ public abstract class IndexPredicate {
 
         @Nonnull
         public KeyExpression getOrderingKey() {
-            return fieldPathToKeyExpression(orderingField);
+            return KeyExpression.fromPath(orderingField);
         }
 
         /**
@@ -718,11 +718,11 @@ public abstract class IndexPredicate {
                 return null;
             }
             if (partitionFieldPaths.size() == 1) {
-                return fieldPathToKeyExpression(partitionFieldPaths.get(0));
+                return KeyExpression.fromPath(partitionFieldPaths.get(0));
             }
-            KeyExpression result = fieldPathToKeyExpression(partitionFieldPaths.get(0));
+            KeyExpression result = KeyExpression.fromPath(partitionFieldPaths.get(0));
             for (int i = 1; i < partitionFieldPaths.size(); i++) {
-                result = Key.Expressions.concat(result, fieldPathToKeyExpression(partitionFieldPaths.get(i)));
+                result = Key.Expressions.concat(result, KeyExpression.fromPath(partitionFieldPaths.get(i)));
             }
             return result;
         }
@@ -803,15 +803,6 @@ public abstract class IndexPredicate {
         @Override
         public int hashCode() {
             return Objects.hash(orderingField, direction, size, partitionFieldPaths);
-        }
-
-        @Nonnull
-        private static KeyExpression fieldPathToKeyExpression(@Nonnull List<String> path) {
-            KeyExpression result = Key.Expressions.field(path.get(path.size() - 1));
-            for (int i = path.size() - 2; i >= 0; i--) {
-                result = Key.Expressions.field(path.get(i)).nest(result);
-            }
-            return result;
         }
     }
 }

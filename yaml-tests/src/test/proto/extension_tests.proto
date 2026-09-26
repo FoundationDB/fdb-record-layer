@@ -1,0 +1,60 @@
+/*
+ * extension_tests.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// proto2, because proto3 can declare neither an extension range nor an extension of anything but an options message.
+// One extension of each type the metadata may carry, so that JsonExtensionMerger's conversions are exercised: the
+// metadata protos themselves declare only message-valued extensions, and none of their value messages is extendable.
+syntax = "proto2";
+
+// make sure to use this package naming convention:
+// com.apple.foundationdb.relational.yamltests.generated.<name_of_test_suite>
+// adding "generated" is important to exclude the generated Java file from Jacoco reports.
+package com.apple.foundationdb.relational.yamltests.generated.extensiontests;
+
+option java_outer_classname = "ExtensionTestsProto";
+
+import "google/protobuf/descriptor.proto";
+
+// Extendable, so that the value of an extension can itself carry one.
+message Carrier {
+  optional int32 depth = 1;
+  extensions 100 to 200;
+}
+
+enum Kind {
+  FIRST = 1;
+  SECOND = 2;
+}
+
+extend Carrier {
+  optional string inner_tag = 100;
+}
+
+extend google.protobuf.FieldOptions {
+  optional Carrier carrier = 60001;
+  optional bool a_bool = 60002;
+  optional int32 an_int = 60003;
+  optional float a_float = 60004;
+  optional int64 a_long = 60005;
+  optional double a_double = 60007;
+  optional string a_string = 60008;
+  optional bytes some_bytes = 60009;
+  optional Kind a_kind = 60010;
+}

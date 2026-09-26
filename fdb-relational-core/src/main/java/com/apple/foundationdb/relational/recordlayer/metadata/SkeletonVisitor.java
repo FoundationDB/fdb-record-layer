@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.api.metadata.SyntheticTable;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.api.metadata.View;
 import com.apple.foundationdb.relational.api.metadata.Visitor;
@@ -86,7 +87,13 @@ public class SkeletonVisitor implements Visitor {
     }
 
     @Override
+    public void visit(@Nonnull final SyntheticTable syntheticTable) {
+        // no-op
+    }
+
+    @Override
     public void visit(@Nonnull final DataType auxiliaryType) {
         // no-op
     }
+
 }

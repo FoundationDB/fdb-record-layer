@@ -849,15 +849,10 @@ public class CollapseScenarioTest implements BaseTest {
     @Nonnull
     private Guardiann newGuardiann(final int primaryClusterMax, final int collapseMinDuplicates) {
         onWriteListener = new TestHelpers.TestOnWriteListener();
-        final Config config = Guardiann.newConfigBuilder()
+        final Config config = ConfigRecommendation.forClusterBounds(Metric.EUCLIDEAN_METRIC, primaryClusterMax, 1)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
-                .setMetric(Metric.EUCLIDEAN_METRIC)
-                .setPrimaryClusterMax(primaryClusterMax)
-                // Config requires the hard cap to exceed the split threshold; keep it proportional. Every insert here
-                // uses maintainInTransaction=true, which bypasses the hard-cap valve, so this value never back-pressures.
-                .setPrimaryClusterHardMax(2 * primaryClusterMax)
-                .setPrimaryClusterMin(1)
+                .setMergeMaxEverFraction(0.0d)
                 .setCollapseMinDuplicates(collapseMinDuplicates)
                 .setDeterministicRandomness(true)
                 .build(128);

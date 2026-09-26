@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.StoredQuery;
+import com.apple.foundationdb.relational.api.metadata.SyntheticTable;
 import com.apple.foundationdb.relational.api.metadata.Table;
 
 import com.apple.foundationdb.relational.api.metadata.View;
@@ -92,6 +93,12 @@ public class NoOpSchemaTemplate implements SchemaTemplate {
     @Override
     public Set<? extends View> getViews() throws RelationalException {
         throw new RelationalException("NoOpSchemaTemplate doesn't have views!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
+    public Set<? extends SyntheticTable> getSyntheticTables() throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have synthetic tables!", ErrorCode.INVALID_PARAMETER);
     }
 
     @Nonnull

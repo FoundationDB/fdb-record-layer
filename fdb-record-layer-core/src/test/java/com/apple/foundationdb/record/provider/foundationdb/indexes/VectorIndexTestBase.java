@@ -89,11 +89,13 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     private static final Logger logger = LoggerFactory.getLogger(VectorIndexTestBase.class);
 
-    // A single OnlineIndexer.mergeIndex() drains the whole backlog on its own: it loops the per-partition claim/drain
-    // internally under one stable session id (so it holds each prefix's lease across transactions) until nothing is
-    // outstanding, retrying transient FDB failures — and follow-up tasks a drain enqueues keep the per-prefix count
-    // positive, so they are drained within that same pass. One pass therefore suffices for a quiescent index; this tiny
-    // bound is only a backstop so a pass that returns with work still outstanding fails the test rather than looping.
+    // Passes of OnlineIndexer.mergeIndex() allowed before the drain is declared failed. Deliberately tiny, and not a
+    // statement about how deep a cascade of follow-up tasks can get: a pass loops internally (in IndexingMerger) until
+    // the maintainer reports nothing it can do, and follow-up tasks a drain enqueues keep the partition's count
+    // positive, so they are retired within that same pass. What a pass cannot do is work on a partition whose merge
+    // lock record names another owner — it skips such a partition and, having nothing else to do, returns having
+    // drained nothing. More passes do not help in that case, since the record is only reclaimed once it ages out, so
+    // this bound stays small: one retry, then fail and let the cause be investigated.
     private static final int MERGE_DRAIN_MAX_PASSES = 2;
 
     /**
