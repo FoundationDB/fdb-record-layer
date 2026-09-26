@@ -140,6 +140,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     private long subspaceKeyCounter = 0;
     private boolean usesSubspaceKeyCounter = false;
 
+    static final Descriptors.FileDescriptor[] defaultExcludedProtoDependencies = {
+            RecordMetaDataProto.getDescriptor(), RecordMetaDataOptionsProto.getDescriptor(), TupleFieldsProto.getDescriptor()
+    };
+
     /**
      * Creates a blank builder.
      */
@@ -1475,7 +1479,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticRecordTypeMap = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
         RecordMetaData metaData = new RecordMetaData(recordsDescriptor, getUnionDescriptor(), unionFields,
                 builtRecordTypes, builtSyntheticRecordTypes, recordTypeKeyToSyntheticRecordTypeMap,
-                indexes, universalIndexes, formerIndexes, userDefinedFunctionMap, viewMap, storedQueries,
+                indexes, universalIndexes, formerIndexes, null, userDefinedFunctionMap, viewMap, storedQueries,
                 splitLongRecords, storeRecordVersions, version, subspaceKeyCounter, usesSubspaceKeyCounter, recordCountKey, localFileDescriptor != null);
         for (RecordTypeBuilder recordTypeBuilder : recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();

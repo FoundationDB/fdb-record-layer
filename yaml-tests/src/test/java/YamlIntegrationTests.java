@@ -428,6 +428,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void sqlFunctionsWithStructParametersTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("sql-functions-with-struct-parameters.yamsql");
+    }
+
+    @TestTemplate
     public void standardTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("standard-tests.yamsql");
     }
@@ -490,6 +495,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void userDefinedMacroFunctionTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("user-defined-macro-function-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void userDefinedFunctionsInMetadata(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("user-defined-functions-in-metadata-tests.yamsql");
     }
 
     @TestTemplate

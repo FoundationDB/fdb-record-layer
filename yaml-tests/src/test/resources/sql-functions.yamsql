@@ -210,5 +210,4 @@ test_block:
     -
       - query: select * from f1;
       - error: UNDEFINED_FUNCTION
-
 ...

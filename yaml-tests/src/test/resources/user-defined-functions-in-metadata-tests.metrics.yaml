@@ -1,0 +1,180 @@
+metadata-with-user-defined-function-tests:
+-   query: EXPLAIN SELECT * FROM "basic_sql_function"(1l)
+    ref: user-defined-functions-in-metadata-tests.yamsql:48
+    explain: SCAN([IS U, EQUALS @c5])
+    task_count: 443
+    task_total_time_ms: 76
+    transform_count: 106
+    transform_time_ms: 41
+    transform_yield_count: 43
+    insert_time_ms: 4
+    insert_new_count: 63
+    insert_reused_count: 3
+-   query: EXPLAIN SELECT "macro_func_for_x"("U"."x") FROM U
+    ref: user-defined-functions-in-metadata-tests.yamsql:52
+    explain: 'COVERING(U$x <,> -> [id: KEY:[3], x: [a: KEY:[0], b: KEY:[1]]]) | MAP
+        (_.x.b AS _0)'
+    task_count: 239
+    task_total_time_ms: 65
+    transform_count: 58
+    transform_time_ms: 34
+    transform_yield_count: 25
+    insert_time_ms: 4
+    insert_new_count: 25
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT "macro_func_for_y"((5l, 'bar')) FROM range(1, 2)
+    ref: user-defined-functions-in-metadata-tests.yamsql:56
+    explain: TF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP
+        (promote((@c4 AS _0, @c6 AS _1) AS LONG AS a, STRING AS b).a AS _0)
+    task_count: 114
+    task_total_time_ms: 5
+    transform_count: 27
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "macro_func_for_z"((5l, 'bar')) FROM range(1, 2)
+    ref: user-defined-functions-in-metadata-tests.yamsql:60
+    explain: TF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP
+        (promote((@c4 AS _0, @c6 AS _1) AS LONG AS a, STRING AS b).a AS _0)
+    task_count: 114
+    task_total_time_ms: 5
+    transform_count: 27
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "add_one"(0l) FROM range(1, 2)
+    ref: user-defined-functions-in-metadata-tests.yamsql:64
+    explain: TF range(promote(@c8 AS LONG), promote(@c10 AS LONG), STEP 1l) | MAP
+        (@c3 + 1 AS _0)
+    task_count: 114
+    task_total_time_ms: 6
+    transform_count: 27
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT "add_func"(5l, 6l) FROM range(1, 2)
+    ref: user-defined-functions-in-metadata-tests.yamsql:68
+    explain: TF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP
+        (@c3 + @c5 AS _0)
+    task_count: 114
+    task_total_time_ms: 35
+    transform_count: 27
+    transform_time_ms: 8
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT * FROM temp_func((5l, 'foo'))
+    setup:
+    - create temporary function temp_func(IN R TYPE "com.apple.foundationdb.relational.yamltests.generated.tobeimported.X")
+        on commit drop function AS select * from U where R."a" = "x"."a" and R."b"
+        = "x"."b"
+    ref: user-defined-functions-in-metadata-tests.yamsql:73
+    explain: ISCAN(U$x [EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS a, STRING
+        AS b).a, EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS a, STRING AS b).b])
+    task_count: 443
+    task_total_time_ms: 101
+    transform_count: 105
+    transform_time_ms: 54
+    transform_yield_count: 43
+    insert_time_ms: 7
+    insert_new_count: 60
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT * FROM temp_func((5l, 'foo'))
+    setup:
+    - create temporary function temp_func(IN R TYPE "Y") on commit drop function AS
+        select * from U where R."a" = "x"."a" and R."b" = "x"."b"
+    ref: user-defined-functions-in-metadata-tests.yamsql:78
+    explain: ISCAN(U$x [EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS a, STRING
+        AS b).a, EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS a, STRING AS b).b])
+    task_count: 443
+    task_total_time_ms: 65
+    transform_count: 105
+    transform_time_ms: 26
+    transform_yield_count: 43
+    insert_time_ms: 3
+    insert_new_count: 60
+    insert_reused_count: 4
+-   query: EXPLAIN SELECT temp_func((5l, 'foo')) FROM range(1, 2)
+    setup:
+    - create temporary function temp_func(IN R TYPE "Y") on commit drop function AS
+        R."a"
+    ref: user-defined-functions-in-metadata-tests.yamsql:83
+    explain: TF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP
+        (promote((@c4 AS _0, @c6 AS _1) AS LONG AS a, STRING AS b).a AS _0)
+    task_count: 114
+    task_total_time_ms: 25
+    transform_count: 27
+    transform_time_ms: 7
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN SELECT temp_func_2((5l, 'foo')) FROM range(1, 2)
+    setup:
+    - create temporary function temp_func_1(IN R TYPE "Y") on commit drop function
+        AS R."a"
+    - create temporary function temp_func_2(IN R TYPE "com.apple.foundationdb.relational.yamltests.generated.tobeimported.X")
+        on commit drop function AS R."a"
+    ref: user-defined-functions-in-metadata-tests.yamsql:89
+    explain: TF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP
+        (promote((@c4 AS _0, @c6 AS _1) AS LONG AS a, STRING AS b).a AS _0)
+    task_count: 114
+    task_total_time_ms: 25
+    transform_count: 27
+    transform_time_ms: 7
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN select red_colour() from range(1, 2)
+    setup:
+    - create temporary function red_colour() returns "Colour" on commit drop function
+        return 'Red'
+    ref: user-defined-functions-in-metadata-tests.yamsql:94
+    explain: TF range(promote(@c7 AS LONG), promote(@c9 AS LONG), STEP 1l) | MAP (promote('Red'
+        AS ENUM<Red(0), Blue(1), Green(2)>) AS _0)
+    task_count: 114
+    task_total_time_ms: 31
+    transform_count: 27
+    transform_time_ms: 7
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN select zero_number() from range(1, 2)
+    setup:
+    - create temporary function zero_number() returns "com.apple.foundationdb.relational.yamltests.generated.tobeimported.X.Number"
+        on commit drop function return 'Zero'
+    ref: user-defined-functions-in-metadata-tests.yamsql:100
+    explain: TF range(promote(@c7 AS LONG), promote(@c9 AS LONG), STEP 1l) | MAP (promote('Zero'
+        AS ENUM<Zero(0), One(1), Two(2)>) AS _0)
+    task_count: 114
+    task_total_time_ms: 4
+    transform_count: 27
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
+-   query: EXPLAIN select y_constructor() from range(1, 2)
+    setup:
+    - create temporary function y_constructor() returns "Y" on commit drop function
+        return (5l, 'foo')
+    ref: user-defined-functions-in-metadata-tests.yamsql:106
+    explain: TF range(promote(@c7 AS LONG), promote(@c9 AS LONG), STEP 1l) | MAP (promote((5l
+        AS _0, 'foo' AS _1) AS LONG AS a, STRING AS b) AS _0)
+    task_count: 114
+    task_total_time_ms: 5
+    transform_count: 27
+    transform_time_ms: 0
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 9
+    insert_reused_count: 0
