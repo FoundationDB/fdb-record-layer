@@ -76,6 +76,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -421,6 +422,67 @@ public class SchemaTemplateSerDeTests {
     }
 
     @Test
+    void auxiliaryTypeSuppliersAreOnlyInvokedOnce() {
+        final AtomicInteger childTypeCalledCount = new AtomicInteger();
+        final DataType.StructType childType = DataType.StructType.from(
+                "ChildType",
+                List.of(
+                        DataType.StructType.Field.from("a", DataType.Primitives.NULLABLE_LONG.type(), 1),
+                        DataType.StructType.Field.from("b", DataType.Primitives.NULLABLE_STRING.type(), 2)),
+                true
+        );
+        final Supplier<DataType.Named> childTypeSupplier = () -> {
+            childTypeCalledCount.incrementAndGet();
+            return childType;
+        };
+
+        final var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42)
+                .addResolvedAuxiliaryTypeSupplier("ChildType", childTypeSupplier)
+                // Add two types, each of which have a field of type ChildType
+                .addTable(
+                        RecordLayerTable.newBuilder(false)
+                                .setName("T1")
+                                .addColumn(RecordLayerColumn.newBuilder()
+                                        .setName("COL1")
+                                        .setDataType(DataType.UnresolvedType.of("ChildType", true))
+                                        .build())
+                                .addColumn(RecordLayerColumn.newBuilder()
+                                        .setName("COL2")
+                                        .setDataType(DataType.UnresolvedType.of("ChildType", true))
+                                        .build())
+                                .build())
+                .addTable(
+                        RecordLayerTable.newBuilder(false)
+                                .setName("T2")
+                                .addColumn(RecordLayerColumn.newBuilder()
+                                        .setName("COL1")
+                                        .setDataType(DataType.UnresolvedType.of("ChildType", false))
+                                        .build())
+                                .build())
+                .build();
+
+        Assertions.assertEquals(1, childTypeCalledCount.get());
+        Optional<DataType> maybeResolvedChildType = sampleRecordSchemaTemplate.findTypeByName("ChildType");
+        Assertions.assertTrue(maybeResolvedChildType.isPresent());
+        Assertions.assertEquals(childType, maybeResolvedChildType.get());
+
+        Optional<DataType> maybeT1 = sampleRecordSchemaTemplate.findTypeByName("T1");
+        Assertions.assertTrue(maybeT1.isPresent());
+        Assertions.assertTrue(maybeT1.get().isResolved());
+        DataType.StructType t1Type = Assertions.assertInstanceOf(DataType.StructType.class, maybeT1.get());
+        Assertions.assertSame(childType, t1Type.getFields().get(0).getType());
+        Assertions.assertSame(childType, t1Type.getFields().get(1).getType());
+
+        Optional<DataType> maybeT2 = sampleRecordSchemaTemplate.findTypeByName("T2");
+        Assertions.assertTrue(maybeT2.isPresent());
+        Assertions.assertTrue(maybeT2.get().isResolved());
+        DataType.StructType t2Type = Assertions.assertInstanceOf(DataType.StructType.class, maybeT2.get());
+        Assertions.assertEquals(childType.withNullable(false), t2Type.getFields().get(0).getType());
+    }
+
+    @Test
     void serializedAndDeserializedTypesAreResolvedCorrectly() {
         final Supplier<DataType.Named> subtypeSupplier = () -> DataType.StructType.from(
                 "Subtype",
@@ -649,6 +711,141 @@ public class SchemaTemplateSerDeTests {
 
         final var nullableArrayTypeMaybe = actualSchemaTemplate.findTypeByName(recordsDescriptor.getPackage() + ".NullableArrayType");
         Assertions.assertFalse(nullableArrayTypeMaybe.isPresent());
+    }
+
+    @Test
+    void resolveComplicatedGraph() {
+        // Create a multi-layer graph of types that need to be resolved. It still forms a DAG.
+
+        // CREATE TYPE c1 AS STRUCT (field1 bigint not null, field2 string)
+        final DataType.StructType c1 = DataType.StructType.from(
+                "c1",
+                List.of(DataType.StructType.Field.from("field1", DataType.Primitives.LONG.type(), 1), DataType.StructType.Field.from("field2", DataType.Primitives.NULLABLE_STRING.type(), 2)),
+                true
+        );
+        // CREATE TYPE c2 AS STRUCT (field1 bigint, field2 string not null)
+        final DataType.StructType c2 = DataType.StructType.from(
+                "c2",
+                List.of(DataType.StructType.Field.from("field1", DataType.Primitives.NULLABLE_LONG.type(), 1), DataType.StructType.Field.from("field2", DataType.Primitives.STRING.type(), 2)),
+                true
+        );
+        // CREATE TYPE e1 AS ENUM (A, B, C, D)
+        final DataType.EnumType e1 = DataType.EnumType.from(
+                "e1",
+                List.of(DataType.EnumType.EnumValue.of("A", 0), DataType.EnumType.EnumValue.of("B", 1), DataType.EnumType.EnumValue.of("C", 2), DataType.EnumType.EnumValue.of("D", 3)),
+                true
+        );
+
+        // CREATE TYPE c3 AS STRUCT (field1 c1, field2 c2 not null, field3 e1)
+        final DataType.StructType c3 = DataType.StructType.from(
+                "c3",
+                List.of(
+                        DataType.StructType.Field.from("field1", DataType.UnresolvedType.of(c1.getName(), true), 1),
+                        DataType.StructType.Field.from("field2", DataType.UnresolvedType.of(c2.getName(), false), 2),
+                        DataType.StructType.Field.from("field3", DataType.UnresolvedType.of(e1.getName(), true), 3)
+                ),
+                true
+        );
+        // CREATE TYPE c4 AS STRUCT (field1 c1 not null, field2 c2, field3 e1 not null)
+        final DataType.StructType c4 = DataType.StructType.from(
+                "c4",
+                List.of(
+                        DataType.StructType.Field.from("field1", DataType.UnresolvedType.of(c1.getName(), false), 1),
+                        DataType.StructType.Field.from("field2", DataType.UnresolvedType.of(c2.getName(), true), 2),
+                        DataType.StructType.Field.from("field3", DataType.UnresolvedType.of(e1.getName(), false), 3)
+                ),
+                true
+        );
+
+        // Resolve the types during schema template building
+        final var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42)
+                .addAuxiliaryType(c1)
+                .addAuxiliaryType(c2)
+                .addAuxiliaryType(c3)
+                .addAuxiliaryType(c4)
+                .addAuxiliaryType(e1)
+                // CREATE TABLE t1 (id bigint, field1 c3 not null, field2 c4, field3 e1)
+                .addTable(RecordLayerTable.newBuilder(false)
+                        .setName("t1")
+                        .addColumn(RecordLayerColumn.newBuilder().setName("id").setDataType(DataType.Primitives.NULLABLE_LONG.type()).build())
+                        .addColumn(RecordLayerColumn.newBuilder().setName("field1").setDataType(DataType.UnresolvedType.of(c3.getName(), false)).build())
+                        .addColumn(RecordLayerColumn.newBuilder().setName("field2").setDataType(DataType.UnresolvedType.of(c4.getName(), true)).build())
+                        .addColumn(RecordLayerColumn.newBuilder().setName("field3").setDataType(DataType.UnresolvedType.of(e1.getName(), true)).build())
+                        .setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("id")))
+                        .build())
+                // CREATE TABLE t2 (id bigint, field1 c3, field2 c4 not null, field3 e1 not null)
+                .addTable(RecordLayerTable.newBuilder(false)
+                        .setName("t2")
+                        .addColumn(RecordLayerColumn.newBuilder().setName("id").setDataType(DataType.Primitives.NULLABLE_LONG.type()).build())
+                        .addColumn(RecordLayerColumn.newBuilder().setName("field1").setDataType(DataType.UnresolvedType.of(c3.getName(), true)).build())
+                        .addColumn(RecordLayerColumn.newBuilder().setName("field2").setDataType(DataType.UnresolvedType.of(c4.getName(), false)).build())
+                        .addColumn(RecordLayerColumn.newBuilder().setName("field3").setDataType(DataType.UnresolvedType.of(e1.getName(), false)).build())
+                        .setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("id")))
+                        .build())
+                .build();
+
+        // Check the resolved types
+        Assertions.assertEquals(c1, sampleRecordSchemaTemplate.findTypeByName(c1.getName()).get());
+        Assertions.assertEquals(c2, sampleRecordSchemaTemplate.findTypeByName(c2.getName()).get());
+        Assertions.assertEquals(e1, sampleRecordSchemaTemplate.findTypeByName(e1.getName()).get());
+
+        final var resolvedC3Maybe = sampleRecordSchemaTemplate.findTypeByName(c3.getName());
+        Assertions.assertTrue(resolvedC3Maybe.isPresent());
+        final DataType.StructType expectedC3 = DataType.StructType.from(
+                "c3",
+                List.of(
+                        DataType.StructType.Field.from("field1", c1.withNullable(true), 1),
+                        DataType.StructType.Field.from("field2", c2.withNullable(false), 2),
+                        DataType.StructType.Field.from("field3", e1.withNullable(true), 3)
+                ),
+                true
+        );
+        Assertions.assertEquals(expectedC3, resolvedC3Maybe.get());
+
+        final var resolvedC4Maybe = sampleRecordSchemaTemplate.findTypeByName(c4.getName());
+        Assertions.assertTrue(resolvedC4Maybe.isPresent());
+        final DataType.StructType expectedC4 = DataType.StructType.from(
+                "c4",
+                List.of(
+                        DataType.StructType.Field.from("field1", c1.withNullable(false), 1),
+                        DataType.StructType.Field.from("field2", c2.withNullable(true), 2),
+                        DataType.StructType.Field.from("field3", e1.withNullable(false), 3)
+                ),
+                true
+        );
+        Assertions.assertEquals(expectedC4, resolvedC4Maybe.get());
+
+        final var resolvedT1Maybe = sampleRecordSchemaTemplate.findTableByName("t1");
+        Assertions.assertTrue(resolvedT1Maybe.isPresent());
+        final DataType.StructType resolvedT1 = resolvedT1Maybe.get().getDatatype();
+        final DataType.StructType expectedT1 = DataType.StructType.from(
+                "t1",
+                List.of(
+                        DataType.StructType.Field.from("id", DataType.Primitives.NULLABLE_LONG.type(), 1),
+                        DataType.StructType.Field.from("field1", expectedC3.withNullable(false), 2),
+                        DataType.StructType.Field.from("field2", expectedC4.withNullable(true), 3),
+                        DataType.StructType.Field.from("field3", e1.withNullable(true), 4)
+                ),
+                true
+        );
+        Assertions.assertEquals(expectedT1, resolvedT1);
+
+        final var resolvedT2Maybe = sampleRecordSchemaTemplate.findTableByName("t2");
+        Assertions.assertTrue(resolvedT2Maybe.isPresent());
+        final DataType.StructType resolvedT2 = resolvedT2Maybe.get().getDatatype();
+        final DataType.StructType expectedT2 = DataType.StructType.from(
+                "t2",
+                List.of(
+                        DataType.StructType.Field.from("id", DataType.Primitives.NULLABLE_LONG.type(), 1),
+                        DataType.StructType.Field.from("field1", expectedC3.withNullable(true), 2),
+                        DataType.StructType.Field.from("field2", expectedC4.withNullable(false), 3),
+                        DataType.StructType.Field.from("field3", e1.withNullable(false), 4)
+                ),
+                true
+        );
+        Assertions.assertEquals(expectedT2, resolvedT2);
     }
 
     @Test

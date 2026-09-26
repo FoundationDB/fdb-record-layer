@@ -59,6 +59,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -825,8 +826,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             final var typesToResolveBuilder = ImmutableMap.<String, DataType.Named>builder();
             final var allTypesBuilder = ImmutableMap.<String, Supplier<DataType.Named>>builder();
             for (final var table : tables.values()) {
-                allTypesBuilder.put(table.getName(), Suppliers.memoize(table::getDatatype));
-                if (!table.getDatatype().isResolved()) {
+                final var dataType = table.getDatatype();
+                allTypesBuilder.put(table.getName(), () -> dataType);
+                if (!dataType.isResolved()) {
                     typesToResolveBuilder.put(table.getName(), table.getDatatype());
                 }
             }
@@ -842,35 +844,46 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             final var typesToResolve = typesToResolveBuilder.build();
 
             // create dependency graph
-            final var depsBuilder = ImmutableMap.<DataType.Named, Set<DataType.Named>>builder();
-            for (final var typeToResolve : typesToResolve.values()) {
-                depsBuilder.put(typeToResolve, getDependencies((DataType)typeToResolve, allTypes));
+            final var depsBuilder = ImmutableMap.<String, Set<String>>builder();
+            for (final var typeToResolve : typesToResolve.entrySet()) {
+                depsBuilder.put(typeToResolve.getKey(), getDependencies((DataType)(typeToResolve.getValue()), allTypes.keySet()));
             }
 
             final var deps = depsBuilder.build();
 
             // sort it
-            final var sortedUnresolvedTypes = TopologicalSort.anyTopologicalOrderPermutation(
-                    new HashSet<>(typesToResolve.values()),
+            final Optional<List<String>> sortedUnresolvedTypes = TopologicalSort.anyTopologicalOrderPermutation(
+                    new HashSet<>(typesToResolve.keySet()),
                     id -> deps.getOrDefault(id, ImmutableSet.of()));
             Assert.thatUnchecked(sortedUnresolvedTypes.isPresent(), ErrorCode.INVALID_SCHEMA_TEMPLATE,
                     "Invalid cyclic dependency in the schema definition");
 
             // resolve types
             final Map<String, DataType.Named> resolvedTypes = new LinkedHashMap<>();
-            for (final var unresolvedType : sortedUnresolvedTypes.get()) {
-                // Make sure that already resolved types from resolvedAuxiliaryTypeSuppliers which
-                // unresolvedType depends on are added to the types map used for resolution as well.
-                Optional.ofNullable(deps.get(unresolvedType))
-                        .orElse(ImmutableSet.of())
-                        .forEach((dependency) -> resolvedTypes.putIfAbsent(dependency.getName(), dependency));
+            for (final String unresolvedTypeName : sortedUnresolvedTypes.get()) {
+                for (final String dependency : Objects.requireNonNull(deps.getOrDefault(unresolvedTypeName, ImmutableSet.of()))) {
+                    // Make sure all the dependencies are in the resolved types map.
+                    // If the dependency was already resolved when we began, then the allTypes supplier will provide
+                    // a resolved dependency, so just return that.
+                    // If the dependency was initially unresolved, then by virtue of walking this list in topological
+                    // order, we will have already added the resolved version to the resolvedTypes map, so the
+                    // computeIfAbsent lambda here will not run.
+                    resolvedTypes.computeIfAbsent(dependency, dependencyName -> {
+                        final var resolvedDependency = Objects.requireNonNull(allTypes.get(dependencyName)).get();
+                        Assert.thatUnchecked(((DataType)resolvedDependency).isResolved(),
+                                ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                                () -> "expected auxiliary type with name '" + dependencyName + "' to be resolved");
+                        return resolvedDependency;
+                    });
+                }
+                DataType.Named unresolvedType = Objects.requireNonNull(typesToResolve.get(unresolvedTypeName));
                 final var typeToAdd = ((DataType)unresolvedType).resolve(resolvedTypes);
                 if (typeToAdd instanceof final DataType.Named asNamed) {
                     resolvedTypes.put(asNamed.getName(), asNamed);
                 }
             }
 
-            // use the resolved types now to resolve tables and auxiliary types
+            // use the resolved types now to resolve tables
             final var resolvedTables = ImmutableMap.<String, RecordLayerTable>builder();
             for (final var table : tables.values()) {
                 if (!table.getDatatype().isResolved()) {
@@ -910,35 +923,34 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         @Nonnull
-        private static Set<DataType.Named> getDependencies(@Nonnull final DataType dataType, @Nonnull final Map<String, Supplier<DataType.Named>> types) {
+        private static Set<String> getDependencies(@Nonnull final DataType dataType, @Nonnull final Set<String> types) {
             // TODO (yhatem) I think this doesn't work in case of recursive types.
             //               moreover, this does not work with inlined types, but this is ok since we don't support them anyway.
-            switch (dataType.getCode()) {
-                case ARRAY:
-                    return getDependencies(((DataType.ArrayType) dataType).getElementType(), types);
-                case STRUCT:
-                    final var mapBuilder = ImmutableSet.<DataType.Named>builder();
-                    for (final var field : ((DataType.StructType) dataType).getFields()) {
+            return switch (dataType.getCode()) {
+                case ARRAY -> getDependencies(((DataType.ArrayType)dataType).getElementType(), types);
+                case STRUCT -> {
+                    final ImmutableSet.Builder<String> mapBuilder = ImmutableSet.builder();
+                    for (final var field : ((DataType.StructType)dataType).getFields()) {
                         final var fieldType = field.getType();
-                        if (fieldType instanceof DataType.Named) {
-                            final var depName = ((DataType.Named) fieldType).getName();
-                            Assert.thatUnchecked(types.containsKey(depName), ErrorCode.UNKNOWN_TYPE, "could not find type '%s'", depName);
-                            mapBuilder.add(types.get(depName).get());
-                        } else if (fieldType.getCode() == DataType.Code.ARRAY && ((DataType.ArrayType) fieldType).getElementType() instanceof DataType.Named) {
-                            final var asArray = (DataType.ArrayType) fieldType;
-                            final var depName = ((DataType.Named) asArray.getElementType()).getName();
-                            Assert.thatUnchecked(types.containsKey(depName), ErrorCode.UNKNOWN_TYPE, "could not find type '%s'", depName);
-                            mapBuilder.add(types.get(depName).get());
+                        if (fieldType instanceof DataType.Named namedFieldType) {
+                            final var depName = namedFieldType.getName();
+                            Assert.thatUnchecked(types.contains(depName), ErrorCode.UNKNOWN_TYPE, "could not find type '%s'", depName);
+                            mapBuilder.add(depName);
+                        } else if (fieldType.getCode() == DataType.Code.ARRAY && ((DataType.ArrayType)fieldType).getElementType() instanceof DataType.Named namedElementType) {
+                            final var depName = namedElementType.getName();
+                            Assert.thatUnchecked(types.contains(depName), ErrorCode.UNKNOWN_TYPE, "could not find type '%s'", depName);
+                            mapBuilder.add(depName);
                         }
                     }
-                    return mapBuilder.build();
-                case UNKNOWN:
-                    final var typeName = ((DataType.UnresolvedType) dataType).getName();
-                    Assert.thatUnchecked(types.containsKey(typeName), ErrorCode.UNKNOWN_TYPE, "could not find type '%s'", typeName);
-                    return Set.of(types.get(typeName).get());
-                default:
-                    return Set.of();
-            }
+                    yield mapBuilder.build();
+                }
+                case UNKNOWN -> {
+                    final var typeName = ((DataType.UnresolvedType)dataType).getName();
+                    Assert.thatUnchecked(types.contains(typeName), ErrorCode.UNKNOWN_TYPE, "could not find type '%s'", typeName);
+                    yield Set.of(typeName);
+                }
+                default -> ImmutableSet.of();
+            };
         }
     }
 
