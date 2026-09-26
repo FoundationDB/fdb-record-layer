@@ -58,7 +58,7 @@
       }]
     }],
     "enumType": [{
-      "name": "Colour",
+      "name": "Color",
       "value": [{
         "name": "Red",
         "number": 0
@@ -297,8 +297,8 @@
       "recordsDescriptorFullName": "com.apple.foundationdb.relational.yamltests.generated.tobeimported.X.Z"
     },
     {
-      "userDefinedName": "Colour",
-      "recordsDescriptorFullName": ".Colour"
+      "userDefinedName": "Color",
+      "recordsDescriptorFullName": ".Color"
     },
     {
       "userDefinedName": "Number",

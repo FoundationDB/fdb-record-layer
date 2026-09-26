@@ -24,11 +24,11 @@ schema_template:
     create type as struct st1(y bigint, z string)
     create type as struct st2(w bigint, x bigint)
     create type as struct st3(u st2, v st1)
-    create type as enum colour ('red', 'green', 'blue')
+    create type as enum color ('red', 'green', 'blue')
     create table nested(id bigint, r st3, primary key(id))
     create function f1 ( in a type st1 )
        as select id, r.v.y from nested where r.v.y = a.y and r.v.z = a.z
-    create function f2 (in a type colour)
+    create function f2 (in a type color)
        as select a from range(1, 2)
 ---
 setup:

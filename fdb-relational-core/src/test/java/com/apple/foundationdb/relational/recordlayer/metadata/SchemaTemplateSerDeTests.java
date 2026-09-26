@@ -354,7 +354,7 @@ public class SchemaTemplateSerDeTests {
                 List.of(
                         DataType.EnumType.EnumValue.of("Red", 1),
                         DataType.EnumType.EnumValue.of("Green", 2)),
-                false);
+                true);
         final var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
                 .setName("TestSchemaTemplate")
                 .setVersion(42)
@@ -592,6 +592,10 @@ public class SchemaTemplateSerDeTests {
                 "Subtype2",
                 List.of(DataType.StructType.Field.from("field1", DataType.Primitives.LONG.type().withNullable(true), 1)),
                 true);
+        final var expectedSuitEnum = DataType.EnumType.from(
+                "Suit",
+                List.of(DataType.EnumType.EnumValue.of("UNSET", 0), DataType.EnumType.EnumValue.of("SPADES", 1), DataType.EnumType.EnumValue.of("HEARTS", 2), DataType.EnumType.EnumValue.of("CLUBS", 3), DataType.EnumType.EnumValue.of("DIAMONDS", 4)),
+                true);
         final var expectedTable = RecordLayerTable.newBuilder(false)
                 .setName("T1")
                 .addColumn(RecordLayerColumn.newBuilder()
@@ -605,6 +609,10 @@ public class SchemaTemplateSerDeTests {
                 .addColumn(RecordLayerColumn.newBuilder()
                         .setName("field2")
                         .setDataType(DataType.Primitives.NULLABLE_STRING.type())
+                        .build())
+                .addColumn(RecordLayerColumn.newBuilder()
+                        .setName("field3")
+                        .setDataType(expectedSuitEnum)
                         .build())
                 .setPrimaryKey(primaryKey)
                 .build();
@@ -630,6 +638,10 @@ public class SchemaTemplateSerDeTests {
         final var subtype2Maybe = actualSchemaTemplate.findTypeByName(recordsDescriptor.getPackage() + ".Subtype2");
         Assertions.assertTrue(subtype2Maybe.isPresent());
         Assertions.assertEquals(expectedSubtype2, subtype2Maybe.get());
+
+        final var suitEnumMaybe = actualSchemaTemplate.findTypeByName(recordsDescriptor.getPackage() + ".Suit");
+        Assertions.assertTrue(suitEnumMaybe.isPresent());
+        Assertions.assertEquals(expectedSuitEnum, suitEnumMaybe.get());
 
         final var nullableArrayTypeMaybe = actualSchemaTemplate.findTypeByName(recordsDescriptor.getPackage() + ".NullableArrayType");
         Assertions.assertFalse(nullableArrayTypeMaybe.isPresent());
@@ -805,11 +817,16 @@ public class SchemaTemplateSerDeTests {
                 "Subtype2",
                 List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type().withNullable(true), 1)),
                 true);
+        final var suitEnum = DataType.EnumType.from(
+                "Suit",
+                List.of(DataType.EnumType.EnumValue.of("UNSET", 0), DataType.EnumType.EnumValue.of("SPADES", 1), DataType.EnumType.EnumValue.of("HEARTS", 2), DataType.EnumType.EnumValue.of("CLUBS", 3), DataType.EnumType.EnumValue.of("DIAMONDS", 4)),
+                true);
         final var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
                 .setName("TestSchemaTemplate")
                 .setVersion(42)
                 .addAuxiliaryType(subtype)
                 .addAuxiliaryType(subtype1)
+                .addAuxiliaryType(suitEnum)
                 .addTable(
                         RecordLayerTable.newBuilder(false)
                                 .setName("T1")
@@ -826,7 +843,7 @@ public class SchemaTemplateSerDeTests {
         final var schemaTemplateFromBuilder = deserializedSchemaTemplate.toBuilder()
                 .addAuxiliaryType(subtype2)
                 .build();
-        for (final var expectedType : ImmutableList.of(subtype, subtype1, subtype2)) {
+        for (final var expectedType : ImmutableList.of(subtype, subtype1, subtype2, suitEnum)) {
             final var actualTypeMaybe = schemaTemplateFromBuilder.findTypeByName(expectedType.getName());
             Assertions.assertTrue(actualTypeMaybe.isPresent());
             Assertions.assertEquals(expectedType, actualTypeMaybe.get());
@@ -1290,6 +1307,13 @@ public class SchemaTemplateSerDeTests {
                                 .setName("field2")
                                 .setNumber(3)
                         )
+                        .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
+                                .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_ENUM)
+                                .setTypeName("Suit")
+                                .setName("field3")
+                                .setNumber(4)
+                        )
                 )
                 .addMessageType(DescriptorProtos.DescriptorProto.newBuilder()
                         .setName("Subtype1")
@@ -1317,6 +1341,14 @@ public class SchemaTemplateSerDeTests {
                                 .setName("values")
                                 .setNumber(1)
                         )
+                )
+                .addEnumType(DescriptorProtos.EnumDescriptorProto.newBuilder()
+                        .setName("Suit")
+                        .addValue(DescriptorProtos.EnumValueDescriptorProto.newBuilder().setName("UNSET").setNumber(0))
+                        .addValue(DescriptorProtos.EnumValueDescriptorProto.newBuilder().setName("SPADES").setNumber(1))
+                        .addValue(DescriptorProtos.EnumValueDescriptorProto.newBuilder().setName("HEARTS").setNumber(2))
+                        .addValue(DescriptorProtos.EnumValueDescriptorProto.newBuilder().setName("CLUBS").setNumber(3))
+                        .addValue(DescriptorProtos.EnumValueDescriptorProto.newBuilder().setName("DIAMONDS").setNumber(4))
                 )
                 .addMessageType(DescriptorProtos.DescriptorProto.newBuilder()
                         .setName("RecordTypeUnion")

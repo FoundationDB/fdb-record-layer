@@ -143,7 +143,7 @@ public class RecordMetadataDeserializer {
     private static DataType.Named namedDataTypeFromDescriptor(@Nonnull final Descriptors.GenericDescriptor descriptor) {
         final Type recordLayerType;
         if (descriptor instanceof Descriptors.EnumDescriptor) {
-            recordLayerType = Type.Enum.fromDescriptor(false, (Descriptors.EnumDescriptor)descriptor)
+            recordLayerType = Type.Enum.fromDescriptor(true, (Descriptors.EnumDescriptor)descriptor)
                     .withName(ProtoUtils.toUserIdentifier(descriptor.getName()));
         } else {
             Assert.thatUnchecked(descriptor instanceof Descriptors.Descriptor,

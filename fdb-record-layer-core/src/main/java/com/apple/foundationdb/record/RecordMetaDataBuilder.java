@@ -1479,7 +1479,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticRecordTypeMap = Maps.newHashMapWithExpectedSize(syntheticRecordTypes.size());
         RecordMetaData metaData = new RecordMetaData(recordsDescriptor, getUnionDescriptor(), unionFields,
                 builtRecordTypes, builtSyntheticRecordTypes, recordTypeKeyToSyntheticRecordTypeMap,
-                indexes, universalIndexes, formerIndexes, userDefinedFunctionMap, viewMap, storedQueries,
+                indexes, universalIndexes, formerIndexes, null, userDefinedFunctionMap, viewMap, storedQueries,
                 splitLongRecords, storeRecordVersions, version, subspaceKeyCounter, usesSubspaceKeyCounter, recordCountKey, localFileDescriptor != null);
         for (RecordTypeBuilder recordTypeBuilder : recordTypes.values()) {
             KeyExpression primaryKey = recordTypeBuilder.getPrimaryKey();

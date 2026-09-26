@@ -88,7 +88,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
     @Nonnull
     private final Map<Object, SyntheticRecordType<?>> recordTypeKeyToSyntheticTypeMap;
     @Nonnull
-    private final Supplier<Map<String, Descriptors.GenericDescriptor>> nonRecordTypeDescriptorsByFullNameMap;
+    private final Supplier<Map<String, Descriptors.GenericDescriptor>> nonRecordTypeDescriptorsByFullNameSupplier;
     @Nonnull
     private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
     @Nonnull
@@ -121,6 +121,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                 Collections.unmodifiableMap(orig.indexes),
                 Collections.unmodifiableMap(orig.universalIndexes),
                 Collections.unmodifiableList(orig.formerIndexes),
+                orig.nonRecordTypeDescriptorsByFullNameSupplier,
                 Collections.unmodifiableMap(orig.userDefinedFunctionMap),
                 Collections.unmodifiableMap(orig.viewMap),
                 Collections.unmodifiableMap(orig.storedQueries),
@@ -143,6 +144,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
                              @Nonnull Map<String, Index> indexes,
                              @Nonnull Map<String, Index> universalIndexes,
                              @Nonnull List<FormerIndex> formerIndexes,
+                             @Nullable Supplier<Map<String, Descriptors.GenericDescriptor>> nonRecordTypeDescriptorsByFullNameSupplier,
                              @Nonnull Map<String, UserDefinedFunction> userDefinedFunctionMap,
                              @Nonnull Map<String, View> viewMap,
                              @Nonnull Map<String, StoredQuery> storedQueries,
@@ -162,7 +164,10 @@ public class RecordMetaData implements RecordMetaDataProvider {
         this.indexes = indexes;
         this.universalIndexes = universalIndexes;
         this.formerIndexes = formerIndexes;
-        this.nonRecordTypeDescriptorsByFullNameMap = Suppliers.memoize(() -> computeNonRecordTypeDescriptorsMap(unionDescriptor, unionFields));
+        this.nonRecordTypeDescriptorsByFullNameSupplier =
+                nonRecordTypeDescriptorsByFullNameSupplier == null
+                ? Suppliers.memoize(() -> computeNonRecordTypeDescriptorsMap(unionDescriptor, unionFields))
+                : nonRecordTypeDescriptorsByFullNameSupplier;
         this.userDefinedFunctionMap = userDefinedFunctionMap;
         this.viewMap = viewMap;
         this.storedQueries = storedQueries;
@@ -774,7 +779,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      */
     @Nonnull
     public Map<String, Descriptors.GenericDescriptor> getNonRecordTypeDescriptorsByFullName() {
-        return nonRecordTypeDescriptorsByFullNameMap.get();
+        return nonRecordTypeDescriptorsByFullNameSupplier.get();
     }
 
     /**

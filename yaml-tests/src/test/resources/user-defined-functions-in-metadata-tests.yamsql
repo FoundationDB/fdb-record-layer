@@ -89,8 +89,8 @@ test_block:
       - explain: "TF range(promote(@c12 AS LONG), promote(@c14 AS LONG), STEP 1l) | MAP (promote((@c4 AS _0, @c6 AS _1) AS LONG AS a, STRING AS b).a AS _0)"
       - result: [{ !l 5 }]
     -
-      - query: select red_colour() from range(1, 2)
-      - setup: create temporary function red_colour() returns "Colour" on commit drop function return 'Red'
+      - query: select red_color() from range(1, 2)
+      - setup: create temporary function red_color() returns "Color" on commit drop function return 'Red'
       - explain: "TF range(promote(@c7 AS LONG), promote(@c9 AS LONG), STEP 1l) | MAP (promote('Red' AS ENUM<Red(0), Blue(1), Green(2)>) AS _0)"
       - resultMetadata: [{_0: OTHER}]
       - result: [ { 'Red' } ]
