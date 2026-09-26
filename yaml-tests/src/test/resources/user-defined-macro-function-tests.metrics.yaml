@@ -381,15 +381,15 @@ user-defined-scalar-function-with-expressions-tests:
     insert_time_ms: 0
     insert_new_count: 9
     insert_reused_count: 0
--   query: EXPLAIN select red_colour() from range(1, 2)
+-   query: EXPLAIN select red_color() from range(1, 2)
     setup:
-    - create temporary function red_colour() returns colour on commit drop function
+    - create temporary function red_color() returns color on commit drop function
         return 'red'
     ref: user-defined-macro-function-tests.yamsql:387
     explain: TF range(promote(@c7 AS LONG), promote(@c9 AS LONG), STEP 1l) | MAP (promote('red'
         AS ENUM<red(0), green(1), blue(2)>) AS _0)
     task_count: 114
-    task_total_time_ms: 1
+    task_total_time_ms: 2
     transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6

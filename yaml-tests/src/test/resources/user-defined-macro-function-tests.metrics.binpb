@@ -395,11 +395,12 @@ j
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote((@c3 AS A, 0l AS _1) AS LONG AS Y, LONG AS Z) AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS Y, LONG AS Z AS _0)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(promote(@c8 AS LONG), promote(@c10 AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}©
+}ß
 
-ø
-3user-defined-scalar-function-with-expressions-tests,EXPLAIN select red_colour() from range(1, 2)Zcreate temporary function red_colour() returns colour on commit drop function return 'red'‰
-r∏£T Ï”(0¶î8	@ }TF range(promote(@c7 AS LONG), promote(@c9 AS LONG), STEP 1l) | MAP (promote('red' AS ENUM<red(0), green(1), blue(2)>) AS _0) digraph G {
+º
+3user-defined-scalar-function-with-expressions-tests+EXPLAIN select red_color() from range(1, 2)Xcreate temporary function red_color() returns color on commit drop function return 'red'Â
+rÀﬂá õ»
+(0Á¡8	@ }TF range(promote(@c7 AS LONG), promote(@c9 AS LONG), STEP 1l) | MAP (promote('red' AS ENUM<red(0), green(1), blue(2)>) AS _0) digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
