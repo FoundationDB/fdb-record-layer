@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -295,8 +296,13 @@ class Delete {
         final Primitives primitives = primitives();
         final DistanceEstimator distanceEstimator = quantizer.estimator();
         final Map<Tuple, AbstractNode<N>> nodeCache = Maps.newConcurrentMap();
-        final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> candidateChangeSetMap =
-                Maps.newConcurrentMap();
+        //
+        // Per direct neighbor of the node being deleted, the nearest candidate that the neighbor did not point at before
+        // this delete. That is the target of the neighbor's replacement edge, should addReplacementOutEdges grant it
+        // one. The repair records it while it computes the distances from the neighbor to every candidate, so that
+        // addReplacementOutEdges does not have to compute them again.
+        //
+        final Map<Tuple /* primaryKey */, NodeReferenceWithDistance> replacementTargets = Maps.newConcurrentMap();
 
         return storageAdapter.fetchNode(transaction, storageTransform, layer, toBeDeletedPrimaryKey)
                 .thenCompose(toBeDeletedNode -> {
@@ -306,8 +312,11 @@ class Delete {
                     return findDeletionRepairCandidates(storageAdapter, transaction, storageTransform, random, layer,
                             toBeDeletedNodeReferenceAndNode, nodeCache)
                             .thenCompose(candidates -> {
-                                initializeCandidateChangeSetMap(toBeDeletedPrimaryKey, toBeDeletedNode, candidates,
-                                        candidateChangeSetMap);
+                                final RepairContext<N> repairContext =
+                                        buildRepairContext(toBeDeletedPrimaryKey, toBeDeletedNode,
+                                                candidates);
+                                final Map<Tuple, NeighborsChangeSet<N>> candidateChangeSetMap =
+                                        repairContext.candidateChangeSets();
                                 // resolve the actually existing direct neighbors
                                 final ImmutableList<N> primaryNeighbors =
                                         primitives.primaryNeighbors(toBeDeletedNode, candidateChangeSetMap);
@@ -320,9 +329,24 @@ class Delete {
                                         neighborReference ->
                                                 repairNeighbor(storageAdapter, transaction,
                                                         storageTransform, distanceEstimator, layer, neighborReference,
-                                                        candidates, candidateChangeSetMap, nodeCache),
+                                                        candidates, candidateChangeSetMap, replacementTargets,
+                                                        nodeCache),
                                         getConfig().maxNumConcurrentNeighborhoodFetches(), getExecutor())
                                         .thenApply(ignored -> {
+                                            //
+                                            // Every repair has completed and the pruning has not run yet. A node that
+                                            // lost its reference to the node being deleted has more neighbors than
+                                            // right after that loss exactly if a repair granted it an edge to a node it
+                                            // did not point at yet. That edge replaces the lost one, so the node needs
+                                            // no replacement edge. This is decided here because the pruning, which runs
+                                            // next, can remove that edge again, after which the count no longer shows
+                                            // it.
+                                            //
+                                            repairContext.candidatesThatLostTheirEdge().entrySet()
+                                                    .removeIf(lostEdgeEntry -> Iterables.size(Objects.requireNonNull(
+                                                            candidateChangeSetMap.get(lostEdgeEntry.getKey())).merge())
+                                                            > lostEdgeEntry.getValue());
+
                                             final ImmutableMap.Builder<Tuple, NodeReferenceWithVector> candidateReferencesMapBuilder =
                                                     ImmutableMap.builder();
                                             for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : candidates) {
@@ -332,69 +356,78 @@ class Delete {
                                                 }
                                             }
                                             return candidateReferencesMapBuilder.build();
+                                        })
+                                        .thenCompose(candidateReferencesMap -> {
+                                            //
+                                            // If we previously went beyond the mMax/mMax0, we need to prune the
+                                            // neighbors. Pruning is independent among different nodes -- we can
+                                            // therefore prune in parallel.
+                                            //
+                                            final int mMax = primitives.getMMaxForLayer(layer);
+                                            return forEach(candidateChangeSetMap.entrySet(), // each modified set
+                                                    changeSetEntry -> {
+                                                        final NodeReferenceWithVector candidateReference =
+                                                                Objects.requireNonNull(candidateReferencesMap.get(changeSetEntry.getKey()));
+                                                        final NeighborsChangeSet<N> candidateChangeSet = changeSetEntry.getValue();
+                                                        return primitives.pruneNeighborsIfNecessary(storageAdapter,
+                                                                transaction, storageTransform, distanceEstimator, layer,
+                                                                candidateReference, mMax,
+                                                                candidateChangeSet, nodeCache)
+                                                                .thenApply(nodeReferencesAndNodes -> {
+                                                                    if (nodeReferencesAndNodes == null) {
+                                                                        return candidateChangeSet;
+                                                                    }
+
+                                                                    final NeighborsChangeSet<N> prunedCandidateChangeSet =
+                                                                            primitives.resolveChangeSetFromNewNeighbors(candidateChangeSet,
+                                                                                    nodeReferencesAndNodes);
+                                                                    candidateChangeSetMap.put(changeSetEntry.getKey(),
+                                                                            prunedCandidateChangeSet);
+                                                                    return prunedCandidateChangeSet;
+                                                                });
+                                                    },
+                                                    getConfig().maxNumConcurrentNeighborhoodFetches(), getExecutor())
+                                                    .thenApply(ignored -> candidateReferencesMap);
+                                        })
+                                        .thenApply(candidateReferencesMap -> {
+                                            //
+                                            // Every repair and the pruning have completed, so each change set now
+                                            // reflects the neighbor list as it will be persisted. This is therefore the
+                                            // point at which a node's remaining out-degree can be decided.
+                                            //
+                                            addReplacementOutEdges(layer, distanceEstimator, repairContext,
+                                                    replacementTargets, candidateReferencesMap, nodeCache);
+
+                                            //
+                                            // Finally delete the node we set out to delete and persist the change sets
+                                            // for all repaired nodes.
+                                            //
+                                            storageAdapter.deleteNode(transaction, layer, toBeDeletedPrimaryKey);
+
+                                            for (final Map.Entry<Tuple, NeighborsChangeSet<N>> changeSetEntry
+                                                    : candidateChangeSetMap.entrySet()) {
+                                                final NeighborsChangeSet<N> changeSet = changeSetEntry.getValue();
+                                                if (changeSet.hasChanges()) {
+                                                    final AbstractNode<N> candidateNode =
+                                                            primitives.nodeFromCache(changeSetEntry.getKey(), nodeCache);
+                                                    storageAdapter.writeNode(transaction, quantizer, layer,
+                                                            candidateNode, changeSet);
+                                                }
+                                            }
+
+                                            //
+                                            // Return the first item in the candidates reference map as a potential new
+                                            // entry node reference in order to avoid a costly search for a new global
+                                            // entry point. This reference is guaranteed to exist.
+                                            //
+                                            final Tuple firstPrimaryKey =
+                                                    Iterables.getFirst(candidateReferencesMap.keySet(), null);
+                                            return firstPrimaryKey == null
+                                                   ? null
+                                                   : new EntryNodeReference(firstPrimaryKey,
+                                                    Objects.requireNonNull(candidateReferencesMap.get(firstPrimaryKey)).getVector(),
+                                                    layer);
                                         });
-                            })
-                            .thenCompose(candidateReferencesMap -> {
-                                final int currentMMax =
-                                        layer == 0 ? getConfig().mMax0() : getConfig().mMax();
-
-                                //
-                                // If we previously went beyond the mMax/mMax0, we need to prune the neighbors.
-                                // Pruning is independent among different nodes -- we can therefore prune in
-                                // parallel.
-                                //
-                                return forEach(candidateChangeSetMap.entrySet(), // for each modified neighbor set
-                                        changeSetEntry -> {
-                                            final NodeReferenceWithVector candidateReference =
-                                                    Objects.requireNonNull(candidateReferencesMap.get(changeSetEntry.getKey()));
-                                            final NeighborsChangeSet<N> candidateChangeSet = changeSetEntry.getValue();
-                                            return primitives.pruneNeighborsIfNecessary(storageAdapter, transaction,
-                                                    storageTransform, distanceEstimator, layer, candidateReference,
-                                                    currentMMax, candidateChangeSet, nodeCache)
-                                                    .thenApply(nodeReferencesAndNodes -> {
-                                                        if (nodeReferencesAndNodes == null) {
-                                                            return candidateChangeSet;
-                                                        }
-
-                                                        final var prunedCandidateChangeSet =
-                                                                primitives.resolveChangeSetFromNewNeighbors(candidateChangeSet,
-                                                                        nodeReferencesAndNodes);
-                                                        candidateChangeSetMap.put(changeSetEntry.getKey(), prunedCandidateChangeSet);
-                                                        return prunedCandidateChangeSet;
-                                                    });
-                                        },
-                                        getConfig().maxNumConcurrentNeighborhoodFetches(), getExecutor())
-                                        .thenApply(ignored -> candidateReferencesMap);
-                            })
-                            .thenApply(candidateReferencesMap -> {
-                                //
-                                // Finally delete the node we set out to delete and persist the change sets for all
-                                // repaired nodes.
-                                //
-                                storageAdapter.deleteNode(transaction, layer, toBeDeletedPrimaryKey);
-
-                                for (final Map.Entry<Tuple, NeighborsChangeSet<N>> changeSetEntry : candidateChangeSetMap.entrySet()) {
-                                    final NeighborsChangeSet<N> changeSet = changeSetEntry.getValue();
-                                    if (changeSet.hasChanges()) {
-                                        final AbstractNode<N> candidateNode =
-                                                primitives.nodeFromCache(changeSetEntry.getKey(), nodeCache);
-                                        storageAdapter.writeNode(transaction, quantizer,
-                                                layer, candidateNode, changeSet);
-                                    }
-                                }
-
-                                //
-                                // Return the first item in the candidates reference map as a potential new
-                                // entry node reference in order to avoid a costly search for a new global entry point.
-                                // This reference is guaranteed to exist.
-                                //
-                                final Tuple firstPrimaryKey =
-                                        Iterables.getFirst(candidateReferencesMap.keySet(), null);
-                                return firstPrimaryKey == null
-                                       ? null
-                                       : new EntryNodeReference(firstPrimaryKey,
-                                        Objects.requireNonNull(candidateReferencesMap.get(firstPrimaryKey)).getVector(),
-                                        layer);
                             });
                 }).thenApply(result -> {
                     if (logger.isTraceEnabled()) {
@@ -404,10 +437,25 @@ class Delete {
                 });
     }
 
-    private <N extends NodeReference> void initializeCandidateChangeSetMap(@Nonnull final Tuple toBeDeletedPrimaryKey,
-                                                                           @Nonnull final AbstractNode<N> toBeDeletedNode,
-                                                                           @Nonnull final List<NodeReferenceAndNode<NodeReferenceWithVector, N>> candidates,
-                                                                           @Nonnull final Map<Tuple, NeighborsChangeSet<N>> candidateChangeSetMap) {
+    /**
+     * Establishes what one layer's repair needs to know about its candidates: a pending neighbor list for each of
+     * them, already carrying the removal of the reference to the node being deleted, which of them that removal
+     * applied to, and how many neighbors each of those is left with.
+     *
+     * @param <N> type parameter extending {@link NodeReference}
+     * @param toBeDeletedPrimaryKey the primary key of the node being deleted
+     * @param toBeDeletedNode the node being deleted
+     * @param candidates the repair candidates of this layer
+     * @return the change sets and the candidates that lost their reference to the node being deleted, each with the
+     *         number of neighbors it is left with
+     */
+    @Nonnull
+    private <N extends NodeReference> RepairContext<N>
+            buildRepairContext(@Nonnull final Tuple toBeDeletedPrimaryKey,
+                                            @Nonnull final AbstractNode<N> toBeDeletedNode,
+                                            @Nonnull final List<NodeReferenceAndNode<NodeReferenceWithVector, N>> candidates) {
+        final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> candidateChangeSetMap = Maps.newConcurrentMap();
+        final Map<Tuple /* primaryKey */, Integer /* numNeighbors */> candidatesThatLostTheirEdge = Maps.newHashMap();
         for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : candidates) {
             final AbstractNode<N> candidateNode = candidate.getNode();
             boolean foundToBeDeleted = false;
@@ -420,6 +468,9 @@ class Delete {
                             new DeleteNeighborsChangeSet<>(
                                     new BaseNeighborsChangeSet<>(candidateNode.getNeighbors()),
                                     ImmutableList.of(toBeDeletedPrimaryKey)));
+                    // a neighbor list holds at most one reference per primary key, so exactly one was removed
+                    candidatesThatLostTheirEdge.put(candidateNode.getPrimaryKey(),
+                            candidateNode.getNeighbors().size() - 1);
                     foundToBeDeleted = true;
                     break;
                 }
@@ -433,6 +484,30 @@ class Delete {
         if (logger.isTraceEnabled()) {
             logger.trace("number of neighbors to repair={}", toBeDeletedNode.getNeighbors().size());
         }
+        return new RepairContext<>(candidateChangeSetMap, candidatesThatLostTheirEdge);
+    }
+
+    /**
+     * What {@link #buildRepairContext} establishes about the candidates of one layer's repair, held in one record so
+     * that it is passed as one argument rather than as separate ones.
+     * <p>
+     * Both components are mutable and change as the repair proceeds: the change sets accumulate the edges each step
+     * grants, and once every repair has completed, the candidates a repair granted an edge are removed from
+     * {@code candidatesThatLostTheirEdge}. This record is therefore a grouping of state belonging to a single
+     * {@code deleteFromLayer} call, not a value.
+     *
+     * @param <N> type parameter extending {@link NodeReference}
+     * @param candidateChangeSets the pending neighbor list of every candidate, keyed by primary key, holding the
+     *        removal of the reference to the node being deleted and every change made after that
+     * @param candidatesThatLostTheirEdge the candidates that held a reference to the node being deleted, each with the
+     *        number of neighbors it has right after losing that reference. A candidate whose number of neighbors has
+     *        grown once every repair has completed received an edge from a repair, which replaces the lost one, and is
+     *        removed at that point. Every candidate left ends this delete with one outgoing edge fewer than it started
+     *        with, unless {@link #addReplacementOutEdges} replaces it
+     */
+    private record RepairContext<N extends NodeReference>(
+            @Nonnull Map<Tuple, NeighborsChangeSet<N>> candidateChangeSets,
+            @Nonnull Map<Tuple, Integer> candidatesThatLostTheirEdge) {
     }
 
     /**
@@ -500,6 +575,8 @@ class Delete {
      * @param neighborReference the reference for which this method repairs incoming references
      * @param candidates the set of candidates
      * @param neighborChangeSetMap the change set map which records all changes to all nodes that are being repaired
+     * @param replacementTargets collects, per repaired neighbor, the nearest candidate that neighbor did not point at
+     *        before this delete, for {@link #addReplacementOutEdges} to use as the target of a replacement edge
      * @param nodeCache the node cache to avoid repeated fetches
      * @return a future that if successful completes with {@code null}
      */
@@ -512,6 +589,7 @@ class Delete {
                            @Nonnull final N neighborReference,
                            @Nonnull final Collection<NodeReferenceAndNode<NodeReferenceWithVector, N>> candidates,
                            @Nonnull final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> neighborChangeSetMap,
+                           @Nonnull final Map<Tuple /* primaryKey */, NodeReferenceWithDistance> replacementTargets,
                            @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
 
         return primitives().fetchNodeIfNotCached(storageAdapter, transaction,
@@ -521,6 +599,11 @@ class Delete {
                             ImmutableList.builder();
                     final Transformed<RealVector> neighborVector =
                             storageAdapter.getVector(neighborReference, neighborNode);
+                    final Set<Tuple> outNeighborPrimaryKeys = Sets.newHashSet();
+                    for (final N outNeighbor : neighborNode.getNeighbors()) {
+                        outNeighborPrimaryKeys.add(outNeighbor.getPrimaryKey());
+                    }
+                    NodeReferenceWithDistance replacementTarget = null;
                     // transform the NodeReferencesWithVectors into NodeReferencesWithDistance
                     for (final NodeReferenceAndNode<NodeReferenceWithVector, N> candidate : candidates) {
                         // do not add the candidate if that candidate is in fact the neighbor itself
@@ -529,13 +612,27 @@ class Delete {
                                     candidate.getNodeReference().getVector();
                             final double distance =
                                     distanceEstimator.distance(candidateVector, neighborVector);
-                            candidatesReferencesBuilder.add(new NodeReferenceWithDistance(
-                                    candidate.getNode().getPrimaryKey(), candidateVector, distance));
+                            final NodeReferenceWithDistance candidateReference = new NodeReferenceWithDistance(
+                                    candidate.getNode().getPrimaryKey(), candidateVector, distance);
+                            candidatesReferencesBuilder.add(candidateReference);
+                            if (!outNeighborPrimaryKeys.contains(candidateReference.getPrimaryKey())
+                                    && (replacementTarget == null || distance < replacementTarget.getDistance())) {
+                                replacementTarget = candidateReference;
+                            }
                         }
                     }
+
+                    //
+                    // The target is the nearest candidate the neighbor did not point at before this delete.
+                    // addReplacementOutEdges decides, once every repair has completed, whether the neighbor gets an
+                    // edge to it.
+                    //
+                    if (replacementTarget != null) {
+                        replacementTargets.put(neighborReference.getPrimaryKey(), replacementTarget);
+                    }
                     return repairInsForNeighborNode(storageAdapter, transaction, storageTransform, distanceEstimator,
-                            layer, neighborReference, candidatesReferencesBuilder.build(),
-                            neighborChangeSetMap, nodeCache);
+                            layer, neighborReference, candidatesReferencesBuilder.build(), neighborChangeSetMap,
+                            nodeCache);
                 });
     }
 
@@ -545,6 +642,10 @@ class Delete {
      * incoming references to this node. As this method is called once per direct neighbor and all direct neighbors are
      * in the candidate set, outgoing references from this node to other nodes (in {@code p_out}) are repaired when this
      * method is called for the respective neighbors.
+     * <p>
+     * This method does not give the neighbor any outgoing edge. The edge it held to the node being deleted was removed
+     * in {@link #buildRepairContext}, and {@link #addReplacementOutEdges} decides once, after every
+     * repair has completed, whether to replace it.
      *
      * @param <N> type parameter extending {@link NodeReference}
      * @param storageAdapter the storage adapter for the layer
@@ -594,6 +695,123 @@ class Delete {
                     }
                     return AsyncUtil.DONE;
                 });
+    }
+
+    /**
+     * Grants one replacement outgoing edge to each node that lost its reference to the node being deleted, received no
+     * edge from a repair in its place, and is left short of outgoing edges.
+     * <p>
+     * {@link #buildRepairContext} removes exactly one reference from such a node, the one to the node being deleted,
+     * because a neighbor list holds at most one reference per primary key. {@link #repairInsForNeighborNode} adds edges
+     * only towards the nodes the deleted node pointed at, from the candidates it selects for each of them, so the node
+     * regains an outgoing edge only if one of those repairs selects it for a node it did not point at yet. Otherwise
+     * nothing replaces the lost edge, and a node that participates in many deletes can run out of outgoing edges.
+     * Whether that node is a direct neighbor of the deleted node or only a second degree candidate, the loss is the
+     * same.
+     * <p>
+     * The candidates a repair granted such an edge were removed from the repair context before the pruning, so every
+     * node considered here received none. This runs after every repair and the pruning have completed, which has two
+     * consequences. The decision does not depend on the order in which the repairs completed. And a node that is granted
+     * an edge ends the delete with as many neighbors as its stored neighbor list held before the delete. Every write
+     * path keeps that list within the degree cap of the layer, so a granted edge can never take a node past the cap and
+     * no further pruning is required, whatever the value of {@link Config#replacementEdgeMaxOutDegree()}.
+     *
+     * @param <N> type parameter extending {@link NodeReference}
+     * @param layer the layer
+     * @param distanceEstimator an estimator for distances
+     * @param repairContext the change sets, and the candidates whose reference to the node being deleted was removed
+     *        and that no repair granted an edge since; the change sets are updated in place for every node granted an
+     *        edge
+     * @param replacementTargets per direct neighbor of the node being deleted, the nearest candidate it did not point
+     *        at before this delete
+     * @param candidateReferencesMap the candidates with their vectors, keyed by primary key
+     * @param nodeCache the node cache, which holds a node for every candidate
+     */
+    private <N extends NodeReference> void
+            addReplacementOutEdges(final int layer,
+                                   @Nonnull final DistanceEstimator distanceEstimator,
+                                   @Nonnull final RepairContext<N> repairContext,
+                                   @Nonnull final Map<Tuple, NodeReferenceWithDistance> replacementTargets,
+                                   @Nonnull final Map<Tuple, NodeReferenceWithVector> candidateReferencesMap,
+                                   @Nonnull final Map<Tuple, AbstractNode<N>> nodeCache) {
+        final int maxOutDegree = getConfig().replacementEdgeMaxOutDegree();
+        if (maxOutDegree <= 0) {
+            return;
+        }
+        final Map<Tuple, NeighborsChangeSet<N>> candidateChangeSetMap = repairContext.candidateChangeSets();
+        for (final Tuple primaryKey : repairContext.candidatesThatLostTheirEdge().keySet()) {
+            final NeighborsChangeSet<N> changeSet = Objects.requireNonNull(candidateChangeSetMap.get(primaryKey));
+
+            //
+            // One pass over the pending neighbor list yields both quantities this decision needs: how many outgoing
+            // edges the node is left with, and which nodes those edges point at.
+            //
+            final Set<Tuple> outNeighborPrimaryKeys = Sets.newHashSet();
+            for (final N outNeighbor : changeSet.merge()) {
+                outNeighborPrimaryKeys.add(outNeighbor.getPrimaryKey());
+            }
+            if (outNeighborPrimaryKeys.size() >= maxOutDegree) {
+                continue;
+            }
+
+            //
+            // A direct neighbor of the deleted node has its target recorded by its repair: the nearest candidate it did
+            // not point at before this delete. No repair granted this node an edge and the pruning only removes edges,
+            // so it does not point at that target now either. A node that pointed at the deleted node without being
+            // pointed at by it was never repaired, so its target is computed here.
+            //
+            NodeReferenceWithDistance target = replacementTargets.get(primaryKey);
+            if (target == null) {
+                target = nearestUnreferencedCandidate(Objects.requireNonNull(candidateReferencesMap.get(primaryKey)),
+                        outNeighborPrimaryKeys, candidateReferencesMap, distanceEstimator);
+            }
+            if (target == null) {
+                continue;
+            }
+
+            final Tuple targetPrimaryKey = target.getPrimaryKey();
+            final N targetReference =
+                    primitives().nodeFromCache(targetPrimaryKey, nodeCache).getSelfReference(target.getVector());
+            candidateChangeSetMap.put(primaryKey,
+                    new InsertNeighborsChangeSet<>(changeSet, ImmutableList.of(targetReference)));
+            if (logger.isTraceEnabled()) {
+                logger.trace("replaced outgoing edge of key={} with an edge to key={} on layer={}", primaryKey,
+                        targetPrimaryKey, layer);
+            }
+        }
+    }
+
+    /**
+     * Returns the candidate closest to {@code reference} that it does not already point at, or {@code null} if there is
+     * none. Used for the nodes without a recorded replacement target: those {@link #repairNeighbor} never ran for, i.e.
+     * those that pointed at the node being deleted without being pointed at by it. A direct neighbor without a recorded
+     * target already pointed at every candidate, so this returns {@code null} for it.
+     *
+     * @param reference the node a replacement edge is being chosen for
+     * @param outNeighborPrimaryKeys the nodes it already points at
+     * @param candidateReferencesMap the candidates with their vectors, keyed by primary key
+     * @param distanceEstimator an estimator for distances
+     * @return the closest candidate not already pointed at, or {@code null}
+     */
+    @Nullable
+    private static NodeReferenceWithDistance
+            nearestUnreferencedCandidate(@Nonnull final NodeReferenceWithVector reference,
+                                         @Nonnull final Set<Tuple> outNeighborPrimaryKeys,
+                                         @Nonnull final Map<Tuple, NodeReferenceWithVector> candidateReferencesMap,
+                                         @Nonnull final DistanceEstimator distanceEstimator) {
+        NodeReferenceWithDistance nearest = null;
+        for (final NodeReferenceWithVector candidate : candidateReferencesMap.values()) {
+            final Tuple candidatePrimaryKey = candidate.getPrimaryKey();
+            if (candidatePrimaryKey.equals(reference.getPrimaryKey())
+                    || outNeighborPrimaryKeys.contains(candidatePrimaryKey)) {
+                continue;
+            }
+            final double distance = distanceEstimator.distance(candidate.getVector(), reference.getVector());
+            if (nearest == null || distance < nearest.getDistance()) {
+                nearest = new NodeReferenceWithDistance(candidatePrimaryKey, candidate.getVector(), distance);
+            }
+        }
+        return nearest;
     }
 
     /**
