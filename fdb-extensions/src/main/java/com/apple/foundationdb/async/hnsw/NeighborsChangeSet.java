@@ -69,6 +69,30 @@ interface NeighborsChangeSet<N extends NodeReference> {
     Iterable<N> merge();
 
     /**
+     * The number of neighbors {@link #merge()} would yield.
+     * <p>
+     * {@link #merge()} composes a lazy view over the parent change set, so counting its elements costs a pass over
+     * the entire chain of change sets, with one lookup per element per layer. Implementations must therefore
+     * establish this count when they are constructed, which each of them can do from the size of its parent and its
+     * own delta alone, and answer in constant time here. No implementation may perform I/O.
+     *
+     * @return the number of neighbors in this change set
+     */
+    int size();
+
+    /**
+     * Whether {@link #merge()} would yield a neighbor with the given primary key.
+     * <p>
+     * Answered from the deltas of this change set and its parents, in time proportional to the number of layers.
+     * No implementation may perform I/O. Note that this reports whether a <em>reference</em> is present, not whether
+     * the node it names still exists.
+     *
+     * @param primaryKey the primary key to look for
+     * @return {@code true} if a neighbor with that primary key is present
+     */
+    boolean containsNeighbor(@Nonnull Tuple primaryKey);
+
+    /**
      * Writes the neighbor delta for a given {@link AbstractNode} to the specified storage layer.
      * <p>
      * This method processes the provided {@code node} and writes only the records that match the given
