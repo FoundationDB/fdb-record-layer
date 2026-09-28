@@ -615,9 +615,11 @@ public class Primitives {
         // Reading just two nodes is enough to tell empty / single / multiple apart; passing maxNumRead == 2
         // bounds the underlying range read to (at most) two key/value pairs, so the cost does not grow with the
         // size of the graph. Layer 0 is always backed by a CompactStorageAdapter (inlining is only used for
-        // layers > 0), whose scanLayer returns an AsyncIterable, so we can collect it without blocking.
+        // layers > 0), whose scanLayer returns an AsyncIterable, so we can collect it without blocking. Only the
+        // number of nodes is used, so their vectors are not transformed.
         final AsyncIterable<AbstractNode<N>> layerZeroNodes =
-                (AsyncIterable<AbstractNode<N>>)storageAdapter.scanLayer(readTransaction, 0, null, 2);
+                (AsyncIterable<AbstractNode<N>>)storageAdapter.scanLayer(readTransaction, StorageTransform.identity(),
+                        0, null, 2);
         return AsyncUtil.collect(layerZeroNodes, getExecutor())
                 .thenApply(nodes -> Cardinality.fromCount(nodes.size()));
     }
@@ -1199,7 +1201,7 @@ public class Primitives {
                         config.metric() == Metric.COSINE_METRIC,
                         config.numDimensions());
 
-        scanLayerInternal(config, subspace, db, layer, batchSize,
+        scanLayerInternal(config, subspace, db, layer, batchSize, storageTransform,
                 node ->
                         nodeConsumer.accept(new ResultEntry(node.getPrimaryKey(),
                                 node.isCompactNode() ? storageTransform.untransform(node.asCompactNode().getVector()) : null,
@@ -1217,6 +1219,8 @@ public class Primitives {
      * @param db the non-null {@link Database} instance to run the scan against.
      * @param layer the specific layer index to scan.
      * @param batchSize the number of nodes to retrieve and process in each batch.
+     * @param storageTransform an affine vector transformation operator that is used to transform the fetched vectors
+     *        into the storage space that is currently being used
      * @param nodeConsumer the non-null {@link Consumer} that will accept each {@link AbstractNode}
      * found in the layer.
      */
@@ -1226,6 +1230,7 @@ public class Primitives {
                                   @Nonnull final Database db,
                                   final int layer,
                                   final int batchSize,
+                                  @Nonnull final StorageTransform storageTransform,
                                   @Nonnull final Consumer<AbstractNode<? extends NodeReference>> nodeConsumer) {
         final StorageAdapter<? extends NodeReference> storageAdapter =
                 storageAdapterForLayer(config, subspace, OnWriteListener.NOOP, OnReadListener.NOOP, layer);
@@ -1235,7 +1240,7 @@ public class Primitives {
             final Tuple lastPrimaryKey = lastPrimaryKeyAtomic.get();
             lastPrimaryKeyAtomic.set(null);
             newPrimaryKey = db.run(tr -> {
-                Streams.stream(storageAdapter.scanLayer(tr, layer, lastPrimaryKey, batchSize))
+                Streams.stream(storageAdapter.scanLayer(tr, storageTransform, layer, lastPrimaryKey, batchSize))
                         .forEach(node -> {
                             nodeConsumer.accept(Objects.requireNonNull(node));
                             lastPrimaryKeyAtomic.set(node.getPrimaryKey());
