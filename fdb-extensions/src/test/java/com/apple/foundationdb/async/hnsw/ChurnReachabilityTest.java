@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -56,6 +57,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -1044,6 +1046,138 @@ class ChurnReachabilityTest implements BaseTest {
             assertThat(reached)
                     .as("%s: a search centered on a live node's own vector must reach every live node", where)
                     .hasSize(live.size());
+        }
+    }
+
+    /**
+     * A delete reaps the references of the nodes it visits that name a node an earlier delete removed.
+     * <p>
+     * Such a reference is left behind whenever the node holding it lies outside the repair candidate set of the delete
+     * that removed its target, so this churns until one exists rather than trying to construct that position directly.
+     * It then deletes a node that points at the holder, which puts the holder in the first degree of the next delete's
+     * candidate set and so has the holder's own neighbors read, which is what proves the reference dead.
+     */
+    @ParameterizedTest
+    @RandomSeedSource({0x0fdbL, 0x5ca1eL, 123456L})
+    void deleteReapsReferencesNamingDeletedNodes(final long seed)
+            throws ExecutionException, InterruptedException, TimeoutException {
+        final Random random = new Random(seed);
+        final ReapRecordingOnWriteListener onWriteListener = new ReapRecordingOnWriteListener();
+        final HNSW hnsw = new HNSW(getSubspace(), TestExecutors.defaultThreadPool(), centroidStyleConfig(),
+                onWriteListener, new TestHelpers.TestOnReadListener());
+        final List<PrimaryKeyAndVector> live = new ArrayList<>();
+        int nextKey = 0;
+
+        for (int i = 0; i < 13; i++) {
+            final PrimaryKeyAndVector record = clusteredVector(random, nextKey++);
+            runAsyncToSync(db, tr -> hnsw.insert(tr, record.primaryKey(), record.vector(), null));
+            live.add(record);
+        }
+
+        // churn until some node holds a reference naming a node that is no longer there
+        Map<Tuple, List<Tuple>> adjacency = readLayerZeroAdjacency();
+        Tuple holder = null;
+        Tuple deadKey = null;
+        for (int round = 0; round < 200 && holder == null; round++) {
+            final PrimaryKeyAndVector victim = CommonTestHelpers.pickRandomVectors(random, live, 1).get(0);
+            runAsyncToSync(db, tr -> hnsw.delete(tr, victim.primaryKey()));
+            live.remove(victim);
+
+            final PrimaryKeyAndVector fresh = clusteredVector(random, nextKey++);
+            runAsyncToSync(db, tr -> hnsw.insert(tr, fresh.primaryKey(), fresh.vector(), null));
+            live.add(fresh);
+
+            adjacency = readLayerZeroAdjacency();
+            for (final Map.Entry<Tuple, List<Tuple>> entry : adjacency.entrySet()) {
+                for (final Tuple neighbor : entry.getValue()) {
+                    if (!adjacency.containsKey(neighbor)) {
+                        holder = entry.getKey();
+                        deadKey = neighbor;
+                        break;
+                    }
+                }
+                if (holder != null) {
+                    break;
+                }
+            }
+        }
+        // cast to Object because Tuple is both Iterable and Comparable, which makes the assertThat overloads ambiguous
+        assertThat((Object)holder)
+                .as("churn did not produce a reference naming a deleted node, so there is nothing to reap here")
+                .isNotNull();
+        logger.warn("holder={} holds a reference to the deleted node {}", holder, deadKey);
+
+        // a node that points at the holder, so that deleting it reads the holder's own neighbors
+        final Tuple holderKey = holder;
+        final Tuple pointsAtHolder = adjacency.entrySet().stream()
+                .filter(entry -> !entry.getKey().equals(holderKey) && entry.getValue().contains(holderKey))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse(null);
+        assertThat((Object)pointsAtHolder)
+                .as("no node points at %s, so no delete would put it in the first degree of a candidate set", holder)
+                .isNotNull();
+
+        final int reapedBefore = onWriteListener.numReferencesReaped.get();
+        runAsyncToSync(db, tr -> hnsw.delete(tr, pointsAtHolder));
+
+        final Map<Tuple, List<Tuple>> afterAdjacency = readLayerZeroAdjacency();
+        assertThat(afterAdjacency).as("the holder itself must survive this delete").containsKey(holder);
+        assertThat(afterAdjacency.get(holder))
+                .as("the reference to the deleted node %s must be gone from %s", deadKey, holder)
+                .doesNotContain(deadKey);
+        assertThat(onWriteListener.numReferencesReaped.get() - reapedBefore)
+                .as("the delete must report what it reaped")
+                .isPositive();
+    }
+
+    /**
+     * The reap callback is invoked for every delete, whether or not it reaped anything, so that a roll-up can tell a
+     * delete that found nothing from a delete that never looked.
+     */
+    @Test
+    void theReapCallbackIsInvokedEvenWhenNothingIsReaped()
+            throws ExecutionException, InterruptedException, TimeoutException {
+        final Random random = new Random(0x0fdbL);
+        final ReapRecordingOnWriteListener onWriteListener = new ReapRecordingOnWriteListener();
+        final HNSW hnsw = new HNSW(getSubspace(), TestExecutors.defaultThreadPool(), centroidStyleConfig(),
+                onWriteListener, new TestHelpers.TestOnReadListener());
+
+        // a freshly built graph holds no reference to a deleted node, so the first delete can have nothing to reap
+        final List<PrimaryKeyAndVector> live = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            final PrimaryKeyAndVector record = clusteredVector(random, i);
+            runAsyncToSync(db, tr -> hnsw.insert(tr, record.primaryKey(), record.vector(), null));
+            live.add(record);
+        }
+        assertThat(onWriteListener.numCalls.get()).as("no delete has run yet").isZero();
+
+        runAsyncToSync(db, tr -> hnsw.delete(tr, live.get(0).primaryKey()));
+
+        assertThat(onWriteListener.numCalls.get())
+                .as("the delete must invoke the callback once per layer it deleted from")
+                .isPositive();
+        assertThat(onWriteListener.numReferencesReaped.get())
+                .as("a graph with no references to deleted nodes has nothing to reap")
+                .isZero();
+        assertThat(onWriteListener.numCallsReportingZero.get())
+                .as("those invocations must be the ones reporting zero")
+                .isEqualTo(onWriteListener.numCalls.get());
+    }
+
+    /** Records what {@link OnWriteListener#onNeighborReferencesReaped} reports, including the calls reporting zero. */
+    private static final class ReapRecordingOnWriteListener extends TestHelpers.TestOnWriteListener {
+        private final AtomicInteger numCalls = new AtomicInteger();
+        private final AtomicInteger numCallsReportingZero = new AtomicInteger();
+        private final AtomicInteger numReferencesReaped = new AtomicInteger();
+
+        @Override
+        public void onNeighborReferencesReaped(final int layer, final int numReferences) {
+            numCalls.incrementAndGet();
+            if (numReferences == 0) {
+                numCallsReportingZero.incrementAndGet();
+            }
+            numReferencesReaped.addAndGet(numReferences);
         }
     }
 }
