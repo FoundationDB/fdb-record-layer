@@ -136,4 +136,26 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
                                    @Nonnull final Tuple neighborPrimaryKey) {
         // nothing
     }
+
+    /**
+     * Callback method invoked when a delete removes references that name nodes an earlier delete had removed.
+     * <p>
+     * A delete only removes the references pointing at the node it deletes from the nodes it happens to visit, so
+     * references held by nodes it does not visit name a key that no longer resolves. A later delete reaps those
+     * whenever it reads storage for one of them and finds nothing. This reports how many it reaped, which is the rate
+     * at which that backlog is being worked off, and is unrelated to the references removed for the node being
+     * deleted right now.
+     * <p>
+     * Invoked once per layer per delete, including when nothing was reaped, so that an implementation rolling these up
+     * can tell a delete that found nothing from a delete that never looked.
+     * <p>
+     * This is a default method and its base implementation is a no-op.
+     *
+     * @param layer the layer index on which the references were reaped
+     * @param numReferences how many references were reaped, which may be zero
+     */
+    @SuppressWarnings("unused")
+    default void onNeighborReferencesReaped(final int layer, final int numReferences) {
+        // nothing
+    }
 }
