@@ -360,6 +360,27 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
             return lazyRecordCount.get()
                     .thenApply(recordCount -> needRebuildIndex(index, recordCount, indexOnNewRecordTypes));
         }
+
+        /**
+         * Get the maximum number of records that may be scanned when building an index in-line, i.e., when
+         * {@link #needRebuildIndex(Index, Supplier, Supplier, boolean)} returned {@link IndexState#READABLE}
+         * for an index that is not on new record types. This acts as a safety net in case the record count or size
+         * estimate that led to the in-line build was wrong: if the limit is exceeded, the in-line build is abandoned
+         * and the index is marked {@link IndexState#DISABLED}, so that it can later be built by the {@link OnlineIndexer}.
+         *
+         * <p>
+         * By default, this returns 0, which means that no limit is applied. Adopters who implement
+         * {@link #needRebuildIndex(Index, long, boolean)} using {@link FDBRecordStore#disabledIfTooManyRecordsForRebuild(long, boolean)}
+         * may want to return a value slightly above {@link FDBRecordStore#MAX_RECORDS_FOR_REBUILD}. If no
+         * {@link UserVersionChecker} is supplied to an {@link FDBRecordStore}, such a limit is applied automatically.
+         * </p>
+         *
+         * @return the maximum number of records that may be scanned, or 0 for unlimited
+         */
+        @API(API.Status.EXPERIMENTAL)
+        default int getInlineRebuildRecordScanLimit() {
+            return 0;
+        }
     }
 
     /**
