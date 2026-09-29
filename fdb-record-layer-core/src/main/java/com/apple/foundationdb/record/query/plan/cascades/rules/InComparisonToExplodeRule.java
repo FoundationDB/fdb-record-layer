@@ -125,6 +125,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class InComparisonToExplodeRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
     private static final BindingMatcher<ValuePredicate> inPredicateMatcher =
             valuePredicate(ValueMatchers.anyValue(), anyComparisonOfType(Comparisons.Type.IN));
+    // Match any for-each quantifier, as the rewrite keeps the existing quantifiers unchanged. For now, though, the
+    // rewrite does not pay off if one of them is not plain: the equality predicates it creates cannot be pushed down
+    // into a non-plain quantifier, and `ImplementInJoinRule` and `ImplementInUnionRule` do not fire while predicates
+    // remain on the SELECT.
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifier();
 
     private static final BindingMatcher<SelectExpression> root =
