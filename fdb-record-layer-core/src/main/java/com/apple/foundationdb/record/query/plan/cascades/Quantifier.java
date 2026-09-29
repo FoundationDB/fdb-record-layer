@@ -143,6 +143,10 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     /**
      * A quantifier that conceptually flows one item at a time from the expression it ranges over to
      * the owning expression.
+     *
+     * <p>A for-each quantifier can carry additional semantics that the owning expression, or the plan implementing it,
+     * must honor. Currently, the only such flavor is <em>null-on-empty</em> (see {@link #isNullOnEmpty()}). A for-each
+     * quantifier without any such flavor is called <em>plain</em> (see {@link #isPlain()}).
      */
     @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
     public static final class ForEach extends Quantifier {
@@ -190,6 +194,18 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             return rangesOver;
         }
 
+        /**
+         * Returns whether this quantifier is plain. A plain for-each quantifier simply flows each item produced by the
+         * expression it ranges over.
+         */
+        public boolean isPlain() {
+            return !isNullOnEmpty;
+        }
+
+        /**
+         * Returns whether this quantifier has null-on-empty semantics. If the expression it ranges over produces an
+         * empty result, the quantifier flows a single {@code NULL} item instead.
+         */
         public boolean isNullOnEmpty() {
             return isNullOnEmpty;
         }
