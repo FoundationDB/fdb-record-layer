@@ -98,7 +98,13 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
 
     @Nonnull
     public static RecordQueryUnorderedUnionPlan fromQuantifiers(@Nonnull List<Quantifier.Physical> quantifiers) {
-        return new RecordQueryUnorderedUnionPlan(quantifiers, Quantifiers.isReversed(quantifiers));
+        return fromQuantifiers(quantifiers, Quantifiers.isReversed(quantifiers));
+    }
+
+    @Nonnull
+    public static RecordQueryUnorderedUnionPlan fromQuantifiers(@Nonnull List<Quantifier.Physical> quantifiers,
+                                                                final boolean reverse) {
+        return new RecordQueryUnorderedUnionPlan(quantifiers, reverse);
     }
 
     @HeuristicPlanner

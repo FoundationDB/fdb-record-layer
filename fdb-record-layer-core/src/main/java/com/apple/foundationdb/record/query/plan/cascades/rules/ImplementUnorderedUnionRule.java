@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesR
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -78,12 +79,22 @@ public class ImplementUnorderedUnionRule extends AbstractCascadesRule<LogicalUni
         final var planPartitions = bindings.getAll(unionLegPlanPartitionsMatcher);
         final var allQuantifiers = bindings.get(allForEachQuantifiersMatcher);
 
-        final ImmutableList<Quantifier.Physical> quantifiers =
+        final ImmutableList<Reference> legReferences =
                 Streams.zip(planPartitions.stream(), allQuantifiers.stream(),
-                                (planPartition, quantifier) -> call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), planPartition.getPlans()))
+                                (planPartition, quantifier) ->
+                                        call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), planPartition.getPlans()))
+                        .collect(ImmutableList.toImmutableList());
+
+        // Determine the direction before applying glue, as a glue plan can only report its direction once its child
+        // reference has been reduced to a single plan. The direction is not affected by the glue.
+        final boolean isReversed =
+                Quantifiers.isReversed(legReferences.stream().map(Quantifier::physical).collect(ImmutableList.toImmutableList()));
+
+        final ImmutableList<Quantifier.Physical> quantifiers =
+                Streams.zip(allQuantifiers.stream(), legReferences.stream(), (quantifier, legReference) -> quantifier.applyGlue(call, legReference))
                         .map(Quantifier::physical)
                         .collect(ImmutableList.toImmutableList());
 
-        call.yieldPlan(RecordQueryUnorderedUnionPlan.fromQuantifiers(quantifiers));
+        call.yieldPlan(RecordQueryUnorderedUnionPlan.fromQuantifiers(quantifiers, isReversed));
     }
 }
