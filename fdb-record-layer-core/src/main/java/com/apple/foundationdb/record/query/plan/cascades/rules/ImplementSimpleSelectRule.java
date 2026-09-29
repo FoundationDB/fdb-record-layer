@@ -29,17 +29,15 @@ import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesR
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.google.common.base.Verify;
@@ -137,23 +135,8 @@ public class ImplementSimpleSelectRule extends AbstractCascadesRule<SelectExpres
                     resultType, innerQuantifier.getFlowedObjectType()));
         }
 
-        // Add a FIRST_OR_DEFAULT NULL if the quantifier is existential.
-        // Add a ON EMPTY NULL if the quantifier is a null-on-empty for-each.
-        if (innerQuantifier instanceof Quantifier.Existential) {
-            builder = call.memoizePlanBuilder(
-                    new RecordQueryFirstOrDefaultPlan(
-                            Quantifier.physicalBuilder()
-                                    .withAlias(alias)
-                                    .build(builder.reference()),
-                            new NullValue(innerQuantifier.getFlowedObjectType())));
-        } else if (innerQuantifier instanceof Quantifier.ForEach forEach && forEach.isNullOnEmpty()) {
-            builder = call.memoizePlanBuilder(
-                    new RecordQueryDefaultOnEmptyPlan(
-                            Quantifier.physicalBuilder()
-                                    .withAlias(alias)
-                                    .build(builder.reference()),
-                            new NullValue(innerQuantifier.getFlowedObjectType())));
-        }
+        // Add a FIRST_OR_DEFAULT or an ON EMPTY NULL node if the quantifier requires it.
+        builder = Quantifiers.applyGlue(call, innerQuantifier, builder);
 
         // Add a FILTER if there are non-tautology predicates.
         final var nonTautologyPredicates =
