@@ -140,11 +140,11 @@ public class MultiStageCacheTests {
     }
 
     @Test
-    void putStoresWithoutALookup() {
+    void writeOnlyReducerStoresWithoutALookup() {
         final var builder = MultiStageCache.<String, String, String, String>newMultiStageCacheBuilder();
         final MultiStageCache<String, String, String, String> testCache = builder.setSize(2).setSecondarySize(2).build();
 
-        testCache.put("U.S.", "Animal", "river", "American Alligator", NoOpMetricCollector.INSTANCE);
+        writeOnly(testCache, "U.S.", "Animal", "river", "American Alligator");
 
         shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "American Alligator"))));
         Assertions.assertThat(readCache(testCache, "U.S.", "Animal", "river"))
@@ -152,19 +152,42 @@ public class MultiStageCacheTests {
     }
 
     @Test
-    void putUnderAnEqualKeyReplaces() {
+    void writeOnlyReducerUnderAnEqualKeyReplaces() {
         final var builder = MultiStageCache.<String, String, String, String>newMultiStageCacheBuilder();
         final MultiStageCache<String, String, String, String> testCache = builder.setSize(2).setSecondarySize(2).build();
 
-        testCache.put("U.S.", "Animal", "river", "American Alligator", NoOpMetricCollector.INSTANCE);
-        testCache.put("U.S.", "Animal", "river", "a second alligator", NoOpMetricCollector.INSTANCE);
+        writeOnly(testCache, "U.S.", "Animal", "river", "American Alligator");
+        writeOnly(testCache, "U.S.", "Animal", "river", "a second alligator");
 
         Assertions.assertThat(testCache.getStats().numTertiaryEntries("U.S.", "Animal")).isEqualTo(1L);
         shouldBe(testCache, Map.of("U.S.", Map.of("Animal", Map.of("river", "a second alligator"))));
 
-        testCache.put("U.S.", "Animal", "mountain", "Bighorn Sheep", NoOpMetricCollector.INSTANCE);
+        writeOnly(testCache, "U.S.", "Animal", "mountain", "Bighorn Sheep");
 
         Assertions.assertThat(testCache.getStats().numTertiaryEntries("U.S.", "Animal")).isEqualTo(2L);
+    }
+
+    @Test
+    void writeOnlyReducerIgnoresAnEntryItCouldHaveServed() {
+        final var builder = MultiStageCache.<String, String, String, String>newMultiStageCacheBuilder();
+        final MultiStageCache<String, String, String, String> testCache = builder.setSize(2).setSecondarySize(2).build();
+
+        writeOnly(testCache, "U.S.", "Animal", "river", "American Alligator");
+
+        // A matching entry is present, but the write-only reducer neither reads it nor decorates its own result.
+        Assertions.assertThat(writeOnly(testCache, "U.S.", "Animal", "river", "a second alligator"))
+                .isEqualTo("a second alligator");
+    }
+
+    @Nonnull
+    private static String writeOnly(@Nonnull MultiStageCache<String, String, String, String> cache,
+                                    @Nonnull String key, @Nonnull String secondaryKey,
+                                    @Nonnull String tertiaryKey, @Nonnull String value) {
+        return cache.reduce(key, secondaryKey, tertiaryKey,
+                () -> NonnullPair.of(tertiaryKey, value),
+                MultiStageCacheTests::fetchFromCache,
+                Reducer.writeOnly(),
+                NoOpMetricCollector.INSTANCE);
     }
 
     @Test
@@ -404,7 +427,7 @@ public class MultiStageCacheTests {
         return cache.reduce(key, secondaryKey, tertiaryKey,
                 () -> NonnullPair.of(tertiaryKey, entries.get(key).get(secondaryKey).get(tertiaryKey)),
                 MultiStageCacheTests::fetchFromCache,
-                MultiStageCacheTests::pickFirst,
+                Reducer.of(MultiStageCacheTests::pickFirst),
                 metricCollector);
     }
 
