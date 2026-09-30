@@ -61,6 +61,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 
@@ -701,6 +702,16 @@ class TestHelpers {
         }
 
         @Override
+        public void onVectorReferencesCleanedUp(final int numDroppedMissingMetadata,
+                                                final int numDroppedSupersededMetadata) {
+            for (final Frame frame : frames) {
+                frame.numVectorReferenceCleanups().incrementAndGet();
+                frame.numStaleVectorReferencesDropped()
+                        .addAndGet(numDroppedMissingMetadata + numDroppedSupersededMetadata);
+            }
+        }
+
+        @Override
         public void onTaskEnqueued(@Nonnull final TaskKind taskKind,
                                    @Nonnull final UUID taskId, @Nonnull final Set<UUID> targetClusterIds) {
             for (final Frame frame : frames) {
@@ -738,8 +749,29 @@ class TestHelpers {
             return Objects.requireNonNull(frames.peek()).bytesWritten().get();
         }
 
+        /**
+         * Number of vector references repartitioning discarded as stale — the vector deleted, or moved elsewhere. Any
+         * non-zero value means a cluster's recorded count had drifted above what it actually held.
+         *
+         * @return the count within the current frame
+         */
+        public int getNumStaleVectorReferencesDropped() {
+            return Objects.requireNonNull(frames.peek()).numStaleVectorReferencesDropped().get();
+        }
+
+        /**
+         * Number of times repartitioning reconciled a set of vector references, whether or not any were stale. The
+         * denominator for {@link #getNumStaleVectorReferencesDropped()}.
+         *
+         * @return the count within the current frame
+         */
+        public int getNumVectorReferenceCleanups() {
+            return Objects.requireNonNull(frames.peek()).numVectorReferenceCleanups().get();
+        }
+
         public void pushFrame() {
-            frames.push(new Frame(new AtomicLong(0L), Maps.newConcurrentMap(), Maps.newConcurrentMap()));
+            frames.push(new Frame(new AtomicLong(0L), Maps.newConcurrentMap(), Maps.newConcurrentMap(),
+                    new AtomicInteger(0), new AtomicInteger(0)));
         }
 
         public void popFrame() {
@@ -748,7 +780,9 @@ class TestHelpers {
 
         private record Frame(@Nonnull AtomicLong bytesWritten,
                              @Nonnull Map<TaskKind, Integer> numTasksEnqueuedByKind,
-                             @Nonnull Map<TaskKind, Integer> numTasksExecutedByKind) {
+                             @Nonnull Map<TaskKind, Integer> numTasksExecutedByKind,
+                             @Nonnull AtomicInteger numStaleVectorReferencesDropped,
+                             @Nonnull AtomicInteger numVectorReferenceCleanups) {
         }
     }
 

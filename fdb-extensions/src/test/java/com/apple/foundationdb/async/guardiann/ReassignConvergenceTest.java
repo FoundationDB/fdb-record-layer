@@ -262,13 +262,10 @@ public class ReassignConvergenceTest implements BaseTest {
      */
     @Nonnull
     private Guardiann newGuardiannSmall() {
-        return guardiannFor(Guardiann.newConfigBuilder()
+        return guardiannFor(ConfigRecommendation.forClusterBounds(Metric.EUCLIDEAN_METRIC, 80, 1)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
-                .setMetric(Metric.EUCLIDEAN_METRIC)
-                .setPrimaryClusterMax(80)
                 .setCollapseMinDuplicates(40)
-                .setPrimaryClusterMin(1)
                 .setMergeMaxEverFraction(0.0d)
                 .setDeterministicRandomness(true)
                 .setUnderreplicatedPrimaryClusterMax(3)
@@ -289,12 +286,9 @@ public class ReassignConvergenceTest implements BaseTest {
      */
     @Nonnull
     private Guardiann newGuardiannBig() {
-        return guardiannFor(Guardiann.newConfigBuilder()
+        return guardiannFor(ConfigRecommendation.forClusterBounds(Metric.EUCLIDEAN_METRIC, 512, 100)
                 .setUseRaBitQ(true)
                 .setRaBitQNumExBits(6)
-                .setMetric(Metric.EUCLIDEAN_METRIC)
-                .setPrimaryClusterMax(512)
-                .setPrimaryClusterMin(100)
                 .setDeterministicRandomness(true)
                 .setUnderreplicatedPrimaryClusterMax(50)
                 .setReplicationPriorityMin(0.65d)

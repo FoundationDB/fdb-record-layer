@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async.guardiann;
 
 import com.apple.foundationdb.linear.Metric;
+import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -65,13 +66,22 @@ class ConfigRecommendationTest {
     @ValueSource(ints = {50, 128, 512, 1000, 4096, 20_000})
     void smallestPermittedChildIsNotBornWantingToMerge(final int primaryClusterMax) {
         final Config config = recommend(primaryClusterMax);
-        // A split fires at no fewer than primaryClusterMax vectors, so the smallest child a split may produce holds
-        // minChildFraction * primaryClusterMax. Below primaryClusterMin it would be merge-eligible on arrival, which
-        // makes the split self-defeating.
-        final int smallestPermittedChild = (int)Math.floor(config.minChildFraction() * config.primaryClusterMax());
+        // The floor is expressed against the largest population a candidate may be handed, which is the target pooled
+        // with a neighbour for a 2-to-3 split: about twice primaryClusterMax. Measured against that population, the
+        // smallest child a split may produce is primaryClusterMin exactly, so it does not arrive merge-eligible.
+        final int smallestPermittedChild =
+                (int)Math.floor(config.minChildFraction() * 2 * config.primaryClusterMax());
         assertThat(smallestPermittedChild)
-                .as("the smallest child a split may produce must not already be undersized")
+                .as("the smallest child of a pooled candidate must not already be undersized")
                 .isGreaterThanOrEqualTo(config.primaryClusterMin());
+
+        // A 1-to-2 split sees only about primaryClusterMax vectors, so there the same fraction permits a child of
+        // roughly half primaryClusterMin, which *can* arrive merge-eligible. That is deliberate: such a child costs one
+        // extra merge, whereas a floor strict enough to rule it out rejects every candidate k-means can produce for a
+        // homogeneous cluster, and a split with no admissible candidate fails outright.
+        assertThat((int)Math.floor(config.minChildFraction() * config.primaryClusterMax()))
+                .as("the floor must still be a real constraint rather than rounding to nothing")
+                .isPositive();
     }
 
     @ParameterizedTest
@@ -92,11 +102,16 @@ class ConfigRecommendationTest {
     void theRecommendationForTheMeasuredDatasetMatchesWhatWasMeasured() {
         // 512 is the cluster size the SIFT drain workload was tuned against; these are the values that produced a
         // clean run, recorded here so a change to the ratios has to confront them.
+        //
+        // minChildFraction is the one value that has since moved: it was 51/512 when the drain was first measured and
+        // is now half that, because the floor is expressed against the largest population a candidate may be handed
+        // (the target pooled with a neighbour) rather than against the cap. The drain was re-run against the halved
+        // value on 2026-09-23 and still drains to a single empty cluster with no recall warnings.
         final Config config = recommend(512);
         assertThat(config.primaryClusterMin()).isEqualTo(51);
         assertThat(config.primaryClusterHardMax()).isEqualTo(1024);
         assertThat(config.mergeMaxEverFraction()).isEqualTo(0.2d);
-        assertThat(config.minChildFraction()).isCloseTo(0.0996d, org.assertj.core.data.Offset.offset(1.0e-4d));
+        assertThat(config.minChildFraction()).isCloseTo(0.0498d, Offset.offset(1.0e-4d));
     }
 
     @Test

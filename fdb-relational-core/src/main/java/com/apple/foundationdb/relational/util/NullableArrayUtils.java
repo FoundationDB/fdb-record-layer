@@ -22,6 +22,8 @@ package com.apple.foundationdb.relational.util;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
@@ -40,6 +42,23 @@ public final class NullableArrayUtils {
 
     private NullableArrayUtils() {
         throw new IllegalStateException("Utility class");
+    }
+
+    /**
+     * Navigates from the record owning an array field to that array's elements. A nullable array is stored wrapped
+     * in a {@code { repeated T values; }} message, so the fan-out sits on {@code values} in that case; a
+     * non-nullable one is a plain repeated field.
+     *
+     * @param arrayFieldName the proto storage name of the array field
+     * @param nullableArray whether the array is stored wrapped
+     * @return an expression reaching the array's elements
+     */
+    @Nonnull
+    public static KeyExpression arrayElements(@Nonnull final String arrayFieldName, final boolean nullableArray) {
+        return nullableArray
+               ? Key.Expressions.field(arrayFieldName)
+                       .nest(Key.Expressions.field(REPEATED_FIELD_NAME, KeyExpression.FanType.FanOut))
+               : Key.Expressions.field(arrayFieldName, KeyExpression.FanType.FanOut);
     }
 
     public static String getRepeatedFieldName() {
