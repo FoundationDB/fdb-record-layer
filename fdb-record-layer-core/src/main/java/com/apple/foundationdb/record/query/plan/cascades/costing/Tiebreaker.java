@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades.costing;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.FindExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.annotations.VisibleForTesting;
@@ -35,7 +34,6 @@ import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
@@ -51,7 +49,7 @@ import java.util.stream.Collector;
  *
  * <ul>
  *     <li>
- *         The {@link #compare(RecordQueryPlannerConfiguration, Map, Map, RelationalExpression, RelationalExpression) compare()}
+ *         The {@link #compare(RecordQueryPlannerConfiguration, PlanOpsMap, PlanOpsMap, RelationalExpression, RelationalExpression) compare()}
  *         method is enriched with additional context collected by the cost model and cached to avoid duplicated effort.
  *     </li>
  *     <li>
@@ -82,8 +80,8 @@ interface Tiebreaker<T extends RelationalExpression> {
      *        zero if they are not distinguished by this implementation
      */
     int compare(@Nonnull RecordQueryPlannerConfiguration configuration,
-                @Nonnull Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
-                @Nonnull Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
+                @Nonnull PlanOpsMap opsMapA,
+                @Nonnull PlanOpsMap opsMapB,
                 @Nonnull T a, @Nonnull T b);
 
     /**
@@ -113,28 +111,20 @@ interface Tiebreaker<T extends RelationalExpression> {
     /**
      * Create a {@link TiebreakerResult} wrapping a set of expressions. This is used to create a tiebreaker
      * result which initially contains all expressions from the {@code expressions} set that are of
-     * type {@code specificClazz}. Once this is created, the user can call {@link TiebreakerResult#thenApply(Tiebreaker)}
+     * type {@code specificClazz}. Once this is created, the user can call
+     * {@link TiebreakerResult#thenApply(Tiebreaker)}
      * to apply a {@link Tiebreaker} on the set.
      *
-     * <p>
-     * The {@code interestingExpressionClasses} parameter is a bit odd, but it is used to create a cache of
-     * operation counts, mapping each class to the number of expressions of that type in each expression. This
-     * is then supplied to the {@link #compare(RecordQueryPlannerConfiguration, Map, Map, RelationalExpression, RelationalExpression)}
-     * method. The caller should therefore consider all of the {@link Tiebreaker}s that will be used to narrow
-     * results on this result and then include every class that any tiebreaker wants to count.
-     * </p>
-     *
+     * @param <T> the type of expression in the final result
      * @param plannerConfiguration the planner configuration to use to adjust behavior while tiebreaking
-     * @param interestingExpressionClasses a set of expression classes that are used to create a plan-op cache
      * @param expressions a set of expressions to tiebreak
      * @param specificClazz a specific class of expression that the tiebreaker is between
-     * @param <T> the type of expression in the final result
+     *
      * @return a {@link TiebreakerResult} which contains every expression of type {@code specificClazz}
      */
     @Nonnull
     static <T extends RelationalExpression> TiebreakerResult<T>
             ofContext(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
-                      @Nonnull final Set<Class<? extends RelationalExpression>> interestingExpressionClasses,
                       @Nonnull final Set<? extends RelationalExpression> expressions,
                       @Nonnull final Class<T> specificClazz) {
         final var filteredExpressions = new LinkedIdentitySet<T>();
@@ -148,7 +138,7 @@ interface Tiebreaker<T extends RelationalExpression> {
             return new TerminalTiebreakerResult<>(filteredExpressions);
         }
 
-        final var opsCache = createOpsCache(interestingExpressionClasses);
+        final var opsCache = createOpsCache();
         return new TiebreakerResultWithNext<>(plannerConfiguration, opsCache, filteredExpressions);
     }
 
@@ -164,7 +154,7 @@ interface Tiebreaker<T extends RelationalExpression> {
      *
      * @param plannerConfiguration general planner configuration options that may affect some implementations' parameters
      * @param tiebreaker tiebreaker to use to select the best equivalency class of plans
-     * @param opsCache a cache to be used to produce the operations maps passed to {@link #compare(RecordQueryPlannerConfiguration, Map, Map, RelationalExpression, RelationalExpression)}
+     * @param opsCache a cache to be used to produce the operations maps passed to {@link #compare(RecordQueryPlannerConfiguration, PlanOpsMap, PlanOpsMap, RelationalExpression, RelationalExpression)}
      * @param <T> the type of expressions in the stream
      * @return a collector that returns the set of expressions considered the most optimal
      */
@@ -172,20 +162,19 @@ interface Tiebreaker<T extends RelationalExpression> {
     static <T extends RelationalExpression> Collector<T, LinkedIdentitySet<T>, Set<T>>
              toBestExpressions(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
                                @Nonnull final Tiebreaker<? super T> tiebreaker,
-                               @Nonnull final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache) {
+                               @Nonnull final LoadingCache<RelationalExpression, PlanOpsMap> opsCache) {
         return new BestExpressionsCollector<>(plannerConfiguration, tiebreaker, opsCache);
     }
 
     @VisibleForTesting
     @Nonnull
-    static LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> createOpsCache(Set<Class<? extends RelationalExpression>> interestingExpressionClasses) {
+    static LoadingCache<RelationalExpression, PlanOpsMap> createOpsCache() {
         return CacheBuilder.newBuilder()
                 .build(new CacheLoader<>() {
                     @Override
                     @Nonnull
-                    public Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>
-                            load(@Nonnull final RelationalExpression key) {
-                        return FindExpressionVisitor.evaluate(interestingExpressionClasses, key);
+                    public PlanOpsMap load(@Nonnull final RelationalExpression key) {
+                        return new PlanOpsMap(key);
                     }
                 });
     }
@@ -205,11 +194,11 @@ interface Tiebreaker<T extends RelationalExpression> {
         @Nonnull
         private final Tiebreaker<? super T> tiebreaker;
         @Nonnull
-        private final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache;
+        private final LoadingCache<RelationalExpression, PlanOpsMap> opsCache;
 
         private BestExpressionsCollector(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
                                          @Nonnull final Tiebreaker<? super T> tiebreaker,
-                                         @Nonnull final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache) {
+                                         @Nonnull final LoadingCache<RelationalExpression, PlanOpsMap> opsCache) {
             this.plannerConfiguration = plannerConfiguration;
             this.tiebreaker = tiebreaker;
             this.opsCache = opsCache;
@@ -226,8 +215,8 @@ interface Tiebreaker<T extends RelationalExpression> {
                 if (aBestExpression == null) {
                     compare = -1;
                 } else {
-                    final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA;
-                    final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB;
+                    final PlanOpsMap opsMapA;
+                    final PlanOpsMap opsMapB;
                     try {
                         opsMapA = opsCache.get(newExpression);
                         opsMapB = opsCache.get(aBestExpression);
@@ -272,8 +261,8 @@ interface Tiebreaker<T extends RelationalExpression> {
                     return left;
                 }
 
-                final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> leftMap;
-                final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> rightMap;
+                final PlanOpsMap leftMap;
+                final PlanOpsMap rightMap;
                 try {
                     leftMap = opsCache.get(aLeftBestExpression);
                     rightMap = opsCache.get(aRightBestExpression);

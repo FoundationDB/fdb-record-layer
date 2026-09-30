@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import org.junit.jupiter.api.Test;
@@ -37,7 +36,6 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collector;
 import java.util.stream.IntStream;
@@ -61,13 +59,13 @@ class TiebreakerTests {
 
     private int compareByHash(@Nonnull RelationalExpression a, @Nonnull RelationalExpression b) {
         return RewritingCostModel.semanticHashTiebreaker().compare(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
-                ImmutableMap.of(), ImmutableMap.of(),
+                new PlanOpsMap(a), new PlanOpsMap(b),
                 a, b);
     }
 
     /**
      * Test the most basic of comparisons. This is not a particularly useful test in and of itself as the
-     * {@link Tiebreaker#compare(RecordQueryPlannerConfiguration, Map, Map, RelationalExpression,
+     * {@link Tiebreaker#compare(RecordQueryPlannerConfiguration, PlanOpsMap, PlanOpsMap, RelationalExpression,
      * RelationalExpression)}
      * method is an interface method with no implementation. Individual tests for the implementations should go
      * into {@link TiebreakerImplementationTests}. However, this basic smoke tests is useful to ensure that
@@ -90,7 +88,6 @@ class TiebreakerTests {
     @Test
     void contextFiltersOutAllElements() {
         final TiebreakerResult<SelectExpression> result = Tiebreaker.ofContext(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
-                ImmutableSet.of(),
                 fromHashes(1, 2, 3, 4),
                 SelectExpression.class);
 
@@ -107,7 +104,6 @@ class TiebreakerTests {
         expressions.add(scanExpression);
 
         final TiebreakerResult<FullUnorderedScanExpression> result = Tiebreaker.ofContext(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
-                ImmutableSet.of(),
                 expressions,
                 FullUnorderedScanExpression.class);
 
@@ -127,7 +123,6 @@ class TiebreakerTests {
                 .build();
 
         final TiebreakerResult<TestExpressionWithFixedSemanticHash> result = Tiebreaker.ofContext(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
-                ImmutableSet.of(),
                 newExpressions,
                 TestExpressionWithFixedSemanticHash.class);
 
@@ -142,7 +137,6 @@ class TiebreakerTests {
     void bestCanSelectSingleBestElement() {
         final Set<RelationalExpression> expressions = fromHashes(5, 7, 2, 10, 12);
         final TiebreakerResult<RelationalExpression> result = Tiebreaker.ofContext(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
-                ImmutableSet.of(),
                 expressions,
                 RelationalExpression.class);
 
@@ -158,7 +152,6 @@ class TiebreakerTests {
     void bestCanSelectMultipleInBestClass() {
         final Set<RelationalExpression> expressions = fromHashes(10, 3, 10, 3, 5, 8, 3, 12);
         final TiebreakerResult<RelationalExpression> result = Tiebreaker.ofContext(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
-                ImmutableSet.of(),
                 expressions,
                 RelationalExpression.class);
 
@@ -176,7 +169,6 @@ class TiebreakerTests {
         final Set<RelationalExpression> expressions = fromHashes(10, 6, 11, 3, 10, 3, 5, 8, 3, 12);
         final LinkedIdentitySet<RelationalExpression> removedSet = new LinkedIdentitySet<>();
         final TiebreakerResult<RelationalExpression> result = Tiebreaker.ofContext(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
-                ImmutableSet.of(),
                 expressions,
                 RelationalExpression.class);
 
@@ -207,7 +199,7 @@ class TiebreakerTests {
     @Test
     void collectorFiltersToMinimalElement() {
         final List<RelationalExpression> expressions = ImmutableList.copyOf(fromHashes(10, 3, 6, 2, 7, 5));
-        final var opsCache = Tiebreaker.createOpsCache(ImmutableSet.of());
+        final var opsCache = Tiebreaker.createOpsCache();
 
         final var collector = Tiebreaker.toBestExpressions(
                 RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
@@ -225,7 +217,7 @@ class TiebreakerTests {
     @Test
     void collectorFiltersToMinimalSet() {
         final List<RelationalExpression> expressions = ImmutableList.copyOf(fromHashes(30, 40, 21, 20, 25, 40, 20, 23, 20));
-        final var opsCache = Tiebreaker.createOpsCache(ImmutableSet.of());
+        final var opsCache = Tiebreaker.createOpsCache();
 
         final var collector = Tiebreaker.toBestExpressions(
                 RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
@@ -243,7 +235,7 @@ class TiebreakerTests {
     @Test
     void collectorPicksLeftMostElementWithFinalTiebreaker() {
         final List<RelationalExpression> expressions = ImmutableList.copyOf(fromHashes(30, 40, 21, 20, 25, 40, 20, 23, 20));
-        final var opsCache = Tiebreaker.createOpsCache(ImmutableSet.of());
+        final var opsCache = Tiebreaker.createOpsCache();
 
         final var collector = Tiebreaker.toBestExpressions(
                 RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),

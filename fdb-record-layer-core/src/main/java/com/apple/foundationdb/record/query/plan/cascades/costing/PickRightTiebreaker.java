@@ -24,8 +24,6 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
 import javax.annotation.Nonnull;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * {@link Tiebreaker} implementation that always picks the left most one. This is intended to be the
@@ -52,8 +50,8 @@ final class PickRightTiebreaker implements Tiebreaker<RelationalExpression> {
 
     @Override
     public int compare(@Nonnull final RecordQueryPlannerConfiguration configuration,
-                       @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
-                       @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
+                       @Nonnull final PlanOpsMap opsMapA,
+                       @Nonnull final PlanOpsMap opsMapB,
                        @Nonnull final RelationalExpression a, @Nonnull final RelationalExpression b) {
         return 1;
     }

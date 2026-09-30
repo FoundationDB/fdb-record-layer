@@ -27,10 +27,8 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountByLevelProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -48,9 +46,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Predi
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class RewritingCostModel implements CascadesCostModel<RelationalExpression> {
-    @Nonnull
-    private static final Set<Class<? extends RelationalExpression>> interestingExpressionClasses =
-            ImmutableSet.of();
     @Nonnull
     private static final Tiebreaker<RelationalExpression> tiebreaker =
             Tiebreaker.combineTiebreakers(ImmutableList.of(
@@ -83,7 +78,7 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
 
     @Nonnull
     private TiebreakerResult<RelationalExpression> costExpressions(@Nonnull final Set<? extends RelationalExpression> expressions) {
-        return Tiebreaker.ofContext(getConfiguration(), interestingExpressionClasses, expressions, RelationalExpression.class)
+        return Tiebreaker.ofContext(getConfiguration(), expressions, RelationalExpression.class)
                 .thenApply(tiebreaker);
     }
 
@@ -121,7 +116,7 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
         private static final LowestNumOuterJoinsTiebreaker INSTANCE = new LowestNumOuterJoinsTiebreaker();
 
         @Override
-        public int compare(@Nonnull final RecordQueryPlannerConfiguration configuration, @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA, @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB, @Nonnull final RelationalExpression a, @Nonnull final RelationalExpression b) {
+        public int compare(@Nonnull final RecordQueryPlannerConfiguration configuration, @Nonnull PlanOpsMap opsMapA, @Nonnull final PlanOpsMap opsMapB, @Nonnull final RelationalExpression a, @Nonnull final RelationalExpression b) {
             //
             // Penalize any surviving `OuterJoinExpression` first. The rewriting phase is expected to eliminate outer joins
             // by rewriting them into nested `SelectExpression` boxes. Without this, the later `lowestNumSelectExpressions()`
@@ -138,8 +133,8 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
 
         @Override
         public int compare(@Nonnull final RecordQueryPlannerConfiguration configuration,
-                           @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
-                           @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
+                           @Nonnull final PlanOpsMap opsMapA,
+                           @Nonnull final PlanOpsMap opsMapB,
                            @Nonnull final RelationalExpression a, @Nonnull final RelationalExpression b) {
             //
             // Choose the expression with the fewest select boxes
@@ -155,8 +150,8 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
 
         @Override
         public int compare(@Nonnull final RecordQueryPlannerConfiguration configuration,
-                           @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
-                           @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
+                           @Nonnull final PlanOpsMap opsMapA,
+                           @Nonnull final PlanOpsMap opsMapB,
                            @Nonnull final RelationalExpression a, @Nonnull final RelationalExpression b) {
             //
             // Choose the expression with the fewest TableFunction expressions
@@ -172,8 +167,8 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
 
         @Override
         public int compare(@Nonnull final RecordQueryPlannerConfiguration configuration,
-                           @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
-                           @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
+                           @Nonnull final PlanOpsMap opsMapA,
+                           @Nonnull final PlanOpsMap opsMapB,
                            @Nonnull final RelationalExpression a,
                            @Nonnull final RelationalExpression b) {
             //
@@ -191,8 +186,8 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
 
         @Override
         public int compare(@Nonnull final RecordQueryPlannerConfiguration configuration,
-                           @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
-                           @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
+                           @Nonnull final PlanOpsMap opsMapA,
+                           @Nonnull final PlanOpsMap opsMapB,
                            @Nonnull final RelationalExpression a,
                            @Nonnull final RelationalExpression b) {
             //
@@ -210,8 +205,8 @@ public class RewritingCostModel implements CascadesCostModel<RelationalExpressio
 
         @Override
         public int compare(@Nonnull final RecordQueryPlannerConfiguration configuration,
-                           @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
-                           @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
+                           @Nonnull final PlanOpsMap opsMapA,
+                           @Nonnull final PlanOpsMap opsMapB,
                            @Nonnull final RelationalExpression a, @Nonnull final RelationalExpression b) {
             final int aSemanticHash = a.semanticHashCode();
             final int bSemanticHash = b.semanticHashCode();

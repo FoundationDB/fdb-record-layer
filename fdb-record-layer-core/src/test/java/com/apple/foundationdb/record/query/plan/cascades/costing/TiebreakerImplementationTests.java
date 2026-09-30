@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.FindExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -41,12 +40,10 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -54,8 +51,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Tests of {@link Tiebreaker} implementations along.
  */
 class TiebreakerImplementationTests {
-    private static final Set<Class<? extends RelationalExpression>> interestingClasses = ImmutableSet.of();
-
     @Nonnull
     private static Quantifier.Physical physicalOf(@Nonnull RecordQueryPlan plan) {
         return Quantifier.physical(Reference.ofFinalExpression(PlannerStage.PLANNED, plan));
@@ -63,7 +58,7 @@ class TiebreakerImplementationTests {
 
     private static <T extends RelationalExpression> int compare(@Nonnull Tiebreaker<? super T> tiebreaker, @Nonnull T a, @Nonnull T b) {
         return tiebreaker.compare(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(),
-                FindExpressionVisitor.evaluate(interestingClasses, a), FindExpressionVisitor.evaluate(interestingClasses, b),
+                new PlanOpsMap(a), new PlanOpsMap(b),
                 a, b);
     }
 

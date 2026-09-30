@@ -27,7 +27,6 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -35,12 +34,12 @@ class TiebreakerResultWithNext<T extends RelationalExpression> implements Tiebre
     @Nonnull
     private final RecordQueryPlannerConfiguration plannerConfiguration;
     @Nonnull
-    private final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache;
+    private final LoadingCache<RelationalExpression, PlanOpsMap> opsCache;
     @Nonnull
     private final Set<T> expressions;
 
     TiebreakerResultWithNext(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
-                             @Nonnull final LoadingCache<RelationalExpression, Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> opsCache,
+                             @Nonnull final LoadingCache<RelationalExpression, PlanOpsMap> opsCache,
                              @Nonnull final Set<T> expressions) {
         this.plannerConfiguration = plannerConfiguration;
         this.opsCache = opsCache;

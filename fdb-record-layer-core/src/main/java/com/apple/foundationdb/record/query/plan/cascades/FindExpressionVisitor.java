@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.plan.cascades.costing.PlanOpsMap;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -93,12 +94,12 @@ public class FindExpressionVisitor implements SimpleExpressionVisitor<Map<Class<
     }
 
     @Nonnull
-    public static Set<? extends RelationalExpression> findExpressions(@Nonnull final Class<? extends RelationalExpression> expressionClass, @Nonnull final RelationalExpression expression) {
+    public static Set<RelationalExpression> findExpressions(@Nonnull final Class<? extends RelationalExpression> expressionClass, @Nonnull final RelationalExpression expression) {
         return findExpressions(ImmutableSet.of(expressionClass), expression);
     }
 
     @Nonnull
-    public static Set<? extends RelationalExpression> findExpressions(@Nonnull final Set<Class<? extends RelationalExpression>> expressionClasses, @Nonnull final RelationalExpression expression) {
+    public static Set<RelationalExpression> findExpressions(@Nonnull final Set<Class<? extends RelationalExpression>> expressionClasses, @Nonnull final RelationalExpression expression) {
         final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> expressionClassToExpressionsMap = new FindExpressionVisitor(expressionClasses).visit(expression);
         if (expressionClassToExpressionsMap == null) {
             return LinkedIdentitySet.of();
@@ -113,17 +114,14 @@ public class FindExpressionVisitor implements SimpleExpressionVisitor<Map<Class<
 
     @Nonnull
     @SafeVarargs
-    public static Set<? extends RelationalExpression> slice(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> inMap, @Nonnull final Class<? extends RelationalExpression>... expressionClasses) {
+    public static Set<RelationalExpression> slice(@Nonnull final PlanOpsMap inMap, @Nonnull final Class<? extends RelationalExpression>... expressionClasses) {
         if (expressionClasses.length == 1) {
-            return inMap.getOrDefault(expressionClasses[0], ImmutableSet.of());
+            return inMap.get(expressionClasses[0]);
         }
 
         final Set<RelationalExpression> accumulated = new LinkedIdentitySet<>();
         for (final Class<? extends RelationalExpression> expressionClass : expressionClasses) {
-            final Set<RelationalExpression> childResultForClass = inMap.get(expressionClass);
-            if (childResultForClass != null) {
-                accumulated.addAll(childResultForClass);
-            }
+            accumulated.addAll(inMap.get(expressionClass));
         }
         return accumulated;
     }

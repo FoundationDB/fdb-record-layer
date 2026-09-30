@@ -32,30 +32,29 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.VectorIndexEnginePreference;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Traversal;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.VectorIndexScanMatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -164,8 +163,8 @@ class PlanningCostModelVectorEngineTest {
 
     @Nonnull
     private static OptionalInt compareOpsMaps(@Nonnull VectorIndexEnginePreference preference,
-                                              @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
-                                              @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB) {
+                                              @Nonnull final PlanOpsMap opsMapA,
+                                              @Nonnull final PlanOpsMap opsMapB) {
         final RecordQueryPlannerConfiguration configuration = RecordQueryPlannerConfiguration.builder()
                 .setVectorIndexEnginePreference(preference)
                 .build();
@@ -319,7 +318,17 @@ class PlanningCostModelVectorEngineTest {
      * @return the map of interesting operators
      */
     @Nonnull
-    private static Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapOf(@Nonnull final RecordQueryIndexPlan... accesses) {
-        return ImmutableMap.of(RecordQueryPlanWithIndex.class, LinkedIdentitySet.of(accesses));
+    private static PlanOpsMap planOpsMapOf(@Nonnull final RecordQueryIndexPlan... accesses) {
+        // Create a fake expression wrapping the given accesses. The identities of each index
+        // plan will be used by the comparator, so the exact expression doesn't matter, just the
+        // result of looking for underlying index plans.
+        final LogicalUnionExpression expression = new LogicalUnionExpression(
+                Stream.of(accesses)
+                        .map(plan -> Quantifier.physical(Reference.ofFinalExpression(PlannerStage.PLANNED, plan)))
+                        .toList());
+        PlanOpsMap planOpsMap = new PlanOpsMap(expression);
+        assertThat(planOpsMap.get(RecordQueryIndexPlan.class))
+                .containsExactlyInAnyOrder(accesses);
+        return planOpsMap;
     }
 }
