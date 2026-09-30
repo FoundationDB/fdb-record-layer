@@ -111,6 +111,30 @@ interface Tiebreaker<T extends RelationalExpression> {
         };
     }
 
+    /**
+     * Create a {@link TiebreakerResult} wrapping a set of expressions. This is used to create a tiebreaker
+     * result which initially contains all expressions from the {@code expressions} set that are of
+     * type {@code specificClazz}. Once this is created, the user can call {@link TiebreakerResult#thenApply(Tiebreaker)}
+     * to apply a {@link Tiebreaker} on the set. Each time an expression loses a tiebreaker, this will supply
+     * the loser to {@code onRemoveConsumer}, which can be then used to clean up the expression (e.g., removing
+     * it from a {@link com.apple.foundationdb.record.query.plan.cascades.Reference}).
+     *
+     * <p>
+     * The {@code interestingExpressionClasses} parameter is a bit odd, but it is used to create a cache of
+     * operation counts, mapping each class to the number of expressions of that type in each expression. This
+     * is then supplied to the {@link #compare(RecordQueryPlannerConfiguration, Map, Map, RelationalExpression, RelationalExpression)}
+     * method. The caller should therefore consider all of the {@link Tiebreaker}s that will be used to narrow
+     * results on this result and then include every class that any tiebreaker wants to count.
+     * </p>
+     *
+     * @param plannerConfiguration the planner configuration to use to adjust behavior while tiebreaking
+     * @param interestingExpressionClasses a set of expression classes that are used to create a plan-op cache
+     * @param expressions a set of expressions to tiebreak
+     * @param specificClazz a specific class of expression that the tiebreaker is between
+     * @param onRemoveConsumer a lambda invoked on each expression that is to be removed as it loses the tiebreaker
+     * @param <T> the type of expression in the final result
+     * @return a {@link TiebreakerResult} which contains every expression of type {@code specificClazz}
+     */
     @Nonnull
     static <T extends RelationalExpression> TiebreakerResult<T>
             ofContext(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
@@ -148,7 +172,7 @@ interface Tiebreaker<T extends RelationalExpression> {
      * @param opsCache a cache to be used to produce the operations maps passed to {@link #compare(RecordQueryPlannerConfiguration, Map, Map, RelationalExpression, RelationalExpression)}
      * @param onRemoveConsumer a callback to be invoked whenever an expression is discarded from the stream
      * @param <T> the type of expressions in the stream
-     * @return a collector that returns the most set of expressions considered the most optimal
+     * @return a collector that returns the set of expressions considered the most optimal
      */
     @Nonnull
     static <T extends RelationalExpression> Collector<T, LinkedIdentitySet<T>, Set<T>>

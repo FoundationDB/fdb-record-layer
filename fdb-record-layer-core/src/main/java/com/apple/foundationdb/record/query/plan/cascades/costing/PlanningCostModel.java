@@ -51,7 +51,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilte
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveLevelUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -72,11 +71,13 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Cardi
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ComparisonsProperty.comparisons;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionDepthProperty.fetchDepth;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionDepthProperty.typeFilterDepth;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.TypeFilterCountProperty.typeFilterCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.UnmatchedFieldsCountProperty.unmatchedFieldsCount;
 
 /**
  * A comparator implementing the current heuristic cost model for the {@link CascadesPlanner} during the
- * {@link PlannerPhase#PLANNING} phase.
+ * {@link PlannerPhase#PLANNING} phase. It contains rules that attempt to favor optimal plans
+ * (e.g., plans which contain fewer residual predicates in their compensation).
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -101,9 +102,9 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
                     lowestNumDataAccessesTiebreaker(),
                     recursiveCteOperatorTiebreaker(),
                     inOperatorTiebreaker(),
-                    primaryScanVsIndexScanTiebreaker(),
                     vectorIndexEnginePreferenceTiebreaker(),
-                    lowestNumTypeFilterTiebreaker(),
+                    primaryScanVsIndexScanTiebreaker(),
+                    lowestTypeFilterCountTiebreaker(),
                     deepestTypeFilterPositionTiebreaker(),
                     betterIndexScanTiebreaker(),
                     deepestDistinctTiebreaker(),
@@ -192,8 +193,8 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
                 count(planOpsMapIndexScan, RecordQueryScanPlan.class) == 0 &&
                 isSingularIndexScanWithFetch(planOpsMapIndexScan)) {
 
-            final int typeFilterCountPrimaryScan = count(planOpsMapPrimaryScan, RecordQueryTypeFilterPlan.class);
-            final int typeFilterCountIndexScan = count(planOpsMapIndexScan, RecordQueryTypeFilterPlan.class);
+            final int typeFilterCountPrimaryScan = typeFilterCount().evaluate(primaryScan);
+            final int typeFilterCountIndexScan = typeFilterCount().evaluate(indexScan);
 
             if (typeFilterCountPrimaryScan > 0 && typeFilterCountIndexScan == 0) {
                 final var primaryScanComparisons = comparisons().evaluate(primaryScan);
@@ -381,8 +382,8 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
     }
 
     @Nonnull
-    static LowestNumTypeFilterTiebreaker lowestNumTypeFilterTiebreaker() {
-        return LowestNumTypeFilterTiebreaker.INSTANCE;
+    static LowestTypeFilterCountTiebreaker lowestTypeFilterCountTiebreaker() {
+        return LowestTypeFilterCountTiebreaker.INSTANCE;
     }
 
     @Nonnull
@@ -660,16 +661,15 @@ public class PlanningCostModel implements CascadesCostModel<RecordQueryPlan> {
         }
     }
 
-    static class LowestNumTypeFilterTiebreaker implements Tiebreaker<RecordQueryPlan> {
-        private static final LowestNumTypeFilterTiebreaker INSTANCE = new LowestNumTypeFilterTiebreaker();
+    static class LowestTypeFilterCountTiebreaker implements Tiebreaker<RecordQueryPlan> {
+        private static final LowestTypeFilterCountTiebreaker INSTANCE = new LowestTypeFilterCountTiebreaker();
 
         @Override
         public int compare(@Nonnull final RecordQueryPlannerConfiguration configuration,
                            @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapA,
                            @Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> opsMapB,
                            @Nonnull final RecordQueryPlan a, @Nonnull final RecordQueryPlan b) {
-            return Integer.compare(count(opsMapA, RecordQueryTypeFilterPlan.class),
-                    count(opsMapB, RecordQueryTypeFilterPlan.class));
+            return Integer.compare(typeFilterCount().evaluate(a), typeFilterCount().evaluate(b));
         }
     }
 

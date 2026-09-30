@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.costing;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountByLevelProperty;
@@ -41,7 +42,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Norma
 import static com.apple.foundationdb.record.query.plan.cascades.properties.PredicateCountByLevelProperty.predicateCountByLevel;
 
 /**
- * Cost model for {@link PlannerPhase#REWRITING}. TODO To be fleshed out whe we have actual rules.
+ * A comparator implementing the current heuristic cost model for the {@link CascadesPlanner} during the
+ * {@link PlannerPhase#REWRITING} phase. It contains rules that are designed to favor plans that have
+ * been rewritten into a canonicalized form (e.g., merged select boxes, pushed predicates down, etc.).
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
